@@ -8,6 +8,7 @@ Process-tree CPU is each worker's own getrusage (inference threads live in the w
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import subprocess
@@ -15,8 +16,8 @@ import sys
 import time
 
 
-def idle_cores(n: int, exclude: set[int], window_s: float = 3.0) -> list[int]:
-    """Physical cores (0..63) whose two SMT threads were least busy over a short window."""
+def idle_cores(n: int, allowed: list[int], window_s: float = 3.0) -> list[int]:
+    """The n physical cores in `allowed` whose two SMT threads were least busy over a short window."""
     def snap():
         out = {}
         with open("/proc/stat") as fh:
@@ -31,7 +32,7 @@ def idle_cores(n: int, exclude: set[int], window_s: float = 3.0) -> list[int]:
     b = snap()
     busy = {c: 1 - (b[c][1] - a[c][1]) / max(1, b[c][0] - a[c][0]) for c in a}
     half = len(busy) // 2
-    ranked = sorted((busy[c] + busy[c + half], c) for c in range(half) if c not in exclude)
+    ranked = sorted((busy[c] + busy[c + half], c) for c in allowed)
     return [c for _, c in ranked[:n]]
 
 
@@ -44,11 +45,15 @@ def main(argv=None) -> int:
     ap.add_argument("--decode", choices=["single", "batch"], default="batch")
     ap.add_argument("--precision", choices=["fp32", "int8"], default="int8")
     ap.add_argument("--bound-ms", type=float, default=320.0)
-    ap.add_argument("--exclude", default="")
+    ap.add_argument("--allowed", default="32-47", help="physical-core block owned by this lane (AGENT_CHAT partition)")
+    ap.add_argument("--lease", default="/mnt/xbabe3-external/jsr/BENCH_LEASE.lead")
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
-    exclude = {int(x) for x in args.exclude.split(",") if x}
-    cores = idle_cores(args.cores, exclude)
+    lo, hi = (int(x) for x in args.allowed.split("-"))
+    lease = open(args.lease, "w")
+    fcntl.flock(lease, fcntl.LOCK_EX)  # one timing run per block at a time
+    load_before = os.getloadavg()
+    cores = idle_cores(args.cores, list(range(lo, hi + 1)))
     tmp = args.out + ".workers.jsonl"
     procs = []
     for i, c in enumerate(cores):
@@ -66,6 +71,7 @@ def main(argv=None) -> int:
                    workers=len(workers), exit_codes=codes, sustaining_workers=len(ok),
                    sustained_streams=sum(w["streams"] for w in ok), offered_streams=sum(w["streams"] for w in workers),
                    pooled_wer=round(100.0 * errs / max(refs, 1), 3), ref_words=refs,
+                   load_before=load_before, load_after=os.getloadavg(),
                    worst_p99_ms=max(w["lateness_ms"]["p99"] for w in workers),
                    cpu_s_per_audio_s=round(sum(w["cpu_seconds"] for w in workers)
                                            / max(sum(w["audio_seconds"] for w in workers), 1e-9), 4))
