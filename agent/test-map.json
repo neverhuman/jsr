@@ -184,6 +184,14 @@
     "docs/ultra/SLICES.md": {
       "command": "just score",
       "purpose": "frozen slice definitions stay visible to the audit"
+    },
+    "crates/ultra-bridge/": {
+      "command": "cargo test -p ultra-bridge",
+      "purpose": "bridge input/output integrity, lifecycle failures and reference isolation"
+    },
+    "python/ultra/bridge/": {
+      "command": "just pytest",
+      "purpose": "reference-blind worker IPC and failure behavior"
     }
   }
 }

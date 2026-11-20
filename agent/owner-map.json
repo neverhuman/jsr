@@ -45,6 +45,8 @@
     ".gitleaks.toml": "tools",
     "python/ultra/AGENTS.md": "agent",
     "docs/ultra/BENCH_PLAN_v1.md": "lead",
-    "docs/ultra/SLICES.md": "lead"
+    "docs/ultra/SLICES.md": "lead",
+    "crates/ultra-bridge/": "eval",
+    "python/ultra/bridge/": "training"
   }
 }

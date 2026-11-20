@@ -1,0 +1,21 @@
+[package]
+name = "ultra-bridge"
+description = "Exploratory reference-blind CPU inference bridge with Rust orchestration and scoring"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ultra-core = { path = "../ultra-core" }
+ultra-eval = { path = "../ultra-eval" }
+ultra-frontend = { path = "../ultra-frontend" }
+ultra-model = { path = "../ultra-model" }
+ultra-stream = { path = "../ultra-stream" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+libc = "0.2"
+
+[lints]
+workspace = true

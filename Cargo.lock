@@ -519,6 +519,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ultra-bridge"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "ultra-core",
+ "ultra-eval",
+ "ultra-frontend",
+ "ultra-model",
+ "ultra-stream",
+]
+
+[[package]]
 name = "ultra-cli"
 version = "0.1.0"
 dependencies = [

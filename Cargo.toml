@@ -11,6 +11,7 @@ members = [
   "crates/ultra-bench",
   "crates/ultra-adapters",
   "crates/ultra-cli",
+  "crates/ultra-bridge",
 ]
 
 [workspace.package]
