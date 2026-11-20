@@ -234,6 +234,14 @@ impl Backend for Arc<SherpaOfflineBackend> {
     }
 
     fn create_stream(&self, cfg: &StreamConfig) -> Result<Box<dyn AsrStream>, StreamError> {
+        <Self as Backend>::create_stream_with_clock(self, cfg, StreamClock::real())
+    }
+
+    fn create_stream_with_clock(
+        &self,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+    ) -> Result<Box<dyn AsrStream>, StreamError> {
         let eff_model_id = if cfg.model_config_id == "default-model-v1" {
             self.cfg.candidate_id.as_str()
         } else {
@@ -243,7 +251,7 @@ impl Backend for Arc<SherpaOfflineBackend> {
             Arc::clone(self),
             &cfg.stream_id,
             eff_model_id,
-            StreamClock::real(),
+            clock,
         )))
     }
 }

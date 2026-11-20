@@ -76,7 +76,21 @@ impl Backend for Arc<OrtTransducerBackend> {
     }
 
     fn create_stream(&self, cfg: &StreamConfig) -> Result<Box<dyn AsrStream>, StreamError> {
-        Ok(self.create_stream_with_clock(cfg, StreamClock::real()))
+        Ok(OrtTransducerBackend::create_stream_with_clock(
+            self,
+            cfg,
+            StreamClock::real(),
+        ))
+    }
+
+    fn create_stream_with_clock(
+        &self,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+    ) -> Result<Box<dyn AsrStream>, StreamError> {
+        Ok(OrtTransducerBackend::create_stream_with_clock(
+            self, cfg, clock,
+        ))
     }
 }
 

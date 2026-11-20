@@ -188,9 +188,12 @@ struct RawDecoder {
     max_symbols: usize,
 }
 
-fn safe_rel_path(root: &Path, rel: &str) -> Result<PathBuf, GpError> {
+const MAX_STATE_ELEMS_PER_STREAM: usize = 64 * 1024 * 1024;
+
+fn safe_contained_path(canon_root: &Path, root: &Path, rel: &str) -> Result<PathBuf, GpError> {
     let p = Path::new(rel);
-    if p.is_absolute()
+    if rel.is_empty()
+        || p.is_absolute()
         || p.components().any(|c| {
             matches!(
                 c,
@@ -200,13 +203,29 @@ fn safe_rel_path(root: &Path, rel: &str) -> Result<PathBuf, GpError> {
     {
         return Err(GpError::Manifest(format!("unsafe bundle path '{rel}'")));
     }
-    Ok(root.join(p))
+    let joined = root.join(p);
+    let canon = joined.canonicalize().map_err(|_| {
+        GpError::Integrity(format!(
+            "missing or unresolvable bundle file '{}'",
+            joined.display()
+        ))
+    })?;
+    if !canon.starts_with(canon_root) || !canon.is_file() {
+        return Err(GpError::Integrity(format!(
+            "bundle path '{rel}' resolves outside bundle root or is not a regular file"
+        )));
+    }
+    Ok(canon)
 }
 
 impl R1Bundle {
-    /// Load and strictly validate an `ultra.r1-export/v1` bundle directory.
+    /// Load and strictly validate an `ultra.r1-export/{v1,v1.1}` bundle directory.
     pub fn load(root: &Path, precision: R1Precision, verify_hashes: bool) -> Result<Self, GpError> {
-        let manifest_bytes = std::fs::read(root.join("manifest.json"))?;
+        let canon_root = root
+            .canonicalize()
+            .map_err(|e| GpError::Io(format!("canonicalize {}: {e}", root.display())))?;
+        let manifest_path = safe_contained_path(&canon_root, root, "manifest.json")?;
+        let manifest_bytes = std::fs::read(&manifest_path)?;
         let manifest_sha256 = sha256_hex(&manifest_bytes);
         let raw: RawManifest = serde_json::from_slice(&manifest_bytes)
             .map_err(|e| GpError::Manifest(format!("manifest.json parse error: {e}")))?;
@@ -227,13 +246,7 @@ impl R1Bundle {
                     "invalid sha256 hex for files.{key}"
                 )));
             }
-            let full = safe_rel_path(root, &entry.path)?;
-            if !full.is_file() {
-                return Err(GpError::Integrity(format!(
-                    "missing bundle file files.{key} ({})",
-                    full.display()
-                )));
-            }
+            let full = safe_contained_path(&canon_root, root, &entry.path)?;
             if verify_hashes {
                 let bytes = std::fs::read(&full)?;
                 let got = sha256_hex(&bytes);
@@ -327,8 +340,12 @@ impl R1Bundle {
                         )));
                     }
                     per_stream_dims.push(1);
-                } else if let Some(v) = dim.as_u64().filter(|&v| v > 0) {
-                    per_stream_dims.push(v as usize);
+                } else if let Some(v) = dim
+                    .as_u64()
+                    .filter(|&v| v > 0)
+                    .and_then(|v| usize::try_from(v).ok())
+                {
+                    per_stream_dims.push(v);
                 } else {
                     return Err(GpError::Manifest(format!(
                         "invalid dim {dim} in state {}",
@@ -338,7 +355,16 @@ impl R1Bundle {
             }
             let batch_axis = batch_axis
                 .ok_or_else(|| GpError::Manifest(format!("state {} has no 'B' axis", s.name)))?;
-            let per_stream_elems = per_stream_dims.iter().product();
+            let per_stream_elems = per_stream_dims
+                .iter()
+                .try_fold(1usize, |acc, &d| acc.checked_mul(d))
+                .filter(|&n| n > 0 && n <= MAX_STATE_ELEMS_PER_STREAM)
+                .ok_or_else(|| {
+                    GpError::Manifest(format!(
+                        "state {} element count overflows or exceeds {MAX_STATE_ELEMS_PER_STREAM}",
+                        s.name
+                    ))
+                })?;
             states.push(R1EncoderStateSpec {
                 name: s.name.clone(),
                 batch_axis,

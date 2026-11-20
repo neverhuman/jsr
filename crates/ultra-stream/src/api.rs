@@ -304,6 +304,13 @@ impl StreamError {
 pub trait Backend: Send + Sync {
     fn capabilities(&self) -> BackendCaps;
     fn create_stream(&self, cfg: &StreamConfig) -> Result<Box<dyn AsrStream>, StreamError>;
+    fn create_stream_with_clock(
+        &self,
+        cfg: &StreamConfig,
+        _clock: StreamClock,
+    ) -> Result<Box<dyn AsrStream>, StreamError> {
+        self.create_stream(cfg)
+    }
 }
 
 /// Per-stream stateful recogniser (`Send`, owned by one coordinator).
