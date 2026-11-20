@@ -11,12 +11,13 @@ use ultra_eval::bootstrap::{recommended_replicates, BootstrapConfig};
 use ultra_eval::corpus::MacroWeights;
 use ultra_eval::score::{markdown, parse_jsonl, scorable_datasets, score_report, ScoreRecord};
 use ultra_stream::{
-    default_npz_for_split, run_offline_contrast, run_sp_a_shared_workers, run_sp_a_zipformer,
-    ContrastConfig, DecodeMode, SpAConfig, DEFAULT_LATENESS_BOUND_MS,
+    default_npz_for_split, run_offline_contrast, run_sp_a_ort_r1, run_sp_a_shared_workers,
+    run_sp_a_zipformer, ContrastConfig, DecodeMode, R1SpAConfig, SpAConfig,
+    DEFAULT_LATENESS_BOUND_MS,
 };
 
 use crate::inventory::write_or_print_json;
-use crate::runner::{resolve_bundle_or_zipformer, resolve_offline_config};
+use crate::runner::{resolve_bundle_or_zipformer, resolve_offline_config, resolve_r1_bundle};
 use crate::{git_short_commit, jsr_data_root, write_score_records_jsonl, BenchLease, CliError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -219,6 +220,41 @@ pub(crate) fn cmd_bench(args: &[String]) -> Result<(), CliError> {
     }
     let partition = partition_for_split(&split);
     let commit = git_short_commit();
+
+    if let Some(r1_res) = resolve_r1_bundle(&candidate, precision.as_deref()) {
+        let (bundle_dir, prec) = r1_res?;
+        let res = run_sp_a_ort_r1(&R1SpAConfig {
+            bundle_dir,
+            precision: prec,
+            threads,
+            npz_path,
+            split_name: split,
+            partition,
+            honesty_label: HonestyLabel::InCorpus,
+            offset,
+            limit,
+            duration_s,
+            streams,
+            decode,
+            max_batch,
+            packet_ms,
+            grid_ms,
+            lateness_bound_ms,
+            paced,
+            source_commit: commit,
+            hardware_id: "H0".into(),
+            completion_status: "exploratory".into(),
+        })?;
+        let line = serde_json::to_string(&res).map_err(|e| CliError::Internal(e.to_string()))?;
+        return emit_bench_artifacts(
+            &line,
+            &res.scored_rows,
+            &res.receipt,
+            out_jsonl.as_deref(),
+            scores_out.as_deref(),
+            receipt_out.as_deref(),
+        );
+    }
 
     if let Some(resolved) =
         resolve_bundle_or_zipformer(&candidate, precision.as_deref(), threads, tail_pad_s)

@@ -288,8 +288,17 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
     let ref_texts: Vec<String> = refs.iter().map(|r| r.text.clone()).collect();
     let audio_s: f64 = utts.iter().map(|u| u.pcm.len() as f64 / 16_000.0).sum();
 
-    let out_dir = root.join("runs/r1_rust_parity");
-    std::fs::create_dir_all(&out_dir).expect("mkdir r1_rust_parity");
+    let run_dir = match std::env::var("ULTRA_B1_PARITY_OUT_DIR") {
+        Ok(p) if !p.is_empty() => PathBuf::from(p),
+        _ => {
+            let ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_millis());
+            root.join("runs/r1_rust_parity")
+                .join(format!("run-{}-{ms}", std::process::id()))
+        }
+    };
+    std::fs::create_dir_all(&run_dir).expect("mkdir unique parity run_dir");
 
     for prec in [R1Precision::Fp32, R1Precision::Int8] {
         let engine =
@@ -375,6 +384,10 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             audio_s / py_cpu_s,
         );
 
+        let wer_delta = (rust_wer - py_wer).abs();
+        let wer_gate_pass = wer_delta <= 0.10;
+        let agreement_gate_pass = identical >= 392;
+        let handoff_accepted = wer_gate_pass && agreement_gate_pass;
         let report = serde_json::json!({
             "schema": "ultra.b1-parity/v1",
             "bundle_dir": bundle_dir.to_string_lossy(),
@@ -398,7 +411,11 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             "mismatch_count": mismatches.len(),
             "rust_wer_pct": rust_wer,
             "python_wer_pct": py_wer,
-            "wer_abs_delta_pct": (rust_wer - py_wer).abs(),
+            "wer_abs_delta_pct": wer_delta,
+            "wer_gate_0p10_pass": wer_gate_pass,
+            "agreement_gate_98pct_pass": agreement_gate_pass,
+            "parity_handoff_accepted": handoff_accepted,
+            "experimental_health_screen_only": prec == R1Precision::Int8 && !engine.bundle.int8_batch_invariant,
             "rust_forced_advances": rust_forced,
             "python_forced_advances": py_forced,
             "rust_cpu_s_per_audio_s": rust_cpu_s16 / audio_s,
@@ -406,9 +423,17 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             "mismatches": mismatches,
             "rows": rows,
         });
-        let out_file = out_dir.join(format!("r1_d1_400dev_{}.json", prec.as_str()));
-        std::fs::write(&out_file, serde_json::to_vec_pretty(&report).expect("json"))
-            .expect("write B1 parity report");
+        let out_file = run_dir.join(format!("r1_d1_400dev_{}.json", prec.as_str()));
+        {
+            use std::io::Write;
+            let mut fh = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&out_file)
+                .expect("create_new B1 parity report");
+            fh.write_all(&serde_json::to_vec_pretty(&report).expect("json"))
+                .expect("write B1 parity report");
+        }
 
         if prec == R1Precision::Fp32 {
             assert!(

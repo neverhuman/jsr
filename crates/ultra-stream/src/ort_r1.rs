@@ -166,7 +166,12 @@ impl OrtTransducerBackend {
         Ok((max_b, wakeups))
     }
 
-    fn ensure_ws_states(&self, b: usize, ws: &mut BatchWorkspace) {
+    fn ensure_ws_states(&self, b: usize, ws: &mut BatchWorkspace) -> Result<(), StreamError> {
+        if b == 0 || b > 4096 {
+            return Err(StreamError::ResourceLimit(format!(
+                "invalid R1 batch size {b} (expected 1..=4096)"
+            )));
+        }
         let specs = &self.bundle.streaming.states;
         if ws.state_ins.len() != specs.len() {
             ws.state_ins = specs
@@ -183,7 +188,9 @@ impl OrtTransducerBackend {
             ws.state_shapes = vec![Vec::new(); specs.len()];
         }
         for (si, spec) in specs.iter().enumerate() {
-            let total = b * spec.per_stream_elems;
+            let total = b.checked_mul(spec.per_stream_elems).ok_or_else(|| {
+                StreamError::ResourceLimit(format!("state {} batch allocation overflow", spec.name))
+            })?;
             match (&mut ws.state_ins[si], &mut ws.state_outs[si]) {
                 (StateBuf::F32(a), StateBuf::F32(o)) => {
                     a.resize(total, 0.0);
@@ -196,9 +203,15 @@ impl OrtTransducerBackend {
                 _ => {}
             }
             ws.state_shapes[si].clear();
-            ws.state_shapes[si].extend(spec.per_stream_dims.iter().map(|&d| d as i64));
+            for &d in &spec.per_stream_dims {
+                ws.state_shapes[si].push(
+                    i64::try_from(d)
+                        .map_err(|_| StreamError::ResourceLimit("state dim > i64::MAX".into()))?,
+                );
+            }
             ws.state_shapes[si][spec.batch_axis] = b as i64;
         }
+        Ok(())
     }
 
     fn run_group(
@@ -209,11 +222,19 @@ impl OrtTransducerBackend {
         ws: &mut BatchWorkspace,
     ) -> Result<(), StreamError> {
         let b = items.len();
-        let feat_rows = 4 * n + 3;
-        let feat_stride = feat_rows * MEL_BINS;
-        ws.feats_in.resize(b * feat_stride, 0.0);
+        let feat_rows = 4usize
+            .checked_mul(n)
+            .and_then(|r| r.checked_add(3))
+            .ok_or_else(|| StreamError::ResourceLimit("chunk feature rows overflow".into()))?;
+        let feat_stride = feat_rows
+            .checked_mul(MEL_BINS)
+            .ok_or_else(|| StreamError::ResourceLimit("chunk feature stride overflow".into()))?;
+        let feat_total = b
+            .checked_mul(feat_stride)
+            .ok_or_else(|| StreamError::ResourceLimit("batch feature buffer overflow".into()))?;
+        ws.feats_in.resize(feat_total, 0.0);
         ws.t0_in.resize(b, 0);
-        self.ensure_ws_states(b, ws);
+        self.ensure_ws_states(b, ws)?;
 
         for (bi, &(s_idx, t0)) in items.iter().enumerate() {
             let s = &mut *all_streams[s_idx];

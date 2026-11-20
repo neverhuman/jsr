@@ -118,4 +118,34 @@ fn real_r1_d1_bundle_loads_and_tampered_copy_is_rejected() {
     )
     .expect("write");
     assert!(R1Bundle::load(tmp.path(), R1Precision::Int8, true).is_err());
+
+    // Symlink resolving outside bundle root MUST be rejected even with clean relative filename.
+    let outside = tempfile::tempdir().expect("outside tempdir");
+    let secret = outside.path().join("secret.txt");
+    std::fs::write(&secret, b"<blk> 0\na 1\n").expect("write outside");
+    let sym_bundle = tempfile::tempdir().expect("sym bundle");
+    std::os::unix::fs::symlink(&secret, sym_bundle.path().join("tokens.txt")).expect("symlink");
+    let sym_manifest = serde_json::json!({
+        "schema": "ultra.r1-export/v1",
+        "model": {"family": "dense", "exporter_commit": "abc"},
+        "files": {
+            "tokens": {"path": "tokens.txt", "sha256": ultra_core::receipt::sha256_hex(b"<blk> 0\na 1\n")}
+        },
+        "features": {
+            "sample_rate": 16000, "frame_length": 400, "frame_shift": 160,
+            "n_fft": 512, "n_mels": 80, "log_floor": 1e-6,
+            "cmvn": {"mean": vec![0.0; 80], "istd": vec![1.0; 80]}
+        },
+        "streaming": {
+            "chunk_frames": 4, "chunk_ms": 160, "left_context_frames": 128,
+            "states": [], "encoder_output": {"name": "enc", "shape": ["B", "n", 320]}
+        },
+        "decoder": {"blank_id": 0, "vocab_size": 2, "ctx_init": [0, 0], "max_symbols": 8}
+    });
+    std::fs::write(
+        sym_bundle.path().join("manifest.json"),
+        serde_json::to_vec(&sym_manifest).expect("json"),
+    )
+    .expect("write sym manifest");
+    assert!(R1Bundle::load(sym_bundle.path(), R1Precision::Int8, false).is_err());
 }

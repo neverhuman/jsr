@@ -14,15 +14,64 @@ use ultra_eval::pace::PacedReplay;
 use ultra_eval::procfs::TreeSampler;
 use ultra_eval::stream::TimedEvent;
 use ultra_frontend::read_audio_16k_mono;
+use ultra_gp::{R1Precision, R1_EXPORT_SCHEMA, R1_EXPORT_SCHEMA_V1_1};
 use ultra_model::verify_bundle_dir;
 use ultra_stream::sherpa_ffi::verify_cpu_only_process;
 use ultra_stream::{
     AsrStream, Backend, FakeBackend, FakeBackendConfig, OfflineModelKind, OperatingProfile,
-    OutputPolicy, PollResult, SherpaLib, SherpaOfflineBackend, SherpaOfflineConfig,
-    SherpaZipformerBackend, SherpaZipformerConfig, StreamConfig, StreamCoordinator,
+    OrtTransducerBackend, OutputPolicy, PollResult, SherpaLib, SherpaOfflineBackend,
+    SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig, StreamClock, StreamConfig,
+    StreamCoordinator,
 };
 
 use crate::{git_short_commit, jsr_data_root, CliError};
+
+fn peek_manifest_schema(bundle_dir: &Path) -> Option<String> {
+    let bytes = std::fs::read(bundle_dir.join("manifest.json")).ok()?;
+    let val: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    val.get("schema")
+        .and_then(|s| s.as_str())
+        .map(str::to_owned)
+}
+
+/// Resolve an `ultra.r1-export/v1` bundle directory or alias (`r1-d1`, `r1-d2`, `r1-mr`).
+pub fn resolve_r1_bundle(
+    candidate_id: &str,
+    precision_override: Option<&str>,
+) -> Option<Result<(PathBuf, R1Precision), CliError>> {
+    let data = PathBuf::from(jsr_data_root());
+    let candidate_dir = if candidate_id == "r1-d1" {
+        let rev = data.join("bundles/r1-d1-reviewed-20261120-v2");
+        if rev.join("manifest.json").exists() {
+            Some(rev)
+        } else {
+            Some(data.join("bundles/r1-d1"))
+        }
+    } else {
+        let direct = Path::new(candidate_id);
+        let named = data.join("bundles").join(candidate_id);
+        if direct.join("manifest.json").exists() {
+            Some(direct.to_path_buf())
+        } else if named.join("manifest.json").exists() {
+            Some(named)
+        } else {
+            None
+        }
+    }?;
+
+    if !matches!(
+        peek_manifest_schema(&candidate_dir).as_deref(),
+        Some(R1_EXPORT_SCHEMA | R1_EXPORT_SCHEMA_V1_1)
+    ) {
+        return None;
+    }
+    let prec_s = precision_override.unwrap_or("int8");
+    Some(
+        R1Precision::parse(prec_s)
+            .map(|p| (candidate_dir, p))
+            .map_err(|e| CliError::Config(e.to_string())),
+    )
+}
 
 /// Resolve either a verified `ultra.bundle/v1` directory (`manifest.json` on disk) or a named
 /// Zipformer candidate into `(bundle_id, SherpaZipformerConfig)`.
@@ -44,6 +93,12 @@ pub fn resolve_bundle_or_zipformer(
     };
 
     if let Some(bdir) = bundle_dir {
+        if matches!(
+            peek_manifest_schema(&bdir).as_deref(),
+            Some(R1_EXPORT_SCHEMA | R1_EXPORT_SCHEMA_V1_1)
+        ) {
+            return None;
+        }
         return Some(
             verify_bundle_dir(&bdir, None)
                 .map_err(CliError::from)
@@ -98,6 +153,11 @@ pub fn resolve_bundle_or_zipformer(
 pub fn instantiate_backend(candidate_id: &str, threads: i32) -> Result<Box<dyn Backend>, CliError> {
     if matches!(candidate_id, "fake" | "deterministic-fake-v1") {
         return Ok(Box::new(FakeBackend::new(FakeBackendConfig::default())));
+    }
+    if let Some(res) = resolve_r1_bundle(candidate_id, None) {
+        let (bdir, prec) = res?;
+        let eng = OrtTransducerBackend::load(&bdir, prec, threads, true)?;
+        return Ok(Box::new(eng));
     }
     if let Some(res) = resolve_bundle_or_zipformer(candidate_id, None, threads, 0.8) {
         let (_bundle_id, zcfg) = res?;
@@ -189,12 +249,12 @@ pub fn transcribe_audio_file(
         profile,
         ..StreamConfig::default()
     };
-    let mut coord = StreamCoordinator::new(stream_cfg.clone(), backend.create_stream(&stream_cfg)?);
-
     let mut sampler = TreeSampler::new(std::process::id() as i32);
     sampler.sample();
     let cpu0 = self_cpu_s()?;
-    let t0 = Instant::now();
+    let shared_clock = StreamClock::real();
+    let inner = backend.create_stream_with_clock(&stream_cfg, shared_clock.clone())?;
+    let mut coord = StreamCoordinator::with_clock(stream_cfg.clone(), inner, shared_clock);
     let mut timed_events = Vec::new();
     let mut chunk_ms_samples = Vec::new();
 
@@ -205,20 +265,16 @@ pub fn transcribe_audio_file(
         coord.push_pcm(pkt.start_sample, pkt.pcm)?;
         chunk_ms_samples.push(step_t0.elapsed().as_secs_f64() * 1000.0);
         while let PollResult::Event(ev) = coord.poll_event()? {
-            timed_events.push(TimedEvent {
-                t_s: t0.elapsed().as_secs_f64(),
-                event: *ev,
-            });
+            let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
+            timed_events.push(TimedEvent { t_s, event: *ev });
         }
     }
     let flush_t0 = Instant::now();
     coord.finish_input()?;
     chunk_ms_samples.push(flush_t0.elapsed().as_secs_f64() * 1000.0);
     while let PollResult::Event(ev) = coord.poll_event()? {
-        timed_events.push(TimedEvent {
-            t_s: t0.elapsed().as_secs_f64(),
-            event: *ev,
-        });
+        let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
+        timed_events.push(TimedEvent { t_s, event: *ev });
     }
 
     let cpu_used = (self_cpu_s()? - cpu0).max(1e-6);

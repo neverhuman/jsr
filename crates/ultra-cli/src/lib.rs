@@ -12,6 +12,8 @@ pub mod bench_cmd;
 pub mod bundle_cmd;
 pub mod inventory;
 pub mod runner;
+pub mod suite_cmd;
+pub mod suite_latency;
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -217,6 +219,9 @@ pub fn usage_text() -> &'static str {
        bench --candidate ID [--split SPLIT | --npz PATH] [--limit N] [--offset N] [--duration-s S]\n\
              [--streams N] [--decode single|batch] [--grid-ms G] [--precision int8|fp32] [--paced]\n\
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\
+       bench-suite --out-dir DIR [--candidates CSV] [--split SPLIT] [--limit N] [--batch-streams N]\n\
+                   [--density-workers W] [--density-streams N] [--density-seconds S] [--latency-limit N]\n\
+                   [--sustained-seconds S] [--precision int8|fp32] [--threads N] [--lease PATH]\n\
        score --predictions JSONL [--md-out PATH] [--out PATH]\n\
        compare --baseline JSONL --candidate JSONL [--alpha A] [--margin-wer-pp M] [--out PATH]"
 }
@@ -237,6 +242,7 @@ pub fn run_cli_args(args: &[String]) -> Result<(), CliError> {
         "transcribe" => runner::cmd_transcribe(rest, false),
         "stream" => runner::cmd_transcribe(rest, true),
         "sp-a" | "bench" => bench_cmd::cmd_bench(rest),
+        "bench-suite" => suite_cmd::cmd_bench_suite(rest),
         "score" => bench_cmd::cmd_score(rest),
         "compare" => bench_cmd::cmd_compare(rest),
         other => Err(CliError::Config(format!(
