@@ -8,6 +8,7 @@
 pub mod bootstrap;
 pub mod corpus;
 pub mod delay;
+pub mod finalize;
 pub mod normalise;
 pub mod pace;
 pub mod procfs;
