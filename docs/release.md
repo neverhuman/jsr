@@ -11,7 +11,7 @@ service, account system or server to operate.
 1. **Version source.** The workspace `version` in `Cargo.toml` versions the runtime. A bundle is `models/sha256-<manifest-digest>/`.
 2. **Gate.** `just required` must be green on the release commit. The receipts for every reported number sit under `docs/ultra/receipts/`. `Receipt::validate_as_evidence` must accept each one.
 3. **Changelog.** Add an entry to `CHANGELOG.md` naming the bundle digest, hardware, workload, WER and delay. No "best", "leader" or "Nx" without all four.
-4. **Integrity and provenance.** Record `SHA256SUMS`, the training commit and the data manifest hash in the bundle `manifest.json`. Pin the tag to the commit.
+4. **Integrity and provenance.** Record `SHA256SUMS`, the training commit and the data manifest hash in the bundle `manifest.json`. Attach the runtime SBOMs from `just sbom` (CycloneDX 1.5, `target/sbom/`, with their own `SHA256SUMS`; CI uploads them as the `sbom` artifact). Pin the tag to the commit.
 5. **Rollback.** The previous qualified bundle stays installed. Rolling back means pointing the runtime at that bundle digest (verify it first with `sha256sum -c SHA256SUMS` in the bundle; `ultra-cli bundle verify <dir>` is planned and not built yet). No data migration exists, so rollback is a one-step file switch.
 
 ## Launch gates

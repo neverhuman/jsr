@@ -9,6 +9,7 @@ export JSR_CARGO_AUDIT_VERSION="0.22.1"
 export JSR_ACTIONLINT_VERSION="1.7.12"
 export JSR_SHELLCHECK_VERSION="0.9.0"
 export JSR_PIP_AUDIT_VERSION="2.9.0"
+export JSR_CARGO_CYCLONEDX_VERSION="0.5.10"
 
 # HOST_RULES build settings, unless the caller already chose.
 export CARGO_INCREMENTAL="${CARGO_INCREMENTAL:-0}"

@@ -32,6 +32,7 @@ check rustfmt      -                              rustfmt --version
 check clippy       -                              cargo clippy --version
 check gitleaks     "$JSR_GITLEAKS_VERSION"        gitleaks version
 check cargo-audit  "$JSR_CARGO_AUDIT_VERSION"     cargo audit --version
+check cyclonedx    "$JSR_CARGO_CYCLONEDX_VERSION" cargo cyclonedx --version
 check actionlint   "$JSR_ACTIONLINT_VERSION"      actionlint -version
 check uv           -                              uv --version
 check shellcheck   "$JSR_SHELLCHECK_VERSION"      shellcheck --version

@@ -16,6 +16,7 @@ HOST_RULES: `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=line-tables-only`
 | `just security` | `tools/security-lane.sh` | gitleaks over the working tree, `cargo audit --deny warnings`, pip-audit over the installed trainer venv (`.venv`, skipped with a message when absent), actionlint over workflows, shellcheck over every tracked shell script and hook |
 | `just score` | jankurai audit | writes `target/jankurai/repo-score.{json,md}`; CI fails under 85 |
 | `just required` / `just check` | `ops/ci/quality-gates.sh` | all of the above, in CI order; the push gate |
+| `just sbom` | `ops/ci/sbom.sh` | CycloneDX SBOM per crate in `target/sbom/` with `SHA256SUMS`; run in CI and attached to releases |
 | `just doctor` | `scripts/ci-doctor.sh` | every tool the lanes need, found vs pinned version (`ops/ci/lib.sh`) |
 
 Narrow commands: `cargo test -p <crate>` per crate (see `agent/test-map.json`),

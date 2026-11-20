@@ -48,6 +48,10 @@ contract-drift:
 security:
     bash tools/security-lane.sh
 
+# CycloneDX SBOMs for release provenance -> target/sbom/.
+sbom:
+    bash ops/ci/sbom.sh
+
 # Report every tool the lanes need, with pinned versions (ops/ci/lib.sh).
 doctor:
     bash scripts/ci-doctor.sh

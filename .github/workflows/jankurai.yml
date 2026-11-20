@@ -36,6 +36,11 @@ jobs:
       - run: bash ops/ci/install-security-tools.sh
       - run: echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - run: bash tools/security-lane.sh
+      - run: bash ops/ci/sbom.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sbom
+          path: target/sbom/
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 20
