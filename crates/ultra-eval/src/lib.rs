@@ -11,6 +11,7 @@ pub mod delay;
 pub mod normalise;
 pub mod pace;
 pub mod procfs;
+pub mod score;
 pub mod stream;
 pub mod wer;
 
