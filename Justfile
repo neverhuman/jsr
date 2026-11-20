@@ -14,10 +14,10 @@ fmt-check:
     cargo fmt --all -- --check
 
 clippy:
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --locked --workspace --all-targets -- -D warnings
 
 test:
-    cargo test --workspace -q
+    cargo test --locked --workspace -q
 
 # Narrow loop for one crate: `just test-crate ultra-core`.
 test-crate crate:
