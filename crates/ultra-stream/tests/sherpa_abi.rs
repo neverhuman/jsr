@@ -196,14 +196,22 @@ fn real_sherpa_zipformer_c_api_transcribes_and_satisfies_causality_when_present(
     let ss = replay(&timed).expect("ledger replay");
     assert!(!ss.final_text.is_empty());
     assert_eq!(ss.commit_revisions, 0);
+    assert!(timed.iter().all(|te| te.event.observed_monotonic_ns > 0));
 
     let cut = (pcm.len() / 2) & !319;
     if cut >= 16_000 {
         let mut altered = pcm.clone();
         altered[cut..].fill(0);
         let run_zip = |buf: &[i16]| {
-            let mut c =
-                StreamCoordinator::new(cfg.clone(), engine.create_stream(&cfg).expect("st"));
+            let tick = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let t_ref = std::sync::Arc::clone(&tick);
+            let clk = ultra_stream::StreamClock::custom(move || {
+                t_ref.fetch_add(1_000_000, std::sync::atomic::Ordering::SeqCst) + 1_000_000
+            });
+            let mut c = StreamCoordinator::new(
+                cfg.clone(),
+                engine.create_stream_with_clock(&cfg, clk).expect("st"),
+            );
             let mut pre = Vec::new();
             for pkt in PacedReplay::new(&buf[..cut], 20, 0.0).expect("replay") {
                 c.push_pcm(pkt.start_sample, pkt.pcm).expect("push");

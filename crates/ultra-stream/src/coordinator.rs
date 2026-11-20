@@ -4,14 +4,12 @@
 
 use std::collections::VecDeque;
 
-use ultra_core::events::{
-    Body, Emitter, Ledger, ProcessingEvidence, SegmentStatus, TranscriptEvent,
-};
+use ultra_core::events::{Body, Emitter, Ledger, SegmentStatus, TranscriptEvent};
 use ultra_core::lifecycle::{Lifecycle, StreamState};
 
 use crate::api::{
-    AsrStream, PollResult, PushReport, PushStatus, StreamConfig, StreamError, StreamMetrics,
-    TerminalOutcome,
+    AsrStream, PollResult, PushReport, PushStatus, StreamClock, StreamConfig, StreamError,
+    StreamMetrics, TerminalOutcome,
 };
 use crate::delivery::slice_from_boundary;
 pub use crate::delivery::{DeliveryFilter, RefinerTicket};
@@ -20,6 +18,7 @@ pub use crate::delivery::{DeliveryFilter, RefinerTicket};
 pub struct StreamCoordinator {
     pub(crate) cfg: StreamConfig,
     inner: Box<dyn AsrStream>,
+    clock: StreamClock,
     pub(crate) lifecycle: Lifecycle,
     pub(crate) emitter: Emitter,
     pub(crate) ledger: Ledger,
@@ -36,10 +35,15 @@ pub struct StreamCoordinator {
 
 impl StreamCoordinator {
     pub fn new(cfg: StreamConfig, inner: Box<dyn AsrStream>) -> Self {
+        Self::with_clock(cfg, inner, StreamClock::real())
+    }
+
+    pub fn with_clock(cfg: StreamConfig, inner: Box<dyn AsrStream>, clock: StreamClock) -> Self {
         let emitter = Emitter::new(&cfg.stream_id, &cfg.model_config_id);
         Self {
             cfg,
             inner,
+            clock,
             lifecycle: Lifecycle::default(),
             emitter,
             ledger: Ledger::new(),
@@ -220,7 +224,7 @@ impl AsrStream for StreamCoordinator {
         if start_sample > self.expected_sample {
             let gap_start = self.expected_sample;
             self.expected_sample = start_sample;
-            let now_ns = (start_sample * 1_000_000_000) / 16_000;
+            let now_ns = self.clock.now_ns();
             let was_open = self.has_open_segment();
             if let Some(seg) = self
                 .ledger
@@ -263,46 +267,37 @@ impl AsrStream for StreamCoordinator {
         self.drain_inner_events()?;
 
         // Hard segment cap (30 s default) prevents unbounded state on 1h+ continuous streams.
+        // Because `AsrStream` has no mid-stream segment flush/drain call (`finish_input` ends the
+        // entire stream), any open segment that was not already finalized by the inner backend
+        // MUST close as `SegmentIncomplete` (`drained = false`), never claiming synthetic `Final`
+        // flush credit while right-context or deferred EOF tail decoder work remains un-drained.
         let seg_span = self
             .expected_sample
             .saturating_sub(self.segment_start_sample);
         if seg_span >= self.cfg.segment_hard_cap_samples {
             self.extra_metrics.cap_hits += 1;
-            let now_ns = (self.expected_sample * 1_000_000_000) / 16_000;
-            let open_info = self
+            let now_ns = self.clock.now_ns();
+            let open_shown_len = self
                 .ledger
                 .segment(self.current_segment_id)
                 .filter(|s| s.status == SegmentStatus::Open)
-                .map(|s| (s.suffix.clone(), s.shown().len()));
-            if let Some((suf, shown_len)) = open_info {
+                .map(|s| s.shown().len());
+            if let Some(shown_len) = open_shown_len {
                 let im = self.inner.metrics();
-                let ev = if im.processed_samples >= self.expected_sample {
-                    self.emitter.finalize(
-                        now_ns,
-                        &suf,
-                        self.expected_sample,
-                        ProcessingEvidence {
-                            accepted_through_sample: self.expected_sample,
-                            required_processed_through_sample: self.expected_sample,
-                            flushed: true,
-                        },
-                    )?
-                } else {
-                    self.emitter.incomplete(
-                        now_ns,
-                        "segment_hard_cap",
-                        self.expected_sample,
-                        im.processed_samples.min(self.expected_sample),
-                        false,
-                    )?
-                };
+                let ev = self.emitter.incomplete(
+                    now_ns,
+                    "segment_hard_cap",
+                    self.expected_sample,
+                    im.processed_samples.min(self.expected_sample),
+                    false,
+                )?;
                 self.push_validated(ev)?;
                 self.current_segment_id += 1;
                 self.inner_consumed_bytes += shown_len;
                 self.refiner_epoch += 1;
             }
             let st = self.emitter.status(
-                now_ns,
+                self.clock.now_ns(),
                 "segment_hard_cap",
                 &format!("span_samples={seg_span}"),
             );
@@ -355,7 +350,7 @@ impl AsrStream for StreamCoordinator {
                 let im = self.inner.metrics();
                 let acc = self.expected_sample.max(im.accepted_samples);
                 let proc = im.processed_samples.min(acc);
-                let now_ns = (acc * 1_000_000_000) / 16_000;
+                let now_ns = self.clock.now_ns();
                 let ev = self
                     .emitter
                     .incomplete(now_ns, "cancelled", acc, proc, false)?;

@@ -14,7 +14,10 @@ use crate::api::{
 use crate::sherpa_c_types::{
     SherpaOnnxOfflineRecognizer, SherpaOnnxOfflineRecognizerConfig, SherpaOnnxOfflineStream,
 };
-use crate::sherpa_ffi::{cstr_or_empty, path_to_cstring, verify_cpu_only_process, SherpaLib};
+use crate::sherpa_ffi::{path_to_cstring, verify_cpu_only_process, SherpaLib};
+
+mod checked_result;
+use checked_result::copy_offline_result_and_free;
 
 /// Supported offline contrast model families in `libsherpa-onnx-c-api.so` (P05).
 #[derive(Debug, Clone)]
@@ -192,21 +195,26 @@ impl SherpaOfflineBackend {
         }
 
         let mut out = Vec::with_capacity(streams.len());
+        let mut first_err: Option<StreamError> = None;
         for st in streams {
-            // SAFETY: Decode completed; result copied and destroyed before freeing stream.
-            let text = unsafe {
-                let res = (self.lib.get_offline_res)(st);
-                let s = if res.is_null() {
-                    String::new()
-                } else {
-                    let v = cstr_or_empty((*res).text);
-                    (self.lib.destroy_offline_res)(res);
-                    v
+            if first_err.is_none() {
+                // SAFETY: Decode completed; result copied and freed before destroying `st`.
+                let res_text = unsafe {
+                    copy_offline_result_and_free(
+                        (self.lib.get_offline_res)(st),
+                        self.lib.destroy_offline_res,
+                    )
                 };
-                (self.lib.destroy_offline_stream)(st);
-                s
-            };
-            out.push(text.trim().to_owned());
+                match res_text {
+                    Ok(text) => out.push(text.trim().to_owned()),
+                    Err(e) => first_err = Some(e),
+                }
+            }
+            // SAFETY: Every created `SherpaOnnxOfflineStream` is destroyed exactly once, even after error.
+            unsafe { (self.lib.destroy_offline_stream)(st) };
+        }
+        if let Some(e) = first_err {
+            return Err(e);
         }
         Ok(out)
     }

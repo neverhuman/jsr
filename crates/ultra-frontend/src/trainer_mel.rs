@@ -179,7 +179,7 @@ impl TrainerMelConfig {
     /// Compute one normalized 80-bin log-mel frame from exactly `400` unit-range `f32` samples.
     pub fn frame_f32(&self, frame: &[f32]) -> [f32; MEL_BINS] {
         debug_assert_eq!(frame.len(), WIN_SAMPLES);
-        let mean: f32 = frame.iter().copied().sum::<f32>() / (WIN_SAMPLES as f32);
+        let mean = (frame.iter().map(|&x| f64::from(x)).sum::<f64>() / (WIN_SAMPLES as f64)) as f32;
         let mut re = [0.0f64; FFT_SIZE];
         let mut im = [0.0f64; FFT_SIZE];
         for i in 0..WIN_SAMPLES {
@@ -188,17 +188,18 @@ impl TrainerMelConfig {
         }
         fft_in_place_512_f64(&mut re, &mut im);
 
-        let mut mel = [0.0f32; MEL_BINS];
+        let mut mel_acc = [0.0f64; MEL_BINS];
         for k in 0..SPEC_BINS {
             let mag = re[k].hypot(im[k]) as f32;
-            let p = mag * mag;
+            let p = f64::from(mag * mag);
             let row = &self.fbank[k * MEL_BINS..(k + 1) * MEL_BINS];
-            for (m, &w) in mel.iter_mut().zip(row) {
-                *m += p * w;
+            for (m, &w) in mel_acc.iter_mut().zip(row) {
+                *m += p * f64::from(w);
             }
         }
-        for v in &mut mel {
-            *v = (*v + self.log_floor).ln();
+        let mut mel = [0.0f32; MEL_BINS];
+        for (dst, &acc) in mel.iter_mut().zip(&mel_acc) {
+            *dst = ((acc as f32) + self.log_floor).ln();
         }
         self.cmvn.apply_in_place(&mut mel);
         mel

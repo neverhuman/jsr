@@ -1,23 +1,19 @@
 //! Online Streaming Zipformer transducer wrapper over `SherpaLib` (`single` and `batch`).
 
-use std::collections::VecDeque;
 use std::ffi::CString;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
-
-use crate::api::{
-    AsrStream, Backend, BackendCaps, OutputPolicy, PollResult, PushReport, PushStatus,
-    StreamConfig, StreamError, StreamMetrics, TerminalOutcome,
-};
+use crate::api::{AsrStream, Backend, BackendCaps, StreamClock, StreamConfig, StreamError};
 use crate::sherpa_c_types::{
     SherpaOnnxOnlineRecognizer, SherpaOnnxOnlineRecognizerConfig, SherpaOnnxOnlineStream,
 };
 use crate::sherpa_ffi::{cstr_or_empty, path_to_cstring, verify_cpu_only_process, SherpaLib};
 
 mod checked_result;
+mod stream;
 use checked_result::copy_result_and_free;
+use stream::{RealZipformerDriver, ZipformerAsrStream};
 
 /// Configuration for the Online Streaming Zipformer transducer (`int8` or `fp32`).
 #[derive(Debug, Clone)]
@@ -158,6 +154,32 @@ impl SherpaZipformerBackend {
             (self.lib.decode_multi_online)(self.rec_ptr(), ptrs.as_ptr(), ptrs.len() as i32);
         }
     }
+
+    pub fn create_stream_with_clock(
+        self: &Arc<Self>,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+    ) -> Result<Box<dyn AsrStream>, StreamError> {
+        let raw = self.create_raw_stream()?;
+        let model_id = format!("sherpa-onnx-zipformer-{}", self.cfg.precision);
+        let eff_model_id = if cfg.model_config_id == "default-model-v1" {
+            model_id.as_str()
+        } else {
+            cfg.model_config_id.as_str()
+        };
+        let tail_pad_samples = (16_000.0 * self.cfg.tail_pad_s) as usize;
+        Ok(Box::new(ZipformerAsrStream::new(
+            RealZipformerDriver {
+                engine: Arc::clone(self),
+                raw,
+                scratch: Vec::with_capacity(1024),
+            },
+            clock,
+            tail_pad_samples,
+            eff_model_id,
+            cfg.clone(),
+        )))
+    }
 }
 
 /// RAII wrapper around `SherpaOnnxOnlineStream`.
@@ -256,189 +278,6 @@ impl Backend for Arc<SherpaZipformerBackend> {
     }
 
     fn create_stream(&self, cfg: &StreamConfig) -> Result<Box<dyn AsrStream>, StreamError> {
-        let raw = self.create_raw_stream()?;
-        let model_id = format!("sherpa-onnx-zipformer-{}", self.cfg.precision);
-        let eff_model_id = if cfg.model_config_id == "default-model-v1" {
-            model_id.as_str()
-        } else {
-            cfg.model_config_id.as_str()
-        };
-        Ok(Box::new(ZipformerAsrStream {
-            engine: Arc::clone(self),
-            raw,
-            emitter: Emitter::new(&cfg.stream_id, eff_model_id),
-            cfg: cfg.clone(),
-            scratch: Vec::with_capacity(1024),
-            accepted_samples: 0,
-            processed_samples: 0,
-            wakeups: 0,
-            events_emitted: 0,
-            last_hyp: String::new(),
-            finished: false,
-            cancelled: false,
-            events: VecDeque::new(),
-        }))
-    }
-}
-
-struct ZipformerAsrStream {
-    engine: Arc<SherpaZipformerBackend>,
-    raw: RawOnlineStream,
-    emitter: Emitter,
-    cfg: StreamConfig,
-    scratch: Vec<f32>,
-    accepted_samples: u64,
-    processed_samples: u64,
-    wakeups: u64,
-    events_emitted: u64,
-    last_hyp: String,
-    finished: bool,
-    cancelled: bool,
-    events: VecDeque<TranscriptEvent>,
-}
-
-impl ZipformerAsrStream {
-    fn now_ns(&self) -> u64 {
-        (self.accepted_samples * 1_000_000_000) / 16_000
-    }
-
-    fn record_ev(&mut self, ev: TranscriptEvent) {
-        self.events_emitted += 1;
-        self.events.push_back(ev);
-    }
-
-    fn decode_ready(&mut self) -> Result<(), StreamError> {
-        let mut ran = false;
-        while self.raw.is_ready() {
-            self.engine.decode_one(&self.raw);
-            self.wakeups += 1;
-            ran = true;
-        }
-        self.processed_samples = self.accepted_samples;
-        if ran {
-            let hyp = self.raw.text().trim().to_owned();
-            if hyp != self.last_hyp {
-                self.last_hyp.clone_from(&hyp);
-                let ts = self.now_ns();
-                match self.cfg.policy {
-                    OutputPolicy::EditableDictation => {
-                        let ev = self.emitter.preview(ts, &hyp, self.accepted_samples)?;
-                        self.record_ev(ev);
-                    }
-                    OutputPolicy::Commit => {
-                        let imm_len = self.emitter.immutable().len();
-                        if hyp.starts_with(self.emitter.immutable()) && hyp.len() > imm_len {
-                            let tail = &hyp[imm_len..];
-                            let ev = match tail.rfind(' ').filter(|&sp| sp > 0) {
-                                Some(sp) => {
-                                    self.emitter.commit(ts, tail, sp, self.accepted_samples)?
-                                }
-                                None => self.emitter.preview(ts, tail, self.accepted_samples)?,
-                            };
-                            self.record_ev(ev);
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-impl AsrStream for ZipformerAsrStream {
-    fn push_pcm(&mut self, start_sample: u64, pcm: &[i16]) -> Result<PushReport, StreamError> {
-        if self.finished || self.cancelled {
-            return Err(ultra_core::CoreError::Lifecycle(
-                "push after finish_input or terminal state",
-            )
-            .into());
-        }
-        self.raw.accept_i16(pcm, &mut self.scratch);
-        self.accepted_samples += pcm.len() as u64;
-        self.decode_ready()?;
-        Ok(PushReport {
-            start_sample,
-            accepted_samples: pcm.len(),
-            status: PushStatus::AcceptedAll,
-        })
-    }
-
-    fn poll_event(&mut self) -> Result<PollResult, StreamError> {
-        if let Some(ev) = self.events.pop_front() {
-            return Ok(PollResult::Event(Box::new(ev)));
-        }
-        if self.cancelled {
-            return Ok(PollResult::Ended(TerminalOutcome::Cancelled));
-        }
-        if self.finished {
-            return Ok(PollResult::Ended(TerminalOutcome::Finished));
-        }
-        Ok(PollResult::Pending)
-    }
-
-    fn finish_input(&mut self) -> Result<(), StreamError> {
-        if self.cancelled {
-            return Err(ultra_core::CoreError::Lifecycle(
-                "finish_input on a cancelled or failed stream",
-            )
-            .into());
-        }
-        if !self.finished {
-            self.finished = true;
-            let pad_len = (16_000.0 * self.engine.cfg.tail_pad_s) as usize;
-            let zeros = vec![0.0f32; pad_len];
-            self.raw.accept_f32(&zeros);
-            self.raw.input_finished();
-            while self.raw.is_ready() {
-                self.engine.decode_one(&self.raw);
-                self.wakeups += 1;
-            }
-            self.processed_samples = self.accepted_samples;
-            let hyp = self.raw.text().trim().to_owned();
-            let imm_len = self.emitter.immutable().len();
-            let suffix = if imm_len == 0 {
-                hyp.as_str()
-            } else if hyp.len() > imm_len && hyp.is_char_boundary(imm_len) {
-                &hyp[imm_len..]
-            } else {
-                ""
-            };
-            let ts = self.now_ns();
-            let ev = self.emitter.finalize(
-                ts,
-                suffix,
-                self.accepted_samples,
-                ProcessingEvidence {
-                    accepted_through_sample: self.accepted_samples,
-                    required_processed_through_sample: self.processed_samples,
-                    flushed: true,
-                },
-            )?;
-            self.record_ev(ev);
-        }
-        Ok(())
-    }
-
-    fn cancel(&mut self) -> Result<(), StreamError> {
-        if !self.finished {
-            self.cancelled = true;
-            self.events.clear();
-        }
-        Ok(())
-    }
-
-    fn metrics(&self) -> StreamMetrics {
-        StreamMetrics {
-            accepted_samples: self.accepted_samples,
-            processed_samples: self.processed_samples,
-            wakeups: self.wakeups,
-            events_emitted: self.events_emitted,
-            cap_hits: 0,
-            refiner_attempts: 0,
-            refiner_accepts: 0,
-            refiner_rejects: 0,
-            refiner_charged_cpu_s: 0.0,
-            retained_bytes: 0,
-        }
+        self.create_stream_with_clock(cfg, StreamClock::real())
     }
 }
