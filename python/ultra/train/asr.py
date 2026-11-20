@@ -40,7 +40,9 @@ class ModelConfig:
 
 PRESETS = {
     # Spec v1.0-B §17.3 S control: width 384, 16 blocks, 6 heads x 64, FFN x4, kernel 15.
-    "S": ModelConfig(),
+    "S": ModelConfig(encoder=EncoderConfig(post_block_norm=False)),
+    # The configuration of the first D1 attempt (collapsed); kept loadable.
+    "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.
     "D0": ModelConfig(encoder=EncoderConfig(d_model=192, n_blocks=4, n_heads=4, stem_channels=64,
                                             dropout=0.0)),

@@ -2,6 +2,7 @@
 import os
 import sys
 
+import pytest
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -19,10 +20,11 @@ def test_chunk_mask_shape_and_bounds():
     assert m[9].tolist() == [False] * 4 + [True] * 6  # chunk 2 sees chunk 1 and itself
 
 
-def test_future_perturbation_leaves_earlier_chunks_unchanged():
+@pytest.mark.parametrize("post_block_norm", [True, False])
+def test_future_perturbation_leaves_earlier_chunks_unchanged(post_block_norm):
     torch.manual_seed(0)
     cfg = EncoderConfig(d_model=32, n_blocks=3, n_heads=2, stem_channels=8, conv_kernel=5,
-                        chunk=3, left_context=6, dropout=0.0)
+                        chunk=3, left_context=6, dropout=0.0, post_block_norm=post_block_norm)
     enc = Encoder(cfg).eval()
     T = 120
     x = torch.randn(1, T, 80)

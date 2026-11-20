@@ -35,6 +35,10 @@ class EncoderConfig:
     chunk: int = 4  # 25 Hz frames per chunk: 4 = 160 ms
     left_context: int = 128  # 25 Hz frames of attention history: 128 = 5.12 s
     dropout: float = 0.1
+    # True: LayerNorm closing every block (original Conformer, post-norm-like residual stream).
+    # False: pre-norm modules only plus one final LayerNorm. D1 (2026-11-20) showed the 16-block
+    # post-block-norm stack collapsing to near time-invariant output (CTC flat at 6.18/token).
+    post_block_norm: bool = True
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -143,7 +147,7 @@ class ConformerBlock(nn.Module):
         self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout)
         self.conv = CausalConvModule(c.d_model, c.conv_kernel, c.dropout)
         self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout)
-        self.norm = nn.LayerNorm(c.d_model)
+        self.norm = nn.LayerNorm(c.d_model) if c.post_block_norm else nn.Identity()
 
     def forward(self, x, mask, pad, cos, sin):
         x = x + 0.5 * self.ff1(x)
@@ -159,6 +163,7 @@ class Encoder(nn.Module):
         self.cfg = c
         self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model)
         self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
+        self.final_norm = nn.Identity() if c.post_block_norm else nn.LayerNorm(c.d_model)
 
     def forward(self, feats: torch.Tensor, feat_lens: torch.Tensor, chunk: int | None = None):
         """feats (B, T, 80) normalised log-mel; returns (states (B, T', d), lens (B,))."""
@@ -173,4 +178,4 @@ class Encoder(nn.Module):
         cos, sin = rope_tables(t, self.cfg.d_model // self.cfg.n_heads, x.device, x.dtype)
         for blk in self.blocks:
             x = blk(x, mask, pad, cos, sin)
-        return x, lens
+        return self.final_norm(x), lens
