@@ -283,6 +283,8 @@ def main() -> None:
     ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32",
                     help="encoder precision (and joiner unless --joiner-precision)")
     ap.add_argument("--joiner-precision", choices=["fp32", "int8"], default=None)
+    ap.add_argument("--encoder-int8-file", default=None, help="override encoder.int8 (sweeps)")
+    ap.add_argument("--joiner-int8-file", default=None, help="override joiner.int8 (sweeps)")
     ap.add_argument("--split", default="dev-clean")
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--streams", type=int, default=16)
@@ -301,7 +303,10 @@ def main() -> None:
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
 
-    rec = BundleRecognizer(a.bundle, a.precision, a.threads, joiner_precision=a.joiner_precision)
+    override = {k: v for k, v in (("encoder.int8", a.encoder_int8_file),
+                                  ("joiner.int8", a.joiner_int8_file)) if v}
+    rec = BundleRecognizer(a.bundle, a.precision, a.threads, joiner_precision=a.joiner_precision,
+                           override=override)
     utts = load_split(a.split, a.limit)
     c0 = time.process_time()
     hyps = run_streaming(rec, utts, a.streams)
