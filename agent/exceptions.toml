@@ -1,0 +1,110 @@
+# Agent-readable catalogue of every ultra_core::CoreError variant.
+# crates/ultra-core/tests/error_catalogue.rs fails when a variant is added
+# without an entry here. Prose and examples: docs/errors.md.
+
+[exception_surface]
+owner = "runtime"
+type = "ultra_core::CoreError"
+docs_url = "docs/errors.md"
+required_fields = ["purpose", "reason", "common_fixes", "docs_url", "repair_hint"]
+rerun = "cargo test -p ultra-core"
+
+[[error_kind]]
+name = "BadShift"
+purpose = "keep requantisation inside the numeric contract (spec §5)"
+reason = "requant was called with a shift outside 1..=31"
+common_fixes = [
+  "derive the shift from the calibrated scale, not a hard-coded constant",
+  "check the bundle's per-layer shift table was loaded for the right layer",
+]
+docs_url = "docs/errors.md#badshift"
+repair_hint = "cargo test -p ultra-core --test numeric_contract"
+
+[[error_kind]]
+name = "Shape"
+purpose = "refuse tensors whose length does not match the operator"
+reason = "an operator (named in the message) received a slice of the wrong length"
+common_fixes = [
+  "compare the bundle manifest shapes with the operator call site",
+  "check packing: ternary rows pack 4 codes per byte",
+]
+docs_url = "docs/errors.md#shape"
+repair_hint = "cargo test -p ultra-core; then the owning crate's tests for the operator named in the message"
+
+[[error_kind]]
+name = "Overflow"
+purpose = "prove an int32 accumulator cannot overflow before a row is accepted (rule N2)"
+reason = "fan_in x 127 x max|w| reaches 2^31 for this row"
+common_fixes = [
+  "split the row or reduce fan-in at export",
+  "clip or rescale weights so max|w| satisfies the bound",
+]
+docs_url = "docs/errors.md#overflow"
+repair_hint = "cargo test -p ultra-core --test numeric_contract"
+
+[[error_kind]]
+name = "WeightRange"
+purpose = "keep int8 weights symmetric (rule N1) and ternary codes in {-1,0,1}"
+reason = "an int8 weight is -128, or a ternary weight is outside {-1,0,1}"
+common_fixes = [
+  "clamp int8 export to [-127, 127]",
+  "re-run quantisation export; do not hand-edit weight files",
+]
+docs_url = "docs/errors.md#weightrange"
+repair_hint = "cargo test -p ultra-core --test numeric_contract"
+
+[[error_kind]]
+name = "ActivationRange"
+purpose = "keep A7 activations in 0..=127 (rule N1)"
+reason = "an activation above 127 reached a kernel input"
+common_fixes = [
+  "check the preceding requantisation saturates to the A7 range",
+  "check the A7z zero point (64) was applied once, not twice",
+]
+docs_url = "docs/errors.md#activationrange"
+repair_hint = "cargo test -p ultra-core --test numeric_contract"
+
+[[error_kind]]
+name = "BadTernaryCode"
+purpose = "refuse corrupt packed ternary weights at load"
+reason = "a packed 2-bit field holds code 3, which no weight maps to"
+common_fixes = [
+  "run sha256sum -c SHA256SUMS in the bundle; the file is corrupt or not a T1 pack",
+  "re-export the layer with the current packer",
+]
+docs_url = "docs/errors.md#badternarycode"
+repair_hint = "cargo test -p ultra-core"
+
+[[error_kind]]
+name = "Contract"
+purpose = "enforce the output event contract (spec §3.1) in events::Ledger"
+reason = "an event would break an invariant named in the message (sequence order, Final once, payload size, ...)"
+common_fixes = [
+  "emit event_sequence strictly increasing per stream",
+  "never send text for a segment after its Final or Gap",
+  "keep each payload at or below MAX_PAYLOAD_BYTES (4096)",
+]
+docs_url = "docs/errors.md#contract"
+repair_hint = "just contract-drift"
+
+[[error_kind]]
+name = "Lifecycle"
+purpose = "enforce the stream lifecycle ACCEPTING -> DRAINING -> FINISHED (spec §3.5)"
+reason = "a call was made in a state that forbids it (push after finish_input, complete without a flush, ...)"
+common_fixes = [
+  "call finish_input once and push nothing after it",
+  "treat Cancelled and Failed as terminal",
+]
+docs_url = "docs/errors.md#lifecycle"
+repair_hint = "cargo test -p ultra-core --test output_contract"
+
+[[error_kind]]
+name = "Receipt"
+purpose = "refuse a receipt as evidence when a measurement is missing (Appendix D)"
+reason = "wrong schema, incomplete run, CPU-only not verified, a null measurement, or no audio"
+common_fixes = [
+  "re-run the measurement; never fill a null by hand",
+  "check the harness recorded process-tree CPU, peak RSS and chunk percentiles",
+]
+docs_url = "docs/errors.md#receipt"
+repair_hint = "cargo test -p ultra-core; then re-run the producing bench or eval command"
