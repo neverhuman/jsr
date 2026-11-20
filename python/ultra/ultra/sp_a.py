@@ -1,48 +1,57 @@
 """SP-A: real-time stream density of a streaming transducer on CPU, at measured WER.
 
-Arrival: packet k of every active stream is accepted at t0 + (k+1)*packet (after its last sample
-exists). Unpaced runs accept packets as fast as compute allows.
-Decode: with --grid-ms G, decoding runs only on grid ticks (every G ms of audio time) and batches
-every ready stream into one call (decode=batch) or decodes them one by one (decode=single).
-Cutoff: with --duration-s, arrival stops at the cutoff, every accepted stream is flushed (tail pad +
-input_finished) and drained. CPU per audio-second counts ALL accepted audio; WER counts only
-utterances whose audio fully arrived.
-Lateness: at each grid tick that decoded something, completion time minus the arrival time of the
-newest accepted sample. CPU is getrusage(RUSAGE_SELF) user+sys (inference threads are in-process).
+Clock model (fixed capture deadlines, never rebased):
+  packet k of the shared stream timeline is captured at  deadline(k) = t0 + (k+1) * packet.
+  Paced runs accept every packet whose deadline has passed (catching up in bulk when behind);
+  unpaced runs accept one packet per iteration as fast as compute allows.
+Decode: with --grid-ms G, decoding runs only when the accepted timeline crosses a grid boundary
+  (or during the drain), batching every ready stream into one call (decode=batch) or one by one.
+Latency: at each decode, `lateness` = completion time - deadline of the OLDEST packet not yet
+  decoded at decode start, i.e. the age of the oldest unprocessed audio when it is finally handled.
+  Backlog that has accumulated is therefore never hidden.
+Cutoff: with --duration-s, arrival stops at the cutoff; every accepted stream is flushed (tail pad +
+  input_finished) and drained. Steady-state metrics exclude the drain; drain cost is reported
+  separately. CPU per audio-second counts all accepted audio; WER counts fully-arrived utterances.
+CPU is getrusage(RUSAGE_SELF) user+sys (inference threads are in-process).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import resource
 import subprocess
 import sys
 import time
 import uuid
+from dataclasses import dataclass, field
 
 import numpy as np
-import sherpa_onnx
 
-from ultra.libri import load_split
-from ultra.wer import corpus_wer
-
-MODELS = os.path.join(os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr"), "models")
 SR = 16000
+DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
+MODELS = os.path.join(DATA, "models")
 
 
-def make_recognizer(model_dir: str, precision: str, threads: int):
-    tag = "epoch-99-avg-1-chunk-16-left-128" + (".int8" if precision == "int8" else "")
-    p = lambda kind: os.path.join(model_dir, f"{kind}-{tag}.onnx")  # noqa: E731
-    return sherpa_onnx.OnlineRecognizer.from_transducer(
-        tokens=os.path.join(model_dir, "tokens.txt"), encoder=p("encoder"), decoder=p("decoder"),
-        joiner=p("joiner"), num_threads=threads, sample_rate=SR, feature_dim=80,
-        decoding_method="greedy_search", provider="cpu")
+@dataclass
+class Clock:
+    """Wall clock and CPU clock; tests inject a fake one."""
+    now: callable = time.perf_counter
+    sleep: callable = time.sleep
+    cpu: callable = field(default=lambda: sum(resource.getrusage(resource.RUSAGE_SELF)[:2]))
 
 
-def cpu_seconds() -> float:
-    r = resource.getrusage(resource.RUSAGE_SELF)
-    return r.ru_utime + r.ru_stime
+@dataclass
+class Item:
+    uid: str
+    speaker: str
+    text: str
+    pcm: np.ndarray  # int16
+
+    @property
+    def seconds(self) -> float:
+        return len(self.pcm) / SR
 
 
 class Slot:
@@ -52,49 +61,47 @@ class Slot:
         self.idx, self.stream, self.cursor, self.finished_input = idx, stream, 0, False
 
 
-def run(args) -> dict:
-    utts = load_split(args.split, args.limit)
-    if args.offset:
-        k = args.offset % len(utts)
-        utts = utts[k:] + utts[:k]  # workers start at different utterances
-    rec = make_recognizer(args.model_dir, args.precision, args.threads)
-    packet = int(SR * args.packet_ms / 1000)
-    grid_every = max(1, round(args.grid_ms / args.packet_ms)) if args.grid_ms else 1
-    tail = np.zeros(int(SR * args.tail_pad_s), dtype=np.float32)
-    queue = list(range(len(utts)))
+def simulate(items: list[Item], rec, opt, clock: Clock) -> dict:
+    """Run the arrival/decode loop. `rec` follows the sherpa-onnx OnlineRecognizer interface."""
+    packet = int(SR * opt.packet_ms / 1000)
+    pkt_s = opt.packet_ms / 1000.0
+    grid_every = max(1, round(opt.grid_ms / opt.packet_ms)) if opt.grid_ms else 1
+    tail = np.zeros(int(SR * opt.tail_pad_s), dtype=np.float32)
+    queue = list(range(len(items)))
     active: dict[int, Slot] = {}
     hyps: dict[int, str] = {}
-    lateness: list[float] = []
+    steady_lat: list[float] = []
     series: list[dict] = []
-    accepted = 0  # samples
+    accepted = 0        # samples, all streams
+    k_acc = 0           # packets accepted on the shared timeline
+    k_dec = 0           # packets of the timeline already handed to a decode
     max_ready = 0
     cutoff = False
+    drain_cpu0 = drain_t0 = None
 
     def refill():
-        if cutoff:
-            return
-        for slot in range(args.streams):
-            if slot not in active and queue:
-                active[slot] = Slot(queue.pop(0), rec.create_stream())
+        if not cutoff:
+            for slot in range(opt.streams):
+                if slot not in active and queue:
+                    active[slot] = Slot(queue.pop(0), rec.create_stream())
 
     def finish(sl: Slot):
-        # Right-context flush; padding CPU is charged, its duration is not counted as audio.
-        sl.stream.accept_waveform(SR, tail)
+        sl.stream.accept_waveform(SR, tail)  # right-context flush; CPU charged, not counted as audio
         sl.stream.input_finished()
         sl.finished_input = True
 
     def decode_ready() -> int:
+        nonlocal max_ready
         n = 0
         while True:
             ready = [sl.stream for sl in active.values() if rec.is_ready(sl.stream)]
             if not ready:
                 return n
             n += len(ready)
-            nonlocal max_ready
             max_ready = max(max_ready, len(ready))
-            if args.decode == "batch":
-                for k in range(0, len(ready), args.max_batch):
-                    rec.decode_streams(ready[k:k + args.max_batch])
+            if opt.decode == "batch":
+                for k in range(0, len(ready), opt.max_batch):
+                    rec.decode_streams(ready[k:k + opt.max_batch])
             else:
                 for s in ready:
                     rec.decode_stream(s)
@@ -102,84 +109,128 @@ def run(args) -> dict:
     def retire():
         for slot, sl in list(active.items()):
             if sl.finished_input and not rec.is_ready(sl.stream):
-                if sl.cursor >= len(utts[sl.idx].pcm):  # only fully-arrived utterances are scored
+                if sl.cursor >= len(items[sl.idx].pcm):  # only fully-arrived utterances are scored
                     hyps[sl.idx] = rec.get_result(sl.stream).strip()
                 del active[slot]
 
+    def accept_one_packet():
+        nonlocal accepted, k_acc
+        for sl in active.values():
+            pcm = items[sl.idx].pcm
+            if sl.cursor < len(pcm):
+                chunk = pcm[sl.cursor:sl.cursor + packet]
+                sl.stream.accept_waveform(SR, chunk.astype(np.float32) / 32768.0)
+                sl.cursor += len(chunk)
+                accepted += len(chunk)
+                if sl.cursor >= len(pcm):
+                    finish(sl)
+        k_acc += 1
+
     refill()
-    load_before = os.getloadavg()
-    c0, w0 = cpu_seconds(), time.perf_counter()
-    tick = 0
-    last_series = w0
+    c0, t0 = clock.cpu(), clock.now()
+    deadline = lambda k: t0 + (k + 1) * pkt_s  # noqa: E731  capture time of packet k
+    last_series = t0
     while active:
-        due = w0 + (tick + 1) * args.packet_ms / 1000.0  # end of packet `tick`
-        if args.paced and not cutoff:
-            now = time.perf_counter()
-            if now < due:
-                time.sleep(due - now)
-        arrival_t = max(due, time.perf_counter()) if args.paced else time.perf_counter()
-        if args.duration_s and not cutoff and arrival_t - w0 >= args.duration_s:
+        now = clock.now()
+        if not cutoff and opt.duration_s and now - t0 >= opt.duration_s:
             cutoff = True
+            drain_cpu0, drain_t0 = clock.cpu(), now
             for sl in active.values():
                 if not sl.finished_input:
                     finish(sl)
         if not cutoff:
-            for sl in active.values():
-                pcm = utts[sl.idx].pcm
-                if sl.cursor < len(pcm):
-                    chunk = pcm[sl.cursor:sl.cursor + packet]
-                    sl.stream.accept_waveform(SR, chunk.astype(np.float32) / 32768.0)
-                    sl.cursor += len(chunk)
-                    accepted += len(chunk)
-                    if sl.cursor >= len(pcm):
-                        finish(sl)
-        tick += 1
-        if cutoff or tick % grid_every == 0:
-            if decode_ready() and not cutoff:  # drain-phase decodes are not real-time ticks
-                lateness.append(time.perf_counter() - arrival_t)
+            if opt.paced:
+                if now < deadline(k_acc):
+                    clock.sleep(deadline(k_acc) - now)
+                    now = clock.now()
+                while deadline(k_acc) <= now and active:  # accept everything already captured
+                    accept_one_packet()
+                    refill()
+            else:
+                accept_one_packet()
+        crossed = k_acc // grid_every > k_dec // grid_every
+        if cutoff or crossed:
+            oldest = deadline(k_dec)  # capture deadline of the oldest packet not yet decoded
+            if decode_ready() and not cutoff and opt.paced:
+                steady_lat.append(clock.now() - oldest)
+            k_dec = k_acc
             retire()
             refill()
-        now = time.perf_counter()
+        now = clock.now()
         if now - last_series >= 1.0:
-            series.append(dict(t=round(now - w0, 3), accepted_s=round(accepted / SR, 3),
-                               completed=len(hyps), active=len(active),
-                               lateness_s=round(lateness[-1], 4) if lateness else None))
+            series.append(dict(t=round(now - t0, 3), accepted_s=round(accepted / SR, 3),
+                               captured_packets=int((now - t0) / pkt_s), accepted_packets=k_acc,
+                               decoded_packets=k_dec, completed=len(hyps), active=len(active),
+                               oldest_unprocessed_s=round(max(0.0, now - deadline(k_dec)), 4)))
             last_series = now
-    cpu = cpu_seconds() - c0
-    wall = time.perf_counter() - w0
+    cpu, wall = clock.cpu() - c0, clock.now() - t0
     order = sorted(hyps)
-    refs = [utts[i].text for i in order]
-    w = corpus_wer(refs, [hyps[i] for i in order])
     accepted_s = accepted / SR
-    completed_s = sum(utts[i].seconds for i in order)
-    out = dict(schema="ultra.sp-a/v2", run_id=args.run_id, worker_id=args.worker_id, split=args.split,
-               streams=args.streams, decode=args.decode, max_batch=args.max_batch, precision=args.precision,
-               threads=args.threads, paced=args.paced, packet_ms=args.packet_ms, grid_ms=args.grid_ms,
-               tail_pad_s=args.tail_pad_s, offset=args.offset, duration_s=args.duration_s,
-               utterances_scored=len(order), audio_accepted_s=round(accepted_s, 3),
-               audio_completed_s=round(completed_s, 3), cpu_seconds=round(cpu, 3), wall_seconds=round(wall, 3),
+    out = dict(utterances_scored=len(order), audio_accepted_s=round(accepted_s, 3),
+               audio_completed_s=round(sum(items[i].seconds for i in order), 3),
+               cpu_seconds=round(cpu, 3), wall_seconds=round(wall, 3),
                rtf_cpu=round(cpu / max(accepted_s, 1e-9), 5),
                streams_per_core_at_full_load=round(accepted_s / max(cpu, 1e-9), 2),
-               wer=w, max_ready_batch=max_ready, load_before=load_before, load_after=os.getloadavg(),
-               affinity=sorted(os.sched_getaffinity(0)), host=os.uname().nodename, commit=_commit(),
-               sherpa_onnx=getattr(sherpa_onnx, "__version__", "unknown"))
-    if lateness:
-        lat = np.array(lateness)
+               max_ready_batch=max_ready, drained=not active, accepted_packets=k_acc,
+               hyps={items[i].uid: hyps[i] for i in order}, series=series)
+    if drain_t0 is not None:
+        out["drain"] = dict(cpu_seconds=round(clock.cpu() - drain_cpu0, 3),
+                            wall_seconds=round(clock.now() - drain_t0, 3))
+    if steady_lat:
+        lat = np.array(steady_lat)
         out["lateness_ms"] = {q: round(float(np.percentile(lat, p)) * 1000, 2)
                               for q, p in (("p50", 50), ("p95", 95), ("p99", 99), ("max", 100))}
         out["lateness_ms"]["last"] = round(float(lat[-1]) * 1000, 2)
+        n = len(lat)
+        out["lateness_ms"]["first_third_mean"] = round(float(lat[: max(1, n // 3)].mean()) * 1000, 2)
+        out["lateness_ms"]["last_third_mean"] = round(float(lat[-max(1, n // 3):].mean()) * 1000, 2)
+    return out
+
+
+def make_recognizer(model_dir: str, precision: str, threads: int):
+    import sherpa_onnx
+    tag = "epoch-99-avg-1-chunk-16-left-128" + (".int8" if precision == "int8" else "")
+    p = lambda kind: os.path.join(model_dir, f"{kind}-{tag}.onnx")  # noqa: E731
+    return sherpa_onnx.OnlineRecognizer.from_transducer(
+        tokens=os.path.join(model_dir, "tokens.txt"), encoder=p("encoder"), decoder=p("decoder"),
+        joiner=p("joiner"), num_threads=threads, sample_rate=SR, feature_dim=80,
+        decoding_method="greedy_search", provider="cpu")
+
+
+def run(args) -> dict:
+    from ultra.libri import load_split
+    from ultra.wer import corpus_wer
+    utts = load_split(args.split, args.limit)
+    if args.offset:
+        k = args.offset % len(utts)
+        utts = utts[k:] + utts[:k]  # workers start at different utterances
+    items = [Item(u.uid, str(u.speaker), u.text, u.pcm) for u in utts]
+    rec = make_recognizer(args.model_dir, args.precision, args.threads)
+    load_before = os.getloadavg()
+    sim = simulate(items, rec, args, Clock())
+    hyps, series = sim.pop("hyps"), sim.pop("series")
+    by_id = {it.uid: it for it in items}
+    ids = list(hyps)
+    w = corpus_wer([by_id[i].text for i in ids], [hyps[i] for i in ids])
+    out = dict(schema="ultra.sp-a/v3", run_id=args.run_id, worker_id=args.worker_id, split=args.split,
+               streams=args.streams, decode=args.decode, max_batch=args.max_batch, precision=args.precision,
+               threads=args.threads, paced=args.paced, packet_ms=args.packet_ms, grid_ms=args.grid_ms,
+               tail_pad_s=args.tail_pad_s, offset=args.offset, duration_s=args.duration_s, **sim,
+               wer=w, load_before=load_before, load_after=os.getloadavg(),
+               affinity=sorted(os.sched_getaffinity(0)), host=os.uname().nodename, commit=_commit())
     if args.out_dir:
         os.makedirs(args.out_dir, exist_ok=True)
         stem = os.path.join(args.out_dir, f"worker_{args.worker_id}")
         with open(stem + ".predictions.jsonl", "w") as fh:
-            for i in order:
-                fh.write(json.dumps(dict(id=utts[i].uid, speaker=str(utts[i].speaker), dataset=args.split,
-                                         ref=utts[i].text, hyp=hyps[i])) + "\n")
+            for i in ids:
+                it = by_id[i]
+                fh.write(json.dumps(dict(id=i, speaker=it.speaker, dataset=args.split, ref=it.text,
+                                         hyp=hyps[i])) + "\n")
         with open(stem + ".series.jsonl", "w") as fh:
             fh.writelines(json.dumps(s) + "\n" for s in series)
         tmp = stem + ".json.tmp"
         with open(tmp, "w") as fh:
-            json.dump(out, fh)
+            json.dump(out, fh, allow_nan=False)
         os.replace(tmp, stem + ".json")  # atomic: a present result file is a complete one
     return out
 
@@ -202,7 +253,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--precision", choices=["fp32", "int8"], default="int8")
     ap.add_argument("--threads", type=int, default=1)
     ap.add_argument("--packet-ms", type=int, default=20)
-    ap.add_argument("--grid-ms", type=int, default=320, help="decode only every G ms of audio time (0 = every packet)")
+    ap.add_argument("--grid-ms", type=int, default=320, help="decode when the timeline crosses a G ms boundary (0 = every packet)")
     ap.add_argument("--paced", action="store_true")
     ap.add_argument("--tail-pad-s", type=float, default=0.8)
     ap.add_argument("--offset", type=int, default=0)
@@ -217,6 +268,8 @@ def parser() -> argparse.ArgumentParser:
 def main(argv=None):
     args = parser().parse_args(argv)
     res = run(args)
+    if not all(math.isfinite(v) for v in (res["cpu_seconds"], res["rtf_cpu"])):
+        raise ValueError("non-finite result")
     line = json.dumps(res)
     print(line)
     if args.out:

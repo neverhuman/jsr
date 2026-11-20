@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import math
 import os
 import subprocess
 import sys
@@ -43,25 +44,50 @@ def idle_cores(n: int, allowed: list[int], window_s: float = 3.0) -> list[int]:
     return [c for _, c in ranked[:n]]
 
 
-def summarise(run_dir: str, run_id: str, n_workers: int, codes: list[int], bound_ms: float) -> dict:
+def _finite(*xs) -> bool:
+    return all(isinstance(x, (int, float)) and math.isfinite(x) for x in xs)
+
+
+def sustains(w: dict, bound_ms: float) -> bool:
+    """Real time held: bounded tail and last lateness, no growing backlog, every stream drained."""
+    lat = w.get("lateness_ms")
+    return bool(lat) and w.get("drained") is True and lat["p99"] < bound_ms and lat["last"] < bound_ms \
+        and lat["last_third_mean"] < bound_ms
+
+
+def summarise(run_dir: str, run_id: str, requested: int, cores: list[int], codes: list[int],
+              bound_ms: float) -> dict:
     workers, problems = [], []
-    for i in range(n_workers):
+    if len(cores) != requested:
+        problems.append(f"requested {requested} cores, got {len(cores)}")
+    if len(codes) != requested:
+        problems.append(f"expected {requested} exit codes, got {len(codes)}")
+    problems += [f"worker {i}: exit {c}" for i, c in enumerate(codes) if c != 0]
+    for i in range(requested):
         p = os.path.join(run_dir, f"worker_{i}.json")
         if not os.path.exists(p):
             problems.append(f"worker {i}: no result file")
             continue
-        w = json.load(open(p))
+        try:
+            w = json.load(open(p))
+        except ValueError:
+            problems.append(f"worker {i}: malformed result")
+            continue
         if w.get("run_id") != run_id or w.get("worker_id") != i:
             problems.append(f"worker {i}: result belongs to another run")
             continue
+        if i < len(cores) and w.get("affinity") != [cores[i]]:
+            problems.append(f"worker {i}: ran on {w.get('affinity')}, expected [{cores[i]}]")
+        if not _finite(w.get("cpu_seconds"), w.get("audio_accepted_s"), w.get("rtf_cpu")):
+            problems.append(f"worker {i}: non-finite measurement")
+            continue
         workers.append(w)
-    problems += [f"worker {i}: exit {c}" for i, c in enumerate(codes) if c != 0]
-    ok = [w for w in workers if "lateness_ms" in w and w["lateness_ms"]["p99"] < bound_ms
-          and w["lateness_ms"]["last"] < bound_ms]
+    valid = not problems
+    ok = [w for w in workers if sustains(w, bound_ms)] if valid else []
     refs = sum(w["wer"]["ref_words"] for w in workers)
     errs = sum(w["wer"]["sub"] + w["wer"]["del"] + w["wer"]["ins"] for w in workers)
     acc = sum(w["audio_accepted_s"] for w in workers)
-    return dict(valid=not problems, problems=problems, workers=len(workers),
+    return dict(valid=valid, problems=problems, workers=len(workers),
                 sustaining_workers=len(ok), sustained_streams=sum(w["streams"] for w in ok),
                 offered_streams=sum(w["streams"] for w in workers),
                 pooled_wer=round(100.0 * errs / max(refs, 1), 3), ref_words=refs,
@@ -107,7 +133,7 @@ def main(argv=None) -> int:
                    streams_per_core=args.streams_per_core, decode=args.decode, grid_ms=args.grid_ms,
                    precision=args.precision, split=args.split, duration_s=args.duration_s, bound_ms=args.bound_ms,
                    exit_codes=codes, load_before=load_before, load_after=os.getloadavg(),
-                   **summarise(run_dir, run_id, len(cores), codes, args.bound_ms))
+                   **summarise(run_dir, run_id, args.cores, cores, codes, args.bound_ms))
     with open(os.path.join(run_dir, "summary.json"), "w") as fh:
         json.dump(summary, fh, indent=1)
     with open(args.out, "a") as fh:
