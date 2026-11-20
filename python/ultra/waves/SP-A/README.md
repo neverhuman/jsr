@@ -57,3 +57,6 @@ The previous section's DRAM explanation is superseded. The limit is **L3 per CCX
 **Implication:** with this runtime, H0's ceiling is about (16 CCXs) × 12 ≈ 190 live streams. That is a prediction until it is measured across all 16 CCXs in a qualifying window.
 
 **Primary ratio (batch vs single, unpaced, 1 core):** 18.8 / 12.6 = 1.49×, against the pre-registered ≥ 3×. The expected verdict is **NO_LIFT** on the primary, to be confirmed once on the test sets in the qualifying window.
+
+## Instrument caveat (2026-11-20 19:30Z, codex-review)
+The Rust runner's sherpa paths derived observation time from accepted samples, and marked samples processed without a decode. The Rust lateness and p99 figures above (one worker per CCX: 616–655 ms) are therefore **INVALID_INSTRUMENT for latency** until runtime fixes land. CPU totals and WER from those runs are unaffected. The Python-harness lateness numbers use the real monotonic clock and are not affected.
