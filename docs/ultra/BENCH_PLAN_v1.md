@@ -11,6 +11,27 @@
 
 ---
 
+## 0a. Protocol deltas adopted 2026-11-20 (codex-review, accepted by lead)
+- **Formal comparison:** the primary formal comparison is **R1 vs R0** only. Every other row is descriptive.
+- **Quality margin:** non-inferiority at **+0.10 absolute WER points**, decided by a one-sided paired cluster bootstrap (speakers).
+- **Latency margin:** CQ non-inferiority within **0.5 points**.
+- **EFFICIENT profile targets:**
+  - CPU ≤ 0.25 CPU-s per audio-s;
+  - stable-word delay p95 ≤ 2 s;
+  - FC delay p95 ≤ 1.5 s;
+  - aggregate memory ≤ 1.5 GiB;
+  - no accumulating backlog.
+- **CPU reproducibility:** a **5% median CPU rerun tolerance** is frozen before confirmation.
+- **R1-MR** is excluded from the initial freeze. It starts after the D2 qualifying window and gets its own add-on block.
+- **One-hour runs:** two actual one-hour trained-bundle runs are required, one for R0 and one for the selected R1.
+- **Fake-clock and unit runs** are contract evidence only, never performance evidence.
+- **Writer roles:**
+
+  | Package | Writer |
+  |---|---|
+  | M1 (Python/ORT CPU bridge for R1 bundles) | codex-review, reviewed by lead |
+  | B1/B3 (native Rust backend, bench-suite) | runtime-lane; moves to codex-review if no ACK by 2026-11-20T20:30Z |
+
 ## 0. Owner decisions (2026-11-20, this planning round)
 1. **Qualifying window:** right after D2 finishes (about 11-22 09:00–14:00Z, GPU idle), before D1MR starts. No D2 interruption.
 2. **Word timings:** the public Montreal-Forced-Aligner LibriSpeech word alignments (external, timing only). Download, hash and record them in `DATA.lock` (ruling O2 extended). Log a 20-utterance listening spot check.
