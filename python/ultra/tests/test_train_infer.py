@@ -99,3 +99,18 @@ def test_left_context_window_rolls():
     with torch.no_grad():
         enc, lens = m.encode(b.feats, b.feat_lens)
     assert torch.allclose(torch.cat(s.states, 0), enc[0], atol=1e-4)
+
+
+def test_onnx_backend_matches_torch():
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    torch.set_num_threads(1)
+    repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    d = os.path.join(repo, "target", "test-train", "onnx")
+    os.makedirs(d, exist_ok=True)
+    m = _model(False)
+    utts = _utts(4, seed=3)
+    want = run_streaming(StreamingRecognizer(m, _Tok(), threads=1), utts, 2, 30)
+    got = run_streaming(StreamingRecognizer(m, _Tok(), threads=1, backend="onnx",
+                                            onnx_path=os.path.join(d, "tiny.onnx")), utts, 2, 30)
+    assert got == want

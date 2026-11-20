@@ -107,6 +107,43 @@ class ChunkEncoder(nn.Module):
         return x, torch.stack(new_k), torch.stack(new_v), kv_len, torch.stack(new_conv)
 
 
+_IO_IN = ["feats", "t0", "k", "v", "kv_len", "conv"]
+_IO_OUT = ["x", "k_out", "v_out", "kv_len_out", "conv_out"]
+
+
+def export_onnx(enc: ChunkEncoder, path: str) -> None:
+    """Export the chunk encoder (fp32, dynamic stream batch) for onnxruntime."""
+    c = enc.enc.cfg
+    L, H, dh, lc, n = c.n_blocks, c.n_heads, c.d_model // c.n_heads, c.left_context, c.chunk
+    b = 2
+    args = (torch.zeros(b, 4 * n + 3, c.n_mels), torch.tensor([0, 4 * n]),
+            torch.zeros(L, b, H, lc, dh), torch.zeros(L, b, H, lc, dh), torch.tensor([0, lc]),
+            torch.zeros(L, b, c.conv_kernel - 1, c.d_model))
+    batch_axis = {"feats": 0, "t0": 0, "k": 1, "v": 1, "kv_len": 0, "conv": 1, "x": 0,
+                  "k_out": 1, "v_out": 1, "kv_len_out": 0, "conv_out": 1}
+    torch.onnx.export(enc, args, path, input_names=_IO_IN, output_names=_IO_OUT,
+                      dynamic_axes={k: ({ax: "B", 1: "F"} if k == "feats" else
+                                        {ax: "B", 1: "N"} if k == "x" else {ax: "B"})
+                                    for k, ax in batch_axis.items()},
+                      opset_version=17, dynamo=False)
+
+
+class OrtChunkEncoder:
+    """onnxruntime execution of an exported ChunkEncoder (same call signature)."""
+
+    def __init__(self, path: str, threads: int):
+        import onnxruntime as ort
+
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = max(1, threads)
+        so.inter_op_num_threads = 1
+        self.sess = ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
+
+    def __call__(self, *args):
+        outs = self.sess.run(None, {k: a.numpy() for k, a in zip(_IO_IN, args, strict=True)})
+        return tuple(torch.from_numpy(o) for o in outs)
+
+
 class Stream:
     """Per-utterance state: unframed samples, features, encoder caches, decoder context."""
 
@@ -143,7 +180,8 @@ class Stream:
 
 
 class StreamingRecognizer:
-    def __init__(self, model: ASRModel, tokenizer, threads: int = 1, max_symbols: int = 8):
+    def __init__(self, model: ASRModel, tokenizer, threads: int = 1, max_symbols: int = 8,
+                 backend: str = "torch", onnx_path: str | None = None):
         if threads:
             torch.set_num_threads(threads)
         self.model = model.eval()
@@ -153,18 +191,27 @@ class StreamingRecognizer:
         self.max_symbols = max_symbols
         self.logmel = LogMel()
         self.encoder = ChunkEncoder(model.encoder).eval()
+        if backend == "onnx":
+            if onnx_path is None:
+                raise ShapeError("backend onnx needs onnx_path")
+            export_onnx(self.encoder, onnx_path)
+            self.encoder = OrtChunkEncoder(onnx_path, threads)
+        elif backend != "torch":
+            raise ShapeError(f"unknown backend {backend}")
         self.forced_advances = 0
         self.keep_states = False  # tests: keep every stream's encoder states
 
     @staticmethod
-    def from_checkpoint(path: str, threads: int = 1, max_symbols: int = 8):
+    def from_checkpoint(path: str, threads: int = 1, max_symbols: int = 8, backend: str = "torch",
+                        onnx_path: str | None = None):
         from train import checkpoint
         from train.tokenizer import Tokenizer, tokenizer_path
 
         p = checkpoint.load(path, restore_rng=False)
         model = ASRModel(ModelConfig.from_dict(p["model_config"]))
         model.load_state_dict(p["model"])
-        return StreamingRecognizer(model, Tokenizer(tokenizer_path(4096)), threads, max_symbols)
+        return StreamingRecognizer(model, Tokenizer(tokenizer_path(4096)), threads, max_symbols,
+                                   backend, onnx_path)
 
     # ---- sherpa-onnx-like surface used by ultra.sp_a -----------------------------------------
     def create_stream(self) -> Stream:
@@ -303,11 +350,14 @@ def main() -> None:
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--packet-ms", type=int, default=20)
     ap.add_argument("--compare", action="store_true", help="also run the trainer's batch eval")
+    ap.add_argument("--backend", choices=["torch", "onnx"], default="torch")
+    ap.add_argument("--onnx-path", default=None, help="where to write the exported chunk encoder")
     a = ap.parse_args()
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
 
-    rec = StreamingRecognizer.from_checkpoint(a.checkpoint, threads=a.threads)
+    rec = StreamingRecognizer.from_checkpoint(a.checkpoint, threads=a.threads, backend=a.backend,
+                                              onnx_path=a.onnx_path)
     utts = load_split(a.split, a.limit)
     r0 = resource.getrusage(resource.RUSAGE_SELF)
     w0 = time.perf_counter()
@@ -315,7 +365,7 @@ def main() -> None:
     r1 = resource.getrusage(resource.RUSAGE_SELF)
     cpu = (r1.ru_utime + r1.ru_stime) - (r0.ru_utime + r0.ru_stime)
     audio = sum(u.seconds for u in utts)
-    out = {"kind": "streaming", "split": a.split, "n": len(utts), "streams": a.streams,
+    out = {"kind": "streaming", "backend": a.backend, "split": a.split, "n": len(utts), "streams": a.streams,
            "threads": a.threads, "packet_ms": a.packet_ms, "audio_s": round(audio, 1),
            "wall_s": round(time.perf_counter() - w0, 2), "cpu_s": round(cpu, 2),
            "rtf_cpu": round(cpu / audio, 4), "forced_advances": rec.forced_advances,
