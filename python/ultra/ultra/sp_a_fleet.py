@@ -138,8 +138,11 @@ def main(argv=None) -> int:
     ap.add_argument("--allowed", default="32-47", help="physical-core block owned by this lane (AGENT_CHAT partition)")
     ap.add_argument("--cores-per-worker", type=int, default=1,
                     help="pin each worker to this many consecutive cores (4 = one Zen 2 CCX) with as many threads")
+    ap.add_argument("--one-per-ccx", action="store_true",
+                    help="one single-threaded worker on the first core of each 4-core Zen 2 CCX in --allowed")
     ap.add_argument("--qualifying", action="store_true", help="take the host lease (announced quiet window only)")
     ap.add_argument("--out", default=os.path.join(DATA, "runs", "sp_a", "fleet.jsonl"))
+    ap.add_argument("--model-dir", default=os.path.join(DATA, "models", "zipformer-en-2023-06-26"))
     args = ap.parse_args(argv)
     lo, hi = (int(x) for x in args.allowed.split("-"))
     lease_path = os.path.join(DATA, "BENCH_LEASE.host" if args.qualifying else "BENCH_LEASE.lead")
@@ -150,7 +153,10 @@ def main(argv=None) -> int:
     os.makedirs(run_dir)
     load_before = os.getloadavg()
     k = args.cores_per_worker
-    if k == 1:
+    if args.one_per_ccx:
+        groups = [[g] for g in range(lo - lo % 4, hi + 1, 4) if g >= lo][: args.cores]
+        k = 1
+    elif k == 1:
         groups = [[c] for c in idle_cores(args.cores, list(range(lo, hi + 1)))]
     else:  # whole aligned groups (CCX = 4 cores on Zen 2), lowest first
         groups = [list(range(g, g + k)) for g in range(lo - lo % k, hi + 1, k) if g >= lo and g + k - 1 <= hi][: args.cores // k]
@@ -158,7 +164,7 @@ def main(argv=None) -> int:
     procs = []
     for i, g in enumerate(groups):
         cmd = ["taskset", "-c", ",".join(map(str, g)), sys.executable, "-m", "ultra.sp_a", "--paced", "--split", args.split,
-               "--threads", str(len(g)),
+               "--threads", str(len(g)), "--model-dir", args.model_dir,
                "--streams", str(args.streams_per_core), "--decode", args.decode, "--precision", args.precision,
                "--grid-ms", str(args.grid_ms), "--duration-s", str(args.duration_s), "--offset", str(i * 97),
                "--run-id", run_id, "--worker-id", str(i), "--out-dir", run_dir]
@@ -169,7 +175,7 @@ def main(argv=None) -> int:
                    streams_per_core=args.streams_per_core, decode=args.decode, grid_ms=args.grid_ms,
                    precision=args.precision, split=args.split, duration_s=args.duration_s, bound_ms=args.bound_ms,
                    exit_codes=codes, load_before=load_before, load_after=os.getloadavg(),
-                   **summarise(run_dir, run_id, max(1, args.cores // k), cores, codes, args.bound_ms))
+                   **summarise(run_dir, run_id, len(groups), cores, codes, args.bound_ms))
     with open(os.path.join(run_dir, "summary.json"), "w") as fh:
         json.dump(summary, fh, indent=1)
     with open(args.out, "a") as fh:
