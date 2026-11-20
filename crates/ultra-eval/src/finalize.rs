@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::delay::quantile_nearest_rank;
+use crate::EvalError;
 
 /// Default deadlines (ms) at which FC is reported.
 pub const FC_DEADLINES_MS: [u32; 4] = [800, 1000, 1500, 2000];
@@ -22,6 +23,9 @@ pub struct Episode {
     pub ref_end_s: f64,
     /// Observation time of the successful `Final` that closed it, if any.
     pub final_t_s: Option<f64>,
+    /// A covering Final was observed before the reference speech ended (counted as a miss).
+    #[serde(default)]
+    pub premature: bool,
 }
 
 impl Episode {
@@ -56,34 +60,68 @@ pub struct RefEpisode {
 /// the owned intervals of successful Finals. Its finalization time is the latest of those
 /// Finals. Any part owned by an incomplete or never-closed segment, or not owned at all,
 /// makes it a miss. An empty speech interval is never finalized.
-pub fn episodes_from_finals(refs: &[RefEpisode], finals: &[FinalObs]) -> Vec<Episode> {
+pub fn episodes_from_finals(
+    refs: &[RefEpisode],
+    finals: &[FinalObs],
+) -> Result<Vec<Episode>, EvalError> {
+    let mut seen = std::collections::BTreeSet::new();
+    for f in finals {
+        if !f.t_s.is_finite() || f.owned_end_sample < f.owned_start_sample {
+            return Err(EvalError::Input(format!(
+                "malformed Final for segment {}",
+                f.segment_id
+            )));
+        }
+        if !seen.insert(f.segment_id) {
+            return Err(EvalError::Input(format!(
+                "more than one Final for segment {}",
+                f.segment_id
+            )));
+        }
+    }
     let mut sorted: Vec<&FinalObs> = finals.iter().collect();
     sorted.sort_by_key(|f| f.owned_start_sample);
-    refs.iter()
-        .map(|r| {
-            let (mut cursor, mut latest) = (r.speech_start_sample, f64::NEG_INFINITY);
-            for f in sorted.iter().filter(|f| {
-                f.owned_end_sample > r.speech_start_sample
-                    && f.owned_start_sample < r.speech_end_sample
-            }) {
-                if f.owned_start_sample > cursor {
-                    break; // a hole in finalized ownership
-                }
-                cursor = cursor.max(f.owned_end_sample);
-                latest = latest.max(f.t_s);
-                if cursor >= r.speech_end_sample {
-                    break;
-                }
+    if sorted
+        .windows(2)
+        .any(|w| w[1].owned_start_sample < w[0].owned_end_sample)
+    {
+        return Err(EvalError::Input(
+            "Finals claim overlapping ownership".into(),
+        ));
+    }
+    let mut out = Vec::with_capacity(refs.len());
+    for r in refs {
+        if !r.ref_end_s.is_finite() || r.speech_end_sample < r.speech_start_sample {
+            return Err(EvalError::Input(format!(
+                "malformed reference episode {}",
+                r.id
+            )));
+        }
+        let (mut cursor, mut latest) = (r.speech_start_sample, f64::NEG_INFINITY);
+        let overlapping = sorted.iter().filter(|f| {
+            f.owned_end_sample > r.speech_start_sample && f.owned_start_sample < r.speech_end_sample
+        });
+        for f in overlapping {
+            if f.owned_start_sample > cursor {
+                break; // a hole in finalized ownership
             }
-            let covered =
-                r.speech_end_sample > r.speech_start_sample && cursor >= r.speech_end_sample;
-            Episode {
-                id: r.id.clone(),
-                ref_end_s: r.ref_end_s,
-                final_t_s: covered.then_some(latest),
+            cursor = cursor.max(f.owned_end_sample);
+            latest = latest.max(f.t_s);
+            if cursor >= r.speech_end_sample {
+                break;
             }
-        })
-        .collect()
+        }
+        let covered = r.speech_end_sample > r.speech_start_sample && cursor >= r.speech_end_sample;
+        // A Final cannot causally close speech that had not ended yet: treat it as a miss.
+        let premature = covered && latest < r.ref_end_s;
+        out.push(Episode {
+            id: r.id.clone(),
+            ref_end_s: r.ref_end_s,
+            final_t_s: (covered && !premature).then_some(latest),
+            premature,
+        });
+    }
+    Ok(out)
 }
 
 /// FC at one deadline.
@@ -146,7 +184,8 @@ pub fn finalization_report(episodes: &[Episode], deadlines_ms: &[u32]) -> Finali
         coverage: ratio(finished.len() as u64),
         conditional_p50_s: quantile_nearest_rank(&finished, 0.50),
         conditional_p95_s: quantile_nearest_rank(&finished, 0.95),
-        early_finals: finished.iter().filter(|&&d| d < 0.0).count() as u64,
+        early_finals: finished.iter().filter(|&&d| d < 0.0).count() as u64
+            + episodes.iter().filter(|e| e.premature).count() as u64,
         fc,
     }
 }
@@ -160,6 +199,7 @@ mod tests {
             id: id.into(),
             ref_end_s: end,
             final_t_s: fin,
+            premature: false,
         }
     }
 
@@ -214,7 +254,8 @@ mod tests {
     #[test]
     fn episode_spanning_two_finalized_segments_takes_the_later_final() {
         let finals = [fin(0, 0, 16_000, 1.3), fin(1, 16_000, 40_000, 2.9)];
-        let eps = episodes_from_finals(&[rf("a", 8_000, 24_000), rf("b", 30_000, 39_000)], &finals);
+        let eps = episodes_from_finals(&[rf("a", 8_000, 24_000), rf("b", 30_000, 39_000)], &finals)
+            .unwrap();
         assert_eq!(eps[0].final_t_s, Some(2.9));
         assert_eq!(eps[1].final_t_s, Some(2.9));
     }
@@ -230,10 +271,43 @@ mod tests {
                 rf("empty", 5, 5),
             ],
             &finals,
-        );
+        )
+        .unwrap();
         assert!(eps.iter().all(|e| e.final_t_s.is_none()));
         let r = finalization_report(&eps, &[1500]);
         assert_eq!(r.fc[0].fc, Some(0.0));
+    }
+
+    #[test]
+    fn premature_final_is_a_miss_and_counted() {
+        let r = RefEpisode {
+            id: "p".into(),
+            speech_start_sample: 0,
+            speech_end_sample: 32_000,
+            ref_end_s: 2.0,
+        };
+        let eps = episodes_from_finals(&[r], &[fin(0, 0, 32_000, 0.5)]).unwrap();
+        assert!(eps[0].premature && eps[0].final_t_s.is_none());
+        let rep = finalization_report(&eps, &[1500]);
+        assert_eq!((rep.fc[0].fc, rep.early_finals), (Some(0.0), 1));
+    }
+
+    #[test]
+    fn malformed_duplicate_or_overlapping_finals_are_errors() {
+        let r = [rf("a", 0, 16_000)];
+        assert!(episodes_from_finals(
+            &r,
+            &[fin(0, 0, 16_000, f64::NAN), fin(1, 16_000, 32_000, 3.0)]
+        )
+        .is_err());
+        assert!(
+            episodes_from_finals(&r, &[fin(0, 0, 8_000, 1.0), fin(0, 8_000, 16_000, 2.0)]).is_err()
+        );
+        assert!(
+            episodes_from_finals(&r, &[fin(0, 0, 10_000, 1.0), fin(1, 9_000, 16_000, 2.0)])
+                .is_err()
+        );
+        assert!(episodes_from_finals(&r, &[fin(0, 10_000, 5_000, 1.0)]).is_err());
     }
 
     #[test]

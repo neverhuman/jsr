@@ -29,7 +29,7 @@ fn two_utterances_one_finalized_in_time_one_lost_to_a_gap() {
             ref_end_s: 0.29375,
         },
     ];
-    let eps = episodes_from_finals(&refs, &s.finals);
+    let eps = episodes_from_finals(&refs, &s.finals).unwrap();
     assert_eq!(eps[0].final_t_s, Some(0.9));
     assert_eq!(
         eps[1].final_t_s, None,
