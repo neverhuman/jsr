@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -123,11 +124,15 @@ def parse_jsonl_line(line: str) -> tuple[str, list[Word]]:
 
 
 def validate(words: list[Word], audio_s: float | None = None) -> None:
-    """Raise ValueError unless times are non-negative, ordered, and within the audio."""
+    """Raise ValueError unless times are finite, non-negative, ordered, and within the audio."""
+    if audio_s is not None and (not math.isfinite(audio_s) or audio_s < 0):
+        raise ValueError(f"audio duration must be finite and non-negative, got {audio_s!r}")
     prev_end = 0.0
     for w in words:
         if not w.w or w.w != w.w.upper():
             raise ValueError(f"word must be non-empty upper-case: {w.w!r}")
+        if not (math.isfinite(w.start_s) and math.isfinite(w.end_s)):
+            raise ValueError(f"non-finite time at {w}")
         if w.start_s < 0 or w.end_s < w.start_s or w.start_s + 1e-6 < prev_end:
             raise ValueError(f"bad timing order at {w}")
         prev_end = w.end_s

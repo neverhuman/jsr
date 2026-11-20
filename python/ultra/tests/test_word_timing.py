@@ -122,3 +122,20 @@ def test_member_allowlist_rejects_traversal():
                 "train-clean-100/1/2/1-2-3.TextGrid", "test-clean/61/70970/evil.py"]:
         with pytest.raises(ValueError):
             wt.member_relpath(bad)
+
+
+def test_validate_rejects_nonfinite_times_and_duration():
+    import math
+
+    import pytest
+
+    from ultra.word_timing import Word, validate
+
+    for bad in ([Word("A", math.nan, 1.0)], [Word("A", 0.0, math.nan)], [Word("A", 0.0, math.inf)]):
+        with pytest.raises(ValueError):
+            validate(bad)
+    with pytest.raises(ValueError):
+        validate([Word("A", 0.0, 1.0)], audio_s=math.nan)
+    with pytest.raises(ValueError):
+        validate([Word("A", 0.0, 1.0)], audio_s=-1.0)
+    validate([Word("A", 0.0, 1.0)], audio_s=2.0)
