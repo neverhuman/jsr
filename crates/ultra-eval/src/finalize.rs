@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::delay::quantile_nearest_rank;
 use crate::EvalError;
 
+/// Sample rate of the stream clock used to place reference times inside an episode.
+const SAMPLE_RATE: f64 = 16_000.0;
+
 /// Default deadlines (ms) at which FC is reported.
 pub const FC_DEADLINES_MS: [u32; 4] = [800, 1000, 1500, 2000];
 
@@ -97,7 +100,10 @@ pub fn episodes_from_finals(
                 r.id
             )));
         }
-        let (mut cursor, mut latest) = (r.speech_start_sample, f64::NEG_INFINITY);
+        let (mut cursor, mut latest, mut early) = (r.speech_start_sample, f64::NEG_INFINITY, false);
+        // Reference time of a sample inside this episode (16 kHz, anchored at ref_end_s).
+        let time_of =
+            |x: u64| r.ref_end_s - (r.speech_end_sample.saturating_sub(x)) as f64 / SAMPLE_RATE;
         let overlapping = sorted.iter().filter(|f| {
             f.owned_end_sample > r.speech_start_sample && f.owned_start_sample < r.speech_end_sample
         });
@@ -105,6 +111,10 @@ pub fn episodes_from_finals(
             if f.owned_start_sample > cursor {
                 break; // a hole in finalized ownership
             }
+            // Each covering Final must arrive after the speech it closes had been spoken:
+            // a later valid closure cannot rescue an earlier premature one.
+            let closes_through = f.owned_end_sample.min(r.speech_end_sample);
+            early |= f.t_s < time_of(closes_through);
             cursor = cursor.max(f.owned_end_sample);
             latest = latest.max(f.t_s);
             if cursor >= r.speech_end_sample {
@@ -113,7 +123,7 @@ pub fn episodes_from_finals(
         }
         let covered = r.speech_end_sample > r.speech_start_sample && cursor >= r.speech_end_sample;
         // A Final cannot causally close speech that had not ended yet: treat it as a miss.
-        let premature = covered && latest < r.ref_end_s;
+        let premature = covered && early;
         out.push(Episode {
             id: r.id.clone(),
             ref_end_s: r.ref_end_s,
@@ -290,6 +300,27 @@ mod tests {
         assert!(eps[0].premature && eps[0].final_t_s.is_none());
         let rep = finalization_report(&eps, &[1500]);
         assert_eq!((rep.fc[0].fc, rep.early_finals), (Some(0.0), 1));
+    }
+
+    #[test]
+    fn a_later_final_cannot_rescue_an_earlier_premature_one() {
+        // Episode [0, 32000), speech ends at 2.0 s. Segment 0 closes [0, 16000) at 0.1 s,
+        // but sample 16000 is only spoken at 1.0 s: that closure is premature.
+        let r = RefEpisode {
+            id: "c".into(),
+            speech_start_sample: 0,
+            speech_end_sample: 32_000,
+            ref_end_s: 2.0,
+        };
+        let eps = episodes_from_finals(
+            std::slice::from_ref(&r),
+            &[fin(0, 0, 16_000, 0.1), fin(1, 16_000, 32_000, 2.5)],
+        )
+        .unwrap();
+        assert!(eps[0].premature && eps[0].final_t_s.is_none());
+        let ok = episodes_from_finals(&[r], &[fin(0, 0, 16_000, 1.2), fin(1, 16_000, 32_000, 2.5)])
+            .unwrap();
+        assert_eq!(ok[0].final_t_s, Some(2.5));
     }
 
     #[test]
