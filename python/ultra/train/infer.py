@@ -52,11 +52,10 @@ class ChunkEncoder(nn.Module):
     def __init__(self, enc: Encoder):
         super().__init__()
         if enc.cfg.family != "dense":
-            raise ShapeError(f"streaming path implements the dense family only, not {enc.cfg.family}")
+            raise ShapeError(f"ChunkEncoder is the dense family; use ChunkEncoderMR for {enc.cfg.family}")
         self.enc = enc
         c = enc.cfg
-        self.h, self.dh, self.left, self.k = c.n_heads, c.d_model // c.n_heads, c.left_context, \
-            c.conv_kernel
+        self.h, self.dh, self.k = c.n_heads, c.d_model // c.n_heads, c.conv_kernel
 
     def _stem(self, feats: torch.Tensor, t0: torch.Tensor, n: int) -> torch.Tensor:
         st = self.enc.stem
@@ -69,23 +68,22 @@ class ChunkEncoder(nn.Module):
             raise ShapeError(f"stem produced {t} frames, expected {n}")
         return st.out(y.permute(0, 2, 1, 3).reshape(b, t, ch * f))
 
-    def forward(self, feats, t0, k, v, kv_len, conv):
-        b = feats.shape[0]
-        n = (feats.shape[1] - 3) // 4
-        x = self._stem(feats, t0, n)
+    def _run_blocks(self, blocks, x, pos0, k, v, kv_len, conv):
+        """Blocks over one chunk x (B, n, d) whose first position is pos0 (B,) at this rate."""
+        b, n, _ = x.shape
         lc = k.shape[3]
         dev = x.device
         inv = 1.0 / (10000 ** (torch.arange(0, self.dh, 2, device=dev, dtype=torch.float32)
                                / self.dh))
-        pos = (t0[:, None] + torch.arange(n, device=dev)[None]).float()  # (B, n)
-        ang = pos[..., None] * inv  # (B, n, half)
-        cos, sin = ang.cos()[:, None], ang.sin()[:, None]  # (B, 1, n, half)
+        pos = (pos0[:, None] + torch.arange(n, device=dev)[None]).float()  # (B, n)
+        ang = pos[..., None] * inv  # (B, n, dh/2)
+        cos, sin = ang.cos()[:, None], ang.sin()[:, None]  # (B, 1, n, dh/2)
         slot = torch.arange(lc, device=dev)[None]
         key_ok = torch.cat([slot >= (lc - kv_len[:, None]),
                             torch.ones(b, n, dtype=torch.bool, device=dev)], dim=1)
         mask = key_ok[:, None, None, :]  # (B, 1, 1, Lc + n): every query sees all valid keys
         new_k, new_v, new_conv = [], [], []
-        for li, blk in enumerate(self.enc.blocks):
+        for li, blk in enumerate(blocks):
             x = x + 0.5 * blk.ff1(x)
             att = blk.att
             q, kk, vv = att.qkv(att.norm(x)).view(b, n, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
@@ -104,29 +102,91 @@ class ChunkEncoder(nn.Module):
             x = x + cm.pw2(F.silu(cm.dnorm(y)))
             x = x + 0.5 * blk.ff2(x)
             x = blk.norm(x)
-        x = self.enc.final_norm(x)
-        kv_len = torch.clamp(kv_len + n, max=lc)
-        return x, torch.stack(new_k), torch.stack(new_v), kv_len, torch.stack(new_conv)
+        return (x, torch.stack(new_k), torch.stack(new_v), torch.clamp(kv_len + n, max=lc),
+                torch.stack(new_conv))
+
+    def forward(self, feats, t0, k, v, kv_len, conv):
+        n = (feats.shape[1] - 3) // 4
+        x = self._stem(feats, t0, n)
+        x, k, v, kv_len, conv = self._run_blocks(self.enc.blocks, x, t0, k, v, kv_len, conv)
+        return self.enc.final_norm(x), k, v, kv_len, conv
+
+
+class ChunkEncoderMR(ChunkEncoder):
+    """MULTIRATE chunk encoder. k, v, kv_len, conv hold the 25 Hz caches of the lower blocks
+    followed by the final blocks (left_context slots); km, vm, kvm_len, convm hold the 12.5 Hz
+    caches of the middle blocks (left_context / 2 slots). Chunks start at even 25 Hz positions;
+    a final partial chunk of odd length pairs its last position with zeros, as in training."""
+
+    def __init__(self, enc: Encoder):
+        nn.Module.__init__(self)
+        if enc.cfg.family != "multirate":
+            raise ShapeError("ChunkEncoderMR needs the multirate family")
+        self.enc = enc
+        c = enc.cfg
+        self.h, self.dh, self.k = c.n_heads, c.d_model // c.n_heads, c.conv_kernel
+        self.nl = c.lower_blocks
+
+    def forward(self, feats, t0, k, v, kv_len, conv, km, vm, kvm_len, convm):
+        e, nl = self.enc, self.nl
+        n = (feats.shape[1] - 3) // 4
+        x = self._stem(feats, t0, n)
+        x, k1, v1, kl1, c1 = self._run_blocks(e.blocks, x, t0, k[:nl], v[:nl], kv_len, conv[:nl])
+        skip = x
+        b, _, d = x.shape
+        # Pair positions (2j, 2j+1); an odd final chunk pairs its last position with zeros.
+        # Written without a Python branch on n so the ONNX trace keeps it for any chunk length.
+        x = F.pad(x, (0, 0, 0, 1))[:, :2 * ((n + 1) // 2)]
+        m = e.pair(x.reshape(b, -1, 2 * d))
+        m, km, vm, kvm_len, convm = self._run_blocks(e.mid_blocks, m, torch.div(t0, 2, rounding_mode="floor"),
+                                                     km, vm, kvm_len, convm)
+        x = e.restore(m).reshape(b, -1, d)[:, :n] + skip
+        x, k2, v2, _, c2 = self._run_blocks(e.final_blocks, x, t0, k[nl:], v[nl:], kv_len, conv[nl:])
+        return (e.final_norm(x), torch.cat([k1, k2]), torch.cat([v1, v2]), kl1,
+                torch.cat([c1, c2]), km, vm, kvm_len, convm)
 
 
 _IO_IN = ["feats", "t0", "k", "v", "kv_len", "conv"]
 _IO_OUT = ["x", "k_out", "v_out", "kv_len_out", "conv_out"]
+_IO_IN_MR = _IO_IN + ["km", "vm", "kvm_len", "convm"]
+_IO_OUT_MR = _IO_OUT + ["km_out", "vm_out", "kvm_len_out", "convm_out"]
+
+
+def cache_shapes(c) -> dict:
+    """Per-stream cache shapes: 25 Hz blocks (and 12.5 Hz middle blocks for multirate)."""
+    H, dh = c.n_heads, c.d_model // c.n_heads
+    n25 = c.n_blocks if c.family == "dense" else c.lower_blocks + c.final_blocks
+    out = {"k": (n25, H, c.left_context, dh), "conv": (n25, c.conv_kernel - 1, c.d_model)}
+    if c.family == "multirate":
+        out["km"] = (c.middle_blocks, H, c.left_context // 2, dh)
+        out["convm"] = (c.middle_blocks, c.conv_kernel - 1, c.d_model)
+    return out
 
 
 def export_onnx(enc: ChunkEncoder, path: str) -> None:
-    """Export the chunk encoder (fp32, dynamic stream batch) for onnxruntime."""
+    """Export the chunk encoder (fp32, dynamic stream batch and chunk length) for onnxruntime."""
     c = enc.enc.cfg
-    L, H, dh, lc, n = c.n_blocks, c.n_heads, c.d_model // c.n_heads, c.left_context, c.chunk
-    b = 2
-    args = (torch.zeros(b, 4 * n + 3, c.n_mels), torch.tensor([0, 4 * n]),
-            torch.zeros(L, b, H, lc, dh), torch.zeros(L, b, H, lc, dh), torch.tensor([0, lc]),
-            torch.zeros(L, b, c.conv_kernel - 1, c.d_model))
-    batch_axis = {"feats": 0, "t0": 0, "k": 1, "v": 1, "kv_len": 0, "conv": 1, "x": 0,
-                  "k_out": 1, "v_out": 1, "kv_len_out": 0, "conv_out": 1}
-    torch.onnx.export(enc, args, path, input_names=_IO_IN, output_names=_IO_OUT,
+    sh = cache_shapes(c)
+    n, b = c.chunk, 2
+
+    def cache(key):
+        L, *rest = sh[key]
+        return torch.zeros(L, b, *rest)
+
+    args = [torch.zeros(b, 4 * n + 3, c.n_mels), torch.tensor([0, 4 * n]), cache("k"), cache("k"),
+            torch.tensor([0, c.left_context]), cache("conv")]
+    names_in, names_out = _IO_IN, _IO_OUT
+    axis = {"feats": 0, "t0": 0, "k": 1, "v": 1, "kv_len": 0, "conv": 1, "x": 0, "k_out": 1,
+            "v_out": 1, "kv_len_out": 0, "conv_out": 1}
+    if c.family == "multirate":
+        args += [cache("km"), cache("km"), torch.tensor([0, c.left_context // 2]), cache("convm")]
+        names_in, names_out = _IO_IN_MR, _IO_OUT_MR
+        axis.update({"km": 1, "vm": 1, "kvm_len": 0, "convm": 1, "km_out": 1, "vm_out": 1,
+                     "kvm_len_out": 0, "convm_out": 1})
+    torch.onnx.export(enc, tuple(args), path, input_names=names_in, output_names=names_out,
                       dynamic_axes={k: ({ax: "B", 1: "F"} if k == "feats" else
                                         {ax: "B", 1: "N"} if k == "x" else {ax: "B"})
-                                    for k, ax in batch_axis.items()},
+                                    for k, ax in axis.items()},
                       opset_version=17, dynamo=False)
 
 
@@ -142,16 +202,17 @@ def quantize_int8(fp32_path: str, int8_path: str) -> None:
 class OrtChunkEncoder:
     """onnxruntime execution of an exported ChunkEncoder (same call signature)."""
 
-    def __init__(self, path: str, threads: int):
+    def __init__(self, path: str, threads: int, multirate: bool = False):
         import onnxruntime as ort
 
+        self.names = _IO_IN_MR if multirate else _IO_IN
         so = ort.SessionOptions()
         so.intra_op_num_threads = max(1, threads)
         so.inter_op_num_threads = 1
         self.sess = ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
 
     def __call__(self, *args):
-        outs = self.sess.run(None, {k: a.numpy() for k, a in zip(_IO_IN, args, strict=True)})
+        outs = self.sess.run(None, {k: a.numpy() for k, a in zip(self.names, args, strict=True)})
         return tuple(torch.from_numpy(o) for o in outs)
 
 
@@ -160,7 +221,7 @@ class Stream:
 
     def __init__(self, rec: StreamingRecognizer):
         c = rec.cfg.encoder
-        L, H, dh = c.n_blocks, c.n_heads, c.d_model // c.n_heads
+        sh = cache_shapes(c)
         self.samples = np.zeros(0, dtype=np.float32)  # not yet consumed by a full frame
         self.sample_base = 0  # absolute index of samples[0]
         self.n_feat = 0
@@ -168,10 +229,16 @@ class Stream:
         self.feat_base = 0
         self.t_next = 0
         self.finished = False
-        self.k = torch.zeros(L, H, c.left_context, dh)
-        self.v = torch.zeros(L, H, c.left_context, dh)
+        self.k = torch.zeros(sh["k"])
+        self.v = torch.zeros(sh["k"])
         self.kv_len = 0
-        self.conv = torch.zeros(L, c.conv_kernel - 1, c.d_model)
+        self.conv = torch.zeros(sh["conv"])
+        self.mr = "km" in sh
+        if self.mr:
+            self.km = torch.zeros(sh["km"])
+            self.vm = torch.zeros(sh["km"])
+            self.kvm_len = 0
+            self.convm = torch.zeros(sh["convm"])
         self.ctx = [BLANK, BLANK]
         self.tokens: list[int] = []
         self.forced = 0
@@ -201,7 +268,8 @@ class StreamingRecognizer:
         self.tok = tokenizer
         self.max_symbols = max_symbols
         self.logmel = LogMel()
-        self.encoder = ChunkEncoder(model.encoder).eval()
+        self.mr = self.cfg.encoder.family == "multirate"
+        self.encoder = (ChunkEncoderMR if self.mr else ChunkEncoder)(model.encoder).eval()
         if backend in ("onnx", "onnx-int8"):
             if onnx_path is None:
                 raise ShapeError(f"backend {backend} needs onnx_path")
@@ -210,7 +278,7 @@ class StreamingRecognizer:
                 q = onnx_path[:-5] + ".int8.onnx" if onnx_path.endswith(".onnx") else onnx_path + ".int8"
                 quantize_int8(onnx_path, q)
                 onnx_path = q
-            self.encoder = OrtChunkEncoder(onnx_path, threads)
+            self.encoder = OrtChunkEncoder(onnx_path, threads, self.mr)
         elif backend != "torch":
             raise ShapeError(f"unknown backend {backend}")
         self.forced_advances = 0
@@ -292,7 +360,17 @@ class StreamingRecognizer:
         v = torch.stack([s.v for s in streams], dim=1)
         kv = torch.tensor([s.kv_len for s in streams])
         conv = torch.stack([s.conv for s in streams], dim=1)
-        x, k, v, kv, conv = self.encoder(feats, t0, k, v, kv, conv)
+        if self.mr:
+            km = torch.stack([s.km for s in streams], dim=1)
+            vm = torch.stack([s.vm for s in streams], dim=1)
+            kvm = torch.tensor([s.kvm_len for s in streams])
+            convm = torch.stack([s.convm for s in streams], dim=1)
+            x, k, v, kv, conv, km, vm, kvm, convm = self.encoder(feats, t0, k, v, kv, conv,
+                                                                 km, vm, kvm, convm)
+            for i, s in enumerate(streams):
+                s.km, s.vm, s.kvm_len, s.convm = km[:, i], vm[:, i], int(kvm[i]), convm[:, i]
+        else:
+            x, k, v, kv, conv = self.encoder(feats, t0, k, v, kv, conv)
         for i, s in enumerate(streams):
             s.k, s.v, s.kv_len, s.conv = k[:, i], v[:, i], int(kv[i]), conv[:, i]
             s.t_next = t0s[i] + n
