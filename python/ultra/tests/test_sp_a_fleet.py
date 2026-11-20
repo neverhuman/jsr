@@ -28,7 +28,7 @@ def test_valid_run_counts_only_sustaining_workers(tmp_path):
     _worker(tmp_path, 1, lat={"p99": 900.0, "last": 50.0, "first_third_mean": 55.0, "last_third_mean": 60.0})
     _worker(tmp_path, 2, lat={"p99": 100.0, "last": 50.0, "first_third_mean": 55.0, "last_third_mean": 500.0})  # growing backlog
     _worker(tmp_path, 3, drained=False)
-    s = summarise(str(tmp_path), "r1", 4, [40, 41, 42, 43], [0, 0, 0, 0], 320.0)
+    s = summarise(str(tmp_path), "r1", 4, ["40", "41", "42", "43"], [0, 0, 0, 0], 320.0)
     assert s["valid"] and s["sustaining_workers"] == 1 and s["sustained_streams"] == 10
     assert s["offered_streams"] == 40 and s["pooled_wer"] == 2.0 and s["cpu_s_per_audio_s"] == 0.1
 
@@ -70,7 +70,7 @@ def test_negative_or_infinite_values_and_malformed_rows(tmp_path):
         fh.write("[]")
     with open(os.path.join(tmp_path, "worker_3.json"), "w") as fh:
         json.dump(dict(run_id="r1", worker_id=3, affinity=[43]), fh)
-    s = summarise(str(tmp_path), "r1", 4, [40, 41, 42, 43], [0, 0, 0, 0], 320.0)
+    s = summarise(str(tmp_path), "r1", 4, ["40", "41", "42", "43"], [0, 0, 0, 0], 320.0)
     assert not s["valid"] and s["sustained_streams"] == 0
     joined = " ".join(s["problems"])
     assert "negative cpu_seconds" in joined and "not an object" in joined and "missing" in joined

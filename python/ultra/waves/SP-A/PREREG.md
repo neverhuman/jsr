@@ -53,3 +53,12 @@ Batching every ready stream into one weight pass per tick lets one H0 core susta
 - 0 GPU-hours.
 - ≤ 20 core-hours.
 - ≤ 5 GB disk.
+
+## Amendment A1 (2026-11-20, on DEV, before any confirmation)
+- **What changed in the lateness definition (codex-review):** lateness is now the age of the oldest unprocessed audio at decode completion. Capture deadlines are fixed. The age includes up to one grid wait plus model lookahead.
+- **Sustain criterion:** p99 ≤ 800 ms (the v1.0-B LIVE finalization target) and last lateness ≤ 800 ms. The last-third mean may not exceed the first-third mean by more than 0.25 × the bound (no growing backlog). Every stream must drain.
+- **Scheduler:** treatment and control both use the grid scheduler (decode on grid ticks; batch vs single within a tick). Grid = 320 ms, with a 160 ms arm.
+- **Unchanged:** the 3× primary ratio, the WER margin, the partitions.
+- **Labels:**
+  - **Exploratory:** per-block timing.
+  - **Qualifying:** only under BENCH_LEASE.host, in an announced quiet window.
