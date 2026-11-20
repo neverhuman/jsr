@@ -60,7 +60,10 @@ class BundleStream:
 
 
 class BundleRecognizer:
-    def __init__(self, bundle: str, precision: str = "fp32", threads: int = 1, verify: bool = True):
+    def __init__(self, bundle: str, precision: str = "fp32", threads: int = 1, verify: bool = True,
+                 joiner_precision: str | None = None, override: dict | None = None):
+        """`override` maps a manifest file key (e.g. "encoder.int8") to another ONNX path; used by
+        quantisation sweeps. Overridden files are not hash-checked against the manifest."""
         import onnxruntime as ort
 
         with open(os.path.join(bundle, "manifest.json")) as fh:
@@ -90,9 +93,14 @@ class BundleRecognizer:
         so.inter_op_num_threads = 1
         f = m["files"]
         enc_key = "encoder.int8" if precision == "int8" else "encoder.fp32"
-        joi_key = "joiner.int8" if precision == "int8" else "joiner.fp32"
-        mk = lambda k: ort.InferenceSession(os.path.join(bundle, f[k]["path"]), so,  # noqa: E731
-                                            providers=["CPUExecutionProvider"])
+        jp = joiner_precision or precision
+        joi_key = "joiner.int8" if jp == "int8" else "joiner.fp32"
+        override = override or {}
+
+        def mk(k):
+            path = override.get(k) or os.path.join(bundle, f[k]["path"])
+            return ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
+
         self.enc, self.dec, self.joi = mk(enc_key), mk("decoder"), mk(joi_key)
         self.pieces = {}
         with open(os.path.join(bundle, f["tokens"]["path"])) as fh:
@@ -202,10 +210,12 @@ class BundleRecognizer:
             s.ctx = c.tolist()
 
 
-def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 20261120) -> dict:
+def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 20261120,
+                     override: dict | None = None, joiner_precision: str | None = None) -> dict:
     """Max |difference| between a row decoded alone and the same row inside larger batches, for
     every encoder output (including caches) and the joiner. Batch-invariant bundles give 0.0."""
-    rec = BundleRecognizer(bundle, precision, threads=1)
+    rec = BundleRecognizer(bundle, precision, threads=1, joiner_precision=joiner_precision,
+                           override=override)
     st = rec.m["streaming"]
     n = st["chunk_frames"]
     rng = np.random.default_rng(seed)
@@ -257,7 +267,9 @@ def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--bundle", required=True)
-    ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32")
+    ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32",
+                    help="encoder precision (and joiner unless --joiner-precision)")
+    ap.add_argument("--joiner-precision", choices=["fp32", "int8"], default=None)
     ap.add_argument("--split", default="dev-clean")
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--streams", type=int, default=16)
@@ -276,14 +288,15 @@ def main() -> None:
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
 
-    rec = BundleRecognizer(a.bundle, a.precision, a.threads)
+    rec = BundleRecognizer(a.bundle, a.precision, a.threads, joiner_precision=a.joiner_precision)
     utts = load_split(a.split, a.limit)
     c0 = time.process_time()
     hyps = run_streaming(rec, utts, a.streams)
     cpu = time.process_time() - c0
     audio = sum(u.seconds for u in utts)
     refs = [u.text for u in utts]
-    out = {"kind": "bundle_infer", "bundle": a.bundle, "precision": a.precision, "split": a.split,
+    out = {"kind": "bundle_infer", "bundle": a.bundle, "precision": a.precision,
+           "joiner_precision": a.joiner_precision or a.precision, "split": a.split,
            "n": len(utts), "streams": a.streams, "threads": a.threads,
            "rtf_cpu": round(cpu / audio, 4), "forced_advances": rec.forced_advances,
            **corpus_wer(refs, hyps)}

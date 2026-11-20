@@ -133,17 +133,24 @@ class _RowsReader:
         return next(self.it, None)
 
 
-def quantize_static_int8(fp32_path: str, int8_path: str, rows: list[dict]) -> None:
-    """Static QDQ int8: per-channel int8 weights of MatMul/Gemm with constant B; activation
-    scales from MinMax calibration over `rows`. Activation-activation MatMuls stay fp32."""
+def quantize_static_int8(fp32_path: str, int8_path: str, rows: list[dict],
+                         method: str = "minmax", percentile: float = 99.999,
+                         exclude: list[str] | None = None) -> None:
+    """Static QDQ int8: per-channel int8 weights of MatMul/Gemm with constant B; per-tensor
+    activation scales calibrated over `rows` (MinMax or Percentile). Activation-activation
+    MatMuls stay fp32, as do nodes named in `exclude`."""
     from onnxruntime.quantization import (CalibrationMethod, QuantFormat, QuantType,
                                           quantize_static)
 
+    calib = {"minmax": CalibrationMethod.MinMax, "percentile": CalibrationMethod.Percentile}
+    extra = {"MatMulConstBOnly": True}
+    if method == "percentile":
+        extra["CalibPercentile"] = percentile
     quantize_static(fp32_path, int8_path, _RowsReader(rows), quant_format=QuantFormat.QDQ,
                     op_types_to_quantize=["MatMul", "Gemm"], per_channel=True,
                     activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8,
-                    calibrate_method=CalibrationMethod.MinMax,
-                    extra_options={"MatMulConstBOnly": True})
+                    calibrate_method=calib[method], nodes_to_exclude=exclude or [],
+                    extra_options=extra)
 
 
 def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=None,
