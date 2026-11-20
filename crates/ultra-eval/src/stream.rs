@@ -19,7 +19,9 @@
 //!   - retrospective (editable preview): the earliest snapshot time after which the
 //!     word is matched in every later snapshot of its segment. Matching uses the
 //!     frozen alignment of [`crate::wer::align`] between the segment's final words and
-//!     each snapshot; a gap in presence restarts the clock (conservative later time);
+//!     each snapshot; a gap in presence restarts the clock. Ambiguous matches of
+//!     repeated words are resolved both ways (latest and earliest tie-break) and the
+//!     later of the two stable times is kept (v1.0-B §12.6 conservative later time);
 //!   - commit: the earliest time after which the word sits, unchanged, in the segment's
 //!     immutable text (the actual irreversible event).
 //!
@@ -33,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use ultra_core::events::{EventKind, Ledger, TranscriptEvent};
 
 use crate::normalise::normalise_words;
-use crate::wer::align;
+use crate::wer::{align, align_with, TieBreak};
 use crate::EvalError;
 
 /// An event with its observation time in seconds on the stream's monotonic clock
@@ -163,14 +165,19 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
             let c = align(&pair[0].1, &pair[1].1).counts;
             out.flicker_changed_words += c.substitutions + c.deletions;
         }
-        out.stable_t_s
-            .extend(stable_times(&fin, &track.display, |f, snap| {
-                align(f, snap)
+        let present = |tie| {
+            move |f: &[String], snap: &[String]| -> Vec<bool> {
+                align_with(f, snap, tie)
                     .ref_to_hyp_matches()
                     .into_iter()
                     .map(|m| m.is_some())
                     .collect()
-            }));
+            }
+        };
+        let late = stable_times(&fin, &track.display, present(TieBreak::Latest));
+        let early = stable_times(&fin, &track.display, present(TieBreak::Earliest));
+        out.stable_t_s
+            .extend(late.into_iter().zip(early).map(|(a, b)| a.max(b)));
         out.commit_t_s
             .extend(stable_times(&fin, &track.committed, |f, snap| {
                 f.iter()

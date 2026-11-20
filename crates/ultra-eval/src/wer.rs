@@ -89,6 +89,28 @@ const LEFT: u8 = 2; // insertion of a hypothesis word
 /// repeated hypothesis word to the latest compatible reference occurrence. Memory is
 /// one byte per cell plus two cost rows.
 pub fn align<S: AsRef<str>, T: AsRef<str>>(reference: &[S], hypothesis: &[T]) -> Alignment {
+    align_with(reference, hypothesis, TieBreak::Latest)
+}
+
+/// Tie-breaking rule between equal-cost alignments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TieBreak {
+    /// Prefer diagonal, then deletion, then insertion (the frozen scoring default):
+    /// repeated words match the latest compatible reference occurrence.
+    Latest,
+    /// Prefer deletion, then insertion, then diagonal: repeated words match the
+    /// earliest compatible reference occurrence. Used to bound ambiguous appearance
+    /// times from the other side (`stream::replay`).
+    Earliest,
+}
+
+/// [`align`] with an explicit tie-breaking rule. The edit cost is the same under
+/// both rules; only the choice among equal-cost alignments differs.
+pub fn align_with<S: AsRef<str>, T: AsRef<str>>(
+    reference: &[S],
+    hypothesis: &[T],
+    tie: TieBreak,
+) -> Alignment {
     let n = reference.len();
     let m = hypothesis.len();
     let w = m + 1;
@@ -106,12 +128,13 @@ pub fn align<S: AsRef<str>, T: AsRef<str>>(reference: &[S], hypothesis: &[T]) ->
             let sub = prev[j - 1] + u32::from(r != hypothesis[j - 1].as_ref());
             let del = prev[j] + 1;
             let ins = cur[j - 1] + 1;
-            let (c, d) = if sub <= del && sub <= ins {
-                (sub, DIAG)
-            } else if del <= ins {
-                (del, UP)
-            } else {
-                (ins, LEFT)
+            let (c, d) = match tie {
+                TieBreak::Latest if sub <= del && sub <= ins => (sub, DIAG),
+                TieBreak::Latest if del <= ins => (del, UP),
+                TieBreak::Latest => (ins, LEFT),
+                TieBreak::Earliest if del <= ins && del <= sub => (del, UP),
+                TieBreak::Earliest if ins <= sub => (ins, LEFT),
+                TieBreak::Earliest => (sub, DIAG),
             };
             cur[j] = c;
             dir[i * w + j] = d;
@@ -203,6 +226,11 @@ mod tests {
             a.ops,
             vec![AlignOp::Del { r: 0 }, AlignOp::Match { r: 1, h: 0 }]
         );
+        let e = align_with(&w("go go"), &w("go"), TieBreak::Earliest);
+        assert_eq!(
+            e.ops,
+            vec![AlignOp::Match { r: 0, h: 0 }, AlignOp::Del { r: 1 }]
+        );
         let a = align(&w("a b"), &w("a x b"));
         assert_eq!(
             a.ops,
@@ -255,6 +283,13 @@ mod tests {
             prop_assert_eq!(c.matches + c.substitutions + c.deletions, r.len() as u64);
             prop_assert_eq!(c.matches + c.substitutions + c.insertions, h.len() as u64);
             prop_assert_eq!(a.ops.len() as u64, c.matches + c.errors());
+        }
+
+        #[test]
+        fn tie_breaks_have_equal_cost(r in words(), h in words()) {
+            let a = align_with(&r, &h, TieBreak::Latest).counts;
+            let b = align_with(&r, &h, TieBreak::Earliest).counts;
+            prop_assert_eq!(a.errors(), b.errors());
         }
 
         #[test]
