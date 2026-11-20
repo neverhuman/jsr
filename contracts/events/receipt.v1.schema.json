@@ -47,7 +47,7 @@
         "final": {"type": "string"}
       }
     },
-    "label": {"enum": ["fair", "in-corpus", "recall"]},
+    "label": {"enum": ["fair", "in-corpus", "recall", "unknown-overlap"]},
     "partition": {"enum": ["TRAIN", "CALIBRATION", "DEV", "CONFIRM", "PUBLIC-TEST", "DOMAIN-SEALED", "ADAPT-TEST", "PARITY"]},
     "completion_status": {"type": "string"}
   }

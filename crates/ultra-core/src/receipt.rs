@@ -13,6 +13,8 @@ pub enum HonestyLabel {
     Fair,
     InCorpus,
     Recall,
+    /// Pretrained system whose evaluation-data overlap is not established.
+    UnknownOverlap,
 }
 
 /// Partitions (§7.3).

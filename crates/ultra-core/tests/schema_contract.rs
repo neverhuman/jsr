@@ -328,6 +328,40 @@ fn receipts_validate_against_the_schema() {
 }
 
 #[test]
+fn honesty_labels_match_the_schema_and_unknown_overlap_does_not_relax_evidence() {
+    let schema = load("receipt.v1.schema.json");
+    let labels = [
+        HonestyLabel::Fair,
+        HonestyLabel::InCorpus,
+        HonestyLabel::Recall,
+        HonestyLabel::UnknownOverlap,
+    ];
+    let values: Vec<_> = labels
+        .iter()
+        .map(|l| serde_json::to_value(l).expect("label"))
+        .collect();
+    assert_eq!(schema["properties"]["label"]["enum"], json!(values));
+    for label in labels {
+        let mut r = receipt(true);
+        r.label = label;
+        let value = serde_json::to_value(&r).expect("receipt");
+        assert!(violations(&schema, &value).is_empty());
+        serde_json::from_value::<Receipt>(value).expect("label round-trip");
+    }
+    let mut r = receipt(true);
+    r.label = HonestyLabel::UnknownOverlap;
+    r.cap_hits = None;
+    assert!(
+        r.validate_as_evidence().is_err(),
+        "unknown overlap cannot excuse missing measurements"
+    );
+    let mut bad = serde_json::to_value(receipt(true)).expect("receipt");
+    bad["label"] = json!("unverified");
+    assert!(!violations(&schema, &bad).is_empty());
+    assert!(serde_json::from_value::<Receipt>(bad).is_err());
+}
+
+#[test]
 fn receipt_schema_required_matches_rust_non_optional_fields() {
     let schema = load("receipt.v1.schema.json");
     let full = serde_json::to_value(receipt(true)).expect("serialises");
