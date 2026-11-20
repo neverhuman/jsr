@@ -230,6 +230,7 @@ class Trainer:
                           "loss": acc["loss"] / acc["n"], "rnnt": acc["rnnt"] / acc["n"],
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
+                          "dropped_long": getattr(self.source, "dropped_long", 0),
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
