@@ -15,11 +15,13 @@
 pub mod cochlea;
 pub mod mel;
 pub mod npz;
+pub mod trainer_mel;
 pub mod wav;
 
 pub use cochlea::{CochleaConfig, StreamingCochlea};
 pub use mel::{MelConfig, StreamingLogMel, MEL_BINS};
 pub use npz::{load_npz_audio_only, load_npz_references, AudioUtterance, RefUtterance};
+pub use trainer_mel::{GlobalCmvn, TrainerLogMel, TrainerMelConfig, SPEC_BINS};
 pub use wav::{
     read_audio_16k_mono, read_wav_pcm, write_wav_pcm16, Resampler16k, WavData, SAMPLE_RATE_16K,
 };
@@ -39,6 +41,36 @@ pub enum FrontendError {
     Core(#[from] ultra_core::CoreError),
     #[error("io error: {0}")]
     Io(String),
+}
+
+impl FrontendError {
+    /// Structured repair guidance for agents and operators (`docs/errors.md`).
+    pub fn repair(&self) -> ultra_core::repair::RepairHint {
+        match self {
+            Self::Core(e) => e.repair(),
+            Self::Format(_) | Self::SampleRate(_) | Self::Channels(_) => {
+                ultra_core::repair::RepairHint {
+                    purpose: "enforce 16 kHz mono PCM16 and finite trainer mel/CMVN parameters",
+                    reason: "audio header, sample rate, channel count, or mel filterbank/CMVN failed validation",
+                    common_fixes: &[
+                        "pass 16 kHz mono PCM16 audio (or resample explicitly via Resampler16k)",
+                        "load mel_fbank.f32 (257x80 le f32) and finite 80-bin CMVN stats from manifest.json",
+                    ],
+                    docs_url: "docs/errors.md#frontend",
+                    repair_hint: "cargo test -p ultra-frontend",
+                }
+            }
+            Self::Npz(_) | Self::Io(_) => ultra_core::repair::RepairHint {
+                purpose: "read uncompressed NPZ audio shards and bundle mel matrices safely",
+                reason: "expected .npz or mel_fbank.f32 file was missing, truncated, or compressed",
+                common_fixes: &[
+                    "verify $JSR_DATA/cache/librispeech_pcm/*.npz and bundle files match SHA-256",
+                ],
+                docs_url: "docs/errors.md#frontend",
+                repair_hint: "cargo test -p ultra-frontend",
+            },
+        }
+    }
 }
 
 impl From<std::io::Error> for FrontendError {
