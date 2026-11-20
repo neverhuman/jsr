@@ -46,6 +46,10 @@ class TrainConfig:
     max_seconds: float = 20.0
     splits: tuple[str, ...] = ("train-clean-100",)
     specaug: bool = True
+    # SpecAugment off for the first N optimiser steps. From step 0 it held the S model on the
+    # unigram plateau (D1c, 2026-11-20: CTC 5.9/token flat to step 2250; without it the same
+    # model left the plateau by step ~900).
+    specaug_start: int = 4000
     log_every: int = 10
     ckpt_every_steps: int = 500
     ckpt_every_minutes: float = 30.0
@@ -143,7 +147,9 @@ class Trainer:
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
             out = self.model.losses(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
-                                    stats=self.stats, augment=self.augment, gen=gen,
+                                    stats=self.stats,
+                                    augment=self.augment if self.step >= self.cfg.specaug_start
+                                    else None, gen=gen,
                                     chunk=self.cfg.chunk or None)
         loss = out["loss"]
         if not torch.isfinite(loss):

@@ -48,7 +48,8 @@ def _cfg():
 def _trainer(d):
     torch.set_num_threads(1)
     cfg = TrainConfig(preset="TINY", warmup=2, total_steps=100, ckpt_every_steps=1000,
-                      ckpt_every_minutes=1e9, eval_every=0, log_every=1000, specaug=True)
+                      ckpt_every_minutes=1e9, eval_every=0, log_every=1000, specaug=True,
+                      specaug_start=2)
     src = FixedBatches(_examples(), batch_size=2, shuffle=True)
     return Trainer(d, cfg, src, model_cfg=_cfg(), device="cpu", log=False)
 
