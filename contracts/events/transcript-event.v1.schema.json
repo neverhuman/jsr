@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/neverhuman/jsr/contracts/events/transcript-event.v1.schema.json",
   "title": "ultra.transcript-event/v1",
-  "description": "One output event (spec §3.1). Source of truth: crates/ultra-core/src/events.rs; invariants enforced by events::Ledger.",
+  "description": "One output event (spec §3.1). Source of truth: crates/ultra-core/src/events.rs; invariants enforced by events::Ledger; checked by crates/ultra-core/tests/schema_contract.rs.",
   "type": "object",
+  "additionalProperties": false,
   "required": ["stream_id", "segment_id", "event_sequence", "audio_start_sample", "audio_end_sample", "event_type"],
   "properties": {
     "stream_id": {"type": "string"},

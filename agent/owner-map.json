@@ -15,17 +15,10 @@
     ".agents/": "agent",
     ".claude/": "agent",
     ".cursor/": "agent",
-    "agent/coverage-sources.toml": "agent",
     "agent/": "agent",
-    "agent/zyal/": "agent",
     "contracts/": "contracts",
     "crates/": "tools",
     "docs/": "standard",
-    "docs/COVERAGE_*.md": "agent",
-    "schemas/coverage-*.schema.json": "agent",
-    "src/": "tools",
-    "tests/": "tools",
-    "packages/": "tools",
     "ops/": "ops",
     "tools/": "tools",
     "crates/ultra-core/": "runtime",
@@ -44,6 +37,10 @@
     "audit/": "agent",
     ".cargo/": "tools",
     "clippy.toml": "tools",
-    "python/ultra/": "training"
+    "python/ultra/": "training",
+    "CHANGELOG.md": "workspace",
+    ".jankurai/": "agent",
+    "rust-toolchain.toml": "tools",
+    "python/": "training"
   }
 }

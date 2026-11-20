@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Run every CI lane locally, in CI order.
+# Run every CI lane locally, in CI order (same script as `just required`).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-bash ops/ci/fast.sh
-just security
-just score
+exec bash ops/ci/quality-gates.sh
