@@ -10,6 +10,8 @@ Example
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import platform
@@ -54,6 +56,7 @@ def main(argv=None) -> int:
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--trace", action="store_true", help="per-chunk partial trace (latency work)")
     ap.add_argument("--shard", default="0/1", help="i/K: this process takes utterances i, i+K, ...")
+    ap.add_argument("--lease", default="", help="flock this file for the whole timed run (bench lease)")
     ap.add_argument("--tag", default="")
     ap.add_argument("--out", default=os.path.join(RUNS, "results.jsonl"))
     args = ap.parse_args(argv)
@@ -65,8 +68,14 @@ def main(argv=None) -> int:
     n = len(utts)
     shard_tag = f"_s{shard_i}of{shard_k}" if shard_k > 1 else ""
     work = os.path.join(RUNS, "work", f"{args.split}_n{n}{shard_tag}_{args.chunk_ms}ms_c{args.concurrency}")
-    t0 = time.time()
-    hyps, rec = adapter.transcribe([u.pcm for u in utts], work, args.concurrency, trace=args.trace)
+    with contextlib.ExitStack() as stack:
+        if args.lease:
+            fh = stack.enter_context(open(args.lease, "a"))
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        load_before = os.getloadavg()
+        t0 = time.time()
+        hyps, rec = adapter.transcribe([u.pcm for u in utts], work, args.concurrency, trace=args.trace)
+        load_after = os.getloadavg()
     refs = [u.text for u in utts]
     audio_s = sum(u.seconds for u in utts)
     w = corpus_wer(refs, hyps)
@@ -85,6 +94,8 @@ def main(argv=None) -> int:
         chunk_ms=args.chunk_ms, right_context=adapter.right_context, concurrency=args.concurrency,
         batching=args.concurrency > 1, threads=args.threads, affinity=cpus, wer=w,
         truncation_probe=tail_deletions(refs, hyps),
+        loadavg_before=[round(x, 2) for x in load_before], loadavg_after=[round(x, 2) for x in load_after],
+        bench_lease=args.lease or None,
         process_cpu_seconds=rec.cpu_seconds, cpu_user_seconds=rec.cpu_user_seconds,
         cpu_system_seconds=rec.cpu_system_seconds, process_wall_seconds=rec.wall_seconds,
         cpu_s_per_audio_s=round(rec.cpu_seconds / audio_s, 5), wall_rtf=round(rec.wall_seconds / audio_s, 5),
