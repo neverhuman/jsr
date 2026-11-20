@@ -41,6 +41,9 @@ class ModelConfig:
 PRESETS = {
     # Spec v1.0-B §17.3 S control: width 384, 16 blocks, 6 heads x 64, FFN x4, kernel 15.
     "S": ModelConfig(encoder=EncoderConfig(post_block_norm=False)),
+    # MULTIRATE S (spec v1.0-B §17.3): 4 blocks at 25 Hz, 10 at 12.5 Hz, 2 restored at 25 Hz.
+    "S_MR": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
+                                              lower_blocks=4, middle_blocks=10, final_blocks=2)),
     # The configuration of the first D1 attempt (collapsed); kept loadable.
     "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.

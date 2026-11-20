@@ -51,6 +51,8 @@ class ChunkEncoder(nn.Module):
 
     def __init__(self, enc: Encoder):
         super().__init__()
+        if enc.cfg.family != "dense":
+            raise ShapeError(f"streaming path implements the dense family only, not {enc.cfg.family}")
         self.enc = enc
         c = enc.cfg
         self.h, self.dh, self.left, self.k = c.n_heads, c.d_model // c.n_heads, c.left_context, \

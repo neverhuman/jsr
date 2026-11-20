@@ -130,3 +130,31 @@ def test_pack_respects_budget():
     assert sorted(i for b in batches for i in b) == list(range(len(d)))
     for b in batches:
         assert len(b) <= 3 and (len(b) == 1 or max(d[i] for i in b) * len(b) <= 12.0)
+
+
+@pytest.mark.parametrize("t_in", [120, 117])  # even and odd encoder lengths
+def test_multirate_causality_and_padding(t_in):
+    torch.manual_seed(4)
+    cfg = EncoderConfig(d_model=32, n_heads=2, stem_channels=8, conv_kernel=5, chunk=4,
+                        left_context=8, dropout=0.0, post_block_norm=False, family="multirate",
+                        lower_blocks=1, middle_blocks=2, final_blocks=1)
+    enc = Encoder(cfg).eval()
+    x = torch.randn(1, t_in, 80)
+    lens = torch.tensor([t_in])
+    with torch.no_grad():
+        base, out_lens = enc(x, lens)
+        n_out = int(out_lens[0])
+        assert base.shape[1] == n_out
+        for c in range(n_out // cfg.chunk):
+            boundary = (c + 1) * cfg.chunk
+            y = x.clone()
+            y[:, 4 * boundary:] += torch.randn_like(y[:, 4 * boundary:]) * 5.0
+            pert, _ = enc(y, lens)
+            assert torch.equal(pert[:, :boundary], base[:, :boundary]), c
+        padded, _ = enc(torch.cat([x, torch.randn(1, 37, 80)], 1), lens)
+    assert torch.allclose(padded[:, :n_out], base, atol=1e-5)
+
+
+def test_multirate_rejects_odd_chunk():
+    with pytest.raises(Exception):
+        Encoder(EncoderConfig(d_model=16, n_heads=2, chunk=3, family="multirate"))
