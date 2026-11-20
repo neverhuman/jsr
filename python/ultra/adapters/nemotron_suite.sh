@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # P04 timing suite in the nemotron core block (physical 16-31, siblings 80-95; AGENT_CHAT CORE PARTITION).
 # Holds the nemotron bench lease for the whole suite; each run records loadavg before/after.
-# Usage: nemotron_suite.sh headline|batch|other
+# Usage: nemotron_suite.sh headline|batch|timing|other
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PY=/home/ubuntu/jsr/.venv/bin/python
@@ -12,25 +12,28 @@ LEASE=/mnt/xbabe3-external/jsr/BENCH_LEASE.nemotron
 mkdir -p "$RUNS" "$LOGS"
 
 headline() {
-  # Uncontended-as-possible c1 cost: every 4th test-clean utterance (655 utts), one process per
-  # operating point, on different CCDs (cores 16 and 24), SMT siblings idle.
-  $RUN --split test-clean --shard 0/4 --chunk-ms 160 --cpus 16 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_160.log" 2>&1 &
-  $RUN --split test-clean --shard 0/4 --chunk-ms 560 --cpus 24 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_560.log" 2>&1 &
+  # Single-stream c1 cost: every 8th test-clean utterance (328 utts), one process per operating
+  # point, on different CCDs (cores 22 and 28), SMT siblings idle.
+  $RUN --split test-clean --shard 0/8 --chunk-ms 160 --cpus 22 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_160.log" 2>&1 &
+  $RUN --split test-clean --shard 0/8 --chunk-ms 560 --cpus 28 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_560.log" 2>&1 &
   wait
 }
 
 batch() {
-  # Unpaced streams-per-core screen on DEV (dev-clean, 128 utts), 1 core each, one process per CCX.
-  local cores=(16 20 24 28) k=0
-  for spec in 160:1 160:8 160:32 560:1 160:16 160:64 560:8 560:32; do
-    local cm=${spec%%:*} c=${spec##*:} core=${cores[$((k % 4))]}
-    $RUN --split dev-clean --limit 128 --chunk-ms "$cm" --concurrency "$c" --cpus "$core" --tag batch \
-      --out "$RUNS/batch.jsonl" > "$LOGS/batch_${cm}_c${c}.log" 2>&1 &
-    k=$((k + 1))
-    if (( k % 4 == 0 )); then wait; fi
+  # Unpaced streams-per-core screen on DEV (dev-clean, first 128 utts), 1 core per process,
+  # c in {1,8,32}; one operating point at a time on cores 20, 24, 28.
+  for cm in 160 560; do
+    local k=0 cores=(20 24 28)
+    for c in 1 8 32; do
+      $RUN --split dev-clean --limit 128 --chunk-ms "$cm" --concurrency "$c" --cpus "${cores[$k]}" --tag batch \
+        --out "$RUNS/batch.jsonl" > "$LOGS/batch_${cm}_c${c}.log" 2>&1 &
+      k=$((k + 1))
+    done
+    wait
   done
-  wait
 }
+
+timing() { headline; batch; }
 
 other() {
   # test-other WER (+ CPU receipts), 4 shards per operating point, 8 processes on cores 16-31.
