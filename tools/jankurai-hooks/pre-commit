@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# JANKURAI MANAGED HOOK: pre-commit
+# Developer check: scan staged + worktree paths vs HEAD only.
+# This is not release, ratchet, or README-badge authority. CI runs a full audit.
+# Caps / issue markers / hard findings in the touched set fail the commit.
+set -euo pipefail
+
+if [ "${JANKURAI_SKIP_HOOKS:-}" = "1" ]; then
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+git_dir="$(git rev-parse --git-dir 2>/dev/null || printf '%s/.git' "$repo_root")"
+case "$git_dir" in
+  /*) ;;
+  *) git_dir="$repo_root/$git_dir" ;;
+esac
+jankurai_dir="$git_dir/jankurai"
+mkdir -p "$jankurai_dir"
+
+env_file="$jankurai_dir/env"
+if [ -f "$env_file" ]; then
+  # shellcheck disable=SC1090
+  . "$env_file"
+fi
+
+if [ -n "${JANKURAI_PRE_COMMIT_CHAIN:-}" ] && [ -x "$JANKURAI_PRE_COMMIT_CHAIN" ] && [ -z "${JANKURAI_CHAINED_HOOK:-}" ]; then
+  JANKURAI_CHAINED_HOOK=1 "$JANKURAI_PRE_COMMIT_CHAIN" "$@"
+fi
+
+if [ -n "${JANKURAI_BIN:-}" ] && [ -x "$JANKURAI_BIN" ]; then
+  jankurai_cmd="$JANKURAI_BIN"
+else
+  jankurai_cmd="${JANKURAI_FALLBACK_BIN:-jankurai}"
+fi
+
+cd "$repo_root"
+report_dir="${JANKURAI_HOOK_REPORT_DIR:-target/jankurai/diff}"
+mkdir -p "$report_dir"
+
+# Compare to HEAD so a feature branch is not re-audited against origin/main.
+# Incomplete Git inventories must fail closed (Fleet collect contract).
+if ! "$jankurai_cmd" diff-audit --base-ref HEAD --out-dir "$report_dir"; then
+  echo "jankurai pre-commit: diff-audit blocked this commit (hard findings, caps, or incomplete Git)." >&2
+  echo "jankurai pre-commit: this is not a passing score badge. Set JANKURAI_SKIP_HOOKS=1 to bypass once." >&2
+  exit 1
+fi

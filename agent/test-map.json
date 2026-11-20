@@ -1,0 +1,165 @@
+{
+  "workspace": "jsr",
+  "tests": {
+    "AGENTS.md": {
+      "command": "just score",
+      "purpose": "verify root routing remains visible to the audit"
+    },
+    "CLAUDE.md": {
+      "command": "just score",
+      "purpose": "verify Claude adapter routing remains visible to the audit"
+    },
+    "GEMINI.md": {
+      "command": "just score",
+      "purpose": "verify Gemini adapter routing remains visible to the audit"
+    },
+    "Justfile": {
+      "command": "just check",
+      "purpose": "verify scaffolded local proof recipes remain runnable"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "purpose": "verify Rust manifest changes through the local proof lane"
+    },
+    "Cargo.lock": {
+      "command": "just check",
+      "purpose": "verify Rust dependency changes through the local proof lane, which runs the security lane where the scaffold has one"
+    },
+    "README-jankurai-scaffold.md": {
+      "command": "jankurai doctor --fail-on critical",
+      "purpose": "verify scaffold marker does not hide missing control-plane files"
+    },
+    ".gitignore": {
+      "command": "jankurai doctor --fail-on critical",
+      "purpose": "verify generated ignore configuration keeps audit evidence visible"
+    },
+    ".pre-commit-config.yaml": {
+      "command": "just score",
+      "purpose": "verify optional pre-commit wrapper routing remains visible"
+    },
+    ".agents/": {
+      "command": "just score",
+      "purpose": "verify generated agent adapter routes remain owned"
+    },
+    ".claude/": {
+      "command": "just score",
+      "purpose": "verify generated Claude adapter routes remain owned"
+    },
+    ".cursor/": {
+      "command": "just score",
+      "purpose": "verify generated Cursor adapter routes remain owned"
+    },
+    "agent/": {
+      "command": "just score",
+      "purpose": "verify manifests remain parseable and authoritative"
+    },
+    "agent/coverage-sources.toml": {
+      "command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
+      "purpose": "verify coverage evidence source routing and score import"
+    },
+    "agent/zyal/": {
+      "command": "just score",
+      "purpose": "verify canonical ZYAL runbooks stay under agent/zyal and only use the .zyal extension"
+    },
+    "contracts/": {
+      "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+      "purpose": "advisory contract drift scan until project-specific contract checks exist"
+    },
+    "docs/architecture/": {
+      "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+      "purpose": "verify architecture docs remain visible to the audit"
+    },
+    "docs/decisions/": {
+      "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+      "purpose": "verify decision records remain visible to the audit"
+    },
+    "ops/": {
+      "command": "just fast",
+      "purpose": "verify ops surfaces remain visible to the audit"
+    },
+    "tools/": {
+      "command": "just fast",
+      "purpose": "verify Rust behavior and audit checks"
+    },
+    "examples/perfect-web-api-db/backend/src/background_job.rs": {
+      "command": "just fast",
+      "purpose": "run proofs for background\u2011job cell"
+    },
+    "crates/": {
+      "command": "just fast",
+      "purpose": "verify Rust behavior and audit checks"
+    },
+    "docs/": {
+      "command": "just score",
+      "purpose": "verify agent-readable documentation remains routed"
+    },
+    "docs/COVERAGE_*.md": {
+      "command": "just score",
+      "purpose": "verify coverage evidence docs remain routed"
+    },
+    "schemas/coverage-*.schema.json": {
+      "command": "just score",
+      "purpose": "verify coverage evidence schemas and fixtures"
+    },
+    "src/": {
+      "command": "just check",
+      "purpose": "verify source changes through the local proof lane"
+    },
+    "tests/": {
+      "command": "just check",
+      "purpose": "verify test changes through the local proof lane"
+    },
+    "crates/ultra-core/": {
+      "command": "cargo test -p ultra-core",
+      "purpose": "unit, property and integration tests for ultra-core"
+    },
+    "crates/ultra-kernels/": {
+      "command": "cargo test -p ultra-kernels",
+      "purpose": "unit, property and integration tests for ultra-kernels"
+    },
+    "crates/ultra-frontend/": {
+      "command": "cargo test -p ultra-frontend",
+      "purpose": "unit, property and integration tests for ultra-frontend"
+    },
+    "crates/ultra-gp/": {
+      "command": "cargo test -p ultra-gp",
+      "purpose": "unit, property and integration tests for ultra-gp"
+    },
+    "crates/ultra-model/": {
+      "command": "cargo test -p ultra-model",
+      "purpose": "unit, property and integration tests for ultra-model"
+    },
+    "crates/ultra-stream/": {
+      "command": "cargo test -p ultra-stream",
+      "purpose": "unit, property and integration tests for ultra-stream"
+    },
+    "crates/ultra-eval/": {
+      "command": "cargo test -p ultra-eval",
+      "purpose": "unit, property and integration tests for ultra-eval"
+    },
+    "crates/ultra-bench/": {
+      "command": "cargo test -p ultra-bench",
+      "purpose": "unit, property and integration tests for ultra-bench"
+    },
+    "crates/ultra-adapters/": {
+      "command": "cargo test -p ultra-adapters",
+      "purpose": "unit, property and integration tests for ultra-adapters"
+    },
+    "crates/ultra-cli/": {
+      "command": "cargo test -p ultra-cli",
+      "purpose": "unit, property and integration tests for ultra-cli"
+    },
+    "research/": {
+      "command": "just pytest",
+      "purpose": "trainer, data bank and loss tests"
+    },
+    "scripts/": {
+      "command": "just security",
+      "purpose": "shellcheck and secret scan over operational scripts"
+    },
+    "docs/ultra/": {
+      "command": "just score",
+      "purpose": "records stay visible to the audit"
+    }
+  }
+}

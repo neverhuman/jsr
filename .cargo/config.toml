@@ -1,0 +1,7 @@
+# Root NVMe is above the disk-steward 85% admission line; this checkout builds on the data drive.
+# One persistent target per checkout (HOST_RULES). Lanes override with their own config.
+[build]
+target-dir = "/mnt/xbabe3-external/jsr/cargo-target/main"
+
+[env]
+CARGO_INCREMENTAL = "0"

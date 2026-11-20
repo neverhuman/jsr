@@ -1,0 +1,31 @@
+name: jankurai
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: neverhuman/jankurai-action@4a45526ac904315f96e6bbebda4e088268023afa
+        id: quality
+        with:
+          release-tag: v1.7.0
+          fail-under: "85"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: jankurai-report
+          if-no-files-found: ignore
+          path: ${{ steps.quality.outputs.report-directory }}

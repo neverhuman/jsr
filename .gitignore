@@ -1,0 +1,11 @@
+/target/
+/.venv/
+/data
+/runs/
+*.pt
+*.ckpt
+*.npy
+__pycache__/
+.pytest_cache/
+/.agent/
+/.claude/worktrees

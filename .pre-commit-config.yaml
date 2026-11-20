@@ -1,0 +1,11 @@
+# Optional Python pre-commit framework wrapper.
+# `jankurai hooks install` writes native git hooks and does not need this file.
+repos:
+  - repo: local
+    hooks:
+      - id: jankurai-diff-audit
+        name: jankurai diff-audit
+        entry: jankurai diff-audit --base-ref HEAD
+        language: system
+        pass_filenames: false
+        always_run: true

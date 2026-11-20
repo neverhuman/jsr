@@ -1,0 +1,25 @@
+minimum_score = 85
+fail_on = ["critical", "high"]
+advisory_on = ["medium", "low"]
+
+[history]
+max_rows = 500
+max_bytes = 1048576
+dedupe = "consecutive-equivalent"
+mirror_env = "JANKURAI_HISTORY_MIRROR"
+mirror_required = false
+mirror_max_rows = 5000
+
+[scan]
+excluded_paths = ["tips/"]
+
+[smart_scan]
+# After a clean full scan, only scan git-status changed files by default.
+full_scan_interval_secs = 3600
+roulette_rate = 0.10
+
+# Full-repo `jankurai gate` stays advisory on new repos (never-freeze).
+# The installed pre-commit hook still runs diff-audit vs HEAD and fails on
+# hard findings or caps in touched files. That hook is not badge authority.
+[precommit_gate]
+blocking = false

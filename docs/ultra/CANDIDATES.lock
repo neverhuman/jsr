@@ -1,0 +1,10 @@
+# ultra.candidate/v1 entries. Every candidate is BLOCKED_RIGHTS until O2 approves its download.
+candidates:
+  - candidate_id: nemotron-speech-streaming-en-0.6b
+    status: BLOCKED_RIGHTS
+  - candidate_id: sherpa-onnx-streaming-zipformer-en
+    status: BLOCKED_RIGHTS
+  - candidate_id: moonshine-v2
+    status: BLOCKED_RIGHTS
+  - candidate_id: faster-whisper-small.en-int8
+    status: BLOCKED_RIGHTS

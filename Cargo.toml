@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/ultra-core",
+  "crates/ultra-kernels",
+  "crates/ultra-frontend",
+  "crates/ultra-gp",
+  "crates/ultra-model",
+  "crates/ultra-stream",
+  "crates/ultra-eval",
+  "crates/ultra-bench",
+  "crates/ultra-adapters",
+  "crates/ultra-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/neverhuman/jsr"
+rust-version = "1.85"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unwrap_used = "warn"
+
+[profile.release]
+debug = "line-tables-only"
+codegen-units = 1
+lto = "thin"
+
+[profile.bench]
+debug = "line-tables-only"

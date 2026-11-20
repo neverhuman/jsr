@@ -1,0 +1,7 @@
+enabled = true
+svg = "agent/jankurai-badge.svg"
+json = "agent/jankurai-badge.json"
+readme = "README.md"
+link = "agent/jankurai-badge.json"
+update_readme = true
+label = "jankurai"

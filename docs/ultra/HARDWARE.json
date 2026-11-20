@@ -1,0 +1,23 @@
+{
+  "schema": "ultra.hardware/v1",
+  "machines": [
+    {
+      "id": "H0",
+      "host": "xbabe3",
+      "cpu": "AMD Ryzen Threadripper PRO 3995WX 64-Cores",
+      "cores": 64,
+      "threads_per_core": 2,
+      "l1d": "2 MiB (64 instances)",
+      "l2": "32 MiB (64 instances)",
+      "l3": "256 MiB (16 instances)",
+      "isa": [
+        "avx2",
+        "fma"
+      ],
+      "ram_gib": 62.6,
+      "os": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+      "governor": "schedutil",
+      "status": "provisional H0; shared with other jobs"
+    }
+  ]
+}
