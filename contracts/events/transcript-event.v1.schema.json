@@ -1,33 +1,275 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/neverhuman/jsr/contracts/events/transcript-event.v1.schema.json",
-  "title": "ultra.transcript-event/v1",
-  "description": "One output event (spec §3.1). Source of truth: crates/ultra-core/src/events.rs; invariants enforced by events::Ledger; checked by crates/ultra-core/tests/schema_contract.rs.",
+  "title": "ultra.transcript-event.v1",
+  "description": "Output event (spec v1.0-B §33.2-33.3). Source of truth: crates/ultra-core/src/events.rs; invariants enforced by events::Ledger (validation order of §33.2, duplicate/predecessor rules of §33.3). Snapshots are segment-local; offsets are UTF-8 bytes.",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["stream_id", "segment_id", "event_sequence", "audio_start_sample", "audio_end_sample", "event_type"],
+  "required": [
+    "schema",
+    "stream_id",
+    "event_sequence",
+    "state_epoch",
+    "observed_monotonic_ns",
+    "model_config_id",
+    "event_type"
+  ],
   "properties": {
-    "stream_id": {"type": "string"},
-    "segment_id": {"type": "integer", "minimum": 0},
-    "event_sequence": {"type": "integer", "minimum": 0},
-    "audio_start_sample": {"type": "integer", "minimum": 0},
-    "audio_end_sample": {"type": "integer", "minimum": 0},
-    "event_type": {"enum": ["Preview", "Commit", "Final", "CorrectionSuggested", "Gap", "Status"]},
-    "revision_id": {"type": "integer", "minimum": 0},
-    "replacement_suffix": {"type": "string", "maxLength": 4096},
-    "text": {"type": "string", "maxLength": 4096},
-    "byte_start": {"type": "integer", "minimum": 0},
-    "byte_end": {"type": "integer", "minimum": 0},
-    "start_sample": {"type": "integer", "minimum": 0},
-    "end_sample": {"type": "integer", "minimum": 0},
-    "code": {"type": "string"},
-    "detail": {"type": "string"}
+    "schema": {
+      "const": "ultra.transcript-event.v1"
+    },
+    "stream_id": {
+      "type": "string"
+    },
+    "event_sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state_epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observed_monotonic_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model_config_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "Preview",
+        "Commit",
+        "Final",
+        "SegmentIncomplete",
+        "Gap",
+        "CorrectionSuggested",
+        "Status"
+      ]
+    },
+    "segment_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "base_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "snapshot_utf8": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "immutable_before_utf8_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "immutable_after_utf8_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ownership_start_sample": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ownership_end_sample": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accepted_through_sample": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "required_processed_through_sample": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "flushed": {
+      "type": "boolean"
+    },
+    "preserved_prefix_utf8_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "prefix_sha256": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "processed_through_sample": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "drained": {
+      "type": "boolean"
+    },
+    "start_sample": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "end_sample": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "gap_reason": {
+      "type": "string"
+    },
+    "final_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "final_sha256": {
+      "type": "string"
+    },
+    "byte_start": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "byte_end": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "alternative": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "code": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    }
   },
+  "additionalProperties": false,
   "allOf": [
-    {"if": {"properties": {"event_type": {"const": "Preview"}}}, "then": {"required": ["revision_id", "replacement_suffix"]}},
-    {"if": {"properties": {"event_type": {"enum": ["Commit", "Final"]}}}, "then": {"required": ["text"]}},
-    {"if": {"properties": {"event_type": {"const": "CorrectionSuggested"}}}, "then": {"required": ["byte_start", "byte_end", "text"]}},
-    {"if": {"properties": {"event_type": {"const": "Gap"}}}, "then": {"required": ["start_sample", "end_sample"]}},
-    {"if": {"properties": {"event_type": {"const": "Status"}}}, "then": {"required": ["code", "detail"]}}
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "enum": [
+              "Preview",
+              "Commit"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "segment_id",
+          "base_revision",
+          "revision",
+          "snapshot_utf8",
+          "immutable_before_utf8_bytes",
+          "immutable_after_utf8_bytes",
+          "ownership_start_sample",
+          "ownership_end_sample"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "Final"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "segment_id",
+          "base_revision",
+          "revision",
+          "snapshot_utf8",
+          "immutable_before_utf8_bytes",
+          "immutable_after_utf8_bytes",
+          "ownership_start_sample",
+          "ownership_end_sample",
+          "accepted_through_sample",
+          "required_processed_through_sample",
+          "flushed"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "SegmentIncomplete"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "segment_id",
+          "base_revision",
+          "revision",
+          "preserved_prefix_utf8_bytes",
+          "prefix_sha256",
+          "reason",
+          "accepted_through_sample",
+          "processed_through_sample",
+          "drained"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "Gap"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "start_sample",
+          "end_sample",
+          "gap_reason"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "CorrectionSuggested"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "segment_id",
+          "final_revision",
+          "final_sha256",
+          "byte_start",
+          "byte_end",
+          "alternative"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "Status"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "code",
+          "detail"
+        ]
+      }
+    }
   ]
 }

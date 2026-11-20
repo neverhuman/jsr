@@ -9,7 +9,9 @@
 use std::path::PathBuf;
 
 use serde_json::{json, Map, Value};
-use ultra_core::events::{EventKind, TranscriptEvent, MAX_PAYLOAD_BYTES};
+use ultra_core::events::{
+    Body, Emitter, ProcessingEvidence, TranscriptEvent, EVENT_SCHEMA, MAX_PAYLOAD_BYTES,
+};
 use ultra_core::receipt::{ChunkMs, Hashes, HonestyLabel, Partition, Receipt, RECEIPT_SCHEMA};
 
 const ANNOTATIONS: &[&str] = &["$schema", "$id", "title", "description"];
@@ -159,43 +161,44 @@ fn violations(schema: &Value, v: &Value) -> Vec<String> {
     errs
 }
 
-fn event(kind: EventKind) -> TranscriptEvent {
-    TranscriptEvent {
-        stream_id: "stream-1".into(),
-        segment_id: 3,
-        event_sequence: 17,
-        audio_start_sample: 16_000,
-        audio_end_sample: 32_000,
-        kind,
-    }
-}
+const DONE: ProcessingEvidence = ProcessingEvidence {
+    accepted_through_sample: 48_000,
+    required_processed_through_sample: 48_000,
+    flushed: true,
+};
 
-fn every_event_kind() -> Vec<EventKind> {
-    vec![
-        EventKind::Preview {
-            revision_id: 2,
-            replacement_suffix: "wor".into(),
-        },
-        EventKind::Commit {
-            text: "hello ".into(),
-        },
-        EventKind::Final {
-            text: "world".into(),
-        },
-        EventKind::CorrectionSuggested {
+/// One event of every kind, produced the way a backend would (Emitter), plus a correction.
+fn every_event() -> Vec<TranscriptEvent> {
+    let mut e = Emitter::new("stream-1", "zipformer-int8@test");
+    let mut v = vec![
+        e.preview(1, "hel", 16_000).expect("preview"),
+        e.commit(2, "hello ", 6, 32_000).expect("commit"),
+        e.finalize(3, "world", 48_000, DONE).expect("final"),
+        e.preview(4, "par", 56_000).expect("preview"),
+        e.incomplete(5, "deadline miss", 64_000, 60_000, false)
+            .expect("incomplete"),
+        e.preview(6, "x", 70_000).expect("preview"),
+        e.gap(7, Some((70_000, 72_000)), "packet loss"),
+        e.gap(8, None, "unknown extent"),
+        e.status(9, "shed", "step 1"),
+    ];
+    v.push(TranscriptEvent {
+        schema: EVENT_SCHEMA.into(),
+        stream_id: "stream-1".into(),
+        event_sequence: 9,
+        state_epoch: 3,
+        observed_monotonic_ns: 10,
+        model_config_id: "zipformer-int8@test".into(),
+        body: Body::CorrectionSuggested {
+            segment_id: 0,
+            final_revision: 3,
+            final_sha256: ultra_core::receipt::sha256_hex(b"hello world"),
             byte_start: 0,
             byte_end: 5,
-            text: "hullo".into(),
+            alternative: "hullo".into(),
         },
-        EventKind::Gap {
-            start_sample: 100,
-            end_sample: 200,
-        },
-        EventKind::Status {
-            code: "shed".into(),
-            detail: "step 1".into(),
-        },
-    ]
+    });
+    v
 }
 
 fn receipt(measured: bool) -> Receipt {
@@ -223,10 +226,10 @@ fn receipt(measured: bool) -> Receipt {
         status_events: vec!["shed".into()],
         gaps: vec![(100, 200)],
         hashes: Hashes {
-            events: "e".into(),
-            preview: "p".into(),
-            commit: "c".into(),
-            final_: "f".into(),
+            events: "e".repeat(64),
+            preview: "a".repeat(64),
+            commit: "c".repeat(64),
+            final_: "f".repeat(64),
         },
         label: HonestyLabel::InCorpus,
         partition: Partition::PublicTest,
@@ -235,12 +238,18 @@ fn receipt(measured: bool) -> Receipt {
 }
 
 #[test]
-fn every_event_kind_validates_against_the_schema() {
+fn every_event_kind_validates_against_the_schema_and_the_ledger() {
     let schema = load("transcript-event.v1.schema.json");
-    for kind in every_event_kind() {
-        let v = serde_json::to_value(event(kind)).expect("serialises");
+    let mut ledger = ultra_core::events::Ledger::new();
+    for ev in every_event() {
+        let v = serde_json::to_value(&ev).expect("serialises");
         let errs = violations(&schema, &v);
         assert!(errs.is_empty(), "{v}: {errs:?}");
+        ledger
+            .apply(&ev)
+            .unwrap_or_else(|e| panic!("ledger refused {v}: {e}"));
+        let back: TranscriptEvent = serde_json::from_value(v).expect("round-trips");
+        assert_eq!(back, ev);
     }
 }
 
@@ -253,38 +262,59 @@ fn schema_event_types_match_the_rust_enum() {
         .iter()
         .filter_map(Value::as_str)
         .collect();
-    let emitted: Vec<String> = every_event_kind()
-        .into_iter()
-        .map(|k| serde_json::to_value(event(k)).expect("serialises")["event_type"].to_string())
-        .map(|s| s.trim_matches('"').to_owned())
-        .collect();
-    assert_eq!(listed, emitted);
+    let mut emitted: Vec<String> = Vec::new();
+    for ev in every_event() {
+        let t = serde_json::to_value(&ev).expect("serialises")["event_type"]
+            .as_str()
+            .expect("tag")
+            .to_owned();
+        if !emitted.contains(&t) {
+            emitted.push(t);
+        }
+    }
+    let mut a: Vec<String> = listed.iter().map(|s| s.to_string()).collect();
+    a.sort();
+    emitted.sort();
+    assert_eq!(
+        a, emitted,
+        "every event_type in the schema is produced by Rust and vice versa"
+    );
 }
 
 #[test]
 fn schema_refuses_what_the_contract_refuses() {
     let schema = load("transcript-event.v1.schema.json");
-    let good = serde_json::to_value(event(EventKind::Commit { text: "a".into() })).expect("ok");
+    let good = serde_json::to_value(&every_event()[1]).expect("commit");
 
     let mut unknown_type = good.clone();
     unknown_type["event_type"] = json!("Rewrite");
     assert!(!violations(&schema, &unknown_type).is_empty());
 
-    let mut missing_text = good.clone();
-    missing_text.as_object_mut().expect("object").remove("text");
-    assert!(!violations(&schema, &missing_text).is_empty());
+    let mut missing_snapshot = good.clone();
+    missing_snapshot
+        .as_object_mut()
+        .expect("object")
+        .remove("snapshot_utf8");
+    assert!(!violations(&schema, &missing_snapshot).is_empty());
 
     let mut extra = good.clone();
     extra["confidence"] = json!(0.9);
     assert!(!violations(&schema, &extra).is_empty());
 
-    let mut negative = good;
+    let mut negative = good.clone();
     negative["segment_id"] = json!(-1);
     assert!(!violations(&schema, &negative).is_empty());
 
-    let big = "x".repeat(MAX_PAYLOAD_BYTES + 1);
-    let oversized = serde_json::to_value(event(EventKind::Final { text: big })).expect("ok");
-    assert!(!violations(&schema, &oversized).is_empty());
+    let mut final_without_evidence = serde_json::to_value(&every_event()[2]).expect("final");
+    final_without_evidence
+        .as_object_mut()
+        .expect("object")
+        .remove("flushed");
+    assert!(!violations(&schema, &final_without_evidence).is_empty());
+
+    let mut big = good;
+    big["snapshot_utf8"] = json!("x".repeat(MAX_PAYLOAD_BYTES + 1));
+    assert!(!violations(&schema, &big).is_empty());
 }
 
 #[test]

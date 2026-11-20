@@ -68,6 +68,10 @@ def _row_problem(w) -> str | None:
     for k in ("streams", "cpu_seconds", "audio_accepted_s", "rtf_cpu", "max_ready_batch"):
         if not _finite(w.get(k)) or w[k] < 0:
             return f"missing, non-finite or negative {k}"
+    lat = w.get("lateness_ms")
+    if lat is not None and (not isinstance(lat, dict) or not all(
+            _finite(lat.get(k)) and lat[k] >= 0 for k in ("p50", "p95", "p99", "max", "last", "first_third_mean", "last_third_mean"))):
+        return "malformed lateness (invalid instrument)"
     wer = w.get("wer")
     if not isinstance(wer, dict) or not all(_finite(wer.get(k)) and wer[k] >= 0 for k in ("ref_words", "sub", "del", "ins")):
         return "missing or malformed wer"

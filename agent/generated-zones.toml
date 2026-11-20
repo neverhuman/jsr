@@ -7,7 +7,7 @@
 
 [[zone]]
 path = "contracts/events/transcript-event.v1.schema.json"
-source = "crates/ultra-core/src/events.rs"
+source = "crates/ultra-core/src/events/mod.rs"
 command = "cargo test -p ultra-core --test schema_contract"
 read_only = false
 write_policy = "reviewed_manual"

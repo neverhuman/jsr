@@ -32,7 +32,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use ultra_core::events::{EventKind, Ledger, TranscriptEvent};
+use ultra_core::events::{Ledger, SegmentStatus, TranscriptEvent};
 
 use crate::normalise::normalise_words;
 use crate::wer::{align, align_with, TieBreak};
@@ -93,25 +93,24 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
             return Err(EvalError::EventTime(ev.event_sequence));
         }
         last_t = te.t_s;
-        ledger.apply(ev).map_err(|source| EvalError::Ledger {
+        let applied = ledger.apply(ev).map_err(|source| EvalError::Ledger {
             seq: ev.event_sequence,
             source,
         })?;
-        let text_bearing = matches!(
-            ev.kind,
-            EventKind::Preview { .. }
-                | EventKind::Commit { .. }
-                | EventKind::Final { .. }
-                | EventKind::Gap { .. }
-        );
-        if !text_bearing {
+        if applied == ultra_core::events::Applied::Duplicate {
+            continue; // a retransmission is not a new display observation
+        }
+        if !ev.is_revision() {
             continue;
         }
-        let Some(st) = ledger.segment(ev.segment_id) else {
+        let Some(seg_id) = ev.segment_id() else {
             continue;
         };
-        let shown = format!("{}{}", st.immutable, st.suffix);
-        let track = segs.entry(ev.segment_id).or_default();
+        let Some(st) = ledger.segment(seg_id) else {
+            continue;
+        };
+        let shown = st.shown();
+        let track = segs.entry(seg_id).or_default();
         let committed = normalise_words(&st.immutable);
         if let Some((_, prev)) = track.committed.last() {
             commit_revisions += prev
@@ -125,7 +124,7 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
         snapshots.push(PreviewSnapshot {
             t_s: te.t_s,
             event_sequence: ev.event_sequence,
-            segment_id: ev.segment_id,
+            segment_id: seg_id,
             text: shown,
         });
     }
@@ -149,9 +148,9 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
             continue;
         };
         let fin = normalise_words(&st.immutable);
-        if st.incomplete {
+        if st.status == SegmentStatus::Incomplete {
             out.incomplete_segments += 1;
-        } else if st.closed {
+        } else if st.status == SegmentStatus::Final {
             let t = st.immutable.trim();
             if !t.is_empty() {
                 finals.push(t.to_owned());
@@ -218,43 +217,92 @@ where
     stable
 }
 
+/// Builds a timed event stream from simple calls (tests, fake backends). Wraps
+/// [`ultra_core::events::Emitter`]; every call advances ownership by `samples_per_call`.
+#[derive(Debug, Clone)]
+pub struct ScriptedStream {
+    emitter: ultra_core::events::Emitter,
+    owned: u64,
+    samples_per_call: u64,
+}
+
+impl Default for ScriptedStream {
+    fn default() -> Self {
+        Self::new("scripted", 1600)
+    }
+}
+
+impl ScriptedStream {
+    pub fn new(stream_id: &str, samples_per_call: u64) -> Self {
+        Self {
+            emitter: ultra_core::events::Emitter::new(stream_id, "scripted"),
+            owned: 0,
+            samples_per_call,
+        }
+    }
+
+    fn timed(
+        &mut self,
+        t_s: f64,
+        ev: Result<TranscriptEvent, ultra_core::CoreError>,
+    ) -> TimedEvent {
+        TimedEvent {
+            t_s,
+            event: ev.expect("scripted event is valid"),
+        }
+    }
+
+    fn ns(t_s: f64) -> u64 {
+        (t_s.max(0.0) * 1e9) as u64
+    }
+
+    /// Show `suffix` after the immutable prefix.
+    pub fn preview(&mut self, t_s: f64, suffix: &str) -> TimedEvent {
+        self.owned += self.samples_per_call;
+        let ev = self.emitter.preview(Self::ns(t_s), suffix, self.owned);
+        self.timed(t_s, ev)
+    }
+
+    /// Show `text` and commit all of it.
+    pub fn commit(&mut self, t_s: f64, text: &str) -> TimedEvent {
+        self.owned += self.samples_per_call;
+        let ev = self
+            .emitter
+            .commit(Self::ns(t_s), text, text.len(), self.owned);
+        self.timed(t_s, ev)
+    }
+
+    /// Commit `text` and close the segment (processing complete).
+    pub fn finalize(&mut self, t_s: f64, text: &str) -> TimedEvent {
+        self.owned += self.samples_per_call;
+        let done = ultra_core::events::ProcessingEvidence {
+            accepted_through_sample: self.owned,
+            required_processed_through_sample: self.owned,
+            flushed: true,
+        };
+        let ev = self.emitter.finalize(Self::ns(t_s), text, self.owned, done);
+        self.timed(t_s, ev)
+    }
+
+    /// Input discontinuity; closes any open segment as incomplete.
+    pub fn gap(&mut self, t_s: f64, range: Option<(u64, u64)>) -> TimedEvent {
+        let ev = self.emitter.gap(Self::ns(t_s), range, "scripted gap");
+        TimedEvent { t_s, event: ev }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn ev(t: f64, seq: u64, seg: u64, kind: EventKind) -> TimedEvent {
-        TimedEvent {
-            t_s: t,
-            event: TranscriptEvent {
-                stream_id: "s".into(),
-                segment_id: seg,
-                event_sequence: seq,
-                audio_start_sample: 0,
-                audio_end_sample: 1,
-                kind,
-            },
-        }
-    }
-    fn pv(rev: u64, s: &str) -> EventKind {
-        EventKind::Preview {
-            revision_id: rev,
-            replacement_suffix: s.into(),
-        }
-    }
-    fn cm(s: &str) -> EventKind {
-        EventKind::Commit { text: s.into() }
-    }
-    fn fi(s: &str) -> EventKind {
-        EventKind::Final { text: s.into() }
-    }
-
     #[test]
     fn preview_revision_moves_stable_time() {
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(1.0, 1, 0, pv(1, "the cat")),
-            ev(2.0, 2, 0, pv(2, "the cap")),
-            ev(3.0, 3, 0, pv(3, "the cat sat")),
-            ev(4.0, 4, 0, fi("the cat sat")),
+            sc.preview(1.0, "the cat"),
+            sc.preview(2.0, "the cap"),
+            sc.preview(3.0, "the cat sat"),
+            sc.finalize(4.0, "the cat sat"),
         ];
         let s = replay(&evs).unwrap();
         assert_eq!(s.final_text, "the cat sat");
@@ -271,13 +319,14 @@ mod tests {
 
     #[test]
     fn commit_times_and_two_segments() {
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(0.5, 1, 0, pv(1, "hello")),
-            ev(1.0, 2, 0, cm("hello ")),
-            ev(1.5, 3, 0, pv(2, "world")),
-            ev(2.0, 4, 0, fi("world")),
-            ev(3.0, 5, 1, pv(1, "again")),
-            ev(3.5, 6, 1, fi("again")),
+            sc.preview(0.5, "hello"),
+            sc.commit(1.0, "hello "),
+            sc.preview(1.5, "world"),
+            sc.finalize(2.0, "world"),
+            sc.preview(3.0, "again"),
+            sc.finalize(3.5, "again"),
         ];
         let s = replay(&evs).unwrap();
         assert_eq!(s.commit_text, "hello world again");
@@ -291,11 +340,12 @@ mod tests {
     fn repeated_words_use_conservative_later_time() {
         // "go" appears, vanishes, then "go go" appears: the first go's earlier
         // appearance does not survive the vanishing.
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(1.0, 1, 0, pv(1, "go")),
-            ev(2.0, 2, 0, pv(2, "")),
-            ev(3.0, 3, 0, pv(3, "go go")),
-            ev(4.0, 4, 0, fi("go go")),
+            sc.preview(1.0, "go"),
+            sc.preview(2.0, ""),
+            sc.preview(3.0, "go go"),
+            sc.finalize(4.0, "go go"),
         ];
         let s = replay(&evs).unwrap();
         assert_eq!(s.stable_t_s, vec![3.0, 3.0]);
@@ -304,10 +354,11 @@ mod tests {
 
     #[test]
     fn moved_word_restarts_clock() {
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(1.0, 1, 0, pv(1, "b a")),
-            ev(2.0, 2, 0, pv(2, "a b")),
-            ev(3.0, 3, 0, fi("a b")),
+            sc.preview(1.0, "b a"),
+            sc.preview(2.0, "a b"),
+            sc.finalize(3.0, "a b"),
         ];
         let s = replay(&evs).unwrap();
         // "a" is matched in "b a" (alignment keeps one of a/b); the final "b" is not.
@@ -317,19 +368,12 @@ mod tests {
 
     #[test]
     fn gap_closes_incomplete_and_final_text_excludes_it() {
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(1.0, 1, 0, cm("kept ")),
-            ev(1.2, 2, 0, pv(1, "lost")),
-            ev(
-                1.5,
-                3,
-                0,
-                EventKind::Gap {
-                    start_sample: 10,
-                    end_sample: 20,
-                },
-            ),
-            ev(2.0, 4, 1, fi("next")),
+            sc.commit(1.0, "kept "),
+            sc.preview(1.2, "lost"),
+            sc.gap(1.5, Some((10, 20))),
+            sc.finalize(2.0, "next"),
         ];
         let s = replay(&evs).unwrap();
         assert_eq!(s.commit_text, "kept next");
@@ -341,10 +385,11 @@ mod tests {
 
     #[test]
     fn unclosed_segment_and_commit_revision() {
+        let mut sc = ScriptedStream::default();
         let evs = vec![
-            ev(1.0, 1, 0, cm("hel")),
-            ev(2.0, 2, 0, cm("lo")),
-            ev(3.0, 3, 0, pv(1, " there")),
+            sc.commit(1.0, "hel"),
+            sc.commit(2.0, "lo"),
+            sc.preview(3.0, " there"),
         ];
         let s = replay(&evs).unwrap();
         assert_eq!(s.commit_revisions, 1);
@@ -358,13 +403,35 @@ mod tests {
     }
 
     #[test]
+    fn delayed_retransmission_is_not_a_new_observation() {
+        let mut sc = ScriptedStream::default();
+        let a = sc.preview(1.0, "the cap");
+        let b = sc.preview(2.0, "the cat");
+        let mut again = a.clone();
+        again.t_s = 3.0; // the old Preview arrives again, later
+        let c = sc.finalize(4.0, "the cat");
+        let s = replay(&[a, b, again, c]).unwrap();
+        assert_eq!(s.snapshots.len(), 3, "the duplicate adds no snapshot");
+        assert_eq!(s.stable_t_s, vec![1.0, 2.0]);
+    }
+
+    #[test]
     fn ledger_violation_and_bad_time_are_refused() {
-        let evs = vec![ev(1.0, 1, 0, fi("a")), ev(2.0, 2, 0, pv(1, "b"))];
+        let mut sc = ScriptedStream::default();
+        let first = sc.finalize(1.0, "a");
+        let mut late = sc.preview(2.0, "b");
+        // Point the preview back at the finalised segment: the ledger must refuse it.
+        if let ultra_core::events::Body::Preview(u) = &mut late.event.body {
+            u.segment_id = 0;
+        }
         assert!(matches!(
-            replay(&evs),
-            Err(EvalError::Ledger { seq: 2, .. })
+            replay(&[first, late]),
+            Err(EvalError::Ledger { seq: 1, .. })
         ));
-        let evs = vec![ev(2.0, 1, 0, pv(1, "a")), ev(1.0, 2, 0, pv(2, "b"))];
-        assert_eq!(replay(&evs), Err(EvalError::EventTime(2)));
+        let mut sc = ScriptedStream::default();
+        let a = sc.preview(2.0, "a");
+        let mut b = sc.preview(2.5, "b");
+        b.t_s = 1.0;
+        assert_eq!(replay(&[a, b]), Err(EvalError::EventTime(1)));
     }
 }

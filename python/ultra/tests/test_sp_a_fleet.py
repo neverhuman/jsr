@@ -8,8 +8,15 @@ from ultra.sp_a_fleet import summarise  # noqa: E402
 LAT = {"p99": 100.0, "last": 50.0, "first_third_mean": 55.0, "last_third_mean": 60.0}
 
 
+def _lat(**over):
+    base = {"p50": 40.0, "p95": 90.0, "max": 120.0, **LAT}
+    base.update(over)
+    return base
+
+
 def _worker(tmp, i, run_id="r1", lat=None, streams=10, core=None, drained=True, cpu=6.0):
-    w = dict(run_id=run_id, worker_id=i, streams=streams, lateness_ms=lat or dict(LAT), drained=drained,
+    full = _lat(**(lat or {}))
+    w = dict(run_id=run_id, worker_id=i, streams=streams, lateness_ms=full, drained=drained,
              wer={"ref_words": 100, "sub": 1, "del": 0, "ins": 1}, audio_accepted_s=60.0, cpu_seconds=cpu,
              rtf_cpu=0.1, max_ready_batch=streams, affinity=[40 + i if core is None else core])
     with open(os.path.join(tmp, f"worker_{i}.json"), "w") as fh:
@@ -58,7 +65,7 @@ def test_growing_lateness_below_bound_does_not_sustain(tmp_path):
 
 def test_negative_or_infinite_values_and_malformed_rows(tmp_path):
     _worker(tmp_path, 0, cpu=-1.0)
-    _worker(tmp_path, 1, lat={"p99": float("-inf"), "last": 1.0, "first_third_mean": 1.0, "last_third_mean": 1.0})
+    _worker(tmp_path, 1, lat={"p99": float("-inf")})
     with open(os.path.join(tmp_path, "worker_2.json"), "w") as fh:
         fh.write("[]")
     with open(os.path.join(tmp_path, "worker_3.json"), "w") as fh:
@@ -67,3 +74,4 @@ def test_negative_or_infinite_values_and_malformed_rows(tmp_path):
     assert not s["valid"] and s["sustained_streams"] == 0
     joined = " ".join(s["problems"])
     assert "negative cpu_seconds" in joined and "not an object" in joined and "missing" in joined
+    assert "malformed lateness" in joined

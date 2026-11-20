@@ -6,7 +6,7 @@ command.
 
 | Path | Source | Policy | Command |
 |---|---|---|---|
-| `contracts/events/transcript-event.v1.schema.json` | `crates/ultra-core/src/events.rs` | `reviewed_manual` | `cargo test -p ultra-core --test schema_contract` |
+| `contracts/events/transcript-event.v1.schema.json` | `crates/ultra-core/src/events/mod.rs` | `reviewed_manual` | `cargo test -p ultra-core --test schema_contract` |
 | `contracts/events/receipt.v1.schema.json` | `crates/ultra-core/src/receipt.rs` | `reviewed_manual` | `cargo test -p ultra-core --test schema_contract` |
 | `Cargo.lock` | `Cargo.toml` | `lockfile` | `cargo metadata --locked` (cargo updates it) |
 | `.jankurai/score-history.jsonl` | `agent/audit-policy.toml` | `auditor_output` | `just score` |

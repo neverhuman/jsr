@@ -75,28 +75,59 @@ pub const RECEIPT_SCHEMA: &str = "ultra.receipt/v1";
 impl Receipt {
     /// Refuse a receipt as evidence if any measurement is missing (Appendix D).
     pub fn validate_as_evidence(&self) -> Result<(), CoreError> {
+        let refuse = |m: &'static str| Err(CoreError::Receipt(m));
         if self.schema != RECEIPT_SCHEMA {
-            return Err(CoreError::Receipt("wrong schema"));
+            return refuse("wrong schema");
         }
         if self.completion_status != "complete" {
-            return Err(CoreError::Receipt("completion_status is not complete"));
+            return refuse("completion_status is not complete");
         }
         if !self.cpu_only_verified {
-            return Err(CoreError::Receipt("cpu_only_verified is false"));
+            return refuse("cpu_only_verified is false");
         }
-        let measured = [
-            self.observed_threads.is_some(),
-            self.process_tree_cpu_seconds.is_some(),
-            self.peak_rss_bytes.is_some(),
-            self.chunk_ms.p50.is_some(),
-            self.chunk_ms.p95.is_some(),
-            self.chunk_ms.p99.is_some(),
+        let identities = [
+            &self.bundle,
+            &self.source_commit,
+            &self.hardware,
+            &self.target,
         ];
-        if measured.contains(&false) {
-            return Err(CoreError::Receipt("null where a measurement belongs"));
+        if identities.iter().any(|s| s.trim().is_empty()) {
+            return refuse("empty identity (bundle, source_commit, hardware or target)");
         }
-        if self.audio_seconds <= 0.0 {
-            return Err(CoreError::Receipt("no audio"));
+        let h = &self.hashes;
+        if [&h.events, &h.preview, &h.commit, &h.final_]
+            .iter()
+            .any(|x| !is_sha256_hex(x))
+        {
+            return refuse("event hashes must be 64-char lower-case hex SHA-256");
+        }
+        if self.configured_threads == 0 || self.observed_threads.is_none_or(|t| t == 0) {
+            return refuse("thread counts must be measured and positive");
+        }
+        let counts = [self.events, self.wakeups, self.cap_hits];
+        if counts.iter().any(Option::is_none) || self.peak_rss_bytes.is_none_or(|b| b == 0) {
+            return refuse("null where a measurement belongs");
+        }
+        let finite_nonneg = |x: Option<f64>| x.is_some_and(|v| v.is_finite() && v >= 0.0);
+        let c = &self.chunk_ms;
+        if !finite_nonneg(self.process_tree_cpu_seconds)
+            || ![c.p50, c.p95, c.p99].into_iter().all(finite_nonneg)
+        {
+            return refuse("CPU and chunk timings must be measured, finite and non-negative");
+        }
+        let (p50, p95, p99) = (
+            c.p50.unwrap_or(0.0),
+            c.p95.unwrap_or(0.0),
+            c.p99.unwrap_or(0.0),
+        );
+        if !(p50 <= p95 && p95 <= p99) {
+            return refuse("chunk percentiles out of order");
+        }
+        if !self.audio_seconds.is_finite() || self.audio_seconds <= 0.0 {
+            return refuse("no audio, or non-finite audio duration");
+        }
+        if self.gaps.iter().any(|(s, e)| s >= e) {
+            return refuse("empty or reversed gap range");
         }
         Ok(())
     }
@@ -106,6 +137,13 @@ impl Receipt {
         self.process_tree_cpu_seconds
             .map(|c| c / self.audio_seconds)
     }
+}
+
+/// Is `s` a 64-character lower-case hex string?
+pub fn is_sha256_hex(s: &str) -> bool {
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// Lower-case hex SHA-256.
