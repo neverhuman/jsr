@@ -60,3 +60,17 @@ The previous section's DRAM explanation is superseded. The limit is **L3 per CCX
 
 ## Instrument caveat (2026-11-20 19:30Z, codex-review)
 The Rust runner's sherpa paths derived observation time from accepted samples, and marked samples processed without a decode. The Rust lateness and p99 figures above (one worker per CCX: 616–655 ms) are therefore **INVALID_INSTRUMENT for latency** until runtime fixes land. CPU totals and WER from those runs are unaffected. The Python-harness lateness numbers use the real monotonic clock and are not affected.
+
+## Machine-wide density (exploratory, 2026-11-20 ~20:15Z, xbabe0)
+**Host:** xbabe0, an identical CPU model (Threadripper PRO 3995WX). Quiet: load 2–12, no other benchmark running.
+**Setup:** Python harness with a real monotonic clock; one single-threaded worker per Zen 2 CCX (cores 0, 4, …, 60, so 16 of 64 cores); paced; grid 320 ms; 150 s; dev-clean; R0 Zipformer int8.
+
+| Streams per worker | Workers sustaining (A1 rule) | Live streams sustained | p99 lateness (worst) | Pooled WER | CPU-s per audio-s |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 16 / 16 | **160** | 585 ms | 2.81% | 0.060 |
+| 12 | 16 / 16 | **192** | 636 ms | 2.80% | 0.0615 |
+| 14 | 4 / 16 | 56 | 3,126 ms | 2.79% | 0.070 |
+
+- **Result:** 192 live streams sustained on one 64-core workstation, using 16 cores. This matches the predicted ~190 from the L3-per-CCX mechanism.
+- **Status:** exploratory (DEV, per-host, not under BENCH_LEASE.host). The qualifying run comes after the freeze.
+- **Raw data:** `/mnt/xbabe3-external/jsr/runs/sp_a/xbabe0/`.
