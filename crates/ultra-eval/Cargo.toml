@@ -1,11 +1,28 @@
 [package]
 name = "ultra-eval"
+description = "ULTRA evaluation: pinned normaliser, WER, event-stream scoring, CQ(D), paired cluster bootstrap, process-tree accounting, paced replay"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+libc = "0.2"
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "ultra-measure"
+path = "src/bin/ultra_measure.rs"
+
+[[bin]]
+name = "ultra-score"
+path = "src/bin/ultra_score.rs"
