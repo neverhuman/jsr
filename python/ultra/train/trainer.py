@@ -59,6 +59,7 @@ class TrainConfig:
     chunk: int = 0  # 0 = model default
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
+    weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
     extra: dict = field(default_factory=dict)
 
 
@@ -240,6 +241,13 @@ class Trainer:
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
                           **self.evaluate(), **self.stats.summary()})
                 t0 = time.time()
+            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0:
+                self.saver.save(self.run_dir, self.step,
+                                {"model": self.model.state_dict(),
+                                 "model_config": self.model_cfg.to_dict(),
+                                 "train_config": asdict(self.cfg),
+                                 "tokenizer_sha256": getattr(self.tok, "sha256", None)},
+                                weights_only=True)
             due = (self.step % self.cfg.ckpt_every_steps == 0
                    or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)
             if due or self.stop_requested:

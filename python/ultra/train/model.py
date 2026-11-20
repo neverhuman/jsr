@@ -39,6 +39,14 @@ class EncoderConfig:
     # False: pre-norm modules only plus one final LayerNorm. D1 (2026-11-20) showed the 16-block
     # post-block-norm stack collapsing to near time-invariant output (CTC flat at 6.18/token).
     post_block_norm: bool = True
+    # "dense": n_blocks at 25 Hz. "multirate" (spec v1.0-B §17.2-17.4): lower_blocks at 25 Hz,
+    # a trained projection of each pair of 25 Hz positions to one 12.5 Hz position, middle_blocks
+    # at 12.5 Hz (chunk/2, left_context/2), a trained restoration to two 25 Hz positions plus the
+    # lower-block skip, then final_blocks at 25 Hz. n_blocks is ignored for multirate.
+    family: str = "dense"
+    lower_blocks: int = 4
+    middle_blocks: int = 10
+    final_blocks: int = 2
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -162,20 +170,49 @@ class Encoder(nn.Module):
         super().__init__()
         self.cfg = c
         self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model)
-        self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
+        if c.family == "dense":
+            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
+        elif c.family == "multirate":
+            if c.chunk % 2 or c.left_context % 2:
+                raise ShapeError("multirate needs an even chunk and left context")
+            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
+            self.pair = nn.Linear(2 * c.d_model, c.d_model)
+            self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
+            self.restore = nn.Linear(c.d_model, 2 * c.d_model)
+            self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
+        else:
+            raise ShapeError(f"unknown encoder family {c.family}")
         self.final_norm = nn.Identity() if c.post_block_norm else nn.LayerNorm(c.d_model)
+
+    def _ctx(self, lens: torch.Tensor, t: int, chunk: int, left: int, dtype, device):
+        pad = torch.arange(t, device=device)[None] >= lens[:, None]
+        mask = chunk_mask(t, chunk, left, device)
+        # Padded keys are excluded; a padded query keeps its own key so softmax stays finite.
+        mask = (mask[None] & ~pad[:, None, :]) | torch.eye(t, dtype=torch.bool, device=device)[None]
+        cos, sin = rope_tables(t, self.cfg.d_model // self.cfg.n_heads, device, dtype)
+        return mask[:, None], pad, cos, sin
 
     def forward(self, feats: torch.Tensor, feat_lens: torch.Tensor, chunk: int | None = None):
         """feats (B, T, 80) normalised log-mel; returns (states (B, T', d), lens (B,))."""
+        c = self.cfg
+        chunk = chunk or c.chunk
         x = self.stem(feats)
         lens = stem_out_len(feat_lens)
-        b, t, _ = x.shape
-        pad = torch.arange(t, device=x.device)[None] >= lens[:, None]
-        mask = chunk_mask(t, chunk or self.cfg.chunk, self.cfg.left_context, x.device)
-        # Padded keys are excluded; a padded query keeps its own key so softmax stays finite.
-        mask = (mask[None] & ~pad[:, None, :]) | torch.eye(t, dtype=torch.bool, device=x.device)[None]
-        mask = mask[:, None]  # (B, 1, T, T)
-        cos, sin = rope_tables(t, self.cfg.d_model // self.cfg.n_heads, x.device, x.dtype)
+        b, t, d = x.shape
+        mask, pad, cos, sin = self._ctx(lens, t, chunk, c.left_context, x.dtype, x.device)
         for blk in self.blocks:
             x = blk(x, mask, pad, cos, sin)
+        if c.family == "multirate":
+            skip = x
+            if t % 2:
+                x = F.pad(x, (0, 0, 0, 1))
+            m = self.pair(x.reshape(b, -1, 2 * d))  # position k <- 25 Hz positions 2k, 2k+1
+            m_lens = torch.div(lens + 1, 2, rounding_mode="floor")
+            mm, mp, mc, ms = self._ctx(m_lens, m.shape[1], chunk // 2, c.left_context // 2,
+                                       m.dtype, m.device)
+            for blk in self.mid_blocks:
+                m = blk(m, mm, mp, mc, ms)
+            x = self.restore(m).reshape(b, -1, d)[:, :t] + skip
+            for blk in self.final_blocks:
+                x = blk(x, mask, pad, cos, sin)
         return self.final_norm(x), lens
