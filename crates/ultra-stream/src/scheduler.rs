@@ -118,20 +118,42 @@ pub struct SpAResult {
     pub scored_rows: Vec<ScoreRecord>,
 }
 
-struct SherpaSlot {
+pub(crate) struct SherpaSlot {
     utt_pos: usize,
     stream: RawOnlineStream,
     cursor: usize,
     finished_input: bool,
 }
 
-struct SherpaBank<'a> {
+pub(crate) struct SherpaBank<'a> {
     audio_utts: &'a [AudioUtterance],
+    rot: usize,
     engine: std::sync::Arc<SherpaZipformerBackend>,
     slots: Vec<Option<SherpaSlot>>,
     pad_zeros: Vec<f32>,
     scratch: Vec<f32>,
-    sampler: &'a mut TreeSampler,
+    sampler: Option<&'a mut TreeSampler>,
+}
+
+impl<'a> SherpaBank<'a> {
+    pub(crate) fn new(
+        audio_utts: &'a [AudioUtterance],
+        rot: usize,
+        engine: std::sync::Arc<SherpaZipformerBackend>,
+        streams: usize,
+        tail_pad_s: f64,
+        sampler: Option<&'a mut TreeSampler>,
+    ) -> Self {
+        Self {
+            audio_utts,
+            rot,
+            engine,
+            slots: (0..streams).map(|_| None).collect(),
+            pad_zeros: vec![0.0f32; (16_000.0 * tail_pad_s) as usize],
+            scratch: Vec::with_capacity(1024),
+            sampler,
+        }
+    }
 }
 
 impl SimSlotBank for SherpaBank<'_> {
@@ -142,8 +164,9 @@ impl SimSlotBank for SherpaBank<'_> {
         self.audio_utts[utt_pos].pcm.len()
     }
     fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
+        let real = (utt_pos + self.rot) % self.audio_utts.len();
         self.slots[slot] = Some(SherpaSlot {
-            utt_pos,
+            utt_pos: real,
             stream: self.engine.create_raw_stream()?,
             cursor: 0,
             finished_input: false,
@@ -234,7 +257,9 @@ impl SimSlotBank for SherpaBank<'_> {
         }
     }
     fn on_periodic_tick(&mut self) {
-        self.sampler.sample();
+        if let Some(s) = self.sampler.as_mut() {
+            s.sample();
+        }
     }
 }
 
@@ -252,14 +277,14 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
     sampler.sample();
     let load_before = read_loadavg();
 
-    let mut bank = SherpaBank {
-        audio_utts: &audio_utts,
+    let mut bank = SherpaBank::new(
+        &audio_utts,
+        0,
         engine,
-        slots: (0..cfg.streams).map(|_| None).collect(),
-        pad_zeros: vec![0.0f32; (16_000.0 * cfg.zipformer.tail_pad_s) as usize],
-        scratch: Vec::with_capacity(1024),
-        sampler: &mut sampler,
-    };
+        cfg.streams,
+        cfg.zipformer.tail_pad_s,
+        Some(&mut sampler),
+    );
     let mut clock = RealClock::new()?;
     let mut sim = simulate_grid(
         &mut bank,

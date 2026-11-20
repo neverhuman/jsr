@@ -10,20 +10,17 @@ use serde::{Deserialize, Serialize};
 use ultra_core::receipt::{Receipt, RECEIPT_SCHEMA};
 use ultra_eval::procfs::TreeSampler;
 use ultra_eval::score::ScoreRecord;
-use ultra_frontend::npz::{load_npz_audio_only, AudioUtterance};
+use ultra_frontend::npz::load_npz_audio_only;
 
 use crate::api::StreamError;
 use crate::contrast::{
     build_event_hashes_and_chunks, current_affinity, read_loadavg, score_completed,
     self_cpu_seconds, WerSummary,
 };
-use crate::grid_sim::{
-    simulate_grid, sustains_lateness, DecodeMode, LatenessQuantiles, SimOutcome, SimParams,
-    SimSlotBank,
-};
-use crate::scheduler::{RealClock, SpAConfig};
+use crate::grid_sim::{simulate_grid, sustains_lateness, LatenessQuantiles, SimOutcome, SimParams};
+use crate::scheduler::{RealClock, SherpaBank, SpAConfig};
 use crate::sherpa_ffi::{verify_cpu_only_process, SherpaLib};
-use crate::sherpa_online::{RawOnlineStream, SherpaZipformerBackend};
+use crate::sherpa_online::SherpaZipformerBackend;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerSummary {
@@ -75,111 +72,6 @@ pub struct SharedFleetResult {
     pub receipt: Receipt,
     #[serde(skip)]
     pub scored_rows: Vec<ScoreRecord>,
-}
-
-struct WorkerBank<'a> {
-    audio_utts: &'a [AudioUtterance],
-    rot: usize,
-    engine: Arc<SherpaZipformerBackend>,
-    slots: Vec<Option<(usize, RawOnlineStream, usize, bool)>>,
-    pad_zeros: Vec<f32>,
-    scratch: Vec<f32>,
-}
-
-impl SimSlotBank for WorkerBank<'_> {
-    fn num_utterances(&self) -> usize {
-        self.audio_utts.len()
-    }
-    fn utt_samples(&self, utt_pos: usize) -> usize {
-        self.audio_utts[utt_pos].pcm.len()
-    }
-    fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
-        let real = (utt_pos + self.rot) % self.audio_utts.len();
-        self.slots[slot] = Some((real, self.engine.create_raw_stream()?, 0, false));
-        Ok(())
-    }
-    fn has_slot(&self, slot: usize) -> bool {
-        self.slots[slot].is_some()
-    }
-    fn slot_utt(&self, slot: usize) -> usize {
-        self.slots[slot].as_ref().map_or(0, |(real, _, _, _)| *real)
-    }
-    fn slot_cursor(&self, slot: usize) -> usize {
-        self.slots[slot].as_ref().map_or(0, |(_, _, cur, _)| *cur)
-    }
-    fn slot_finished_input(&self, slot: usize) -> bool {
-        self.slots[slot].as_ref().is_some_and(|(_, _, _, fin)| *fin)
-    }
-    fn accept_packet(&mut self, slot: usize, max_samples: usize) -> usize {
-        let Some((real, st, cur, fin)) = self.slots[slot].as_mut() else {
-            return 0;
-        };
-        let pcm = &self.audio_utts[*real].pcm;
-        if *cur >= pcm.len() {
-            return 0;
-        }
-        let end = (*cur + max_samples).min(pcm.len());
-        let n = end - *cur;
-        st.accept_i16(&pcm[*cur..end], &mut self.scratch);
-        *cur = end;
-        if *cur >= pcm.len() {
-            st.accept_f32(&self.pad_zeros);
-            st.input_finished();
-            *fin = true;
-        }
-        n
-    }
-    fn finish_slot_input(&mut self, slot: usize) {
-        if let Some((_, st, _, fin)) = self.slots[slot].as_mut() {
-            if !*fin {
-                st.accept_f32(&self.pad_zeros);
-                st.input_finished();
-                *fin = true;
-            }
-        }
-    }
-    fn slot_is_ready(&self, slot: usize) -> bool {
-        self.slots[slot]
-            .as_ref()
-            .is_some_and(|(_, st, _, _)| st.is_ready())
-    }
-    fn decode_ready_step(&mut self, decode: DecodeMode, max_batch: usize) -> (usize, u64) {
-        let mut addrs = Vec::new();
-        let mut indices = Vec::new();
-        for (idx, sl) in self.slots.iter().enumerate() {
-            if let Some((_, st, _, _)) = sl.as_ref().filter(|(_, st, _, _)| st.is_ready()) {
-                addrs.push(st.addr());
-                indices.push(idx);
-            }
-        }
-        if addrs.is_empty() {
-            return (0, 0);
-        }
-        let mut w = 0u64;
-        match decode {
-            DecodeMode::Batch => {
-                for ch in addrs.chunks(max_batch) {
-                    self.engine.decode_batch_addrs(ch);
-                    w += 1;
-                }
-            }
-            DecodeMode::Single => {
-                for idx in indices {
-                    if let Some((_, st, _, _)) = &self.slots[idx] {
-                        self.engine.decode_one(st);
-                        w += 1;
-                    }
-                }
-            }
-        }
-        (addrs.len(), w)
-    }
-    fn take_completed_slot(&mut self, slot: usize) -> String {
-        match self.slots[slot].take() {
-            Some((_, st, _, _)) => st.text().trim().to_owned(),
-            None => String::new(),
-        }
-    }
 }
 
 fn pin_current_thread(cpus: &[usize]) {
@@ -240,14 +132,14 @@ pub fn run_sp_a_shared_workers(
             let cpus_clone = cpus.clone();
             handles.push(scope.spawn(move || {
                 pin_current_thread(&cpus_clone);
-                let mut bank = WorkerBank {
-                    audio_utts: utts_ref,
-                    rot: (w * 137) % utts_ref.len(),
-                    engine: eng,
-                    slots: (0..cfg.streams).map(|_| None).collect(),
-                    pad_zeros: vec![0.0f32; (16_000.0 * cfg.zipformer.tail_pad_s) as usize],
-                    scratch: Vec::with_capacity(1024),
-                };
+                let mut bank = SherpaBank::new(
+                    utts_ref,
+                    (w * 137) % utts_ref.len(),
+                    eng,
+                    cfg.streams,
+                    cfg.zipformer.tail_pad_s,
+                    None,
+                );
                 bar.wait();
                 let mut clk = RealClock::new()?;
                 simulate_grid(

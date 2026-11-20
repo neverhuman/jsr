@@ -257,14 +257,23 @@ pub(crate) unsafe fn cstr_or_empty(p: *const c_char) -> String {
 
 fn candidate_so_paths() -> Vec<PathBuf> {
     let mut out = Vec::new();
-    if let Ok(p) = std::env::var("ULTRA_SHERPA_LIB") {
-        out.push(PathBuf::from(p));
+    for var in ["ULTRA_SHERPA_LIB", "SHERPA_ONNX_LIB_DIR"] {
+        if let Ok(raw) = std::env::var(var) {
+            let p = PathBuf::from(raw.trim());
+            if p.is_dir() {
+                out.push(p.join("libsherpa-onnx-c-api.so"));
+            } else {
+                out.push(p);
+            }
+        }
     }
     let rel = ".venv/lib/python3.12/site-packages/sherpa_onnx/lib/libsherpa-onnx-c-api.so";
     out.push(PathBuf::from(rel));
-    out.push(PathBuf::from("/home/ubuntu/jsr").join(rel));
+    for anc in Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().take(8) {
+        out.push(anc.join(rel));
+    }
     if let Ok(cwd) = std::env::current_dir() {
-        for anc in cwd.ancestors().take(6) {
+        for anc in cwd.ancestors().take(8) {
             out.push(anc.join(rel));
         }
     }

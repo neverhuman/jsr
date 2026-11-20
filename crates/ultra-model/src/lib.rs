@@ -70,12 +70,7 @@ impl From<std::io::Error> for ModelError {
     }
 }
 
-/// Check whether `s` is a valid lower-case 64-char SHA-256 hex digest.
-pub fn is_valid_sha256_hex(s: &str) -> bool {
-    s.len() == 64
-        && s.bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-}
+pub use ultra_core::receipt::is_sha256_hex as is_valid_sha256_hex;
 
 /// Check whether a string looks like an unresolved specification template value.
 pub fn is_unresolved_placeholder(s: &str) -> bool {

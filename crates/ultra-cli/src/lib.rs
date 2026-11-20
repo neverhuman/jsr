@@ -9,6 +9,7 @@
 //! - `5`: resource limit / backpressure failure
 
 pub mod bench_cmd;
+pub mod bundle_cmd;
 pub mod inventory;
 pub mod runner;
 
@@ -231,7 +232,7 @@ pub fn run_cli_args(args: &[String]) -> Result<(), CliError> {
         }
         "inventory" => inventory::cmd_inventory(rest),
         "candidate" => inventory::cmd_candidate(rest),
-        "bundle" => inventory::cmd_bundle(rest),
+        "bundle" => bundle_cmd::cmd_bundle(rest),
         "doctor" => inventory::cmd_doctor(rest),
         "transcribe" => runner::cmd_transcribe(rest, false),
         "stream" => runner::cmd_transcribe(rest, true),

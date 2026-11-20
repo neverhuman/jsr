@@ -3,9 +3,11 @@
 
 use std::collections::BTreeMap;
 
-use ultra_core::events::{TranscriptEvent, DEDUP_WINDOW};
+use ultra_core::events::{SegmentStatus, TranscriptEvent, DEDUP_WINDOW};
+use ultra_core::receipt::sha256_hex;
 
 use crate::api::StreamError;
+use crate::coordinator::StreamCoordinator;
 
 /// Ticket issued when an optional second-pass refiner starts work on an open segment (§18.6).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,5 +90,98 @@ pub(crate) fn slice_from_boundary(s: &str, byte_offset: usize) -> &str {
         &s[byte_offset..]
     } else {
         ""
+    }
+}
+
+impl StreamCoordinator {
+    /// Observable-clock endpoint detection hook (§18.6, §38.3): records when trailing silence
+    /// began (`pause_started_ms`). Hangover elapsed since `pause_started_ms` consumes from
+    /// `cfg.final_budget_ms` rather than resetting a fresh refinement budget.
+    pub fn mark_observable_pause_start(&mut self, pause_started_ms: u64) {
+        if self.speech_pause_anchor_ms.is_none() {
+            self.speech_pause_anchor_ms = Some(pause_started_ms);
+        }
+    }
+
+    /// Remaining causal refinement budget at `now_monotonic_ms` (§38.3 probe 3).
+    pub fn remaining_refinement_budget_ms(&self, now_monotonic_ms: u64) -> u64 {
+        let Some(anchor) = self.speech_pause_anchor_ms else {
+            return self.cfg.final_budget_ms;
+        };
+        let deadline = anchor.saturating_add(self.cfg.final_budget_ms);
+        deadline.saturating_sub(now_monotonic_ms)
+    }
+
+    /// Begin a conditional refiner transaction on the currently open segment if causal slack
+    /// remains (`now_monotonic_ms` + `qualified_service_ms` <= deadline).
+    pub fn try_begin_refiner(
+        &mut self,
+        now_monotonic_ms: u64,
+        qualified_service_ms: u64,
+    ) -> Option<RefinerTicket> {
+        if self.lifecycle.state().is_terminal() {
+            return None;
+        }
+        let seg = self.ledger.segment(self.current_segment_id)?;
+        if seg.status != SegmentStatus::Open {
+            return None;
+        }
+        let slack = self.remaining_refinement_budget_ms(now_monotonic_ms);
+        if slack == 0 || qualified_service_ms > slack {
+            return None;
+        }
+        self.extra_metrics.refiner_attempts += 1;
+        Some(RefinerTicket {
+            segment_id: self.current_segment_id,
+            state_epoch: self.refiner_epoch,
+            base_revision: seg.revision,
+            immutable_prefix_sha256: sha256_hex(seg.immutable.as_bytes()),
+            immutable_prefix_bytes: seg.immutable.len(),
+            deadline_monotonic_ms: now_monotonic_ms.saturating_add(slack),
+        })
+    }
+
+    /// Compare-and-apply a second-pass refiner suffix replacement (§18.6, §33.3, §38.3 probe 4).
+    /// Always charges `cpu_seconds` and `peak_mem_bytes`, even when rejected.
+    pub fn apply_refiner_result(
+        &mut self,
+        ticket: &RefinerTicket,
+        now_monotonic_ms: u64,
+        replacement_suffix: String,
+        cpu_seconds: f64,
+        peak_mem_bytes: u64,
+    ) -> Result<bool, StreamError> {
+        self.extra_metrics.refiner_charged_cpu_s += cpu_seconds.max(0.0);
+        self.extra_metrics.retained_bytes = self.extra_metrics.retained_bytes.max(peak_mem_bytes);
+        let now_ns = now_monotonic_ms.saturating_mul(1_000_000);
+
+        let valid = !self.lifecycle.state().is_terminal()
+            && now_monotonic_ms <= ticket.deadline_monotonic_ms
+            && self.refiner_epoch == ticket.state_epoch
+            && self.current_segment_id == ticket.segment_id
+            && self.ledger.segment(ticket.segment_id).is_some_and(|seg| {
+                seg.status == SegmentStatus::Open
+                    && seg.revision == ticket.base_revision
+                    && seg.immutable.len() == ticket.immutable_prefix_bytes
+                    && sha256_hex(seg.immutable.as_bytes()) == ticket.immutable_prefix_sha256
+            });
+
+        if !valid {
+            self.extra_metrics.refiner_rejects += 1;
+            let detail = format!(
+                "seg={} ticket_epoch={} cur_epoch={}",
+                ticket.segment_id, ticket.state_epoch, self.refiner_epoch
+            );
+            let ev = self.emitter.status(now_ns, "refiner_rejected", &detail);
+            self.push_validated(ev)?;
+            return Ok(false);
+        }
+
+        let ev = self
+            .emitter
+            .preview(now_ns, &replacement_suffix, self.expected_sample)?;
+        self.push_validated(ev)?;
+        self.extra_metrics.refiner_accepts += 1;
+        Ok(true)
     }
 }
