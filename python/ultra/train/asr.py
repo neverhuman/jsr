@@ -122,5 +122,16 @@ class ASRModel(nn.Module):
         enc_p = self.joiner.enc_proj(enc.float())
         return greedy_decode(self.predictor, self.joiner, enc_p, lens, max_symbols)
 
+    @torch.no_grad()
+    def ctc_greedy(self, feats, feat_lens, chunk=None) -> list[list[int]]:
+        """Best-path CTC on the dense 25 Hz grid: argmax, merge repeats, drop blanks."""
+        enc, lens = self.encode(feats, feat_lens, chunk)
+        best = self.ctc_head(enc.float()).argmax(dim=-1)
+        out = []
+        for b in range(best.shape[0]):
+            seq = best[b, :int(lens[b])].tolist()
+            out.append([k for i, k in enumerate(seq) if k != 0 and (i == 0 or seq[i - 1] != k)])
+        return out
+
     def num_params(self) -> int:
         return sum(p.numel() for p in self.parameters())

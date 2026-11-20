@@ -38,22 +38,28 @@ def main() -> None:
     model.load_state_dict(p["model"])
     model.eval()
     tok = Tokenizer(tokenizer_path(4096))
-    feat = Featurizer(tok, Tokenizer(tokenizer_path(1024)))
+    tok_c = Tokenizer(tokenizer_path(1024))
+    feat = Featurizer(tok, tok_c)
     exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in load_split(a.split, a.limit)),
                  key=lambda e: e.seconds)
-    refs, hyps, forced, exact = [], [], 0, 0
+    refs, hyps, ctc_hyps, forced, exact, ctc_exact = [], [], [], 0, 0, 0
     for i in range(0, len(exs), 8):
         b = collate(exs[i:i + 8])
         toks, f = model.greedy(b.feats, b.feat_lens, max_symbols=a.max_symbols)
         forced += f
+        for t in model.ctc_greedy(b.feats, b.feat_lens):
+            ctc_hyps.append(tok_c.decode(t))
         for r, t in zip(b.texts, toks, strict=True):
             h = tok.decode(t)
             refs.append(r)
             hyps.append(h)
             exact += int(r.lower().split() == h.split())
     w = corpus_wer(refs, hyps)
+    wc = corpus_wer(refs, ctc_hyps)
+    ctc_exact = sum(r.lower().split() == h.split() for r, h in zip(refs, ctc_hyps, strict=True))
     out = {"step": p["step"], "split": a.split, "n": len(refs), "max_symbols": a.max_symbols,
-           "forced_advances": forced, "exact_utts": exact, **w}
+           "forced_advances": forced, "exact_utts": exact, **w,
+           "ctc_wer": wc["wer"], "ctc_exact_utts": ctc_exact}
     print(json.dumps(out))
     for r, h in list(zip(refs, hyps, strict=True))[:a.show]:
         print("REF", r.lower())
