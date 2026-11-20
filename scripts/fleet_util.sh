@@ -17,7 +17,7 @@ while true; do
       out=$(timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=5 -o LogLevel=ERROR "$h" "bash -c '$probe'" 2>/dev/null); name=$h; fi
     read -r cpu gpu <<<"${out:-x x}"
     line=$(printf '{"t":"%s","host":"%s","cpu_pct":%s,"gpu_pct":%s}' "$(date -u +%FT%TZ)" "$name" \
-      "$( [ "$cpu" = x ] && echo null || echo "scale=1; $cpu/10" | bc)" "$( [[ "$gpu" =~ ^[0-9]+$ ]] && echo "$gpu" || echo null)")
+      "$( [ "$cpu" = x ] && echo null || awk -v c="$cpu" 'BEGIN{printf "%.1f", c/10}')" "$( [[ "$gpu" =~ ^[0-9]+$ ]] && echo "$gpu" || echo null)")
     echo "$line" >> "$LOG"
     echo "$line"
   done
