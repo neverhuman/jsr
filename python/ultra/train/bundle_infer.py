@@ -17,7 +17,7 @@ import time
 
 import numpy as np
 
-SCHEMA = "ultra.r1-export/v1"
+SCHEMAS = ("ultra.r1-export/v1", "ultra.r1-export/v1.1")
 
 
 class BundleError(Exception):
@@ -65,8 +65,8 @@ class BundleRecognizer:
 
         with open(os.path.join(bundle, "manifest.json")) as fh:
             m = json.load(fh)
-        if m.get("schema") != SCHEMA:
-            raise BundleError(f"schema {m.get('schema')} != {SCHEMA}")
+        if m.get("schema") not in SCHEMAS:
+            raise BundleError(f"schema {m.get('schema')} not in {SCHEMAS}")
         if verify:
             for key, f in m["files"].items():
                 if _sha256(os.path.join(bundle, f["path"])) != f["sha256"]:
@@ -210,6 +210,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--streams", type=int, default=16)
     ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--dump", default=None,
+                    help="write per-utterance JSON lines (uid, ref, hyp[, trainer_hyp]) here")
     ap.add_argument("--compare-checkpoint", default=None,
                     help="also run the trainer's batch eval of this checkpoint on the same audio")
     a = ap.parse_args()
@@ -251,6 +253,16 @@ def main() -> None:
                 bh.extend(tok.decode(t) for t in toks)
         out["trainer_eval_wer"] = corpus_wer(refs, bh)["wer"]
         out["identical_hyps"] = sum(x == y for x, y in zip(hyps, bh, strict=True))
+    else:
+        bh = None
+    if a.dump:
+        with open(a.dump, "w") as fh:
+            for i, u in enumerate(utts):
+                rec = {"uid": u.uid, "ref": u.text, "hyp": hyps[i]}
+                if bh is not None:
+                    rec["trainer_hyp"] = bh[i]
+                fh.write(json.dumps(rec) + "\n")
+        out["dump"] = a.dump
     print(json.dumps(out))
 
 

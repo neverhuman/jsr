@@ -1,6 +1,7 @@
 # Trainer and data-prep dependencies (torch comes from the system site-packages: 2.7.0+CUDA).
 sherpa-onnx
 onnxruntime
+onnx==1.17.0  # R1 bundle export (train.export, ultra.r1-export/v1.1)
 numpy<2
 soundfile
 pyarrow<18
