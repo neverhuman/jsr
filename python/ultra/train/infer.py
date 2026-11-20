@@ -128,6 +128,15 @@ def export_onnx(enc: ChunkEncoder, path: str) -> None:
                       opset_version=17, dynamo=False)
 
 
+def quantize_int8(fp32_path: str, int8_path: str) -> None:
+    """Dynamic int8 quantisation (per-channel int8 weights, int8 activations computed per call)
+    of the MatMul/Gemm weights; everything else stays fp32."""
+    from onnxruntime.quantization import QuantType, quantize_dynamic
+
+    quantize_dynamic(fp32_path, int8_path, weight_type=QuantType.QInt8, per_channel=True,
+                     op_types_to_quantize=["MatMul", "Gemm"])
+
+
 class OrtChunkEncoder:
     """onnxruntime execution of an exported ChunkEncoder (same call signature)."""
 
@@ -191,10 +200,14 @@ class StreamingRecognizer:
         self.max_symbols = max_symbols
         self.logmel = LogMel()
         self.encoder = ChunkEncoder(model.encoder).eval()
-        if backend == "onnx":
+        if backend in ("onnx", "onnx-int8"):
             if onnx_path is None:
-                raise ShapeError("backend onnx needs onnx_path")
+                raise ShapeError(f"backend {backend} needs onnx_path")
             export_onnx(self.encoder, onnx_path)
+            if backend == "onnx-int8":
+                q = onnx_path[:-5] + ".int8.onnx" if onnx_path.endswith(".onnx") else onnx_path + ".int8"
+                quantize_int8(onnx_path, q)
+                onnx_path = q
             self.encoder = OrtChunkEncoder(onnx_path, threads)
         elif backend != "torch":
             raise ShapeError(f"unknown backend {backend}")
@@ -350,7 +363,7 @@ def main() -> None:
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--packet-ms", type=int, default=20)
     ap.add_argument("--compare", action="store_true", help="also run the trainer's batch eval")
-    ap.add_argument("--backend", choices=["torch", "onnx"], default="torch")
+    ap.add_argument("--backend", choices=["torch", "onnx", "onnx-int8"], default="torch")
     ap.add_argument("--onnx-path", default=None, help="where to write the exported chunk encoder")
     a = ap.parse_args()
     from ultra.libri import load_split

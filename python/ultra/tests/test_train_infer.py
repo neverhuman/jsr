@@ -114,3 +114,29 @@ def test_onnx_backend_matches_torch():
     got = run_streaming(StreamingRecognizer(m, _Tok(), threads=1, backend="onnx",
                                             onnx_path=os.path.join(d, "tiny.onnx")), utts, 2, 30)
     assert got == want
+
+
+def test_onnx_int8_backend_runs_and_stays_close():
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime.quantization")
+    torch.set_num_threads(1)
+    repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    d = os.path.join(repo, "target", "test-train", "onnx")
+    os.makedirs(d, exist_ok=True)
+    m = _model(False)
+    rec = StreamingRecognizer(m, _Tok(), threads=1, backend="onnx-int8",
+                              onnx_path=os.path.join(d, "tiny_q.onnx"))
+    rec.keep_states = True
+    ref = StreamingRecognizer(m, _Tok(), threads=1)
+    ref.keep_states = True
+    u = _utts(1, seed=4)[0]
+    outs = []
+    for r in (rec, ref):
+        s = r.create_stream()
+        s.accept_waveform(16000, u.pcm.astype(np.float32) / 32768.0)
+        s.input_finished()
+        while r.is_ready(s):
+            r.decode_stream(s)
+        outs.append(torch.cat(s.states, 0))
+    rel = (outs[0] - outs[1]).norm() / outs[1].norm()
+    assert outs[0].shape == outs[1].shape and float(rel) < 0.25, float(rel)  # random d=32 weights; real-model check is WER
