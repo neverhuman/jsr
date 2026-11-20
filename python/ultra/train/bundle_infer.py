@@ -202,6 +202,58 @@ class BundleRecognizer:
             s.ctx = c.tolist()
 
 
+def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 20261120) -> dict:
+    """Max |difference| between a row decoded alone and the same row inside larger batches, for
+    every encoder output (including caches) and the joiner. Batch-invariant bundles give 0.0."""
+    rec = BundleRecognizer(bundle, precision, threads=1)
+    st = rec.m["streaming"]
+    n = st["chunk_frames"]
+    rng = np.random.default_rng(seed)
+
+    def feed(b):
+        f = {"feats": rng.normal(0, 1, (b, 4 * n + 3, rec.n_mels)).astype(np.float32),
+             "t0": rng.integers(0, 50, b).astype(np.int64) * n}
+        for s in rec.states:
+            shape = [b if d == "B" else d for d in s["shape"]]
+            if s["dtype"] == "int64":
+                f[s["name"]] = rng.integers(0, st["left_context_frames"] + 1, shape).astype(np.int64)
+            else:
+                f[s["name"]] = rng.normal(0, 1, shape).astype(np.float32)
+        return f
+
+    def axis(name):
+        for s in rec.states:
+            if s["name"] == name:
+                return s["shape"].index("B")
+        return 0
+
+    base = feed(1)
+    names_out = [o.name for o in rec.enc.get_outputs()]
+    ref = rec.enc.run(None, base)
+    worst = {"encoder": 0.0, "joiner": 0.0}
+    for b in sizes:
+        f = feed(b)
+        for k, v in base.items():
+            idx = [slice(None)] * f[k].ndim
+            idx[axis(k)] = slice(0, 1)
+            f[k][tuple(idx)] = v
+        for o_ref, o_b, nm in zip(ref, rec.enc.run(None, f), names_out, strict=True):
+            row = np.take(o_b, [0], axis=axis(nm.replace("_out", "")))
+            worst["encoder"] = max(worst["encoder"], float(np.max(np.abs(row.astype(np.float64) - o_ref))))
+    J = rec.m["streaming"]["encoder_output"]["shape"][-1]
+    e1 = rng.normal(0, 1, (1, J)).astype(np.float32)
+    d1 = rec.dec.run(None, {"ctx": np.array([[0, 5]], dtype=np.int64)})[0]
+    l1 = rec.joi.run(None, {"enc": e1, "dec": d1})[0]
+    for b in sizes:
+        e = rng.normal(0, 2, (b, J)).astype(np.float32)
+        d = rec.dec.run(None, {"ctx": rng.integers(0, 4096, (b, 2)).astype(np.int64)})[0]
+        e[0], d[0] = e1[0], d1[0]
+        lb = rec.joi.run(None, {"enc": e, "dec": d})[0][:1]
+        worst["joiner"] = max(worst["joiner"], float(np.max(np.abs(lb - l1))))
+    return {"kind": "batch_invariance", "bundle": bundle, "precision": precision,
+            "sizes": list(sizes), "max_abs_diff": worst}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--bundle", required=True)
@@ -210,11 +262,16 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--streams", type=int, default=16)
     ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--batch-invariance", action="store_true",
+                    help="only check that rows are identical alone and inside batches of 2/8/16")
     ap.add_argument("--dump", default=None,
                     help="write per-utterance JSON lines (uid, ref, hyp[, trainer_hyp]) here")
     ap.add_argument("--compare-checkpoint", default=None,
                     help="also run the trainer's batch eval of this checkpoint on the same audio")
     a = ap.parse_args()
+    if a.batch_invariance:
+        print(json.dumps(batch_invariance(a.bundle, a.precision)))
+        return
     from train.infer import run_streaming
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
