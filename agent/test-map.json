@@ -180,6 +180,10 @@
     "docs/ultra/BENCH_PLAN_v1.md": {
       "command": "just score",
       "purpose": "benchmark plan stays visible to the audit"
+    },
+    "docs/ultra/SLICES.md": {
+      "command": "just score",
+      "purpose": "frozen slice definitions stay visible to the audit"
     }
   }
 }

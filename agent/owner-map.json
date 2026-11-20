@@ -44,6 +44,7 @@
     "python/": "training",
     ".gitleaks.toml": "tools",
     "python/ultra/AGENTS.md": "agent",
-    "docs/ultra/BENCH_PLAN_v1.md": "lead"
+    "docs/ultra/BENCH_PLAN_v1.md": "lead",
+    "docs/ultra/SLICES.md": "lead"
   }
 }
