@@ -588,6 +588,14 @@ dependencies = [
 [[package]]
 name = "ultra-gp"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "ultra-core",
+ "ultra-frontend",
+]
 
 [[package]]
 name = "ultra-kernels"
@@ -625,6 +633,7 @@ dependencies = [
  "ultra-core",
  "ultra-eval",
  "ultra-frontend",
+ "ultra-gp",
 ]
 
 [[package]]
