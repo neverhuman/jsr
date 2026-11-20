@@ -29,3 +29,19 @@ All numbers below are [H0-MEASURED, shared host]. The model is in-corpus: it was
 ## Next
 - Paced fleet on DEV, inside the lead core block 32–47, under the lease.
 - Then the one-time confirmation on test-clean and test-other.
+
+## Fleet scaling (exploratory, 2026-11-20 ~15:30Z, lead block 32–47, load 20–35 mostly IO stall)
+
+**Conditions:** unpaced; each worker on its own physical core, SMT sibling idle; 32 batched streams per worker; dev-clean.
+
+| Concurrent workers | Streams per core @100% | Stream-equivalents in total |
+|---:|---:|---:|
+| 1 | 16.6 | 16.6 |
+| 2 | 16.1 | 32 |
+| 4 | 12.9 | 52 |
+| 8 | 8.0 | 64 |
+
+- **Not frequency:** a repeat with frequency sampled gave 4094 MHz for 1 worker (14.9 streams/core) and 4111 MHz for 8 workers (9.0 streams/core).
+- **Likely cause:** contention in shared memory and L3. Each worker streams its own roughly 70 MB int8 weight image. This is the fixed-fetch term of the W01 cost law appearing at fleet scale. Hardware counters are unavailable (`perf_event_paranoid` = 4), so the bandwidth/L3 split is not confirmed.
+- **Paced fleets fail to sustain at these densities:** 8, 12 and 16 per core with 8 single-core workers, and 8, 12 and 16 per core with 4 four-core workers. The four-thread workers were worse still (0.20–0.23 CPU-s/s): ORT intra-op threading does not help here.
+- **Consequence for the SP-A claim:** about 1,000 real-time streams per H0 workstation is NOT supported for the ORT Zipformer. A density headline needs either a shared-weight multi-stream runtime (one weight image, many streams per process; the runtime lane's Rust batcher), or smaller and lower-bit weights (ternary, as the cost law predicts).
