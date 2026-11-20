@@ -71,7 +71,7 @@ impl Ledger {
         if self.stream_id.as_ref().is_some_and(|s| *s != ev.stream_id) {
             return Err(contract("event for another stream"));
         }
-        let hash = ev.canonical_hash();
+        let hash = ev.canonical_hash()?;
         if let Some(prev) = self.seen.get(&ev.event_sequence) {
             return if *prev == hash {
                 Ok(Applied::Duplicate)

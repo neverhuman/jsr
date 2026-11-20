@@ -149,8 +149,11 @@ impl TranscriptEvent {
     }
 
     /// SHA-256 of the canonical (serde) encoding, used for duplicate detection (§33.3).
-    pub fn canonical_hash(&self) -> String {
-        sha256_hex(&serde_json::to_vec(self).unwrap_or_default())
+    /// A failure to encode is an error, never an empty-buffer hash that could collide.
+    pub fn canonical_hash(&self) -> Result<String, CoreError> {
+        serde_json::to_vec(self)
+            .map(|bytes| sha256_hex(&bytes))
+            .map_err(|_| contract("event cannot be canonically encoded"))
     }
 }
 

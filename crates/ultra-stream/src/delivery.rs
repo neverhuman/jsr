@@ -42,7 +42,9 @@ impl DeliveryFilter {
     /// `Err(StreamError::Protocol)` on a reused sequence with different content or missing
     /// predecessor sequence.
     pub fn check_and_record(&mut self, ev: &TranscriptEvent) -> Result<bool, StreamError> {
-        let digest = ev.canonical_hash();
+        let digest = ev
+            .canonical_hash()
+            .map_err(|e| StreamError::Protocol(e.to_string()))?;
         let st = self.streams.entry(ev.stream_id.clone()).or_default();
 
         if let Some(prev_hash) = st.seen.get(&ev.event_sequence) {
