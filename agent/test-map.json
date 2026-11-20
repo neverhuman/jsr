@@ -176,6 +176,10 @@
     "python/ultra/AGENTS.md": {
       "command": "just score",
       "purpose": "local agent guidance for the python exception"
+    },
+    "docs/ultra/BENCH_PLAN_v1.md": {
+      "command": "just score",
+      "purpose": "benchmark plan stays visible to the audit"
     }
   }
 }

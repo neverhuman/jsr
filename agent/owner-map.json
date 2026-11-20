@@ -43,6 +43,7 @@
     "rust-toolchain.toml": "tools",
     "python/": "training",
     ".gitleaks.toml": "tools",
-    "python/ultra/AGENTS.md": "agent"
+    "python/ultra/AGENTS.md": "agent",
+    "docs/ultra/BENCH_PLAN_v1.md": "lead"
   }
 }

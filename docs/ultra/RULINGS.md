@@ -12,3 +12,6 @@
 | O7 | Audio operators live in an unregistered dialect table. | — | default |
 | O8 | Both DICTATE and COMMIT are researched. | — | default |
 | O10 | Repo is public (`neverhuman/jsr`); specs published as-is. | 2026-11-20 | owner |
+| O13 | Benchmark qualifying window: right after D2 finishes (about 2026-11-22 09:00–14:00Z, GPU idle), before D1MR. No D2 interruption. | 2026-11-20 | owner |
+| O14 | Word-timing reference: the public Montreal-Forced-Aligner LibriSpeech word alignments (timing only; hashed in DATA.lock; 20-utterance listening spot check). | 2026-11-20 | owner |
+| O15 | Out-of-domain evaluation-only sets approved: TED-LIUM 3 test, VoxPopuli EN test, AMI IHM test. Sealed until the bench freeze; one read. LibriSpeech stays the primary board. | 2026-11-20 | owner |
