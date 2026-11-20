@@ -10,4 +10,7 @@
 - **Data and checkpoints** live on the data drive (`/mnt/xbabe3-external/jsr`), never in git.
 
 ## Proof lanes
-See `agent/test-map.json` for the command per path. `just required` is the push gate.
+See `agent/test-map.json` for the command per path and `docs/testing.md` for the lanes. `just required` is the push gate.
+
+## Agent docs
+- `docs/boundaries.md`, `docs/testing.md`, `docs/generated-zones.md`, `docs/errors.md`, `docs/audit-rubric.md`, `docs/release.md`, `docs/exceptions/`.
