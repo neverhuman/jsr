@@ -72,9 +72,9 @@ def main() -> None:
     model.eval()
     tok = Tokenizer(tokenizer_path(model.cfg.vocab_rnnt - 1))
     utts, cman = calibration_set(tokenizer=tok)
-    enc_rows, joi_rows = capture(model, tok, utts, max_enc_rows=a.enc_rows)
+    enc_rows, joi_rows, prov = capture(model, tok, utts, max_enc_rows=a.enc_rows)
     with open(os.path.join(a.out, "calibration_manifest.json"), "w") as fh:
-        json.dump(cman, fh, indent=1)
+        json.dump(dict(cman, consumed_rows=prov), fh, indent=1)
     enc_fp32 = os.path.join(a.bundle, "encoder.fp32.onnx")
     joi_fp32 = os.path.join(a.bundle, "joiner.fp32.onnx")
     mms = _encoder_matmuls(enc_fp32)
@@ -99,9 +99,8 @@ def main() -> None:
         jp = "fp32"
         if not spec["joiner_fp32"]:
             joi_q = os.path.join(vd, "joiner.int8.onnx")
-            quantize_static_int8(joi_fp32, joi_q, [{"enc": e[None], "dec": d[None]}
-                                                    for e, d in joi_rows],
-                                 spec["method"], spec["percentile"] or 99.999)
+            quantize_static_int8(joi_fp32, joi_q, joi_rows, spec["method"],
+                                 spec["percentile"] or 99.999)
             override["joiner.int8"] = joi_q
             jp = "int8"
         rec = BundleRecognizer(a.bundle, "int8", a.threads, joiner_precision=jp, override=override)
@@ -112,7 +111,7 @@ def main() -> None:
                    "int8_wer": w["wer"], "delta": round(w["wer"] - base, 3),
                    "identical_to_fp32": sum(x == y for x, y in zip(hyps, fp32, strict=True)),
                    "n": len(dev), "batch_invariance": inv["max_abs_diff"],
-                   "calibration_sha256": cman["sha256"]}
+                   "calibration_selection_sha256": cman["selection_sha256"]}
         with open(os.path.join(vd, "dev_hyps.jsonl"), "w") as fh:
             for u, h, f in zip(dev, hyps, fp32, strict=True):
                 fh.write(json.dumps({"uid": u.uid, "ref": u.text, "fp32": f, "int8": h}) + "\n")

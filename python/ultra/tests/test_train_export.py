@@ -108,8 +108,16 @@ def test_static_int8_is_batch_invariant(workdir):
              for i in range(12)]
     bdir = os.path.join(workdir, "bundle")
     man = export_bundle(ck, bdir, int8=True, tokenizer=_Tok(), int8_mode="static_qdq",
-                        calib_utts=calib, calib_manifest={"sha256": "t", "n": 12, "strata": {}})
+                        calib_utts=calib, calib_manifest={"selection_sha256": "t", "n": 12, "strata": {}},
+                        joiner_int8=True)
     assert man["int8"]["mode"] == "static_qdq" and man["int8"]["batch_invariant"]
+    import json
+    with open(os.path.join(bdir, "calibration_manifest.json")) as fh:
+        cm = json.load(fh)["consumed_rows"]
+    assert cm["encoder"]["kept"] == len(cm["encoder"]["rows"]) <= 384
+    assert cm["encoder"]["offered"] >= cm["encoder"]["kept"] > 0
+    assert all(r["uid"].startswith("c") for r in cm["encoder"]["rows"] + cm["joiner"]["rows"])
+    assert all(len(r["ctx"]) == 2 for r in cm["joiner"]["rows"])
     so = ort.SessionOptions()
     so.intra_op_num_threads = 1
     enc = ort.InferenceSession(os.path.join(bdir, "encoder.int8.onnx"), so,
@@ -156,3 +164,16 @@ def test_static_int8_is_batch_invariant(workdir):
         d = np.random.default_rng(bsz + 1).normal(0, 3, (bsz, 16)).astype(np.float32)
         e[0], d[0] = e1[0], d1[0]
         assert np.array_equal(joi.run(None, {"enc": e, "dec": d})[0][:1], l1), bsz
+
+
+def test_reservoir_is_uniform_and_capped():
+    from train.calib import _Reservoir
+
+    counts = np.zeros(100)
+    for seed in range(300):
+        r = _Reservoir(10, np.random.default_rng(seed))
+        for i in range(100):
+            r.offer(lambda i=i: i)
+        assert len(r.items) == 10 and r.seen == 100
+        counts[r.items] += 1
+    assert counts.min() > 10 and counts.max() < 60  # expectation 30 per item

@@ -154,7 +154,9 @@ def quantize_static_int8(fp32_path: str, int8_path: str, rows: list[dict],
 
 
 def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=None,
-                  int8_mode: str = "static_qdq", calib_utts=None, calib_manifest=None) -> dict:
+                  int8_mode: str = "static_qdq", calib_utts=None, calib_manifest=None,
+                  joiner_int8: bool = False, calib_method: str = "minmax",
+                  calib_percentile: float = 99.999) -> dict:
     """Write the bundle for checkpoint `ckpt_path` into `out_dir`; returns the manifest."""
     p = checkpoint.load(ckpt_path, restore_rng=False)
     cfg = ModelConfig.from_dict(p["model_config"])
@@ -220,26 +222,33 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
 
         if calib_utts is None:
             calib_utts, calib_manifest = calibration_set(tokenizer=tok)
-        enc_rows, joi_rows = capture(model, tok, calib_utts)
+        enc_rows, joi_rows, prov = capture(model, tok, calib_utts)
         quantize_static_int8(os.path.join(out_dir, "encoder.fp32.onnx"),
-                             os.path.join(out_dir, "encoder.int8.onnx"), enc_rows)
-        quantize_static_int8(os.path.join(out_dir, "joiner.fp32.onnx"),
-                             os.path.join(out_dir, "joiner.int8.onnx"),
-                             [{"enc": e[None], "dec": d[None]} for e, d in joi_rows])
+                             os.path.join(out_dir, "encoder.int8.onnx"), enc_rows,
+                             calib_method, calib_percentile)
         files["encoder.int8"] = "encoder.int8.onnx"
-        files["joiner.int8"] = "joiner.int8.onnx"
+        if joiner_int8:
+            quantize_static_int8(os.path.join(out_dir, "joiner.fp32.onnx"),
+                                 os.path.join(out_dir, "joiner.int8.onnx"), joi_rows,
+                                 calib_method, calib_percentile)
+            files["joiner.int8"] = "joiner.int8.onnx"
+        calib_manifest = dict(calib_manifest, consumed_rows=prov)
         with open(os.path.join(out_dir, "calibration_manifest.json"), "w") as fh:
             json.dump(calib_manifest, fh, indent=1)
         files["calibration_manifest"] = "calibration_manifest.json"
         int8_info = {"mode": "static_qdq", "batch_invariant": True,
+                     "joiner": "int8" if joiner_int8 else "fp32 (joiner.fp32.onnx; no int8 file)",
+                     "calibration_method": calib_method if calib_method == "minmax"
+                     else f"percentile {calib_percentile}",
                      "weights": "int8 symmetric per output channel (MatMul/Gemm with constant B)",
                      "activations": "uint8 per-tensor, MinMax-calibrated constant scale/zero-point",
                      "not_quantized": "attention score/value MatMuls, convolutions, norms, softmax",
-                     "calibration": {"manifest_sha256": calib_manifest["sha256"],
+                     "calibration": {"selection_sha256": calib_manifest["selection_sha256"],
                                      "n_utterances": calib_manifest["n"],
                                      "strata": calib_manifest["strata"],
                                      "encoder_rows": len(enc_rows),
-                                     "joiner_rows": len(joi_rows),
+                                     "encoder_rows_offered": prov["encoder"]["offered"],
+                                     "joiner_rows": len(joi_rows) if joiner_int8 else 0,
                                      "file": "calibration_manifest.json"}}
     elif int8:
         raise ExportError(f"unknown int8_mode {int8_mode}")
@@ -325,9 +334,14 @@ def main() -> None:
     ap.add_argument("--no-int8", action="store_true")
     ap.add_argument("--int8-mode", choices=["static_qdq", "dynamic"], default="static_qdq")
     ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--joiner-int8", action="store_true", help="also quantise the joiner (static)")
+    ap.add_argument("--calib-method", choices=["minmax", "percentile"], default="minmax")
+    ap.add_argument("--calib-percentile", type=float, default=99.999)
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
-    m = export_bundle(a.checkpoint, a.out, int8=not a.no_int8, int8_mode=a.int8_mode)
+    m = export_bundle(a.checkpoint, a.out, int8=not a.no_int8, int8_mode=a.int8_mode,
+                      joiner_int8=a.joiner_int8, calib_method=a.calib_method,
+                      calib_percentile=a.calib_percentile)
     print(json.dumps({"out": a.out, "files": m["files"]}, indent=1))
 
 

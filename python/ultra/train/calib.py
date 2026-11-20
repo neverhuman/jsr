@@ -83,50 +83,127 @@ def calibration_set(n: int = 300, pool_per_split: int = 1500, seed: int = 202611
                 "utterances": [{"uid": pool[i][0], "split": pool[i][3], "stratum": chosen[i],
                                 "seconds": round(float(secs[i]), 3)} for i in idx]}
     blob = json.dumps(manifest["utterances"], sort_keys=True).encode()
-    manifest["sha256"] = hashlib.sha256(blob).hexdigest()
+    # Hash of the selected-utterance list (the selection identity); distinct from the hash of
+    # the calibration_manifest.json file recorded under manifest.files.
+    manifest["selection_sha256"] = hashlib.sha256(blob).hexdigest()
     return utts, manifest
 
 
+class _Reservoir:
+    """Uniform sample of at most `cap` items from a stream of unknown length (Algorithm R)."""
+
+    def __init__(self, cap: int, rng: np.random.Generator):
+        self.cap, self.rng, self.seen, self.items = cap, rng, 0, []
+
+    def offer(self, make):
+        """`make()` builds the item only if it is kept (avoids copying rejected payloads)."""
+        self.seen += 1
+        if len(self.items) < self.cap:
+            self.items.append(make())
+        else:
+            j = int(self.rng.integers(self.seen))
+            if j < self.cap:
+                self.items[j] = make()
+
+
 class _Capture(StreamingRecognizer):
-    """FP32 streaming recogniser that records a seeded sample of encoder and joiner inputs."""
+    """FP32 streaming recogniser that reservoir-samples the inputs of real encoder calls (one row
+    per stream-chunk) and of real joiner calls (one row per (stream, frame, symbol) query, with
+    the context that call actually used), across the whole calibration population."""
 
-    def __init__(self, *a, p_chunk: float = 0.05, p_joiner: float = 0.05, seed: int = 0, **kw):
+    def __init__(self, *a, utts=None, seed: int = 0, enc_cap: int = 384, joiner_cap: int = 4096,
+                 **kw):
         super().__init__(*a, **kw)
-        self.rng = np.random.default_rng(seed)
-        self.p_chunk, self.p_joiner = p_chunk, p_joiner
-        self.enc_rows: list[dict] = []
-        self.joiner_rows: list[tuple[np.ndarray, np.ndarray]] = []
-        orig = self.encoder.forward
+        rng = np.random.default_rng(seed)
+        self.enc = _Reservoir(enc_cap, rng)
+        self.joi = _Reservoir(joiner_cap, rng)
+        self._utts = list(utts or [])
+        self._made = 0
 
-        def wrapped(*args):
-            take = self.rng.random(args[0].shape[0]) < self.p_chunk
-            for i in np.nonzero(take)[0]:
-                row = {}
-                for name, t in zip(("feats", "t0", "k", "v", "kv_len", "conv"), args, strict=False):
-                    ax = 1 if name in ("k", "v", "conv") else 0
-                    row[name] = t.select(ax, int(i)).unsqueeze(ax).numpy().copy()
-                self.enc_rows.append(row)
-            return orig(*args)
+    def create_stream(self):
+        s = super().create_stream()
+        s.uid = self._utts[self._made].uid if self._made < len(self._utts) else f"#{self._made}"
+        self._made += 1
+        return s
 
-        self.encoder.forward = wrapped
+    def _run_group(self, streams, t0s, n):
+        self._group = (streams, t0s, n)
+        super()._run_group(streams, t0s, n)
 
     def _greedy(self, streams, enc_p):
-        if self.rng.random() < self.p_joiner * 10:
-            with torch.no_grad():
-                ctx = torch.tensor([s.ctx for s in streams])
-                dec = self.model.predictor(ctx)
-            for i in range(len(streams)):
-                t = int(self.rng.integers(enc_p.shape[1]))
-                self.joiner_rows.append((enc_p[i, t].numpy().copy(), dec[i].numpy().copy()))
-        super()._greedy(streams, enc_p)
+        # Same algorithm as StreamingRecognizer._greedy, recording every joiner call's inputs.
+        from train.transducer import BLANK
+
+        pred, joiner = self.model.predictor, self.model.joiner
+        ctx = torch.tensor([s.ctx for s in streams])
+        t0s = self._group[1]
+        for t in range(enc_p.shape[1]):
+            active = torch.ones(len(streams), dtype=torch.bool)
+            for sym in range(self.max_symbols):
+                idx = active.nonzero().squeeze(1)
+                if idx.numel() == 0:
+                    break
+                e, d = enc_p[idx, t], pred(ctx[idx])
+                for r, i in enumerate(idx.tolist()):
+                    self.joi.offer(lambda r=r, i=i, sym=sym: {
+                        "enc": e[r].numpy().copy(), "dec": d[r].numpy().copy(),
+                        "uid": streams[i].uid, "frame": t0s[i] + t, "symbol": sym,
+                        "ctx": ctx[i].tolist()})
+                kk = joiner.logits(e, d).argmax(dim=-1)
+                emit = kk != BLANK
+                ei = idx[emit]
+                for i, tok in zip(ei.tolist(), kk[emit].tolist(), strict=True):
+                    streams[i].tokens.append(tok)
+                ctx[ei] = torch.stack([ctx[ei, 1], kk[emit]], dim=1)
+                active = torch.zeros_like(active)
+                active[ei] = True
+            else:
+                for i in active.nonzero().squeeze(1).tolist():
+                    streams[i].forced += 1
+                    self.forced_advances += 1
+        for i, s in enumerate(streams):
+            s.ctx = ctx[i].tolist()
 
 
-def capture(model, tokenizer, utts, p_chunk: float = 0.03, p_joiner: float = 0.05,
-            seed: int = 0, max_enc_rows: int = 384, max_joiner_rows: int = 4096):
-    """(encoder input rows, joiner input rows) sampled from FP32 streaming over `utts`."""
+def _encoder_tap(rec: _Capture):
+    orig = rec.encoder.forward
+    names = ("feats", "t0", "k", "v", "kv_len", "conv")
+
+    def wrapped(*args):
+        streams, t0s, n = rec._group
+        for i in range(args[0].shape[0]):
+            def make(i=i):
+                row = {}
+                for name, t in zip(names, args, strict=False):
+                    ax = 1 if name in ("k", "v", "conv") else 0
+                    row[name] = t.select(ax, i).unsqueeze(ax).numpy().copy()
+                row["_prov"] = {"uid": streams[i].uid, "t0": int(t0s[i]), "n": int(n),
+                                "kv_len": int(args[4][i])}
+                return row
+            rec.enc.offer(make)
+        return orig(*args)
+
+    rec.encoder.forward = wrapped
+
+
+def capture(model, tokenizer, utts, seed: int = 0, max_enc_rows: int = 384,
+            max_joiner_rows: int = 4096):
+    """Reservoir samples of real encoder-call rows and real joiner-call rows (FP32 streaming over
+    `utts`), each with provenance (uid, chunk start / frame, cache occupancy or context).
+    Returns (encoder feeds, joiner feeds, provenance dict)."""
     if model.cfg.encoder.family != "dense":
         raise ValueError("calibration capture implements the dense family; extend for multirate")
-    rec = _Capture(model, tokenizer, threads=torch.get_num_threads(), p_chunk=p_chunk,
-                   p_joiner=p_joiner, seed=seed)
+    rec = _Capture(model, tokenizer, threads=torch.get_num_threads(), utts=utts, seed=seed,
+                   enc_cap=max_enc_rows, joiner_cap=max_joiner_rows)
+    _encoder_tap(rec)
     run_streaming(rec, utts, streams=8, packet_ms=160)
-    return rec.enc_rows[:max_enc_rows], rec.joiner_rows[:max_joiner_rows]
+    enc_rows = [{k: v for k, v in r.items() if k != "_prov"} for r in rec.enc.items]
+    joi_rows = [{"enc": r["enc"][None], "dec": r["dec"][None]} for r in rec.joi.items]
+    prov = {"encoder": {"offered": rec.enc.seen, "kept": len(rec.enc.items),
+                        "rows": [r["_prov"] for r in rec.enc.items]},
+            "joiner": {"offered": rec.joi.seen, "kept": len(rec.joi.items),
+                       "rows": [{k: r[k] for k in ("uid", "frame", "symbol", "ctx")}
+                                for r in rec.joi.items]},
+            "sampling": "uniform reservoir (Algorithm R) over every call in the population",
+            "seed": seed}
+    return enc_rows, joi_rows, prov
