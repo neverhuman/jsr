@@ -127,6 +127,7 @@ pub fn w01_verdict(series: &[Series]) -> (&'static str, Vec<String>) {
         .filter(|s| s.threads == 1 && residency_of_size(s, series) == "out_of_cache")
         .collect();
     let mut sizes: Vec<&str> = ooc.iter().map(|s| s.size.as_str()).collect();
+    sizes.sort_unstable();
     sizes.dedup();
     let (mut any_compared, mut r2_ok, mut lift) = (false, true, true);
     for size in sizes {
@@ -194,6 +195,18 @@ mod verdict_tests {
             s("int8_vnni", "1M", 1 << 20, 5.36, 0.9955),
         ];
         assert_eq!(w01_verdict(&v).0, "PASS");
+    }
+
+    #[test]
+    fn each_size_is_judged_once() {
+        let v = [
+            s("int8_avx2", "1536M", 1536 << 20, 50.0, 0.99),
+            s("int8_avx2", "4096M", 4096 << 20, 50.0, 0.99),
+            s("t1_avx2", "1536M", 384 << 20, 10.0, 0.99),
+            s("t1_avx2", "4096M", 1024 << 20, 10.0, 0.99),
+        ];
+        let (verdict, lines) = w01_verdict(&v);
+        assert_eq!((verdict, lines.len()), ("PASS", 2));
     }
 
     #[test]
