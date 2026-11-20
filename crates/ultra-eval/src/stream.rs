@@ -72,8 +72,8 @@ pub struct StreamScore {
     pub commit_revisions: u64,
     pub incomplete_segments: u64,
     pub unclosed_segments: u64,
-    /// Observation time of each successful `Final`, by segment id (for FC, `crate::finalize`).
-    pub final_t_s: Vec<(u64, f64)>,
+    /// Every successful `Final`: segment, owned sample interval, observation time (for FC).
+    pub finals: Vec<crate::finalize::FinalObs>,
 }
 
 #[derive(Default)]
@@ -89,7 +89,7 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
     let mut snapshots = Vec::new();
     let mut last_t = f64::NEG_INFINITY;
     let mut commit_revisions = 0u64;
-    let mut final_times: Vec<(u64, f64)> = Vec::new();
+    let mut final_times: Vec<crate::finalize::FinalObs> = Vec::new();
     for te in events {
         let ev = &te.event;
         if !te.t_s.is_finite() || te.t_s < last_t {
@@ -104,7 +104,12 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
             continue; // a retransmission is not a new display observation
         }
         if let ultra_core::events::Body::Final { update, .. } = &ev.body {
-            final_times.push((update.segment_id, te.t_s));
+            final_times.push(crate::finalize::FinalObs {
+                segment_id: update.segment_id,
+                owned_start_sample: update.ownership_start_sample,
+                owned_end_sample: update.ownership_end_sample,
+                t_s: te.t_s,
+            });
         }
         if !ev.is_revision() {
             continue;
@@ -147,7 +152,7 @@ pub fn replay(events: &[TimedEvent]) -> Result<StreamScore, EvalError> {
         commit_revisions,
         incomplete_segments: 0,
         unclosed_segments: 0,
-        final_t_s: final_times,
+        finals: final_times,
     };
     let mut finals = Vec::new();
     for (id, track) in &mut segs {
@@ -417,7 +422,9 @@ mod tests {
         let dup = b.clone();
         let c = sc.finalize(2.5, "there");
         let s = replay(&[a, b, dup, c]).unwrap();
-        assert_eq!(s.final_t_s, vec![(0, 1.0), (1, 2.5)]);
+        let got: Vec<(u64, f64)> = s.finals.iter().map(|f| (f.segment_id, f.t_s)).collect();
+        assert_eq!(got, vec![(0, 1.0), (1, 2.5)]);
+        assert_eq!(s.finals[1].owned_start_sample, s.finals[0].owned_end_sample);
     }
 
     #[test]

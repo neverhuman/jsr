@@ -31,6 +31,61 @@ impl Episode {
     }
 }
 
+/// One successful `Final` as observed by the replay: what it owned and when it arrived.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FinalObs {
+    pub segment_id: u64,
+    pub owned_start_sample: u64,
+    pub owned_end_sample: u64,
+    pub t_s: f64,
+}
+
+/// A reference speech episode on the stream's sample clock.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RefEpisode {
+    pub id: String,
+    pub speech_start_sample: u64,
+    pub speech_end_sample: u64,
+    /// End of reference speech on the stream clock, seconds.
+    pub ref_end_s: f64,
+}
+
+/// Map reference episodes to the successful Finals that own their speech (spec v1.0-B §12.7).
+///
+/// An episode is finalized only if its whole speech interval `[start, end)` is covered by
+/// the owned intervals of successful Finals. Its finalization time is the latest of those
+/// Finals. Any part owned by an incomplete or never-closed segment, or not owned at all,
+/// makes it a miss. An empty speech interval is never finalized.
+pub fn episodes_from_finals(refs: &[RefEpisode], finals: &[FinalObs]) -> Vec<Episode> {
+    let mut sorted: Vec<&FinalObs> = finals.iter().collect();
+    sorted.sort_by_key(|f| f.owned_start_sample);
+    refs.iter()
+        .map(|r| {
+            let (mut cursor, mut latest) = (r.speech_start_sample, f64::NEG_INFINITY);
+            for f in sorted.iter().filter(|f| {
+                f.owned_end_sample > r.speech_start_sample
+                    && f.owned_start_sample < r.speech_end_sample
+            }) {
+                if f.owned_start_sample > cursor {
+                    break; // a hole in finalized ownership
+                }
+                cursor = cursor.max(f.owned_end_sample);
+                latest = latest.max(f.t_s);
+                if cursor >= r.speech_end_sample {
+                    break;
+                }
+            }
+            let covered =
+                r.speech_end_sample > r.speech_start_sample && cursor >= r.speech_end_sample;
+            Episode {
+                id: r.id.clone(),
+                ref_end_s: r.ref_end_s,
+                final_t_s: covered.then_some(latest),
+            }
+        })
+        .collect()
+}
+
 /// FC at one deadline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FcPoint {
@@ -136,6 +191,49 @@ mod tests {
         let r = finalization_report(&eps, &[1500]);
         assert_eq!((r.finalized, r.early_finals), (1, 1));
         assert_eq!(r.fc[0].successes, 1);
+    }
+
+    fn fin(seg: u64, a: u64, b: u64, t: f64) -> FinalObs {
+        FinalObs {
+            segment_id: seg,
+            owned_start_sample: a,
+            owned_end_sample: b,
+            t_s: t,
+        }
+    }
+
+    fn rf(id: &str, a: u64, b: u64) -> RefEpisode {
+        RefEpisode {
+            id: id.into(),
+            speech_start_sample: a,
+            speech_end_sample: b,
+            ref_end_s: b as f64 / 16_000.0,
+        }
+    }
+
+    #[test]
+    fn episode_spanning_two_finalized_segments_takes_the_later_final() {
+        let finals = [fin(0, 0, 16_000, 1.3), fin(1, 16_000, 40_000, 2.9)];
+        let eps = episodes_from_finals(&[rf("a", 8_000, 24_000), rf("b", 30_000, 39_000)], &finals);
+        assert_eq!(eps[0].final_t_s, Some(2.9));
+        assert_eq!(eps[1].final_t_s, Some(2.9));
+    }
+
+    #[test]
+    fn a_hole_or_unowned_tail_is_a_miss() {
+        // Segment 1 closed incomplete, so samples 16000..24000 have no successful Final.
+        let finals = [fin(0, 0, 16_000, 1.3), fin(2, 24_000, 48_000, 3.5)];
+        let eps = episodes_from_finals(
+            &[
+                rf("hole", 10_000, 30_000),
+                rf("tail", 40_000, 60_000),
+                rf("empty", 5, 5),
+            ],
+            &finals,
+        );
+        assert!(eps.iter().all(|e| e.final_t_s.is_none()));
+        let r = finalization_report(&eps, &[1500]);
+        assert_eq!(r.fc[0].fc, Some(0.0));
     }
 
     #[test]
