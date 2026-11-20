@@ -5,6 +5,7 @@ pub mod events;
 pub mod lifecycle;
 pub mod numeric;
 pub mod receipt;
+pub mod repair;
 pub mod ternary;
 
 /// Errors from the core contracts. Every refusal names the rule it enforces.

@@ -103,3 +103,53 @@ fn every_catalogue_entry_carries_the_repair_fields() {
         );
     }
 }
+
+/// `CoreError::repair()` (generated into src/repair.rs) must agree with agent/exceptions.toml.
+#[test]
+fn repair_hints_match_catalogue() {
+    let toml = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../agent/exceptions.toml"
+    ))
+    .expect("catalogue readable");
+    let all = [
+        ultra_core::CoreError::BadShift(0),
+        ultra_core::CoreError::Shape("x"),
+        ultra_core::CoreError::Overflow {
+            fan_in: 1,
+            max_abs_w: 1,
+        },
+        ultra_core::CoreError::WeightRange,
+        ultra_core::CoreError::ActivationRange,
+        ultra_core::CoreError::BadTernaryCode,
+        ultra_core::CoreError::Contract("x"),
+        ultra_core::CoreError::Lifecycle("x"),
+        ultra_core::CoreError::Receipt("x"),
+    ];
+    for e in all {
+        let entry = toml
+            .split("[[error_kind]]")
+            .find(|b| b.contains(&format!("name = \"{}\"", e.kind())))
+            .unwrap_or_else(|| panic!("{} not catalogued", e.kind()));
+        let h = e.repair();
+        for (field, value) in [
+            ("purpose", h.purpose),
+            ("reason", h.reason),
+            ("docs_url", h.docs_url),
+            ("repair_hint", h.repair_hint),
+        ] {
+            assert!(
+                entry.contains(&format!("{field} = \"{value}\"")),
+                "{}: {field} drifted from the catalogue",
+                e.kind()
+            );
+        }
+        for fix in h.common_fixes {
+            assert!(
+                entry.contains(&format!("\"{fix}\"")),
+                "{}: fix drifted: {fix}",
+                e.kind()
+            );
+        }
+    }
+}

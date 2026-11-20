@@ -11,12 +11,17 @@ gitleaks detect --no-banner --redact --source . --no-git
 ci_step "cargo audit"
 cargo audit --deny warnings --ignore yanked
 ci_step "pip-audit (python/ultra environment)"
+# Dated exceptions only: each id needs a record in docs/exceptions/ with an expiry.
+JSR_PIP_AUDIT_IGNORE="PYSEC-2026-113" # docs/exceptions/2026-11-20-pyarrow-pysec-2026-113.md, expires 2026-12-31
+if [ "$(date -u +%Y%m%d)" -gt 20261231 ]; then echo "pyarrow exception expired"; exit 1; fi
 # Audit what is installed in the trainer venv, not a fresh resolve: that is the
 # code that actually runs. Without a venv there is nothing installed to audit.
 site_packages=$(compgen -G ".venv/lib/python3*/site-packages" | head -n 1 || true)
 if [ -n "$site_packages" ]; then
   ci_require_tool uv "https://docs.astral.sh/uv/"
-  uv tool run --from "pip-audit==$JSR_PIP_AUDIT_VERSION" pip-audit --path "$site_packages" --progress-spinner off
+  ignore_args=()
+  for v in $JSR_PIP_AUDIT_IGNORE; do ignore_args+=(--ignore-vuln "$v"); done
+  uv tool run --from "pip-audit==$JSR_PIP_AUDIT_VERSION" pip-audit --path "$site_packages" --progress-spinner off "${ignore_args[@]}"
 else
   echo "pip-audit: no .venv in this checkout (just venv); Python dependencies not audited here"
 fi

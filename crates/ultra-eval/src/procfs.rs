@@ -341,20 +341,15 @@ pub fn measure_command(
     drop(child);
     // Wall time runs until the last descendant (orphans included) is reaped.
     let wall = start.elapsed();
-    // SAFETY: rusage is plain data; getrusage writes it fully on success.
-    let mut ru: libc::rusage = unsafe { std::mem::zeroed() };
-    // SAFETY: valid out-pointer.
-    let rc = unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut ru) };
-    if rc != 0 {
-        return Err(EvalError::Io("getrusage failed".into()));
-    }
-    let tv = |t: libc::timeval| t.tv_sec as f64 + t.tv_usec as f64 / 1e6;
+    let ru = nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_CHILDREN)
+        .map_err(|e| EvalError::Io(format!("getrusage failed: {e}")))?;
+    let tv = |t: nix::sys::time::TimeVal| t.tv_sec() as f64 + t.tv_usec() as f64 / 1e6;
     let s = sampler.summary();
     Ok(Measurement {
-        cpu_seconds_user: tv(ru.ru_utime),
-        cpu_seconds_sys: tv(ru.ru_stime),
+        cpu_seconds_user: tv(ru.user_time()),
+        cpu_seconds_sys: tv(ru.system_time()),
         wall_seconds: wall.as_secs_f64(),
-        peak_rss_bytes: s.peak_rss_bytes.max(ru.ru_maxrss.max(0) as u64 * 1024),
+        peak_rss_bytes: s.peak_rss_bytes.max(ru.max_rss().max(0) as u64 * 1024),
         peak_pss_bytes: s.peak_pss_bytes,
         max_threads: s.max_threads,
         exit_code,
