@@ -119,7 +119,9 @@ class ParquetBatches:
 
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
-                 parquet_root: str | None = None):
+                 parquet_root: str | None = None, workers: int = 4):
+        from concurrent.futures import ThreadPoolExecutor
+
         from ultra.libri import PARQUET, SPLIT_DIRS
 
         root = parquet_root or PARQUET
@@ -135,6 +137,7 @@ class ParquetBatches:
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
         self.dropped_long = 0
+        self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
                          for f in self.files]
 
@@ -147,18 +150,25 @@ class ParquetBatches:
         sel = perm[window * self.window_groups:(window + 1) * self.window_groups]
         return [self.units[i] for i in sorted(sel)]
 
+    def _decode(self, row: dict) -> Example | None:
+        pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
+        if sr != 16000 or pcm.ndim != 1:
+            raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
+        if len(pcm) / 16000.0 > self.max_seconds:
+            return None
+        return self.feat.example(row["id"], row["text"], pcm)
+
     def _load_window(self, epoch: int, window: int) -> list[list[Example]]:
-        exs: list[Example] = []
+        rows: list[dict] = []
         for fi, rg in self._window_units(epoch, window):
             t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
-            for row in t.to_pylist():
-                pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
-                if sr != 16000 or pcm.ndim != 1:
-                    raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
-                if len(pcm) / 16000.0 > self.max_seconds:
-                    self.dropped_long += 1
-                    continue
-                exs.append(self.feat.example(row["id"], row["text"], pcm))
+            rows.extend(t.to_pylist())
+        # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
+        decoded = list(self._pool.map(self._decode, rows)) if self._pool else \
+            [self._decode(r) for r in rows]
+        del rows
+        self.dropped_long += sum(e is None for e in decoded)
+        exs: list[Example] = [e for e in decoded if e is not None]
         rng = np.random.default_rng([self.seed, epoch, window])
         dur = [e.seconds * (1.0 + 0.05 * rng.random()) for e in exs]
         groups = pack(dur, self.budget_s, self.max_batch)
@@ -167,7 +177,7 @@ class ParquetBatches:
 
     def iterate(self, start: Position):
         """Yield (position after this batch, Batch) forever, from `start`; one window prefetched."""
-        q: queue.Queue = queue.Queue(maxsize=1)
+        q: queue.Queue = queue.Queue(maxsize=2)
         stop = threading.Event()
 
         def producer():

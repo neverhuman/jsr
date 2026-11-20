@@ -55,12 +55,12 @@ def set_rng_state(st: dict) -> None:
         torch.cuda.set_rng_state_all(st["cuda"])
 
 
-def save(run_dir: str, step: int, payload: dict, keep: int = 3) -> str:
+def save(run_dir: str, step: int, payload: dict, keep: int = 3, rng: dict | None = None) -> str:
     os.makedirs(run_dir, exist_ok=True)
     name = f"ckpt-{step:08d}"
     path = os.path.join(run_dir, name + ".pt")
     tmp = path + ".tmp"
-    payload = dict(payload, step=step, rng=rng_state())
+    payload = dict(payload, step=step, rng=rng if rng is not None else rng_state())
     with open(tmp, "wb") as fh:
         torch.save(payload, fh)
         fh.flush()
@@ -98,3 +98,56 @@ def load(path: str, restore_rng: bool = True) -> dict:
     if restore_rng:
         set_rng_state(payload["rng"])
     return payload
+
+
+def _to_cpu(obj):
+    if isinstance(obj, torch.Tensor):
+        return obj.detach().to("cpu", copy=True)
+    if isinstance(obj, dict):
+        return {k: _to_cpu(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_cpu(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(_to_cpu(v) for v in obj)
+    return obj
+
+
+class AsyncSaver:
+    """Snapshot state to CPU memory on the training thread, write it on a background thread.
+
+    The data drive can stall fsync for minutes under shared I/O load; training continues
+    meanwhile. At most one write is in flight: a save requested while one is running waits for it
+    first, so checkpoints are never dropped or reordered. RNG state is captured at snapshot time.
+    """
+
+    def __init__(self):
+        import threading
+
+        self._thread: threading.Thread | None = None
+        self._error: BaseException | None = None
+        self.last_path: str | None = None
+
+    def wait(self) -> None:
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+        if self._error is not None:
+            err, self._error = self._error, None
+            raise CheckpointError(f"background checkpoint write failed: {err!r}") from err
+
+    def save(self, run_dir: str, step: int, payload: dict, keep: int = 3) -> None:
+        import threading
+
+        self.wait()
+        snap = _to_cpu(dict(payload, rng=rng_state()))
+
+        def work():
+            try:
+                rng = snap.pop("rng")
+                self.last_path = save(run_dir, step, snap, keep, rng=rng)
+            except BaseException as e:  # re-raised on the training thread by wait()
+                self._error = e
+
+        self._thread = threading.Thread(target=work, daemon=False)
+        self._thread.start()
+

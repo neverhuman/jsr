@@ -53,6 +53,8 @@ class TrainConfig:
     dev_split: str = "dev-clean"
     dev_limit: int = 200
     chunk: int = 0  # 0 = model default
+    workers: int = 4  # data-decoding threads
+    eval_each_epoch: bool = True
     extra: dict = field(default_factory=dict)
 
 
@@ -86,6 +88,7 @@ class Trainer:
         self.augment = SpecAugConfig(enabled=cfg.specaug)
         self.log_enabled = log
         self.stop_requested = False
+        self.saver = checkpoint.AsyncSaver()
         self.precision = "bf16-autocast" if self.device.type == "cuda" else "fp32"
         os.makedirs(run_dir, exist_ok=True)
 
@@ -99,8 +102,11 @@ class Trainer:
                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary()}
 
-    def save(self) -> str:
-        return checkpoint.save(self.run_dir, self.step, self.payload())
+    def save(self, wait: bool = False) -> None:
+        """Snapshot now; the write finishes in the background unless `wait`."""
+        self.saver.save(self.run_dir, self.step, self.payload())
+        if wait:
+            self.saver.wait()
 
     def resume(self) -> bool:
         if os.path.exists(os.path.join(self.run_dir, "PAUSED.json")):
@@ -204,6 +210,7 @@ class Trainer:
         steps_here = 0
         for pos, batch in self.source.iterate(self.pos):
             r = self.train_step(batch)
+            new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
             steps_here += 1
             acc["audio_s"] += r["audio_s"]
@@ -220,8 +227,10 @@ class Trainer:
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
-            if self.cfg.eval_every and self.step % self.cfg.eval_every == 0:
+            epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
+            if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
+                          "epoch": pos.epoch, "epoch_end": bool(epoch_end),
                           **self.evaluate(), **self.stats.summary()})
                 t0 = time.time()
             due = (self.step % self.cfg.ckpt_every_steps == 0
@@ -233,6 +242,7 @@ class Trainer:
                     or self.step >= self.cfg.total_steps:
                 if not due and not self.stop_requested:
                     self.save()
+                self.saver.wait()
                 return
 
 
@@ -272,9 +282,10 @@ def main(argv=None) -> int:
 
         exs = [feat.example(u.uid, u.text, u.pcm) for u in load_split(a.splits[0], a.overfit)]
         source, dev = FixedBatches(exs, batch_size=len(exs)), exs
+        cfg.eval_each_epoch = False  # every step is an epoch here
     else:
         source = ParquetBatches(list(a.splits), feat, cfg.seed, cfg.budget_s, cfg.max_batch,
-                                cfg.max_seconds)
+                                cfg.max_seconds, workers=cfg.workers)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device)
     with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
