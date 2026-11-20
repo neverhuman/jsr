@@ -172,6 +172,10 @@
     ".gitleaks.toml": {
       "command": "just security",
       "purpose": "secret scan config; canary-tested"
+    },
+    "python/ultra/AGENTS.md": {
+      "command": "just score",
+      "purpose": "local agent guidance for the python exception"
     }
   }
 }

@@ -42,6 +42,7 @@
     ".jankurai/": "agent",
     "rust-toolchain.toml": "tools",
     "python/": "training",
-    ".gitleaks.toml": "tools"
+    ".gitleaks.toml": "tools",
+    "python/ultra/AGENTS.md": "agent"
   }
 }
