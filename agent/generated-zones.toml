@@ -1,3 +1,34 @@
-# Local .jankurai score reports are ignored audit state, not generated-zone
-# source contracts. Add durable generated artifacts here when the repo has them.
-zone = []
+# Generated and hand-maintained-but-checked zones.
+#
+# The event and receipt schemas are not generated: they are reviewed by hand
+# and the Rust types in crates/ultra-core are their source of truth.
+# `command` is the drift proof that fails when the two disagree
+# (docs/generated-zones.md).
+
+[[zone]]
+path = "contracts/events/transcript-event.v1.schema.json"
+source = "crates/ultra-core/src/events.rs"
+command = "cargo test -p ultra-core --test schema_contract"
+read_only = false
+write_policy = "reviewed_manual"
+
+[[zone]]
+path = "contracts/events/receipt.v1.schema.json"
+source = "crates/ultra-core/src/receipt.rs"
+command = "cargo test -p ultra-core --test schema_contract"
+read_only = false
+write_policy = "reviewed_manual"
+
+[[zone]]
+path = "Cargo.lock"
+source = "Cargo.toml"
+command = "cargo metadata --locked --format-version 1"
+read_only = false
+write_policy = "lockfile"
+
+[[zone]]
+path = ".jankurai/score-history.jsonl"
+source = "agent/audit-policy.toml"
+command = "just score"
+read_only = true
+write_policy = "auditor_output"
