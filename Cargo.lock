@@ -540,6 +540,7 @@ dependencies = [
  "ultra-core",
  "ultra-eval",
  "ultra-frontend",
+ "ultra-gp",
  "ultra-model",
  "ultra-stream",
 ]

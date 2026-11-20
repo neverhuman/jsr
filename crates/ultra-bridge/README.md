@@ -62,6 +62,20 @@ For R0 change `engine` to `r0-native`, `bundle` to the verified
 native sherpa batching API; its observations are timestamped by this driver.
 It adds the existing 800 ms EOF tail padding. R1 uses its declared EOF rule.
 
+For native R1 use `engine: r1-native` with the same R1 bundle and a fresh output
+directory. Start with FP32. It calls `OrtTransducerBackend` in the measured Rust
+service, batches compatible encoder chunks and emits the same checked observations
+and output artifacts. Native jobs can omit `python` and `worker`; their unused
+source-hash fields contain SHA-256 of empty bytes. `load.json` binds the actual
+ORT library, precision and bundle and records `python_runtime_used: false`.
+The same full-service scope includes cold load, validation, features, decoding,
+output collection and drain. It preserves the conservative EOF-only processing
+watermark and experimental receipts. Native implementation parity, INT8 quality,
+latency and deployment qualification are independent gates.
+Native services enforce `timeout_s` with a scoped deadline thread. Expiry ends
+the isolated service with status 124, and the outside observer records an invalid
+run. Its CPU and thread cost are included in the service measurement.
+
 The guard wrapper applies the recorded fleet policy to the actual driver and
 worker process groups. It retains guard source, effective job and governance logs
 outside the measured service tree. Guarded wall throughput and model-batch wall

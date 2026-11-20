@@ -7,6 +7,7 @@ use std::time::Instant;
 use sha2::{Digest, Sha256};
 use ultra_stream::{RawOnlineStream, SherpaLib, SherpaZipformerBackend, SherpaZipformerConfig};
 
+use crate::native_r1::NativeR1;
 use crate::protocol::{Packet, Worker};
 use crate::records::{Observation, Plan};
 use crate::{require, Result};
@@ -28,6 +29,7 @@ pub struct Native {
 pub enum Engine {
     R1(Worker),
     R0(Native),
+    R1Native(NativeR1),
 }
 
 impl Engine {
@@ -37,6 +39,11 @@ impl Engine {
             let info = w.info.clone();
             return Ok((Self::R1(w), info));
         }
+        if plan.job.engine == "r1-native" {
+            let (native, info) = NativeR1::load(plan)?;
+            return Ok((Self::R1Native(native), info));
+        }
+        require(plan.job.engine == "r0-native", "unsupported engine")?;
         let started = Instant::now();
         let j = &plan.job;
         let verified = ultra_model::bundle::verify_bundle_dir(&j.bundle, None)?;
@@ -94,6 +101,7 @@ impl Engine {
         let info = serde_json::json!({"manifest_sha256": verified.manifest_sha256,
             "load_s": started.elapsed().as_secs_f64(), "sherpa": version, "ort": ort_version,
             "provider": "cpu", "tail_pad_s": 0.8, "endpoint": "controlled_eof",
+            "python_runtime_used": false,
             "runtime_libraries": crate::records::mapped_runtime_libraries()?, "cpu_only_verified": true});
         Ok((
             Self::R0(Native {
@@ -110,6 +118,7 @@ impl Engine {
         match self {
             Self::R1(w) => w.step(packets),
             Self::R0(n) => n.step(packets),
+            Self::R1Native(n) => n.step(packets),
         }
     }
 
@@ -117,6 +126,7 @@ impl Engine {
         match self {
             Self::R1(w) => w.shutdown(),
             Self::R0(n) => require(n.streams.is_empty(), "unfinished native streams"),
+            Self::R1Native(n) => n.shutdown(),
         }
     }
 
@@ -124,6 +134,7 @@ impl Engine {
         match self {
             Self::R1(w) => w.wakeups,
             Self::R0(n) => n.calls,
+            Self::R1Native(n) => n.calls,
         }
     }
 
@@ -131,6 +142,7 @@ impl Engine {
         match self {
             Self::R1(w) => std::mem::take(&mut w.model_batch_ms),
             Self::R0(n) => std::mem::take(&mut n.model_batch_ms),
+            Self::R1Native(n) => std::mem::take(&mut n.model_batch_ms),
         }
     }
 }

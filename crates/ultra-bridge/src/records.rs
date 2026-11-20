@@ -204,7 +204,7 @@ pub fn prepare(cache: &Path, out: &Path, dataset: String, count: usize) -> Resul
 pub struct Job {
     pub inputs: PathBuf,
     pub bundle: PathBuf,
-    /// r1-bridge or r0-native. Both use the same Rust scheduling and collection.
+    /// r1-bridge, r1-native or r0-native; identical Rust scheduling and collection.
     pub engine: String,
     pub precision: String,
     pub out: PathBuf,
@@ -214,7 +214,9 @@ pub struct Job {
     pub paced: bool,
     #[serde(default)]
     pub guarded: bool,
+    #[serde(default)]
     pub python: PathBuf,
+    #[serde(default)]
     pub worker: PathBuf,
     pub measure: PathBuf,
     pub timeout_s: u64,
@@ -224,12 +226,20 @@ pub struct Job {
 impl Job {
     pub fn validate(&self) -> Result<()> {
         require(
-            matches!(self.engine.as_str(), "r1-bridge" | "r0-native"),
+            matches!(
+                self.engine.as_str(),
+                "r1-bridge" | "r1-native" | "r0-native"
+            ),
             "unsupported engine",
         )?;
         require(
             matches!(self.precision.as_str(), "fp32" | "int8"),
             "unsupported precision",
+        )?;
+        require(
+            self.engine != "r1-bridge"
+                || (!self.python.as_os_str().is_empty() && !self.worker.as_os_str().is_empty()),
+            "Python bridge requires python and worker paths",
         )?;
         require(
             (1..=32).contains(&self.streams)

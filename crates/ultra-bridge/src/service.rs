@@ -81,6 +81,13 @@ pub fn execute(plan: &Plan) -> Result<()> {
     let work: Workload = read_json(&j.inputs)?;
     work.validate()?;
     let root = j.inputs.parent().ok_or("missing workload directory")?;
+    let _native_deadline = if j.engine != "r1-bridge" {
+        Some(crate::service_deadline::ServiceDeadline::start(
+            Duration::from_secs(j.timeout_s),
+        )?)
+    } else {
+        None
+    };
     let service_start = Instant::now();
     let (mut engine, info) = Engine::load(plan)?;
     let cold_snapshot = ultra_eval::procfs::TreeSampler::new(std::process::id() as i32).sample();

@@ -34,8 +34,10 @@ pub fn execute(job_file: &Path) -> Result<()> {
     job.inputs = absolute(&job.inputs)?;
     job.bundle = absolute(&job.bundle)?;
     job.out = absolute(&job.out)?;
-    job.python = absolute(&job.python)?;
-    job.worker = absolute(&job.worker)?;
+    if job.engine == "r1-bridge" {
+        job.python = absolute(&job.python)?;
+        job.worker = absolute(&job.worker)?;
+    }
     job.measure = absolute(&job.measure)?;
     let work: Workload = read_json(&job.inputs)?;
     work.validate()?;
@@ -59,19 +61,26 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
     let retained_measure = job.out.join("runtime/ultra-measure");
     crate::records::retain(&job.measure, &retained_measure)?;
     job.measure = retained_measure;
-    let consumer = job
-        .worker
-        .parent()
-        .ok_or("consumer path")?
-        .join("../train/bundle_infer.py");
-    let retained_worker = job.out.join("runtime/python/bridge/worker.py");
-    crate::records::retain(&job.worker, &retained_worker)?;
-    crate::records::retain(
-        &consumer,
-        &job.out.join("runtime/python/train/bundle_infer.py"),
-    )?;
-    std::fs::write(job.out.join("runtime/python/train/__init__.py"), b"")?;
-    job.worker = retained_worker;
+    let (worker_sha256, consumer_sha256) = if job.engine == "r1-bridge" {
+        let consumer = job
+            .worker
+            .parent()
+            .ok_or("consumer path")?
+            .join("../train/bundle_infer.py");
+        let retained_worker = job.out.join("runtime/python/bridge/worker.py");
+        let worker_hash = crate::records::retain(&job.worker, &retained_worker)?;
+        let consumer_hash = crate::records::retain(
+            &consumer,
+            &job.out.join("runtime/python/train/bundle_infer.py"),
+        )?;
+        std::fs::write(job.out.join("runtime/python/train/__init__.py"), b"")?;
+        job.worker = retained_worker;
+        (worker_hash, consumer_hash)
+    } else {
+        // These sources are unused by native inference. No Python installation is required.
+        let empty = ultra_core::receipt::sha256_hex(b"");
+        (empty.clone(), empty)
+    };
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_nanos();
@@ -81,13 +90,8 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
         workload_sha256: hash_file(&job.inputs)?,
         bundle_manifest_sha256: hash_file(&job.bundle.join("manifest.json"))?,
         executable_sha256: hash_file(&exe)?,
-        worker_sha256: hash_file(&job.worker)?,
-        consumer_sha256: hash_file(
-            &job.worker
-                .parent()
-                .ok_or("worker parent")?
-                .join("../train/bundle_infer.py"),
-        )?,
+        worker_sha256,
+        consumer_sha256,
         source_commit: git(&["rev-parse", "HEAD"])?,
         source_dirty: !git(&[
             "status",
@@ -240,31 +244,32 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
         "training_cost": "not supplied by inference bridge; see training record",
         "host_load_after": std::fs::read_to_string("/proc/loadavg")?}),
     )?;
-    checksums(
-        &j.out,
-        "checksums.json",
-        &[
-            "plan.json",
-            "events.jsonl",
-            "observations.jsonl",
-            "outcomes.jsonl",
-            "service.json",
-            "load.json",
-            "measurement.raw.json",
-            "receipt.json",
-            "summary.json",
-            "service.stderr",
-            "preview.jsonl",
-            "commit.jsonl",
-            "final.jsonl",
-            "bundle-manifest.json",
-            "runtime/ultra-bridge",
-            "runtime/ultra-measure",
+    let mut files = vec![
+        "plan.json",
+        "events.jsonl",
+        "observations.jsonl",
+        "outcomes.jsonl",
+        "service.json",
+        "load.json",
+        "measurement.raw.json",
+        "receipt.json",
+        "summary.json",
+        "service.stderr",
+        "preview.jsonl",
+        "commit.jsonl",
+        "final.jsonl",
+        "bundle-manifest.json",
+        "runtime/ultra-bridge",
+        "runtime/ultra-measure",
+    ];
+    if j.engine == "r1-bridge" {
+        files.extend([
             "runtime/python/bridge/worker.py",
             "runtime/python/train/bundle_infer.py",
             "runtime/python/train/__init__.py",
-        ],
-    )
+        ]);
+    }
+    checksums(&j.out, "checksums.json", &files)
 }
 
 pub fn outcomes(out: &Path) -> Result<Vec<Outcome>> {
