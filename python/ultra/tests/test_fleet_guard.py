@@ -23,16 +23,27 @@ def test_ema():
     assert abs(ema(1.0, 0.0, 0.3) - 0.7) < 1e-12
 
 
-def test_guard_always_resumes_the_job_on_exit():
+def _state(pid: int) -> str:
+    with open(f"/proc/{pid}/stat") as f:
+        return f.read().split(")")[1].split()[0]
+
+
+def test_guard_pauses_then_always_resumes_the_job():
     job = subprocess.Popen(["sleep", "30"], start_new_session=True)
     g = subprocess.Popen([sys.executable, "-m", "ultra.fleet_guard", "--pgid", str(job.pid), "--gpu", "-1",
-                          "--period", "0.4", "--sample", "0.1", "--start-duty", "0.3"],
+                          "--period", "0.4", "--sample", "0.1", "--start-duty", "0.1"],
                          cwd=os.path.join(os.path.dirname(__file__), ".."))
-    time.sleep(1.0)
-    g.send_signal(signal.SIGTERM)
-    g.wait(timeout=5)
-    with open(f"/proc/{job.pid}/stat") as f:
-        state = f.read().split(")")[1].split()[0]
-    job.kill()
-    job.wait()
-    assert state != "T", "job left stopped after the guard exited"
+    try:
+        seen = set()
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            seen.add(_state(job.pid))
+            time.sleep(0.02)
+        g.send_signal(signal.SIGTERM)
+        g.wait(timeout=5)
+        after = _state(job.pid)
+    finally:
+        job.kill()
+        job.wait()
+    assert "T" in seen, f"the guard never paused the job (states seen: {sorted(seen)})"
+    assert after == "S", f"job must be running/sleeping after the guard exits, got {after!r}"
