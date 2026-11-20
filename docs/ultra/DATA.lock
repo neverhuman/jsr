@@ -29,4 +29,15 @@ d12cf94a7aa5686bd662b50f29f4974319ed274f68e653c181536ac587b9a2ff  test-clean.npz
   - test-other.jsonl 7e9a51c31578ec3c12b246f72da5d39eb3491cde7721dd55d37f45a6c98812ea
 - Details: docs/ultra/data/word_timing.md
 
-## Out-of-domain evaluation-only sets (O15): TED-LIUM 3 / VoxPopuli EN / AMI IHM test (data lane C0, pending, sealed)
+## Out-of-domain evaluation-only sets (O15): VoxPopuli EN / AMI IHM test; TED-LIUM 3 BLOCKED_RIGHTS (data lane C0, 2026-11-20; PUBLIC-TEST, sealed until bench-freeze-v1)
+- Source: HF dataset hf-audio/open-asr-leaderboard @ de79e57adf9983993bcc72586d7313460825f5eb, test split only; parquet shards match HF LFS sha256 (19/19).
+- voxpopuli (VoxPopuli EN test, CC0 1.0 + Europarl legal notice): 1842 utts, 4.930 h
+  - manifest cf38aa7ed15e100ae8ab3b7033acd061a653dacc48082e8ddffc4eb761ac2ba9
+  - audio.npz 3b77370155e20894a2b528e35eb7eaca50d8f1b36e1087a189466ab5b53c24bc
+  - sealed texts.npz 15082caeae9d53fa3cbc41368f19117895dd83027f8ba6e66cdc3c49af63a237
+- ami (AMI IHM test / ESB eval, CC BY 4.0): 12643 utts, 8.682 h
+  - manifest 28642ac37ad052ac532d699d7d4f880a09a4f13c4b18374c971cda231dbc3531
+  - audio.npz 2ee4593bde17b18880fb45e317c8fa7c1f1e453b86117006633ca0379f853d86
+  - sealed texts.npz 5c0acd780f281ce2ac993539efab9b0216d96b79c124f185c4ddcc8eb0dd6059
+- tedlium (TED-LIUM 3 test): BLOCKED_RIGHTS. Withdrawn upstream for copyright/licensing (open-asr-leaderboard PR #9); not fetched.
+- Details: docs/ultra/data/ood_sets.md
