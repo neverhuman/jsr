@@ -1,0 +1,9 @@
+# gitleaks config for JSR: default rules plus a narrow allowlist.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "lane worktrees/build output; SHA-256 pins (a *sha256 key holding exactly 64 hex chars)"
+paths = ['''^\.agent/''', '''(^|/)target/''']
+regexTarget = "line"
+regexes = ['''^\s*[a-z_]*sha256:\s*[0-9a-f]{64}\s*$''']

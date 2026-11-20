@@ -41,6 +41,7 @@
     "CHANGELOG.md": "workspace",
     ".jankurai/": "agent",
     "rust-toolchain.toml": "tools",
-    "python/": "training"
+    "python/": "training",
+    ".gitleaks.toml": "tools"
   }
 }

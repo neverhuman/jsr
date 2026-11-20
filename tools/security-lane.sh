@@ -7,7 +7,7 @@ cd "$(git rev-parse --show-toplevel)"
 ci_lane security "just security"
 for t in gitleaks cargo-audit actionlint shellcheck; do ci_require_tool "$t"; done
 ci_step "gitleaks (working tree)"
-gitleaks detect --no-banner --redact --source . --no-git
+gitleaks detect --no-banner --redact --source . --no-git --config .gitleaks.toml
 ci_step "cargo audit"
 cargo audit --deny warnings --ignore yanked
 ci_step "pip-audit (python/ultra environment)"
