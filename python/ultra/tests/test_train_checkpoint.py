@@ -109,3 +109,14 @@ def test_non_finite_loss_pauses(workdir):
 
 def test_presets_build():
     assert set(PRESETS) >= {"S", "D0", "TINY"}
+
+
+def test_weights_snapshots_are_kept_and_loadable(workdir):
+    t = _trainer(workdir)
+    t.cfg.weights_every = 2
+    t.run(max_steps=6)
+    names = sorted(f for f in os.listdir(workdir) if f.startswith("model-") and f.endswith(".pt"))
+    assert names == ["model-00000002.pt", "model-00000004.pt", "model-00000006.pt"]
+    p = checkpoint.load(os.path.join(workdir, names[-1]), restore_rng=False)
+    for k, v in t.model.state_dict().items():
+        assert torch.equal(p["model"][k], v), k

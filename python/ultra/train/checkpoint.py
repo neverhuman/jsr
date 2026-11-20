@@ -77,6 +77,20 @@ def save(run_dir: str, step: int, payload: dict, keep: int = 3, rng: dict | None
     return path
 
 
+def save_weights(run_dir: str, step: int, payload: dict) -> str:
+    """Eval-only snapshot (model weights + configs), never rotated: `model-<step>.pt` + marker."""
+    os.makedirs(run_dir, exist_ok=True)
+    path = os.path.join(run_dir, f"model-{step:08d}.pt")
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as fh:
+        torch.save(dict(payload, step=step), fh)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    _fsync_write(path[:-3] + ".sha256", (_sha256(path) + "\n").encode())
+    return path
+
+
 def latest(run_dir: str) -> str | None:
     p = os.path.join(run_dir, "LATEST")
     if not os.path.exists(p):
@@ -135,7 +149,8 @@ class AsyncSaver:
             err, self._error = self._error, None
             raise CheckpointError(f"background checkpoint write failed: {err!r}") from err
 
-    def save(self, run_dir: str, step: int, payload: dict, keep: int = 3) -> None:
+    def save(self, run_dir: str, step: int, payload: dict, keep: int = 3,
+             weights_only: bool = False) -> None:
         import threading
 
         self.wait()
@@ -144,7 +159,10 @@ class AsyncSaver:
         def work():
             try:
                 rng = snap.pop("rng")
-                self.last_path = save(run_dir, step, snap, keep, rng=rng)
+                if weights_only:
+                    self.last_path = save_weights(run_dir, step, snap)
+                else:
+                    self.last_path = save(run_dir, step, snap, keep, rng=rng)
             except BaseException as e:  # re-raised on the training thread by wait()
                 self._error = e
 
