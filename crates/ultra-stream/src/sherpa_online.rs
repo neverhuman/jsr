@@ -16,6 +16,9 @@ use crate::sherpa_c_types::{
 };
 use crate::sherpa_ffi::{cstr_or_empty, path_to_cstring, verify_cpu_only_process, SherpaLib};
 
+mod checked_result;
+use checked_result::copy_result_and_free;
+
 /// Configuration for the Online Streaming Zipformer transducer (`int8` or `fp32`).
 #[derive(Debug, Clone)]
 pub struct SherpaZipformerConfig {
@@ -223,6 +226,18 @@ impl RawOnlineStream {
             let s = cstr_or_empty((*res).text);
             (self.owner.lib.destroy_online_res)(res);
             s
+        }
+    }
+
+    /// Copy a checked native result. Missing output and invalid UTF-8 are failures,
+    /// distinct from a successful empty hypothesis (e.g. silence).
+    pub fn try_text(&self) -> Result<String, StreamError> {
+        // SAFETY: stream and library are live; the helper copies and frees once.
+        unsafe {
+            copy_result_and_free(
+                (self.owner.lib.get_online_res)(self.owner.rec_ptr(), self.as_ptr()),
+                self.owner.lib.destroy_online_res,
+            )
         }
     }
 }
