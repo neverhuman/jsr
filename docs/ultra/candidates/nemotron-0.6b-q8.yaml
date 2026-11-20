@@ -1,0 +1,111 @@
+# Nemotron Speech Streaming EN 0.6B, Q8_0, NeMo-Speech.cpp, CPU only (P04).
+# Schema: spec v1.0-B §11.2 (ultra.candidate.v1). One document per supported operating point.
+# Every REQUIRED field is resolved from the artifacts actually run on H0 on 2026-11-20.
+# Approval: owner ruling O2, internal evaluation only. Results: nemotron_results.md.
+---
+schema: ultra.candidate.v1
+candidate_id: nemotron_en_q8_live_160
+model:
+  repository: nvidia/nemotron-speech-streaming-en-0.6b
+  revision: ebe59e5a817142986528bbbee5dba8db7b38ed50
+  artifact: nemotron-speech-streaming-en-0.6b.q8_0.gguf
+  artifact_bytes: 699872960
+  artifact_sha256: d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d  # equals the HF LFS oid
+  # The runtime reads the SentencePiece vocabulary embedded in the GGUF; tokenizer.json is the
+  # repository's tokenizer at the same revision, recorded so the vocabulary is pinned twice.
+  tokenizer: tokenizer.json
+  tokenizer_sha256: 60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2
+  config_sha256: dffe850bc79ad2b0f8117804502b24d2c4a445aafbed4c1e40f8d78e0cb44065  # config.json
+  local_path: /mnt/xbabe3-external/jsr/models/nemotron-0.6b/
+  training_data: >-
+    Model card: ~250k h NVIDIA Riva ASRSet + English Granary (YTC, YODAS2, Mosel, LibriLight),
+    plus LibriSpeech 960 h, Switchboard, Fisher, WSJ, MLS-EN, Common Voice, People's Speech,
+    VoxPopuli, Europarl, FLEURS, VCTK, NSC and others (~530k h total).
+  honesty_label: unknown overlap  # LibriSpeech train is in-corpus; overlap of the other corpora with LibriSpeech test is unverified
+runtime:
+  repository: https://github.com/NVIDIA/NeMo-Speech.cpp
+  commit: e790e463b2913cff9f989a3df224c587f14b4c5c
+  version: nemo-speech 0.3.0 (ggml 0.25.1)
+  submodules:
+    llama.cpp: bd4f514db14d87fded667787a7a963bfbaa98e89  # ggml source; 42 upstream patches/ applied by CMake (NEMO_SPEECH_GGML_PATCHED=ON)
+  sentencepiece_static: 31646a467d2051eb904e0b45de3a73e91fe1c1e3  # scripts/build_sentencepiece_static.sh
+  compiler_and_flags: >-
+    GCC 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1), CMake 3.28.3, Ninja 1.11.1;
+    preset cpu-asr; CMAKE_BUILD_TYPE=Release (-O3 -DNDEBUG);
+    GGML_NATIVE=OFF GGML_AVX=ON GGML_AVX2=ON GGML_FMA=ON GGML_F16C=ON GGML_BMI2=ON
+    GGML_AVX512=OFF GGML_AVX_VNNI=OFF GGML_CUDA=OFF GGML_VULKAN=OFF GGML_OPENMP=ON GGML_LLAMAFILE=ON
+    NEMO_SPEECH_BUILD_TOOLS=ON CMAKE_PLATFORM_NO_VERSIONED_SONAME=ON;
+    ggml-cpu variant flags: -msse4.2 -mf16c -mfma -mbmi2 -mavx -mavx2;
+    objdump: 0 zmm instructions in libggml-cpu.so (no AVX-512 dependency)
+  build_path: /mnt/xbabe3-external/jsr/ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
+  backend: cpu
+  effective_backend_reported: "[asr] head=rnnt backend=CPU"
+  quantization: Q8_0
+  runtime_options: '{"backend":"cpu","batching":false,"bench_mode":"stream","chunk_ms":160,"decoder":"greedy","endpointing":false,"postproc":"none","rnnt_right_context":1,"threads":1,"vad":"none"}'
+  runtime_options_sha256: ca4e109fa3357af6ff4cde03ffd1fc549dd0b9d2499cce340422890a762146e4  # sha256 of the runtime_options string above, no trailing newline
+  invocation: >-
+    nemo-speech --json bench asr <wav_dir> --model <gguf> --device cpu --mode stream
+    --asr.backend.threads 1 --asr.streaming.rnnt_right_context 1 --concurrency 1
+    --repetitions 1 --warmup 0 --save <out_dir>
+stream:
+  requested_chunk_ms: 160
+  runtime_reported_geometry: "left=70 center=1 right=1 attention=72 encoder-frames step=160ms"
+  actual_right_context_ms: 80  # R = 1 encoder frame of 80 ms; a frame waits at most one 160 ms chunk
+  left_context_policy: cache-aware; 70 encoder frames (5.6 s) of K/V and conv cache carried per stream, no recomputation
+  end_of_stream_flush: runtime finish() appends zero mel (chunk + shift frames) so the last real frame sees full right context and the RNNT predictor commits pending tokens; words bounded to real audio
+  revision_policy: editable_until_final
+  endpoint_policy_id: none.single_final_at_eos  # endpointing off; one final per stream at finish()
+  output_text: cased and punctuated (model native); scored after provisional normalisation (python/ultra/ultra/wer.py)
+resources:
+  intra_op_threads: 1  # --asr.backend.threads 1 (ggml CPU backend)
+  inter_op_threads: 1  # ggml compute is serialised by the runtime; bench worker/scheduler threads observed: 3-4 total, all inside the affinity mask
+  affinity: one physical core per process via taskset -c <cpu>, SMT sibling idle, one core per CCX; cores recorded per run
+licenses:
+  code_id: Apache-2.0
+  weights_id: NVIDIA Open Model License Agreement
+  distribution_status: internal_evaluation_only_until_resolved
+---
+schema: ultra.candidate.v1
+candidate_id: nemotron_en_q8_live_560
+model:
+  repository: nvidia/nemotron-speech-streaming-en-0.6b
+  revision: ebe59e5a817142986528bbbee5dba8db7b38ed50
+  artifact: nemotron-speech-streaming-en-0.6b.q8_0.gguf
+  artifact_bytes: 699872960
+  artifact_sha256: d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d
+  tokenizer: tokenizer.json
+  tokenizer_sha256: 60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2
+  config_sha256: dffe850bc79ad2b0f8117804502b24d2c4a445aafbed4c1e40f8d78e0cb44065
+  local_path: /mnt/xbabe3-external/jsr/models/nemotron-0.6b/
+  honesty_label: unknown overlap
+runtime:
+  repository: https://github.com/NVIDIA/NeMo-Speech.cpp
+  commit: e790e463b2913cff9f989a3df224c587f14b4c5c
+  version: nemo-speech 0.3.0 (ggml 0.25.1)
+  submodules:
+    llama.cpp: bd4f514db14d87fded667787a7a963bfbaa98e89
+  sentencepiece_static: 31646a467d2051eb904e0b45de3a73e91fe1c1e3
+  compiler_and_flags: same build as nemotron_en_q8_live_160 (one binary serves both operating points)
+  build_path: /mnt/xbabe3-external/jsr/ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
+  backend: cpu
+  effective_backend_reported: "[asr] head=rnnt backend=CPU"
+  quantization: Q8_0
+  runtime_options: '{"backend":"cpu","batching":false,"bench_mode":"stream","chunk_ms":560,"decoder":"greedy","endpointing":false,"postproc":"none","rnnt_right_context":6,"threads":1,"vad":"none"}'
+  runtime_options_sha256: e2ad08ffea45224a24b58fbf91f69bdf9b90eee2c5682632cde7b0c6175e6a30
+  invocation: as for _160 with --asr.streaming.rnnt_right_context 6
+stream:
+  requested_chunk_ms: 560
+  runtime_reported_geometry: "left=70 center=1 right=6 attention=77 encoder-frames step=560ms"
+  actual_right_context_ms: 480  # R = 6 encoder frames; a frame waits at most one 560 ms chunk
+  left_context_policy: cache-aware; 70 encoder frames (5.6 s) cached per stream, no recomputation
+  end_of_stream_flush: as for _160
+  revision_policy: editable_until_final
+  endpoint_policy_id: none.single_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: one physical core per process via taskset -c <cpu>, SMT sibling idle; cores recorded per run
+licenses:
+  code_id: Apache-2.0
+  weights_id: NVIDIA Open Model License Agreement
+  distribution_status: internal_evaluation_only_until_resolved
