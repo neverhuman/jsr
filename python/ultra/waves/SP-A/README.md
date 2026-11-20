@@ -45,3 +45,15 @@ All numbers below are [H0-MEASURED, shared host]. The model is in-corpus: it was
 - **Likely cause:** contention in shared memory and L3. Each worker streams its own roughly 70 MB int8 weight image. This is the fixed-fetch term of the W01 cost law appearing at fleet scale. Hardware counters are unavailable (`perf_event_paranoid` = 4), so the bandwidth/L3 split is not confirmed.
 - **Paced fleets fail to sustain at these densities:** 8, 12 and 16 per core with 8 single-core workers, and 8, 12 and 16 per core with 4 four-core workers. The four-thread workers were worse still (0.20–0.23 CPU-s/s): ORT intra-op threading does not help here.
 - **Consequence for the SP-A claim:** about 1,000 real-time streams per H0 workstation is NOT supported for the ORT Zipformer. A density headline needs either a shared-weight multi-stream runtime (one weight image, many streams per process; the runtime lane's Rust batcher), or smaller and lower-bit weights (ternary, as the cost law predicts).
+
+## Mechanism update (runtime lane, Rust shared-weight runner @ 5232d61, exploratory, cores 32–47)
+The previous section's DRAM explanation is superseded. The limit is **L3 per CCX**. A Zen 2 CCX is 4 cores sharing a 16 MB L3.
+
+**Evidence:**
+- **One worker per CCX scales linearly:** 16.13 streams/core on 1 core, 16.39 per worker-core with 4 workers on cores 32/36/40/44.
+- **Paced, one worker per CCX:** 4 × 12 = 48 streams sustained at p99 616–655 ms. Lateness is flat and RSS is 1.18 GiB.
+- **Dense packing flattens at about 74 streams in total,** at both 8 cores (2 CCXs) and 16 cores (4 CCXs), even with a single shared weight image.
+
+**Implication:** with this runtime, H0's ceiling is about (16 CCXs) × 12 ≈ 190 live streams. That is a prediction until it is measured across all 16 CCXs in a qualifying window.
+
+**Primary ratio (batch vs single, unpaced, 1 core):** 18.8 / 12.6 = 1.49×, against the pre-registered ≥ 3×. The expected verdict is **NO_LIFT** on the primary, to be confirmed once on the test sets in the qualifying window.
