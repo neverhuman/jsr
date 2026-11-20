@@ -1,5 +1,13 @@
 # EFFICIENT/H0 independent qualification review — 2026-11-20
 
+**Historical checkout audit.** The findings below describe the named earlier
+commits and preserve their diagnostic evidence. The owner subsequently made the
+trained R1 comparison the primary outcome. Revisioned contracts, receipt
+hardening, native baseline execution and the CPU research bridge have since
+merged. See [the trained CPU benchmark review](2026-11-20-trained-cpu-benchmark.md)
+for current implementation, verification and remaining qualification gates. The
+older implementation/status cells below must not be read as current `main`.
+
 **Disposition: experimental; v1.0.0 qualification is incomplete.** SP-A's paced
 instrument has received fixes through `404c58c`, with remaining qualification
 and policy limitations described below. There is
