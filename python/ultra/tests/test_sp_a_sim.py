@@ -15,10 +15,19 @@ class FakeTime:
     def __init__(self):
         self.t, self.cpu_s = 0.0, 0.0
 
+    calls = 0
+    LIMIT = 2_000_000  # a loop that stops advancing time fails instead of hanging pytest
+
     def clock(self):
         def sleep(d):
             self.t += max(0.0, d)
-        return Clock(now=lambda: self.t, sleep=sleep, cpu=lambda: self.cpu_s)
+
+        def now():
+            self.calls += 1
+            if self.calls > self.LIMIT:
+                raise RuntimeError("simulation stopped advancing (clock call limit)")
+            return self.t
+        return Clock(now=now, sleep=sleep, cpu=lambda: self.cpu_s)
 
 
 class FakeStream:
@@ -119,3 +128,17 @@ def test_batching_reduces_cost_against_single():
     batch = simulate(items, FakeRec(a, 0.02, 0.001), _opt(streams=8, paced=False), a.clock())
     single = simulate(items, FakeRec(b, 0.02, 0.001), _opt(streams=8, paced=False, decode="single"), b.clock())
     assert batch["rtf_cpu"] < single["rtf_cpu"] / 3
+
+
+def test_cutoff_never_accepts_audio_captured_after_it():
+    for dur in (0.005, 0.03, 0.31):
+        ft = FakeTime()
+        out = simulate(_items([5.0]), FakeRec(ft, 0.0, 0.0), _opt(streams=1, duration_s=dur), ft.clock())
+        assert out["accepted_packets"] * 0.02 <= dur + 1e-9, (dur, out["accepted_packets"])
+
+
+def test_overload_catches_up_everything_captured_before_cutoff():
+    ft = FakeTime()
+    out = simulate(_items([30.0] * 2), FakeRec(ft, 0.0, 0.4), _opt(streams=2, duration_s=3.0), ft.clock())
+    assert out["accepted_packets"] == 150  # every packet captured by t = 3.0 s was accepted
+    assert out["effective_grid_ms"] == 320

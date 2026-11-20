@@ -74,7 +74,7 @@ def simulate(items: list[Item], rec, opt, clock: Clock) -> dict:
     series: list[dict] = []
     accepted = 0        # samples, all streams
     k_acc = 0           # packets accepted on the shared timeline
-    k_dec = 0           # packets of the timeline already handed to a decode
+    k_dec = 0           # packets of the timeline already offered to a decode pass (not a processed watermark)
     max_ready = 0
     cutoff = False
     drain_cpu0 = drain_t0 = None
@@ -130,24 +130,27 @@ def simulate(items: list[Item], rec, opt, clock: Clock) -> dict:
     c0, t0 = clock.cpu(), clock.now()
     deadline = lambda k: t0 + (k + 1) * pkt_s  # noqa: E731  capture time of packet k
     last_series = t0
+    t_cut = t0 + opt.duration_s if opt.duration_s else math.inf
     while active:
         now = clock.now()
-        if not cutoff and opt.duration_s and now - t0 >= opt.duration_s:
-            cutoff = True
-            drain_cpu0, drain_t0 = clock.cpu(), now
-            for sl in active.values():
-                if not sl.finished_input:
-                    finish(sl)
         if not cutoff:
             if opt.paced:
-                if now < deadline(k_acc):
-                    clock.sleep(deadline(k_acc) - now)
+                target = min(deadline(k_acc), t_cut)  # next capture, or the cutoff if that comes first
+                if now < target:
+                    clock.sleep(target - now)
                     now = clock.now()
-                while deadline(k_acc) <= now and active:  # accept everything already captured
+                # Accept every packet already captured, but nothing captured after the cutoff.
+                while deadline(k_acc) <= min(now, t_cut) and active:
                     accept_one_packet()
                     refill()
-            else:
+            elif deadline(k_acc) <= t_cut or not opt.duration_s:
                 accept_one_packet()
+            if now >= t_cut or (not opt.paced and deadline(k_acc) > t_cut):
+                cutoff = True
+                drain_cpu0, drain_t0 = clock.cpu(), now
+                for sl in active.values():
+                    if not sl.finished_input:
+                        finish(sl)
         crossed = k_acc // grid_every > k_dec // grid_every
         if cutoff or crossed:
             oldest = deadline(k_dec)  # capture deadline of the oldest packet not yet decoded
@@ -160,7 +163,7 @@ def simulate(items: list[Item], rec, opt, clock: Clock) -> dict:
         if now - last_series >= 1.0:
             series.append(dict(t=round(now - t0, 3), accepted_s=round(accepted / SR, 3),
                                captured_packets=int((now - t0) / pkt_s), accepted_packets=k_acc,
-                               decoded_packets=k_dec, completed=len(hyps), active=len(active),
+                               offered_to_decode_packets=k_dec, completed=len(hyps), active=len(active),
                                oldest_unprocessed_s=round(max(0.0, now - deadline(k_dec)), 4)))
             last_series = now
     cpu, wall = clock.cpu() - c0, clock.now() - t0
@@ -172,6 +175,7 @@ def simulate(items: list[Item], rec, opt, clock: Clock) -> dict:
                rtf_cpu=round(cpu / max(accepted_s, 1e-9), 5),
                streams_per_core_at_full_load=round(accepted_s / max(cpu, 1e-9), 2),
                max_ready_batch=max_ready, drained=not active, accepted_packets=k_acc,
+               effective_grid_ms=grid_every * opt.packet_ms,
                hyps={items[i].uid: hyps[i] for i in order}, series=series)
     if drain_t0 is not None:
         out["drain"] = dict(cpu_seconds=round(clock.cpu() - drain_cpu0, 3),

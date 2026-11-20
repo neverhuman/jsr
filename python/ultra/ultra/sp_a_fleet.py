@@ -48,11 +48,30 @@ def _finite(*xs) -> bool:
     return all(isinstance(x, (int, float)) and math.isfinite(x) for x in xs)
 
 
+GROWTH_FRACTION = 0.25  # last-third mean may exceed first-third mean by at most this share of the bound
+
+
 def sustains(w: dict, bound_ms: float) -> bool:
     """Real time held: bounded tail and last lateness, no growing backlog, every stream drained."""
     lat = w.get("lateness_ms")
-    return bool(lat) and w.get("drained") is True and lat["p99"] < bound_ms and lat["last"] < bound_ms \
-        and lat["last_third_mean"] < bound_ms
+    if not isinstance(lat, dict) or w.get("drained") is not True:
+        return False
+    keys = ("p99", "last", "first_third_mean", "last_third_mean")
+    if not all(_finite(lat.get(k)) and lat[k] >= 0 for k in keys):
+        return False
+    grows = lat["last_third_mean"] - lat["first_third_mean"] > GROWTH_FRACTION * bound_ms
+    return lat["p99"] < bound_ms and lat["last"] < bound_ms and not grows
+
+
+def _row_problem(w) -> str | None:
+    """Structural validation of one worker result; None when usable."""
+    for k in ("streams", "cpu_seconds", "audio_accepted_s", "rtf_cpu", "max_ready_batch"):
+        if not _finite(w.get(k)) or w[k] < 0:
+            return f"missing, non-finite or negative {k}"
+    wer = w.get("wer")
+    if not isinstance(wer, dict) or not all(_finite(wer.get(k)) and wer[k] >= 0 for k in ("ref_words", "sub", "del", "ins")):
+        return "missing or malformed wer"
+    return None
 
 
 def summarise(run_dir: str, run_id: str, requested: int, cores: list[int], codes: list[int],
@@ -73,13 +92,17 @@ def summarise(run_dir: str, run_id: str, requested: int, cores: list[int], codes
         except ValueError:
             problems.append(f"worker {i}: malformed result")
             continue
+        if not isinstance(w, dict):
+            problems.append(f"worker {i}: result is not an object")
+            continue
         if w.get("run_id") != run_id or w.get("worker_id") != i:
             problems.append(f"worker {i}: result belongs to another run")
             continue
         if i < len(cores) and w.get("affinity") != [cores[i]]:
             problems.append(f"worker {i}: ran on {w.get('affinity')}, expected [{cores[i]}]")
-        if not _finite(w.get("cpu_seconds"), w.get("audio_accepted_s"), w.get("rtf_cpu")):
-            problems.append(f"worker {i}: non-finite measurement")
+        bad = _row_problem(w)
+        if bad:
+            problems.append(f"worker {i}: {bad}")
             continue
         workers.append(w)
     valid = not problems
