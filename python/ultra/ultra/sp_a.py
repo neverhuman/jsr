@@ -45,6 +45,9 @@ def cpu_seconds() -> float:
 
 def run(args) -> dict:
     utts = load_split(args.split, args.limit)
+    if args.offset:
+        k = args.offset % len(utts)
+        utts = utts[k:] + utts[:k]  # workers start at different utterances
     rec = make_recognizer(args.model_dir, args.precision, args.threads)
     packet = int(16000 * args.packet_ms / 1000)
     queue = list(range(len(utts)))
@@ -74,6 +77,8 @@ def run(args) -> dict:
     c0, w0 = cpu_seconds(), time.perf_counter()
     tick = 0
     while active:
+        if args.duration_s and time.perf_counter() - w0 >= args.duration_s:
+            break  # fixed-length paced run; only completed utterances are scored
         # 1. arrival: one packet per active stream
         for slot, st in list(active.items()):
             i, s, cur = st
@@ -116,7 +121,7 @@ def run(args) -> dict:
     w = corpus_wer(refs, hyp)
     out = dict(schema="ultra.sp-a/v1", split=args.split, utterances=len(hyps), audio_seconds=round(audio_done, 2),
                streams=args.streams, decode=args.decode, max_batch=args.max_batch, precision=args.precision,
-               threads=args.threads, paced=args.paced, tail_pad_s=args.tail_pad_s, packet_ms=args.packet_ms,
+               threads=args.threads, paced=args.paced, tail_pad_s=args.tail_pad_s, offset=args.offset, duration_s=args.duration_s, packet_ms=args.packet_ms,
                cpu_seconds=round(cpu, 3), wall_seconds=round(wall, 3),
                rtf_cpu=round(cpu / audio_done, 5), streams_per_core_at_full_load=round(audio_done / cpu, 2),
                wer=w, max_ready_backlog=max_backlog, affinity=sorted(os.sched_getaffinity(0)),
@@ -149,6 +154,8 @@ def main(argv=None):
     ap.add_argument("--packet-ms", type=int, default=20)
     ap.add_argument("--paced", action="store_true")
     ap.add_argument("--tail-pad-s", type=float, default=0.8)
+    ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--duration-s", type=float, default=0.0)
     ap.add_argument("--out")
     args = ap.parse_args(argv)
     res = run(args)

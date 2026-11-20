@@ -26,3 +26,17 @@
 ## 2026-11-20: LibriSpeech from the HF mirror
 - **Evidence:** OpenSLR served this host at under 1 MB/s; the HF parquet mirror `openslr/librispeech_asr` serves it at about 25 MB/s.
 - **Consequence:** shards are recorded with SHA-256 in `MANIFEST.sha256`.
+
+## 2026-11-20: Contract schemas stay Rust-first (jankurai HLT-007 accepted as a known finding)
+- **Evidence:** jankurai 1.7.6 clears HLT-007 only when the schemas are the source and the types are generated from them. Our Rust types are the source of truth. `crates/ultra-core/tests/schema_contract.rs` checks every serialised event and receipt against the schemas, and it has already caught real receipt drift.
+- **Alternatives:** schema-first codegen.
+- **Consequence:** the pre-commit diff-audit flags these two files whenever a commit touches them; such commits bypass the hook and say why.
+- **Revisit:** if a later jankurai release accepts a drift test as evidence.
+
+## 2026-11-20: W01 on H0 passes; SP-A batching lift is small on the ORT runtime
+- **Evidence:** in `docs/ultra/costlaw/W01_H0.md`:
+  - out-of-cache ternary T-LUT2 has a = 9.7 ps/weight against int8's 51.6 (0.18×);
+  - c ≈ 14–17 ps/MAC;
+  - R² ≥ 0.988.
+- **SP-A screen:** sherpa-onnx int8 Zipformer batching N=64 gives only 1.46× streams per core over single decoding. That runtime is compute-bound, not fetch-bound.
+- **Consequence:** density beyond about 18 streams per core needs our own runtime/kernels or a smaller, gated model (Track B). The ORT path is still the R0 baseline.
