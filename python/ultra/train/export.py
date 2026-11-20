@@ -211,12 +211,19 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
     files["decoder"] = "decoder.onnx"
     files["joiner.fp32"] = "joiner.fp32.onnx"
     int8_info = None
-    if int8 and int8_mode == "dynamic":
+    if int8 and int8_mode in ("dynamic", "dynamic_per_row"):
         for part in ("encoder", "joiner"):
             quantize_int8(os.path.join(out_dir, f"{part}.fp32.onnx"),
                           os.path.join(out_dir, f"{part}.int8.onnx"))
             files[f"{part}.int8"] = f"{part}.int8.onnx"
-        int8_info = {"mode": "dynamic", "batch_invariant": False}
+        if int8_mode == "dynamic":
+            int8_info = {"mode": "dynamic", "batch_invariant": False}
+        else:
+            # Same graphs; the contract restricts int8 calls to one stream (encoder) / one query
+            # row (joiner), so each activation scale sees only that row: invariant by construction.
+            int8_info = {"mode": "dynamic_per_row", "batch_invariant": True, "max_batch": 1,
+                         "rule": "run encoder.int8 with B = 1 (one stream per call) and "
+                                 "joiner.int8 with N = 1; fp32 graphs may batch freely"}
     elif int8 and int8_mode == "static_qdq":
         from train.calib import calibration_set, capture
 
@@ -332,7 +339,7 @@ def main() -> None:
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-int8", action="store_true")
-    ap.add_argument("--int8-mode", choices=["static_qdq", "dynamic"], default="static_qdq")
+    ap.add_argument("--int8-mode", choices=["static_qdq", "dynamic", "dynamic_per_row"], default="static_qdq")
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--joiner-int8", action="store_true", help="also quantise the joiner (static)")
     ap.add_argument("--calib-method", choices=["minmax", "percentile"], default="minmax")

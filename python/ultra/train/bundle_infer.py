@@ -102,6 +102,11 @@ class BundleRecognizer:
             return ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
 
         self.enc, self.dec, self.joi = mk(enc_key), mk("decoder"), mk(joi_key)
+        # A bundle may declare that its int8 graphs must run one stream (row) per call, e.g.
+        # dynamic activation quantisation, whose scale is computed over the whole input tensor.
+        i8 = m.get("int8") or {}
+        self.max_batch_enc = i8.get("max_batch") if precision == "int8" else None
+        self.max_batch_joi = i8.get("max_batch") if jp == "int8" else None
         self.pieces = {}
         with open(os.path.join(bundle, f["tokens"]["path"])) as fh:
             for line in fh:
@@ -134,7 +139,9 @@ class BundleRecognizer:
             if b is not None:
                 groups.setdefault(b[1] - b[0], []).append((s, b[0]))
         for n, items in groups.items():
-            self._run(items, n)
+            step = self.max_batch_enc or len(items)
+            for i in range(0, len(items), step):
+                self._run(items[i:i + step], n)
 
     def get_result(self, s: BundleStream) -> str:
         return "".join(self.pieces[i] for i in s.tokens).replace("▁", " ").strip()
@@ -195,7 +202,13 @@ class BundleRecognizer:
             hits = 0
             while active.size and hits < self.max_symbols:
                 dec = self.dec.run(None, {"ctx": ctx[active]})[0]
-                logits = self.joi.run(None, {"enc": enc[active, t], "dec": dec})[0]
+                if self.max_batch_joi:
+                    logits = np.concatenate([
+                        self.joi.run(None, {"enc": enc[active[j:j + self.max_batch_joi], t],
+                                            "dec": dec[j:j + self.max_batch_joi]})[0]
+                        for j in range(0, active.size, self.max_batch_joi)])
+                else:
+                    logits = self.joi.run(None, {"enc": enc[active, t], "dec": dec})[0]
                 k = logits.argmax(axis=-1)
                 emit = k != self.blank
                 for i, kk in zip(active[emit], k[emit], strict=True):
