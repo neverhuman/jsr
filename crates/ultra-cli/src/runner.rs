@@ -151,19 +151,32 @@ pub fn resolve_bundle_or_zipformer(
 }
 
 pub fn instantiate_backend(candidate_id: &str, threads: i32) -> Result<Box<dyn Backend>, CliError> {
+    instantiate_backend_with_precision(candidate_id, None, threads)
+}
+
+pub fn instantiate_backend_with_precision(
+    candidate_id: &str,
+    precision_override: Option<&str>,
+    threads: i32,
+) -> Result<Box<dyn Backend>, CliError> {
     if matches!(candidate_id, "fake" | "deterministic-fake-v1") {
         return Ok(Box::new(FakeBackend::new(FakeBackendConfig::default())));
     }
-    if let Some(res) = resolve_r1_bundle(candidate_id, None) {
+    if let Some(res) = resolve_r1_bundle(candidate_id, precision_override) {
         let (bdir, prec) = res?;
         let eng = OrtTransducerBackend::load(&bdir, prec, threads, true)?;
         return Ok(Box::new(eng));
     }
-    if let Some(res) = resolve_bundle_or_zipformer(candidate_id, None, threads, 0.8) {
+    if let Some(res) = resolve_bundle_or_zipformer(candidate_id, precision_override, threads, 0.8) {
         let (_bundle_id, zcfg) = res?;
         let lib = SherpaLib::load_default()?;
         let eng = SherpaZipformerBackend::new(lib, zcfg)?;
         return Ok(Box::new(eng));
+    }
+    if let Some(p) = precision_override.filter(|&p| p != "int8") {
+        return Err(CliError::Config(format!(
+            "precision override `{p}` unsupported for offline candidate `{candidate_id}`"
+        )));
     }
     let models = PathBuf::from(jsr_data_root()).join("models");
     let cfg = resolve_offline_config(candidate_id, &models, threads)?;

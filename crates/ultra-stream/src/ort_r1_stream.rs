@@ -1,12 +1,12 @@
-//! Per-utterance [`OrtR1RawStream`], [`Backend`] impl, and causal [`AsrStream`] wrapper
-//! (`OrtR1AsrStream`) for [`OrtTransducerBackend`].
+//! Per-utterance [`OrtR1RawStream`], state-output validator, [`Backend`] impl, and causal
+//! [`AsrStream`] wrapper (`OrtR1AsrStream`) for [`OrtTransducerBackend`].
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 
 use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 use ultra_frontend::{TrainerLogMel, MEL_BINS};
-use ultra_gp::{chunk_bounds, FeatureRing, RnntStreamState};
+use ultra_gp::{chunk_bounds, FeatureRing, GpError, R1EncoderStateSpec, RnntStreamState};
 
 use crate::api::{
     AsrStream, Backend, BackendCaps, OutputPolicy, PollResult, PushReport, PushStatus, StreamClock,
@@ -14,6 +14,47 @@ use crate::api::{
 };
 use crate::ort_r1::{BatchWorkspace, OrtTransducerBackend, StateBuf, R1_SAMPLES_PER_ENC_FRAME};
 use crate::sherpa_ffi::verify_cpu_only_process;
+
+/// Validate encoder cache outputs (`k_out`, `v_out`, `kv_len_out`, `conv_out`, and MR `km_out`,
+/// `vm_out`, `kvm_len_out`, `convm_out`) before mutating per-stream state.
+pub(crate) fn validate_state_outputs(
+    specs: &[R1EncoderStateSpec],
+    default_left_context: usize,
+    outs: &[StateBuf],
+) -> Result<(), StreamError> {
+    for (si, (spec, buf)) in specs.iter().zip(outs).enumerate() {
+        match buf {
+            StateBuf::F32(v) => {
+                if !v.iter().all(|x| x.is_finite()) {
+                    return Err(GpError::Output(format!(
+                        "non-finite encoder cache output in {}_out",
+                        spec.name
+                    ))
+                    .into());
+                }
+            }
+            StateBuf::I64(v) => {
+                // Match `kv_len` against `k`'s Lc axis (slot 0, dim 3) and `kvm_len` against
+                // `km`'s Lc axis (slot 4, dim 3), falling back to `default_left_context`.
+                let kv_slot = if si >= 4 { 4 } else { 0 };
+                let max_lc = specs
+                    .get(kv_slot)
+                    .and_then(|ks| ks.per_stream_dims.get(3).copied())
+                    .unwrap_or(default_left_context) as i64;
+                for &len_val in v {
+                    if len_val < 0 || len_val > max_lc {
+                        return Err(GpError::Output(format!(
+                            "invalid integer cache length {len_val} in {}_out (valid 0..={max_lc})",
+                            spec.name
+                        ))
+                        .into());
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Low-level per-utterance stream used by [`OrtTransducerBackend::decode_streams`] and SP-A banks.
 pub struct OrtR1RawStream {
@@ -23,6 +64,7 @@ pub struct OrtR1RawStream {
     pub(crate) ring: FeatureRing,
     pub(crate) t_next: usize,
     pub(crate) finished: bool,
+    pub(crate) fail_after_chunks: Option<usize>,
     pub(crate) states: Vec<StateBuf>,
     pub rnnt: RnntStreamState,
 }
@@ -56,15 +98,85 @@ impl OrtR1RawStream {
     pub fn text(&self) -> String {
         self.engine.bundle.tokens.decode_ids(&self.rnnt.tokens)
     }
+
+    /// Complete retained per-stream allocation in bytes: encoder caches (`k`, `v`, `kv_len`,
+    /// `conv`, and MR `km`, `vm`, `kvm_len`, `convm`), feature ring, mel scratch, and RNN-T tokens.
+    pub fn retained_bytes(&self) -> usize {
+        let state_bytes: usize = self.states.iter().map(StateBuf::retained_bytes).sum();
+        state_bytes
+            + self.ring.retained_bytes()
+            + self.mel_scratch.capacity() * MEL_BINS * 4
+            + self.rnnt.tokens.capacity() * 8
+            + std::mem::size_of::<Self>()
+    }
+}
+
+impl OrtTransducerBackend {
+    pub fn create_stream_with_clock(
+        self: &Arc<Self>,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+    ) -> Box<dyn AsrStream> {
+        self.create_stream_internal(cfg, clock, None)
+    }
+
+    /// Constructor injecting a deterministic late decode failure after `ok_chunks` successful
+    /// chunks (verifying atomic state rollback and terminal failure handling).
+    pub fn create_stream_with_late_failure(
+        self: &Arc<Self>,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+        ok_chunks: usize,
+    ) -> Box<dyn AsrStream> {
+        self.create_stream_internal(cfg, clock, Some(ok_chunks))
+    }
+
+    fn create_stream_internal(
+        self: &Arc<Self>,
+        cfg: &StreamConfig,
+        clock: StreamClock,
+        fail_after_chunks: Option<usize>,
+    ) -> Box<dyn AsrStream> {
+        let model_id = format!(
+            "ultra-r1-{}-{}-{}",
+            self.bundle.family.as_str(),
+            self.bundle.precision.as_str(),
+            &self.bundle.manifest_sha256[..12]
+        );
+        let eff_model_id = if cfg.model_config_id == "default-model-v1" {
+            model_id.as_str()
+        } else {
+            cfg.model_config_id.as_str()
+        };
+        let mut raw = self.create_raw_stream();
+        raw.fail_after_chunks = fail_after_chunks;
+        Box::new(OrtR1AsrStream {
+            raw,
+            ws: BatchWorkspace::new(),
+            clock,
+            emitter: Emitter::new(&cfg.stream_id, eff_model_id),
+            cfg: cfg.clone(),
+            accepted_samples: 0,
+            processed_samples: 0,
+            wakeups: 0,
+            events_emitted: 0,
+            last_hyp: String::new(),
+            finished: false,
+            cancelled: false,
+            failed: None,
+            events: VecDeque::new(),
+        })
+    }
 }
 
 impl Backend for Arc<OrtTransducerBackend> {
     fn capabilities(&self) -> BackendCaps {
         BackendCaps {
             name: format!(
-                "ort-r1-{}-{}",
+                "ort-r1-{}-{}-{}",
                 self.bundle.family.as_str(),
-                self.bundle.precision.as_str()
+                self.bundle.precision.as_str(),
+                &self.bundle.manifest_sha256[..12]
             ),
             supports_batch_step: true,
             supports_partial_push: false,
@@ -107,6 +219,7 @@ pub(crate) struct OrtR1AsrStream {
     pub(crate) last_hyp: String,
     pub(crate) finished: bool,
     pub(crate) cancelled: bool,
+    pub(crate) failed: Option<String>,
     pub(crate) events: VecDeque<TranscriptEvent>,
 }
 
@@ -115,7 +228,13 @@ impl OrtR1AsrStream {
         let mut ran = false;
         while self.raw.is_ready() {
             let eng = Arc::clone(&self.raw.engine);
-            let (_, w) = eng.decode_streams(&mut [&mut self.raw], &mut self.ws)?;
+            let (_, w) = match eng.decode_streams(&mut [&mut self.raw], &mut self.ws) {
+                Ok(ok) => ok,
+                Err(e) => {
+                    self.failed = Some(e.to_string());
+                    return Err(e);
+                }
+            };
             self.wakeups += w;
             ran = ran || w > 0;
         }
@@ -155,7 +274,7 @@ impl OrtR1AsrStream {
 
 impl AsrStream for OrtR1AsrStream {
     fn push_pcm(&mut self, start_sample: u64, pcm: &[i16]) -> Result<PushReport, StreamError> {
-        if self.finished || self.cancelled {
+        if self.finished || self.cancelled || self.failed.is_some() {
             return Err(ultra_core::CoreError::Lifecycle(
                 "push after finish_input or terminal state",
             )
@@ -175,6 +294,9 @@ impl AsrStream for OrtR1AsrStream {
         if let Some(ev) = self.events.pop_front() {
             return Ok(PollResult::Event(Box::new(ev)));
         }
+        if let Some(msg) = &self.failed {
+            return Ok(PollResult::Ended(TerminalOutcome::Failed(msg.clone())));
+        }
         if self.cancelled {
             return Ok(PollResult::Ended(TerminalOutcome::Cancelled));
         }
@@ -185,7 +307,7 @@ impl AsrStream for OrtR1AsrStream {
     }
 
     fn finish_input(&mut self) -> Result<(), StreamError> {
-        if self.cancelled {
+        if self.cancelled || self.failed.is_some() {
             return Err(ultra_core::CoreError::Lifecycle(
                 "finish_input on a cancelled or failed stream",
             )
@@ -195,7 +317,13 @@ impl AsrStream for OrtR1AsrStream {
             self.raw.input_finished();
             while self.raw.is_ready() {
                 let eng = Arc::clone(&self.raw.engine);
-                let (_, w) = eng.decode_streams(&mut [&mut self.raw], &mut self.ws)?;
+                let (_, w) = match eng.decode_streams(&mut [&mut self.raw], &mut self.ws) {
+                    Ok(ok) => ok,
+                    Err(e) => {
+                        self.failed = Some(e.to_string());
+                        return Err(e);
+                    }
+                };
                 self.wakeups += w;
             }
             let hyp = self.raw.text();
@@ -227,7 +355,7 @@ impl AsrStream for OrtR1AsrStream {
     }
 
     fn cancel(&mut self) -> Result<(), StreamError> {
-        if !self.finished {
+        if !self.finished && self.failed.is_none() {
             self.cancelled = true;
             self.events.clear();
         }
@@ -245,7 +373,46 @@ impl AsrStream for OrtR1AsrStream {
             refiner_accepts: 0,
             refiner_rejects: 0,
             refiner_charged_cpu_s: 0.0,
-            retained_bytes: self.raw.ring.retained_bytes() as u64,
+            retained_bytes: (self.raw.retained_bytes() + self.ws.retained_bytes()) as u64,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_state_outputs_rejects_nan_inf_and_invalid_kv_lengths() {
+        let specs = vec![
+            R1EncoderStateSpec {
+                name: "k".into(),
+                batch_axis: 1,
+                per_stream_dims: vec![2, 1, 4, 128, 64],
+                per_stream_elems: 2 * 4 * 128 * 64,
+                is_int64: false,
+            },
+            R1EncoderStateSpec {
+                name: "kv_len".into(),
+                batch_axis: 0,
+                per_stream_dims: vec![1],
+                per_stream_elems: 1,
+                is_int64: true,
+            },
+        ];
+        let ok = vec![StateBuf::F32(vec![0.0, 1.5]), StateBuf::I64(vec![128])];
+        assert!(validate_state_outputs(&specs, 128, &ok).is_ok());
+
+        let bad_nan = vec![StateBuf::F32(vec![0.0, f32::NAN]), StateBuf::I64(vec![4])];
+        assert!(validate_state_outputs(&specs, 128, &bad_nan).is_err());
+
+        let bad_inf = vec![StateBuf::F32(vec![f32::INFINITY]), StateBuf::I64(vec![4])];
+        assert!(validate_state_outputs(&specs, 128, &bad_inf).is_err());
+
+        let bad_neg = vec![StateBuf::F32(vec![0.0]), StateBuf::I64(vec![-1])];
+        assert!(validate_state_outputs(&specs, 128, &bad_neg).is_err());
+
+        let bad_over = vec![StateBuf::F32(vec![0.0]), StateBuf::I64(vec![129])];
+        assert!(validate_state_outputs(&specs, 128, &bad_over).is_err());
     }
 }

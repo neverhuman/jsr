@@ -183,6 +183,45 @@ fn ort_r1_stream_coordinator_subchunk_watermark_and_16_utt_parity() {
     st.push_pcm(0, &utts[0].pcm[..320]).expect("20ms subchunk");
     assert_eq!(st.metrics().accepted_samples, 320);
     assert_eq!(st.metrics().processed_samples, 0);
+    // Complete stream retained allocation includes ~6.36 MiB Dense S encoder caches.
+    assert!(
+        st.metrics().retained_bytes >= 6_000_000,
+        "expected full stream state in retained_bytes, got {}",
+        st.metrics().retained_bytes
+    );
+
+    // Late joiner/decoder failure must be terminal: retry of finish_input/push_pcm must fail and
+    // NEVER emit a synthetic Final crediting failed work.
+    let mut fail_coord = StreamCoordinator::new(
+        cfg.clone(),
+        engine.create_stream_with_late_failure(&cfg, StreamClock::real(), 1),
+    );
+    // Push 3,200 samples (200 ms -> chunk 0 succeeds); finish_input triggers chunk 1 failure.
+    fail_coord
+        .push_pcm(0, &utts[0].pcm[..3_200])
+        .expect("chunk 0 ok");
+    let pre_fail_evs = collect_events(&mut fail_coord);
+    assert!(!pre_fail_evs
+        .iter()
+        .any(|e| matches!(e.body, ultra_core::events::Body::Final { .. })));
+    assert!(
+        fail_coord.finish_input().is_err(),
+        "injected late failure must error on finish_input"
+    );
+    assert!(
+        fail_coord.finish_input().is_err(),
+        "retrying finish_input after failure must be rejected"
+    );
+    assert!(
+        fail_coord.push_pcm(3_200, &[0i16; 320]).is_err(),
+        "push_pcm after failure must be rejected"
+    );
+    while let PollResult::Event(ev) = fail_coord.poll_event().expect("poll after fail") {
+        assert!(
+            !matches!(ev.body, ultra_core::events::Body::Final { .. }),
+            "failed stream must never emit Final"
+        );
+    }
 
     let mut coord = StreamCoordinator::new(cfg.clone(), engine.create_stream(&cfg).expect("s2"));
     let mut ledger = Ledger::new();

@@ -1,12 +1,12 @@
 //! Whole-service reference-blind process-tree adapter for `NeMo-Speech.cpp` (`Nemotron 0.6B Q8_0`).
 
 use std::collections::BTreeSet;
+use std::fs::File;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use nix::sys::resource::{getrusage, UsageWho};
 use serde::{Deserialize, Serialize};
 use ultra_core::events::{Emitter, ProcessingEvidence};
 use ultra_core::receipt::{
@@ -18,6 +18,10 @@ use ultra_eval::score::{score_records, ScoreRecord};
 use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
 use ultra_frontend::write_wav_pcm16;
 
+use crate::nemotron_proc::{
+    hash_file_streaming, inspect_pid_maps_cpu, kill_and_verify_pgid_gone, whole_tree_cpu_s,
+    write_create_new,
+};
 use crate::AdapterError;
 
 /// Supported Nemotron causal chunk configurations (`160 ms` `R=1` vs `560 ms` `R=6`).
@@ -66,6 +70,8 @@ pub struct NemotronConfig {
     pub source_commit: String,
     pub hardware_id: String,
     pub completion_status: String,
+    pub require_ggml_cpu_map: bool,
+    pub retain_dir: Option<PathBuf>,
 }
 
 impl NemotronConfig {
@@ -89,6 +95,8 @@ impl NemotronConfig {
             source_commit: "HEAD".into(),
             hardware_id: "h0-threadripper-3995wx".into(),
             completion_status: "exploratory".into(),
+            require_ggml_cpu_map: true,
+            retain_dir: None,
         }
     }
 }
@@ -105,61 +113,15 @@ pub struct NemotronRunResult {
     pub streams_per_core_at_full_load: f64,
     pub load_ms: Option<f64>,
     pub wer_pct: Option<f64>,
+    pub binary_sha256: String,
+    pub model_sha256: String,
     pub receipt: Receipt,
     pub scored_rows: Vec<ScoreRecord>,
 }
 
-fn whole_tree_cpu_s() -> Result<f64, AdapterError> {
-    let to_s = |u: nix::sys::resource::UsageWho| -> Result<f64, AdapterError> {
-        let r = getrusage(u).map_err(|e| AdapterError::Process(format!("getrusage: {e}")))?;
-        let ut = r.user_time();
-        let st = r.system_time();
-        Ok((ut.tv_sec() as f64 + ut.tv_usec() as f64 * 1e-6)
-            + (st.tv_sec() as f64 + st.tv_usec() as f64 * 1e-6))
-    };
-    Ok(to_s(UsageWho::RUSAGE_SELF)? + to_s(UsageWho::RUSAGE_CHILDREN)?)
-}
-
-fn inspect_pid_maps_cpu_only(pid: u32) -> Option<Result<(), String>> {
-    let maps = std::fs::read_to_string(format!("/proc/{pid}/maps")).ok()?;
-    for line in maps.lines() {
-        let lower = line.to_ascii_lowercase();
-        if lower.contains("libcuda")
-            || lower.contains("libcudart")
-            || lower.contains("libnvidia-compute")
-            || lower.contains("libggml-cuda")
-            || lower.contains("libggml-vulkan")
-        {
-            return Some(Err(format!("GPU library mapped in child {pid}: {line}")));
-        }
-    }
-    Some(Ok(()))
-}
-
-fn kill_and_verify_pgid_gone(pgid: i32) -> Result<(), AdapterError> {
-    // SAFETY: Negative `pgid` targets the dedicated child process group created by `process_group(0)`.
-    unsafe {
-        let _ = libc::kill(-pgid, libc::SIGKILL);
-    }
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        // SAFETY: Signal `0` probes process-group existence without sending a signal.
-        let rc = unsafe { libc::kill(-pgid, 0) };
-        if rc == -1 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
-            return Ok(());
-        }
-        if Instant::now() >= deadline {
-            return Err(AdapterError::Process(format!(
-                "orphan processes still alive in process group {pgid} after SIGKILL"
-            )));
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    }
-}
-
 /// Execute `nemo-speech` reference-blind on an `.npz` split with whole-service CPU/RSS accounting,
-/// strict 1-to-1 `.txt` output verification, positive `/proc/<pid>/maps` CPU check, and `ESRCH`
-/// process-group drain enforcement.
+/// file-backed `stdout`/`stderr` capture (preventing >64 KB pipe deadlocks), positive `libggml-cpu`
+/// verification, strict 1-to-1 `.txt` output checks, and optional retained artifacts.
 pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, AdapterError> {
     if !cfg.binary_path.is_file() {
         return Err(AdapterError::Unavailable(format!(
@@ -173,6 +135,8 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
             cfg.model_path.display()
         )));
     }
+    let binary_sha256 = hash_file_streaming(&cfg.binary_path)?;
+    let model_sha256 = hash_file_streaming(&cfg.model_path)?;
     let utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
     if utts.is_empty() {
         return Err(AdapterError::Integrity("empty utterance slice".into()));
@@ -187,6 +151,8 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
     let wav_dir = work.path().join("wavs");
     let out_dir = work.path().join("out");
     let trace_path = work.path().join("trace.jsonl");
+    let stdout_path = work.path().join("stdout.json");
+    let stderr_path = work.path().join("stderr.log");
     std::fs::create_dir_all(&wav_dir)?;
     std::fs::create_dir_all(&out_dir)?;
 
@@ -197,13 +163,14 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         let stem = format!("u{i:05}");
         let wav_path = wav_dir.join(format!("{stem}.wav"));
         write_wav_pcm16(&wav_path, 16_000, &u.pcm)?;
-        let disk_bytes = std::fs::read(&wav_path)?;
-        pcm_hash_concat.push_str(&sha256_hex(&disk_bytes));
+        pcm_hash_concat.push_str(&sha256_hex(&std::fs::read(&wav_path)?));
         expected_txt.insert(format!("{stem}.txt"));
         audio_s += u.pcm.len() as f64 / 16_000.0;
     }
     let audio_sha = sha256_hex(pcm_hash_concat.as_bytes());
 
+    let stdout_file = File::create(&stdout_path)?;
+    let stderr_file = File::create(&stderr_path)?;
     let mut cmd = Command::new(&cfg.binary_path);
     cmd.process_group(0)
         .env("OMP_THREAD_LIMIT", cfg.threads.max(1).to_string())
@@ -233,19 +200,20 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
             "--trace",
             &trace_path.to_string_lossy(),
         ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file));
 
     let mut child = cmd.spawn()?;
     let child_pid = child.id();
     let pgid = child_pid as i32;
-    let mut saw_maps = false;
+    let mut saw_ggml_cpu = false;
+    let mut mapped_libs = BTreeSet::new();
 
     let status = loop {
         self_sampler.sample();
-        if let Some(res) = inspect_pid_maps_cpu_only(child_pid) {
+        if let Some(res) = inspect_pid_maps_cpu(child_pid, &mut mapped_libs) {
             match res {
-                Ok(()) => saw_maps = true,
+                Ok(ggml_ok) => saw_ggml_cpu = saw_ggml_cpu || ggml_ok,
                 Err(msg) => {
                     let _ = kill_and_verify_pgid_gone(pgid);
                     let _ = child.wait();
@@ -268,21 +236,26 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         std::thread::sleep(Duration::from_millis(15));
     };
 
-    let output = child.wait_with_output()?;
+    let _ = child.wait();
     kill_and_verify_pgid_gone(pgid)?;
+    let stdout_bytes = std::fs::read(&stdout_path)?;
+    let stderr_bytes = std::fs::read(&stderr_path)?;
     if !status.success() {
         return Err(AdapterError::Process(format!(
             "nemo-speech exited with {}: {}",
             status,
-            String::from_utf8_lossy(&output.stderr)
+            String::from_utf8_lossy(&stderr_bytes)
         )));
     }
+    if cfg.require_ggml_cpu_map && !saw_ggml_cpu {
+        return Err(AdapterError::Integrity(
+            "libggml-cpu shared library was not observed in child /proc/<pid>/maps".into(),
+        ));
+    }
 
-    // Strict 1-to-1 output directory set check: no missing, extra, or non-UTF8 files allowed.
     let mut got_txt = BTreeSet::new();
     for entry in std::fs::read_dir(&out_dir)? {
-        let entry = entry?;
-        let name = entry.file_name().to_string_lossy().into_owned();
+        let name = entry?.file_name().to_string_lossy().into_owned();
         if !got_txt.insert(name.clone()) {
             return Err(AdapterError::Integrity(format!("duplicate output {name}")));
         }
@@ -325,7 +298,7 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         hyps.push(hyp);
     }
 
-    let stdout_json: serde_json::Value = serde_json::from_slice(&output.stdout)
+    let stdout_json: serde_json::Value = serde_json::from_slice(&stdout_bytes)
         .map_err(|e| AdapterError::Integrity(format!("nemo-speech stdout JSON invalid: {e}")))?;
     let load_ms = stdout_json["load_ms"].as_f64();
     let cl = &stdout_json["runs"][0]["metrics"]["chunk_latency_ms"];
@@ -341,17 +314,17 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
     let cpu_s = (whole_tree_cpu_s()? - cpu_before).max(1e-6);
     let rtf_cpu = cpu_s / audio_s.max(1e-9);
 
+    // Reference-isolated scoring occurs strictly AFTER child exit and output validation.
     let refs = load_npz_references(&cfg.npz_path, cfg.offset, Some(utts.len()))?;
     let mut scored_rows = Vec::with_capacity(utts.len());
     for ((i, r), hyp) in refs.iter().enumerate().zip(&hyps) {
-        let dur_s = utts[i].pcm.len() as f64 / 16_000.0;
         scored_rows.push(ScoreRecord {
             id: r.uid.clone(),
             speaker: r.speaker.to_string(),
             dataset: cfg.split_name.clone(),
             reference: r.text.clone(),
             hyp: hyp.clone(),
-            duration_s: Some(dur_s),
+            duration_s: Some(utts[i].pcm.len() as f64 / 16_000.0),
         });
     }
     let utt_results = score_records(&scored_rows);
@@ -360,8 +333,29 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         .and_then(|ds| ds.wer)
         .map(|w| (w * 100_000.0).round() / 1000.0);
 
+    let final_bytes = hyps.join("\n").into_bytes();
+    if let Some(rdir) = &cfg.retain_dir {
+        std::fs::create_dir_all(rdir)?;
+        write_create_new(&rdir.join("events.jsonl"), &event_stream_bytes)?;
+        write_create_new(&rdir.join("final.txt"), &final_bytes)?;
+        write_create_new(&rdir.join("stdout.json"), &stdout_bytes)?;
+        write_create_new(&rdir.join("stderr.log"), &stderr_bytes)?;
+        let prov = serde_json::json!({
+            "binary_path": cfg.binary_path.to_string_lossy(),
+            "binary_sha256": binary_sha256,
+            "model_path": cfg.model_path.to_string_lossy(),
+            "model_sha256": model_sha256,
+            "pcm_wav_sha256": audio_sha,
+            "ggml_cpu_verified": saw_ggml_cpu,
+            "mapped_shared_objects": mapped_libs,
+        });
+        let prov_bytes = serde_json::to_vec_pretty(&prov)
+            .map_err(|e| AdapterError::Integrity(format!("provenance json: {e}")))?;
+        write_create_new(&rdir.join("provenance.json"), &prov_bytes)?;
+    }
+
     let empty_sha = sha256_hex(b"");
-    let final_sha = sha256_hex(hyps.join("\n").as_bytes());
+    let final_sha = sha256_hex(&final_bytes);
     let receipt = Receipt {
         schema: RECEIPT_SCHEMA.into(),
         bundle: cand_id.into(),
@@ -370,16 +364,21 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         target: std::env::consts::ARCH.into(),
         configured_threads: cfg.threads.max(1),
         observed_threads: Some(tree_sum.max_threads.max(1) as u32),
-        cpu_only_verified: saw_maps,
+        cpu_only_verified: saw_ggml_cpu,
         audio_seconds: (audio_s * 1000.0).round() / 1000.0,
         process_tree_cpu_seconds: Some((cpu_s * 1000.0).round() / 1000.0),
         peak_rss_bytes: Some(tree_sum.peak_rss_bytes.max(1)),
         events: Some(utts.len() as u64),
         wakeups: None,
-        // NeMo-Speech.cpp CLI does not expose decoder forced-advance counts; leave None honestly.
         cap_hits: None,
         chunk_ms,
-        status_events: vec![format!("pcm_wav_sha256:{audio_sha}")],
+        status_events: vec![
+            format!("cost_scope:whole_service_process_tree_cold_included"),
+            format!("binary_sha256:{binary_sha256}"),
+            format!("model_sha256:{model_sha256}"),
+            format!("pcm_wav_sha256:{audio_sha}"),
+            format!("ggml_cpu_verified:{saw_ggml_cpu}"),
+        ],
         gaps: Vec::new(),
         hashes: Hashes {
             events: sha256_hex(&event_stream_bytes),
@@ -403,6 +402,8 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         streams_per_core_at_full_load: ((1.0 / rtf_cpu) * 100.0).round() / 100.0,
         load_ms,
         wer_pct,
+        binary_sha256,
+        model_sha256,
         receipt,
         scored_rows,
     })

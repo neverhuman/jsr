@@ -1,4 +1,5 @@
-//! Integrity, missing/extra output rejection, and grandchild `ESRCH` orphan-reaping tests
+//! Integrity, >128 KB pipe-free output capture, positive `libggml-cpu` check, retained
+//! artifacts, missing/extra output rejection, and grandchild `ESRCH` orphan-reaping tests
 //! for `ultra_adapters::nemotron`.
 
 use std::os::unix::fs::PermissionsExt;
@@ -16,7 +17,7 @@ fn write_executable(path: &std::path::Path, body: &str) {
 }
 
 #[test]
-fn nemotron_adapter_enforces_exact_outputs_and_reaps_grandchild_orphans() {
+fn nemotron_adapter_enforces_exact_outputs_handles_256kb_stderr_and_reaps_grandchildren() {
     let npz_path = std::env::var("JSR_DATA")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("/mnt/xbabe3-external/jsr"))
@@ -30,8 +31,9 @@ fn nemotron_adapter_enforces_exact_outputs_and_reaps_grandchild_orphans() {
     let fake_model = tmp.path().join("fake.gguf");
     std::fs::write(&fake_model, b"gguf-placeholder").expect("write model");
 
-    // 1. Valid mock nemo-speech script writing exact u00000.txt & u00001.txt + JSON stdout.
-    let ok_bin = tmp.path().join("mock_ok.sh");
+    // 1. Valid mock script writing >256 KB to stderr (exceeding 64 KB OS pipe capacity!) plus
+    // exact u00000.txt & u00001.txt + JSON stdout; must NOT deadlock and must retain artifacts.
+    let ok_bin = tmp.path().join("mock_ok_256kb.sh");
     write_executable(
         &ok_bin,
         r#"#!/usr/bin/env bash
@@ -40,6 +42,7 @@ out_dir=""
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "--save" ]]; then out_dir="$2"; shift 2; else shift; fi
 done
+head -c 262144 /dev/zero | tr '\0' 'x' >&2
 sleep 0.04
 printf "mister quilter is the apostle\n" > "$out_dir/u00000.txt"
 printf "nor is mister quilter's manner\n" > "$out_dir/u00001.txt"
@@ -47,6 +50,7 @@ printf '{"load_ms":12.5,"runs":[{"metrics":{"chunk_latency_ms":{"p50":40.0,"p95"
 "#,
     );
 
+    let retain_dir = tmp.path().join("retained_run_1");
     let mut cfg = NemotronConfig {
         binary_path: ok_bin,
         model_path: fake_model.clone(),
@@ -62,15 +66,34 @@ printf '{"load_ms":12.5,"runs":[{"metrics":{"chunk_latency_ms":{"p50":40.0,"p95"
         source_commit: "test".into(),
         hardware_id: "h0".into(),
         completion_status: "exploratory".into(),
+        require_ggml_cpu_map: false,
+        retain_dir: Some(retain_dir.clone()),
     };
 
-    let res = run_nemotron_batch(&cfg).expect("valid mock nemo-speech");
+    let res = run_nemotron_batch(&cfg).expect("valid mock nemo-speech with >256KB stderr");
     assert_eq!(res.utterances, 2);
     assert_eq!(res.receipt.label, HonestyLabel::UnknownOverlap);
     assert_eq!(res.receipt.cap_hits, None);
+    // Mock bash script does not load libggml-cpu.so, so cpu_only_verified MUST be false!
+    assert!(!res.receipt.cpu_only_verified);
     assert_eq!(res.receipt.completion_status, "exploratory");
     assert!(res.receipt.validate_as_evidence().is_err());
     assert_eq!(res.scored_rows.len(), 2);
+    assert!(retain_dir.join("events.jsonl").is_file());
+    assert!(retain_dir.join("final.txt").is_file());
+    assert!(retain_dir.join("provenance.json").is_file());
+    assert_eq!(
+        std::fs::metadata(retain_dir.join("stderr.log"))
+            .expect("stderr meta")
+            .len(),
+        262_144
+    );
+
+    // Requiring positive `libggml-cpu` map on a script without `libggml-cpu.so` MUST fail!
+    cfg.retain_dir = None;
+    cfg.require_ggml_cpu_map = true;
+    assert!(run_nemotron_batch(&cfg).is_err());
+    cfg.require_ggml_cpu_map = false;
 
     // 2. Missing output file (exits 0 with only u00000.txt) MUST fail integrity check.
     let missing_bin = tmp.path().join("mock_missing.sh");

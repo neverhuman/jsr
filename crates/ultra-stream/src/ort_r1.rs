@@ -6,18 +6,17 @@
 //! per-tensor activation-quantized bundles (`355/400 = 88.75%` due to batch-dependent
 //! `DynamicQuantizeLinear` scales) pending static TRAIN-calibrated QDQ export.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::path::Path;
 use std::sync::Arc;
 
-use ultra_core::events::Emitter;
 use ultra_frontend::{TrainerLogMel, MEL_BINS};
 use ultra_gp::{checked_argmax_f32, FeatureRing, GpError, R1Bundle, R1Precision, RnntStreamState};
 
-use crate::api::{AsrStream, StreamClock, StreamConfig, StreamError};
+use crate::api::StreamError;
 use crate::ort_c_api::{OrtEnv, OrtSession, OrtTensorIn, OrtTensorOut};
-use crate::ort_r1_stream::{OrtR1AsrStream, OrtR1RawStream};
+use crate::ort_r1_stream::{validate_state_outputs, OrtR1RawStream};
 
 /// Samples per 25 Hz encoder frame (`40 ms @ 16 kHz = 640` samples).
 pub const R1_SAMPLES_PER_ENC_FRAME: u64 = 640;
@@ -26,6 +25,15 @@ pub const R1_SAMPLES_PER_ENC_FRAME: u64 = 640;
 pub(crate) enum StateBuf {
     F32(Vec<f32>),
     I64(Vec<i64>),
+}
+
+impl StateBuf {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        match self {
+            Self::F32(v) => v.capacity() * 4,
+            Self::I64(v) => v.capacity() * 8,
+        }
+    }
 }
 
 /// Reusable contiguous scratch buffers eliminating per-chunk heap allocations across streams.
@@ -46,6 +54,24 @@ pub struct BatchWorkspace {
 impl BatchWorkspace {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Total heap bytes retained across workspace scratch buffers.
+    pub fn retained_bytes(&self) -> usize {
+        let states_b: usize = self
+            .state_ins
+            .iter()
+            .chain(&self.state_outs)
+            .map(StateBuf::retained_bytes)
+            .sum();
+        states_b
+            + (self.feats_in.capacity()
+                + self.enc_out.capacity()
+                + self.dec_out.capacity()
+                + self.joi_enc.capacity()
+                + self.joi_logits.capacity())
+                * 4
+            + (self.t0_in.capacity() + self.dec_ctx.capacity()) * 8
     }
 }
 
@@ -138,6 +164,7 @@ impl OrtTransducerBackend {
             ring: FeatureRing::new(),
             t_next: 0,
             finished: false,
+            fail_after_chunks: None,
             states,
             rnnt: RnntStreamState::new(self.bundle.decoder.ctx_init),
         }
@@ -299,9 +326,47 @@ impl OrtTransducerBackend {
         drop(ort_outs);
         drop(ort_ins);
         ensure_all_finite(&ws.enc_out, "encoder")?;
+        validate_state_outputs(
+            &self.bundle.streaming.states,
+            self.bundle.streaming.left_context_frames,
+            &ws.state_outs,
+        )?;
+
+        // Snapshot RNN-T state so any late decoder/joiner failure rolls back cleanly before
+        // committing encoder caches or advancing `t_next`.
+        let snapshots: Vec<([i64; 2], usize, u64)> = items
+            .iter()
+            .map(|&(s_idx, _)| {
+                let r = &all_streams[s_idx].rnnt;
+                (r.ctx, r.tokens.len(), r.forced_advances)
+            })
+            .collect();
+
+        let injected_err = items.iter().find_map(|&(s_idx, _)| {
+            all_streams[s_idx]
+                .fail_after_chunks
+                .filter(|&rem| rem == 0)
+                .map(|_| StreamError::Runtime("injected late joiner/decoder failure".into()))
+        });
+        let step_res = match injected_err {
+            Some(e) => Err(e),
+            None => self.greedy_step(all_streams, items, n, ws),
+        };
+        if let Err(err) = step_res {
+            for (&(s_idx, _), (ctx, tok_len, fa)) in items.iter().zip(snapshots) {
+                let r = &mut all_streams[s_idx].rnnt;
+                r.ctx = ctx;
+                r.tokens.truncate(tok_len);
+                r.forced_advances = fa;
+            }
+            return Err(err);
+        }
 
         for (bi, &(s_idx, t0)) in items.iter().enumerate() {
             let s = &mut *all_streams[s_idx];
+            if let Some(rem) = s.fail_after_chunks.as_mut() {
+                *rem = rem.saturating_sub(1);
+            }
             for (si, spec) in self.bundle.streaming.states.iter().enumerate() {
                 let outer: usize = spec.per_stream_dims[..spec.batch_axis].iter().product();
                 let inner: usize = spec.per_stream_dims[spec.batch_axis + 1..].iter().product();
@@ -323,8 +388,7 @@ impl OrtTransducerBackend {
             }
             s.t_next = t0 + n;
         }
-
-        self.greedy_step(all_streams, items, n, ws)
+        Ok(())
     }
 
     /// Exact active-set transducer greedy inner loop matching `BundleRecognizer._greedy`:
@@ -405,37 +469,5 @@ impl OrtTransducerBackend {
             }
         }
         Ok(())
-    }
-
-    pub fn create_stream_with_clock(
-        self: &Arc<Self>,
-        cfg: &StreamConfig,
-        clock: StreamClock,
-    ) -> Box<dyn AsrStream> {
-        let model_id = format!(
-            "ultra-r1-{}-{}",
-            self.bundle.family.as_str(),
-            self.bundle.precision.as_str()
-        );
-        let eff_model_id = if cfg.model_config_id == "default-model-v1" {
-            model_id.as_str()
-        } else {
-            cfg.model_config_id.as_str()
-        };
-        Box::new(OrtR1AsrStream {
-            raw: self.create_raw_stream(),
-            ws: BatchWorkspace::new(),
-            clock,
-            emitter: Emitter::new(&cfg.stream_id, eff_model_id),
-            cfg: cfg.clone(),
-            accepted_samples: 0,
-            processed_samples: 0,
-            wakeups: 0,
-            events_emitted: 0,
-            last_hyp: String::new(),
-            finished: false,
-            cancelled: false,
-            events: VecDeque::new(),
-        })
     }
 }

@@ -1,6 +1,7 @@
 //! Reference-blind external recognizer process-tree adapters (`B4`).
 
 pub mod nemotron;
+mod nemotron_proc;
 
 pub use nemotron::{run_nemotron_batch, NemotronChunkMode, NemotronConfig, NemotronRunResult};
 

@@ -1,7 +1,7 @@
-//! `ultra bench-suite` (`B3`, `B4`, `B5`): unified Rust benchmark harness running quality,
-//! single-stream & batched CPU cost, per-CCX / multi-worker live stream density, MFA `CQ/FC`
-//! latency, and 1-hour real-bundle sustained probes across R0, R1 (`S` & `S_MR`), Nemotron,
-//! Moonshine v2, and Whisper, emitting `ultra.receipt/v1` receipts and `frontier.json`.
+//! `ultra bench-suite` (`B3`, `B4`, `B5`): unified exploratory Rust benchmark harness running
+//! quality, single-stream & batched CPU cost, per-CCX / multi-worker live stream density,
+//! reference-blind MFA `CQ/FC` latency, and 1-hour real-bundle sustained probes across R0,
+//! R1 (`S` & `S_MR`, `v1` & `v1.1`), Nemotron, Moonshine v2, and Whisper.
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -16,7 +16,8 @@ use ultra_stream::{
 };
 
 use crate::runner::{
-    instantiate_backend, resolve_bundle_or_zipformer, resolve_offline_config, resolve_r1_bundle,
+    instantiate_backend_with_precision, resolve_bundle_or_zipformer, resolve_offline_config,
+    resolve_r1_bundle,
 };
 use crate::suite_latency::measure_paced_latency;
 pub use crate::suite_latency::{DensityPoint, FrontierReport, FrontierRow};
@@ -73,7 +74,6 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut sustained_seconds: Option<f64> = None;
     let mut precision: Option<String> = None;
     let mut threads = 1i32;
-    let mut qualified = false;
     let mut lease_path: Option<PathBuf> = None;
     let mut out_dir: Option<PathBuf> = None;
 
@@ -97,7 +97,11 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             }
             "--precision" => precision = Some(parse_arg(args, &mut i, "--precision")?),
             "--threads" => threads = parse_arg(args, &mut i, "--threads")?,
-            "--qualified" => qualified = true,
+            "--qualified" => {
+                return Err(CliError::Config(
+                    "qualifying window requires verified lease, host, freeze, and profile gate; bench-suite emits exploratory receipts only".into(),
+                ))
+            }
             "--lease" => lease_path = Some(parse_arg(args, &mut i, "--lease")?),
             "--out" | "--out-dir" => out_dir = Some(parse_arg(args, &mut i, "--out-dir")?),
             other => {
@@ -115,7 +119,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         Some(lp) => Some(BenchLease::acquire(lp)?),
         None => None,
     };
-    let status_tag = if qualified { "complete" } else { "exploratory" };
+    let status_tag = "exploratory";
 
     let npz_path = match npz_override {
         Some(p) => p,
@@ -157,13 +161,22 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             ncfg.source_commit = commit.clone();
             ncfg.completion_status = status_tag.into();
             ncfg.timeout = Duration::from_secs(3600);
+            ncfg.retain_dir = Some(out_dir.join(format!("{slug}_artifacts")));
             let single =
                 run_nemotron_batch(&ncfg).map_err(|e| CliError::Internal(e.to_string()))?;
             write_score_records_jsonl(&scores_path, &single.scored_rows)?;
             write_receipt(&receipt_path, &single.receipt)?;
+            let loaded_id = format!(
+                "{}:bin={}:gguf={}",
+                single.candidate_id,
+                &single.binary_sha256[..12],
+                &single.model_sha256[..12]
+            );
             rows.push(FrontierRow {
                 candidate: single.candidate_id,
+                loaded_identity: loaded_id,
                 driver: "rust-nemo-speech-adapter-v1".into(),
+                cost_scope: "whole_service_process_tree_cold_included".into(),
                 honesty_label: single.receipt.label,
                 partition,
                 completion_status: single.receipt.completion_status.clone(),
@@ -187,7 +200,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             continue;
         }
 
-        // 2. R1 `OrtTransducerBackend` (`r1-d1`, `r1-d2`, `r1-mr`, or bundle path).
+        // 2. R1 `OrtTransducerBackend` (`r1-d1`, `r1-d1-v1.1`, `r1-d2`, `r1-mr`, or bundle path).
         if let Some(r1_res) = resolve_r1_bundle(raw_cand, precision.as_deref()) {
             let (bundle_dir, prec) = r1_res?;
             let mk_cfg = |st: usize, dec: DecodeMode, paced: bool, dur: Option<f64>| R1SpAConfig {
@@ -226,7 +239,8 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
                 None
             };
             let lat = if latency_limit > 0 {
-                let backend = instantiate_backend(raw_cand, threads)?;
+                let backend =
+                    instantiate_backend_with_precision(raw_cand, precision.as_deref(), threads)?;
                 Some(measure_paced_latency(
                     &*backend,
                     &npz_path,
@@ -251,7 +265,9 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             write_receipt(&receipt_path, &batch.receipt)?;
             rows.push(FrontierRow {
                 candidate: raw_cand.to_owned(),
+                loaded_identity: batch.receipt.bundle.clone(),
                 driver: batch.driver,
+                cost_scope: "in_process_engine_warm_sp_a".into(),
                 honesty_label: batch.receipt.label,
                 partition,
                 completion_status: batch.receipt.completion_status.clone(),
@@ -341,7 +357,8 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
                 None
             };
             let lat = if latency_limit > 0 {
-                let backend = instantiate_backend(raw_cand, threads)?;
+                let backend =
+                    instantiate_backend_with_precision(raw_cand, precision.as_deref(), threads)?;
                 Some(measure_paced_latency(
                     &*backend,
                     &npz_path,
@@ -367,7 +384,9 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             write_receipt(&receipt_path, &batch.receipt)?;
             rows.push(FrontierRow {
                 candidate: raw_cand.to_owned(),
+                loaded_identity: batch.receipt.bundle.clone(),
                 driver: batch.driver,
+                cost_scope: "in_process_engine_warm_sp_a".into(),
                 honesty_label: batch.receipt.label,
                 partition,
                 completion_status: batch.receipt.completion_status.clone(),
@@ -392,6 +411,11 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         }
 
         // 4. Offline contrast recognizers (`Moonshine v2`, `Whisper`).
+        if let Some(p) = precision.as_deref().filter(|&p| p != "int8") {
+            return Err(CliError::Config(format!(
+                "--precision {p} unsupported for offline candidate `{raw_cand}`"
+            )));
+        }
         let models_root = PathBuf::from(jsr_data_root()).join("models");
         let off_cfg = resolve_offline_config(raw_cand, &models_root, threads)?;
         let mut res = run_offline_contrast(&ContrastConfig {
@@ -410,8 +434,10 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         write_score_records_jsonl(&scores_path, &res.scored_rows)?;
         write_receipt(&receipt_path, &res.receipt)?;
         rows.push(FrontierRow {
-            candidate: res.candidate_id,
+            candidate: res.candidate_id.clone(),
+            loaded_identity: res.receipt.bundle.clone(),
             driver: "rust-sherpa-offline-c-api".into(),
+            cost_scope: "in_process_offline_recognizer".into(),
             honesty_label: res.receipt.label,
             partition,
             completion_status: res.receipt.completion_status.clone(),

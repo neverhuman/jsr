@@ -14,6 +14,7 @@ pub mod inventory;
 pub mod runner;
 pub mod suite_cmd;
 pub mod suite_latency;
+mod suite_mfa;
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;

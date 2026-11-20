@@ -34,6 +34,7 @@ struct Args {
 
 #[derive(Debug, Serialize)]
 struct Row {
+    measurement_scope: &'static str,
     profile: String,
     weights_total: usize,
     int8_mib: f64,
@@ -349,6 +350,7 @@ fn main() -> ExitCode {
                 }
                 let audio_chunk_s = 0.160 * (st as f64);
                 rows.push(Row {
+                    measurement_scope: "synthetic_linear_stack_kernel_proxy",
                     profile: prof.clone(),
                     weights_total: total_w,
                     int8_mib: (int8_mib * 100.0).round() / 100.0,

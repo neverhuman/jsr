@@ -205,6 +205,27 @@ impl StreamCoordinator {
         }
         Ok(())
     }
+
+    fn record_inner_failure(&mut self, msg: String) {
+        if !self.lifecycle.state().is_terminal() {
+            self.lifecycle.fail();
+            self.refiner_epoch += 1;
+            if self.has_open_segment() {
+                let im = self.inner.metrics();
+                let acc = self.expected_sample.max(im.accepted_samples);
+                let proc = im.processed_samples.min(acc);
+                let now_ns = self.clock.now_ns();
+                if let Ok(ev) = self
+                    .emitter
+                    .incomplete(now_ns, "runtime_failure", acc, proc, false)
+                {
+                    let _ = self.push_validated(ev);
+                    self.current_segment_id += 1;
+                }
+            }
+            self.terminal = Some(TerminalOutcome::Failed(msg));
+        }
+    }
 }
 
 impl AsrStream for StreamCoordinator {
@@ -261,7 +282,13 @@ impl AsrStream for StreamCoordinator {
             });
         }
         let slice = if pcm.len() > room { &pcm[..room] } else { pcm };
-        let rep = self.inner.push_pcm(start_sample, slice)?;
+        let rep = match self.inner.push_pcm(start_sample, slice) {
+            Ok(r) => r,
+            Err(e) => {
+                self.record_inner_failure(e.to_string());
+                return Err(e);
+            }
+        };
         self.expected_sample += rep.accepted_samples as u64;
         self.extra_metrics.accepted_samples += rep.accepted_samples as u64;
         self.drain_inner_events()?;
@@ -335,7 +362,10 @@ impl AsrStream for StreamCoordinator {
     fn finish_input(&mut self) -> Result<(), StreamError> {
         let started = self.lifecycle.finish_input()?;
         if started {
-            self.inner.finish_input()?;
+            if let Err(e) = self.inner.finish_input() {
+                self.record_inner_failure(e.to_string());
+                return Err(e);
+            }
             self.drain_inner_events()?;
         }
         Ok(())
