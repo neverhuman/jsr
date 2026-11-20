@@ -521,6 +521,19 @@ dependencies = [
 [[package]]
 name = "ultra-cli"
 version = "0.1.0"
+dependencies = [
+ "libc",
+ "nix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "ultra-core",
+ "ultra-eval",
+ "ultra-frontend",
+ "ultra-model",
+ "ultra-stream",
+]
 
 [[package]]
 name = "ultra-core"
@@ -549,6 +562,13 @@ dependencies = [
 [[package]]
 name = "ultra-frontend"
 version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "ultra-core",
+]
 
 [[package]]
 name = "ultra-gp"
@@ -566,10 +586,31 @@ dependencies = [
 [[package]]
 name = "ultra-model"
 version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "ultra-core",
+]
 
 [[package]]
 name = "ultra-stream"
 version = "0.1.0"
+dependencies = [
+ "libc",
+ "nix",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "ultra-core",
+ "ultra-eval",
+ "ultra-frontend",
+]
 
 [[package]]
 name = "unarray"

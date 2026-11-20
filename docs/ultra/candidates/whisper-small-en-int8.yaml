@@ -1,0 +1,38 @@
+# OpenAI Whisper small.en INT8, sherpa-onnx C-API CPU runtime (P05 ecosystem contrast).
+# Schema: spec v1.0-B §11.2 (ultra.candidate.v1). Approval: owner ruling O2.
+---
+schema: ultra.candidate.v1
+candidate_id: whisper_small_en_int8
+model:
+  repository: csukuangfj/sherpa-onnx-whisper-small.en
+  revision: d9533f69affd85061aee349af7fea5cb2996dbbe
+  artifact: small.en-encoder.int8.onnx
+  artifact_bytes: 112442483
+  artifact_sha256: 8bdac288f369aa94ee2194059238c465ed82ea9d47ee8fa4a8c0a891873e462f
+  artifacts:
+    small.en-decoder.int8.onnx: 710ccf890e10f3faa15f51ec346081a2723c9f3adb6e4da81c6573a5a6f877fb
+  tokenizer: small.en-tokens.txt
+  tokenizer_sha256: 306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930
+  local_path: /mnt/xbabe3-external/jsr/models/sherpa-onnx-whisper-small.en
+  honesty_label: unknown_overlap
+runtime:
+  repository: https://github.com/k2-fsa/sherpa-onnx
+  commit: 2.0.2
+  backend: cpu
+  quantization: int8
+  runtime_options: '{"backend":"cpu","decoder":"greedy_search","family":"whisper_small_en","language":"en","precision":"int8","task":"transcribe","threads":1}'
+  runtime_options_sha256: ac2899f09a7d2983eb2e6c35578ddbcd308fade3ccdf0906982af59f7a00b8f0
+stream:
+  requested_chunk_ms: 2000
+  actual_right_context_ms: 0
+  left_context_policy: segment_bounded_window
+  revision_policy: editable_until_final
+  endpoint_policy_id: none.single_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: pinned_one_physical_core_smt_sibling_idle
+licenses:
+  code_id: Apache-2.0
+  weights_id: MIT
+  distribution_status: internal_evaluation_only_until_resolved

@@ -1,11 +1,24 @@
 [package]
 name = "ultra-stream"
+description = "ULTRA streaming runtime: Backend/AsrStream contract, causal coordinator, finite-batch scheduler, failure probes and native sherpa-onnx C-ABI driver"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+ultra-frontend = { path = "../ultra-frontend" }
+ultra-eval = { path = "../ultra-eval" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+libc = "0.2"
+nix = { version = "0.29", default-features = false, features = ["resource", "sched"] }
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile = "3"
 
 [lints]
 workspace = true

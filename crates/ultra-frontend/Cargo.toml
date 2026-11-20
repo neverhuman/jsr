@@ -1,11 +1,19 @@
 [package]
 name = "ultra-frontend"
+description = "ULTRA audio input contract (16 kHz WAV/s16le/npz, resampler), streaming 80-bin log-mel control and integer isqrt-PCEN Cochlea"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile = "3"
 
 [lints]
 workspace = true

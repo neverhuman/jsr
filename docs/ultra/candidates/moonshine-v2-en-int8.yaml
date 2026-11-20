@@ -1,0 +1,74 @@
+# Moonshine v2 English Quantized (Tiny & Base), sherpa-onnx C-API CPU runtime (P05 contrast).
+# Schema: spec v1.0-B §11.2 (ultra.candidate.v1). Approval: owner ruling O2.
+---
+schema: ultra.candidate.v1
+candidate_id: moonshine_v2_tiny_en_int8
+model:
+  repository: csukuangfj2/sherpa-onnx-moonshine-tiny-en-quantized-2026-02-27
+  revision: d1e6c30921780b8508d04b492dfb3ce8a51605d4
+  artifact: encoder_model.ort
+  artifact_bytes: 13281600
+  artifact_sha256: 94e90a4654fc45cdfedb77c4c08e1739f48862998e58fada384b25118134f221
+  artifacts:
+    decoder_model_merged.ort: cf524c4862d36e9e5ab032eddc73637efd822d70e868ac575cf1a46e1e4708a0
+  tokenizer: tokens.txt
+  tokenizer_sha256: 2870d843e14c1e187bf1913a521562a63b53933814bd7f2145120468f494a049
+  local_path: /mnt/xbabe3-external/jsr/models/moonshine-tiny-en-quantized-2026-02-27
+  honesty_label: unknown_overlap
+runtime:
+  repository: https://github.com/k2-fsa/sherpa-onnx
+  commit: 2.0.2
+  backend: cpu
+  quantization: int8
+  runtime_options: '{"backend":"cpu","decoder":"greedy_search","family":"moonshine_v2_tiny","precision":"int8","threads":1}'
+  runtime_options_sha256: 1eec6d80c0273e2c81c5df51e01d31f1e41bc9c3a83d5466ad7e9f4951815f31
+stream:
+  requested_chunk_ms: 2000
+  actual_right_context_ms: 0
+  left_context_policy: segment_bounded_window
+  revision_policy: editable_until_final
+  endpoint_policy_id: none.single_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: pinned_one_physical_core_smt_sibling_idle
+licenses:
+  code_id: Apache-2.0
+  weights_id: MIT
+  distribution_status: internal_evaluation_only_until_resolved
+---
+schema: ultra.candidate.v1
+candidate_id: moonshine_v2_base_en_int8
+model:
+  repository: csukuangfj2/sherpa-onnx-moonshine-base-en-quantized-2026-02-27
+  revision: 8f4d6c58c03d40bcea40043bb7120a878f2bbef6
+  artifact: encoder_model.ort
+  artifact_bytes: 31326816
+  artifact_sha256: 7c66495948d0d08ec1af454cd4b5514862ae6511e94712a60e6d83eaec8dc8cf
+  artifacts:
+    decoder_model_merged.ort: d9d7b333af34bc552580576ddcf248a1c6c839e0d3b43b09afb9376ed009899d
+  tokenizer: tokens.txt
+  tokenizer_sha256: 2870d843e14c1e187bf1913a521562a63b53933814bd7f2145120468f494a049
+  local_path: /mnt/xbabe3-external/jsr/models/moonshine-base-en-quantized-2026-02-27
+  honesty_label: unknown_overlap
+runtime:
+  repository: https://github.com/k2-fsa/sherpa-onnx
+  commit: 2.0.2
+  backend: cpu
+  quantization: int8
+  runtime_options: '{"backend":"cpu","decoder":"greedy_search","family":"moonshine_v2_base","precision":"int8","threads":1}'
+  runtime_options_sha256: 6089263f9254f51eb582c76c83cfc256c37cb49f94442ef495aa3996632ba27c
+stream:
+  requested_chunk_ms: 2000
+  actual_right_context_ms: 0
+  left_context_policy: segment_bounded_window
+  revision_policy: editable_until_final
+  endpoint_policy_id: none.single_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: pinned_one_physical_core_smt_sibling_idle
+licenses:
+  code_id: Apache-2.0
+  weights_id: MIT
+  distribution_status: internal_evaluation_only_until_resolved

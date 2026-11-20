@@ -1,11 +1,21 @@
 [package]
 name = "ultra-model"
+description = "ULTRA candidate lock, hardware inventory and model bundle manifest validation (spec v1.0-B §11.2, §34)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile = "3"
 
 [lints]
 workspace = true
