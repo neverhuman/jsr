@@ -127,7 +127,12 @@ fn check(schema: &Value, v: &Value, at: &str, errs: &mut Vec<String>) {
     }
 }
 
-fn check_object(s: &Map<String, Value>, obj: &Map<String, Value>, at: &str, errs: &mut Vec<String>) {
+fn check_object(
+    s: &Map<String, Value>,
+    obj: &Map<String, Value>,
+    at: &str,
+    errs: &mut Vec<String>,
+) {
     if let Some(Value::Array(req)) = s.get("required") {
         for r in req {
             let key = r.as_str().expect("required entries are strings");
@@ -318,7 +323,10 @@ fn receipt_schema_required_matches_rust_non_optional_fields() {
     for key in &required {
         let mut v = minimal.clone();
         v.as_object_mut().expect("object").remove(*key);
-        assert!(!violations(&schema, &v).is_empty(), "schema accepted missing {key}");
+        assert!(
+            !violations(&schema, &v).is_empty(),
+            "schema accepted missing {key}"
+        );
         assert!(
             serde_json::from_value::<Receipt>(v).is_err(),
             "Rust accepted missing {key}; drop it from the schema's required list"
