@@ -19,6 +19,14 @@ d12cf94a7aa5686bd662b50f29f4974319ed274f68e653c181536ac587b9a2ff  test-clean.npz
   | validation.* | DEV | — |
   | test.* | PUBLIC-TEST | in-corpus for LibriSpeech-trained systems |
 
-## Word timings (O14): MFA LibriSpeech alignments (data lane C1, pending)
+## Word timings (O14): MFA LibriSpeech alignments (data lane C1, 2026-11-20)
+- Source: Zenodo 2619474 (DOI 10.5281/zenodo.2619474) v1.0 `librispeech_alignments.zip`, 623023332 bytes, published md5 2bab567d0ace651a4ba254e813629f46 (whole archive not verified: only the dev/test members were range-fetched and CRC-checked). Licence: CC BY 4.0.
+- members sha256 listing (11126 files): a179c1bfe187a02b86260c55c99cd9ebccae84e6fabee7597062be040c1aba40
+- word_timing/MANIFEST.json: 30e16442edb36f2873f2151c5be9c172a623985a7b7cd341a06b89a7291ad7d2
+  - dev-clean.jsonl af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a
+  - dev-other.jsonl c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f
+  - test-clean.jsonl a15f16fec05df8f638ba9f0da14bf30d5e601128106fbc825c0d1dcd269f4680
+  - test-other.jsonl 7e9a51c31578ec3c12b246f72da5d39eb3491cde7721dd55d37f45a6c98812ea
+- Details: docs/ultra/data/word_timing.md
 
 ## Out-of-domain evaluation-only sets (O15): TED-LIUM 3 / VoxPopuli EN / AMI IHM test (data lane C0, pending, sealed)
