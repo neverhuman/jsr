@@ -119,7 +119,7 @@ class Trainer:
         if path is None:
             return False
         p = checkpoint.load(path)
-        if p["model_config"] != self.model_cfg.to_dict():
+        if ModelConfig.from_dict(p["model_config"]) != self.model_cfg:
             raise CheckpointError("checkpoint model config differs from the requested one")
         manifest = list(getattr(self.source, "manifest", []))
         if p["manifest"] != manifest:
@@ -267,6 +267,8 @@ def main(argv=None) -> int:
     ap.add_argument("--device", default=None)
     ap.add_argument("--max-steps", type=int, default=None, help="stop after N steps this run")
     ap.add_argument("--overfit", type=int, default=0, help="D0: train on the first N utterances")
+    ap.add_argument("--init-from", default=None,
+                    help="fresh run only: start from this checkpoint's model weights (and CMVN)")
     ap.add_argument("--set", nargs="*", default=[], help="TrainConfig overrides key=value")
     a = ap.parse_args(argv)
     if a.threads:
@@ -306,6 +308,14 @@ def main(argv=None) -> int:
     signal.signal(signal.SIGINT, on_signal)
     if tr.resume():
         tr.log({"kind": "resume", "step": tr.step, "pos": tr.pos.to_dict()})
+    elif a.init_from:
+        p = checkpoint.load(a.init_from, restore_rng=False)
+        if ModelConfig.from_dict(p["model_config"]) != tr.model_cfg:
+            raise CheckpointError("--init-from checkpoint has a different model config")
+        tr.model.load_state_dict(p["model"])
+        tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],
+                "params": tr.model.num_params(), "device": str(tr.device),
+                "threads": torch.get_num_threads(), "precision": tr.precision})
     else:
         tr.init_cmvn()
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),

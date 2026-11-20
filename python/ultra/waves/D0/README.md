@@ -9,7 +9,7 @@
 ## Setup
 
 - **Data:** the first 16 utterances of train-clean-100 (226 s of audio). One batch of 16, no SpecAugment, no dropout.
-- **Model:** preset `D0`, about 19M parameters.
+- **Model:** preset `D0`, 6.48M parameters.
   - Encoder: d=192, 4 blocks, 4 heads, chunk 4 frames (160 ms), left context 128 frames.
   - Same code path as S: causal stem, stateless predictor, joiner 320, 4,096-piece transducer vocabulary, 1,024-piece CTC.
 - **Optimiser:** AdamW, lr 2e-3, warm-up 50, cosine to 1,500 steps.
