@@ -1,11 +1,20 @@
 [package]
 name = "ultra-gp"
+description = "ULTRA R1/R3 transducer bundle validator (ultra.r1-export/v1), token detokenizer, and cached greedy RNN-T decoder state"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+ultra-frontend = { path = "../ultra-frontend" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

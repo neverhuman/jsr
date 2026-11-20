@@ -263,6 +263,142 @@ impl SimSlotBank for SherpaBank<'_> {
     }
 }
 
+pub(crate) struct SpAMeta {
+    pub driver: String,
+    pub sherpa_ver: String,
+    pub ort_ver: String,
+    pub model_id: String,
+    pub precision: String,
+    pub threads: i32,
+    pub tail_pad_s: f64,
+    pub npz_path: PathBuf,
+    pub split_name: String,
+    pub partition: Partition,
+    pub honesty_label: HonestyLabel,
+    pub offset: usize,
+    pub limit: Option<usize>,
+    pub duration_s: Option<f64>,
+    pub streams: usize,
+    pub decode: DecodeMode,
+    pub max_batch: usize,
+    pub packet_ms: u32,
+    pub grid_ms: u32,
+    pub lateness_bound_ms: f64,
+    pub paced: bool,
+    pub source_commit: String,
+    pub hardware_id: String,
+    pub cap_hits: Option<u64>,
+    pub completion_status: String,
+    pub validate_evidence: bool,
+}
+
+pub(crate) fn finalize_sp_a_result(
+    meta: SpAMeta,
+    audio_utts: &[AudioUtterance],
+    mut sim: SimOutcome,
+    max_threads: u64,
+    peak_rss_bytes: u64,
+    load_before: [f64; 3],
+    load_after: [f64; 3],
+) -> Result<SpAResult, StreamError> {
+    let cpu_only = verify_cpu_only_process();
+    if sim.audio_accepted_s <= 0.0 {
+        return Err(StreamError::Protocol(
+            "zero audio accepted before duration cutoff".into(),
+        ));
+    }
+    let (hashes, chunk_ms) = build_event_hashes_and_chunks(
+        &meta.model_id,
+        audio_utts,
+        &sim.completed,
+        &mut sim.tick_compute_ms,
+    )?;
+    let cpu_s = sim.cpu_seconds.max(1e-6);
+    let wall_s = sim.wall_seconds.max(1e-6);
+    let receipt = Receipt {
+        schema: RECEIPT_SCHEMA.into(),
+        bundle: meta.model_id,
+        source_commit: meta.source_commit,
+        hardware: meta.hardware_id,
+        target: std::env::consts::ARCH.into(),
+        configured_threads: meta.threads.max(1) as u32,
+        observed_threads: Some(max_threads.max(1) as u32),
+        cpu_only_verified: cpu_only,
+        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
+        process_tree_cpu_seconds: Some((cpu_s * 1000.0).round() / 1000.0),
+        peak_rss_bytes: Some(peak_rss_bytes.max(1)),
+        events: Some(sim.completed.len() as u64),
+        wakeups: Some(sim.wakeups),
+        cap_hits: meta.cap_hits,
+        chunk_ms,
+        status_events: Vec::new(),
+        gaps: Vec::new(),
+        hashes,
+        label: meta.honesty_label,
+        partition: meta.partition,
+        completion_status: meta.completion_status,
+    };
+    if meta.validate_evidence {
+        let mut check = receipt.clone();
+        check.completion_status = "complete".into();
+        check.validate_as_evidence()?;
+    }
+
+    let (wer_summary, scored_rows) = score_completed(
+        &meta.npz_path,
+        &meta.split_name,
+        meta.offset,
+        meta.limit,
+        meta.duration_s.is_some(),
+        &sim.completed,
+    )?;
+    let sustained = sim
+        .lateness_ms
+        .as_ref()
+        .map(|lat| sustains_lateness(lat, sim.drained, meta.lateness_bound_ms));
+
+    Ok(SpAResult {
+        schema: "ultra.sp-a/v3".into(),
+        driver: meta.driver,
+        sherpa_version: meta.sherpa_ver,
+        onnxruntime_version: meta.ort_ver,
+        split: meta.split_name,
+        utterances: sim.completed.len(),
+        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
+        audio_completed_seconds: (sim.audio_completed_s * 1000.0).round() / 1000.0,
+        streams: meta.streams,
+        decode: meta.decode.as_str().into(),
+        max_batch: meta.max_batch,
+        precision: meta.precision,
+        threads: meta.threads,
+        paced: meta.paced,
+        tail_pad_s: meta.tail_pad_s,
+        packet_ms: meta.packet_ms,
+        grid_ms: meta.grid_ms,
+        effective_grid_ms: sim.effective_grid_ms,
+        accepted_packets: sim.accepted_packets,
+        offered_to_decode_packets: sim.offered_to_decode_packets,
+        drained: sim.drained,
+        lateness_bound_ms: meta.lateness_bound_ms,
+        sustained,
+        cpu_seconds: (cpu_s * 1000.0).round() / 1000.0,
+        wall_seconds: (wall_s * 1000.0).round() / 1000.0,
+        drain_cpu_seconds: sim.drain_cpu_seconds,
+        drain_wall_seconds: sim.drain_wall_seconds,
+        rtf_cpu: ((cpu_s / sim.audio_accepted_s.max(1e-9)) * 100_000.0).round() / 100_000.0,
+        streams_per_core_at_full_load: ((sim.audio_accepted_s / cpu_s.max(1e-9)) * 100.0).round()
+            / 100.0,
+        wer: wer_summary,
+        max_ready_backlog: sim.max_ready_batch,
+        affinity: current_affinity(),
+        load_before,
+        load_after,
+        lateness_ms: sim.lateness_ms,
+        receipt,
+        scored_rows,
+    })
+}
+
 pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
     let audio_utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
     if audio_utts.is_empty() {
@@ -286,7 +422,7 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
         Some(&mut sampler),
     );
     let mut clock = RealClock::new()?;
-    let mut sim = simulate_grid(
+    let sim = simulate_grid(
         &mut bank,
         &SimParams {
             streams: cfg.streams,
@@ -303,13 +439,7 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
     sampler.sample();
     let res_sum = sampler.summary();
     let load_after = read_loadavg();
-    let cpu_only = verify_cpu_only_process();
 
-    if sim.audio_accepted_s <= 0.0 {
-        return Err(StreamError::Protocol(
-            "zero audio accepted before duration cutoff".into(),
-        ));
-    }
     let model_id = match &cfg.bundle_id {
         Some(b) => b.clone(),
         None => format!(
@@ -317,90 +447,41 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
             cfg.zipformer.precision
         ),
     };
-    let (hashes, chunk_ms) = build_event_hashes_and_chunks(
-        &model_id,
+    finalize_sp_a_result(
+        SpAMeta {
+            driver: "rust-sherpa-c-api".into(),
+            sherpa_ver,
+            ort_ver,
+            model_id,
+            precision: cfg.zipformer.precision.clone(),
+            threads: cfg.zipformer.num_threads,
+            tail_pad_s: cfg.zipformer.tail_pad_s,
+            npz_path: cfg.npz_path.clone(),
+            split_name: cfg.split_name.clone(),
+            partition: cfg.partition,
+            honesty_label: cfg.honesty_label,
+            offset: cfg.offset,
+            limit: cfg.limit,
+            duration_s: cfg.duration_s,
+            streams: cfg.streams,
+            decode: cfg.decode,
+            max_batch: cfg.max_batch,
+            packet_ms: cfg.packet_ms,
+            grid_ms: cfg.grid_ms,
+            lateness_bound_ms: cfg.lateness_bound_ms,
+            paced: cfg.paced,
+            source_commit: cfg.source_commit.clone(),
+            hardware_id: cfg.hardware_id.clone(),
+            // Sherpa C-API does not expose transducer cap-hit count; leave None rather than invent 0.
+            cap_hits: None,
+            completion_status: "complete".into(),
+            validate_evidence: false,
+        },
         &audio_utts,
-        &sim.completed,
-        &mut sim.tick_compute_ms,
-    )?;
-    let cpu_s = sim.cpu_seconds.max(1e-6);
-    let wall_s = sim.wall_seconds.max(1e-6);
-    let receipt = Receipt {
-        schema: RECEIPT_SCHEMA.into(),
-        bundle: model_id,
-        source_commit: cfg.source_commit.clone(),
-        hardware: cfg.hardware_id.clone(),
-        target: std::env::consts::ARCH.into(),
-        configured_threads: cfg.zipformer.num_threads.max(1) as u32,
-        observed_threads: Some(res_sum.max_threads.max(1) as u32),
-        cpu_only_verified: cpu_only,
-        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
-        process_tree_cpu_seconds: Some((cpu_s * 1000.0).round() / 1000.0),
-        peak_rss_bytes: Some(res_sum.peak_rss_bytes.max(1)),
-        events: Some(sim.completed.len() as u64),
-        wakeups: Some(sim.wakeups),
-        cap_hits: Some(0),
-        chunk_ms,
-        status_events: Vec::new(),
-        gaps: Vec::new(),
-        hashes,
-        label: cfg.honesty_label,
-        partition: cfg.partition,
-        completion_status: "complete".into(),
-    };
-    receipt.validate_as_evidence()?;
-
-    let (wer_summary, scored_rows) = score_completed(
-        &cfg.npz_path,
-        &cfg.split_name,
-        cfg.offset,
-        cfg.limit,
-        cfg.duration_s.is_some(),
-        &sim.completed,
-    )?;
-    let sustained = sim
-        .lateness_ms
-        .as_ref()
-        .map(|lat| sustains_lateness(lat, sim.drained, cfg.lateness_bound_ms));
-
-    Ok(SpAResult {
-        schema: "ultra.sp-a/v3".into(),
-        driver: "rust-sherpa-c-api".into(),
-        sherpa_version: sherpa_ver,
-        onnxruntime_version: ort_ver,
-        split: cfg.split_name.clone(),
-        utterances: sim.completed.len(),
-        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
-        audio_completed_seconds: (sim.audio_completed_s * 1000.0).round() / 1000.0,
-        streams: cfg.streams,
-        decode: cfg.decode.as_str().into(),
-        max_batch: cfg.max_batch,
-        precision: cfg.zipformer.precision.clone(),
-        threads: cfg.zipformer.num_threads,
-        paced: cfg.paced,
-        tail_pad_s: cfg.zipformer.tail_pad_s,
-        packet_ms: cfg.packet_ms,
-        grid_ms: cfg.grid_ms,
-        effective_grid_ms: sim.effective_grid_ms,
-        accepted_packets: sim.accepted_packets,
-        offered_to_decode_packets: sim.offered_to_decode_packets,
-        drained: sim.drained,
-        lateness_bound_ms: cfg.lateness_bound_ms,
-        sustained,
-        cpu_seconds: (cpu_s * 1000.0).round() / 1000.0,
-        wall_seconds: (wall_s * 1000.0).round() / 1000.0,
-        drain_cpu_seconds: sim.drain_cpu_seconds,
-        drain_wall_seconds: sim.drain_wall_seconds,
-        rtf_cpu: ((cpu_s / sim.audio_accepted_s.max(1e-9)) * 100_000.0).round() / 100_000.0,
-        streams_per_core_at_full_load: ((sim.audio_accepted_s / cpu_s.max(1e-9)) * 100.0).round()
-            / 100.0,
-        wer: wer_summary,
-        max_ready_backlog: sim.max_ready_batch,
-        affinity: current_affinity(),
+        sim,
+        res_sum.max_threads,
+        res_sum.peak_rss_bytes,
         load_before,
         load_after,
-        lateness_ms: sim.lateness_ms,
-        receipt,
-        scored_rows,
-    })
+    )
 }

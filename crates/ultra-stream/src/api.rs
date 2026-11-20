@@ -220,6 +220,8 @@ pub enum StreamError {
     #[error(transparent)]
     Frontend(#[from] ultra_frontend::FrontendError),
     #[error(transparent)]
+    Gp(#[from] ultra_gp::GpError),
+    #[error(transparent)]
     Scoring(#[from] ultra_eval::EvalError),
     #[error("protocol error: {0}")]
     Protocol(String),
@@ -236,6 +238,7 @@ impl StreamError {
     pub fn repair(&self) -> RepairHint {
         match self {
             Self::Core(e) => e.repair(),
+            Self::Gp(e) => e.repair(),
             Self::Frontend(_) => RepairHint {
                 purpose: "enforce 16 kHz mono PCM16 / NPZ audio-only boundary (spec §7, §34)",
                 reason: "WAV header, resampler input, or NPZ archive failed validation",

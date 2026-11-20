@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 ultra-core = { path = "../ultra-core" }
 ultra-frontend = { path = "../ultra-frontend" }
+ultra-gp = { path = "../ultra-gp" }
 ultra-eval = { path = "../ultra-eval" }
 serde.workspace = true
 serde_json.workspace = true
