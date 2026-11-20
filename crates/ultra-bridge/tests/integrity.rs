@@ -1,5 +1,5 @@
 use ultra_bridge::protocol::Packet;
-use ultra_bridge::records::{Input, Observation, Workload, SCHEMA};
+use ultra_bridge::records::{dev_cache_sha256, Input, Observation, Workload, SCHEMA};
 use ultra_bridge::service::validate_batch;
 
 fn packet() -> Packet {
@@ -67,10 +67,19 @@ fn workload_refuses_duplicate_sources_traversal_and_sealed_partition() {
         schema: SCHEMA.into(),
         dataset: "dev-clean".into(),
         sample_rate: 16000,
-        source_cache_sha256: "1".repeat(64),
+        source_cache_sha256: dev_cache_sha256("dev-clean").expect("pinned DEV").into(),
         inputs: vec![input.clone()],
     };
     w.validate().expect("valid DEV workload");
+    w.source_cache_sha256 = "1".repeat(64);
+    assert!(
+        w.validate().is_err(),
+        "arbitrary cache cannot acquire a DEV label"
+    );
+    w.source_cache_sha256 = dev_cache_sha256("dev-other").expect("other DEV").into();
+    assert!(w.validate().is_err(), "cross-split cache swap rejected");
+    w.dataset = "dev-other".into();
+    w.validate().expect("matching pinned DEV-other source");
     w.inputs.push(input);
     assert!(w.validate().is_err());
     w.inputs.pop();

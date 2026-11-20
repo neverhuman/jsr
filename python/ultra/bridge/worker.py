@@ -54,7 +54,8 @@ def serve(rec, stream_in, stream_out, run_id, manifest_sha, load_s, calls=None, 
             import onnxruntime as ort
 
             paths = {line.split()[-1] for line in Path("/proc/self/maps").read_text().splitlines()
-                     if line.split()[-1].startswith("/") and "onnxruntime" in line.split()[-1]}
+                     if line.split()[-1].startswith("/") and "onnxruntime" in line.split()[-1]
+                     and ".so" in Path(line.split()[-1]).name}
             reply["info"] = dict(manifest_sha256=manifest_sha, load_s=load_s,
                                  providers=providers, numpy=np.__version__, ort=ort.__version__,
                                  runtime_libraries={p: hashlib.sha256(Path(p).read_bytes()).hexdigest()

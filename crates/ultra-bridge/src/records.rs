@@ -11,6 +11,15 @@ use crate::{require, Result};
 
 pub const SCHEMA: &str = "ultra.bridge/v1";
 
+/// M1 admits only the exact DEV caches pinned in docs/ultra/DATA.lock.
+pub fn dev_cache_sha256(dataset: &str) -> Result<&'static str> {
+    match dataset {
+        "dev-clean" => Ok("bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6"),
+        "dev-other" => Ok("2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8"),
+        _ => Err("bridge currently admits pinned DEV caches only".into()),
+    }
+}
+
 pub fn host_target() -> String {
     let mut isa: Vec<&str> = Vec::new();
     #[cfg(target_arch = "x86_64")]
@@ -126,6 +135,10 @@ impl Workload {
             "bridge currently admits DEV only",
         )?;
         require(!self.inputs.is_empty(), "empty workload")?;
+        require(
+            self.source_cache_sha256 == dev_cache_sha256(&self.dataset)?,
+            "dataset/cache identity differs from the admitted DEV source",
+        )?;
         let mut ids = BTreeSet::new();
         let mut indices = BTreeSet::new();
         for i in &self.inputs {
@@ -149,7 +162,13 @@ pub fn prepare(cache: &Path, out: &Path, dataset: String, count: usize) -> Resul
         matches!(dataset.as_str(), "dev-clean" | "dev-other"),
         "DEV only",
     )?;
-    // This loader does not read reference, source uid, or speaker members.
+    let source_cache_sha256 = hash_file(cache)?;
+    require(
+        source_cache_sha256 == dev_cache_sha256(&dataset)?,
+        "dataset/cache identity differs from the admitted DEV source",
+    )?;
+    // Reject an unadmitted source before opening any NPZ member. This loader
+    // does not read reference, source uid, or speaker members.
     let audio = ultra_frontend::npz::load_npz_audio_only(cache, 0, Some(count))?;
     require(audio.len() == count, "requested audio count unavailable")?;
     std::fs::create_dir(out)?;
@@ -172,7 +191,7 @@ pub fn prepare(cache: &Path, out: &Path, dataset: String, count: usize) -> Resul
     let workload = Workload {
         schema: SCHEMA.into(),
         dataset,
-        source_cache_sha256: hash_file(cache)?,
+        source_cache_sha256,
         sample_rate: 16000,
         inputs,
     };
