@@ -33,6 +33,7 @@ check clippy       -                              cargo clippy --version
 check gitleaks     "$JSR_GITLEAKS_VERSION"        gitleaks version
 check cargo-audit  "$JSR_CARGO_AUDIT_VERSION"     cargo audit --version
 check actionlint   "$JSR_ACTIONLINT_VERSION"      actionlint -version
+check uv           -                              uv --version
 check shellcheck   "$JSR_SHELLCHECK_VERSION"      shellcheck --version
 jk="${JANKURAI:-$HOME/.jeryu/bin176/jankurai}"
 if [ -x "$jk" ]; then

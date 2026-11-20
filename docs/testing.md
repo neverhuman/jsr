@@ -13,7 +13,7 @@ HOST_RULES: `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=line-tables-only`
 |---|---|---|
 | `just fast` | `ops/ci/fast.sh` + pytest | `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, and `pytest python/ultra/tests` when `.venv` exists |
 | `just contract-drift` | `ops/ci/contract-drift.sh` | ledger invariants (`output_contract`) and serialised `ultra-core` events and receipts against `contracts/events/*.schema.json` (`schema_contract`) |
-| `just security` | `tools/security-lane.sh` | gitleaks over the working tree, `cargo audit --deny warnings`, actionlint over workflows, shellcheck over every tracked shell script and hook |
+| `just security` | `tools/security-lane.sh` | gitleaks over the working tree, `cargo audit --deny warnings`, pip-audit over the installed trainer venv (`.venv`, skipped with a message when absent), actionlint over workflows, shellcheck over every tracked shell script and hook |
 | `just score` | jankurai audit | writes `target/jankurai/repo-score.{json,md}`; CI fails under 85 |
 | `just required` / `just check` | `ops/ci/quality-gates.sh` | all of the above, in CI order; the push gate |
 | `just doctor` | `scripts/ci-doctor.sh` | every tool the lanes need, found vs pinned version (`ops/ci/lib.sh`) |
