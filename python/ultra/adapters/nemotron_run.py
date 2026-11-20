@@ -84,11 +84,15 @@ def main(argv=None) -> int:
     with open(per_utt, "w") as fh:
         for u, h in zip(utts, hyps, strict=True):
             s, d, i = edit_counts(normalise(u.text), normalise(h))
-            fh.write(json.dumps({"uid": u.uid, "seconds": round(u.seconds, 3), "ref": u.text, "hyp": h,
+            # id/speaker/dataset/ref/hyp/duration_s = ultra-eval ScoreRecord (Rust rescoring).
+            fh.write(json.dumps({"id": u.uid, "speaker": str(u.speaker), "dataset": args.split,
+                                 "ref": u.text, "hyp": h, "duration_s": round(u.seconds, 3),
+                                 "uid": u.uid, "seconds": round(u.seconds, 3),
                                  "sub": s, "del": d, "ins": i}) + "\n")
     runs = rec.bench.get("runs") or [{}]
     out = dict(
-        schema="ultra.nemotron-run/v1", run_id=run_id, started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
+        schema="ultra.nemotron-run/v1", run_id=run_id, tag=args.tag, evidence="exploratory",
+        input_manifest_sha256=rec.input_manifest_sha256, started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
         candidate="nemotron-0.6b-q8", split=args.split, partition="PUBLIC-TEST" if args.split.startswith("test") else "DEV",
         honesty_label="unknown overlap", shard=args.shard, utterances=len(utts), audio_seconds=round(audio_s, 2),
         chunk_ms=args.chunk_ms, right_context=adapter.right_context, concurrency=args.concurrency,
@@ -102,6 +106,7 @@ def main(argv=None) -> int:
         streams_per_core_at_full_load=round(audio_s / rec.cpu_seconds, 2) if rec.cpu_seconds else None,
         peak_rss_mib=round(rec.peak_rss_kib / 1024, 1), max_threads_observed=rec.max_threads_observed,
         gpu_pids_seen=rec.gpu_pids_seen, gpu_check="nvidia-smi compute-apps polled every 5 s",
+        gpu_check_status=rec.gpu_check_status,
         bench_load_ms=rec.bench.get("load_ms"), bench_warmup_ms=rec.bench.get("warmup_ms"),
         bench_run=runs[0], argv=rec.argv, host=platform.node(), harness_commit=_git("rev-parse", "--short", "HEAD"),
         runtime_commit=_git("rev-parse", "HEAD", cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(adapter.binary))))),

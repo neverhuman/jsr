@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # P04 timing suite in the nemotron core block (physical 16-31, siblings 80-95; AGENT_CHAT CORE PARTITION).
 # Holds the nemotron bench lease for the whole suite; each run records loadavg before/after.
-# Usage: nemotron_suite.sh headline|batch|timing|other
+# Usage: nemotron_suite.sh headline|batch|timing|other|quiet_then_other  (TAG=... names the headline run)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PY=/home/ubuntu/jsr/.venv/bin/python
@@ -14,8 +14,8 @@ mkdir -p "$RUNS" "$LOGS"
 headline() {
   # Single-stream c1 cost: every 8th test-clean utterance (328 utts), one process per operating
   # point, on different CCDs (cores 22 and 28), SMT siblings idle.
-  $RUN --split test-clean --shard 0/8 --chunk-ms 160 --cpus 22 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_160.log" 2>&1 &
-  $RUN --split test-clean --shard 0/8 --chunk-ms 560 --cpus 28 --tag headline --out "$RUNS/headline.jsonl" > "$LOGS/hl_560.log" 2>&1 &
+  $RUN --split test-clean --shard 0/8 --chunk-ms 160 --cpus 22 --tag "${TAG:-headline}" --out "$RUNS/headline.jsonl" > "$LOGS/hl_160_${TAG:-headline}.log" 2>&1 &
+  $RUN --split test-clean --shard 0/8 --chunk-ms 560 --cpus 28 --tag "${TAG:-headline}" --out "$RUNS/headline.jsonl" > "$LOGS/hl_560_${TAG:-headline}.log" 2>&1 &
   wait
 }
 
@@ -34,6 +34,7 @@ batch() {
 }
 
 timing() { headline; batch; }
+quiet_then_other() { TAG=headline_quiet headline; other; }
 
 other() {
   # test-other WER (+ CPU receipts), 4 shards per operating point, 8 processes on cores 16-31.
