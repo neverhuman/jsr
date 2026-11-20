@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Pre-push hook: run the full local gate (HOST_RULES "Before pushing").
+# Install for one checkout: git config core.hooksPath ops/git-hooks
+# (that replaces the jankurai pre-commit hook path, so ops/git-hooks/pre-commit
+# chains to tools/jankurai-hooks/pre-commit). Bypass once: JSR_SKIP_PRE_PUSH=1.
+set -euo pipefail
+if [ "${JSR_SKIP_PRE_PUSH:-}" = "1" ]; then
+  echo "pre-push: skipped by JSR_SKIP_PRE_PUSH=1" >&2
+  exit 0
+fi
+cd "$(git rev-parse --show-toplevel)"
+exec bash ops/ci/quality-gates.sh

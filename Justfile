@@ -19,6 +19,11 @@ clippy:
 test:
     cargo test --workspace -q
 
+# Narrow loop for one crate: `just test-crate ultra-core`.
+test-crate crate:
+    cargo clippy -p {{crate}} --all-targets -- -D warnings
+    cargo test -p {{crate}} -q
+
 pytest:
     if [ -x {{py}} ]; then {{py}} -m pytest -q python/ultra/tests; else echo "pytest: no .venv yet (run just venv)"; fi
 
@@ -36,13 +41,19 @@ audit: score
     mkdir -p audit
     cp target/jankurai/repo-score.md audit/jankurai-$(git rev-parse --short HEAD).md
 
+# Ledger contract tests plus serialised ultra-core values against contracts/events schemas.
 contract-drift:
-    cargo test -p ultra-core --test output_contract -q
+    bash ops/ci/contract-drift.sh
 
 security:
-    tools/security-lane.sh
+    bash tools/security-lane.sh
 
-# Full merge gate.
-check: fast contract-drift security score
+# Report every tool the lanes need, with pinned versions (ops/ci/lib.sh).
+doctor:
+    bash scripts/ci-doctor.sh
+
+# Full merge gate: fast, pytest, contract-drift, security, score (ops/ci/quality-gates.sh).
+check:
+    bash ops/ci/quality-gates.sh
 
 required: check
