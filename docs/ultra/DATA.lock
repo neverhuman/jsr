@@ -1,3 +1,24 @@
-# DATA.lock
+# DATA.lock: every dataset the benchmark reads, pinned by hash
 
-LibriSpeech (OpenSLR SLR12, CC BY 4.0): download in progress; md5 verified per archive against the OpenSLR md5sum.txt.
+## LibriSpeech (CC BY 4.0), HF mirror openslr/librispeech_asr @ main (2026-11-20)
+- **Source:** the same audio and transcripts as OpenSLR SLR12. OpenSLR served this host at under 1 MB/s, hence the mirror (DECISIONS 2026-11-20).
+- **Parquet shards:** `/mnt/xbabe3-external/jsr/corpora/librispeech/hf_parquet/all/{train.clean.100,train.clean.360,train.other.500,validation.clean,validation.other,test.clean,test.other}`.
+- **Per-file SHA-256 manifest** (130 files): `hf_parquet/MANIFEST.sha256`, itself sha256 `3e21c0e4dc9597cd0379da34ccec5f16cb89e34c7785868daa1f14bd4910bff5`.
+- **Decoded int16 caches** (`python/ultra/ultra/libri.py`), sha256:
+```
+bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6  dev-clean.npz
+2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8  dev-other.npz
+d12cf94a7aa5686bd662b50f29f4974319ed274f68e653c181536ac587b9a2ff  test-clean.npz
+06ce1df9d026f0b28f295f4999e95f53136e4790d982d5fb5d77f84fc134cb22  test-other.npz
+```
+- **Partitions:**
+
+  | Split | Partition | Note |
+  |---|---|---|
+  | train.* | TRAIN | R0 (icefall) and R1 are trained on these |
+  | validation.* | DEV | — |
+  | test.* | PUBLIC-TEST | in-corpus for LibriSpeech-trained systems |
+
+## Word timings (O14): MFA LibriSpeech alignments (data lane C1, pending)
+
+## Out-of-domain evaluation-only sets (O15): TED-LIUM 3 / VoxPopuli EN / AMI IHM test (data lane C0, pending, sealed)

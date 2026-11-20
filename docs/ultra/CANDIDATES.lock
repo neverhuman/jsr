@@ -1,10 +1,25 @@
-# ultra.candidate/v1 entries. Approved for internal evaluation (O2, 2026-11-20); each must be pinned (revision + SHA-256) before a run.
+# CANDIDATES.lock: every system in ULTRA-Bench v1, pinned. The full ultra.candidate/v1 manifests are under docs/ultra/candidates/.
+# A system enters the freeze only when its manifest validates with `ultra candidate validate --verify-files`.
 candidates:
-  - candidate_id: nemotron-speech-streaming-en-0.6b
-    status: APPROVED_INTERNAL_EVAL_UNPINNED
-  - candidate_id: sherpa-onnx-streaming-zipformer-en
-    status: APPROVED_INTERNAL_EVAL_UNPINNED
-  - candidate_id: moonshine-v2
-    status: APPROVED_INTERNAL_EVAL_UNPINNED
-  - candidate_id: faster-whisper-small.en-int8
-    status: APPROVED_INTERNAL_EVAL_UNPINNED
+  - candidate_id: moonshine-v2-en-int8
+    manifest: docs/ultra/candidates/moonshine-v2-en-int8.yaml
+    manifest_sha256: 08907832d2bce1778cc678a0a6f4f8ac73c55ad8b0e337db2375dca6e3f6eb34
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
+  - candidate_id: whisper-small-en-int8
+    manifest: docs/ultra/candidates/whisper-small-en-int8.yaml
+    manifest_sha256: cbc8e3c9e9a00f3b1ef325fe4f185522cc1edc2fc930479a96d2cd425de55463
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
+  - candidate_id: zipformer-en-2023-06-26
+    manifest: docs/ultra/candidates/zipformer-en-2023-06-26.yaml
+    manifest_sha256: d1b8eff9c1b7fe95dccde28fc32d0a6812e9f4f0456e68a09c80b16fce7e8f56
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
+  - candidate_id: nemotron-0.6b-q8
+    manifest: docs/ultra/candidates/nemotron-0.6b-q8.yaml (lane/nemotron, merge pending)
+    status: PINNED_IN_LANE
+  - candidate_id: r1-d1-s-100h
+    checkpoint: /mnt/xbabe3-external/jsr/runs/train/D1d_S_preln_lr1e-3_b300_sa4k/ckpt-00007800.pt
+    status: EXPORT_PENDING (trainer A2)
+  - candidate_id: r1-d2-s-960h
+    status: TRAINING (ETA 2026-11-22T07:00Z)
+  - candidate_id: r1-mr-s-100h
+    status: PLANNED (D1MR after the qualifying window)
