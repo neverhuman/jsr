@@ -14,11 +14,15 @@ candidates:
     manifest_sha256: d1b8eff9c1b7fe95dccde28fc32d0a6812e9f4f0456e68a09c80b16fce7e8f56
     status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
   - candidate_id: nemotron-0.6b-q8
-    manifest: docs/ultra/candidates/nemotron-0.6b-q8.yaml (lane/nemotron, merge pending)
-    status: PINNED_IN_LANE
+    manifest: docs/ultra/candidates/nemotron-0.6b-q8.yaml
+    manifest_sha256: f2e017b93cd72d0f0b94ff0a8c30cffd25b00a24b7bf986c63853bb8cb0bbf70
+    model: nvidia/nemotron-speech-streaming-en-0.6b @ ebe59e5a817142986528bbbee5dba8db7b38ed50 (q8_0 gguf sha256 d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d)
+    runtime: NeMo-Speech.cpp @ e790e463b2913cff9f989a3df224c587f14b4c5c (GCC 13.3 -O3, portable AVX2, no CUDA)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
   - candidate_id: r1-d1-s-100h
     checkpoint: /mnt/xbabe3-external/jsr/runs/train/D1d_S_preln_lr1e-3_b300_sa4k/ckpt-00007800.pt
-    status: EXPORT_PENDING (trainer A2)
+    bundle: /mnt/xbabe3-external/jsr/bundles/r1-d1/ (ultra.r1-export/v1; re-export from an immutable commit pending)
+    status: EXPORTED_PROVEN (fp32 400/400 identical; int8 within 0.1 WER)
   - candidate_id: r1-d2-s-960h
     status: TRAINING (ETA 2026-11-22T07:00Z)
   - candidate_id: r1-mr-s-100h
