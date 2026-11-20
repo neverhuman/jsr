@@ -34,7 +34,7 @@ class Policy:
     alpha: float = 0.3  # EMA weight of the newest sample
 
 
-def next_duty(duty: float, gpu_ema: float | None, cpu_ema: float, p: Policy) -> float:
+def next_duty(duty: float, gpu_ema: float | None, cpu_ema: float, p: Policy, min_duty: float = MIN_DUTY) -> float:
     """Lower duty when the host is over either target; raise it slowly when both have margin."""
     over = cpu_ema > p.cpu_target or (gpu_ema is not None and gpu_ema > p.gpu_target)
     roomy = cpu_ema < p.cpu_target - p.margin and (gpu_ema is None or gpu_ema < p.gpu_target - p.margin)
@@ -42,7 +42,7 @@ def next_duty(duty: float, gpu_ema: float | None, cpu_ema: float, p: Policy) -> 
         duty -= p.step_down
     elif roomy:
         duty += p.step_up
-    return min(MAX_DUTY, max(MIN_DUTY, duty))
+    return min(MAX_DUTY, max(min_duty, duty))
 
 
 def ema(prev: float | None, x: float, alpha: float) -> float:
@@ -114,7 +114,7 @@ def run(args) -> int:
             g = sum(samples) / len(samples) if samples else None
             c_ema = ema(c_ema, cpu, p.alpha)
             g_ema = ema(g_ema, g, p.alpha) if g is not None else g_ema
-            duty = next_duty(duty, g_ema, c_ema, p)
+            duty = next_duty(duty, g_ema, c_ema, p, args.min_duty)
             now = time.time()
             if log and now - last_log >= args.log_every:
                 log.write(json.dumps({"t": round(now, 1), "host": os.uname().nodename, "pgid": args.pgid,
@@ -138,6 +138,8 @@ def main(argv=None) -> int:
     ap.add_argument("--period", type=float, default=4.0, help="cycle length; stops must outlast the CUDA queue")
     ap.add_argument("--sample", type=float, default=0.25, help="GPU sampling interval within a cycle")
     ap.add_argument("--start-duty", type=float, default=0.85)
+    ap.add_argument("--min-duty", type=float, default=MIN_DUTY,
+                    help="floor of the duty; 0 lets the guard pause our job completely while others fill the host")
     ap.add_argument("--log", help="append JSON lines here")
     ap.add_argument("--log-every", type=float, default=30.0)
     return run(ap.parse_args(argv))

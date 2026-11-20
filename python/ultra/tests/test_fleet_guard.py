@@ -47,3 +47,11 @@ def test_guard_pauses_then_always_resumes_the_job():
         job.wait()
     assert "T" in seen, f"the guard never paused the job (states seen: {sorted(seen)})"
     assert after == "S", f"job must be running/sleeping after the guard exits, got {after!r}"
+
+
+def test_zero_floor_lets_the_job_yield_completely():
+    p = Policy(gpu_target=0.74, cpu_target=0.85)
+    d = 0.05
+    for _ in range(3):
+        d = next_duty(d, 0.95, 0.2, p, min_duty=0.0)
+    assert d == 0.0
