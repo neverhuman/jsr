@@ -149,10 +149,6 @@
       "command": "cargo test -p ultra-cli",
       "purpose": "unit, property and integration tests for ultra-cli"
     },
-    "research/": {
-      "command": "just pytest",
-      "purpose": "trainer, data bank and loss tests"
-    },
     "scripts/": {
       "command": "just security",
       "purpose": "shellcheck and secret scan over operational scripts"
@@ -160,6 +156,10 @@
     "docs/ultra/": {
       "command": "just score",
       "purpose": "records stay visible to the audit"
+    },
+    "python/ultra/": {
+      "command": "just pytest",
+      "purpose": "trainer, data bank and loss tests"
     }
   }
 }

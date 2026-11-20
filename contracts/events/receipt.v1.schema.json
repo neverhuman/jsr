@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/neverhuman/jsr/contracts/events/receipt.v1.schema.json",
+  "title": "ultra.receipt/v1",
+  "description": "Run receipt (spec Appendix D). Source of truth: crates/ultra-core/src/receipt.rs. Receipt::validate_as_evidence refuses nulls where measurements belong.",
+  "type": "object",
+  "required": ["schema", "bundle", "source_commit", "hardware", "target", "configured_threads", "cpu_only_verified", "audio_seconds", "label", "partition", "completion_status"],
+  "properties": {
+    "schema": {"const": "ultra.receipt/v1"},
+    "bundle": {"type": "string"},
+    "source_commit": {"type": "string"},
+    "hardware": {"type": "string"},
+    "target": {"type": "string"},
+    "configured_threads": {"type": "integer", "minimum": 1},
+    "observed_threads": {"type": ["integer", "null"]},
+    "cpu_only_verified": {"type": "boolean"},
+    "audio_seconds": {"type": "number"},
+    "process_tree_cpu_seconds": {"type": ["number", "null"]},
+    "peak_rss_bytes": {"type": ["integer", "null"]},
+    "label": {"enum": ["fair", "in-corpus", "recall"]},
+    "partition": {"enum": ["TRAIN", "CALIBRATION", "DEV", "CONFIRM", "PUBLIC-TEST", "DOMAIN-SEALED", "ADAPT-TEST", "PARITY"]},
+    "completion_status": {"type": "string"}
+  }
+}

@@ -1,10 +1,10 @@
-# ultra.candidate/v1 entries. Every candidate is BLOCKED_RIGHTS until O2 approves its download.
+# ultra.candidate/v1 entries. Approved for internal evaluation (O2, 2026-11-20); each must be pinned (revision + SHA-256) before a run.
 candidates:
   - candidate_id: nemotron-speech-streaming-en-0.6b
-    status: BLOCKED_RIGHTS
+    status: APPROVED_INTERNAL_EVAL_UNPINNED
   - candidate_id: sherpa-onnx-streaming-zipformer-en
-    status: BLOCKED_RIGHTS
+    status: APPROVED_INTERNAL_EVAL_UNPINNED
   - candidate_id: moonshine-v2
-    status: BLOCKED_RIGHTS
+    status: APPROVED_INTERNAL_EVAL_UNPINNED
   - candidate_id: faster-whisper-small.en-int8
-    status: BLOCKED_RIGHTS
+    status: APPROVED_INTERNAL_EVAL_UNPINNED

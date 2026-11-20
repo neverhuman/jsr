@@ -20,11 +20,11 @@ test:
     cargo test --workspace -q
 
 pytest:
-    if [ -x {{py}} ]; then {{py}} -m pytest -q research/ultra/tests; else echo "pytest: no .venv yet (run just venv)"; fi
+    if [ -x {{py}} ]; then {{py}} -m pytest -q python/ultra/tests; else echo "pytest: no .venv yet (run just venv)"; fi
 
 venv:
     uv venv --python 3.12 .venv
-    uv pip install --python {{py}} -r research/ultra/requirements.txt
+    uv pip install --python {{py}} -r python/ultra/requirements.txt
 
 # Jankurai score artifacts (full audit).
 score:

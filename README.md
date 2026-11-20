@@ -1,8 +1,18 @@
 # JSR: ULTRA, an event-clocked, integer-exact streaming speech recogniser for CPUs
 
+[![jankurai](https://github.com/neverhuman/jsr/actions/workflows/jankurai.yml/badge.svg)](https://github.com/neverhuman/jsr/actions/workflows/jankurai.yml)
+
 This is a work in progress. **Nothing here has been trained yet.** See `docs/ultra/STATUS.md` for the current rung and the next task.
 
 The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_SPEC.md`. `docs/ultra/specs/cadence_ultra_v3_0_master_engineering_specification.md` is a companion, used for its AVX2 lookup-table kernels and the integer PCEN front-end arm.
+
+## Quick start
+
+```bash
+just fast          # fmt, clippy, tests
+just venv          # Python trainer env (python/ultra)
+just required      # full push gate, including security and jankurai audit
+```
 
 ## Layout
 
@@ -16,7 +26,7 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 | `crates/ultra-eval` | normaliser, WER, delays, paced replay, process-tree CPU accounting, bootstrap |
 | `crates/ultra-bench` | the cost-law benchmark (`wstream` port) and kernel bake-off |
 | `crates/ultra-adapters`, `crates/ultra-cli` | external recogniser adapters; command-line tool |
-| `research/ultra` | PyTorch trainer (the Python exception), data bank, waves |
+| `python/ultra` | PyTorch trainer and data prep (dated Python exception), waves |
 | `docs/ultra` | STATUS, DECISIONS, RULINGS, ledgers, specs |
 
 ## Gates

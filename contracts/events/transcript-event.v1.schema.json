@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/neverhuman/jsr/contracts/events/transcript-event.v1.schema.json",
+  "title": "ultra.transcript-event/v1",
+  "description": "One output event (spec §3.1). Source of truth: crates/ultra-core/src/events.rs; invariants enforced by events::Ledger.",
+  "type": "object",
+  "required": ["stream_id", "segment_id", "event_sequence", "audio_start_sample", "audio_end_sample", "event_type"],
+  "properties": {
+    "stream_id": {"type": "string"},
+    "segment_id": {"type": "integer", "minimum": 0},
+    "event_sequence": {"type": "integer", "minimum": 0},
+    "audio_start_sample": {"type": "integer", "minimum": 0},
+    "audio_end_sample": {"type": "integer", "minimum": 0},
+    "event_type": {"enum": ["Preview", "Commit", "Final", "CorrectionSuggested", "Gap", "Status"]},
+    "revision_id": {"type": "integer", "minimum": 0},
+    "replacement_suffix": {"type": "string", "maxLength": 4096},
+    "text": {"type": "string", "maxLength": 4096},
+    "byte_start": {"type": "integer", "minimum": 0},
+    "byte_end": {"type": "integer", "minimum": 0},
+    "start_sample": {"type": "integer", "minimum": 0},
+    "end_sample": {"type": "integer", "minimum": 0},
+    "code": {"type": "string"},
+    "detail": {"type": "string"}
+  },
+  "allOf": [
+    {"if": {"properties": {"event_type": {"const": "Preview"}}}, "then": {"required": ["revision_id", "replacement_suffix"]}},
+    {"if": {"properties": {"event_type": {"enum": ["Commit", "Final"]}}}, "then": {"required": ["text"]}},
+    {"if": {"properties": {"event_type": {"const": "CorrectionSuggested"}}}, "then": {"required": ["byte_start", "byte_end", "text"]}},
+    {"if": {"properties": {"event_type": {"const": "Gap"}}}, "then": {"required": ["start_sample", "end_sample"]}},
+    {"if": {"properties": {"event_type": {"const": "Status"}}}, "then": {"required": ["code", "detail"]}}
+  ]
+}

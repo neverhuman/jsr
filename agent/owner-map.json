@@ -38,12 +38,12 @@
     "crates/ultra-bench/": "eval",
     "crates/ultra-adapters/": "eval",
     "crates/ultra-cli/": "runtime",
-    "research/": "training",
     "configs/": "training",
     "scripts/": "ops",
     "docs/ultra/": "lead",
     "audit/": "agent",
     ".cargo/": "tools",
-    "clippy.toml": "tools"
+    "clippy.toml": "tools",
+    "python/ultra/": "training"
   }
 }

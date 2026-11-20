@@ -1,3 +1,3 @@
 # Contracts
 
-Put OpenAPI, JSON Schema, or protobuf **sources** here. Generated clients and bindings must live only under paths declared in `agent/generated-zones.toml`.
+`contracts/events/` holds the JSON schemas for every type that crosses a process boundary: transcript events, receipts. The Rust types in `crates/ultra-core` are the source. `cargo test -p ultra-core --test schema_contract` checks that serialised Rust values validate against these schemas (`just contract-drift`).
