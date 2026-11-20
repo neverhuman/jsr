@@ -17,7 +17,7 @@ pub mod sherpa_online;
 
 pub use api::{
     AsrStream, Backend, BackendCaps, OperatingProfile, OutputPolicy, PollResult, PushReport,
-    PushStatus, StreamConfig, StreamError, StreamMetrics, TerminalOutcome,
+    PushStatus, StreamClock, StreamConfig, StreamError, StreamMetrics, TerminalOutcome,
 };
 pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};

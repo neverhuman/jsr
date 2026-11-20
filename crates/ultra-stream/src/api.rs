@@ -1,8 +1,65 @@
 //! Logical Rust streaming boundary (spec v1.0-B §9, §13, §33.1).
 
+use std::sync::Arc;
+use std::time::Instant;
+
 use serde::{Deserialize, Serialize};
 use ultra_core::events::TranscriptEvent;
 use ultra_core::repair::RepairHint;
+
+/// Monotonic observation clock anchored at stream creation (or injected for deterministic tests).
+#[derive(Clone)]
+pub struct StreamClock {
+    inner: ClockKind,
+}
+
+#[derive(Clone)]
+enum ClockKind {
+    Real(Instant),
+    Custom(Arc<dyn Fn() -> u64 + Send + Sync>),
+}
+
+impl std::fmt::Debug for StreamClock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.inner {
+            ClockKind::Real(_) => f.write_str("StreamClock::Real"),
+            ClockKind::Custom(_) => f.write_str("StreamClock::Custom"),
+        }
+    }
+}
+
+impl Default for StreamClock {
+    fn default() -> Self {
+        Self::real()
+    }
+}
+
+impl StreamClock {
+    /// Real monotonic wall clock anchored at the instant this [`StreamClock`] is constructed.
+    pub fn real() -> Self {
+        Self {
+            inner: ClockKind::Real(Instant::now()),
+        }
+    }
+
+    /// Deterministic test clock returning nanoseconds since stream start.
+    pub fn custom<F>(f: F) -> Self
+    where
+        F: Fn() -> u64 + Send + Sync + 'static,
+    {
+        Self {
+            inner: ClockKind::Custom(Arc::new(f)),
+        }
+    }
+
+    /// Observed monotonic elapsed nanoseconds (`u64::MAX`-saturated).
+    pub fn now_ns(&self) -> u64 {
+        match &self.inner {
+            ClockKind::Real(t0) => u64::try_from(t0.elapsed().as_nanos()).unwrap_or(u64::MAX),
+            ClockKind::Custom(f) => f(),
+        }
+    }
+}
 
 /// Output policy axis (orthogonal to resource profile, spec v1.0-B §13).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -8,8 +8,8 @@ use std::sync::Arc;
 use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::api::{
-    AsrStream, Backend, BackendCaps, PollResult, PushReport, PushStatus, StreamConfig, StreamError,
-    StreamMetrics, TerminalOutcome,
+    AsrStream, Backend, BackendCaps, PollResult, PushReport, PushStatus, StreamClock, StreamConfig,
+    StreamError, StreamMetrics, TerminalOutcome,
 };
 use crate::sherpa_c_types::{
     SherpaOnnxOfflineRecognizer, SherpaOnnxOfflineRecognizerConfig, SherpaOnnxOfflineStream,
@@ -231,25 +231,35 @@ impl Backend for Arc<SherpaOfflineBackend> {
         } else {
             cfg.model_config_id.as_str()
         };
-        Ok(Box::new(OfflineWindowStream {
-            engine: Arc::clone(self),
-            emitter: Emitter::new(&cfg.stream_id, eff_model_id),
-            pcm_buf: Vec::new(),
-            accepted_samples: 0,
-            wakeups: 0,
-            events_emitted: 0,
-            finished: false,
-            cancelled: false,
-            events: VecDeque::new(),
-        }))
+        Ok(Box::new(OfflineWindowStream::new(
+            Arc::clone(self),
+            &cfg.stream_id,
+            eff_model_id,
+            StreamClock::real(),
+        )))
     }
 }
 
-struct OfflineWindowStream {
-    engine: Arc<SherpaOfflineBackend>,
+pub(crate) trait OfflineBatchDecode: Send {
+    fn decode_single(&self, pcm: &[i16]) -> Result<String, StreamError>;
+}
+
+impl OfflineBatchDecode for Arc<SherpaOfflineBackend> {
+    fn decode_single(&self, pcm: &[i16]) -> Result<String, StreamError> {
+        let v = self.transcribe_batch(&[pcm])?;
+        v.into_iter()
+            .next()
+            .ok_or_else(|| StreamError::Runtime("empty offline batch output".into()))
+    }
+}
+
+struct OfflineWindowStream<D: OfflineBatchDecode> {
+    decoder: D,
+    clock: StreamClock,
     emitter: Emitter,
     pcm_buf: Vec<i16>,
     accepted_samples: u64,
+    processed_samples: u64,
     wakeups: u64,
     events_emitted: u64,
     finished: bool,
@@ -257,7 +267,25 @@ struct OfflineWindowStream {
     events: VecDeque<TranscriptEvent>,
 }
 
-impl AsrStream for OfflineWindowStream {
+impl<D: OfflineBatchDecode> OfflineWindowStream<D> {
+    fn new(decoder: D, stream_id: &str, model_id: &str, clock: StreamClock) -> Self {
+        Self {
+            decoder,
+            clock,
+            emitter: Emitter::new(stream_id, model_id),
+            pcm_buf: Vec::new(),
+            accepted_samples: 0,
+            processed_samples: 0,
+            wakeups: 0,
+            events_emitted: 0,
+            finished: false,
+            cancelled: false,
+            events: VecDeque::new(),
+        }
+    }
+}
+
+impl<D: OfflineBatchDecode> AsrStream for OfflineWindowStream<D> {
     fn push_pcm(&mut self, start_sample: u64, pcm: &[i16]) -> Result<PushReport, StreamError> {
         if self.finished || self.cancelled {
             return Err(ultra_core::CoreError::Lifecycle(
@@ -295,17 +323,13 @@ impl AsrStream for OfflineWindowStream {
             .into());
         }
         if !self.finished {
-            self.finished = true;
             let text = if self.pcm_buf.is_empty() {
                 String::new()
             } else {
                 self.wakeups += 1;
-                let v = self.engine.transcribe_batch(&[&self.pcm_buf])?;
-                v.into_iter()
-                    .next()
-                    .ok_or_else(|| StreamError::Runtime("empty offline batch output".into()))?
+                self.decoder.decode_single(&self.pcm_buf)?
             };
-            let ts = (self.accepted_samples * 1_000_000_000) / 16_000;
+            let ts = self.clock.now_ns();
             let ev = self.emitter.finalize(
                 ts,
                 &text,
@@ -316,6 +340,9 @@ impl AsrStream for OfflineWindowStream {
                     flushed: true,
                 },
             )?;
+            self.finished = true;
+            self.processed_samples = self.accepted_samples;
+            self.pcm_buf.clear();
             self.events_emitted += 1;
             self.events.push_back(ev);
         }
@@ -334,11 +361,7 @@ impl AsrStream for OfflineWindowStream {
     fn metrics(&self) -> StreamMetrics {
         StreamMetrics {
             accepted_samples: self.accepted_samples,
-            processed_samples: if self.finished {
-                self.accepted_samples
-            } else {
-                0
-            },
+            processed_samples: self.processed_samples,
             wakeups: self.wakeups,
             events_emitted: self.events_emitted,
             cap_hits: 0,
@@ -348,5 +371,63 @@ impl AsrStream for OfflineWindowStream {
             refiner_charged_cpu_s: 0.0,
             retained_bytes: (self.pcm_buf.len() * 2) as u64,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+    use super::*;
+
+    struct MockOffline {
+        fail_next: Arc<AtomicBool>,
+        now_ns: Arc<AtomicU64>,
+        decode_cost_ns: u64,
+    }
+
+    impl OfflineBatchDecode for MockOffline {
+        fn decode_single(&self, _pcm: &[i16]) -> Result<String, StreamError> {
+            self.now_ns.fetch_add(self.decode_cost_ns, Ordering::SeqCst);
+            if self.fail_next.swap(false, Ordering::SeqCst) {
+                return Err(StreamError::Runtime("transient decode failure".into()));
+            }
+            Ok("hello world".into())
+        }
+    }
+
+    #[test]
+    fn wp5_offline_final_uses_post_decode_monotonic_clock_and_preserves_state_on_error() {
+        let now_ns = Arc::new(AtomicU64::new(1_000_000_000)); // 1.0 s arrival
+        let fail_next = Arc::new(AtomicBool::new(true));
+        let clock_ref = Arc::clone(&now_ns);
+        let clock = StreamClock::custom(move || clock_ref.load(Ordering::SeqCst));
+        let mut s = OfflineWindowStream::new(
+            MockOffline {
+                fail_next,
+                now_ns: Arc::clone(&now_ns),
+                decode_cost_ns: 350_000_000, // 350 ms compute
+            },
+            "s0",
+            "m0",
+            clock,
+        );
+        s.push_pcm(0, &[100i16; 16_000]).expect("push 1s");
+
+        assert!(s.finish_input().is_err());
+        assert_eq!(s.metrics().processed_samples, 0);
+        assert_eq!(s.poll_event().expect("poll"), PollResult::Pending);
+
+        s.finish_input().expect("retry succeeds");
+        assert_eq!(s.metrics().processed_samples, 16_000);
+        assert_eq!(s.metrics().retained_bytes, 0);
+        let PollResult::Event(ev) = s.poll_event().expect("poll final") else {
+            panic!("expected Final event");
+        };
+        assert_eq!(ev.observed_monotonic_ns, 1_700_000_000);
+        assert_eq!(
+            s.poll_event().expect("ended"),
+            PollResult::Ended(TerminalOutcome::Finished)
+        );
     }
 }
