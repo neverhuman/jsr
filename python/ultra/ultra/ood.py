@@ -141,8 +141,79 @@ def sha256_file(p: str) -> str:
 # Audio-only access (allowed before the freeze)
 
 
+class CacheIntegrityError(ValueError):
+    """A cache file does not match the hash recorded in its manifest (instrument error).
+
+    repair_hint: re-run `python -m ultra.ood prepare <name>` and record the new hashes in
+    docs/ultra/DATA.lock; never edit a cache in place. docs: docs/ultra/data/ood_sets.md
+    """
+
+
+_VERIFIED: dict[tuple[str, int, int], str] = {}
+
+
+def _verify_file(path: str, expected: str) -> None:
+    st = os.stat(path)
+    key = (path, st.st_size, int(st.st_mtime_ns))
+    got = _VERIFIED.get(key) or sha256_file(path)
+    if got != expected:
+        raise CacheIntegrityError(f"{path}: sha256 {got[:12]} != manifest {expected[:12]}")
+    _VERIFIED[key] = got
+
+
+def _manifest(name: str, cache: str) -> dict:
+    p = manifest_path(name, cache)
+    if not os.path.exists(p):
+        raise CacheIntegrityError(f"no manifest for {name} at {p}")
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def verify_cache(name: str, cache: str = CACHE, sealed: bool = False) -> dict:
+    """Check the audio (and, when `sealed`, the text) cache against its manifest."""
+    m = _manifest(name, cache)
+    _verify_file(audio_path(name, cache), m["audio_npz_sha256"])
+    if sealed:
+        _verify_file(sealed_path(name, cache), m["sealed_texts_npz_sha256"])
+    return m
+
+
+def cluster_of(name: str, uid: str) -> str:
+    """Dependence cluster from the utterance id alone (no reference text).
+
+    AMI ids are AMI_<meeting>_<headset>_<speaker>_<start>_<end>: utterances of one meeting share
+    acoustics and speakers, so the meeting is the cluster. VoxPopuli ids start with the plenary
+    session (<date>-<time>-PLENARY...): the session is the cluster (conservative; it merges
+    agenda items of one sitting).
+    """
+    if name == "ami":
+        parts = uid.split("_")
+        if len(parts) < 3 or parts[0] != "AMI":
+            raise ValueError(f"unexpected AMI id {uid!r}")
+        return parts[1]
+    if name == "voxpopuli":
+        head = uid.split("_")[0].split("-")
+        if len(head) < 3:
+            raise ValueError(f"unexpected VoxPopuli id {uid!r}")
+        return "-".join(head[:3])
+    raise KeyError(name)
+
+
+def cluster_map(name: str, cache: str = CACHE) -> tuple[dict[str, str], str]:
+    """{utterance id: cluster} for a set, written next to the cache; returns (map, sha256)."""
+    ids = [a.uid for a in load_audio(name, cache)]
+    m = {uid: cluster_of(name, uid) for uid in ids}
+    p = os.path.join(cache, f"{name}.clusters.json")
+    with open(p + ".tmp", "w", encoding="utf-8") as f:
+        json.dump({"schema": "ultra.clusters/v1", "set": name, "rule": cluster_of.__doc__.split("\n")[0],
+                   "clusters": m}, f, indent=0, sort_keys=True)
+    os.replace(p + ".tmp", p)
+    return m, sha256_file(p)
+
+
 def load_audio(name: str, cache: str = CACHE) -> list[OodAudio]:
     _check_name(name)
+    verify_cache(name, cache)
     z = np.load(audio_path(name, cache))
     offs, pcm, ids = z["offsets"], z["pcm"], z["ids"]
     return [OodAudio(str(ids[i]), pcm[offs[i]:offs[i + 1]]) for i in range(len(ids))]
@@ -200,15 +271,26 @@ def check_sealed_read(name: str, repo: str = REPO) -> tuple[str, dict]:
 
 
 def load_split(name: str, cache: str = CACHE, repo: str = REPO) -> list[OodUtt]:
-    """Audio + reference texts. Sealed: see module docstring. Logs the read to LOOKS.jsonl."""
-    look, st = check_sealed_read(name, repo)
-    sp = sealed_path(name, cache)
-    entry = {"ts": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-             "kind": "ood-sealed-read", "look_id": look, "set": name, "user": getpass.getuser(),
-             "head": st["head"], "freeze_tag_commit": st["tag_commit"],
-             "sealed_sha256": sha256_file(sp)}
-    with open(looks_path(repo), "a", encoding="utf-8") as f:  # log before the texts are opened
-        f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+    """Audio + reference texts. Sealed: see module docstring. Logs the read to LOOKS.jsonl.
+
+    The permission check and the ledger append run under one exclusive lock, so two concurrent
+    reads under different look-ids cannot both pass. Caches are verified against the manifest
+    before the texts are opened.
+    """
+    import fcntl
+
+    os.makedirs(cache, exist_ok=True)
+    with open(os.path.join(cache, "looks.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        look, st = check_sealed_read(name, repo)
+        verify_cache(name, cache, sealed=True)
+        sp = sealed_path(name, cache)
+        entry = {"ts": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "kind": "ood-sealed-read", "look_id": look, "set": name, "user": getpass.getuser(),
+                 "head": st["head"], "freeze_tag_commit": st["tag_commit"],
+                 "sealed_sha256": sha256_file(sp)}
+        with open(looks_path(repo), "a", encoding="utf-8") as f:  # log before the texts are opened
+            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
     audio = load_audio(name, cache)
     t = np.load(sp)
     if [str(x) for x in t["ids"]] != [a.uid for a in audio]:
@@ -248,8 +330,11 @@ def write_caches(name: str, ids: list[str], pcms: list[np.ndarray], texts: list[
     os.replace(ap + ".tmp.npz", ap)
     np.savez(sp + ".tmp.npz", ids=np.array(ids), texts=np.array(texts))
     os.replace(sp + ".tmp.npz", sp)
-    return {"utterances": len(ids), "hours": round(float(offs[-1]) / SR / 3600, 4),
+    info = {"utterances": len(ids), "hours": round(float(offs[-1]) / SR / 3600, 4),
             "audio_npz_sha256": sha256_file(ap), "sealed_texts_npz_sha256": sha256_file(sp)}
+    with open(manifest_path(name, cache), "w") as fh:  # prepare() replaces it with the full manifest
+        json.dump({"schema": "ultra.ood-set/v1", "set": name, **info}, fh, indent=1)
+    return info
 
 
 def prepare(name: str, root: str = PARQUET_ROOT, cache: str = CACHE) -> dict:

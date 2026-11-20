@@ -96,3 +96,45 @@ def test_blocked_and_unknown_sets():
 def test_write_caches_rejects_misaligned(tmp_path):
     with pytest.raises(ValueError):
         ood.write_caches("ami", ["x", "x"], [np.zeros(1, np.int16)] * 2, ["a", "b"], cache=str(tmp_path))
+
+
+def test_tampered_cache_is_refused(world):
+    repo, cache = world
+    p = ood.audio_path("ami", str(cache))
+    with open(p, "r+b") as f:
+        f.seek(-1, 2)
+        last = f.read(1)
+        f.seek(-1, 2)
+        f.write(bytes([last[0] ^ 0xFF]))
+    ood._VERIFIED.clear()
+    with pytest.raises(ood.CacheIntegrityError):
+        ood.load_audio("ami", cache=str(cache))
+
+
+def test_clusters_from_ids_only():
+    assert ood.cluster_of("ami", "AMI_IS1009b_H03_FIO089_0023485_0026102") == "IS1009b"
+    assert ood.cluster_of("voxpopuli", "20180613-0900-PLENARY-24-en_20180613-21:40:52_2") == "20180613-0900-PLENARY"
+    with pytest.raises(ValueError):
+        ood.cluster_of("ami", "garbage")
+
+
+def _race(args):
+    look, cache, repo = args
+    os.environ[ood.ENV_LOOK] = look  # per-process environment
+    try:
+        ood.load_split("ami", cache=cache, repo=repo)
+        return "ok"
+    except ood.SealedReadRefused:
+        return "refused"
+
+
+def test_concurrent_looks_serialised(world):
+    """Two processes racing with different look-ids: exactly one read is permitted."""
+    import multiprocessing as mp
+
+    repo, cache = world
+    _git(repo, "tag", ood.FREEZE_TAG)
+    with mp.get_context("fork").Pool(2) as pool:
+        results = pool.map(_race, [(f"look-{i}", str(cache), str(repo)) for i in range(2)])
+    assert sorted(results) == ["ok", "refused"]
+    assert len({d["look_id"] for d in _looks(repo)}) == 1
