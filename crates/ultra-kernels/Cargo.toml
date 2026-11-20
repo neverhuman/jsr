@@ -1,11 +1,17 @@
 [package]
 name = "ultra-kernels"
+description = "ULTRA GEMV kernels: scalar reference, AVX2 int8/T1/T-LUT2, AVX-512 VNNI (untested)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ultra-core = { path = "../ultra-core" }
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true
