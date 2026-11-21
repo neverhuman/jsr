@@ -171,6 +171,8 @@ def _encoder_tap(rec: _Capture):
 
     def wrapped(*args):
         streams, t0s, n = rec._group
+        if n != rec.chunk:
+            return orig(*args)  # partial final chunks: other shapes break histogram calibrators
         for i in range(args[0].shape[0]):
             def make(i=i):
                 row = {}
@@ -204,6 +206,7 @@ def capture(model, tokenizer, utts, seed: int = 0, max_enc_rows: int = 384,
             "joiner": {"offered": rec.joi.seen, "kept": len(rec.joi.items),
                        "rows": [{k: r[k] for k in ("uid", "frame", "symbol", "ctx")}
                                 for r in rec.joi.items]},
-            "sampling": "uniform reservoir (Algorithm R) over every call in the population",
+            "sampling": "uniform reservoir (Algorithm R) over every call in the population; "
+                        "encoder rows only from full chunks (n = chunk_frames)",
             "seed": seed}
     return enc_rows, joi_rows, prov
