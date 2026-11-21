@@ -1,10 +1,13 @@
-# Trained CPU benchmark: DEV comparison and native FP32 extension
+# Trained CPU benchmark: D1 and first D2 snapshot on DEV
 
 This delivers the M1 research comparison and an initial native FP32 service
-extension. It is an exploratory DEV comparison. Release qualification and the
+extension, including D2's first retained step-5000 snapshot. It is an exploratory
+DEV comparison. Release qualification and the
 selected D2 comparison remain open.
-On the matched panel, D1's 29.83% WER and 0.14086 CPU-s/audio-s offer no observed
-advantage over Zipformer's 2.85% and 0.13719. Nemotron reaches 2.16% with
+On the matched panel, D2 step 5000 reaches 21.88% WER at 0.16863 CPU-s/audio-s
+through native FP32 inference, improving on D1 native FP32's 29.73%. Both remain
+well behind Zipformer's 2.85% and 0.13719. D1's mixed-INT8 bridge result is
+29.83% at 0.14086. Nemotron reaches 2.16% with
 0.47213 CPU-s/audio-s through the completed-file control. These are retained
 artifact results with six speaker clusters and shared-host measurement limits.
 
@@ -33,6 +36,16 @@ streams, one inference thread, 20 ms packets, core 52 on H0, with the recorded
 exploratory lease. Fleet guards apply to the actual process groups. D2 continues.
 Wall throughput and batch wall timings from these guarded runs are unavailable
 as timing evidence. CPU and memory readings describe this shared-host experiment.
+All current M1/M2 CPU rows carry an additional caveat: **observer co-located on
+the service core**. During the D2 follow-up, a read-only process check found the
+observer and service both restricted to core 52; after 11:02 wall time they had
+consumed 4:19 and 4:15 CPU time respectively. Observer CPU is excluded from service
+cost consistently, but this placement competes for execution and cache resources
+and may affect service CPU cost. The size and direction of that effect have not
+been measured. The lead's freeze rule now requires a different CCX for the
+observer, a fixed sampling period and separate observer CPU accounting. A matched
+R0 rerun with that placement is required before freeze; existing rows are retained
+with this limitation.
 M1 admission is bound to the actual clean/other DEV cache hashes in `DATA.lock`,
 with arbitrary-cache and cross-split rejection before NPZ parsing. The frozen
 panel manifest, not a caller-supplied dataset label, identifies the measured audio.
@@ -125,12 +138,13 @@ Audio exposure is a lower bound through the most recent 50-step training log;
 evaluations between those log boundaries have a remaining partial interval.
 
 D2 continues from D1 step 7800 with a fresh 102,000-step schedule, 600-second
-padded batch budget, maximum batch 128 and all three TRAIN splits. At the
-November 20 progress check it has reached step 8900; the retained trainer
-DEV-clean evaluations are **21.907% at 5000** and **21.894% at 6854**, both on
+padded batch budget, maximum batch 128 and all three TRAIN splits. Its retained
+trainer DEV-clean progress evaluations include **21.907% at 5000** and
+**21.894% at 6854**, both on
 400 examples / 7678 words with zero forced advances. These establish further
-learning, without full clean/other selection, a frozen D2 artifact or a matched
-Rust inference measurement. The D2 data-eligibility and full cost accounts remain
+learning, without full clean/other selection or a final frozen D2 candidate.
+The first retained step-5000 snapshot now has its own research export, described
+below. The D2 data-eligibility and full cost accounts remain
 separate from D1's completed pilot. The completed D2 eligibility audit verifies
 all 126 TRAIN shard hashes and the complete per-split file sets against DATA.lock:
 
@@ -159,6 +173,19 @@ progress figures. Independent reading of `D2_S_960h/dev_curve.jsonl` confirms bo
 records. A formatter error produced an empty coordination summary; the trainer
 replaced that shell reporter with a locked Python reporter. The empty summary is
 not evidence, and the actual records are retained.
+
+The first-snapshot cost account retains the exact log prefix through step 5000's
+progress evaluation, rather than hashing a later, still-growing training log.
+Its 100 training intervals record **700.183378 audio-hours**, **1.774422 interval
+wall hours**, and **1.775299 hours from start through progress evaluation**
+(394.403 audio-hours per elapsed hour). The run starts from D1 step 7800's model
+with a fresh schedule; these figures are additional to D1's training account.
+They are GPU-attached elapsed lower bounds, not accelerator utilization or a
+complete training bill. Original training source at launch remains unreconstructed.
+The files `d2-s5000-training-prefix.jsonl` and `d2-s5000-training-account.json`
+under the bridge run root have SHA-256
+`1d6a755ba0d202089cc464f5a0b48a4241daa733dd49bce97f6a63a325d23763`
+and `c4ed069bfe1756e730f6c89acccba78209b55d2242ddfcf6271898ac6ebb5350`.
 
 ## Verified export
 
@@ -264,6 +291,25 @@ It has not replaced the measured dynamic bundle. Native plumbing
 remains experimental, and the verified 88.75% INT8 agreement is below the recorded
 handoff target. No output-preserving equivalence is asserted.
 
+The **first retained D2 step-5000 snapshot** has a separate FP32 research bundle,
+`/mnt/xbabe3-external/jsr/bundles/r1-d2-s5000-fp32-research-20261120`. It is not the
+selected D2 candidate. Existing A2 export orchestration verifies all trainer source
+bytes against immutable `24c1b4b` before import and checks unchanged bytes afterward.
+Every payload hash and the completed checkpoint hash are independently verified.
+
+| D2 step-5000 artifact | SHA-256 |
+|---|---|
+| Source model checkpoint | `1ca4e893eff1c3b9af74e4d6e4823426113dbe2baa0fbd3a47a5ded3806523c7` |
+| Bundle manifest | `3359fb0f7e221b527fbf6949c90db40a25947097911cb2fd768072991fd8cad0` |
+| Export-source sidecar | `579f703966778ca4cdc70d6c3b328f9925c655c409ada844125342d5040d29ad` |
+
+The reviewed older export helper also writes dynamic INT8 payloads; only FP32 is
+loaded for this follow-up. Those inactive files have no new quality or acceptance
+claim. This preserves one reviewed export path and gives the measured bundle a
+distinct identity. The initial native/NumPy FP32 smoke comparison matches all
+eight texts and scores 18.253968% over 126 reference words from one speaker. It
+does not establish full-panel parity or a performance advantage.
+
 ## Measurement and claim limits
 
 The completed primary pilot rows use the same 2559.535 seconds of prepared audio:
@@ -273,11 +319,13 @@ The completed primary pilot rows use the same 2559.535 seconds of prepared audio
 | R0 Zipformer INT8, native sherpa 2.0.2 / ORT 1.28.2 | 2.8516 | 184 / 14 / 22 | 0.137190 | 0.136190 | 238,551,040 | 234,956,800 | 1 |
 | R1-D1 mixed INT8, NumPy / ORT 1.32.0 bridge | 29.8250 | 1572 / 591 / 138 | 0.140862 | 0.140561 | 592,748,544 | 575,327,232 | 7 |
 | R1-D1 FP32, native Rust / ORT 1.32.0 service | 29.7343 | 1558 / 601 / 135 | 0.193986 | 0.193365 | 761,176,064 | 757,180,416 | 4 |
+| R1-D2 step 5000 FP32, NumPy / ORT 1.32.0 bridge, unselected | 21.8795 | 1184 / 375 / 129 | 0.192121 | 0.191707 | 843,157,504 | 819,618,816 | 5 |
+| R1-D2 step 5000 FP32, native Rust / ORT 1.32.0, unselected | 21.8795 | 1184 / 375 / 129 | 0.168629 | 0.168113 | 750,559,232 | 746,688,512 | 4 |
 | Nemotron 560 ms Q8_0, completed-file CPU control | 2.1646 | 137 / 15 / 15 | 0.472127 | unavailable | 1,283,899,392 | 1,277,926,400 | 17 |
 
-All four rows account for all 400 inputs, 7715 reference words and six speaker
+All six rows account for all 400 inputs, 7715 reference words and six speaker
 clusters, with zero unfinished samples. R0/Nemotron decoder cap counts are unavailable;
-D1 records one forced advance. The runtime paths and ORT versions differ, so this
+D1 records one forced advance and D2 step 5000 records zero. The runtime paths and ORT versions differ, so this
 does not isolate an architecture effect. CPU readings are single exploratory
 observations, not a statistically established cost ratio. D1's mixed-INT8 bridge uses about 2.7% more
 CPU and substantially more memory in this pilot while making many more errors.
@@ -411,6 +459,62 @@ It verifies artifact checksums, exact reference/audio joins, scorer normalizatio
 build identity and native repetition/capture observations. CQ/FC, capacity,
 sustained operation and second-day reproduction remain explicitly unavailable.
 
+The **D2 step-5000 native follow-up**, completed November 21, uses that same
+retained executable, ORT library, audio panel and 8-stream/1-thread/20-ms job.
+All 400 inputs drain successfully, with zero forced advances and **21.879456%
+Rust WER** (S1184/D375/I129 over 7715 words). Whole-service CPU is
+**431.612368 seconds**, including 1.32 CPU-seconds before the post-load snapshot.
+Its directory is `m2-d2-s5000-native-dev400`; `scores.jsonl` SHA-256 is
+`9522df422b9a87ea3377a48e6a1da37d1c33c53cda8945aa3e6bd4fa9c6808a9`.
+This improves on D1's native FP32 error rate while still showing no observed
+quality/cost advantage over R0. No architecture or confirmed speed claim follows
+from these single shared-host observations, and D2 training continues.
+
+The descriptive R0-versus-D2-snapshot paired report uses the same 10,000
+speaker-cluster bootstrap replicates and seed. D2 minus R0 is **+19.027868 WER
+points**, **+667.3% relative**, with separate one-sided 95% bounds
+**+16.961618 / +21.745201 points**. Six clusters remain fragile support.
+The file `m2-r0-d2-s5000-paired-20261120.json` has SHA-256
+`9ab0956d3c1c8d1ea7ee66aedbfd2f3861d67fdb1a54874001704921be3c1a72`.
+This is a first-snapshot research row, not the selected-D2 formal decision.
+
+The full D2 FP32 bridge reference also completes all 400 inputs. **400/400
+transcripts match native FP32**, with zero WER-point difference and byte-identical
+source-sorted Final files, SHA-256
+`464c11957da7c83e7aac8e8e58644706c5db9645bc2b6ab0c90cf686562b9530`.
+Both actual Rust score files have the same hash quoted above. This establishes
+native-versus-exported-consumer transcript equivalence on this panel; full
+D2 checkpoint-versus-export per-example parity remains a separate open check.
+The bridge uses **491.740227 CPU-seconds**, with a 1.06-CPU-second load snapshot
+split, zero forced advances and five observed peak threads. Its directory is
+`m2-d2-s5000-bridge-dev400`. At matched FP32 precision, native's observed CPU cost
+is about **12.2% lower** in these two runs. Shared-host interference, co-located
+observers and a single observation per path prevent an established speedup claim.
+The bridge loads Python ORT's retained CPU pybind library; native loads the
+separately hashed C API library, both version 1.32.0.
+
+The follow-up's retained executable is built from `24c1b4b`, as bound by its
+SHA-256 and the unchanged build record. The current runner's `plan.source_commit`
+field reads the launch checkout's HEAD, which can be later than a retained
+executable's build. It must not substitute for build provenance. The D2 native
+run launched at clean `24c1b4b`; the subsequent bridge reference run launches
+after documentation commits. The follow-up verifier distinguishes launch checkout
+from compiled source, preserving the existing manifests rather than rewriting
+their metadata. Future manifests need separate fields for these identities.
+
+The new six-row frontier is `d2-s5000-evidence-summary-20261121.json`, SHA-256
+`388f48bc65b84526dafe8532fae6ef329791e709d37840e89b59c979c03bf995`.
+Recreate it with `.venv/bin/python docs/ultra/reviews/verify-d2-evidence.py RUN_ROOT NEW_OUTPUT.json`.
+It verifies every inference/scoring checksum, actual Final-to-outcome-to-score
+hypothesis joins, exact audio/reference populations, source checkpoint/export
+payloads, immutable export source bytes, native build identity, training-prefix
+totals and actual full-panel native/NumPy parity. It retains every mismatch if
+one occurs and distinguishes the minimum handoff gates from exact equivalence.
+The paired scorer executable is retained with
+`m2-r0-d2-s5000-paired-provenance.json`; its original standalone build source was
+not captured. Rust normalization and input/output hashes remain bound. The prior
+M1/M2 frontier files are unchanged. All qualification-dependent fields remain null.
+
 Earlier instrument attempts remain retained rather than disappearing from the
 account:
 
@@ -441,6 +545,8 @@ current matched service row.
 RSS is the observer's conservative aggregate of process high-water marks; PSS and
 thread peaks are sampled. Peak memory and cold cost are therefore tied to this
 workload and polling scope.
+Peak process count is unavailable in the current receipt; it is not inferred
+from the configured process tree or the peak thread count.
 
 The bridge credits processed samples only after verified EOF drain because its
 reference consumer lacks an authoritative streaming watermark. Intermediate
@@ -501,8 +607,8 @@ Merged `29b1b2c` adds finite cache checks, bounded integer cache lengths, deferr
 cache/position updates after successful greedy decoding, and terminal handling of
 native/coordinator failures. Its injected late-failure regression and the updated
 native parity test execute successfully in the independent full gate. The state
-counter now includes encoder caches and major workspace allocations; a few
-frontend/shape-vector allocations remain excluded, so it is still partial.
+counter at that revision includes encoder caches and major workspace allocations;
+the later `097352b` delivery adds the excluded frontend/shape-vector allocations.
 Aggregate measured service memory remains the authority. The lead retains D2
 selection, data/timing audit, freeze, coordinated qualifying window, independent
 reproduction and release evidence.
@@ -537,9 +643,17 @@ engine/service cost scopes, refusal of unverified qualification, positive
 CPU-library evidence, retained actual artifacts and file-backed child-output
 capture. Independent integration tests pass. Remaining WP5 scope includes
 complete immutable per-job manifests, create-new suite artifacts, explicit
-controlled-EOF labels and correctly scoped timing populations. The adapter's
-GGUF hashing currently allocates the whole file before its resource window and
-needs streaming/preparation-scope clarification. Common-suite engine cost rows
+controlled-EOF labels and correctly scoped timing populations. At that revision,
+GGUF hashing allocates the whole file before its resource window. The later
+`097352b` delivery adds 64-KiB streaming hashes, preparation/child CPU scope,
+per-job manifests, create-new artifacts, controlled-EOF/population labels and
+separate build/launch source fields. These mechanisms are independently reviewed
+in source; the lead retains integration gates. The new v1.1 test has eight source
+examples, so `streams=16/32` settings do not exercise that many active instances.
+Follow-up requests cover actual 16/32-stream fixtures, serialized encoder-call
+counting, effective observer placement and fail-closed topology validation.
+Declared disjoint CPU sets alone do not demonstrate an observer was pinned.
+Common-suite engine cost rows
 do not replace the measured bridge service rows or establish qualification.
 
 The accepted plan's remaining requirements include D2's fixed clean/other DEV
@@ -551,3 +665,12 @@ needs its matched step-7800 control and separate experiment identity.
 The recorded data ruling blocks TED-LIUM 3 on rights; it was not fetched or
 silently replaced. The MFA listening audit remains open. These dependencies do
 not supply missing domain-shift or latency evidence to this DEV pilot.
+
+The subsequent owner instruction activates an aggressive CPU port with Rust
+preferred. The lead's [engine plan](../ENGINE_PLAN.md) assigns a fused Rust engine
+and a separately improved ORT control. The independent
+[acceleration review](2026-11-21-cpu-acceleration-review.md) records reference-blind
+profiles, actual ISA/topology and acceptance constraints. The first diagnostic
+attributes 87.14% of reference-consumer process CPU to the encoder; these are
+small-panel diagnostic fractions, not native or whole-service measurements.
+No accelerated engine speedup or deployment qualification is established yet.
