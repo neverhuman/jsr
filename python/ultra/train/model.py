@@ -211,6 +211,10 @@ class Encoder(nn.Module):
             x = blk(x, mask, pad, cos, sin)
         if c.family == "multirate":
             skip = x
+            # Zero padded 25 Hz positions before pairing: a valid final position 2k of an
+            # odd-length utterance must pair with zeros (as the streaming path does), never with
+            # a padded state, which the blocks leave nonzero (biases, self-attending queries).
+            x = x.masked_fill(pad[..., None], 0.0)
             if t % 2:
                 x = F.pad(x, (0, 0, 0, 1))
             m = self.pair(x.reshape(b, -1, 2 * d))  # position k <- 25 Hz positions 2k, 2k+1

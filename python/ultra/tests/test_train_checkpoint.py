@@ -197,3 +197,25 @@ def test_qkv_constraint_caps_rows_and_gain_and_persists(workdir):
     t.save(wait=True)
     u = _trainer(workdir)
     assert u.resume() and u.qkv_caps is not None and u.qkv_ref_norm == t.qkv_ref_norm
+
+
+def test_weight_ema_tracks_and_resumes_bit_exact(workdir):
+    a = _trainer(os.path.join(workdir, "a"))
+    a.cfg.ema_decay = 0.9
+    a.run(max_steps=6)
+    assert a.ema is not None
+    w = a.model.state_dict()
+    k = next(k for k, v in w.items() if v.is_floating_point() and v.dim() == 2)
+    assert not torch.equal(a.ema[k], w[k])  # lags the weights
+    b = _trainer(os.path.join(workdir, "b"))
+    b.cfg.ema_decay = 0.9
+    b.run(max_steps=3)
+    c = _trainer(os.path.join(workdir, "b"))
+    c.cfg.ema_decay = 0.9
+    assert c.resume() and c.ema is not None
+    c.run(max_steps=3)
+    for name in a.ema:
+        assert torch.equal(a.ema[name], c.ema[name]), name
+    off = _trainer(os.path.join(workdir, "off"))
+    off.run(max_steps=2)
+    assert off.ema is None
