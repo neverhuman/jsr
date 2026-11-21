@@ -114,6 +114,11 @@ pub trait SimSlotBank {
     fn decode_ready_step(&mut self, decode: DecodeMode, max_batch: usize) -> (usize, u64);
     fn take_completed_slot(&mut self, slot: usize) -> String;
     fn on_periodic_tick(&mut self) {}
+    /// Return and clear any fatal stream error recorded by `accept_packet` or `decode_ready_step`
+    /// so `simulate_grid` terminates immediately instead of spinning in a non-progress loop.
+    fn take_error(&mut self) -> Option<StreamError> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -335,7 +340,13 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
             // Drain EVERY ready chunk on this grid tick across all backends (R0/ORT loop over
             // ready chunks; ultra-engine fuses up to `max_chunks` chunks per pass; FREEZE §3 B2).
             loop {
+                if let Some(err) = bank.take_error() {
+                    return Err(err);
+                }
                 let (ready_n, w) = bank.decode_ready_step(params.decode, params.max_batch);
+                if let Some(err) = bank.take_error() {
+                    return Err(err);
+                }
                 if ready_n == 0 {
                     break;
                 }

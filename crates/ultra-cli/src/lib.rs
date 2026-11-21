@@ -22,9 +22,11 @@ pub mod suite_looks;
 pub mod suite_manifest;
 mod suite_mfa;
 pub mod suite_panel;
+pub mod suite_pins;
 mod suite_r1_z;
 mod suite_runners;
 pub mod suite_slices;
+pub mod suite_stats;
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;

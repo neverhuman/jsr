@@ -236,11 +236,20 @@ fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
             true
         )
         .is_ok());
-        // B1 + S4: refuse fewer physical cores than workers, refuse excess when exact required,
-        // and assign strictly 1 physical core per worker.
+        // B1 + S4 + N9: refuse fewer physical cores than workers, refuse excess when exact
+        // required, refuse cross-CCX spreads (0,4,8,12), and accept same-CCX (56..=59) & 15x4.
+        use ultra_stream::verify_worker_ccx_packing;
         assert!(assign_worker_cpus(4, &[56, 57], Some(&[48]), false).is_err());
         assert!(assign_worker_cpus(4, &[56, 57, 58, 59, 60, 61], Some(&[48]), true).is_err());
+        assert!(assign_worker_cpus(4, &[0, 4, 8, 12], Some(&[48]), true).is_err());
+        assert!(verify_worker_ccx_packing(&[vec![0], vec![4], vec![8], vec![12]], false).is_err());
         let assigned = assign_worker_cpus(4, &[56, 57, 58, 59], Some(&[48]), true).expect("4:4 ok");
         assert_eq!(assigned, vec![vec![56], vec![57], vec![58], vec![59]]);
+        verify_worker_ccx_packing(&assigned, false).expect("same CCX ok");
+        let full_15ccx: Vec<usize> = (0..60).collect();
+        let assigned_full = assign_worker_cpus(60, &full_15ccx, Some(&[60, 61, 62, 63]), true)
+            .expect("15 CCX x 4 ok");
+        verify_worker_ccx_packing(&assigned_full, true).expect("15x4 packing ok");
+        assert!(verify_worker_ccx_packing(&assigned, true).is_err());
     }
 }

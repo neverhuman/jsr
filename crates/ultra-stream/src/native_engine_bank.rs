@@ -61,9 +61,7 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
     }
 
     fn utt_samples(&self, utt_pos: usize) -> usize {
-        self.utts[(utt_pos + self.utt_offset) % self.utts.len()]
-            .pcm
-            .len()
+        self.utts[utt_pos % self.utts.len()].pcm.len()
     }
 
     fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
@@ -186,6 +184,10 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
         if let Some(s) = self.sampler.as_mut() {
             s.sample();
         }
+    }
+
+    fn take_error(&mut self) -> Option<StreamError> {
+        self.last_error.take()
     }
 }
 

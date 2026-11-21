@@ -40,6 +40,7 @@ pub(crate) struct SuiteCtx<'a> {
     pub precision: Option<&'a str>,
     pub threads: i32,
     pub commit: &'a str,
+    pub hardware_id: &'a str,
     pub status_tag: &'a str,
     pub host_snap: &'a SuiteHostSnapshot,
     pub cli_args: &'a [String],
@@ -159,7 +160,7 @@ pub(crate) fn run_offline_candidate(
         batch_size: 1,
         offline: off_cfg,
         source_commit: ctx.commit.into(),
-        hardware_id: "H0".into(),
+        hardware_id: ctx.hardware_id.into(),
     })?;
     res.receipt.completion_status = ctx.status_tag.into();
     let sil = match ctx.silence_probe_wav {

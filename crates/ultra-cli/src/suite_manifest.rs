@@ -40,6 +40,8 @@ pub struct SuiteJobManifest {
     pub cpu_affinity_list: String,
     pub cpu_governor: String,
     pub cpu_boost: String,
+    pub hostname: String,
+    pub hardware_id: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
     pub observer_topology_verified: Option<bool>,
@@ -54,6 +56,8 @@ pub(crate) struct SuiteHostSnapshot {
     pub cpu_affinity_list: String,
     pub cpu_governor: String,
     pub cpu_boost: String,
+    pub hostname: String,
+    pub hardware_id: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
     pub observer_topology_verified: Option<bool>,
@@ -79,13 +83,33 @@ fn read_cpu_governor_and_boost() -> (String, String) {
     (gov, boost)
 }
 
+pub fn current_hostname() -> String {
+    read_sysfs_trimmed("/proc/sys/kernel/hostname")
+        .or_else(|| read_sysfs_trimmed("/etc/hostname"))
+        .unwrap_or_else(|| "unknown".into())
+}
+
+pub fn detect_hardware_id() -> String {
+    let h = current_hostname();
+    match h.as_str() {
+        "xbabe3" => "H0".into(),
+        "" | "unknown" => "H0".into(),
+        other => other.to_owned(),
+    }
+}
+
 impl SuiteHostSnapshot {
-    pub fn capture(npz_path: &Path, observer_cpus: Option<&str>) -> Result<Self, CliError> {
+    pub fn capture(
+        npz_path: &Path,
+        observer_cpus: Option<&str>,
+        hardware_id: &str,
+    ) -> Result<Self, CliError> {
         let exe = std::env::current_exe()?;
         let executable_sha256 = sha256_file(&exe)?;
         let npz_sha256 = sha256_file(npz_path)?;
         let cpu_affinity_list = read_cpu_affinity_list();
         let (cpu_governor, cpu_boost) = read_cpu_governor_and_boost();
+        let hostname = current_hostname();
         let (observer_service_disjoint, observer_topology_verified) = match observer_cpus {
             Some(obs) => {
                 let topo_ok = validate_observer_cpus_disjoint(&cpu_affinity_list, obs, false)?;
@@ -100,6 +124,8 @@ impl SuiteHostSnapshot {
             cpu_affinity_list,
             cpu_governor,
             cpu_boost,
+            hostname,
+            hardware_id: hardware_id.to_owned(),
             observer_cpus: observer_cpus.map(str::to_owned),
             observer_service_disjoint,
             observer_topology_verified,
@@ -149,6 +175,8 @@ impl SuiteHostSnapshot {
             cpu_affinity_list: self.cpu_affinity_list.clone(),
             cpu_governor: self.cpu_governor.clone(),
             cpu_boost: self.cpu_boost.clone(),
+            hostname: self.hostname.clone(),
+            hardware_id: self.hardware_id.clone(),
             observer_cpus: self.observer_cpus.clone(),
             observer_service_disjoint: self.observer_service_disjoint,
             observer_topology_verified: self.observer_topology_verified,
@@ -271,47 +299,10 @@ pub fn verify_freeze_tag_ancestor(tag: &str, build_commit: &str) -> Result<Strin
     Ok(tag_commit)
 }
 
-/// Verify pinned manifest SHA-256 entries in `docs/ultra/CANDIDATES.lock` (`B4`).
-pub fn verify_candidates_lock_pins(lock_path: &Path) -> Result<usize, CliError> {
-    let raw = std::fs::read_to_string(lock_path).map_err(|e| {
-        CliError::Config(format!(
-            "--qualified requires `{}` to verify pinned candidate identities: {e}",
-            lock_path.display()
-        ))
-    })?;
-    let mut cur_manifest: Option<String> = None;
-    let mut verified = 0usize;
-    for line in raw.lines() {
-        let t = line.trim();
-        if let Some(m) = t.strip_prefix("manifest:") {
-            cur_manifest = Some(m.split('#').next().unwrap_or("").trim().to_owned());
-        } else if let Some(s) = t.strip_prefix("manifest_sha256:") {
-            let want = s.split('#').next().unwrap_or("").trim();
-            if let Some(mp) = cur_manifest.take() {
-                if !mp.is_empty() && want.len() == 64 {
-                    let got = sha256_file(Path::new(&mp))?;
-                    if !got.eq_ignore_ascii_case(want) {
-                        return Err(CliError::Config(format!(
-                            "CANDIDATES.lock pin mismatch for `{mp}`: expected {want}, got {got}"
-                        )));
-                    }
-                    verified += 1;
-                }
-            }
-        }
-    }
-    if verified == 0 {
-        return Err(CliError::Config(format!(
-            "no pinned manifest_sha256 entries verified in `{}`",
-            lock_path.display()
-        )));
-    }
-    Ok(verified)
-}
-
 /// Fail-closed pre-flight validation for `--qualified` runs (`PLAN_TO_V1` G6 / `FREEZE.md` §4):
 /// requires disjoint CCX observer (sysfs verified), `BENCH_LEASE.host`, clean build provenance,
-/// `CANDIDATES.lock` pin integrity, and `bench-freeze-v1` tag as an ancestor of `build_commit`.
+/// no `ULTRA_ENGINE_*` env overrides, and `bench-freeze-v1` tag as an ancestor of `build_commit`.
+/// Loaded candidate artifact pins are verified separately via `suite_pins::verify_loaded_candidates_against_lock` (`B4`).
 pub fn validate_qualified_preflight(
     service_cpus: &str,
     observer_cpus: Option<&str>,
@@ -350,7 +341,6 @@ pub fn validate_qualified_preflight(
             )));
         }
     }
-    verify_candidates_lock_pins(Path::new("docs/ultra/CANDIDATES.lock"))?;
     verify_freeze_tag_ancestor(freeze_tag, build_commit)
 }
 

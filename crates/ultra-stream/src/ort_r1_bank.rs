@@ -70,8 +70,7 @@ impl SimSlotBank for OrtR1SlotBank<'_> {
     }
 
     fn utt_samples(&self, utt_pos: usize) -> usize {
-        let idx = (utt_pos + self.utt_offset) % self.utts.len();
-        self.utts[idx].pcm.len()
+        self.utts[utt_pos % self.utts.len()].pcm.len()
     }
 
     fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
@@ -188,6 +187,10 @@ impl SimSlotBank for OrtR1SlotBank<'_> {
         if let Some(s) = self.sampler.as_mut() {
             s.sample();
         }
+    }
+
+    fn take_error(&mut self) -> Option<StreamError> {
+        self.last_error.take()
     }
 }
 
