@@ -18,10 +18,10 @@ use super::{PackedF32, NR};
 
 mod attention;
 mod int8;
+mod lanes8;
 mod smmla;
 #[cfg(test)]
 mod tests;
-mod lanes8;
 
 use lanes8::{exp8, V8};
 
