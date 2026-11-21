@@ -23,8 +23,21 @@ from train.tokenizer import Tokenizer, tokenizer_path
 PANEL_SCHEMA = "ultra.dev-panel/v1"
 
 
+def check_split(split: str) -> str:
+    """Refuse held-out test splits on the plain --split path (as the panel loader does): model
+    and checkpoint choices are made on dev only, so this tool never scores test-* sets."""
+    if split.startswith("test-"):
+        raise ValueError(f"split {split!r} refused: test-* splits are held out and never scored here")
+    return split
+
+
 def panel_utts(path: str, only: str | None = None):
-    """Utterances of an `ultra.dev-panel/v1` panel (python/ultra/tools/dev_panel.py), verified:
+    """Utterances of a verified panel; see load_panel."""
+    return load_panel(path, only)[0]
+
+
+def load_panel(path: str, only: str | None = None):
+    """(utterances, manifest_sha256) of an `ultra.dev-panel/v1` panel. Utterances of an `ultra.dev-panel/v1` panel (python/ultra/tools/dev_panel.py), verified:
     the manifest sha256 is recomputed exactly as the tool writes it (sha256 of the panel without
     `manifest_sha256`, json.dumps(indent=1, sort_keys=True)); each split must be a `dev-*` split
     whose cache file hashes to the recorded `cache_sha256`; every uid must exist in its cache."""
@@ -59,10 +72,17 @@ def panel_utts(path: str, only: str | None = None):
         out.extend(chosen)
     if only is not None and not out:
         raise ValueError(f"panel has no split {only!r}")
-    return out
+    return out, digest
 
 
-def main() -> None:
+def panel_record(path: str, only: str | None, manifest_sha256: str) -> dict:
+    """Identity of the panel an evaluation used, for its output record: the file name alone does
+    not pin the contents, the verified manifest sha256 does."""
+    return {"file": os.path.basename(path), "split": only or "all",
+            "manifest_sha256": manifest_sha256}
+
+
+def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--checkpoint", default=None)
@@ -78,7 +98,9 @@ def main() -> None:
                     help="ultra.dev-panel/v1 panel to score instead of --split/--limit "
                          "(manifest and cache hashes verified; dev-* splits only)")
     ap.add_argument("--panel-split", default=None, help="score only this split of the panel")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
+    if a.panel is None:
+        check_split(a.split)
     torch.set_num_threads(a.threads)
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
@@ -90,7 +112,11 @@ def main() -> None:
     tok = Tokenizer(tokenizer_path(4096))
     tok_c = Tokenizer(tokenizer_path(1024))
     feat = Featurizer(tok, tok_c)
-    utts = panel_utts(a.panel, a.panel_split) if a.panel else load_split(a.split, None if a.limit_all else a.limit)
+    panel_sha = None
+    if a.panel:
+        utts, panel_sha = load_panel(a.panel, a.panel_split)
+    else:
+        utts = load_split(a.split, None if a.limit_all else a.limit)
     exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in utts), key=lambda e: e.seconds)
     refs, hyps, ctc_hyps, uids, forced, exact, ctc_exact = [], [], [], [], 0, 0, 0
     for i in range(0, len(exs), 8):
@@ -114,6 +140,8 @@ def main() -> None:
            "n": len(refs), "max_symbols": a.max_symbols,
            "forced_advances": forced, "exact_utts": exact, **w,
            "ctc_wer": wc["wer"], "ctc_exact_utts": ctc_exact}
+    if a.panel:
+        out["panel"] = panel_record(a.panel, a.panel_split, panel_sha)
     if a.dump:
         with open(a.dump, "w") as fh:
             for u, r, h, c in zip(uids, refs, hyps, ctc_hyps, strict=True):
