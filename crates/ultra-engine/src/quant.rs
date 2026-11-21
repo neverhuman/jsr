@@ -185,6 +185,23 @@ impl PackedI8 {
         self
     }
 
+    /// Rebuild the i8mm packing after `data` was edited in place (tests).
+    #[cfg(test)]
+    pub(crate) fn rebuild_mm(&mut self) {
+        let me = std::mem::replace(
+            self,
+            Self {
+                mm: Vec::new(),
+                ..self.clone()
+            },
+        );
+        *self = Self {
+            mm: Vec::new(),
+            ..me
+        }
+        .with_mm();
+    }
+
     /// The i8mm packing of panel `p` (empty if not built).
     #[cfg_attr(not(target_arch = "aarch64"), allow(dead_code))]
     pub(crate) fn mm_panel(&self, p: usize) -> &[i8] {
