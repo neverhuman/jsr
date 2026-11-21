@@ -11,7 +11,7 @@ use super::super::{scalar, NR};
 
 pub(crate) fn quantize_row(x: &[f32], out: &mut [i8], qmax: f32) -> (f32, f32) {
     assert_eq!(x.len(), out.len());
-    let (lo, hi) = scalar::row_range(x);
+    let (lo, hi) = row_range(x);
     let Some((c, scale, inv)) = scalar::row_params(lo, hi, qmax) else {
         return scalar::finish_row(x, out, lo, hi, qmax);
     };
@@ -42,6 +42,34 @@ pub(crate) fn quantize_row(x: &[f32], out: &mut [i8], qmax: f32) -> (f32, f32) {
         *o = ((v - c) * inv).round_ties_even().clamp(-qmax, qmax) as i8;
     }
     (scale, c)
+}
+
+/// `scalar::row_range` with four-lane min/max (exact in any order) and a NaN/Inf screen
+/// (`v * 0` is NaN exactly for non-finite `v`).
+fn row_range(x: &[f32]) -> (f32, f32) {
+    let main = x.len() - x.len() % 4;
+    // SAFETY: register-only NEON ops; loads at i + 4 <= main <= x.len().
+    let (l4, h4, bad) = unsafe {
+        let (mut lo, mut hi, mut bad) = (
+            vdupq_n_f32(f32::INFINITY),
+            vdupq_n_f32(f32::NEG_INFINITY),
+            vdupq_n_f32(0.0),
+        );
+        let mut i = 0;
+        while i < main {
+            let v = vld1q_f32(x.as_ptr().add(i));
+            lo = vminq_f32(lo, v);
+            hi = vmaxq_f32(hi, v);
+            bad = vaddq_f32(bad, vmulq_f32(v, vdupq_n_f32(0.0)));
+            i += 4;
+        }
+        (vminvq_f32(lo), vmaxvq_f32(hi), vaddvq_f32(bad))
+    };
+    let (tl, th) = scalar::row_range(&x[main..]);
+    if bad.is_nan() || tl.is_nan() {
+        return (f32::NAN, f32::NAN);
+    }
+    (l4.min(tl), h4.max(th))
 }
 
 pub(crate) fn has_i8mm() -> bool {
