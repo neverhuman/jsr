@@ -17,8 +17,28 @@ use std::time::Instant;
 
 use serde_json::json;
 use ultra_engine::{Engine, EngineStream, Isa, Model, Precision, Workspace};
-use ultra_eval::normalise::normalise_words;
-use ultra_eval::wer::align;
+#[cfg(feature = "wer")]
+use ultra_eval::{normalise::normalise_words, wer::align};
+
+/// (errors, ref words, substitutions, deletions, insertions) of one utterance.
+#[cfg(feature = "wer")]
+fn score(reference: &str, hyp: &str) -> Option<[u64; 5]> {
+    let al = align(&normalise_words(reference), &normalise_words(hyp));
+    let c = al.counts;
+    Some([
+        c.errors(),
+        c.ref_words,
+        c.substitutions,
+        c.deletions,
+        c.insertions,
+    ])
+}
+
+/// Built without the `wer` feature: transcripts are written unscored.
+#[cfg(not(feature = "wer"))]
+fn score(_reference: &str, _hyp: &str) -> Option<[u64; 5]> {
+    None
+}
 use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
 
 struct Args {
@@ -77,6 +97,7 @@ fn parse() -> Result<Args, String> {
                 a.isa = match v()?.as_str() {
                     "scalar" => Isa::Scalar,
                     "avx2fma" => Isa::Avx2Fma,
+                    "neon" => Isa::Neon,
                     o => return Err(format!("unknown isa {o}")),
                 }
             }
@@ -97,14 +118,22 @@ fn parse() -> Result<Args, String> {
 
 /// This thread's CPU run time in seconds.
 fn thread_cpu_s() -> f64 {
-    std::fs::read_to_string("/proc/thread-self/schedstat")
+    // Linux: this thread's scheduler run time. Elsewhere (macOS): process user + system time
+    // (the binaries decode on one thread; pool workers, if enabled, are then included).
+    if let Some(v) = std::fs::read_to_string("/proc/thread-self/schedstat")
         .ok()
         .and_then(|s| {
             s.split_whitespace()
                 .next()
                 .and_then(|v| v.parse::<f64>().ok())
         })
-        .map_or(f64::NAN, |ns| ns * 1e-9)
+    {
+        return v * 1e-9;
+    }
+    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, |u| {
+        let t = |tv: nix::sys::time::TimeVal| tv.tv_sec() as f64 + tv.tv_usec() as f64 * 1e-6;
+        t(u.user_time()) + t(u.system_time())
+    })
 }
 
 /// Reference token ids keyed by utterance id (`rows[].id`, `rows[].py_tokens`).
@@ -249,12 +278,13 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut rows = Vec::new();
     for (i, d) in done.into_iter().enumerate() {
         let (toks, text, f) = d.ok_or("an utterance never finished")?;
-        let al = align(&normalise_words(&refs[i].text), &normalise_words(&text));
-        errs += al.counts.errors();
-        words += al.counts.ref_words;
-        subs += al.counts.substitutions;
-        dels += al.counts.deletions;
-        ins += al.counts.insertions;
+        if let Some([e, w, s, d, n]) = score(&refs[i].text, &text) {
+            errs += e;
+            words += w;
+            subs += s;
+            dels += d;
+            ins += n;
+        }
         forced += f;
         let eq = ref_toks
             .as_ref()
@@ -267,7 +297,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
                          "equal_reference_tokens": eq}),
         );
     }
-    let wer = 100.0 * errs as f64 / words.max(1) as f64;
+    let wer = (words > 0).then(|| 100.0 * errs as f64 / words as f64);
     let summary = json!({
         "schema": "ultra.engine-eval/v1",
         "exploratory": true,
