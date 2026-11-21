@@ -19,6 +19,7 @@ pub mod ort_r1_fleet;
 mod ort_r1_greedy;
 pub mod ort_r1_stream;
 mod ort_r1_ws;
+pub mod placement;
 pub mod scheduler;
 pub mod sherpa_c_offline;
 pub mod sherpa_c_types;
@@ -34,7 +35,11 @@ pub use api::{
 pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
-pub use fleet_inproc::{run_sp_a_shared_workers, SharedFleetResult, WorkerSummary};
+pub use fleet_inproc::{
+    run_sp_a_shared_workers, run_sp_a_shared_workers_with_observer, SharedFleetResult,
+    WorkerSummary,
+};
+pub use grid_sim::SustainedSample;
 pub use native_engine::NativeEngineBackend;
 pub use native_engine_bank::{
     run_engine_packet_streaming_with_tokens, run_sp_a_native_engine, EnginePacketStreamingRun,
@@ -49,6 +54,9 @@ pub use ort_r1_bank::{
 };
 pub use ort_r1_fleet::{run_sp_a_ort_r1_shared_workers, R1FleetResult};
 pub use ort_r1_stream::OrtR1RawStream;
+pub use placement::{
+    physical_first_cpus, pin_current_thread_verified, verify_worker_l3_and_smt, FleetSeriesPoint,
+};
 pub use scheduler::{
     default_npz_for_split, run_sp_a_zipformer, simulate_grid, sustains_lateness, DecodeMode,
     LatenessQuantiles, SimClock, SimOutcome, SimParams, SimSlotBank, SpAConfig, SpAResult,

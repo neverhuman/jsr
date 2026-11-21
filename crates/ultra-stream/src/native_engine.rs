@@ -34,7 +34,26 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
     ) -> Result<Arc<Self>, StreamError> {
-        Self::load_inner(weights_dir, precision, threads, verify_hashes, false)
+        Self::load_inner(weights_dir, precision, threads, verify_hashes, false, 1)
+    }
+
+    /// Strict loader with configurable `max_chunks` per engine step (`FREEZE.md §3`: `2` on a
+    /// 320 ms density grid). Refuses runtime weight quantisation in timed service loads.
+    pub fn load_with_max_chunks(
+        weights_dir: &Path,
+        precision: Precision,
+        threads: i32,
+        verify_hashes: bool,
+        max_chunks: usize,
+    ) -> Result<Arc<Self>, StreamError> {
+        Self::load_inner(
+            weights_dir,
+            precision,
+            threads,
+            verify_hashes,
+            false,
+            max_chunks.clamp(1, 16),
+        )
     }
 
     /// Diagnostic-only loader allowing load-time `Model::quantize_int8()` when no prepared
@@ -45,7 +64,7 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
     ) -> Result<Arc<Self>, StreamError> {
-        Self::load_inner(weights_dir, precision, threads, verify_hashes, true)
+        Self::load_inner(weights_dir, precision, threads, verify_hashes, true, 1)
     }
 
     fn load_inner(
@@ -54,6 +73,7 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
         allow_unprepared_int8: bool,
+        max_chunks: usize,
     ) -> Result<Arc<Self>, StreamError> {
         if threads != 1 {
             return Err(StreamError::Protocol(format!(
@@ -79,7 +99,8 @@ impl NativeEngineBackend {
                 )));
             }
         };
-        let engine = Engine::new(Arc::new(model), Isa::detect(), precision)?;
+        let engine =
+            Engine::new(Arc::new(model), Isa::detect(), precision)?.with_max_chunks(max_chunks);
         Ok(Arc::new(Self {
             engine,
             arch_sha256,
@@ -88,8 +109,13 @@ impl NativeEngineBackend {
     }
 
     pub fn bundle_id(&self) -> String {
+        let family = if self.engine.model.arch.mid > 0 {
+            "multirate"
+        } else {
+            "dense"
+        };
         format!(
-            "ultra-engine-dense-{}-{}",
+            "ultra-engine-{family}-{}-{}",
             self.engine.precision.as_str(),
             &self.arch_sha256[..12]
         )
@@ -182,12 +208,18 @@ struct NativeEngineAsrStream {
 }
 
 impl NativeEngineAsrStream {
+    /// Lower-bound per-stream retained state bytes: covers both 25 Hz and S_MR 12.5 Hz encoder
+    /// caches (`EncState::retained_bytes`), decoder state, hypothesis string, and event queue.
+    /// Excludes `EngineStream`'s private frontend/feature-ring buffers and shared `Workspace`;
+    /// aggregate process-tree RSS/PSS from `ultra-measure` remains the authoritative memory gate.
     fn retained_stream_bytes(&self) -> u64 {
-        let enc_bytes =
-            (self.raw.enc.k.capacity() + self.raw.enc.v.capacity() + self.raw.enc.conv.capacity())
-                * 4;
-        let dec_bytes = self.raw.tokens().len() * 4;
-        (enc_bytes + dec_bytes + std::mem::size_of::<Self>()) as u64
+        let enc_bytes = self.raw.enc.retained_bytes();
+        let dec_bytes = self.raw.dec.tokens.capacity() * std::mem::size_of::<u32>()
+            + self.raw.dec.dec.capacity() * std::mem::size_of::<f32>();
+        let stream_overhead = self.last_hyp.capacity()
+            + self.events.capacity() * std::mem::size_of::<TranscriptEvent>()
+            + std::mem::size_of::<Self>();
+        (enc_bytes + dec_bytes + stream_overhead) as u64
     }
 
     fn decode_ready(&mut self) -> Result<(), StreamError> {

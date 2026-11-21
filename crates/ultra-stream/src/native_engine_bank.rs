@@ -7,10 +7,10 @@ use std::sync::Arc;
 use ultra_core::receipt::{HonestyLabel, Partition};
 use ultra_engine::{EngineStream, Precision, Workspace};
 use ultra_eval::procfs::TreeSampler;
-use ultra_frontend::npz::{load_npz_audio_only, AudioUtterance};
+use ultra_frontend::npz::AudioUtterance;
 
 use crate::api::StreamError;
-use crate::contrast::read_loadavg;
+use crate::contrast::{load_selected_audio, read_loadavg};
 use crate::grid_sim::{simulate_grid, DecodeMode, SimParams, SimSlotBank};
 use crate::native_engine::NativeEngineBackend;
 use crate::scheduler::{finalize_sp_a_result, RealClock, SpAMeta, SpAResult};
@@ -296,10 +296,12 @@ pub struct EngineSpAConfig {
     pub honesty_label: HonestyLabel,
     pub offset: usize,
     pub limit: Option<usize>,
+    pub selected_indices: Option<Vec<usize>>,
     pub duration_s: Option<f64>,
     pub streams: usize,
     pub decode: DecodeMode,
     pub max_batch: usize,
+    pub max_chunks: usize,
     pub packet_ms: u32,
     pub grid_ms: u32,
     pub lateness_bound_ms: f64,
@@ -316,7 +318,7 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
         format!("int8_source:{}", b.int8_source),
         format!("weights_sha256:{}", a.weights_sha256),
         format!("checkpoint_sha256:{}", a.checkpoint_sha256),
-        "max_chunks:1".into(),
+        format!("max_chunks:{}", b.engine.max_chunks),
     ];
     if let Some(prep) = &b.engine.model.int8_prepared {
         evs.push(format!("weights_int8_sha256:{}", prep.sha256));
@@ -326,8 +328,19 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
 
 /// Run the fixed-deadline SP-A loop over [`NativeEngineBackend`] and emit a validated receipt.
 pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, StreamError> {
-    let backend = NativeEngineBackend::load(&cfg.weights_dir, cfg.precision, cfg.threads, true)?;
-    let utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
+    let backend = NativeEngineBackend::load_with_max_chunks(
+        &cfg.weights_dir,
+        cfg.precision,
+        cfg.threads,
+        true,
+        cfg.max_chunks.max(1),
+    )?;
+    let utts = load_selected_audio(
+        &cfg.npz_path,
+        cfg.offset,
+        cfg.limit,
+        cfg.selected_indices.as_deref(),
+    )?;
     if utts.is_empty() {
         return Err(StreamError::Protocol("empty utterance slice".into()));
     }
@@ -378,6 +391,7 @@ pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, Stream
             honesty_label: cfg.honesty_label,
             offset: cfg.offset,
             limit: cfg.limit,
+            selected_indices: cfg.selected_indices.clone(),
             duration_s: cfg.duration_s,
             streams: cfg.streams,
             decode: cfg.decode,

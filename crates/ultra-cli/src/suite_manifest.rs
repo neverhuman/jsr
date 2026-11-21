@@ -31,6 +31,10 @@ pub struct SuiteJobManifest {
     pub split: String,
     pub npz_path: String,
     pub npz_sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub panel_manifest_sha256: Option<String>,
+    pub grid_ms: u32,
+    pub max_chunks: usize,
     pub precision_requested: Option<String>,
     pub threads: i32,
     pub cpu_affinity_list: String,
@@ -85,6 +89,9 @@ impl SuiteHostSnapshot {
         source_commit: &str,
         split: &str,
         npz_path: &Path,
+        panel_manifest_sha256: Option<&str>,
+        grid_ms: u32,
+        max_chunks: usize,
         precision_requested: Option<&str>,
         threads: i32,
         loadavg_before: [f64; 3],
@@ -107,6 +114,9 @@ impl SuiteHostSnapshot {
             split: split.to_owned(),
             npz_path: npz_path.to_string_lossy().into_owned(),
             npz_sha256: self.npz_sha256.clone(),
+            panel_manifest_sha256: panel_manifest_sha256.map(str::to_owned),
+            grid_ms,
+            max_chunks,
             precision_requested: precision_requested.map(str::to_owned),
             threads,
             cpu_affinity_list: self.cpu_affinity_list.clone(),
@@ -188,6 +198,80 @@ pub fn validate_observer_cpus_disjoint(
     Ok(all_topo_ok)
 }
 
+/// Verify that `tag` exists in Git and its target commit is an ancestor of `HEAD`.
+pub fn verify_freeze_tag_ancestor(tag: &str) -> Result<String, CliError> {
+    let rev = std::process::Command::new("git")
+        .args([
+            "rev-parse",
+            "--verify",
+            &format!("refs/tags/{tag}^{{commit}}"),
+        ])
+        .output()
+        .map_err(|e| {
+            CliError::Config(format!("git rev-parse for freeze tag `{tag}` failed: {e}"))
+        })?;
+    if !rev.status.success() {
+        return Err(CliError::Config(format!(
+            "--qualified requires freeze tag `{tag}` to exist in git"
+        )));
+    }
+    let commit = String::from_utf8_lossy(&rev.stdout).trim().to_owned();
+    let anc = std::process::Command::new("git")
+        .args(["merge-base", "--is-ancestor", &commit, "HEAD"])
+        .status()
+        .map_err(|e| CliError::Config(format!("git merge-base check failed: {e}")))?;
+    if !anc.success() {
+        return Err(CliError::Config(format!(
+            "--qualified requires freeze tag `{tag}` ({commit}) to be an ancestor of HEAD"
+        )));
+    }
+    Ok(commit)
+}
+
+/// Fail-closed pre-flight validation for `--qualified` runs (`PLAN_TO_V1` G6 / `FREEZE.md` §4):
+/// requires disjoint CCX observer (sysfs verified), `BENCH_LEASE.host`, clean build provenance,
+/// and `bench-freeze-v1` tag as an ancestor of `HEAD`.
+pub fn validate_qualified_preflight(
+    service_cpus: &str,
+    observer_cpus: Option<&str>,
+    lease_path: Option<&Path>,
+    build_commit: &str,
+    build_dirty: bool,
+    freeze_tag: &str,
+) -> Result<String, CliError> {
+    let Some(obs) = observer_cpus else {
+        return Err(CliError::Config(
+            "--qualified requires explicit --observer-cpus on a separate CCX from the service cpuset"
+                .into(),
+        ));
+    };
+    validate_observer_cpus_disjoint(service_cpus, obs, true)?;
+    let Some(lp) = lease_path else {
+        return Err(CliError::Config(
+            "--qualified requires --lease .../BENCH_LEASE.host".into(),
+        ));
+    };
+    if lp.file_name().and_then(|n| n.to_str()) != Some("BENCH_LEASE.host") {
+        return Err(CliError::Config(format!(
+            "--qualified requires a host lease named `BENCH_LEASE.host` (got `{}`)",
+            lp.display()
+        )));
+    }
+    if build_dirty || build_commit == "unknown" || build_commit.is_empty() {
+        return Err(CliError::Config(format!(
+            "--qualified requires a clean committed release build (commit={build_commit}, dirty={build_dirty})"
+        )));
+    }
+    for (k, _) in std::env::vars() {
+        if k.starts_with("ULTRA_ENGINE_") {
+            return Err(CliError::Config(format!(
+                "--qualified refuses unrecorded engine environment override `{k}` (FREEZE.md §3)"
+            )));
+        }
+    }
+    verify_freeze_tag_ancestor(freeze_tag)
+}
+
 pub(crate) fn sha256_file(path: &Path) -> Result<String, CliError> {
     let mut fh = File::open(path)?;
     Ok(sha256_reader(&mut fh)?)
@@ -223,6 +307,13 @@ pub(crate) fn write_receipt_create_new(path: &Path, rec: &Receipt) -> Result<(),
 }
 
 pub(crate) fn write_scores_create_new(path: &Path, rows: &[ScoreRecord]) -> Result<(), CliError> {
+    write_jsonl_create_new(path, rows)
+}
+
+pub(crate) fn write_jsonl_create_new<T: Serialize>(
+    path: &Path,
+    rows: &[T],
+) -> Result<(), CliError> {
     let mut fh = open_create_new(path)?;
     for r in rows {
         let line = serde_json::to_string(r).map_err(|e| CliError::Internal(e.to_string()))?;
@@ -286,5 +377,38 @@ mod tests {
         assert!(validate_observer_cpus_disjoint("24-27", "26-29", false).is_err());
         assert!(validate_observer_cpus_disjoint("52", "48-51", false).is_ok());
         assert!(validate_observer_cpus_disjoint("4095", "48", true).is_err());
+
+        // Qualifying pre-flight refuses missing observer, non-host lease, dirty build, missing tag.
+        assert!(
+            validate_qualified_preflight("52", None, None, "abc", false, "bench-freeze-v1")
+                .is_err()
+        );
+        assert!(validate_qualified_preflight(
+            "52",
+            Some("48"),
+            Some(Path::new("/tmp/BENCH_LEASE.runtime")),
+            "abc",
+            false,
+            "bench-freeze-v1"
+        )
+        .is_err());
+        assert!(validate_qualified_preflight(
+            "52",
+            Some("48"),
+            Some(Path::new("/tmp/BENCH_LEASE.host")),
+            "abc",
+            true,
+            "bench-freeze-v1"
+        )
+        .is_err());
+        assert!(validate_qualified_preflight(
+            "52",
+            Some("48"),
+            Some(Path::new("/tmp/BENCH_LEASE.host")),
+            "abc",
+            false,
+            "nonexistent-freeze-tag-v999"
+        )
+        .is_err());
     }
 }

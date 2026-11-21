@@ -15,6 +15,7 @@
 pub mod cochlea;
 pub mod mel;
 pub mod npz;
+pub mod portable_math;
 pub mod trainer_mel;
 mod trainer_mel_avx2;
 pub mod wav;
