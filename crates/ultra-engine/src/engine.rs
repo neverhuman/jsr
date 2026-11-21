@@ -30,6 +30,9 @@ pub struct Engine {
     /// Most consecutive ready chunks of one stream run in one step (layer by layer, so one
     /// weight pass serves them all). Outputs are identical for every value.
     pub max_chunks: usize,
+    /// Int8 only: 7-bit activation codes with the paired-accumulation kernel (experimental;
+    /// re-gate accuracy before use).
+    pub act7: bool,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -160,7 +163,14 @@ impl Engine {
             isa,
             precision,
             max_chunks: 1,
+            act7: false,
         })
+    }
+
+    /// Use 7-bit activation codes in int8 linear layers (see [`Engine::act7`]).
+    pub fn with_act7(mut self, on: bool) -> Self {
+        self.act7 = on;
+        self
     }
 
     /// Allow up to `k` (1..=16) ready chunks per stream per step. Streams created afterwards
@@ -277,6 +287,8 @@ impl Engine {
             decs.push(dec);
             off += per(n);
         }
+        ws.enc.q.act7 = self.act7;
+        ws.dec.q.act7 = self.act7;
         let m = &self.model;
         let result = encode_chunk(
             m,

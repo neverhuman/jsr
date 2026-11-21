@@ -249,6 +249,21 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
         let mut o2 = vec![1.0; rows * n];
         gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o1);
         gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
+        // 7-bit codes through the paired kernel: same exact result (extremes +-63).
+        let a7: Vec<i8> = a
+            .iter()
+            .map(|&v| {
+                if n == 17 {
+                    v.signum() * 63
+                } else {
+                    (v / 2).clamp(-63, 63)
+                }
+            })
+            .collect();
+        let (mut r1, mut r2) = (vec![0.0; rows * n], vec![1.0; rows * n]);
+        gemm_i8(Isa::Scalar, &p, &a7, &sa, &ca, rows, &mut r1);
+        gemm_i8_a7(isa, &p, &a7, &sa, &ca, rows, &mut r2);
+        assert_eq!(r1, r2, "a7 rows {rows} n {n} k {k}");
         assert_eq!(o1, o2, "rows {rows} n {n} k {k}");
         if n == 17 {
             let full = (k as f32) * 127.0 * 127.0;
@@ -283,7 +298,42 @@ fn attend_head_simd_matches_scalar() {
         let (mut s1, mut s2) = (vec![0.0; n * nk], vec![0.0; n * nk]);
         let mut o1 = vec![0.0; n * 2 * dh];
         let mut o2 = vec![0.0; n * 2 * dh];
-        // Scores alone are bit-exact (same FMA chain).
+        // Scores equal the pre-tiling row-major kernel's order (a0/a1 chains + hsum) bit for
+        // bit, emulated here directly on the key rows.
+        if dh % 8 == 0 {
+            let legacy = |qi: &[f32], key: &dyn Fn(usize) -> f32| -> f32 {
+                let nv = dh / 8;
+                let (mut a0, mut a1) = ([0.0f32; 8], [0.0f32; 8]);
+                for c in 0..dh / 16 {
+                    for l in 0..8 {
+                        a0[l] = qi[16 * c + l].mul_add(key(16 * c + l), a0[l]);
+                        a1[l] = qi[16 * c + 8 + l].mul_add(key(16 * c + 8 + l), a1[l]);
+                    }
+                }
+                if nv % 2 == 1 {
+                    for l in 0..8 {
+                        a0[l] = qi[dh - 8 + l].mul_add(key(dh - 8 + l), a0[l]);
+                    }
+                }
+                let v: Vec<f32> = (0..8).map(|l| a0[l] + a1[l]).collect();
+                let s4: Vec<f32> = (0..4).map(|l| v[l] + v[l + 4]).collect();
+                ((s4[0] + s4[2]) + (s4[1] + s4[3])) * scale
+            };
+            let mut s0 = vec![0.0f32; n * nk];
+            scalar::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s0);
+            for i in 0..n {
+                for j in 0..nk {
+                    let c = (start + j) % ring;
+                    let want = legacy(&q[i * 3 * dh..i * 3 * dh + dh], &|e| kt[kt_index(c, e, dh)]);
+                    assert_eq!(
+                        s0[i * nk + j].to_bits(),
+                        want.to_bits(),
+                        "legacy order dh {dh}"
+                    );
+                }
+            }
+        }
+        // Scores alone are bit-exact between scalar and SIMD (same order).
         scalar::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s1);
         #[cfg(target_arch = "x86_64")]
         if dh % 8 == 0 {

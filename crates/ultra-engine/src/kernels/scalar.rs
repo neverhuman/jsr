@@ -117,27 +117,27 @@ pub fn row_range(x: &[f32]) -> (f32, f32) {
 
 /// Centre, half range and inverse step of a row range (shared by scalar and SIMD).
 #[inline]
-pub fn row_params(lo: f32, hi: f32) -> Option<(f32, f32, f32)> {
+pub fn row_params(lo: f32, hi: f32, qmax: f32) -> Option<(f32, f32, f32)> {
     let half = 0.5 * hi - 0.5 * lo;
     let c = 0.5 * hi + 0.5 * lo;
-    let inv = 127.0 / half;
+    let inv = qmax / half;
     // A tiny (subnormal) half range would overflow the inverse step: treat it as constant.
     (half > 0.0 && half.is_finite() && c.is_finite() && inv.is_finite())
-        .then(|| (c, half / 127.0, inv))
+        .then(|| (c, half / qmax, inv))
 }
 
-/// Per-row centred symmetric quantisation (see `kernels::quantize_row`).
-pub fn quantize_row(x: &[f32], out: &mut [i8]) -> (f32, f32) {
+/// Per-row centred symmetric quantisation to `[-qmax, qmax]` (see `kernels::quantize_row`).
+pub fn quantize_row(x: &[f32], out: &mut [i8], qmax: f32) -> (f32, f32) {
     let (lo, hi) = row_range(x);
-    finish_row(x, out, lo, hi)
+    finish_row(x, out, lo, hi, qmax)
 }
 
 /// Quantise with a known range; returns `(scale, centre)`.
-pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32) -> (f32, f32) {
-    match row_params(lo, hi) {
+pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32, qmax: f32) -> (f32, f32) {
+    match row_params(lo, hi, qmax) {
         Some((c, scale, inv)) => {
             for (o, &v) in out.iter_mut().zip(x) {
-                *o = ((v - c) * inv).round_ties_even().clamp(-127.0, 127.0) as i8;
+                *o = ((v - c) * inv).round_ties_even().clamp(-qmax, qmax) as i8;
             }
             (scale, c)
         }
@@ -189,9 +189,34 @@ pub fn gemm_i8(
     }
 }
 
+/// One attention score in the engine's fixed summation order (the order of the original
+/// row-major AVX2 kernel, kept so kernel layout changes never move a bit):
+/// - 16 partial FMA chains, `a[l] = sum_c q[16c + l] * k[16c + l]` over c ascending
+///   (`l < 16`); when `dh % 16 == 8` the last 8 elements extend chains `l < 8`;
+/// - `v[l] = a[l] + a[l + 8]` (l < 8), then the tree `(v0+v4, v1+v5, v2+v6, v3+v7)`,
+///   `(u0+u2, u1+u3)`, `w0 + w1`; finally `* scale`.
+#[inline]
+pub fn score_fixed_order(q: &[f32], k: impl Fn(usize) -> f32, dh: usize, scale: f32) -> f32 {
+    let mut a = [0.0f32; 16];
+    let full = dh / 16;
+    for c in 0..full {
+        for (l, al) in a.iter_mut().enumerate() {
+            *al = q[16 * c + l].mul_add(k(16 * c + l), *al);
+        }
+    }
+    if dh % 16 == 8 {
+        for (l, al) in a[..8].iter_mut().enumerate() {
+            *al = q[dh - 8 + l].mul_add(k(dh - 8 + l), *al);
+        }
+    }
+    let v: [f32; 8] = std::array::from_fn(|l| a[l] + a[l + 8]);
+    let u: [f32; 4] = std::array::from_fn(|l| v[l] + v[l + 4]);
+    let w = [u[0] + u[2], u[1] + u[3]];
+    (w[0] + w[1]) * scale
+}
+
 #[allow(clippy::too_many_arguments)]
-/// `scores[i * nk + j] = scale * sum_e q[i][e] * k[slot_j][e]` (tiled `kt`) for the slots of
-/// `segs`, accumulated with `mul_add` in ascending `e` (the AVX2 kernel's exact order).
+/// `scores[i * nk + j]` = [`score_fixed_order`] of query `i` and window slot `j` (tiled `kt`).
 pub fn attention_scores(
     q: &[f32],
     q_stride: usize,
@@ -210,11 +235,8 @@ pub fn attention_scores(
         let mut j = 0;
         for (start, len) in segs {
             for c in start..start + len {
-                let mut acc = 0.0f32;
-                for (e, &qv) in qi.iter().enumerate() {
-                    acc = qv.mul_add(kt[super::kt_index(c, e, dh)], acc);
-                }
-                scores[i * nk + j] = acc * scale;
+                scores[i * nk + j] =
+                    score_fixed_order(qi, |e| kt[super::kt_index(c, e, dh)], dh, scale);
                 j += 1;
             }
         }

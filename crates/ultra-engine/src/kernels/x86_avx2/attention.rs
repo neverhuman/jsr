@@ -22,11 +22,8 @@ pub(crate) fn attention_scores(
     unsafe { scores_avx2(q, q_stride, n, dh, kt, ring, segs, scale, scores) }
 }
 
-/// Queries handled together per 8-key column block.
-const QB: usize = 4;
-
-/// Scores for 8 keys at a time: `kt` rows are contiguous over slots, so one load serves
-/// 8 keys and each query adds `q[e] * k[e][j..j+8]` with one FMA (no horizontal sums).
+/// Scores for 8 keys at a time (one tile; lane = key) in `scalar::score_fixed_order`'s
+/// summation order, so they are bit-identical to the original row-major kernel.
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
 fn scores_avx2(
@@ -49,32 +46,50 @@ fn scores_avx2(
     for (start, len) in segs {
         if len > 0 {
             let (t_first, t_last) = (start / 8, (start + len - 1) / 8);
-            let mut i0 = 0;
-            while i0 < n {
-                let qn = (n - i0).min(QB);
-                for t in t_first..=t_last {
-                    let tile = &kt[t * dh * 8..(t + 1) * dh * 8];
-                    let mut acc = [_mm256_setzero_ps(); QB];
-                    for (e, kv8) in tile.chunks_exact(8).enumerate() {
-                        // SAFETY: kv8.len() == 8.
-                        let kv = unsafe { _mm256_loadu_ps(kv8.as_ptr()) };
-                        for (a, qi) in acc[..qn].iter_mut().zip(i0..i0 + qn) {
-                            let qv = _mm256_set1_ps(q[qi * q_stride + e]);
-                            *a = _mm256_fmadd_ps(qv, kv, *a);
+            for t in t_first..=t_last {
+                let tile = &kt[t * dh * 8..(t + 1) * dh * 8];
+                let row = |e: usize| {
+                    // SAFETY: e < dh, so e * 8 + 8 <= dh * 8 = tile.len().
+                    unsafe { _mm256_loadu_ps(tile.as_ptr().add(e * 8)) }
+                };
+                let (lo, hi) = ((t * 8).max(start), (t * 8 + 8).min(start + len));
+                for qi in 0..n {
+                    let qr = &q[qi * q_stride..qi * q_stride + dh];
+                    // score_fixed_order, lane = key: pair chains (l, l + 8) -> v[l].
+                    let mut v = [_mm256_setzero_ps(); 8];
+                    for (l, vl) in v.iter_mut().enumerate() {
+                        let (mut a0, mut a1) = (_mm256_setzero_ps(), _mm256_setzero_ps());
+                        for c in 0..dh / 16 {
+                            a0 = _mm256_fmadd_ps(
+                                _mm256_set1_ps(qr[16 * c + l]),
+                                row(16 * c + l),
+                                a0,
+                            );
+                            a1 = _mm256_fmadd_ps(
+                                _mm256_set1_ps(qr[16 * c + 8 + l]),
+                                row(16 * c + 8 + l),
+                                a1,
+                            );
                         }
+                        if dh % 16 == 8 {
+                            a0 = _mm256_fmadd_ps(
+                                _mm256_set1_ps(qr[dh - 8 + l]),
+                                row(dh - 8 + l),
+                                a0,
+                            );
+                        }
+                        *vl = _mm256_add_ps(a0, a1);
                     }
-                    // Keep only the tile lanes inside the window segment.
-                    let lo = (t * 8).max(start);
-                    let hi = (t * 8 + 8).min(start + len);
-                    for (a, qi) in acc[..qn].iter().zip(i0..i0 + qn) {
-                        let mut tmp = [0.0f32; 8];
-                        // SAFETY: tmp holds 8 floats.
-                        unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
-                        let dst = qi * nk + j0 + (lo - start);
-                        scores[dst..dst + (hi - lo)].copy_from_slice(&tmp[lo - t * 8..hi - t * 8]);
-                    }
+                    let u: [__m256; 4] = std::array::from_fn(|l| _mm256_add_ps(v[l], v[l + 4]));
+                    let w0 = _mm256_add_ps(u[0], u[2]);
+                    let w1 = _mm256_add_ps(u[1], u[3]);
+                    let sc = _mm256_mul_ps(_mm256_add_ps(w0, w1), sv);
+                    let mut tmp = [0.0f32; 8];
+                    // SAFETY: tmp holds 8 floats.
+                    unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), sc) };
+                    let dst = qi * nk + j0 + (lo - start);
+                    scores[dst..dst + (hi - lo)].copy_from_slice(&tmp[lo - t * 8..hi - t * 8]);
                 }
-                i0 += qn;
             }
         }
         j0 += len;
