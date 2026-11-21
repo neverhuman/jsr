@@ -22,6 +22,7 @@ struct Args {
     seconds: f64,
     grid_ms: u64,
     precision: Precision,
+    max_chunks: usize,
     int8_skip: Vec<String>,
 }
 
@@ -33,6 +34,7 @@ fn parse() -> Result<Args, String> {
         seconds: 60.0,
         grid_ms: 320,
         precision: Precision::Int8,
+        max_chunks: 1,
         int8_skip: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
@@ -43,6 +45,7 @@ fn parse() -> Result<Args, String> {
             "--npz" => a.npz = v()?.into(),
             "--streams" => a.streams = v()?.parse().map_err(|e| format!("{e}"))?,
             "--seconds" => a.seconds = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--max-chunks" => a.max_chunks = v()?.parse().map_err(|e| format!("{e}"))?,
             "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
             "--int8-fp32-kinds" => a.int8_skip = v()?.split(',').map(str::to_owned).collect(),
@@ -87,8 +90,9 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     if a.precision == Precision::Int8 {
         model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
     }
-    let engine =
-        Engine::new(Arc::new(model), Isa::detect(), a.precision).map_err(|e| e.to_string())?;
+    let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
+        .map_err(|e| e.to_string())?
+        .with_max_chunks(a.max_chunks);
     let utts = load_npz_audio_only(&a.npz, 0, Some(400)).map_err(|e| e.to_string())?;
     let grid = a.grid_ms as f64 / 1000.0;
     let mut slots: Vec<Slot> = (0..a.streams)
@@ -189,7 +193,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let pass = p99 <= 0.8 && growth <= 0.05;
     Ok(json!({
         "schema": "ultra.engine-density/v1", "exploratory": true,
-        "streams": a.streams, "grid_ms": a.grid_ms, "seconds": a.seconds,
+        "streams": a.streams, "max_chunks": a.max_chunks, "grid_ms": a.grid_ms, "seconds": a.seconds,
         "precision": a.precision.as_str(), "int8_fp32_kinds": a.int8_skip,
         "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
         "growth_s": growth, "a1_pass": pass,
