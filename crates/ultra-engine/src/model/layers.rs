@@ -20,18 +20,41 @@ impl Model {
         }
     }
 
-    /// Read-only view of the quantisable layers, in `linears_mut` order.
-    fn linears_ref(&self) -> Vec<&Linear> {
-        let mut v = vec![&self.c2, &self.stem_out];
-        for b in &self.blocks {
+    /// Read-only view of the quantisable layers with kind and block, in `linears_mut` order.
+    pub fn linears_named(&self) -> Vec<(&'static str, Option<usize>, &Linear)> {
+        let mut v = vec![
+            ("stem_c2", None, &self.c2),
+            ("stem_out", None, &self.stem_out),
+        ];
+        for (i, b) in self.blocks.iter().enumerate() {
+            let s = Some(i);
             v.extend([
-                &b.ff1_w1, &b.ff1_w2, &b.qkv, &b.att_out, &b.pw1, &b.pw2, &b.ff2_w1, &b.ff2_w2,
+                ("ff1_w1", s, &b.ff1_w1),
+                ("ff1_w2", s, &b.ff1_w2),
+                ("qkv", s, &b.qkv),
+                ("att_out", s, &b.att_out),
+                ("pw1", s, &b.pw1),
+                ("pw2", s, &b.pw2),
+                ("ff2_w1", s, &b.ff2_w1),
+                ("ff2_w2", s, &b.ff2_w2),
             ]);
         }
-        v.extend(self.pair.iter());
-        v.extend(self.restore.iter());
-        v.extend([&self.enc_proj, &self.joiner_out]);
+        if let Some(p) = &self.pair {
+            v.push(("pair", None, p));
+        }
+        if let Some(r) = &self.restore {
+            v.push(("restore", None, r));
+        }
+        v.push(("enc_proj", None, &self.enc_proj));
+        v.push(("joiner_out", None, &self.joiner_out));
         v
+    }
+
+    fn linears_ref(&self) -> Vec<&Linear> {
+        self.linears_named()
+            .into_iter()
+            .map(|(_, _, l)| l)
+            .collect()
     }
 
     /// Stable id of a quantisable layer of this model (for cross-thread job descriptions).

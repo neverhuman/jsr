@@ -227,6 +227,7 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
             for (i, v) in p.data.iter_mut().enumerate() {
                 *v = if i % 2 == 0 { 127 } else { -127 };
             }
+            p.rebuild_mm();
         }
         let mut a = vec![0i8; rows * p.kp];
         for (i, v) in a.iter_mut().enumerate() {
