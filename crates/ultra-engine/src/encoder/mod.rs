@@ -235,10 +235,11 @@ pub fn linear(
     out: &mut [f32],
     q: &mut QuantScratch,
 ) {
-    match (prec, &lin.q) {
+    match &lin.q {
         // T-LUT2 is a per-frame kernel: best for few rows (2-bit weights stream from cache);
         // larger batches reuse each int8 weight panel across rows. Both are exact.
-        (Precision::Int8, Some(p)) => match &lin.t {
+        // A layer trained as an int8 GEMM (`qat_i8`) runs int8 in every precision.
+        Some(p) if prec == Precision::Int8 || lin.qat_i8 => match &lin.t {
             Some(t) if rows <= TLUT2_MAX_ROWS => quant::linear_t(isa, p, t, x, rows, out, q),
             _ => quant::linear_i8(isa, p, x, rows, out, q),
         },

@@ -27,6 +27,17 @@ pub const MAX_K: usize = (i32::MAX as usize) / (128 * 127) / KG * KG;
 /// K is padded to a multiple of this (the `vpmaddubsw` + `vpmaddwd` group).
 pub const KG: usize = 4;
 
+/// How a weight row becomes codes. Both use `s_w = max |w| / 127`; they differ only in the
+/// float step, which can move a value sitting next to a rounding tie by one code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeightRule {
+    /// `round_half_even(w * (127 / max))`: the engine's post-training rule (default path).
+    Engine,
+    /// `round_half_even(w / max(max / 127, 1e-8))`: `train.qat.int8_weight_ste`, for layers
+    /// trained as int8 GEMMs, so the engine runs exactly the codes the trainer used.
+    Trainer,
+}
+
 /// Int8 weights packed as `data[p][kg][j][4]` = `w_q[p*16 + j][4 kg .. 4 kg + 4]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackedI8 {
@@ -67,8 +78,19 @@ impl PackedI8 {
         &self.data[p * self.kp * NR..(p + 1) * self.kp * NR]
     }
 
-    /// Quantise row-major `w` (`n x k`) with an optional bias.
+    /// Quantise row-major `w` (`n x k`) with an optional bias (engine rule).
     pub fn quantize(w: &[f32], n: usize, k: usize, bias: Option<&[f32]>) -> Self {
+        Self::quantize_with(w, n, k, bias, WeightRule::Engine)
+    }
+
+    /// Quantise row-major `w` (`n x k`) with an optional bias under `rule`.
+    pub fn quantize_with(
+        w: &[f32],
+        n: usize,
+        k: usize,
+        bias: Option<&[f32]>,
+        rule: WeightRule,
+    ) -> Self {
         assert!(n > 0 && k > 0, "PackedI8::quantize empty matrix");
         assert_eq!(
             Some(w.len()),
@@ -95,10 +117,15 @@ impl PackedI8 {
             let s = mx / 127.0;
             scale[row] = s;
             let inv = if mx > 0.0 { 127.0 / mx } else { 0.0 };
+            let step = s.max(1e-8);
             let (p, j) = (row / NR, row % NR);
             let mut qsum = 0i64;
             for (kk, &v) in wr.iter().enumerate() {
-                let q = (v * inv).round_ties_even().clamp(-127.0, 127.0) as i8;
+                let x = match rule {
+                    WeightRule::Engine => v * inv,
+                    WeightRule::Trainer => v / step,
+                };
+                let q = x.round_ties_even().clamp(-127.0, 127.0) as i8;
                 data[((p * (kp / KG) + kk / KG) * NR + j) * KG + kk % KG] = q;
                 qsum += i64::from(q);
             }
@@ -222,6 +249,11 @@ impl PackedI8 {
 
     /// Quantise the weights held by an fp32 packing (unpacks, then quantises).
     pub fn from_packed_f32(f: &PackedF32) -> Self {
+        Self::from_packed_f32_with(f, WeightRule::Engine)
+    }
+
+    /// [`Self::from_packed_f32`] under `rule`.
+    pub fn from_packed_f32_with(f: &PackedF32, rule: WeightRule) -> Self {
         assert!(
             f.has_weights(),
             "PackedI8::from_packed_f32 needs fp32 weights"
@@ -233,7 +265,7 @@ impl PackedI8 {
                 w[row * f.k + kk] = f.data[(p * f.k + kk) * NR + j];
             }
         }
-        Self::quantize(&w, f.n, f.k, Some(&f.bias[..f.n]))
+        Self::quantize_with(&w, f.n, f.k, Some(&f.bias[..f.n]), rule)
     }
 
     /// The dequantised weight `s_w[n] * w_q[n][k]` (tests and accounting).
@@ -359,6 +391,31 @@ mod tests {
         }
         let f = PackedF32::pack(&w, n, k, Some(&b));
         assert_eq!(PackedI8::from_packed_f32(&f), p);
+    }
+
+    #[test]
+    fn trainer_rule_matches_int8_weight_ste_and_differs_only_near_ties() {
+        let mut rng = Rng::new(11);
+        let (n, k) = (64, 512);
+        let w = rng.vec(n * k, 0.4);
+        let e = PackedI8::quantize_with(&w, n, k, None, WeightRule::Engine);
+        let t = PackedI8::quantize_with(&w, n, k, None, WeightRule::Trainer);
+        assert_eq!(e.scale, t.scale);
+        let mut differ = 0;
+        for row in 0..n {
+            let wr = &w[row * k..(row + 1) * k];
+            let s = (wr.iter().fold(0.0f32, |a, &v| a.max(v.abs())) / 127.0).max(1e-8);
+            for (kk, &wv) in wr.iter().enumerate() {
+                // train.qat.int8_weight_ste in float32: clamp(round(w / s), -127, 127).
+                let want = (wv / s).round_ties_even().clamp(-127.0, 127.0);
+                assert_eq!(t.dequant(row, kk), want * t.scale[row]);
+                if e.dequant(row, kk) != t.dequant(row, kk) {
+                    differ += 1;
+                    assert!(((wv / s).fract().abs() - 0.5).abs() < 1e-3);
+                }
+            }
+        }
+        assert!(differ < n * k / 1000, "{differ}");
     }
 
     #[test]
