@@ -117,27 +117,27 @@ pub fn row_range(x: &[f32]) -> (f32, f32) {
 
 /// Centre, half range and inverse step of a row range (shared by scalar and SIMD).
 #[inline]
-pub fn row_params(lo: f32, hi: f32) -> Option<(f32, f32, f32)> {
+pub fn row_params(lo: f32, hi: f32, qmax: f32) -> Option<(f32, f32, f32)> {
     let half = 0.5 * hi - 0.5 * lo;
     let c = 0.5 * hi + 0.5 * lo;
-    let inv = 127.0 / half;
+    let inv = qmax / half;
     // A tiny (subnormal) half range would overflow the inverse step: treat it as constant.
     (half > 0.0 && half.is_finite() && c.is_finite() && inv.is_finite())
-        .then(|| (c, half / 127.0, inv))
+        .then(|| (c, half / qmax, inv))
 }
 
-/// Per-row centred symmetric quantisation (see `kernels::quantize_row`).
-pub fn quantize_row(x: &[f32], out: &mut [i8]) -> (f32, f32) {
+/// Per-row centred symmetric quantisation to `[-qmax, qmax]` (see `kernels::quantize_row`).
+pub fn quantize_row(x: &[f32], out: &mut [i8], qmax: f32) -> (f32, f32) {
     let (lo, hi) = row_range(x);
-    finish_row(x, out, lo, hi)
+    finish_row(x, out, lo, hi, qmax)
 }
 
 /// Quantise with a known range; returns `(scale, centre)`.
-pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32) -> (f32, f32) {
-    match row_params(lo, hi) {
+pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32, qmax: f32) -> (f32, f32) {
+    match row_params(lo, hi, qmax) {
         Some((c, scale, inv)) => {
             for (o, &v) in out.iter_mut().zip(x) {
-                *o = ((v - c) * inv).round_ties_even().clamp(-127.0, 127.0) as i8;
+                *o = ((v - c) * inv).round_ties_even().clamp(-qmax, qmax) as i8;
             }
             (scale, c)
         }

@@ -187,6 +187,8 @@ pub struct QuantScratch {
     pub a: Vec<i8>,
     pub scale: Vec<f32>,
     pub center: Vec<f32>,
+    /// 7-bit activation codes (|q| <= 63) and the paired-accumulation kernel.
+    pub act7: bool,
     /// Phase accounting of the worker that owns this scratch.
     pub prof: crate::prof::Prof,
 }
@@ -204,7 +206,8 @@ fn quantize_rows(isa: Isa, x: &[f32], rows: usize, k: usize, kp: usize, q: &mut 
     for r in 0..rows {
         let xr = &x[r * k..(r + 1) * k];
         let ar = &mut q.a[r * kp..(r + 1) * kp];
-        (q.scale[r], q.center[r]) = crate::kernels::quantize_row(isa, xr, &mut ar[..k]);
+        let qmax = if q.act7 { 63 } else { 127 };
+        (q.scale[r], q.center[r]) = crate::kernels::quantize_row_q(isa, xr, &mut ar[..k], qmax);
         ar[k..].fill(0);
     }
 }
@@ -227,7 +230,12 @@ pub fn linear_i8(
     quantize_rows(isa, x, rows, p.k, p.kp, q);
     q.prof.stop(Phase::Quant, t);
     let t = q.prof.start();
-    crate::kernels::gemm_i8(
+    let gemm = if q.act7 {
+        crate::kernels::gemm_i8_a7
+    } else {
+        crate::kernels::gemm_i8
+    };
+    gemm(
         isa,
         p,
         &q.a[..rows * p.kp],

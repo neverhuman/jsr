@@ -261,11 +261,19 @@ pub fn attend_head(
 /// `(scale = h / 127, centre = c)`, so `x ~ scale * q + c`. A constant row gives zero codes,
 /// scale 0 and centre equal to the constant.
 pub fn quantize_row(isa: Isa, x: &[f32], out: &mut [i8]) -> (f32, f32) {
+    quantize_row_q(isa, x, out, 127)
+}
+
+/// [`quantize_row`] to `[-qmax, qmax]`; `qmax` is 127 (8-bit) or 63 (7-bit, for
+/// [`gemm_i8_a7`]).
+pub fn quantize_row_q(isa: Isa, x: &[f32], out: &mut [i8], qmax: u8) -> (f32, f32) {
     assert_eq!(x.len(), out.len());
+    assert!((1..=127).contains(&qmax), "quantize_row qmax");
+    let qm = f32::from(qmax);
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::quantize_row(x, out),
-        _ => scalar::quantize_row(x, out),
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::quantize_row(x, out, qm),
+        _ => scalar::quantize_row(x, out, qm),
     }
 }
 
@@ -290,7 +298,37 @@ pub fn gemm_i8(
     );
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out),
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out, false),
+        _ => scalar::gemm_i8(w, a, sa, ca, rows, out),
+    }
+}
+
+/// [`gemm_i8`] for 7-bit activation codes (|a| <= 63, e.g. from `quantize_row_q(.., 63)`):
+/// the AVX2 kernel sums two `vpmaddubsw` steps in i16 before each `vpmaddwd` (fewer multiply
+/// uops). The result is the same exact integer product; codes outside +-63 are refused.
+pub fn gemm_i8_a7(
+    isa: Isa,
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+) {
+    assert!(
+        rows.checked_mul(w.kp).is_some_and(|v| a.len() >= v)
+            && rows.checked_mul(w.n).is_some_and(|v| out.len() >= v)
+            && sa.len() >= rows
+            && ca.len() >= rows,
+        "gemm_i8_a7 lengths"
+    );
+    assert!(
+        a[..rows * w.kp].iter().all(|v| v.unsigned_abs() <= 63),
+        "gemm_i8_a7 code range"
+    );
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out, true),
         _ => scalar::gemm_i8(w, a, sa, ca, rows, out),
     }
 }

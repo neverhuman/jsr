@@ -249,6 +249,21 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
         let mut o2 = vec![1.0; rows * n];
         gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o1);
         gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
+        // 7-bit codes through the paired kernel: same exact result (extremes +-63).
+        let a7: Vec<i8> = a
+            .iter()
+            .map(|&v| {
+                if n == 17 {
+                    v.signum() * 63
+                } else {
+                    (v / 2).clamp(-63, 63)
+                }
+            })
+            .collect();
+        let (mut r1, mut r2) = (vec![0.0; rows * n], vec![1.0; rows * n]);
+        gemm_i8(Isa::Scalar, &p, &a7, &sa, &ca, rows, &mut r1);
+        gemm_i8_a7(isa, &p, &a7, &sa, &ca, rows, &mut r2);
+        assert_eq!(r1, r2, "a7 rows {rows} n {n} k {k}");
         assert_eq!(o1, o2, "rows {rows} n {n} k {k}");
         if n == 17 {
             let full = (k as f32) * 127.0 * 127.0;
