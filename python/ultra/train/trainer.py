@@ -25,7 +25,7 @@ from train import checkpoint
 from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
 from train.data import Batch, Example, FixedBatches, Position, collate
-from train.errors import CheckpointError, DivergenceError, NonFiniteLossError
+from train.errors import CheckpointError, DivergenceError, NonFiniteLossError, ShapeError
 
 DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
 
@@ -78,6 +78,10 @@ class TrainConfig:
     # step. Saved in checkpoints and in the eval-only model-<step>.pt snapshots under "ema";
     # score it with `train.evaluate --ema`.
     ema_decay: float = 0.0
+    # SentencePiece sizes (pieces, excluding blank) of the RNN-T and CTC heads; the model's output
+    # sizes follow (pieces + 1). H13 shares one 512-piece model between both heads.
+    rnnt_pieces: int = 4096
+    ctc_pieces: int = 1024
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
@@ -396,6 +400,16 @@ def load_dev(split: str, limit: int, feat) -> list[Example]:
     return [feat.example(u.uid, u.text, u.pcm) for u in load_split(split, limit)]
 
 
+def model_config_for(cfg: TrainConfig) -> ModelConfig:
+    """The preset's model config with output heads sized to the configured tokenizers."""
+    import dataclasses
+
+    if cfg.rnnt_pieces < 2 or cfg.ctc_pieces < 2:
+        raise ShapeError("rnnt_pieces and ctc_pieces must be >= 2")
+    return dataclasses.replace(PRESETS[cfg.preset], vocab_rnnt=cfg.rnnt_pieces + 1,
+                               vocab_ctc=cfg.ctc_pieces + 1)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--run-dir", required=True)
@@ -421,7 +435,11 @@ def main(argv=None) -> int:
     from train.data import Featurizer, ParquetBatches
     from train.tokenizer import Tokenizer, tokenizer_path
 
-    tok_r, tok_c = Tokenizer(tokenizer_path(4096)), Tokenizer(tokenizer_path(1024))
+    tok_r, tok_c = Tokenizer(tokenizer_path(cfg.rnnt_pieces)), Tokenizer(tokenizer_path(cfg.ctc_pieces))
+    model_cfg = model_config_for(cfg)
+    if tok_r.num_outputs != model_cfg.vocab_rnnt or tok_c.num_outputs != model_cfg.vocab_ctc:
+        raise ShapeError(f"tokenizer sizes {tok_r.num_outputs}/{tok_c.num_outputs} != model heads "
+                         f"{model_cfg.vocab_rnnt}/{model_cfg.vocab_ctc}")
     feat = Featurizer(tok_r, tok_c)
     if a.overfit:
         from ultra.libri import load_split
@@ -436,7 +454,8 @@ def main(argv=None) -> int:
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
-    tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device)
+    tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
+                 model_cfg=model_cfg)
     with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
         json.dump({"train": asdict(cfg), "model": tr.model_cfg.to_dict(), "argv": sys.argv,
                    "threads": torch.get_num_threads(), "params": tr.model.num_params(),

@@ -219,3 +219,20 @@ def test_weight_ema_tracks_and_resumes_bit_exact(workdir):
     off = _trainer(os.path.join(workdir, "off"))
     off.run(max_steps=2)
     assert off.ema is None
+
+
+def test_model_heads_follow_configured_tokenizers():
+    from train.trainer import model_config_for
+
+    d = model_config_for(TrainConfig(preset="S"))
+    assert (d.vocab_rnnt, d.vocab_ctc) == (4097, 1025) == (PRESETS["S"].vocab_rnnt,
+                                                          PRESETS["S"].vocab_ctc)
+    h13 = model_config_for(TrainConfig(preset="S", rnnt_pieces=512, ctc_pieces=512))
+    assert (h13.vocab_rnnt, h13.vocab_ctc) == (513, 513)
+    assert h13.encoder == PRESETS["S"].encoder
+    from train.asr import ASRModel
+
+    m = ASRModel(h13)
+    assert m.joiner.out.out_features == 513 and m.ctc_head.out_features == 513
+    with pytest.raises(Exception):
+        model_config_for(TrainConfig(preset="S", rnnt_pieces=1))

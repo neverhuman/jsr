@@ -135,8 +135,9 @@ def main(argv=None) -> None:
 
         ecfg = model.encoder.cfg = dataclasses.replace(ecfg, left_context=a.left_context)
     chunk = a.chunk or None
-    tok = Tokenizer(tokenizer_path(4096))
-    tok_c = Tokenizer(tokenizer_path(1024))
+    mcfg = ModelConfig.from_dict(p["model_config"])  # heads sized to the run's tokenizers
+    tok = Tokenizer(tokenizer_path(mcfg.vocab_rnnt - 1))
+    tok_c = Tokenizer(tokenizer_path(mcfg.vocab_ctc - 1))
     feat = Featurizer(tok, tok_c)
     panel_sha = None
     if a.panel:
