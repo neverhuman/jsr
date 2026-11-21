@@ -1,11 +1,8 @@
 //! `ultra.r1-weights/v1` loader: `arch.json` + `weights.safetensors` into packed weights.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::Deserialize;
-use ultra_core::receipt::sha256_hex;
 use ultra_frontend::{GlobalCmvn, TrainerMelConfig, MEL_BINS};
 use ultra_gp::TokenTable;
 
@@ -14,86 +11,10 @@ use crate::quant::PackedI8;
 use crate::safetensors::SafeTensors;
 use crate::EngineError;
 
+mod arch_json;
+use arch_json::{bounded, file, verify, RawArch};
+
 pub const WEIGHTS_SCHEMA: &str = "ultra.r1-weights/v1";
-
-#[derive(Deserialize)]
-struct RawArch {
-    schema: String,
-    model: RawModel,
-    source: RawSource,
-    files: BTreeMap<String, RawFile>,
-    features: RawFeatures,
-    decoder: RawDecoder,
-}
-
-#[derive(Deserialize)]
-struct RawModel {
-    family: String,
-    config: RawConfig,
-    encoder: RawEncoder,
-}
-
-#[derive(Deserialize)]
-struct RawConfig {
-    vocab_rnnt: usize,
-    pred_emb: usize,
-    joiner: usize,
-    joiner_act: String,
-}
-
-#[derive(Deserialize)]
-struct RawEncoder {
-    n_mels: usize,
-    d_model: usize,
-    n_blocks: usize,
-    n_heads: usize,
-    ffn_mult: usize,
-    conv_kernel: usize,
-    stem_channels: usize,
-    chunk: usize,
-    left_context: usize,
-    post_block_norm: bool,
-    family: String,
-}
-
-#[derive(Deserialize)]
-struct RawSource {
-    checkpoint_sha256: String,
-}
-
-#[derive(Deserialize)]
-struct RawFile {
-    path: String,
-    sha256: String,
-}
-
-#[derive(Deserialize)]
-struct RawFeatures {
-    sample_rate: u32,
-    frame_length: usize,
-    frame_shift: usize,
-    n_fft: usize,
-    n_mels: usize,
-    log_floor: f32,
-    cmvn: RawCmvn,
-}
-
-#[derive(Deserialize)]
-struct RawCmvn {
-    mean: Vec<f32>,
-    istd: Vec<f32>,
-}
-
-#[derive(Deserialize)]
-struct RawDecoder {
-    kind: String,
-    context: usize,
-    vocab_size: usize,
-    joiner_activation: String,
-    blank_id: usize,
-    max_symbols: usize,
-    ctx_init: [usize; 2],
-}
 
 /// Validated architecture (dense family).
 #[derive(Debug, Clone, PartialEq)]
@@ -194,52 +115,6 @@ pub struct Model {
     pub rope_inv: Vec<f32>,
     pub mel_cfg: Arc<TrainerMelConfig>,
     pub tokens: Arc<TokenTable>,
-}
-
-/// Resolve a declared file inside `root` (no separators, no escaping symlinks) and, when
-/// `check` is set, verify its SHA-256 against `arch.json`.
-fn verify(root: &Path, f: &RawFile, check: bool) -> Result<PathBuf, EngineError> {
-    if f.path.is_empty() || f.path.contains('/') || f.path.contains('\\') || f.path.starts_with('.')
-    {
-        return Err(EngineError::Format(format!(
-            "file path {} escapes the directory",
-            f.path
-        )));
-    }
-    let base = root.canonicalize()?;
-    let p = base.join(&f.path).canonicalize()?;
-    if p.parent() != Some(base.as_path()) {
-        return Err(EngineError::Format(format!(
-            "file {} resolves outside the weight directory",
-            f.path
-        )));
-    }
-    if check {
-        let got = sha256_hex(&std::fs::read(&p)?);
-        if got != f.sha256 {
-            return Err(EngineError::Integrity(format!(
-                "{}: sha256 {got} != arch.json {}",
-                f.path, f.sha256
-            )));
-        }
-    }
-    Ok(p)
-}
-
-/// Positive and at most `max` (guards every allocation product derived from arch.json).
-fn bounded(name: &str, v: usize, max: usize) -> Result<usize, EngineError> {
-    if v == 0 || v > max {
-        return Err(EngineError::Shape(format!(
-            "{name} = {v} outside 1..={max}"
-        )));
-    }
-    Ok(v)
-}
-
-fn file<'a>(raw: &'a RawArch, key: &str) -> Result<&'a RawFile, EngineError> {
-    raw.files
-        .get(key)
-        .ok_or_else(|| EngineError::Format(format!("arch.json has no files.{key}")))
 }
 
 impl Model {
