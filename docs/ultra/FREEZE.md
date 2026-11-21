@@ -86,7 +86,11 @@ Until then, any row produced is exploratory.
 ## 5. Pre-registered claims (fixed here)
 - **Holm family (tested claims only):**
   - C-cost: two comparisons, R1-dense vs R0 and R1-MR vs R0. Baseline: R0.
-    - **Design:** 8 ABAB blocks, single stream, whole service.
+    - **Design (N10, ruled 2026-11-21):** 8 counterbalanced blocks, single stream, whole service. Each block runs every arm once:
+      - odd blocks run R0 → R1-dense → R1-MR; even blocks run the reverse order;
+      - each block gives one paired log(CPU ratio) per comparison, so n = 8 pairs (df = 7) per comparison;
+      - this is the bench-suite ABAB runner as implemented, not 8 independent two-arm units per pair;
+      - the report prints both orders' per-block values so any order effect is visible.
     - **Test:** one-sided paired t-test on log(CPU ratio) per block, H1 R1 < R0, Holm across the 2 comparisons, α = 0.05.
     - **Reported:** median ratio with a 95% CI.
   - C-quality: two comparisons, R1-dense vs R0 and R1-MR vs R0, each a paired speaker-cluster bootstrap on test-clean+other, two-sided, α = 0.05. It reports the gap with a 95% CI and no parity margin. A parity claim needs the upper bound ≤ +0.50 pp, which isn't expected.
@@ -95,7 +99,7 @@ Until then, any row produced is exploratory.
 - **C-density (headline):** engine **R1-MR** streams per CCX and on the full machine (15 CCX), against **R0** and against **ORT-R1**, each measured with the §4.4 ladder.
   - Reported as a ratio, **always printed next to each system's test-clean and test-other WER**.
   - The headline sentence must state the WER gap. No density claim is made without the accuracy beside it.
-- **C-cost:** engine R1 (dense and MR) INT8 whole-service warm CPU-s/s against R0. Median of 5 ABAB blocks with a bootstrap CI, with WER beside it.
+- **C-cost:** engine R1 (dense and MR) INT8 whole-service warm CPU-s/s against R0. Median ratio over the 8 counterbalanced blocks above, with its 95% CI and WER beside it.
 - **C-quality:** the R1 test-clean/other WER gap to R0 with intervals. No parity claim unless the interval supports it.
 - **C-OOD:** the degradation row on VoxPopuli and AMI.
 - **SP-A:** the batching-lift verdict, reported as context outside the family.
