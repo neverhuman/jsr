@@ -166,6 +166,10 @@ def rnnt_nll(lpb: torch.Tensor, lpl: torch.Tensor, t_lens: torch.Tensor, u_lens:
     Padding beyond (t_len, u_len) never feeds a used cell. Computed in float64.
     """
     B, T, U1 = lpb.shape
+    if lpb.device.type == "mps":
+        # No float64 on Apple MPS: run the (small, B x T x U) recursion on the CPU in float64;
+        # autograd carries the gradient back across the device copy.
+        return rnnt_nll(lpb.cpu(), lpl.cpu(), t_lens.cpu(), u_lens.cpu()).float().to(lpb.device)
     lpb, lpl = lpb.double(), lpl.double()
     neg = torch.full((B, 1), float("-inf"), dtype=torch.float64, device=lpb.device)
     zero_col = torch.zeros(B, 1, dtype=torch.float64, device=lpb.device)

@@ -233,3 +233,13 @@ def test_speed_perturb_lengths_and_determinism():
     assert lens == {round(16000 / 0.9), 16000, round(16000 / 1.1)} or \
         all(abs(n - t) <= 1 for n, t in zip(sorted(lens), sorted([16000 / 1.1, 16000, 16000 / 0.9])))
     assert np.array_equal(pb._perturb(pcm, "u3", 2), pb._perturb(pcm, "u3", 2))
+
+
+def test_mac_guard_policy():
+    from train.mac_guard import next_duty
+
+    assert next_duty(0.5, 0.9, 0.1, 0.74, 0.85, 0.0) == 0.45  # GPU over target: down
+    assert next_duty(0.5, 0.2, 0.9, 0.74, 0.85, 0.0) == 0.45  # CPU over target: down
+    assert abs(next_duty(0.5, 0.2, 0.2, 0.74, 0.85, 0.0) - 0.52) < 1e-9  # roomy: up
+    assert next_duty(0.02, 0.95, 0.95, 0.74, 0.85, 0.0) == 0.0  # may yield fully
+    assert next_duty(1.0, 0.1, 0.1, 0.74, 0.85, 0.0) == 1.0
