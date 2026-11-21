@@ -74,6 +74,10 @@ class TrainConfig:
     # at that step (projection after each optimiser step; the inference graph is unchanged).
     # qkv_guard_ratio: stop as diverged if max_qkv_norm exceeds that multiple of its value at
     # qkv_cap_from. 0 disables each.
+    # Weight EMA (training-only; 0 disables): ema = d*ema + (1-d)*weights after every optimiser
+    # step. Saved in checkpoints and in the eval-only model-<step>.pt snapshots under "ema";
+    # score it with `train.evaluate --ema`.
+    ema_decay: float = 0.0
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
@@ -121,6 +125,7 @@ class Trainer:
         self.best_wer: float | None = None
         self.qkv_caps: dict | None = None
         self.qkv_ref_norm: float | None = None
+        self.ema: dict | None = None
         self.precision = "bf16-autocast" if self.device.type == "cuda" else "fp32"
         os.makedirs(run_dir, exist_ok=True)
 
@@ -133,7 +138,7 @@ class Trainer:
                 "manifest": list(getattr(self.source, "manifest", [])),
                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary(),
-                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm}
+                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema}
 
     def save(self, wait: bool = False) -> None:
         """Snapshot now; the write finishes in the background unless `wait`."""
@@ -161,6 +166,8 @@ class Trainer:
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
+        self.ema = ({k: v.to(self.device) for k, v in p["ema"].items()}
+                    if p.get("ema") is not None else None)
         return True
 
     def init_cmvn(self, n_batches: int = 8) -> None:
@@ -193,6 +200,7 @@ class Trainer:
             self._pause(batch, out, gnorm, "gradient norm")
         self.opt.step()
         self._qkv_constraint()
+        self._ema_update()
         self.sched.step()
         self.step += 1
         return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
@@ -208,6 +216,21 @@ class Trainer:
                        "position": self.pos.to_dict(), **extra}, fh, indent=1)
         self.save(wait=True)  # keep the state at the stop for inspection
         raise DivergenceError(self.step, detail, diag)
+
+    @torch.no_grad()
+    def _ema_update(self) -> None:
+        d = self.cfg.ema_decay
+        if not d:
+            return
+        state = self.model.state_dict()
+        if self.ema is None:
+            self.ema = {k: v.detach().clone() for k, v in state.items()}
+            return
+        for k, v in state.items():
+            if v.is_floating_point():
+                self.ema[k].lerp_(v, 1.0 - d)
+            else:
+                self.ema[k].copy_(v)
 
     def _attention_modules(self):
         return [(n, m) for n, m in self.model.named_modules() if hasattr(m, "qkv")]
@@ -351,7 +374,8 @@ class Trainer:
                                 {"model": self.model.state_dict(),
                                  "model_config": self.model_cfg.to_dict(),
                                  "train_config": asdict(self.cfg),
-                                 "tokenizer_sha256": getattr(self.tok, "sha256", None)},
+                                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
+                                 "ema": self.ema},
                                 weights_only=True)
             due = (self.step % self.cfg.ckpt_every_steps == 0
                    or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)

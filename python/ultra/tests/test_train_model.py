@@ -174,3 +174,29 @@ def test_collate_rounding_keeps_lengths_and_loss():
         la = m.losses(a.feats, a.feat_lens, a.rnnt, a.rnnt_lens, a.ctc, a.ctc_lens)["loss"]
         lb = m.losses(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens)["loss"]
     assert torch.allclose(la, lb, atol=1e-5)
+
+
+def _mr_encoder(seed=5):
+    torch.manual_seed(seed)
+    cfg = EncoderConfig(d_model=32, n_heads=2, stem_channels=8, conv_kernel=5, chunk=4,
+                        left_context=8, dropout=0.0, post_block_norm=False, family="multirate",
+                        lower_blocks=1, middle_blocks=2, final_blocks=1)
+    return Encoder(cfg).eval()
+
+
+def test_multirate_batched_junk_padding_matches_single():
+    """Every input-length residue mod 8 (odd and even encoder lengths, e.g. 113-116 -> 29),
+    batched next to a longer utterance with large junk padding, equals the utterance alone:
+    padded 25 Hz states must not reach the pair projection."""
+    enc = _mr_encoder()
+    long = torch.randn(1, 160, 80)
+    for t_in in range(105, 121):
+        x = torch.randn(1, t_in, 80)
+        with torch.no_grad():
+            alone, n = enc(x, torch.tensor([t_in]))
+            junk = torch.randn(1, 160 - t_in, 80) * 50.0
+            batch = torch.cat([torch.cat([x, junk], 1), long], 0)
+            out, lens = enc(batch, torch.tensor([t_in, 160]))
+        assert int(lens[0]) == int(n[0]) == alone.shape[1]
+        assert torch.allclose(out[0, :alone.shape[1]], alone[0], atol=1e-5), t_in
+    assert int(stem_out_len(113)) == 29  # an odd encoder length is exercised

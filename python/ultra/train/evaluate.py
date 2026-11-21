@@ -98,6 +98,7 @@ def main(argv=None) -> None:
                     help="ultra.dev-panel/v1 panel to score instead of --split/--limit "
                          "(manifest and cache hashes verified; dev-* splits only)")
     ap.add_argument("--panel-split", default=None, help="score only this split of the panel")
+    ap.add_argument("--ema", action="store_true", help="score the checkpoint's EMA weights")
     a = ap.parse_args(argv)
     if a.panel is None:
         check_split(a.split)
@@ -107,7 +108,9 @@ def main(argv=None) -> None:
 
     p = checkpoint.load(a.checkpoint or checkpoint.latest(a.run_dir), restore_rng=False)
     model = ASRModel(ModelConfig.from_dict(p["model_config"]))
-    model.load_state_dict(p["model"])
+    if a.ema and p.get("ema") is None:
+        raise ValueError("--ema: the checkpoint holds no EMA weights (ema_decay was 0)")
+    model.load_state_dict(p["ema"] if a.ema else p["model"])
     model.eval().to(a.device)
     tok = Tokenizer(tokenizer_path(4096))
     tok_c = Tokenizer(tokenizer_path(1024))
@@ -134,7 +137,7 @@ def main(argv=None) -> None:
     w = corpus_wer(refs, hyps)
     wc = corpus_wer(refs, ctc_hyps)
     ctc_exact = sum(r.lower().split() == h.split() for r, h in zip(refs, ctc_hyps, strict=True))
-    out = {"step": p["step"],
+    out = {"step": p["step"], "weights": "ema" if a.ema else "model",
            "split": f"panel:{a.panel_split or 'all'}:{os.path.basename(a.panel)}" if a.panel
            else a.split,
            "n": len(refs), "max_symbols": a.max_symbols,
