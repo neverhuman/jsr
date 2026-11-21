@@ -200,6 +200,10 @@
     "python/ultra/tools/": {
       "command": "cargo test -p ultra-engine",
       "purpose": "the converted weights load and match the torch per-layer reference in the engine's parity tests"
+    },
+    "research/": {
+      "command": "just score",
+      "purpose": "research waves (summaries only) stay visible to the audit"
     }
   }
 }
