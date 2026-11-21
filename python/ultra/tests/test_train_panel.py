@@ -1,4 +1,5 @@
-"""evaluate --panel verifies the dev-panel manifest and cache hashes and refuses non-dev splits."""
+"""evaluate --panel verifies the dev-panel manifest and cache hashes and refuses non-dev splits;
+the plain --split path refuses test-* splits; outputs record the panel manifest sha256."""
 import hashlib
 import json
 import os
@@ -9,7 +10,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from train.evaluate import panel_utts  # noqa: E402
+from train.evaluate import check_split, load_panel, main, panel_record, panel_utts  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -85,3 +86,25 @@ def test_real_panel_manifest():
     rest = {k: v for k, v in spec.items() if k != "manifest_sha256"}
     assert hashlib.sha256(json.dumps(rest, indent=1, sort_keys=True).encode()).hexdigest() == \
         spec["manifest_sha256"]
+
+
+def test_plain_split_path_refuses_test_splits():
+    for split in ("test-clean", "test-other"):
+        with pytest.raises(ValueError, match="test-\\* splits are held out"):
+            check_split(split)
+        # refused before any checkpoint or data is touched
+        with pytest.raises(ValueError, match="held out"):
+            main(["--run-dir", "/nonexistent", "--split", split])
+    assert check_split("dev-other") == "dev-other"
+    assert check_split("train-clean-100") == "train-clean-100"  # D0 overfit checks
+
+
+def test_panel_manifest_is_recorded(cache):
+    path = _panel(cache)
+    utts, sha = load_panel(path, "dev-clean")
+    with open(path) as fh:
+        assert sha == json.load(fh)["manifest_sha256"]
+    assert [u.uid for u in utts] == ["dev-clean-u0", "dev-clean-u2"]
+    assert panel_record(path, "dev-clean", sha) == {
+        "file": "panel.json", "split": "dev-clean", "manifest_sha256": sha}
+    assert panel_record(path, None, sha)["split"] == "all"
