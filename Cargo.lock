@@ -576,6 +576,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ultra-engine"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ultra-core",
+ "ultra-eval",
+ "ultra-frontend",
+ "ultra-gp",
+]
+
+[[package]]
 name = "ultra-eval"
 version = "0.1.0"
 dependencies = [
