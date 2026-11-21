@@ -131,7 +131,11 @@ pub fn identity(model: &Model, weights: &std::path::Path, k: &Knobs<'_>) -> Valu
     } else {
         Vec::new()
     };
+    let host = nix::unistd::gethostname()
+        .ok()
+        .and_then(|h| h.into_string().ok());
     json!({
+        "host": host,
         "mode": k.mode,
         "exploratory": k.mode != "qualifying",
         "executable_sha256": exe_sha256(),

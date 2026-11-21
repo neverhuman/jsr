@@ -8,7 +8,9 @@
 //! Pass = point delta (pooled WER, B - A) <= `--max-delta-pp` AND the one-sided 95% upper
 //! bound of the paired cluster bootstrap (`ultra_eval::bootstrap`, strata = split,
 //! clusters = speaker) <= `--max-upper-pp`. Refuses runs on different panels, checkpoints,
-//! utterance sets, or runs without a panel.
+//! utterance sets, or runs without a panel. `--cache-dir <dir>` scores runs written without
+//! WER (built without the `wer` feature, e.g. on macOS) from `<dir>/<split>.npz` with the
+//! same normaliser and aligner as `ultra-engine-eval`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -24,6 +26,7 @@ struct Args {
     fp32: PathBuf,
     int8: PathBuf,
     out: Option<PathBuf>,
+    cache_dir: Option<PathBuf>,
     max_delta_pp: f64,
     max_upper_pp: f64,
     replicates: usize,
@@ -35,6 +38,7 @@ fn parse() -> Result<Args, String> {
         fp32: PathBuf::new(),
         int8: PathBuf::new(),
         out: None,
+        cache_dir: None,
         max_delta_pp: 0.10,
         max_upper_pp: 0.50,
         replicates: 10_000,
@@ -48,6 +52,7 @@ fn parse() -> Result<Args, String> {
             "--fp32" => a.fp32 = v()?.into(),
             "--int8" => a.int8 = v()?.into(),
             "--out" => a.out = Some(v()?.into()),
+            "--cache-dir" => a.cache_dir = Some(v()?.into()),
             "--max-delta-pp" => a.max_delta_pp = num(v()?)?,
             "--max-upper-pp" => a.max_upper_pp = num(v()?)?,
             "--replicates" => a.replicates = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
@@ -90,8 +95,46 @@ fn rows(v: &Value) -> Result<BTreeMap<String, Row>, String> {
     Ok(out)
 }
 
+/// Fill `errors` / `ref_words` of rows written unscored (returns whether any row was).
+fn rescore(v: &mut Value, cache: Option<&PathBuf>) -> Result<bool, String> {
+    use ultra_eval::{normalise::normalise_words, wer::align};
+    let rows = v["rows"].as_array_mut().ok_or("run has no rows")?;
+    if rows.iter().all(|r| r["errors"].is_u64()) {
+        return Ok(false);
+    }
+    let cache = cache.ok_or("unscored run: pass --cache-dir to score it here")?;
+    let mut refs: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    for r in rows.iter_mut() {
+        let split = r["split"].as_str().ok_or("row without split")?.to_owned();
+        if !refs.contains_key(&split) {
+            let p = cache.join(format!("{split}.npz"));
+            let m = ultra_frontend::npz::load_npz_references(&p, 0, None)
+                .map_err(|e| format!("{}: {e}", p.display()))?
+                .into_iter()
+                .map(|u| (u.uid, u.text))
+                .collect();
+            refs.insert(split.clone(), m);
+        }
+        let id = r["id"].as_str().ok_or("row without id")?;
+        let text = refs[&split]
+            .get(id)
+            .ok_or_else(|| format!("{id} not in {split}"))?;
+        let al = align(
+            &normalise_words(text),
+            &normalise_words(r["hyp"].as_str().ok_or("row without hyp")?),
+        );
+        r["errors"] = json!(al.counts.errors());
+        r["ref_words"] = json!(al.counts.ref_words);
+    }
+    Ok(true)
+}
+
 fn run(a: &Args) -> Result<Value, String> {
-    let (fa, fb) = (read(&a.fp32)?, read(&a.int8)?);
+    let (mut fa, mut fb) = (read(&a.fp32)?, read(&a.int8)?);
+    let rescored = [
+        rescore(&mut fa, a.cache_dir.as_ref())?,
+        rescore(&mut fb, a.cache_dir.as_ref())?,
+    ];
     let panel = fa["panel_manifest_sha256"]
         .as_str()
         .ok_or("the FP32 run has no panel (run ultra-engine-eval --panel)")?;
@@ -136,6 +179,8 @@ fn run(a: &Args) -> Result<Value, String> {
         "fp32_run": a.fp32, "int8_run": a.int8,
         "fp32_executable_sha256": fa["executable_sha256"], "int8_executable_sha256": fb["executable_sha256"],
         "int8_prepared_sha256": fb["int8_prepared_sha256"],
+        "hosts": [fa["host"].clone(), fb["host"].clone()], "isas": [fa["isa"].clone(), fb["isa"].clone()],
+        "rescored_here": rescored,
         "panel_manifest_sha256": panel, "checkpoint_sha256": fa["arch_checkpoint_sha256"],
         "utterances": units.len(),
         "fp32_wer_pct": 100.0 * b.observed_a, "int8_wer_pct": 100.0 * b.observed_b,
