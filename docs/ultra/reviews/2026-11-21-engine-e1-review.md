@@ -113,3 +113,47 @@ The files' engine CPU readings (0.180145 FP32/one stream, 0.118374 FP32/16 strea
 0.058694 INT8/16 streams) are preserved as source-reported exploratory diagnostics
 with `performance_evidence_accepted: false`. They exclude service/cold-load scope
 and do not establish a speedup. A fresh independent source-bound run is required.
+
+## Follow-up source review of d596935
+
+The owner rebased the engine onto `64c1b4d` and delivered `d596935`. Private
+packed types plus checked construction close the original forged-weight P1
+counterexample. The source also adds terminal stream failures, path containment,
+positive architecture bounds, feature/decoder checks, finite layer-parity checks,
+post-inference reference access, ID-based token joins and executable hashes.
+The evaluator now records `int8_fp32_kinds`, closing the ablation-policy identity
+omission. These are source findings; independent execution on a clean retained
+build remains separate.
+
+Multi-chunk attention retains each sub-chunk's trained attention window. Its
+ring reserves space for the old left context plus all ready sub-chunks, then
+selects keys through the current sub-chunk's end. Source review finds no exposure
+of a later sub-chunk through that window. The scheduling grid and maximum ready
+chunks must still be bound to each evaluated operating point.
+
+Several earlier findings remain open in this delivered source despite the
+owner's DONE text: CMVN comparison covers `mean` only; payload verification
+selects weights, tokens and filterbank rather than every declared payload/BPE.
+The quantizer retains NaN-blind ranges and lacks explicit finite-inverse handling
+for tiny ranges; public dimensions/accumulator bounds still need validation.
+Trained S dimensions fit the integer accumulator, which does not validate every
+publicly constructible matrix. With now-private weights bounded to [-127,127],
+activation -128 alone is compatible with the abs/sign kernel: adjacent products
+are bounded by 32512. An extended operand/accumulator proof can cover it; rejecting
+-128 is not inherently required.
+
+Two concrete density-harness issues prevent accepting its capacity claims:
+
+- After EOF is accepted, every pending chunk receives the utterance-end capture
+  deadline. Earlier backlogged chunks therefore receive understated lateness.
+  Each chunk needs its own required-sample deadline, capped at EOF for padding.
+- Duration cutoff drops active work while CPU/audio divides by accepted audio.
+  Accepted, processed and unfinished audio, cutoff outcomes and applicable drain
+  must be recorded before a passing capacity interpretation is possible.
+
+The owner's newer centered INT8 result is a distinct candidate from the failed
+initial INT8 row above. Its quality and CPU readings await an independent retained
+output/build review. The reported 24/core and 96/CCX remain scheduler experiments;
+word latency, finalization, whole-service accounting and same-harness ORT evidence
+are separate gates. The lead authorized experimental integration while assigning
+the remaining findings to the engine owner; no deployment qualification follows.

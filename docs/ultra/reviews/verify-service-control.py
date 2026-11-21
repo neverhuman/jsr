@@ -91,6 +91,11 @@ def main():
     require(effective_job == read(run.with_name(run.name + ".governance") / "job.json"),
             "different effective guarded job")
     effective_job["measure"] = plan["job"]["measure"]
+    if effective_job["engine"] != "r1-bridge":
+        # Native jobs may omit these unused paths; Rust's typed Job defaults them
+        # to empty PathBufs. Preserve any supplied value rather than ignoring it.
+        for key in ["python", "worker"]:
+            effective_job.setdefault(key, "")
     require(effective_job == plan["job"], "different executed job")
     for item in binding["helpers"].values():
         require(digest(Path(item["path"])) == item["sha256"], "changed governance helper")

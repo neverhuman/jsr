@@ -94,5 +94,79 @@ accounting. Short writes retry, while sink failures invalidate the operation.
 
 Two focused tests cover Unicode/escaped line boundaries, complete-record write
 counts, partial writes and failures. The mapped bridge suite, Clippy and full
-`just required` pass, with audit score 85 and zero caps. A clean-source measured
-comparison precedes any CPU benefit claim for this change.
+`just required` pass, with audit score 85 and zero caps, before the measurements
+below.
+
+The change is committed at `217962a4cb9aa4ac53c1c68f3cb859b897b795a3`.
+Its clean before/after release build retains bridge SHA-256
+`454eb0b4044815395c613d2c23a55cb06c48462b974ad5d1415c9d98430053a8`.
+The measurement and standalone scorer binaries are byte-identical to the prior
+control. Between these commits, the shared JSONL writer is the only product
+behavior change; the accompanying tests and review files also change.
+
+| R0 full DEV400 | Original writer | Complete-record writer |
+|---|---:|---:|
+| Whole-service CPU seconds | 259.989309 | 221.591181 |
+| Whole-service CPU-s/audio-s | 0.1015767743 | 0.0865747806 |
+| Warm-service CPU-s/audio-s | 0.1000882227 | 0.0857113425 |
+| User / system CPU seconds | 244.256469 / 15.732840 | 220.211411 / 1.379770 |
+| Aggregate peak RSS bytes | 239263744 | 238399488 |
+| Aggregate peak PSS bytes | 235634688 | 234821632 |
+| Peak processes / threads | 1 / 2 | 1 / 2 |
+| Rust WER / exact original Final texts | 2.851588% / 400 | 2.851588% / 400 |
+
+The first shared-host A/B screen records **14.77% less whole-service CPU** with
+all 400 actual outputs unchanged. Both use identical model/audio, streams, thread
+count, packetization, output policy, observer binary, masks and guard settings.
+This is one sequential pair; frequency/cache conditions and concurrent host work
+remain uncontrolled. Repeated paired confirmation is required for a repeatable
+effect claim. Wall throughput, capacity and profile qualification remain absent.
+
+Under the same artifact root, `m2-record-io-binding-20261121.json` has SHA-256
+`ce3edfa26cc3faa9a764c142ee2ab4baf3ee0b9d25907c909ea9f1322a823d01`;
+`m2-record-io-build-20261121/build-provenance.json` has
+`da90e37539f4878dc129d4396e977a2380dd2a8749139eb50855a06c2d9af2b4`.
+The full R0 review `m2-record-io-r0-review-20261121.json` has
+`54193ab52a5374e20352a95b4ad9b49602d66746e6823aa8ad6eb47d7192252c`.
+
+The native D2 smoke also reproduces all eight retained FP32 texts. Its first
+verifier attempt refused a job comparison because native jobs may omit unused
+Python paths, which Rust defaults to empty paths. The verifier now applies those
+exact missing-key defaults for native jobs and preserves any supplied value;
+all other job fields remain checked. The failed attempt published no review.
+The corrected check passes, as does the full D2 same-workload measurement.
+
+## Trained D2 FP32 through the current service
+
+The unselected first D2 step-5000 FP32 snapshot runs through the same retained
+`217962a` bridge binary, observer and workload configuration as the new R0 row.
+All 400 actual Final texts match the older native and NumPy FP32 runs exactly,
+SHA-256 `464c11957da7c83e7aac8e8e58644706c5db9645bc2b6ab0c90cf686562b9530`.
+Rust scores remain **21.879456% WER**, S/D/I **1184/375/129**, on 7715 words and
+six speaker clusters. Forced advances and unfinished audio are zero.
+
+| Current complete-workload observation | R0 native INT8 | D2 step-5000 native ORT FP32 |
+|---|---:|---:|
+| Whole-service CPU seconds | 221.591181 | 497.767787 |
+| Whole-service CPU-s/audio-s | 0.0865747806 | 0.1944758665 |
+| Warm-service CPU-s/audio-s | 0.0857113425 | 0.1939015434 |
+| Observer CPU seconds, outside service | 224.758425 | 497.215244 |
+| Aggregate peak RSS bytes | 238399488 | 777990144 |
+| Aggregate peak PSS bytes | 234821632 | 763746304 |
+| Peak processes / threads | 1 / 2 | 1 / 5 |
+| Rust WER | 2.851588% | 21.879456% |
+
+The prior D2 native reading is 0.1686292112 CPU-s/audio-s. The current observation
+is 15.33% higher. Runtime code, observer placement, I/O implementation and host
+conditions differ, so these rows cannot isolate the cause. The data establishes
+no R1 CPU improvement. The current D2 artifact also remains substantially less
+accurate than R0. Neither artifact has a qualified profile or a confirmed
+capacity/latency result from these runs.
+
+The D2 review `m2-record-io-r1-d2-review-20261121.json` has SHA-256
+`f6934e0954248cad3411c49306a19b8b1c75015b95831dff2bf57946f1da5747`.
+Its verifier checks actual Final-to-outcome-to-Rust-score joins, complete accepted
+and processed audio, identical reference populations, executable/build and
+effective job identities, placement and guard records. The selected D2 checkpoint,
+full DEV selection, qualifying window, sustained runs and next-day matched
+reproduction remain separate work.

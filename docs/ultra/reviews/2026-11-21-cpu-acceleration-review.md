@@ -203,3 +203,16 @@ with observer CPU recorded separately. Historical rows retain their original
 conditions; a new R1 row must match this placement. See the
 [service control record](2026-11-21-service-cpu-control.md) for identities,
 accounting, limitations and the following JSONL I/O implementation.
+
+Canonical `r1-d1-v1.1b` retained-output review independently joins all 400 IDs and
+references to the D1 panel. Its FP32 texts match 400/400; static encoder INT8 with
+FP32 joiner matches 272/400. Rust rescoring reproduces the earlier MinMax
+encoder-only result: 29.734284% to 29.786131%, +0.051847 points, descriptive
+one-sided upper 95% bound +0.269251 points. This is a point-margin pass with six
+speaker clusters, without formal noninferiority or consumer-equivalence proof.
+The new review uses source-bound scorer SHA-256
+`38eacc049e4e39572dc769c802e83d852aae3eb404088a8a8da126610d870f5c`.
+Its provenance at `runs/bridge/a2-canonical-v11b-review-20261121/review-provenance.json`
+has SHA-256 `66b171839c765df2f698cd08d7182b48a8bc669b502a1b36588982e79efd9ce3`.
+Exporter source-content proof, effective joiner metadata and full native consumer
+parity remain separate checks.
