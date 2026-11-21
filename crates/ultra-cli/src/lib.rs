@@ -13,6 +13,7 @@ pub mod bundle_cmd;
 pub mod inventory;
 pub mod runner;
 pub mod suite_cmd;
+pub mod suite_engine;
 pub mod suite_latency;
 pub mod suite_manifest;
 mod suite_mfa;
@@ -141,6 +142,14 @@ impl From<StreamError> for CliError {
             StreamError::BackendUnavailable(_) => Self::Unavailable(e.to_string()),
             StreamError::ResourceLimit(_) => Self::Resource(e.to_string()),
             StreamError::Protocol(_) => Self::Config(e.to_string()),
+            StreamError::Engine(
+                ultra_engine::EngineError::Unsupported(_) | ultra_engine::EngineError::Io(_),
+            ) => Self::Unavailable(e.to_string()),
+            StreamError::Engine(
+                ultra_engine::EngineError::Format(_)
+                | ultra_engine::EngineError::Integrity(_)
+                | ultra_engine::EngineError::Shape(_),
+            ) => Self::Config(e.to_string()),
             _ => Self::Internal(e.to_string()),
         }
     }

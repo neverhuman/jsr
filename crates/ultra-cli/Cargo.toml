@@ -11,6 +11,7 @@ ultra-core = { path = "../ultra-core" }
 ultra-model = { path = "../ultra-model" }
 ultra-frontend = { path = "../ultra-frontend" }
 ultra-gp = { path = "../ultra-gp" }
+ultra-engine = { path = "../ultra-engine" }
 ultra-adapters = { path = "../ultra-adapters" }
 ultra-stream = { path = "../ultra-stream" }
 ultra-eval = { path = "../ultra-eval" }
