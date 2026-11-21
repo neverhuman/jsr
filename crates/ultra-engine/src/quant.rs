@@ -113,6 +113,53 @@ impl PackedI8 {
         }
     }
 
+    /// Rebuild from stored packed parts (a prepared int8 artifact), validating every length,
+    /// the code range (no -128) and the accumulator bound. `bias` has length `n`.
+    pub fn from_parts(
+        n: usize,
+        k: usize,
+        data: Vec<i8>,
+        scale: &[f32],
+        wsum: &[f32],
+        bias: &[f32],
+    ) -> Result<Self, crate::EngineError> {
+        let bad = |m: &str| {
+            Err(crate::EngineError::Shape(format!(
+                "prepared int8 {n}x{k}: {m}"
+            )))
+        };
+        if n == 0 || k == 0 || k > MAX_K || bias.len() != n {
+            return bad("dimensions");
+        }
+        let kp = k.div_ceil(KG) * KG;
+        let panels = n.div_ceil(NR);
+        if Some(data.len()) != panels.checked_mul(kp).and_then(|v| v.checked_mul(NR))
+            || scale.len() != panels * NR
+            || wsum.len() != panels * NR
+        {
+            return bad("packed lengths");
+        }
+        if data.contains(&i8::MIN) || scale.iter().chain(wsum).any(|v| !v.is_finite()) {
+            return bad("code range or non-finite scale");
+        }
+        let mut b = vec![0.0f32; panels * NR];
+        b[..n].copy_from_slice(bias);
+        Ok(Self {
+            n,
+            k,
+            kp,
+            data,
+            scale: scale.to_vec(),
+            wsum: wsum.to_vec(),
+            bias: b,
+        })
+    }
+
+    /// Packed codes, per-channel scales and weight sums (for writing a prepared artifact).
+    pub fn parts(&self) -> (&[i8], &[f32], &[f32]) {
+        (&self.data, &self.scale, &self.wsum)
+    }
+
     /// Quantise the weights held by an fp32 packing (unpacks, then quantises).
     pub fn from_packed_f32(f: &PackedF32) -> Self {
         let mut w = vec![0.0f32; f.n * f.k];

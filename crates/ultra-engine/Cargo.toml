@@ -28,3 +28,7 @@ path = "src/bin/engine_eval.rs"
 [[bin]]
 name = "ultra-engine-density"
 path = "src/bin/engine_density.rs"
+
+[[bin]]
+name = "ultra-engine-prepare"
+path = "src/bin/engine_prepare.rs"

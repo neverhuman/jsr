@@ -1,4 +1,4 @@
-//! Minimal, validating reader for little-endian `F32` safetensors files.
+//! Minimal, validating reader and writer for little-endian `F32` / `I8` safetensors files.
 //!
 //! Layout (safetensors spec): an 8-byte little-endian `u64` header length `n`, `n` bytes of
 //! UTF-8 JSON mapping tensor names to `{dtype, shape, data_offsets: [begin, end]}` (offsets
@@ -28,10 +28,18 @@ impl Tensor {
     }
 }
 
+/// One decoded `I8` tensor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TensorI8 {
+    pub shape: Vec<usize>,
+    pub data: Vec<i8>,
+}
+
 /// All tensors of a file plus its `__metadata__` map.
 #[derive(Debug, Clone, Default)]
 pub struct SafeTensors {
     pub tensors: BTreeMap<String, Tensor>,
+    pub i8_tensors: BTreeMap<String, TensorI8>,
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -76,9 +84,11 @@ impl SafeTensors {
             }
             let e: Entry =
                 serde_json::from_value(v).map_err(|e| fmt(format!("entry {name}: {e}")))?;
-            if e.dtype != "F32" {
-                return Err(fmt(format!("{name}: dtype {} (only F32 is read)", e.dtype)));
-            }
+            let width = match e.dtype.as_str() {
+                "F32" => 4usize,
+                "I8" => 1,
+                d => return Err(fmt(format!("{name}: dtype {d} (only F32 and I8 are read)"))),
+            };
             let [b, end] = e.data_offsets;
             let numel = e
                 .shape
@@ -86,15 +96,27 @@ impl SafeTensors {
                 .try_fold(1usize, |a, &d| a.checked_mul(d))
                 .ok_or_else(|| fmt(format!("{name}: shape overflows")))?;
             let want = numel
-                .checked_mul(4)
+                .checked_mul(width)
                 .ok_or_else(|| fmt(format!("{name}: byte count overflows")))?;
             if b > end || end > data.len() || end - b != want {
                 return Err(fmt(format!(
-                    "{name}: offsets [{b}, {end}) do not hold {numel} f32 within {} data bytes",
+                    "{name}: offsets [{b}, {end}) do not hold {numel} {} within {} data bytes",
+                    e.dtype,
                     data.len()
                 )));
             }
             spans.push((b, end, name.clone()));
+            if width == 1 {
+                let data = data[b..end].iter().map(|&v| v as i8).collect();
+                out.i8_tensors.insert(
+                    name,
+                    TensorI8 {
+                        shape: e.shape,
+                        data,
+                    },
+                );
+                continue;
+            }
             let tensor = Tensor {
                 shape: e.shape,
                 data: data[b..end]
@@ -126,6 +148,60 @@ impl SafeTensors {
             )));
         }
         Ok(t)
+    }
+
+    /// The `I8` tensor `name` with exactly `shape`.
+    pub fn get_i8(&self, name: &str, shape: &[usize]) -> Result<&TensorI8, EngineError> {
+        let t = self
+            .i8_tensors
+            .get(name)
+            .ok_or_else(|| EngineError::Format(format!("missing I8 tensor {name}")))?;
+        if t.shape != shape {
+            return Err(EngineError::Shape(format!(
+                "{name}: shape {:?}, expected {shape:?}",
+                t.shape
+            )));
+        }
+        Ok(t)
+    }
+
+    /// Serialise (`F32` and `I8` tensors in sorted name order, header padded to 8 bytes).
+    pub fn to_bytes(&self) -> Result<Vec<u8>, EngineError> {
+        let mut header = serde_json::Map::new();
+        header.insert(
+            "__metadata__".into(),
+            serde_json::to_value(&self.metadata).map_err(|e| EngineError::Format(e.to_string()))?,
+        );
+        let mut names: Vec<(&String, bool)> = self.tensors.keys().map(|k| (k, false)).collect();
+        names.extend(self.i8_tensors.keys().map(|k| (k, true)));
+        names.sort();
+        let mut body: Vec<u8> = Vec::new();
+        for (name, is_i8) in names {
+            let (dtype, start) = (if is_i8 { "I8" } else { "F32" }, body.len());
+            let shape = if is_i8 {
+                let t = &self.i8_tensors[name];
+                body.extend(t.data.iter().map(|&v| v as u8));
+                t.shape.clone()
+            } else {
+                let t = &self.tensors[name];
+                for v in &t.data {
+                    body.extend_from_slice(&v.to_le_bytes());
+                }
+                t.shape.clone()
+            };
+            header.insert(
+                name.clone(),
+                serde_json::json!({"dtype": dtype, "shape": shape, "data_offsets": [start, body.len()]}),
+            );
+        }
+        let mut h = serde_json::to_vec(&header).map_err(|e| EngineError::Format(e.to_string()))?;
+        while !h.len().is_multiple_of(8) {
+            h.push(b' ');
+        }
+        let mut out = (h.len() as u64).to_le_bytes().to_vec();
+        out.extend_from_slice(&h);
+        out.extend_from_slice(&body);
+        Ok(out)
     }
 
     /// Owned copy of `name` checked against `shape`.
@@ -168,12 +244,38 @@ mod tests {
     }
 
     #[test]
+    fn i8_round_trip() {
+        let mut st = SafeTensors::default();
+        st.metadata.insert("m".into(), "1".into());
+        st.tensors.insert(
+            "f".into(),
+            Tensor {
+                shape: vec![2],
+                data: vec![1.5, -2.0],
+            },
+        );
+        st.i8_tensors.insert(
+            "q".into(),
+            TensorI8 {
+                shape: vec![3],
+                data: vec![-127, 0, 127],
+            },
+        );
+        let back = SafeTensors::parse(&st.to_bytes().expect("bytes")).expect("parse");
+        assert_eq!(back.tensors, st.tensors);
+        assert_eq!(back.i8_tensors, st.i8_tensors);
+        assert_eq!(back.metadata, st.metadata);
+        assert!(back.get_i8("q", &[3]).is_ok() && back.get_i8("q", &[2]).is_err());
+    }
+
+    #[test]
     fn refuses_bad_offsets_dtype_and_overlap() {
         let d = [0u8; 8];
         for h in [
             r#"{"a":{"dtype":"F32","shape":[3],"data_offsets":[0,8]}}"#,
             r#"{"a":{"dtype":"F32","shape":[4],"data_offsets":[0,16]}}"#,
             r#"{"a":{"dtype":"F16","shape":[4],"data_offsets":[0,8]}}"#,
+            r#"{"a":{"dtype":"I8","shape":[4],"data_offsets":[0,8]}}"#,
             r#"{"a":{"dtype":"F32","shape":[2],"data_offsets":[0,8]},"b":{"dtype":"F32","shape":[1],"data_offsets":[4,8]}}"#,
             r#"{"a":{"dtype":"F32","shape":[2],"data_offsets":[8,0]}}"#,
         ] {
