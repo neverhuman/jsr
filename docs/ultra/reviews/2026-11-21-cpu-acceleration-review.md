@@ -176,3 +176,30 @@ The immutable copies, Rust score records and reports are under
 `07a3450e5742a15cd17cf2cdc122cb5ce029c84eda5c707dcac9d97f2968ceb5`.
 The MinMax encoder-only Rust report has SHA-256
 `316a9a030f2123cbe64069d6a9fcc947179e36b423cd1f840cc198b477bca9af`.
+
+## Runtime acceleration and observer separation
+
+Runtime acceleration `b6df548` is merged. It adds the AVX2 frontend and finite
+validator, B1 state ping-pong, reusable ORT handle/name-array scratch, decoder
+context caching and phase/sub-call counters. Independent source review finds
+bounded SIMD slices in the frontend and finite validator; B1 alternate state is
+swapped after successful greedy completion. Raw decoder-vector batch-shape
+agreement is a separate condition for the comment's 0-ULP claim. The expanded
+v1.1 fixture now actually sustains 32 active instances at batch settings
+1/3/5/16/32; the previous eight-instance limitation is resolved for that fixture.
+
+The runtime's retained D1 dynamic-per-row INT8 DEV400 result has native WER
+29.656513% and Python WER 29.786131%, with 356/400 exact transcripts. The absolute
+consumer difference is **0.129618 points**, exceeding 0.10; agreement also falls
+below the 98% handoff minimum. Its report correctly records failed consumer parity.
+The native INT8 versus native FP32 point difference is a separate quality check.
+Batch self-invariance does not establish equivalence to the exported reference.
+The proposed frontend-rounding explanation needs a matched-feature ablation.
+
+The external measurement envelope at `64c1b4d` has independent instrument review
+and separates service, observer and governance cores. The completed R0 DEV400
+control reproduces all transcripts and measures 0.1015767743 service CPU-s/audio-s,
+with observer CPU recorded separately. Historical rows retain their original
+conditions; a new R1 row must match this placement. See the
+[service control record](2026-11-21-service-cpu-control.md) for identities,
+accounting, limitations and the following JSONL I/O implementation.

@@ -99,8 +99,11 @@ pub fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
 }
 
 pub fn json_line(f: &mut impl Write, value: &impl Serialize) -> Result<()> {
-    serde_json::to_writer(&mut *f, value)?;
-    f.write_all(b"\n")?;
+    // File writers otherwise issue a syscall for each JSON fragment. Keep each
+    // record immediately visible without buffering it until a later observation.
+    let mut record = serde_json::to_vec(value)?;
+    record.push(b'\n');
+    f.write_all(&record)?;
     Ok(())
 }
 
