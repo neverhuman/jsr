@@ -89,6 +89,25 @@ pub struct Workspace {
     ready: Vec<(usize, usize)>,
 }
 
+impl Workspace {
+    /// Turn per-phase accounting on or off (and reset it).
+    pub fn set_profiling(&mut self, on: bool) {
+        self.enc.q.prof = crate::prof::Prof {
+            on,
+            ..Default::default()
+        };
+        self.dec.q.prof = crate::prof::Prof {
+            on,
+            ..Default::default()
+        };
+    }
+
+    /// `(encoder, decoder)` phase accounting since the last reset.
+    pub fn profile(&self) -> (crate::prof::Prof, crate::prof::Prof) {
+        (self.enc.q.prof.clone(), self.dec.q.prof.clone())
+    }
+}
+
 impl Engine {
     pub fn new(model: Arc<Model>, isa: Isa, precision: Precision) -> Result<Self, EngineError> {
         if !isa.is_available() {
@@ -97,7 +116,12 @@ impl Engine {
                 isa.name()
             )));
         }
-        if precision == Precision::Int8 && model.blocks.iter().any(|b| b.qkv.q.is_none()) {
+        if precision == Precision::Int8
+            && model
+                .blocks
+                .iter()
+                .all(|b| b.qkv.q.is_none() && b.ff1_w1.q.is_none())
+        {
             return Err(EngineError::Unsupported(
                 "int8 requested but the model was not quantised (Model::quantize_int8)".into(),
             ));

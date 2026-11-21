@@ -174,5 +174,71 @@ pub fn add_scaled(isa: Isa, y: &mut [f32], x: &[f32], alpha: f32) {
     axpy(isa, alpha, x, y);
 }
 
+/// Softmax attention of one head: queries `q[i * q_stride ..][..dh]` for `i < n`; keys and
+/// values are the rows (width `dh`) of two contiguous segments each (a ring buffer's window);
+/// writes `out[i * o_stride ..][..dh] = softmax(q k^T * scale) v`. `scores` holds >= nk floats.
+#[allow(clippy::too_many_arguments)]
+pub fn attend_head(
+    isa: Isa,
+    q: &[f32],
+    q_stride: usize,
+    n: usize,
+    dh: usize,
+    keys: [&[f32]; 2],
+    vals: [&[f32]; 2],
+    scale: f32,
+    scores: &mut [f32],
+    out: &mut [f32],
+    o_stride: usize,
+) {
+    let nk = (keys[0].len() + keys[1].len()) / dh;
+    assert!(n > 0 && nk > 0 && keys[0].len() == vals[0].len() && keys[1].len() == vals[1].len());
+    assert!(keys.iter().all(|k| k.len().is_multiple_of(dh)) && scores.len() >= nk);
+    assert!(q.len() >= (n - 1) * q_stride + dh && out.len() >= (n - 1) * o_stride + dh);
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() && dh.is_multiple_of(8) && dh <= 128 => {
+            x86_avx2::attend_head(q, q_stride, n, dh, keys, vals, scale, scores, out, o_stride)
+        }
+        _ => scalar::attend_head(q, q_stride, n, dh, keys, vals, scale, scores, out, o_stride),
+    }
+}
+
+/// Per-row centred symmetric int8 quantisation: with `c = (max + min) / 2` and
+/// `h = (max - min) / 2`, writes `round_half_even((x - c) * 127 / h)` into `out` and returns
+/// `(scale = h / 127, centre = c)`, so `x ~ scale * q + c`. A constant row gives zero codes,
+/// scale 0 and centre equal to the constant.
+pub fn quantize_row(isa: Isa, x: &[f32], out: &mut [i8]) -> (f32, f32) {
+    assert_eq!(x.len(), out.len());
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::quantize_row(x, out),
+        _ => scalar::quantize_row(x, out),
+    }
+}
+
+/// Int8 GEMM with the dequantising epilogue: `out[r][j] = f32(sum_k a[r][k] w_q[j][k]) *
+/// (sa[r] * s_w[j]) + (ca[r] * wsum[j] + b[j])`, where `wsum[j]` is the sum of row `j`'s
+/// dequantised weights (the centre's contribution); `a` has row stride `w.kp`, `out` `w.n`.
+pub fn gemm_i8(
+    isa: Isa,
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+) {
+    assert!(
+        a.len() >= rows * w.kp && sa.len() >= rows && ca.len() >= rows && out.len() >= rows * w.n,
+        "gemm_i8 lengths"
+    );
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out),
+        _ => scalar::gemm_i8(w, a, sa, ca, rows, out),
+    }
+}
+
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

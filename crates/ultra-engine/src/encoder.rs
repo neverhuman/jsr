@@ -13,8 +13,9 @@
 //! different `n` (partial final chunks) and positions; nothing a stream computes depends on
 //! another stream's rows (per-row quantisation keeps that true for int8 too).
 
-use crate::kernels::{self, scalar, Isa};
+use crate::kernels::{self, Isa};
 use crate::model::{Linear, Model, Norm};
+use crate::prof::Phase;
 use crate::quant::{self, QuantScratch};
 use crate::EngineError;
 
@@ -48,7 +49,8 @@ pub struct EncState {
     pub t: usize,
     /// Valid attention cache entries (saturates at `left`).
     pub kv_len: usize,
-    /// `[layer][head][left][dh]`; absolute position `p` lives in slot `p % left`.
+    /// `[layer][head][left + chunk][dh]`; absolute position `p` lives in slot
+    /// `p % (left + chunk)`, so a chunk's keys can be written before its queries run.
     pub k: Vec<f32>,
     pub v: Vec<f32>,
     /// `[layer][kernel-1][d]`, oldest first.
@@ -58,7 +60,7 @@ pub struct EncState {
 impl EncState {
     pub fn new(m: &Model) -> Self {
         let a = &m.arch;
-        let kv = a.n_blocks * a.heads * a.left * a.dh;
+        let kv = a.n_blocks * a.heads * (a.left + a.chunk) * a.dh;
         Self {
             t: 0,
             kv_len: 0,
@@ -90,7 +92,7 @@ pub struct EncWorkspace {
     win: Vec<f32>,
     rope: Vec<f32>,
     scores: Vec<f32>,
-    q: QuantScratch,
+    pub(crate) q: QuantScratch,
 }
 
 fn grow(v: &mut Vec<f32>, n: usize) -> &mut [f32] {
@@ -116,8 +118,22 @@ pub fn linear(
 ) {
     match (prec, &lin.q) {
         (Precision::Int8, Some(p)) => quant::linear_i8(isa, p, x, rows, out, q),
-        _ => kernels::gemm_f32(isa, &lin.f, x, rows, &mut out[..rows * lin.n()]),
+        _ => {
+            let t = q.prof.start();
+            kernels::gemm_f32(isa, &lin.f, x, rows, &mut out[..rows * lin.n()]);
+            q.prof.stop(Phase::GemmF32, t);
+        }
     }
+}
+
+/// Time `$e` into phase `$p` of `$prof` when profiling is on.
+macro_rules! timed {
+    ($prof:expr, $p:expr, $e:expr) => {{
+        let t = $prof.start();
+        let r = $e;
+        $prof.stop($p, t);
+        r
+    }};
 }
 
 fn norm(isa: Isa, nm: &Norm, x: &[f32], d: usize, out: &mut [f32]) {
@@ -160,7 +176,7 @@ pub fn encode_chunk(
     let x = &mut ws.x[..rows * d];
     if let Some(fnorm) = &m.final_norm {
         let ln = grow(&mut ws.ln, rows * d);
-        norm(isa, fnorm, x, d, ln);
+        timed!(ws.q.prof, Phase::Norm, norm(isa, fnorm, x, d, ln));
         x.copy_from_slice(ln);
     }
     if let Some(t) = tap.as_mut() {
@@ -191,6 +207,7 @@ fn stem(
 ) {
     let a = &m.arch;
     let (ch, f1, f2, nm) = (a.stem_ch, a.f1, a.f2, a.n_mels);
+    let t_stem = ws.q.prof.start();
     let col = grow(&mut ws.col, rows * f2 * 9 * ch);
     let mut crow = 0;
     for j in jobs {
@@ -210,8 +227,8 @@ fn stem(
                     for kw in 0..3 {
                         let xv = j.feats[(2 * r + kh) * nm + 2 * f + kw];
                         let t = kh * 3 + kw;
-                        for (c, ov) in o.iter_mut().enumerate() {
-                            *ov += m.c1_w[c * 9 + t] * xv;
+                        for (ov, &wv) in o.iter_mut().zip(&m.c1_w[t * ch..(t + 1) * ch]) {
+                            *ov += wv * xv;
                         }
                     }
                 }
@@ -232,9 +249,10 @@ fn stem(
         }
         crow += j.n * f2;
     }
+    ws.q.prof.stop(Phase::Stem1, t_stem);
     let c2 = grow(&mut ws.c2, rows * f2 * ch);
     linear(isa, prec, &m.c2, col, rows * f2, c2, &mut ws.q);
-    kernels::silu_inplace(isa, c2);
+    timed!(ws.q.prof, Phase::Act, kernels::silu_inplace(isa, c2));
     let x = grow(&mut ws.x, rows * a.d);
     linear(isa, prec, &m.stem_out, c2, rows, x, &mut ws.q);
 }
@@ -252,13 +270,13 @@ fn ffn(
 ) {
     let x = &mut ws.x[..rows * d];
     let ln = grow(&mut ws.ln, rows * d);
-    norm(isa, nm, x, d, ln);
+    timed!(ws.q.prof, Phase::Norm, norm(isa, nm, x, d, ln));
     let h = grow(&mut ws.h, rows * w1.n());
     linear(isa, prec, w1, ln, rows, h, &mut ws.q);
-    kernels::silu_inplace(isa, h);
+    timed!(ws.q.prof, Phase::Act, kernels::silu_inplace(isa, h));
     let y = grow(&mut ws.y, rows * d);
     linear(isa, prec, w2, h, rows, y, &mut ws.q);
-    kernels::add_scaled(isa, x, y, 0.5);
+    timed!(ws.q.prof, Phase::Act, kernels::add_scaled(isa, x, y, 0.5));
 }
 
 fn block(
@@ -278,10 +296,15 @@ fn block(
     // Attention.
     {
         let ln = grow(&mut ws.ln, rows * d);
-        norm(isa, &b.att_norm, &ws.x[..rows * d], d, ln);
+        timed!(
+            ws.q.prof,
+            Phase::Norm,
+            norm(isa, &b.att_norm, &ws.x[..rows * d], d, ln)
+        );
         let qkv = grow(&mut ws.h, rows * 3 * d);
         linear(isa, prec, &b.qkv, ln, rows, qkv, &mut ws.q);
         let att = grow(&mut ws.h2, rows * d);
+        let t_att = ws.q.prof.start();
         let mut r0 = 0;
         for j in jobs.iter_mut() {
             attend(
@@ -296,21 +319,31 @@ fn block(
             );
             r0 += j.n;
         }
+        ws.q.prof.stop(Phase::Attention, t_att);
         let y = grow(&mut ws.y, rows * d);
         linear(isa, prec, &b.att_out, att, rows, y, &mut ws.q);
-        kernels::add_scaled(isa, &mut ws.x[..rows * d], y, 1.0);
+        timed!(
+            ws.q.prof,
+            Phase::Act,
+            kernels::add_scaled(isa, &mut ws.x[..rows * d], y, 1.0)
+        );
     }
 
     // Convolution module.
     {
         let ln = grow(&mut ws.ln, rows * d);
-        norm(isa, &b.conv_norm, &ws.x[..rows * d], d, ln);
+        timed!(
+            ws.q.prof,
+            Phase::Norm,
+            norm(isa, &b.conv_norm, &ws.x[..rows * d], d, ln)
+        );
         let p1 = grow(&mut ws.h, rows * 2 * d);
         linear(isa, prec, &b.pw1, ln, rows, p1, &mut ws.q);
         let g = grow(&mut ws.h2, rows * d);
-        kernels::glu(isa, p1, d, g);
+        timed!(ws.q.prof, Phase::Act, kernels::glu(isa, p1, d, g));
         let y = grow(&mut ws.y, rows * d);
         let km1 = a.kernel - 1;
+        let t_conv = ws.q.prof.start();
         let mut r0 = 0;
         for j in jobs.iter_mut() {
             let hist = &mut j.state.conv[li * km1 * d..(li + 1) * km1 * d];
@@ -331,20 +364,37 @@ fn block(
             hist.copy_from_slice(&win[j.n * d..]);
             r0 += j.n;
         }
+        ws.q.prof.stop(Phase::Conv, t_conv);
         let ln = grow(&mut ws.ln, rows * d);
-        norm(isa, &b.dnorm, y, d, ln);
-        kernels::silu_inplace(isa, ln);
+        timed!(ws.q.prof, Phase::Norm, norm(isa, &b.dnorm, y, d, ln));
+        timed!(ws.q.prof, Phase::Act, kernels::silu_inplace(isa, ln));
         let y2 = grow(&mut ws.y, rows * d);
         linear(isa, prec, &b.pw2, ln, rows, y2, &mut ws.q);
-        kernels::add_scaled(isa, &mut ws.x[..rows * d], y2, 1.0);
+        timed!(
+            ws.q.prof,
+            Phase::Act,
+            kernels::add_scaled(isa, &mut ws.x[..rows * d], y2, 1.0)
+        );
     }
 
     ffn(isa, prec, &b.ff2_norm, &b.ff2_w1, &b.ff2_w2, ws, rows, d);
     if let Some(pn) = &b.post_norm {
         let ln = grow(&mut ws.ln, rows * d);
-        norm(isa, pn, &ws.x[..rows * d], d, ln);
+        timed!(
+            ws.q.prof,
+            Phase::Norm,
+            norm(isa, pn, &ws.x[..rows * d], d, ln)
+        );
         ws.x[..rows * d].copy_from_slice(ln);
     }
+}
+
+/// The ring rows `[start, start + first)` then `[0, nk - first)`.
+fn window(r: &[f32], start: usize, first: usize, nk: usize, dh: usize) -> [&[f32]; 2] {
+    [
+        &r[start * dh..(start + first) * dh],
+        &r[..(nk - first) * dh],
+    ]
 }
 
 /// RoPE on pairs `(2i, 2i+1)` of one head vector at angle table `cs` (`[cos..., sin...]`),
@@ -396,56 +446,42 @@ fn attend(
             );
         }
     }
-    let past = j.state.kv_len;
-    let nk = past + n;
-    let sc = grow(scores, nk);
-    let scale = 1.0 / (dh as f32).sqrt();
-    let lbase = li * hn * left * dh;
-    for h in 0..hn {
-        let kring = &j.state.k[lbase + h * left * dh..lbase + (h + 1) * left * dh];
-        let vring = &j.state.v[lbase + h * left * dh..lbase + (h + 1) * left * dh];
-        let slot = |p: usize| (p % left) * dh;
-        for i in 0..n {
-            let q = &qkv[i * 3 * d + h * dh..i * 3 * d + (h + 1) * dh];
-            for (jj, s) in sc.iter_mut().enumerate() {
-                let kv = if jj < past {
-                    let o = slot(t0 - past + jj);
-                    &kring[o..o + dh]
-                } else {
-                    let r = jj - past;
-                    &qkv[r * 3 * d + d + h * dh..r * 3 * d + d + (h + 1) * dh]
-                };
-                *s = kernels::dot(isa, q, kv) * scale;
-            }
-            let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-            let mut sum = 0.0f32;
-            for s in sc.iter_mut() {
-                *s = scalar::exp_approx(*s - mx);
-                sum += *s;
-            }
-            let o = &mut out[i * d + h * dh..i * d + (h + 1) * dh];
-            o.fill(0.0);
-            let inv = 1.0 / sum;
-            for (jj, &p) in sc.iter().enumerate() {
-                let vv = if jj < past {
-                    let off = slot(t0 - past + jj);
-                    &vring[off..off + dh]
-                } else {
-                    let r = jj - past;
-                    &qkv[r * 3 * d + 2 * d + h * dh..r * 3 * d + 2 * d + (h + 1) * dh]
-                };
-                kernels::axpy(isa, p * inv, vv, o);
-            }
-        }
-    }
-    // Store this chunk's keys/values (after every query used the old window).
+    // Store this chunk's keys/values first: the ring holds left + chunk slots, so the slots
+    // overwritten (positions <= t0 + n - 1 - (left + chunk) < t0 - left) are outside the window.
+    let ring = left + a.chunk;
+    let lbase = li * hn * ring * dh;
     for i in 0..n {
-        let s = ((t0 + i) % left) * dh;
+        let s = ((t0 + i) % ring) * dh;
+        let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
         for h in 0..hn {
-            let base = lbase + h * left * dh + s;
-            let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
+            let base = lbase + h * ring * dh + s;
             j.state.k[base..base + dh].copy_from_slice(&r[d + h * dh..d + (h + 1) * dh]);
             j.state.v[base..base + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
         }
+    }
+    // Window: positions [t0 - past, t0 + n), as at most two contiguous ring segments.
+    let past = j.state.kv_len;
+    let nk = past + n;
+    let start = (t0 - past) % ring;
+    let first = nk.min(ring - start);
+    let sc = grow(scores, nk);
+    let scale = 1.0 / (dh as f32).sqrt();
+    for h in 0..hn {
+        let hb = lbase + h * ring * dh;
+        let kr = &j.state.k[hb..hb + ring * dh];
+        let vr = &j.state.v[hb..hb + ring * dh];
+        kernels::attend_head(
+            isa,
+            &qkv[h * dh..],
+            3 * d,
+            n,
+            dh,
+            window(kr, start, first, nk, dh),
+            window(vr, start, first, nk, dh),
+            scale,
+            sc,
+            &mut out[h * dh..],
+            d,
+        );
     }
 }

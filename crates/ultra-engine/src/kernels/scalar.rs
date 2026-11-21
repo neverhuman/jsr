@@ -103,3 +103,123 @@ pub fn axpy(alpha: f32, x: &[f32], y: &mut [f32]) {
         *yv += alpha * xv;
     }
 }
+
+/// Range `(min, max)` of a row (NaN-blind, like the SIMD max/min).
+pub fn row_range(x: &[f32]) -> (f32, f32) {
+    x.iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), &v| {
+            (lo.min(v), hi.max(v))
+        })
+}
+
+/// Centre, half range and inverse step of a row range (shared by scalar and SIMD).
+#[inline]
+pub fn row_params(lo: f32, hi: f32) -> Option<(f32, f32, f32)> {
+    let half = 0.5 * hi - 0.5 * lo;
+    let c = 0.5 * hi + 0.5 * lo;
+    (half > 0.0 && half.is_finite() && c.is_finite()).then(|| (c, half / 127.0, 127.0 / half))
+}
+
+/// Per-row centred symmetric quantisation (see `kernels::quantize_row`).
+pub fn quantize_row(x: &[f32], out: &mut [i8]) -> (f32, f32) {
+    let (lo, hi) = row_range(x);
+    finish_row(x, out, lo, hi)
+}
+
+/// Quantise with a known range; returns `(scale, centre)`.
+pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32) -> (f32, f32) {
+    match row_params(lo, hi) {
+        Some((c, scale, inv)) => {
+            for (o, &v) in out.iter_mut().zip(x) {
+                *o = ((v - c) * inv).round_ties_even().clamp(-127.0, 127.0) as i8;
+            }
+            (scale, c)
+        }
+        None => {
+            // Constant (or empty / non-finite) row: all codes zero, the centre carries it.
+            out.fill(0);
+            let c = if x.is_empty() {
+                0.0
+            } else if lo == hi {
+                lo
+            } else {
+                f32::NAN
+            };
+            (0.0, c)
+        }
+    }
+}
+
+pub fn gemm_i8(
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+) {
+    use crate::quant::KG;
+    let (n, kp) = (w.n, w.kp);
+    for p in 0..w.panels() {
+        let panel = w.panel(p);
+        for j in 0..NR.min(n - p * NR) {
+            let col = p * NR + j;
+            for r in 0..rows {
+                let ar = &a[r * kp..(r + 1) * kp];
+                let mut acc = 0i32;
+                for (kk, &av) in ar.iter().enumerate() {
+                    let wv = panel[((kk / KG) * NR + j) * KG + kk % KG];
+                    acc += i32::from(av) * i32::from(wv);
+                }
+                let base = ca[r].mul_add(w.wsum[col], w.bias[col]);
+                out[r * n + col] = (acc as f32).mul_add(sa[r] * w.scale[col], base);
+            }
+        }
+    }
+}
+
+/// One attention head for `n` queries (see `kernels::attend_head`).
+#[allow(clippy::too_many_arguments)]
+pub fn attend_head<'a>(
+    q: &[f32],
+    q_stride: usize,
+    n: usize,
+    dh: usize,
+    keys: [&'a [f32]; 2],
+    vals: [&'a [f32]; 2],
+    scale: f32,
+    scores: &mut [f32],
+    out: &mut [f32],
+    o_stride: usize,
+) {
+    let nk = (keys[0].len() + keys[1].len()) / dh;
+    let n0 = keys[0].len() / dh;
+    let row = |segs: [&'a [f32]; 2], j: usize| -> &'a [f32] {
+        if j < n0 {
+            &segs[0][j * dh..(j + 1) * dh]
+        } else {
+            &segs[1][(j - n0) * dh..(j - n0 + 1) * dh]
+        }
+    };
+    for i in 0..n {
+        let qi = &q[i * q_stride..i * q_stride + dh];
+        for (j, s) in scores[..nk].iter_mut().enumerate() {
+            *s = dot(qi, row(keys, j)) * scale;
+        }
+        let mx = scores[..nk]
+            .iter()
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max);
+        let mut sum = 0.0f32;
+        for s in scores[..nk].iter_mut() {
+            *s = exp_approx(*s - mx);
+            sum += *s;
+        }
+        let inv = 1.0 / sum;
+        let o = &mut out[i * o_stride..i * o_stride + dh];
+        o.fill(0.0);
+        for (j, &p) in scores[..nk].iter().enumerate() {
+            axpy(p * inv, row(vals, j), o);
+        }
+    }
+}

@@ -31,6 +31,7 @@ struct Args {
     packet_ms: usize,
     precision: Precision,
     isa: Isa,
+    profile: bool,
 }
 
 fn parse() -> Result<Args, String> {
@@ -45,6 +46,7 @@ fn parse() -> Result<Args, String> {
         packet_ms: 20,
         precision: Precision::F32,
         isa: Isa::detect(),
+        profile: false,
     };
     while let Some(k) = it.next() {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
@@ -52,6 +54,7 @@ fn parse() -> Result<Args, String> {
             "--weights" => a.weights = v()?.into(),
             "--npz" => a.npz = v()?.into(),
             "--out" => a.out = v()?.into(),
+            "--profile" => a.profile = true,
             "--reference" => a.reference = Some(v()?.into()),
             "--limit" => a.limit = v()?.parse().map_err(|e| format!("--limit: {e}"))?,
             "--streams" => a.streams = v()?.parse().map_err(|e| format!("--streams: {e}"))?,
@@ -122,8 +125,18 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     std::fs::create_dir_all(&a.out).map_err(|e| e.to_string())?;
     let t_load = Instant::now();
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
+    // Ablation hook: ULTRA_ENGINE_INT8_SKIP=kind[,kind...] keeps those layer kinds fp32
+    // (kinds: stem_c2 stem_out ff1_w1 ff1_w2 qkv att_out pw1 pw2 ff2_w1 ff2_w2 enc_proj joiner_out).
+    let skip: Vec<String> = std::env::var("ULTRA_ENGINE_INT8_SKIP")
+        .map(|v| {
+            v.split(',')
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
     if a.precision == Precision::Int8 {
-        model.quantize_int8();
+        model.quantize_int8_where(|kind, _| !skip.iter().any(|s| s == kind));
     }
     let load_s = t_load.elapsed().as_secs_f64();
     let engine = Engine::new(Arc::new(model), a.isa, a.precision).map_err(|e| e.to_string())?;
@@ -135,6 +148,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut active: Vec<(usize, EngineStream, usize)> = Vec::new();
     let mut done: Vec<Option<(Vec<u32>, String, u64)>> = vec![None; utts.len()];
     let mut ws = Workspace::default();
+    ws.set_profiling(a.profile);
     let (c0, w0) = (thread_cpu_s(), Instant::now());
     let mut batches = 0u64;
     let mut batch_rows = 0u64;
@@ -206,7 +220,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "weights": a.weights, "arch_checkpoint_sha256": engine.model.arch.checkpoint_sha256,
         "weights_sha256": engine.model.arch.weights_sha256,
         "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
-        "precision": a.precision.as_str(), "isa": a.isa.name(),
+        "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
         "streams": a.streams, "packet_ms": a.packet_ms,
         "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
@@ -215,6 +229,18 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
         "git_commit": option_env!("ULTRA_GIT_COMMIT").unwrap_or("unknown"),
     });
+    let mut summary = summary;
+    if a.profile {
+        let (e, d) = ws.profile();
+        let ph = |p: &ultra_engine::prof::Prof| {
+            p.seconds()
+                .into_iter()
+                .filter(|(_, v)| *v > 0.0)
+                .map(|(k, v)| (k.to_string(), json!(v / audio_s)))
+                .collect::<serde_json::Map<_, _>>()
+        };
+        summary["phase_s_per_audio_s"] = json!({"encoder": ph(&e), "decoder": ph(&d)});
+    }
     let mut full = summary.clone();
     full["rows"] = serde_json::Value::Array(rows);
     let text = serde_json::to_string_pretty(&full).map_err(|e| e.to_string())?;
