@@ -44,6 +44,9 @@ pub(super) struct RawConfig {
     pub(super) pred_emb: usize,
     pub(super) joiner: usize,
     pub(super) joiner_act: String,
+    /// `"int8"`: the stem's conv 2 and projection were trained as int8 GEMMs (S_MR_I8S).
+    #[serde(default)]
+    pub(super) qat_stem: Option<String>,
 }
 
 #[derive(Deserialize)]

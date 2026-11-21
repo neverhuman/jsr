@@ -21,10 +21,13 @@ pub mod encoder;
 pub mod engine;
 pub mod kernels;
 pub mod model;
+pub mod panel;
 pub mod pool;
 pub mod prof;
 pub mod quant;
+pub mod run_info;
 pub mod safetensors;
+pub mod workload;
 
 pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;

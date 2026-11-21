@@ -356,6 +356,8 @@ def main() -> None:
     tn.add_argument("--bundle", required=True)
     tn.add_argument("--assets", required=True)
     tn.add_argument("--out", required=True)
+    tn.add_argument("--fp32-control", action="store_true",
+                    help="plain fp32 directory with dequantised ternary weights (gate control)")
     rf = sub.add_parser("reference")
     rf.add_argument("--checkpoint", required=True)
     rf.add_argument("--out", required=True)
@@ -369,7 +371,7 @@ def main() -> None:
     elif a.cmd == "ternary":
         from r1_ternary import ternary
 
-        print(json.dumps(ternary(a.bundle, a.assets, a.out), indent=1))
+        print(json.dumps(ternary(a.bundle, a.assets, a.out, a.fp32_control), indent=1))
     else:
         print(json.dumps(reference(a.checkpoint, a.out, a.split, a.limit, a.start), indent=1))
 

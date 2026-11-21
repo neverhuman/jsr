@@ -6,7 +6,13 @@
 //! ```text
 //! ultra-engine-eval --weights <dir> --npz dev-clean.npz --limit 400 --precision fp32 \
 //!     --streams 16 --out <new run dir> [--reference r1_d1_400dev_fp32.json] [--isa scalar]
+//! ultra-engine-eval --weights <dir> --panel dev_selection_panel.json [--cache-dir <dir>] ...
+//!     [--int8-fp32-kinds k,..] [--int8-stem-kinds stem_c2,stem_out] [--qualifying]
 //! ```
+//! `--panel` runs a verified DEV selection panel (manifest and shard hashes checked; rows
+//! carry split and speaker for the cluster bootstrap). `--qualifying` refuses runtime weight
+//! quantisation (int8 needs a prepared directory) and requires a panel. Every knob is a
+//! flag recorded in the output; `ULTRA_ENGINE_*` environment variables are refused.
 //! Writes `<out>/engine_eval.json` (summary + per-utterance rows). CPU time is this thread's
 //! scheduler run time (`/proc/thread-self/schedstat`); all speed numbers are exploratory.
 
@@ -16,7 +22,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::json;
-use ultra_engine::{Engine, EngineStream, Isa, Model, Precision, Workspace};
+use ultra_engine::panel::Panel;
+use ultra_engine::workload::Workload;
+use ultra_engine::{run_info, Engine, EngineStream, Isa, Model, Precision, Workspace};
 #[cfg(feature = "wer")]
 use ultra_eval::{normalise::normalise_words, wer::align};
 
@@ -39,11 +47,15 @@ fn score(reference: &str, hyp: &str) -> Option<[u64; 5]> {
 fn score(_reference: &str, _hyp: &str) -> Option<[u64; 5]> {
     None
 }
-use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
 
 struct Args {
     weights: PathBuf,
     npz: PathBuf,
+    panel: Option<PathBuf>,
+    cache_dir: PathBuf,
+    qualifying: bool,
+    int8_fp32_kinds: Vec<String>,
+    int8_stem_kinds: Vec<String>,
     out: PathBuf,
     reference: Option<PathBuf>,
     limit: usize,
@@ -63,6 +75,13 @@ fn parse() -> Result<Args, String> {
     let mut a = Args {
         weights: PathBuf::new(),
         npz: PathBuf::new(),
+        panel: None,
+        cache_dir: std::env::var_os("JSR_DATA")
+            .map_or_else(|| PathBuf::from("/mnt/xbabe3-external/jsr"), PathBuf::from)
+            .join("cache/librispeech_pcm"),
+        qualifying: false,
+        int8_fp32_kinds: Vec::new(),
+        int8_stem_kinds: Vec::new(),
         out: PathBuf::new(),
         reference: None,
         limit: 400,
@@ -84,6 +103,14 @@ fn parse() -> Result<Args, String> {
             "--out" => a.out = v()?.into(),
             "--profile" => a.profile = true,
             "--int8-stem" => a.int8_stem = true,
+            "--panel" => a.panel = Some(v()?.into()),
+            "--cache-dir" => a.cache_dir = v()?.into(),
+            "--qualifying" => a.qualifying = true,
+            "--int8-fp32-kinds" => a.int8_fp32_kinds = kinds(&v()?),
+            "--int8-stem-kinds" => {
+                a.int8_stem_kinds = kinds(&v()?);
+                a.int8_stem = true;
+            }
             "--act7" => a.act7 = true,
             "--gemm-threads" => {
                 a.gemm_threads = v()?.parse().map_err(|e| format!("--gemm-threads: {e}"))?
@@ -108,35 +135,21 @@ fn parse() -> Result<Args, String> {
         }
     }
     if a.weights.as_os_str().is_empty()
-        || a.npz.as_os_str().is_empty()
+        || (a.npz.as_os_str().is_empty() == a.panel.is_none())
         || a.out.as_os_str().is_empty()
     {
-        return Err("--weights, --npz and --out are required".into());
+        return Err("--weights, --out and exactly one of --npz / --panel are required".into());
+    }
+    if a.qualifying && a.panel.is_none() {
+        return Err("--qualifying requires --panel".into());
+    }
+    if a.int8_stem && a.int8_stem_kinds.is_empty() {
+        a.int8_stem_kinds = vec!["stem_c2".into(), "stem_out".into()];
     }
     if a.streams == 0 || a.packet_ms == 0 {
         return Err("--streams and --packet-ms must be positive".into());
     }
     Ok(a)
-}
-
-/// This thread's CPU run time in seconds.
-fn thread_cpu_s() -> f64 {
-    // Linux: this thread's scheduler run time. Elsewhere (macOS): process user + system time
-    // (the binaries decode on one thread; pool workers, if enabled, are then included).
-    if let Some(v) = std::fs::read_to_string("/proc/thread-self/schedstat")
-        .ok()
-        .and_then(|s| {
-            s.split_whitespace()
-                .next()
-                .and_then(|v| v.parse::<f64>().ok())
-        })
-    {
-        return v * 1e-9;
-    }
-    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, |u| {
-        let t = |tv: nix::sys::time::TimeVal| tv.tv_sec() as f64 + tv.tv_usec() as f64 * 1e-6;
-        t(u.user_time()) + t(u.system_time())
-    })
 }
 
 /// Reference token ids keyed by utterance id (`rows[].id`, `rows[].py_tokens`).
@@ -168,11 +181,11 @@ fn reference_tokens(path: &PathBuf) -> Result<std::collections::HashMap<String, 
     Ok(out)
 }
 
-/// SHA-256 of the running executable (binds results to the exact binary).
-fn exe_sha256() -> String {
-    std::fs::read("/proc/self/exe")
-        .map(|b| ultra_core::receipt::sha256_hex(&b))
-        .unwrap_or_else(|_| "unavailable".into())
+fn kinds(v: &str) -> Vec<String> {
+    v.split(',')
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 fn run(a: &Args) -> Result<serde_json::Value, String> {
@@ -182,23 +195,21 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             a.out.display()
         ));
     }
+    run_info::refuse_engine_env()?;
     std::fs::create_dir_all(&a.out).map_err(|e| e.to_string())?;
     let t_load = Instant::now();
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
-    // Ablation hook: ULTRA_ENGINE_INT8_SKIP=kind[,kind...] keeps those layer kinds fp32
-    // (kinds: stem_c2 stem_out ff1_w1 ff1_w2 qkv att_out pw1 pw2 ff2_w1 ff2_w2 enc_proj joiner_out).
-    let mut skip: Vec<String> = std::env::var("ULTRA_ENGINE_INT8_SKIP")
-        .map(|v| {
-            v.split(',')
-                .filter(|s| !s.is_empty())
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default();
+    if a.qualifying {
+        run_info::check_qualifying(&model, a.precision, a.int8_stem)?;
+    }
+    // --int8-fp32-kinds keeps those layer kinds fp32 in the int8 engine (ablations; kinds:
+    // stem_c2 stem_out ff1_w1 ff1_w2 qkv att_out pw1 pw2 ff2_w1 ff2_w2 pair restore enc_proj
+    // joiner_out).
+    let mut skip = a.int8_fp32_kinds.clone();
     if let Some(p) = &model.int8_prepared {
         // Prepared artifact: no weight quantisation here; its declared fp32 kinds rule.
         if !skip.is_empty() {
-            return Err("ULTRA_ENGINE_INT8_SKIP conflicts with a prepared-INT8 directory".into());
+            return Err("--int8-fp32-kinds conflicts with a prepared-INT8 directory".into());
         }
         skip = p.fp32_kinds.clone();
     } else if a.precision == Precision::Int8 {
@@ -206,10 +217,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     }
     // NEW numerical candidate (off by default): post-training int8 for a still-fp32 stem.
     let stem_quantised = if a.int8_stem && a.precision == Precision::Int8 {
-        // ULTRA_ENGINE_STEM_KINDS=stem_c2|stem_out narrows it (ablation).
-        let kinds =
-            std::env::var("ULTRA_ENGINE_STEM_KINDS").unwrap_or_else(|_| "stem_c2,stem_out".into());
-        let kinds: Vec<&str> = kinds.split(',').collect();
+        let kinds: Vec<&str> = a.int8_stem_kinds.iter().map(String::as_str).collect();
         model.quantize_fp32_kinds_int8(&kinds)
     } else {
         0
@@ -220,7 +228,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .with_max_chunks(a.max_chunks)
         .with_act7(a.act7)
         .with_gemm_threads(a.gemm_threads);
-    let utts = load_npz_audio_only(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
+    let wl = match &a.panel {
+        Some(p) => Workload::panel(&Panel::read(p)?, &a.cache_dir)?,
+        None => Workload::first(&a.npz, a.limit)?,
+    };
+    let utts = &wl.items;
     if utts.is_empty() {
         return Err("empty workload".into());
     }
@@ -230,7 +242,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut done: Vec<Option<(Vec<u32>, String, u64)>> = vec![None; utts.len()];
     let mut ws = Workspace::default();
     ws.set_profiling(a.profile);
-    let (c0, w0) = (thread_cpu_s(), Instant::now());
+    let (c0, w0) = (run_info::thread_cpu_s(), Instant::now());
     let mut batches = 0u64;
     let mut decode_wall = 0.0f64;
     let mut batch_rows = 0u64;
@@ -277,26 +289,30 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             }
         }
     }
-    let cpu_s = thread_cpu_s() - c0;
+    let cpu_s = run_info::thread_cpu_s() - c0;
     let wall_s = w0.elapsed().as_secs_f64();
-    let audio_s: f64 = utts.iter().map(|u| u.seconds()).sum();
+    let audio_s: f64 = utts.iter().map(|u| u.pcm.len() as f64 / 16_000.0).sum();
     if !cpu_s.is_finite() || cpu_s <= 0.0 || audio_s <= 0.0 {
         return Err(format!("unusable CPU clock ({cpu_s}) or audio ({audio_s})"));
     }
     // References are read only after inference and timing have finished.
-    let refs = load_npz_references(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
+    let refs = wl.references()?;
     let ref_toks = a.reference.as_ref().map(reference_tokens).transpose()?;
     let (mut subs, mut dels, mut ins) = (0u64, 0u64, 0u64);
     let (mut errs, mut words, mut same_tok, mut forced) = (0u64, 0u64, 0usize, 0u64);
     let mut rows = Vec::new();
+    let mut per_split: std::collections::BTreeMap<String, (u64, u64, usize)> = Default::default();
     for (i, d) in done.into_iter().enumerate() {
         let (toks, text, f) = d.ok_or("an utterance never finished")?;
-        if let Some([e, w, s, d, n]) = score(&refs[i].text, &text) {
+        let sc = score(&refs[i].text, &text);
+        if let Some([e, w, s, d, n]) = sc {
             errs += e;
             words += w;
             subs += s;
             dels += d;
             ins += n;
+            let ps = per_split.entry(refs[i].split.clone()).or_default();
+            *ps = (ps.0 + e, ps.1 + w, ps.2 + 1);
         }
         forced += f;
         let eq = ref_toks
@@ -306,30 +322,59 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             same_tok += 1;
         }
         rows.push(
-            json!({"index": i, "id": refs[i].uid, "hyp": text, "tokens": toks,
-                         "equal_reference_tokens": eq}),
+            json!({"index": i, "id": refs[i].uid, "split": refs[i].split,
+                   "speaker": refs[i].speaker, "errors": sc.map(|v| v[0]),
+                   "ref_words": sc.map(|v| v[1]), "hyp": text, "tokens": toks,
+                   "equal_reference_tokens": eq}),
         );
     }
     let wer = (words > 0).then(|| 100.0 * errs as f64 / words as f64);
-    let summary = json!({
-        "schema": "ultra.engine-eval/v1",
-        "exploratory": true,
-        "weights": a.weights, "arch_checkpoint_sha256": engine.model.arch.checkpoint_sha256,
-        "weights_sha256": engine.model.arch.weights_sha256,
-        "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
-        "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
-        "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
-        "streams": a.streams, "max_chunks": a.max_chunks, "act7": a.act7, "int8_stem_layers_quantised": stem_quantised, "gemm_threads": a.gemm_threads, "packet_ms": a.packet_ms,
-        "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
+    let knobs = run_info::Knobs {
+        mode: if a.qualifying {
+            "qualifying"
+        } else {
+            "exploratory"
+        },
+        precision: a.precision,
+        isa: a.isa.name(),
+        max_chunks: a.max_chunks,
+        act7: a.act7,
+        gemm_threads: a.gemm_threads,
+        int8_fp32_kinds: &skip,
+        int8_stem_kinds: if a.int8_stem { &a.int8_stem_kinds } else { &[] },
+        int8_stem_layers_quantised: stem_quantised,
+    };
+    let mut summary = run_info::identity(&engine.model, &a.weights, &knobs);
+    let split_wer: serde_json::Map<String, serde_json::Value> = per_split
+        .into_iter()
+        .map(|(k, (e, w, n))| {
+            let wer = (w > 0).then(|| 100.0 * e as f64 / w as f64);
+            (
+                k,
+                json!({"utterances": n, "errors": e, "ref_words": w, "wer_pct": wer}),
+            )
+        })
+        .collect();
+    let extra = json!({
+        "schema": "ultra.engine-eval/v2",
+        "npz": wl.sources.iter().map(|s| &s.npz).collect::<Vec<_>>(),
+        "panel": a.panel, "panel_manifest_sha256": wl.panel_manifest_sha256,
+        "utterances": utts.len(), "audio_s": audio_s,
+        "streams": a.streams, "packet_ms": a.packet_ms,
+        "wer_pct": wer, "ref_words": words, "errors": errs, "per_split": split_wer,
+        "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
         "cpu_s": cpu_s, "wall_s": wall_s, "decode_wall_s": decode_wall,
         "decode_wall_s_per_audio_s": decode_wall / audio_s, "cpu_s_per_audio_s": cpu_s / audio_s,
+        "cpu_scope": "decode thread only (schedstat), load excluded",
         "load_s": load_s, "decode_batches": batches,
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
         "substitutions": subs, "deletions": dels, "insertions": ins,
-        "executable_sha256": exe_sha256(),
+        "peak_rss_mib": run_info::peak_rss_mib(),
     });
-    let mut summary = summary;
+    if let (Some(m), Some(x)) = (summary.as_object_mut(), extra.as_object()) {
+        m.extend(x.clone());
+    }
     if a.profile {
         let (e, d) = ws.profile();
         let ph = |p: &ultra_engine::prof::Prof| {

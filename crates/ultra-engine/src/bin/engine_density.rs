@@ -5,6 +5,11 @@
 //! lateness = decode end - arrival of the last sample that chunk needs. Reports p50/p99/max
 //! lateness, a no-growth check (second-half mean minus first-half mean), worker CPU per
 //! audio second, and pass/fail against the A1 rule (p99 <= 800 ms, no growth). Exploratory.
+//!
+//! A DEVELOPMENT tool: evidence rows come from `ultra bench-suite` (one harness, one A1
+//! predicate for every system). Every knob is a recorded flag (`--int8-fp32-kinds`,
+//! `--int8-stem-kinds`); `ULTRA_ENGINE_*` environment variables are refused; `--qualifying`
+//! refuses runtime weight quantisation.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -12,7 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use ultra_engine::{Engine, EngineStream, Isa, Model, Precision, Workspace};
+use ultra_engine::{run_info, Engine, EngineStream, Isa, Model, Precision, Workspace};
 use ultra_frontend::npz::load_npz_audio_only;
 
 struct Args {
@@ -24,7 +29,9 @@ struct Args {
     precision: Precision,
     max_chunks: usize,
     int8_stem: bool,
+    int8_stem_kinds: Vec<String>,
     int8_skip: Vec<String>,
+    qualifying: bool,
 }
 
 fn parse() -> Result<Args, String> {
@@ -37,7 +44,9 @@ fn parse() -> Result<Args, String> {
         precision: Precision::Int8,
         max_chunks: 1,
         int8_stem: false,
+        int8_stem_kinds: Vec::new(),
         int8_skip: Vec::new(),
+        qualifying: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
@@ -51,33 +60,29 @@ fn parse() -> Result<Args, String> {
             "--max-chunks" => a.max_chunks = v()?.parse().map_err(|e| format!("{e}"))?,
             "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
-            "--int8-fp32-kinds" => a.int8_skip = v()?.split(',').map(str::to_owned).collect(),
+            "--int8-fp32-kinds" => a.int8_skip = kinds(&v()?),
+            "--int8-stem-kinds" => {
+                a.int8_stem_kinds = kinds(&v()?);
+                a.int8_stem = true;
+            }
+            "--qualifying" => a.qualifying = true,
             o => return Err(format!("unknown argument {o}")),
         }
     }
     if a.streams == 0 || a.grid_ms == 0 || a.weights.as_os_str().is_empty() {
         return Err("--weights, positive --streams and --grid-ms are required".into());
     }
+    if a.int8_stem && a.int8_stem_kinds.is_empty() {
+        a.int8_stem_kinds = vec!["stem_c2".into(), "stem_out".into()];
+    }
     Ok(a)
 }
 
-fn thread_cpu_s() -> f64 {
-    // Linux: this thread's scheduler run time. Elsewhere (macOS): process user + system time
-    // (the binaries decode on one thread; pool workers, if enabled, are then included).
-    if let Some(v) = std::fs::read_to_string("/proc/thread-self/schedstat")
-        .ok()
-        .and_then(|s| {
-            s.split_whitespace()
-                .next()
-                .and_then(|v| v.parse::<f64>().ok())
-        })
-    {
-        return v * 1e-9;
-    }
-    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, |u| {
-        let t = |tv: nix::sys::time::TimeVal| tv.tv_sec() as f64 + tv.tv_usec() as f64 * 1e-6;
-        t(u.user_time()) + t(u.system_time())
-    })
+fn kinds(v: &str) -> Vec<String> {
+    v.split(',')
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 struct Slot {
@@ -141,15 +146,19 @@ fn pct(v: &mut [f64], p: f64) -> f64 {
 }
 
 fn run(a: &Args) -> Result<serde_json::Value, String> {
+    run_info::refuse_engine_env()?;
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
+    if a.qualifying {
+        run_info::check_qualifying(&model, a.precision, a.int8_stem)?;
+    }
+    if model.int8_prepared.is_some() && !a.int8_skip.is_empty() {
+        return Err("--int8-fp32-kinds conflicts with a prepared-INT8 directory".into());
+    }
     if a.precision == Precision::Int8 && model.int8_prepared.is_none() {
         model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
     }
     let stem_quantised = if a.int8_stem && a.precision == Precision::Int8 {
-        // ULTRA_ENGINE_STEM_KINDS=stem_c2|stem_out narrows it (ablation).
-        let kinds =
-            std::env::var("ULTRA_ENGINE_STEM_KINDS").unwrap_or_else(|_| "stem_c2,stem_out".into());
-        let kinds: Vec<&str> = kinds.split(',').collect();
+        let kinds: Vec<&str> = a.int8_stem_kinds.iter().map(String::as_str).collect();
         model.quantize_fp32_kinds_int8(&kinds)
     } else {
         0
@@ -170,7 +179,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut next_utt = a.streams * 37;
     let mut ws = Workspace::default();
     let mut late: Vec<(f64, f64)> = Vec::new();
-    let (c0, t0) = (thread_cpu_s(), Instant::now());
+    let (c0, t0) = (run_info::thread_cpu_s(), Instant::now());
     let mut audio_s = 0.0f64;
     let mut frames = 0usize;
     let mut tick = 1u64;
@@ -227,7 +236,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let drained_chunks = late.len() - n_before;
     // Accepted audio not yet forming a complete chunk (never processed, never credited).
     let processed_s = frames as f64 * 0.04;
-    let cpu = thread_cpu_s() - c0;
+    let cpu = run_info::thread_cpu_s() - c0;
     let wall = t0.elapsed().as_secs_f64();
     let half = a.seconds / 2.0;
     let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;
@@ -246,10 +255,31 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let (p50, p99) = (pct(&mut all, 0.5), pct(&mut all, 0.99));
     let mx = all.last().copied().unwrap_or(f64::NAN);
     let pass = p99 <= 0.8 && growth <= 0.05;
-    Ok(json!({
-        "schema": "ultra.engine-density/v2", "exploratory": true,
-        "streams": a.streams, "max_chunks": a.max_chunks, "int8_stem_layers_quantised": stem_quantised, "grid_ms": a.grid_ms, "seconds": a.seconds,
-        "precision": a.precision.as_str(), "int8_fp32_kinds": a.int8_skip,
+    let fp32_kinds = match &engine.model.int8_prepared {
+        Some(p) => p.fp32_kinds.clone(),
+        None => a.int8_skip.clone(),
+    };
+    let knobs = run_info::Knobs {
+        mode: if a.qualifying {
+            "qualifying"
+        } else {
+            "exploratory"
+        },
+        precision: a.precision,
+        isa: engine.isa.name(),
+        max_chunks: a.max_chunks,
+        act7: false,
+        gemm_threads: 1,
+        int8_fp32_kinds: &fp32_kinds,
+        int8_stem_kinds: if a.int8_stem { &a.int8_stem_kinds } else { &[] },
+        int8_stem_layers_quantised: stem_quantised,
+    };
+    let mut out = run_info::identity(&engine.model, &a.weights, &knobs);
+    let extra = json!({
+        "schema": "ultra.engine-density/v3", "tool": "development (not an evidence harness)",
+        "npz": a.npz, "streams": a.streams, "grid_ms": a.grid_ms, "seconds": a.seconds,
+        "cpu_scope": "decode thread only (schedstat), load excluded",
+        "peak_rss_mib": run_info::peak_rss_mib(),
         "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
         "growth_s": growth, "a1_pass": pass,
         "worker_cpu_s": cpu, "wall_s": wall, "worker_util": cpu / wall,
@@ -259,9 +289,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "unprocessed_accepted_audio_s": (audio_s - processed_s).max(0.0),
         "backlog_steps_at_cutoff": backlog_steps, "drained_chunks": drained_chunks,
         "cpu_s_per_audio_s": cpu / processed_s,
-        "weights_sha256": engine.model.arch.weights_sha256,
-        "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
-    }))
+    });
+    if let (Some(m), Some(x)) = (out.as_object_mut(), extra.as_object()) {
+        m.extend(x.clone());
+    }
+    Ok(out)
 }
 
 fn main() -> ExitCode {
