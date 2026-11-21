@@ -1,4 +1,4 @@
-//! Active-set transducer greedy inner loop with exact (`0`-ULP) per-stream context caching,
+//! Active-set transducer greedy inner loop with per-stream predictor context caching,
 //! `OrtRunScratch` reuse, and `CLOCK_THREAD_CPUTIME_ID` phase attribution.
 
 use ultra_gp::checked_argmax_f32;
@@ -10,10 +10,12 @@ use crate::ort_r1_stream::OrtR1RawStream;
 use crate::ort_r1_ws::{ensure_all_finite, thread_cpu_ns, BatchWorkspace};
 
 impl OrtTransducerBackend {
-    /// Exact active-set transducer greedy inner loop matching `BundleRecognizer._greedy`:
+    /// Active-set transducer greedy inner loop matching `BundleRecognizer._greedy`:
     /// reuses each stream's cached `decoder(ctx)` vector whenever `ctx` has not changed since the
-    /// last non-blank emission (`~88–95%` hit rate during speech, `100%` during silence), calling
-    /// `decoder.onnx` only on newly changed contexts.
+    /// last non-blank emission, calling `decoder.onnx` only on newly changed contexts and recording
+    /// actual workload counts in `phases.{decoder_cache_hits, decoder_ort_calls, joiner_ort_calls}`.
+    /// `decoder_vectors_match_across_batch_shapes_m1_m4_m16` verifies raw `decoder.onnx` output
+    /// equality across miss-batch sizes `m = 1, 4, 16`.
     pub(crate) fn greedy_step(
         &self,
         all_streams: &mut [&mut OrtR1RawStream],
@@ -165,5 +167,76 @@ impl OrtTransducerBackend {
         let t_greedy1 = thread_cpu_ns(prof);
         ws.phases.greedy_cpu_ns += t_greedy1.saturating_sub(t_greedy0);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use ultra_gp::R1Precision;
+
+    use super::*;
+
+    #[test]
+    fn decoder_vectors_match_across_batch_shapes_m1_m4_m16() {
+        let root = std::env::var("JSR_DATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/mnt/xbabe3-external/jsr"));
+        let Some(bdir) = [
+            "bundles/r1-d1-v1.1b",
+            "bundles/r1-d1-reviewed-20261120-v2",
+            "bundles/r1-d1",
+        ]
+        .into_iter()
+        .map(|rel| root.join(rel))
+        .find(|p| p.join("manifest.json").exists()) else {
+            return;
+        };
+        let eng = OrtTransducerBackend::load(&bdir, R1Precision::Fp32, 1, false)
+            .expect("load R1 bundle for decoder batch-shape test");
+        let d = eng.bundle.streaming.joiner_dim;
+        let v = eng.bundle.decoder.vocab_size as i64;
+        let ctxs: Vec<[i64; 2]> = (0..16i64)
+            .map(|i| [(i * 131) % v, ((i + 3) * 977) % v])
+            .collect();
+
+        // Evaluate each context individually at m = 1.
+        let mut single_vecs = vec![0.0f32; 16 * d];
+        for (i, ctx) in ctxs.iter().enumerate() {
+            eng.dec
+                .run_into(
+                    &[(c"ctx", OrtTensorIn::i64(ctx, &[1, 2]))],
+                    &mut [(
+                        c"dec",
+                        OrtTensorOut::f32(&mut single_vecs[i * d..(i + 1) * d], &[1, d as i64]),
+                    )],
+                )
+                .expect("dec m=1");
+        }
+
+        // Compare against m = 4 and m = 16 batched calls bit-for-bit.
+        for m in [4usize, 16] {
+            for (chunk_idx, chunk) in ctxs.chunks(m).enumerate() {
+                let flat: Vec<i64> = chunk.iter().flat_map(|c| [c[0], c[1]]).collect();
+                let mut batched = vec![0.0f32; m * d];
+                eng.dec
+                    .run_into(
+                        &[(c"ctx", OrtTensorIn::i64(&flat, &[m as i64, 2]))],
+                        &mut [(
+                            c"dec",
+                            OrtTensorOut::f32(&mut batched, &[m as i64, d as i64]),
+                        )],
+                    )
+                    .expect("dec batched");
+                let expected = &single_vecs[chunk_idx * m * d..(chunk_idx + 1) * m * d];
+                for (a, b) in expected.iter().zip(&batched) {
+                    assert_eq!(
+                        a.to_bits(),
+                        b.to_bits(),
+                        "decoder vector bit mismatch at m={m}: {a} vs {b}"
+                    );
+                }
+            }
+        }
     }
 }
