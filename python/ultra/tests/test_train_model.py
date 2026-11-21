@@ -158,3 +158,19 @@ def test_multirate_causality_and_padding(t_in):
 def test_multirate_rejects_odd_chunk():
     with pytest.raises(Exception):
         Encoder(EncoderConfig(d_model=16, n_heads=2, chunk=3, family="multirate"))
+
+
+def test_collate_rounding_keeps_lengths_and_loss():
+    from train.data import Example, collate
+
+    torch.manual_seed(5)
+    exs = [Example(f"u{i}", "x", torch.randn(40 + 13 * i, 80), [1, 2, 3][: i + 1], [1, 2][: 1 + i % 2])
+           for i in range(3)]
+    a, b = collate(exs), collate(exs, pad_frames=64, pad_tokens=8)
+    assert b.feats.shape[1] == 128 and b.rnnt.shape[1] == 8 and b.ctc.shape[1] == 8
+    assert torch.equal(a.feat_lens, b.feat_lens) and torch.equal(a.rnnt_lens, b.rnnt_lens)
+    m = ASRModel(PRESETS["TINY"]).eval()
+    with torch.no_grad():
+        la = m.losses(a.feats, a.feat_lens, a.rnnt, a.rnnt_lens, a.ctc, a.ctc_lens)["loss"]
+        lb = m.losses(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens)["loss"]
+    assert torch.allclose(la, lb, atol=1e-5)

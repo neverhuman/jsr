@@ -68,7 +68,9 @@ class TrainConfig:
     diverge_ratio: float = 0.3
     diverge_patience: int = 300
     diverge_wer_points: float = 5.0
-    speed_perturb: str = ""  # e.g. "0.9,1.0,1.1" (train batches only)
+    speed_perturb: str = ""
+    pad_frames: int = 0  # round batch time axis up to this multiple (MPS: fewer shapes)
+    pad_tokens: int = 0  # round target axes up to this multiple  # e.g. "0.9,1.0,1.1" (train batches only)
     weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
     extra: dict = field(default_factory=dict)
 
@@ -363,7 +365,8 @@ def main(argv=None) -> int:
         source = ParquetBatches(list(a.splits), feat, cfg.seed, cfg.budget_s, cfg.max_batch,
                                 cfg.max_seconds, workers=cfg.workers,
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
-                                                    if v.strip()))
+                                                    if v.strip()),
+                                pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device)
     with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
