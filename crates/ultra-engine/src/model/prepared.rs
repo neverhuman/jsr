@@ -187,44 +187,12 @@ impl Model {
         Ok(sha)
     }
 
-    /// `(name, kind, int8 packing)` of every quantisable layer (read-only view).
+    /// `(name, kind, int8 packing)` of every quantisable layer (same order and names as
+    /// the loader, both derived from `linears_named`).
     fn linears_snapshot(&self) -> Vec<(String, String, Option<PackedI8>)> {
-        let mut v = vec![
-            (
-                "stem_c2".to_owned(),
-                "stem_c2".to_owned(),
-                self.c2.q.clone(),
-            ),
-            (
-                "stem_out".to_owned(),
-                "stem_out".to_owned(),
-                self.stem_out.q.clone(),
-            ),
-        ];
-        for (i, b) in self.blocks.iter().enumerate() {
-            for (kind, l) in [
-                ("ff1_w1", &b.ff1_w1),
-                ("ff1_w2", &b.ff1_w2),
-                ("qkv", &b.qkv),
-                ("att_out", &b.att_out),
-                ("pw1", &b.pw1),
-                ("pw2", &b.pw2),
-                ("ff2_w1", &b.ff2_w1),
-                ("ff2_w2", &b.ff2_w2),
-            ] {
-                v.push((name(kind, Some(i)), kind.to_owned(), l.q.clone()));
-            }
-        }
-        v.push((
-            "enc_proj".into(),
-            "enc_proj".into(),
-            self.enc_proj.q.clone(),
-        ));
-        v.push((
-            "joiner_out".into(),
-            "joiner_out".into(),
-            self.joiner_out.q.clone(),
-        ));
-        v
+        self.linears_named()
+            .into_iter()
+            .map(|(kind, blk, l)| (name(kind, blk), kind.to_owned(), l.q.clone()))
+            .collect()
     }
 }

@@ -72,3 +72,25 @@ fn prepared_matches_load_time_quantisation_and_rejects_tampering() {
     std::fs::write(&f, &bytes).expect("write");
     assert!(Model::load(&out.0, true).is_err());
 }
+
+/// Multirate models round-trip too (pair/restore included): random-init S_MR fixture.
+#[test]
+fn multirate_prepared_round_trip() {
+    let w = common::data_root().join("runs/engine/smr-random-seed1/weights");
+    if !common::have(&[&w]) {
+        return;
+    }
+    let out =
+        Dir(Path::new(env!("CARGO_TARGET_TMPDIR"))
+            .join(format!("prepared-mr-{}", std::process::id())));
+    let _ = std::fs::remove_dir_all(&out.0);
+    let mut m = Model::load(&w, true).expect("load fp32");
+    m.quantize_int8();
+    m.write_prepared_int8(&out.0, &[]).expect("write");
+    let mut p = Model::load(&out.0, true).expect("load prepared");
+    assert!(
+        p.pair.as_ref().is_some_and(|l| l.q.is_some())
+            && p.restore.as_ref().is_some_and(|l| l.q.is_some())
+    );
+    assert_eq!(packings(&mut p), packings(&mut m), "bit-identical packing");
+}
