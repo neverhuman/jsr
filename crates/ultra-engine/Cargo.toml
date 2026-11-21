@@ -10,11 +10,18 @@ repository.workspace = true
 ultra-core = { path = "../ultra-core" }
 ultra-frontend = { path = "../ultra-frontend" }
 ultra-gp = { path = "../ultra-gp" }
-ultra-eval = { path = "../ultra-eval" }
+ultra-eval = { path = "../ultra-eval", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
+
+[features]
+# WER scoring in ultra-engine-eval uses ultra-eval's normaliser/aligner (Linux-only crate).
+# Build with --no-default-features on other hosts: transcripts and tokens are still written
+# and are scored on a Linux host.
+default = ["wer"]
+wer = ["dep:ultra-eval"]
 
 [dev-dependencies]
 proptest.workspace = true
