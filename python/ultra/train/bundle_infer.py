@@ -17,7 +17,7 @@ import time
 
 import numpy as np
 
-SCHEMA = "ultra.r1-export/v1"
+SCHEMAS = ("ultra.r1-export/v1", "ultra.r1-export/v1.1")
 
 
 class BundleError(Exception):
@@ -60,13 +60,16 @@ class BundleStream:
 
 
 class BundleRecognizer:
-    def __init__(self, bundle: str, precision: str = "fp32", threads: int = 1, verify: bool = True):
+    def __init__(self, bundle: str, precision: str = "fp32", threads: int = 1, verify: bool = True,
+                 joiner_precision: str | None = None, override: dict | None = None):
+        """`override` maps a manifest file key (e.g. "encoder.int8") to another ONNX path; used by
+        quantisation sweeps. Overridden files are not hash-checked against the manifest."""
         import onnxruntime as ort
 
         with open(os.path.join(bundle, "manifest.json")) as fh:
             m = json.load(fh)
-        if m.get("schema") != SCHEMA:
-            raise BundleError(f"schema {m.get('schema')} != {SCHEMA}")
+        if m.get("schema") not in SCHEMAS:
+            raise BundleError(f"schema {m.get('schema')} not in {SCHEMAS}")
         if verify:
             for key, f in m["files"].items():
                 if _sha256(os.path.join(bundle, f["path"])) != f["sha256"]:
@@ -90,10 +93,23 @@ class BundleRecognizer:
         so.inter_op_num_threads = 1
         f = m["files"]
         enc_key = "encoder.int8" if precision == "int8" else "encoder.fp32"
-        joi_key = "joiner.int8" if precision == "int8" else "joiner.fp32"
-        mk = lambda k: ort.InferenceSession(os.path.join(bundle, f[k]["path"]), so,  # noqa: E731
-                                            providers=["CPUExecutionProvider"])
+        jp = joiner_precision or precision
+        if jp == "int8" and "joiner.int8" not in f and "joiner.int8" not in (override or {}):
+            jp = "fp32"  # v1.1 static bundles keep the joiner fp32 (manifest.int8.joiner)
+        joi_key = "joiner.int8" if jp == "int8" else "joiner.fp32"
+        self.joiner_precision = jp
+        override = override or {}
+
+        def mk(k):
+            path = override.get(k) or os.path.join(bundle, f[k]["path"])
+            return ort.InferenceSession(path, so, providers=["CPUExecutionProvider"])
+
         self.enc, self.dec, self.joi = mk(enc_key), mk("decoder"), mk(joi_key)
+        # A bundle may declare that its int8 graphs must run one stream (row) per call, e.g.
+        # dynamic activation quantisation, whose scale is computed over the whole input tensor.
+        i8 = m.get("int8") or {}
+        self.max_batch_enc = i8.get("max_batch") if precision == "int8" else None
+        self.max_batch_joi = i8.get("max_batch") if jp == "int8" else None
         self.pieces = {}
         with open(os.path.join(bundle, f["tokens"]["path"])) as fh:
             for line in fh:
@@ -126,7 +142,9 @@ class BundleRecognizer:
             if b is not None:
                 groups.setdefault(b[1] - b[0], []).append((s, b[0]))
         for n, items in groups.items():
-            self._run(items, n)
+            step = self.max_batch_enc or len(items)
+            for i in range(0, len(items), step):
+                self._run(items[i:i + step], n)
 
     def get_result(self, s: BundleStream) -> str:
         return "".join(self.pieces[i] for i in s.tokens).replace("▁", " ").strip()
@@ -187,7 +205,13 @@ class BundleRecognizer:
             hits = 0
             while active.size and hits < self.max_symbols:
                 dec = self.dec.run(None, {"ctx": ctx[active]})[0]
-                logits = self.joi.run(None, {"enc": enc[active, t], "dec": dec})[0]
+                if self.max_batch_joi:
+                    logits = np.concatenate([
+                        self.joi.run(None, {"enc": enc[active[j:j + self.max_batch_joi], t],
+                                            "dec": dec[j:j + self.max_batch_joi]})[0]
+                        for j in range(0, active.size, self.max_batch_joi)])
+                else:
+                    logits = self.joi.run(None, {"enc": enc[active, t], "dec": dec})[0]
                 k = logits.argmax(axis=-1)
                 emit = k != self.blank
                 for i, kk in zip(active[emit], k[emit], strict=True):
@@ -202,29 +226,122 @@ class BundleRecognizer:
             s.ctx = c.tolist()
 
 
+def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 20261120,
+                     override: dict | None = None, joiner_precision: str | None = None) -> dict:
+    """Max |difference| between a row decoded alone and the same row inside larger batches, for
+    every encoder output (including caches) and the joiner. Batch-invariant bundles give 0.0."""
+    rec = BundleRecognizer(bundle, precision, threads=1, joiner_precision=joiner_precision,
+                           override=override)
+    st = rec.m["streaming"]
+    n = st["chunk_frames"]
+    rng = np.random.default_rng(seed)
+
+    def feed(b):
+        f = {"feats": rng.normal(0, 1, (b, 4 * n + 3, rec.n_mels)).astype(np.float32),
+             "t0": rng.integers(0, 50, b).astype(np.int64) * n}
+        for s in rec.states:
+            shape = [b if d == "B" else d for d in s["shape"]]
+            if s["dtype"] == "int64":
+                f[s["name"]] = rng.integers(0, st["left_context_frames"] + 1, shape).astype(np.int64)
+            else:
+                f[s["name"]] = rng.normal(0, 1, shape).astype(np.float32)
+        return f
+
+    def axis(name):
+        for s in rec.states:
+            if s["name"] == name:
+                return s["shape"].index("B")
+        return 0
+
+    def enc_run(f):
+        """Run the encoder as the contract allows: whole batch, or one row per call if the
+        bundle declares max_batch 1 for this precision."""
+        if not rec.max_batch_enc:
+            return rec.enc.run(None, f)
+        b = f["feats"].shape[0]
+        parts = []
+        for i in range(b):
+            fi = {}
+            for k, v in f.items():
+                idx = [slice(None)] * v.ndim
+                idx[axis(k)] = slice(i, i + 1)
+                fi[k] = v[tuple(idx)]
+            parts.append(rec.enc.run(None, fi))
+        return [np.concatenate([p[j] for p in parts], axis=axis(nm.replace("_out", "")))
+                for j, nm in enumerate(names_out)]
+
+    def joi_run(e, d):
+        if not rec.max_batch_joi:
+            return rec.joi.run(None, {"enc": e, "dec": d})[0]
+        return np.concatenate([rec.joi.run(None, {"enc": e[i:i + 1], "dec": d[i:i + 1]})[0]
+                               for i in range(e.shape[0])])
+
+    base = feed(1)
+    names_out = [o.name for o in rec.enc.get_outputs()]
+    ref = enc_run(base)
+    worst = {"encoder": 0.0, "joiner": 0.0}
+    for b in sizes:
+        f = feed(b)
+        for k, v in base.items():
+            idx = [slice(None)] * f[k].ndim
+            idx[axis(k)] = slice(0, 1)
+            f[k][tuple(idx)] = v
+        for o_ref, o_b, nm in zip(ref, enc_run(f), names_out, strict=True):
+            row = np.take(o_b, [0], axis=axis(nm.replace("_out", "")))
+            worst["encoder"] = max(worst["encoder"], float(np.max(np.abs(row.astype(np.float64) - o_ref))))
+    J = rec.m["streaming"]["encoder_output"]["shape"][-1]
+    e1 = rng.normal(0, 1, (1, J)).astype(np.float32)
+    d1 = rec.dec.run(None, {"ctx": np.array([[0, 5]], dtype=np.int64)})[0]
+    l1 = joi_run(e1, d1)
+    for b in sizes:
+        e = rng.normal(0, 2, (b, J)).astype(np.float32)
+        d = rec.dec.run(None, {"ctx": rng.integers(0, 4096, (b, 2)).astype(np.int64)})[0]
+        e[0], d[0] = e1[0], d1[0]
+        lb = joi_run(e, d)[:1]
+        worst["joiner"] = max(worst["joiner"], float(np.max(np.abs(lb - l1))))
+    return {"kind": "batch_invariance", "bundle": bundle, "precision": precision,
+            "per_row_calls": bool(rec.max_batch_enc),
+            "sizes": list(sizes), "max_abs_diff": worst}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--bundle", required=True)
-    ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32")
+    ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32",
+                    help="encoder precision (and joiner unless --joiner-precision)")
+    ap.add_argument("--joiner-precision", choices=["fp32", "int8"], default=None)
+    ap.add_argument("--encoder-int8-file", default=None, help="override encoder.int8 (sweeps)")
+    ap.add_argument("--joiner-int8-file", default=None, help="override joiner.int8 (sweeps)")
     ap.add_argument("--split", default="dev-clean")
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--streams", type=int, default=16)
     ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--batch-invariance", action="store_true",
+                    help="only check that rows are identical alone and inside batches of 2/8/16")
+    ap.add_argument("--dump", default=None,
+                    help="write per-utterance JSON lines (uid, ref, hyp[, trainer_hyp]) here")
     ap.add_argument("--compare-checkpoint", default=None,
                     help="also run the trainer's batch eval of this checkpoint on the same audio")
     a = ap.parse_args()
+    if a.batch_invariance:
+        print(json.dumps(batch_invariance(a.bundle, a.precision)))
+        return
     from train.infer import run_streaming
     from ultra.libri import load_split
     from ultra.wer import corpus_wer
 
-    rec = BundleRecognizer(a.bundle, a.precision, a.threads)
+    override = {k: v for k, v in (("encoder.int8", a.encoder_int8_file),
+                                  ("joiner.int8", a.joiner_int8_file)) if v}
+    rec = BundleRecognizer(a.bundle, a.precision, a.threads, joiner_precision=a.joiner_precision,
+                           override=override)
     utts = load_split(a.split, a.limit)
     c0 = time.process_time()
     hyps = run_streaming(rec, utts, a.streams)
     cpu = time.process_time() - c0
     audio = sum(u.seconds for u in utts)
     refs = [u.text for u in utts]
-    out = {"kind": "bundle_infer", "bundle": a.bundle, "precision": a.precision, "split": a.split,
+    out = {"kind": "bundle_infer", "bundle": a.bundle, "precision": a.precision,
+           "joiner_precision": rec.joiner_precision, "split": a.split,
            "n": len(utts), "streams": a.streams, "threads": a.threads,
            "rtf_cpu": round(cpu / audio, 4), "forced_advances": rec.forced_advances,
            **corpus_wer(refs, hyps)}
@@ -251,6 +368,16 @@ def main() -> None:
                 bh.extend(tok.decode(t) for t in toks)
         out["trainer_eval_wer"] = corpus_wer(refs, bh)["wer"]
         out["identical_hyps"] = sum(x == y for x, y in zip(hyps, bh, strict=True))
+    else:
+        bh = None
+    if a.dump:
+        with open(a.dump, "w") as fh:
+            for i, u in enumerate(utts):
+                rec = {"uid": u.uid, "ref": u.text, "hyp": hyps[i]}
+                if bh is not None:
+                    rec["trainer_hyp"] = bh[i]
+                fh.write(json.dumps(rec) + "\n")
+        out["dump"] = a.dump
     print(json.dumps(out))
 
 

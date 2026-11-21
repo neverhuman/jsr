@@ -35,7 +35,11 @@ from train.infer import ChunkEncoder, ChunkEncoderMR, cache_shapes, quantize_int
 from train.tokenizer import Tokenizer, tokenizer_path
 from train.transducer import BLANK, CLIP
 
-SCHEMA = "ultra.r1-export/v1"
+SCHEMA = "ultra.r1-export/v1.1"
+# v1.1: adds manifest["int8"]. int8_mode "static_qdq" (default) = per-channel int8 weights and
+# per-tensor activation scales calibrated once on TRAIN audio, so a stream's numbers do not depend
+# on which streams share its batch. "dynamic" (v1 behaviour) computes activation scales per call
+# over the whole batch and is NOT batch-invariant.
 
 
 class ExportError(Exception):
@@ -119,7 +123,40 @@ def _state_specs(c) -> list[dict]:
     return specs
 
 
-def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=None) -> dict:
+class _RowsReader:
+    """onnxruntime CalibrationDataReader over captured input rows (one row per call)."""
+
+    def __init__(self, rows: list[dict]):
+        self.it = iter(rows)
+
+    def get_next(self):
+        return next(self.it, None)
+
+
+def quantize_static_int8(fp32_path: str, int8_path: str, rows: list[dict],
+                         method: str = "minmax", percentile: float = 99.999,
+                         exclude: list[str] | None = None) -> None:
+    """Static QDQ int8: per-channel int8 weights of MatMul/Gemm with constant B; per-tensor
+    activation scales calibrated over `rows` (MinMax or Percentile). Activation-activation
+    MatMuls stay fp32, as do nodes named in `exclude`."""
+    from onnxruntime.quantization import (CalibrationMethod, QuantFormat, QuantType,
+                                          quantize_static)
+
+    calib = {"minmax": CalibrationMethod.MinMax, "percentile": CalibrationMethod.Percentile}
+    extra = {"MatMulConstBOnly": True}
+    if method == "percentile":
+        extra["CalibPercentile"] = percentile
+    quantize_static(fp32_path, int8_path, _RowsReader(rows), quant_format=QuantFormat.QDQ,
+                    op_types_to_quantize=["MatMul", "Gemm"], per_channel=True,
+                    activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8,
+                    calibrate_method=calib[method], nodes_to_exclude=exclude or [],
+                    extra_options=extra)
+
+
+def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=None,
+                  int8_mode: str = "static_qdq", calib_utts=None, calib_manifest=None,
+                  joiner_int8: bool = False, calib_method: str = "minmax",
+                  calib_percentile: float = 99.999) -> dict:
     """Write the bundle for checkpoint `ckpt_path` into `out_dir`; returns the manifest."""
     p = checkpoint.load(ckpt_path, restore_rng=False)
     cfg = ModelConfig.from_dict(p["model_config"])
@@ -173,11 +210,55 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
                           opset_version=17, dynamo=False)
     files["decoder"] = "decoder.onnx"
     files["joiner.fp32"] = "joiner.fp32.onnx"
-    if int8:
+    int8_info = None
+    if int8 and int8_mode in ("dynamic", "dynamic_per_row"):
         for part in ("encoder", "joiner"):
             quantize_int8(os.path.join(out_dir, f"{part}.fp32.onnx"),
                           os.path.join(out_dir, f"{part}.int8.onnx"))
             files[f"{part}.int8"] = f"{part}.int8.onnx"
+        if int8_mode == "dynamic":
+            int8_info = {"mode": "dynamic", "batch_invariant": False}
+        else:
+            # Same graphs; the contract restricts int8 calls to one stream (encoder) / one query
+            # row (joiner), so each activation scale sees only that row: invariant by construction.
+            int8_info = {"mode": "dynamic_per_row", "batch_invariant": True, "max_batch": 1,
+                         "rule": "run encoder.int8 with B = 1 (one stream per call) and "
+                                 "joiner.int8 with N = 1; fp32 graphs may batch freely"}
+    elif int8 and int8_mode == "static_qdq":
+        from train.calib import calibration_set, capture
+
+        if calib_utts is None:
+            calib_utts, calib_manifest = calibration_set(tokenizer=tok)
+        enc_rows, joi_rows, prov = capture(model, tok, calib_utts)
+        quantize_static_int8(os.path.join(out_dir, "encoder.fp32.onnx"),
+                             os.path.join(out_dir, "encoder.int8.onnx"), enc_rows,
+                             calib_method, calib_percentile)
+        files["encoder.int8"] = "encoder.int8.onnx"
+        if joiner_int8:
+            quantize_static_int8(os.path.join(out_dir, "joiner.fp32.onnx"),
+                                 os.path.join(out_dir, "joiner.int8.onnx"), joi_rows,
+                                 calib_method, calib_percentile)
+            files["joiner.int8"] = "joiner.int8.onnx"
+        calib_manifest = dict(calib_manifest, consumed_rows=prov)
+        with open(os.path.join(out_dir, "calibration_manifest.json"), "w") as fh:
+            json.dump(calib_manifest, fh, indent=1)
+        files["calibration_manifest"] = "calibration_manifest.json"
+        int8_info = {"mode": "static_qdq", "batch_invariant": True,
+                     "joiner": "int8" if joiner_int8 else "fp32 (joiner.fp32.onnx; no int8 file)",
+                     "calibration_method": calib_method if calib_method == "minmax"
+                     else f"percentile {calib_percentile}",
+                     "weights": "int8 symmetric per output channel (MatMul/Gemm with constant B)",
+                     "activations": "uint8 per-tensor, MinMax-calibrated constant scale/zero-point",
+                     "not_quantized": "attention score/value MatMuls, convolutions, norms, softmax",
+                     "calibration": {"selection_sha256": calib_manifest["selection_sha256"],
+                                     "n_utterances": calib_manifest["n"],
+                                     "strata": calib_manifest["strata"],
+                                     "encoder_rows": len(enc_rows),
+                                     "encoder_rows_offered": prov["encoder"]["offered"],
+                                     "joiner_rows": len(joi_rows) if joiner_int8 else 0,
+                                     "file": "calibration_manifest.json"}}
+    elif int8:
+        raise ExportError(f"unknown int8_mode {int8_mode}")
     # Tokens, BPE model, mel filterbank.
     with open(os.path.join(out_dir, "tokens.txt"), "w") as fh:
         fh.write(f"<blk> {BLANK}\n")
@@ -192,6 +273,7 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
 
     manifest = {
         "schema": SCHEMA,
+        "int8": int8_info,
         "model": {"family": c.family, "params": model.num_params(),
                   "checkpoint": os.path.abspath(ckpt_path), "checkpoint_step": p["step"],
                   "checkpoint_sha256": _sha256(ckpt_path), "config": cfg.to_dict(),
@@ -257,8 +339,16 @@ def main() -> None:
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-int8", action="store_true")
+    ap.add_argument("--int8-mode", choices=["static_qdq", "dynamic", "dynamic_per_row"], default="static_qdq")
+    ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--joiner-int8", action="store_true", help="also quantise the joiner (static)")
+    ap.add_argument("--calib-method", choices=["minmax", "percentile"], default="minmax")
+    ap.add_argument("--calib-percentile", type=float, default=99.999)
     a = ap.parse_args()
-    m = export_bundle(a.checkpoint, a.out, int8=not a.no_int8)
+    torch.set_num_threads(a.threads)
+    m = export_bundle(a.checkpoint, a.out, int8=not a.no_int8, int8_mode=a.int8_mode,
+                      joiner_int8=a.joiner_int8, calib_method=a.calib_method,
+                      calib_percentile=a.calib_percentile)
     print(json.dumps({"out": a.out, "files": m["files"]}, indent=1))
 
 
