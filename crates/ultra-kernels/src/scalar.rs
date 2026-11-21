@@ -44,3 +44,22 @@ pub fn gemv_tlut2(m: TLut2View<'_>, x: &Frames<'_>, out: &mut [i32]) {
         }
     }
 }
+
+/// Signed-activation twin of [`gemv_tlut2`]: `x` is `f_n` frames of `din` values in -127..=127.
+pub fn gemv_tlut2_signed(m: TLut2View<'_>, x: &[i8], f_n: usize, out: &mut [i32]) {
+    let din = m.din();
+    for (r, o) in out.chunks_exact_mut(f_n).enumerate().take(m.rows()) {
+        for (f, v) in o.iter_mut().enumerate() {
+            let a = &x[f * din..(f + 1) * din];
+            let mut acc = 0i32;
+            for p in 0..din.div_ceil(2) {
+                let (t0, t1) = trits(m.pair_state(r, p));
+                acc += t0 * i32::from(a[2 * p]);
+                if 2 * p + 1 < din {
+                    acc += t1 * i32::from(a[2 * p + 1]);
+                }
+            }
+            *v = acc;
+        }
+    }
+}

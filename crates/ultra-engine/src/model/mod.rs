@@ -57,6 +57,8 @@ pub struct Arch {
 pub struct Linear {
     pub f: PackedF32,
     pub q: Option<PackedI8>,
+    /// Ternary layers on x86: the same codes as 2-bit T-LUT2 weights (4x smaller stream).
+    pub t: Option<crate::quant::PackedT>,
 }
 
 impl Linear {
@@ -64,6 +66,7 @@ impl Linear {
         Self {
             f: PackedF32::pack(w, n, k, b),
             q: None,
+            t: None,
         }
     }
 
@@ -73,6 +76,7 @@ impl Linear {
         Self {
             f: PackedF32::bias_only(n, k, b),
             q: None,
+            t: None,
         }
     }
 

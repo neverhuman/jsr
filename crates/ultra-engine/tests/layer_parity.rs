@@ -35,7 +35,13 @@ fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<(f64, f64
             "full parity needs >= 50 reference utterances, file has {count}"
         );
     }
-    let engine = Engine::new(model.clone(), isa, Precision::F32).expect("engine");
+    // A prepared-int8 (e.g. ternary) directory runs int8; its reference is the quantised model.
+    let prec = if model.int8_prepared.is_some() {
+        Precision::Int8
+    } else {
+        Precision::F32
+    };
+    let engine = Engine::new(model.clone(), isa, prec).expect("engine");
     let n_layers = model.arch.n_blocks + 3;
     let mut worst = vec![(0.0f64, 0.0f64); n_layers];
     let mut checked = 0usize;

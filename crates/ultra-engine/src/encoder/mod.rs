@@ -233,7 +233,10 @@ pub fn linear(
     q: &mut QuantScratch,
 ) {
     match (prec, &lin.q) {
-        (Precision::Int8, Some(p)) => quant::linear_i8(isa, p, x, rows, out, q),
+        (Precision::Int8, Some(p)) => match &lin.t {
+            Some(t) => quant::linear_t(isa, p, t, x, rows, out, q),
+            None => quant::linear_i8(isa, p, x, rows, out, q),
+        },
         _ => {
             let t = q.prof.start();
             kernels::gemm_f32(isa, &lin.f, x, rows, &mut out[..rows * lin.n()]);
