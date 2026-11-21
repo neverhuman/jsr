@@ -23,6 +23,7 @@ struct Args {
     grid_ms: u64,
     precision: Precision,
     max_chunks: usize,
+    int8_stem: bool,
     int8_skip: Vec<String>,
 }
 
@@ -35,6 +36,7 @@ fn parse() -> Result<Args, String> {
         grid_ms: 320,
         precision: Precision::Int8,
         max_chunks: 1,
+        int8_stem: false,
         int8_skip: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
@@ -45,6 +47,7 @@ fn parse() -> Result<Args, String> {
             "--npz" => a.npz = v()?.into(),
             "--streams" => a.streams = v()?.parse().map_err(|e| format!("{e}"))?,
             "--seconds" => a.seconds = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--int8-stem" => a.int8_stem = true,
             "--max-chunks" => a.max_chunks = v()?.parse().map_err(|e| format!("{e}"))?,
             "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
@@ -142,6 +145,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     if a.precision == Precision::Int8 && model.int8_prepared.is_none() {
         model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
     }
+    let stem_quantised = if a.int8_stem && a.precision == Precision::Int8 {
+        model.quantize_fp32_kinds_int8(&["stem_c2", "stem_out"])
+    } else {
+        0
+    };
     let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks);
@@ -236,7 +244,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let pass = p99 <= 0.8 && growth <= 0.05;
     Ok(json!({
         "schema": "ultra.engine-density/v2", "exploratory": true,
-        "streams": a.streams, "max_chunks": a.max_chunks, "grid_ms": a.grid_ms, "seconds": a.seconds,
+        "streams": a.streams, "max_chunks": a.max_chunks, "int8_stem_layers_quantised": stem_quantised, "grid_ms": a.grid_ms, "seconds": a.seconds,
         "precision": a.precision.as_str(), "int8_fp32_kinds": a.int8_skip,
         "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
         "growth_s": growth, "a1_pass": pass,

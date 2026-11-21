@@ -51,6 +51,7 @@ struct Args {
     packet_ms: usize,
     precision: Precision,
     max_chunks: usize,
+    int8_stem: bool,
     act7: bool,
     gemm_threads: usize,
     isa: Isa,
@@ -69,6 +70,7 @@ fn parse() -> Result<Args, String> {
         packet_ms: 20,
         precision: Precision::F32,
         max_chunks: 1,
+        int8_stem: false,
         act7: false,
         gemm_threads: 1,
         isa: Isa::detect(),
@@ -81,6 +83,7 @@ fn parse() -> Result<Args, String> {
             "--npz" => a.npz = v()?.into(),
             "--out" => a.out = v()?.into(),
             "--profile" => a.profile = true,
+            "--int8-stem" => a.int8_stem = true,
             "--act7" => a.act7 = true,
             "--gemm-threads" => {
                 a.gemm_threads = v()?.parse().map_err(|e| format!("--gemm-threads: {e}"))?
@@ -201,6 +204,12 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     } else if a.precision == Precision::Int8 {
         model.quantize_int8_where(|kind, _| !skip.iter().any(|s| s == kind));
     }
+    // NEW numerical candidate (off by default): post-training int8 for a still-fp32 stem.
+    let stem_quantised = if a.int8_stem && a.precision == Precision::Int8 {
+        model.quantize_fp32_kinds_int8(&["stem_c2", "stem_out"])
+    } else {
+        0
+    };
     let load_s = t_load.elapsed().as_secs_f64();
     let engine = Engine::new(Arc::new(model), a.isa, a.precision)
         .map_err(|e| e.to_string())?
@@ -306,7 +315,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
         "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
         "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
-        "streams": a.streams, "max_chunks": a.max_chunks, "act7": a.act7, "gemm_threads": a.gemm_threads, "packet_ms": a.packet_ms,
+        "streams": a.streams, "max_chunks": a.max_chunks, "act7": a.act7, "int8_stem_layers_quantised": stem_quantised, "gemm_threads": a.gemm_threads, "packet_ms": a.packet_ms,
         "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
         "cpu_s": cpu_s, "wall_s": wall_s, "decode_wall_s": decode_wall,
