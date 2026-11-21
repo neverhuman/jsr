@@ -12,6 +12,7 @@ use crate::safetensors::SafeTensors;
 use crate::EngineError;
 
 mod arch_json;
+pub mod prepared;
 use arch_json::{bounded, file, verify, RawArch};
 
 pub const WEIGHTS_SCHEMA: &str = "ultra.r1-weights/v1";
@@ -115,6 +116,9 @@ pub struct Model {
     pub rope_inv: Vec<f32>,
     pub mel_cfg: Arc<TrainerMelConfig>,
     pub tokens: Arc<TokenTable>,
+    /// Set when the int8 weights were read from a prepared `weights.int8.safetensors`
+    /// (no weight quantisation at load); `None` for an fp32 directory.
+    pub int8_prepared: Option<prepared::PreparedInt8>,
 }
 
 impl Model {
@@ -236,12 +240,25 @@ impl Model {
             cmvn,
         )?);
         let ckpt_mean = st.take("cmvn.mean", &[arch.n_mels])?;
-        if ckpt_mean != raw.features.cmvn.mean {
+        let ckpt_istd = st.take("cmvn.istd", &[arch.n_mels])?;
+        if ckpt_mean != raw.features.cmvn.mean || ckpt_istd != raw.features.cmvn.istd {
             return Err(EngineError::Integrity(
-                "arch.json cmvn differs from weights".into(),
+                "arch.json cmvn (mean or istd) differs from weights".into(),
             ));
         }
-        Self::from_tensors(arch, &st, root, mel_cfg, tokens)
+        // Every declared payload, including ones the engine never opens (bpe.model).
+        for key in ["weights", "tokens", "mel_fbank", "bpe"] {
+            file(&raw, key)?;
+        }
+        for f in raw.files.values() {
+            verify(root, f, verify_hashes)?;
+        }
+        let mut model = Self::from_tensors(arch, &st, root, mel_cfg, tokens)?;
+        if let Some(i8) = &raw.int8 {
+            let path = verify(root, file(&raw, "weights_int8")?, verify_hashes)?;
+            model.load_prepared_int8(&path, i8)?;
+        }
+        Ok(model)
     }
 
     fn from_tensors(
@@ -354,6 +371,7 @@ impl Model {
             rope_inv,
             mel_cfg,
             tokens,
+            int8_prepared: None,
             root: root.to_path_buf(),
             arch,
         })

@@ -147,7 +147,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
     // Ablation hook: ULTRA_ENGINE_INT8_SKIP=kind[,kind...] keeps those layer kinds fp32
     // (kinds: stem_c2 stem_out ff1_w1 ff1_w2 qkv att_out pw1 pw2 ff2_w1 ff2_w2 enc_proj joiner_out).
-    let skip: Vec<String> = std::env::var("ULTRA_ENGINE_INT8_SKIP")
+    let mut skip: Vec<String> = std::env::var("ULTRA_ENGINE_INT8_SKIP")
         .map(|v| {
             v.split(',')
                 .filter(|s| !s.is_empty())
@@ -155,7 +155,13 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
                 .collect()
         })
         .unwrap_or_default();
-    if a.precision == Precision::Int8 {
+    if let Some(p) = &model.int8_prepared {
+        // Prepared artifact: no weight quantisation here; its declared fp32 kinds rule.
+        if !skip.is_empty() {
+            return Err("ULTRA_ENGINE_INT8_SKIP conflicts with a prepared-INT8 directory".into());
+        }
+        skip = p.fp32_kinds.clone();
+    } else if a.precision == Precision::Int8 {
         model.quantize_int8_where(|kind, _| !skip.iter().any(|s| s == kind));
     }
     let load_s = t_load.elapsed().as_secs_f64();
@@ -256,6 +262,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "weights_sha256": engine.model.arch.weights_sha256,
         "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
         "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
+        "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
         "streams": a.streams, "max_chunks": a.max_chunks, "packet_ms": a.packet_ms,
         "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),

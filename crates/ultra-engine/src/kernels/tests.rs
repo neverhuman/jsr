@@ -180,6 +180,16 @@ fn quantize_row_simd_is_bit_exact_with_scalar() {
     assert_eq!(quantize_row(isa, &[0.0; 40], &mut z), (0.0, 0.0));
     assert!(z.iter().all(|&q| q == 0));
     assert_eq!(quantize_row(isa, &[-2.5; 40], &mut z), (0.0, -2.5));
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        for pos in [0usize, 5, 39] {
+            let mut x = vec![0.5f32; 40];
+            x[pos] = bad;
+            for i in [Isa::Scalar, isa] {
+                let (s, c) = quantize_row(i, &x, &mut z);
+                assert!(s.is_nan() && c.is_nan(), "{bad} at {pos}");
+            }
+        }
+    }
     let mut one = [0i8; 1];
     assert_eq!(quantize_row(Isa::Scalar, &[3.0], &mut one), (0.0, 3.0));
 }

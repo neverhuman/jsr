@@ -77,6 +77,50 @@ struct Slot {
     fed: usize,
 }
 
+/// Decode every ready step (batched) until none is ready. Records one lateness sample per
+/// processed chunk: decode end minus the arrival of the last sample that chunk needs
+/// (feature frame `4 t1 - 4` complete; only the stream's final, padded chunk is capped at the
+/// true end of audio). Returns (decode calls, encoder frames processed).
+fn decode_ready(
+    engine: &Engine,
+    slots: &mut [Slot],
+    utts: &[ultra_frontend::npz::AudioUtterance],
+    ws: &mut Workspace,
+    t0: Instant,
+    late: &mut Vec<(f64, f64)>,
+) -> Result<(usize, usize), String> {
+    let c = engine.model.arch.chunk;
+    let (mut calls, mut frames) = (0usize, 0usize);
+    loop {
+        let mut arrivals: Vec<f64> = Vec::new();
+        for s in slots.iter() {
+            if let Some((a0, a1)) = engine.next_chunk(&s.stream) {
+                frames += a1 - a0;
+                let len = utts[s.utt].pcm.len();
+                let mut e = a0;
+                while e < a1 {
+                    e = (e + c).min(a1);
+                    let need = (4 * e - 4) * 160 + 400;
+                    let need = if s.stream.is_finished() {
+                        need.min(len)
+                    } else {
+                        need
+                    };
+                    arrivals.push(s.start + need as f64 / 16_000.0);
+                }
+            }
+        }
+        if arrivals.is_empty() {
+            return Ok((calls, frames));
+        }
+        let mut refs: Vec<&mut EngineStream> = slots.iter_mut().map(|s| &mut s.stream).collect();
+        engine.decode(&mut refs, ws).map_err(|e| e.to_string())?;
+        calls += 1;
+        let end = t0.elapsed().as_secs_f64();
+        late.extend(arrivals.into_iter().map(|t| (t, end - t)));
+    }
+}
+
 fn pct(v: &mut [f64], p: f64) -> f64 {
     if v.is_empty() {
         return f64::NAN;
@@ -87,7 +131,7 @@ fn pct(v: &mut [f64], p: f64) -> f64 {
 
 fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
-    if a.precision == Precision::Int8 {
+    if a.precision == Precision::Int8 && model.int8_prepared.is_none() {
         model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
     }
     let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
@@ -108,15 +152,19 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut late: Vec<(f64, f64)> = Vec::new();
     let (c0, t0) = (thread_cpu_s(), Instant::now());
     let mut audio_s = 0.0f64;
+    let mut frames = 0usize;
     let mut tick = 1u64;
+    let mut cutoff = false;
     loop {
         let target = Duration::from_secs_f64(grid * tick as f64);
         if let Some(d) = target.checked_sub(t0.elapsed()) {
             std::thread::sleep(d);
         }
-        let now = t0.elapsed().as_secs_f64();
+        let mut now = t0.elapsed().as_secs_f64();
         if now > a.seconds {
-            break;
+            // Ingest exactly the audio that arrived by the cutoff, then drain it below.
+            now = a.seconds;
+            cutoff = true;
         }
         for s in &mut slots {
             let pcm = &utts[s.utt].pcm;
@@ -133,32 +181,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
                 }
             }
         }
-        loop {
-            // Arrival time of the sample each ready chunk waited for.
-            let arrivals: Vec<f64> = slots
-                .iter()
-                .filter_map(|s| {
-                    engine.next_chunk(&s.stream).map(|(_, t1)| {
-                        let need = if s.stream.is_finished() {
-                            utts[s.utt].pcm.len()
-                        } else {
-                            (4 * t1 - 4) * 160 + 400
-                        };
-                        s.start + need as f64 / 16_000.0
-                    })
-                })
-                .collect();
-            if arrivals.is_empty() {
-                break;
-            }
-            let mut refs: Vec<&mut EngineStream> =
-                slots.iter_mut().map(|s| &mut s.stream).collect();
-            engine
-                .decode(&mut refs, &mut ws)
-                .map_err(|e| e.to_string())?;
-            let end = t0.elapsed().as_secs_f64();
-            late.extend(arrivals.into_iter().map(|t| (t, end - t)));
+        if cutoff {
+            break;
         }
+        let (_, f) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
+        frames += f;
         for s in &mut slots {
             if s.stream.is_finished() && !engine.is_ready(&s.stream) {
                 // Next utterance starts right after this one ended (real-time continuity).
@@ -172,6 +199,14 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         }
         tick += 1;
     }
+    // Drain: every chunk whose audio arrived by the cutoff is decoded and its lateness kept.
+    let backlog_steps = slots.iter().filter(|s| engine.is_ready(&s.stream)).count();
+    let n_before = late.len();
+    let (_, f) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
+    frames += f;
+    let drained_chunks = late.len() - n_before;
+    // Accepted audio not yet forming a complete chunk (never processed, never credited).
+    let processed_s = frames as f64 * 0.04;
     let cpu = thread_cpu_s() - c0;
     let wall = t0.elapsed().as_secs_f64();
     let half = a.seconds / 2.0;
@@ -192,14 +227,20 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mx = all.last().copied().unwrap_or(f64::NAN);
     let pass = p99 <= 0.8 && growth <= 0.05;
     Ok(json!({
-        "schema": "ultra.engine-density/v1", "exploratory": true,
+        "schema": "ultra.engine-density/v2", "exploratory": true,
         "streams": a.streams, "max_chunks": a.max_chunks, "grid_ms": a.grid_ms, "seconds": a.seconds,
         "precision": a.precision.as_str(), "int8_fp32_kinds": a.int8_skip,
         "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
         "growth_s": growth, "a1_pass": pass,
         "worker_cpu_s": cpu, "wall_s": wall, "worker_util": cpu / wall,
-        "audio_s": audio_s, "cpu_s_per_audio_s": cpu / audio_s,
+        "workload": "duration-limited live replay: audio arriving after the cutoff is not \
+                     accepted; everything accepted that forms a chunk is drained and scored",
+        "accepted_audio_s": audio_s, "processed_audio_s": processed_s,
+        "unprocessed_accepted_audio_s": (audio_s - processed_s).max(0.0),
+        "backlog_steps_at_cutoff": backlog_steps, "drained_chunks": drained_chunks,
+        "cpu_s_per_audio_s": cpu / processed_s,
         "weights_sha256": engine.model.arch.weights_sha256,
+        "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
     }))
 }
 
