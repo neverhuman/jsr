@@ -17,8 +17,9 @@
 
 use crate::kernels::{Isa, PackedF32, NR};
 
-/// Largest K whose worst-case int32 sum (K * 127 * 127) cannot overflow.
-pub const MAX_K: usize = (i32::MAX as usize) / (127 * 127) / KG * KG;
+/// Largest K whose worst-case int32 sum cannot overflow, even for public callers passing
+/// activation code -128 to `gemm_i8` (|a| <= 128, |w| <= 127).
+pub const MAX_K: usize = (i32::MAX as usize) / (128 * 127) / KG * KG;
 
 /// K is padded to a multiple of this (the `vpmaddubsw` + `vpmaddwd` group).
 pub const KG: usize = 4;

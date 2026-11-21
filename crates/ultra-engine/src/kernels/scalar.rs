@@ -120,7 +120,10 @@ pub fn row_range(x: &[f32]) -> (f32, f32) {
 pub fn row_params(lo: f32, hi: f32) -> Option<(f32, f32, f32)> {
     let half = 0.5 * hi - 0.5 * lo;
     let c = 0.5 * hi + 0.5 * lo;
-    (half > 0.0 && half.is_finite() && c.is_finite()).then(|| (c, half / 127.0, 127.0 / half))
+    let inv = 127.0 / half;
+    // A tiny (subnormal) half range would overflow the inverse step: treat it as constant.
+    (half > 0.0 && half.is_finite() && c.is_finite() && inv.is_finite())
+        .then(|| (c, half / 127.0, inv))
 }
 
 /// Per-row centred symmetric quantisation (see `kernels::quantize_row`).
@@ -145,14 +148,13 @@ pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32) -> (f32, f32) {
             (f32::NAN, f32::NAN)
         }
         None => {
-            // Constant (or empty) row: all codes zero, the centre carries it.
+            // Constant, empty or subnormal-range row: all codes zero and the centre carries
+            // it (error <= half the range, below 1e-37 for the subnormal case).
             out.fill(0);
             let c = if x.is_empty() {
                 0.0
-            } else if lo == hi {
-                lo
             } else {
-                f32::NAN
+                0.5 * hi + 0.5 * lo
             };
             (0.0, c)
         }
@@ -187,48 +189,63 @@ pub fn gemm_i8(
     }
 }
 
-/// One attention head for `n` queries (see `kernels::attend_head`).
 #[allow(clippy::too_many_arguments)]
-pub fn attend_head<'a>(
+/// `scores[i * nk + j] = scale * sum_e q[i][e] * k[slot_j][e]` (tiled `kt`) for the slots of
+/// `segs`, accumulated with `mul_add` in ascending `e` (the AVX2 kernel's exact order).
+pub fn attention_scores(
     q: &[f32],
     q_stride: usize,
     n: usize,
     dh: usize,
-    keys: [&'a [f32]; 2],
-    vals: [&'a [f32]; 2],
+    kt: &[f32],
+    ring: usize,
+    segs: [(usize, usize); 2],
     scale: f32,
+    scores: &mut [f32],
+) {
+    debug_assert!(kt.len() >= ring * dh);
+    let nk = segs[0].1 + segs[1].1;
+    for i in 0..n {
+        let qi = &q[i * q_stride..i * q_stride + dh];
+        let mut j = 0;
+        for (start, len) in segs {
+            for c in start..start + len {
+                let mut acc = 0.0f32;
+                for (e, &qv) in qi.iter().enumerate() {
+                    acc = qv.mul_add(kt[super::kt_index(c, e, dh)], acc);
+                }
+                scores[i * nk + j] = acc * scale;
+                j += 1;
+            }
+        }
+    }
+}
+
+/// Softmax over each query's `nk` scores, then `out[i] = sum_j p_ij v_j`.
+#[allow(clippy::too_many_arguments)]
+pub fn attention_values(
+    n: usize,
+    dh: usize,
+    vals: [&[f32]; 2],
     scores: &mut [f32],
     out: &mut [f32],
     o_stride: usize,
 ) {
-    let nk = (keys[0].len() + keys[1].len()) / dh;
-    let n0 = keys[0].len() / dh;
-    let row = |segs: [&'a [f32]; 2], j: usize| -> &'a [f32] {
-        if j < n0 {
-            &segs[0][j * dh..(j + 1) * dh]
-        } else {
-            &segs[1][(j - n0) * dh..(j - n0 + 1) * dh]
-        }
-    };
+    let nk = (vals[0].len() + vals[1].len()) / dh;
     for i in 0..n {
-        let qi = &q[i * q_stride..i * q_stride + dh];
-        for (j, s) in scores[..nk].iter_mut().enumerate() {
-            *s = dot(qi, row(keys, j)) * scale;
-        }
-        let mx = scores[..nk]
-            .iter()
-            .copied()
-            .fold(f32::NEG_INFINITY, f32::max);
+        let sc = &mut scores[i * nk..(i + 1) * nk];
+        let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let mut sum = 0.0f32;
-        for s in scores[..nk].iter_mut() {
+        for s in sc.iter_mut() {
             *s = exp_approx(*s - mx);
             sum += *s;
         }
         let inv = 1.0 / sum;
         let o = &mut out[i * o_stride..i * o_stride + dh];
         o.fill(0.0);
-        for (j, &p) in scores[..nk].iter().enumerate() {
-            axpy(p * inv, row(vals, j), o);
+        let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
+        for (&p, vr) in sc.iter().zip(rows) {
+            axpy(p * inv, vr, o);
         }
     }
 }
