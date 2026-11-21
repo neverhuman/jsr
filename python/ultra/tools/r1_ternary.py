@@ -56,11 +56,14 @@ def pack_panels(codes: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(c.reshape(panels, 16, kp // 4, 4).transpose(0, 2, 1, 3)).reshape(-1)
 
 
-def ternary(bundle: str, assets: str, out: str) -> dict:
+def ternary(bundle: str, assets: str, out: str, fp32_control: bool = False) -> dict:
     """`ultra.r4-ternary/v0` bundle -> engine directory: ternary layers as exact int8 codes in
     a prepared-int8 artifact (scale = s_n, wsum = s_n * sum t), fp32 remainder in
     weights.safetensors, tokens / BPE / filterbank / feature spec from `assets` (an
-    `ultra.r1-weights/v1` directory of the same tokenizer)."""
+    `ultra.r1-weights/v1` directory of the same tokenizer).
+
+    `fp32_control`: instead a plain fp32 directory whose ternary layers hold the dequantised
+    weights t * s_n (the INT8 gate's FP32 control: same weights, fp32 activations)."""
     if os.path.exists(out) and os.listdir(out):
         raise ConvertError(f"{out} is not empty; outputs go to a fresh directory")
     with open(os.path.join(bundle, "manifest.json")) as fh:
@@ -104,6 +107,8 @@ def ternary(bundle: str, assets: str, out: str) -> dict:
         panels = (n + 15) // 16
         pad = lambda v: np.concatenate([v.astype("<f4"), np.zeros(panels * 16 - n, "<f4")])
         tsum = trits.astype(np.int64).sum(axis=1).astype(np.float32)
+        if fp32_control:
+            fp32[f"{rec['name']}.weight"] = trits.astype(np.float32) * scale.astype(np.float32)[:, None]
         q8[f"{nm}.q"] = pack_panels(trits)
         q8[f"{nm}.scale"] = pad(scale)
         q8[f"{nm}.wsum"] = pad(tsum * scale.astype(np.float32))
@@ -114,11 +119,12 @@ def ternary(bundle: str, assets: str, out: str) -> dict:
     wpath = os.path.join(out, "weights.safetensors")
     write_safetensors(wpath, fp32, {"schema": SCHEMA, "checkpoint_sha256": ckpt_sha})
     wsha = sha256_file(wpath)
-    ipath = os.path.join(out, "weights.int8.safetensors")
-    write_safetensors(ipath, q8, {"layout": INT8_LAYOUT, "source_weights_sha256": wsha,
-                                  "checkpoint_sha256": ckpt_sha})
-    files = {"weights": {"path": "weights.safetensors", "sha256": wsha},
-             "weights_int8": {"path": "weights.int8.safetensors", "sha256": sha256_file(ipath)}}
+    files = {"weights": {"path": "weights.safetensors", "sha256": wsha}}
+    if not fp32_control:
+        ipath = os.path.join(out, "weights.int8.safetensors")
+        write_safetensors(ipath, q8, {"layout": INT8_LAYOUT, "source_weights_sha256": wsha,
+                                      "checkpoint_sha256": ckpt_sha})
+        files["weights_int8"] = {"path": "weights.int8.safetensors", "sha256": sha256_file(ipath)}
     for key in ("tokens", "bpe", "mel_fbank"):
         name = arch["files"][key]["path"]
         shutil.copyfile(os.path.join(assets, name), os.path.join(out, name))
@@ -131,12 +137,16 @@ def ternary(bundle: str, assets: str, out: str) -> dict:
                       "r4_manifest_sha256": sha256_file(os.path.join(bundle, "manifest.json"))}
     arch["files"] = files
     arch["features"]["cmvn"] = {"mean": fp32["cmvn.mean"].tolist(), "istd": fp32["cmvn.istd"].tolist()}
-    arch["int8"] = {"layout": INT8_LAYOUT, "source_weights_sha256": wsha,
-                    "fp32_kinds": ["stem_c2", "stem_out"], "codes": "ternary",
-                    "weights": "ternary {-1,0,+1} x per-output-channel absmean scale (R4 QAT); "
-                               "codes stored in the int8 panel layout, exact",
-                    "activations": "per-row centred dynamic int8 at inference time (not stored)",
-                    "producer": "r1_to_safetensors.py ternary"}
+    arch.pop("int8", None)
+    if fp32_control:
+        arch["fp32_control"] = "ternary layers dequantised to t * s_n (fp32 activations)"
+    else:
+        arch["int8"] = {"layout": INT8_LAYOUT, "source_weights_sha256": wsha,
+                        "fp32_kinds": ["stem_c2", "stem_out"], "codes": "ternary",
+                        "weights": "ternary {-1,0,+1} x per-output-channel absmean scale (R4 QAT); "
+                                   "codes stored in the int8 panel layout, exact",
+                        "activations": "per-row centred dynamic int8 at inference time",
+                        "producer": "r1_to_safetensors.py ternary"}
     arch["converter"] = {"tool": "python/ultra/tools/r1_to_safetensors.py ternary",
                          **source_identity()}
     with open(os.path.join(out, "arch.json"), "w") as fh:

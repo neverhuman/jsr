@@ -13,8 +13,8 @@ use ultra_stream::{
 
 use crate::suite_latency::{DensityPoint, FrontierRow};
 use crate::suite_manifest::{
-    current_loadavg_3, sanitize_slug, write_json_create_new, write_receipt_create_new,
-    write_scores_create_new,
+    current_loadavg_3, sanitize_slug, write_json_create_new, write_jsonl_create_new,
+    write_receipt_create_new, write_scores_create_new,
 };
 use crate::suite_runners::{eval_backend_probes, SuiteCtx};
 use crate::suite_slices::compute_slice_summaries;
@@ -49,6 +49,14 @@ pub fn resolve_r1_weights_dir(
         "r1-engine-fp32" | "r1-d1-engine-fp32" => (
             Some(data.join("runs/engine/weights-r1-d1-ckpt7800-v3")),
             "fp32",
+        ),
+        "r1-d1mr-engine" | "r1-d1mr-engine-int8" => (
+            Some(data.join("runs/engine/weights-d1mr-40k-int8prep")),
+            "int8",
+        ),
+        "r1-r4t-engine" => (
+            Some(data.join("runs/engine/r4t-12000/engine-weights")),
+            "int8",
         ),
         _ => {
             let direct = Path::new(candidate_id);
@@ -96,12 +104,14 @@ pub(crate) fn run_engine_candidate(
         honesty_label: HonestyLabel::InCorpus,
         offset: 0,
         limit: if dur.is_some() { None } else { ctx.limit },
+        selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
         duration_s: dur,
         streams: st,
         decode: dec,
         max_batch: 1024,
+        max_chunks: ctx.max_chunks,
         packet_ms: 20,
-        grid_ms: 160,
+        grid_ms: ctx.grid_ms,
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         source_commit: ctx.commit.into(),
@@ -149,16 +159,47 @@ pub(crate) fn run_engine_candidate(
         };
     let (lat, sil) = eval_backend_probes(ctx, raw_cand, &slug)?;
     let sust = if let Some(sec) = ctx.sustained_seconds {
-        let s = run_sp_a_native_engine(&mk_cfg(1, DecodeMode::Single, true, Some(sec)))?;
-        write_receipt_create_new(
-            &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
-            &s.receipt,
-        )?;
-        Some(DensityPoint::from_sp_a(&s, 1))
+        let sw = ctx.sustained_workers.max(1);
+        let sn = ctx.sustained_streams.max(1);
+        if sw > 1 || ctx.observer_cpus.is_some() {
+            let f = run_sp_a_native_engine_shared_workers(
+                &mk_cfg(sn, DecodeMode::Batch, true, Some(sec)),
+                sw,
+                ctx.observer_cpus,
+            )?;
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &f.receipt,
+            )?;
+            write_jsonl_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.series.jsonl")),
+                &f.series,
+            )?;
+            Some(DensityPoint {
+                workers: sw,
+                streams_per_worker: sn,
+                total_streams: sw * sn,
+                sustained: f.all_sustained,
+                drained: f.worker_summaries.iter().all(|w| w.drained),
+                lateness_p99_ms: f
+                    .worker_summaries
+                    .iter()
+                    .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
+                    .max_by(f64::total_cmp),
+                peak_rss_bytes: f.receipt.peak_rss_bytes,
+            })
+        } else {
+            let s = run_sp_a_native_engine(&mk_cfg(sn, DecodeMode::Batch, true, Some(sec)))?;
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &s.receipt,
+            )?;
+            Some(DensityPoint::from_sp_a(&s, sn))
+        }
     } else {
         None
     };
-    let scope = "in_process_engine_warm_sp_a";
+    let scope = "in_process_warm_rusage_self_post_load";
     let jm = ctx.host_snap.build_job_manifest(
         raw_cand,
         &batch.receipt.bundle,
@@ -167,6 +208,9 @@ pub(crate) fn run_engine_candidate(
         ctx.commit,
         ctx.split,
         ctx.npz_path,
+        ctx.panel_manifest_sha256,
+        ctx.grid_ms,
+        ctx.max_chunks,
         Some(prec.as_str()),
         ctx.threads,
         load_before,

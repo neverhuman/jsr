@@ -40,3 +40,6 @@
   - R² ≥ 0.988.
 - **SP-A screen:** sherpa-onnx int8 Zipformer batching N=64 gives only 1.46× streams per core over single decoding. That runtime is compute-bound, not fetch-bound.
 - **Consequence:** density beyond about 18 streams per core needs our own runtime/kernels or a smaller, gated model (Track B). The ORT path is still the R0 baseline.
+
+## 2026-11-21 — lead: R1-MR enters the main freeze (deviation from BENCH_PLAN §0a)
+BENCH_PLAN §0a held R1-MR to an add-on block after the D2 window. R1-MR (S_MR) is now the density design, and it has 960 h checkpoints (D2MR, D3MRb) finishing before the window. It is in the main freeze, labelled, with the same gates. The independent review (2026-11-21-independent-freeze-review.md B7) flagged the inconsistency, and this records it. The 5% CPU rerun tolerance and the two 1 h runs from §0a are restored in FREEZE §4.

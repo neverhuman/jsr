@@ -4,22 +4,24 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use ultra_core::receipt::{Receipt, RECEIPT_SCHEMA};
-use ultra_eval::procfs::TreeSampler;
-use ultra_frontend::npz::load_npz_audio_only;
 
 use crate::api::StreamError;
 use crate::contrast::{
-    build_event_hashes_and_chunks, current_affinity, read_loadavg, self_cpu_seconds,
+    build_event_hashes_and_chunks, current_affinity, load_selected_audio, read_loadavg,
+    self_cpu_seconds,
 };
 use crate::fleet_inproc::WorkerSummary;
-use crate::grid_sim::{simulate_grid, sustains_lateness, SimOutcome, SimParams};
+use crate::grid_sim::{simulate_grid, sustains_lateness, SimParams};
 use crate::ort_r1::OrtTransducerBackend;
 use crate::ort_r1_bank::{OrtR1SlotBank, R1SpAConfig};
-use crate::ort_r1_ws::thread_cpu_ns;
+use crate::placement::{
+    physical_first_cpus, pin_current_thread_verified, run_fleet_observer, verify_worker_l3_and_smt,
+    FleetSeriesPoint,
+};
 use crate::scheduler::RealClock;
 use crate::sherpa_ffi::verify_cpu_only_process;
 
@@ -35,6 +37,10 @@ pub struct R1FleetResult {
     pub all_sustained: Option<bool>,
     pub utterances: usize,
     pub audio_seconds: f64,
+    #[serde(default)]
+    pub audio_processed_seconds: f64,
+    #[serde(default)]
+    pub audio_unfinished_seconds: f64,
     pub process_cpu_seconds: f64,
     pub observer_cpu_seconds: f64,
     pub service_cpu_seconds: f64,
@@ -45,29 +51,9 @@ pub struct R1FleetResult {
     pub observer_cpus: Vec<usize>,
     pub effective_observer_cpus: Vec<usize>,
     pub worker_summaries: Vec<WorkerSummary>,
+    #[serde(default)]
+    pub series: Vec<FleetSeriesPoint>,
     pub receipt: Receipt,
-}
-
-fn pin_current_thread(cpus: &[usize]) {
-    if cpus.is_empty() {
-        return;
-    }
-    let mut set = nix::sched::CpuSet::new();
-    for &c in cpus {
-        let _ = set.set(c);
-    }
-    let _ = nix::sched::sched_setaffinity(nix::unistd::Pid::from_raw(0), &set);
-}
-
-/// Filter out Zen 2 SMT siblings (`cpu >= 64` when `cpu - 64` is already present) so workers
-/// partition across distinct physical cores/CCXs.
-fn physical_first_cpus(aff: &[usize]) -> Vec<usize> {
-    let phys: Vec<usize> = aff.iter().copied().filter(|&c| c < 64).collect();
-    if phys.is_empty() {
-        aff.to_vec()
-    } else {
-        phys
-    }
 }
 
 pub fn run_sp_a_ort_r1_shared_workers(
@@ -78,7 +64,12 @@ pub fn run_sp_a_ort_r1_shared_workers(
     if workers == 0 {
         return Err(StreamError::Protocol("workers must be >= 1".into()));
     }
-    let audio_utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
+    let audio_utts = load_selected_audio(
+        &cfg.npz_path,
+        cfg.offset,
+        cfg.limit,
+        cfg.selected_indices.as_deref(),
+    )?;
     if audio_utts.is_empty() {
         return Err(StreamError::Protocol("no audio utterances loaded".into()));
     }
@@ -104,6 +95,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
             dst.extend_from_slice(&phys_aff[start..end]);
         }
     }
+    verify_worker_l3_and_smt(&worker_cpus, observer_cpus, observer_cpus.is_some())?;
 
     let _load_before = read_loadavg();
     let pid = std::process::id() as i32;
@@ -116,24 +108,10 @@ pub fn run_sp_a_ort_r1_shared_workers(
     let wall_t0 = Instant::now();
     let barrier = Barrier::new(workers);
 
-    let (outcomes, (peak_rss_b, max_thr, obs_cpu_s, eff_obs_cpus)) = std::thread::scope(|scope| {
+    let (outcomes, obs_res) = std::thread::scope(|scope| {
         let stop_ref = Arc::clone(&stop_obs);
         let obs_pin = obs_cpus_vec.clone();
-        let obs_handle = scope.spawn(move || {
-            pin_current_thread(&obs_pin);
-            let eff_obs = current_affinity();
-            let t0 = thread_cpu_ns(true);
-            let mut sampler = TreeSampler::new(pid);
-            sampler.sample();
-            while !stop_ref.load(Ordering::Relaxed) {
-                std::thread::sleep(Duration::from_millis(25));
-                sampler.sample();
-            }
-            sampler.sample();
-            let dt = (thread_cpu_ns(true).saturating_sub(t0)) as f64 * 1e-9;
-            let sum = sampler.summary();
-            (sum.peak_rss_bytes, sum.max_threads, dt, eff_obs)
-        });
+        let obs_handle = scope.spawn(move || run_fleet_observer(pid, &obs_pin, &stop_ref));
 
         let mut handles = Vec::with_capacity(workers);
         for (w, cpus) in worker_cpus.iter().enumerate() {
@@ -142,7 +120,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
             let utts_ref = &audio_utts;
             let cpus_clone = cpus.clone();
             handles.push(scope.spawn(move || {
-                pin_current_thread(&cpus_clone);
+                let pin_res = pin_current_thread_verified(&cpus_clone);
                 let mut bank = OrtR1SlotBank::with_start_offset(
                     eng,
                     utts_ref,
@@ -151,6 +129,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
                     None,
                 );
                 bar.wait();
+                let eff_cpus = pin_res?;
                 let mut clk = RealClock::new()?;
                 let sim = simulate_grid(
                     &mut bank,
@@ -168,10 +147,10 @@ pub fn run_sp_a_ort_r1_shared_workers(
                 if let Some(err) = bank.last_error {
                     return Err(err);
                 }
-                Ok((sim, bank.forced_advances))
+                Ok::<_, StreamError>((sim, bank.forced_advances, eff_cpus))
             }));
         }
-        let outs: Vec<Result<(SimOutcome, u64), StreamError>> = handles
+        let outs: Vec<_> = handles
             .into_iter()
             .map(|h| {
                 h.join()
@@ -181,9 +160,18 @@ pub fn run_sp_a_ort_r1_shared_workers(
         stop_obs.store(true, Ordering::Relaxed);
         let obs_res = obs_handle
             .join()
-            .unwrap_or((1, workers as u64, 0.0, Vec::new()));
+            .map_err(|_| StreamError::Runtime("R1 observer thread panicked".into()))
+            .and_then(|r| r);
         (outs, obs_res)
     });
+    let obs = obs_res?;
+    let (peak_rss_b, max_thr, obs_cpu_s, eff_obs_cpus, series) = (
+        obs.peak_rss_bytes,
+        obs.max_threads,
+        obs.observer_cpu_s,
+        obs.effective_cpus,
+        obs.series,
+    );
 
     let proc_cpu_s = (self_cpu_seconds()? - cpu0).max(1e-6);
     let svc_cpu_s = (proc_cpu_s - obs_cpu_s).max(1e-6);
@@ -194,18 +182,22 @@ pub fn run_sp_a_ort_r1_shared_workers(
     let mut all_completed = Vec::new();
     let mut all_ticks = Vec::new();
     let mut total_audio_s = 0.0f64;
+    let mut total_processed_s = 0.0f64;
+    let mut total_unfinished_s = 0.0f64;
     let mut total_wakeups = 0u64;
     let mut total_forced = 0u64;
     let mut summaries = Vec::with_capacity(workers);
     let mut sustained_workers = 0usize;
 
     for (w, res) in outcomes.into_iter().enumerate() {
-        let (sim, fa) = res?;
+        let (sim, fa, eff_cpus) = res?;
         if !sim.drained {
             return Err(StreamError::Runtime(format!("R1 worker {w} did not drain")));
         }
         total_forced += fa;
         total_audio_s += sim.audio_accepted_s;
+        total_processed_s += sim.audio_processed_s;
+        total_unfinished_s += sim.audio_unfinished_s;
         total_wakeups += sim.wakeups;
         all_ticks.extend(sim.tick_compute_ms);
         let sust = sim
@@ -218,8 +210,11 @@ pub fn run_sp_a_ort_r1_shared_workers(
         summaries.push(WorkerSummary {
             worker_id: w,
             pinned_cpus: worker_cpus[w].clone(),
+            effective_cpus: eff_cpus,
             utterances: sim.completed.len(),
             audio_accepted_s: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
+            audio_processed_s: (sim.audio_processed_s * 1000.0).round() / 1000.0,
+            audio_unfinished_s: (sim.audio_unfinished_s * 1000.0).round() / 1000.0,
             wall_seconds: (sim.wall_seconds * 1000.0).round() / 1000.0,
             accepted_packets: sim.accepted_packets,
             drained: sim.drained,
@@ -229,8 +224,17 @@ pub fn run_sp_a_ort_r1_shared_workers(
         all_completed.extend(sim.completed);
     }
 
+    let audio_denom = if total_processed_s > 0.0 {
+        total_processed_s
+    } else {
+        total_audio_s
+    };
     let (hashes, chunk_ms) =
         build_event_hashes_and_chunks(&bundle_id, &audio_utts, &all_completed, &mut all_ticks)?;
+    let eff_workers: Vec<&[usize]> = summaries
+        .iter()
+        .map(|s| s.effective_cpus.as_slice())
+        .collect();
     let cfg_threads = (workers as u32) * (cfg.threads.max(1) as u32);
     let receipt = Receipt {
         schema: RECEIPT_SCHEMA.into(),
@@ -241,7 +245,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
         configured_threads: cfg_threads,
         observed_threads: Some(max_thr.max(1) as u32),
         cpu_only_verified: cpu_only,
-        audio_seconds: (total_audio_s * 1000.0).round() / 1000.0,
+        audio_seconds: (audio_denom * 1000.0).round() / 1000.0,
         process_tree_cpu_seconds: Some((svc_cpu_s * 1000.0).round() / 1000.0),
         peak_rss_bytes: Some(peak_rss_b.max(1)),
         events: Some(all_completed.len() as u64),
@@ -252,6 +256,10 @@ pub fn run_sp_a_ort_r1_shared_workers(
             format!("observer_cpu_seconds:{obs_cpu_s:.6}"),
             format!("process_cpu_seconds:{proc_cpu_s:.6}"),
             format!("effective_observer_cpus:{eff_obs_cpus:?}"),
+            format!("effective_worker_cpus:{eff_workers:?}"),
+            format!("audio_accepted_s:{total_audio_s:.3}"),
+            format!("audio_processed_s:{total_processed_s:.3}"),
+            format!("audio_unfinished_s:{total_unfinished_s:.3}"),
         ],
         gaps: Vec::new(),
         hashes,
@@ -271,16 +279,19 @@ pub fn run_sp_a_ort_r1_shared_workers(
         all_sustained: cfg.paced.then_some(sustained_workers == workers),
         utterances: all_completed.len(),
         audio_seconds: (total_audio_s * 1000.0).round() / 1000.0,
+        audio_processed_seconds: (total_processed_s * 1000.0).round() / 1000.0,
+        audio_unfinished_seconds: (total_unfinished_s * 1000.0).round() / 1000.0,
         process_cpu_seconds: (proc_cpu_s * 1000.0).round() / 1000.0,
         observer_cpu_seconds: (obs_cpu_s * 1000.0).round() / 1000.0,
         service_cpu_seconds: (svc_cpu_s * 1000.0).round() / 1000.0,
         wall_seconds: (wall_s * 1000.0).round() / 1000.0,
-        rtf_service_cpu: svc_cpu_s / total_audio_s.max(1e-9),
+        rtf_service_cpu: svc_cpu_s / audio_denom.max(1e-9),
         peak_rss_bytes: peak_rss_b.max(1),
         forced_advances: total_forced,
         observer_cpus: obs_cpus_vec,
         effective_observer_cpus: eff_obs_cpus,
         worker_summaries: summaries,
+        series,
         receipt,
     })
 }

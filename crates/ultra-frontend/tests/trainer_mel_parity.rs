@@ -294,4 +294,64 @@ with open(meta_path, "a") as mf:
         max_diff <= 1e-4,
         "B2 max_abs_diff {max_diff:.3e} exceeded 1e-4 gate"
     );
+
+    // G4: Verify cross-ISA portable math path matches BundleRecognizer within <= 1e-4 AND
+    // matches `frame_f32_portable_scalar` to 0 ULP across every frame and bin.
+    let cfg_portable = Arc::new((*cfg).clone().with_portable_math(true));
+    let mut port_rows: Vec<[f32; MEL_BINS]> = Vec::with_capacity(rust_rows.len());
+    for syn in synthetics {
+        let mut mels = TrainerLogMel::new(Arc::clone(&cfg_portable));
+        for pkt in syn.chunks(320) {
+            mels.push_i16_into(pkt, &mut port_rows);
+        }
+    }
+    for &idx in &selected_indices {
+        let mut mels = TrainerLogMel::new(Arc::clone(&cfg_portable));
+        for pkt in all_utts[idx].pcm.chunks(320) {
+            mels.push_i16_into(pkt, &mut port_rows);
+        }
+    }
+    assert_eq!(port_rows.len(), rust_rows.len());
+    let mut port_max_diff = 0.0f32;
+    for (f_idx, row) in port_rows.iter().enumerate() {
+        for (b, &rv) in row.iter().enumerate() {
+            let off = (f_idx * MEL_BINS + b) * 4;
+            let pv = f32::from_le_bytes([
+                py_bytes[off],
+                py_bytes[off + 1],
+                py_bytes[off + 2],
+                py_bytes[off + 3],
+            ]);
+            port_max_diff = port_max_diff.max((rv - pv).abs());
+        }
+    }
+    // Check 0-ULP bit-exactness between portable AVX2 and portable scalar on dev-clean utt 0.
+    let u0_pcm = &all_utts[0].pcm;
+    let u0_f32: Vec<f32> = u0_pcm.iter().map(|&s| f32::from(s) / 32768.0).collect();
+    let mut u0_bytes = Vec::new();
+    let mut off = 0usize;
+    while off + 400 <= u0_f32.len() {
+        let fr = &u0_f32[off..off + 400];
+        let a = cfg_portable.frame_f32(fr);
+        let b = cfg_portable.frame_f32_portable_scalar(fr);
+        for (bin, (av, bv)) in a.iter().zip(&b).enumerate() {
+            assert_eq!(
+                av.to_bits(),
+                bv.to_bits(),
+                "G4 portable AVX2 vs scalar drift at off={off} bin={bin}"
+            );
+            u0_bytes.extend_from_slice(&av.to_bits().to_le_bytes());
+        }
+        off += 160;
+    }
+    eprintln!(
+        "G4 portable BundleRecognizer parity ({} frames): max_abs_diff = {:.3e}, u0_portable_sha256 = {}",
+        port_rows.len(),
+        port_max_diff,
+        sha256_hex(&u0_bytes)
+    );
+    assert!(
+        port_max_diff <= 1e-4,
+        "G4 portable max_abs_diff {port_max_diff:.3e} exceeded 1e-4 gate"
+    );
 }

@@ -3,7 +3,8 @@
 //!
 //! Metric per layer and utterance: `max |engine - torch| / max |torch|` (normwise relative),
 //! required <= 1e-4. The default test checks the first 8 chunks of 3 utterances; the
-//! `--ignored` test checks every frame of all reference utterances (50 DEV).
+//! `--ignored` test checks every frame of all reference utterances (50 DEV). An int8-trained
+//! stem (`qat_stem = "int8"`) is held to `QAT_STEM_TOL`.
 
 mod common;
 
@@ -14,9 +15,14 @@ use ultra_engine::{Engine, Isa, Model, Precision, Workspace};
 use ultra_frontend::MEL_BINS;
 
 const TOL: f64 = 1e-4;
+/// A checkpoint whose stem was trained int8 (`qat_stem = "int8"`) runs the stem int8 against
+/// torch's fake-quant stem: codes match except activations sitting at a rounding tie, where
+/// the fp32 conv-1 rounding differs. D3MRb step 20000, 50 DEV: stem 3.1e-4, blocks <= 2.6e-4,
+/// joiner inputs <= 6.0e-4 (running the stem fp32 instead gives 3.0e-3 at the stem).
+const QAT_STEM_TOL: f64 = 1e-3;
 
 /// Per layer: (worst normwise relative error, worst absolute error) over the utterances.
-fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<(f64, f64)>> {
+fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<(Vec<(f64, f64)>, f64)> {
     let (w, r) = (common::weights_dir(), common::reference_file());
     if !common::have(&[&w, &r]) {
         return None;
@@ -94,19 +100,25 @@ fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<(f64, f64
         checked += 1;
     }
     eprintln!("checked {checked} utterances");
-    Some(worst)
+    let tol = if model.arch.qat_stem_int8 {
+        QAT_STEM_TOL
+    } else {
+        TOL
+    };
+    Some((worst, tol))
 }
 
-fn check(worst: &[(f64, f64)]) {
+fn check((worst, tol): &(Vec<(f64, f64)>, f64)) {
+    let tol = *tol;
     for (l, &(e, a)) in worst.iter().enumerate() {
         eprintln!("layer {l:02}: max normwise relative error {e:.3e}, max abs error {a:.3e}");
     }
     let bad: Vec<_> = worst
         .iter()
         .enumerate()
-        .filter(|(_, &(e, _))| e > TOL)
+        .filter(|(_, &(e, _))| e > tol)
         .collect();
-    assert!(bad.is_empty(), "layers over {TOL}: {bad:?}");
+    assert!(bad.is_empty(), "layers over {tol}: {bad:?}");
 }
 
 #[test]

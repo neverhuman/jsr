@@ -3,10 +3,12 @@
 //! Separated from native `SherpaLib` bindings so deterministic fake-clock / fake-recogniser
 //! M1–M4 qualification probes exercise the exact same scheduling loop as `run_sp_a_zipformer`.
 
+use std::time::{Duration, Instant};
+
 use serde::{Deserialize, Serialize};
 
 use crate::api::StreamError;
-use crate::contrast::percentile_sorted;
+use crate::contrast::{percentile_sorted, self_cpu_seconds};
 
 /// Default LIVE finalization / oldest-unprocessed lateness bound in milliseconds (SP-A A1).
 pub const DEFAULT_LATENESS_BOUND_MS: f64 = 800.0;
@@ -66,6 +68,34 @@ pub trait SimClock {
     fn cpu_s(&self) -> Result<f64, StreamError>;
 }
 
+pub(crate) struct RealClock {
+    t0: Instant,
+    c0: f64,
+}
+
+impl RealClock {
+    pub(crate) fn new() -> Result<Self, StreamError> {
+        Ok(Self {
+            t0: Instant::now(),
+            c0: self_cpu_seconds()?,
+        })
+    }
+}
+
+impl SimClock for RealClock {
+    fn now_s(&self) -> f64 {
+        self.t0.elapsed().as_secs_f64()
+    }
+    fn sleep_s(&mut self, dt_s: f64) {
+        if dt_s > 0.0 {
+            std::thread::sleep(Duration::from_secs_f64(dt_s));
+        }
+    }
+    fn cpu_s(&self) -> Result<f64, StreamError> {
+        Ok((self_cpu_seconds()? - self.c0).max(0.0))
+    }
+}
+
 /// Abstract stream-bank operations so `simulate_grid` runs identically over `SherpaZipformerBackend`
 /// and deterministic fake recognisers in unit tests.
 pub trait SimSlotBank {
@@ -95,11 +125,23 @@ pub struct SimParams {
     pub duration_s: Option<f64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SustainedSample {
+    pub elapsed_s: f64,
+    pub backlog_ms: f64,
+    pub active_streams: usize,
+    pub accepted_audio_s: f64,
+    pub processed_audio_s: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct SimOutcome {
     pub completed: Vec<(usize, String)>,
     pub accepted_samples: u64,
+    pub processed_samples: u64,
     pub audio_accepted_s: f64,
+    pub audio_processed_s: f64,
+    pub audio_unfinished_s: f64,
     pub audio_completed_s: f64,
     pub cpu_seconds: f64,
     pub wall_seconds: f64,
@@ -113,6 +155,7 @@ pub struct SimOutcome {
     pub drained: bool,
     pub tick_compute_ms: Vec<f64>,
     pub lateness_ms: Option<LatenessQuantiles>,
+    pub series: Vec<SustainedSample>,
 }
 
 fn summarize_lateness(lateness_s: &[f64]) -> Option<LatenessQuantiles> {
@@ -214,6 +257,7 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
     };
 
     let mut accepted_samples = 0u64;
+    let mut processed_samples = 0u64;
     let mut k_acc = 0u64;
     let mut k_dec = 0u64;
     let mut cutoff = false;
@@ -224,6 +268,8 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
     let mut audio_completed_samples = 0u64;
     let mut steady_lat_s: Vec<f64> = Vec::new();
     let mut tick_compute_ms: Vec<f64> = Vec::new();
+    let mut series: Vec<SustainedSample> = Vec::new();
+    let mut next_series_t = t0 + 10.0;
 
     while any_active(bank) {
         let mut now = clock.now_s();
@@ -284,8 +330,25 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
             if total_ready_decoded > 0 {
                 let done_t = clock.now_s();
                 tick_compute_ms.push((done_t - step_t0).max(0.0) * 1000.0);
-                if !cutoff && params.paced {
-                    steady_lat_s.push((done_t - oldest).max(0.0));
+                if params.paced {
+                    // FREEZE §3 unified A1: per-chunk lateness including drain ticks.
+                    let lat = (done_t - oldest).max(0.0);
+                    for _ in 0..total_ready_decoded {
+                        steady_lat_s.push(lat);
+                    }
+                    if done_t >= next_series_t {
+                        let active = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
+                        series.push(SustainedSample {
+                            elapsed_s: ((done_t - t0) * 1000.0).round() / 1000.0,
+                            backlog_ms: (lat * 1000.0 * 100.0).round() / 100.0,
+                            active_streams: active,
+                            accepted_audio_s: (accepted_samples as f64) / 16_000.0,
+                            processed_audio_s: (processed_samples as f64) / 16_000.0,
+                        });
+                        while next_series_t <= done_t {
+                            next_series_t += 10.0;
+                        }
+                    }
                 }
             }
             k_dec = k_acc;
@@ -298,6 +361,7 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
                     let cur = bank.slot_cursor(slot);
                     let full_len = bank.utt_samples(utt_pos);
                     let hyp = bank.take_completed_slot(slot);
+                    processed_samples += cur as u64;
                     if cur >= full_len {
                         audio_completed_samples += full_len as u64;
                         completed.push((utt_pos, hyp));
@@ -311,6 +375,9 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
 
     let cpu_end = clock.cpu_s()?;
     let wall_end = clock.now_s();
+    let drained = !any_active(bank);
+    let processed_samples = processed_samples.min(accepted_samples);
+    let unfinished_samples = accepted_samples.saturating_sub(processed_samples);
     let (drain_cpu_seconds, drain_wall_seconds) = match drain_start {
         Some((dc0, dt0)) => (
             Some(((cpu_end - dc0).max(0.0) * 1000.0).round() / 1000.0),
@@ -322,7 +389,10 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
     Ok(SimOutcome {
         completed,
         accepted_samples,
+        processed_samples,
         audio_accepted_s: (accepted_samples as f64) / 16_000.0,
+        audio_processed_s: (processed_samples as f64) / 16_000.0,
+        audio_unfinished_s: (unfinished_samples as f64) / 16_000.0,
         audio_completed_s: (audio_completed_samples as f64) / 16_000.0,
         cpu_seconds: (cpu_end - cpu0).max(0.0),
         wall_seconds: (wall_end - t0).max(0.0),
@@ -333,8 +403,9 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
         effective_grid_ms,
         max_ready_batch,
         wakeups,
-        drained: !any_active(bank),
+        drained,
         tick_compute_ms,
         lateness_ms: summarize_lateness(&steady_lat_s),
+        series,
     })
 }

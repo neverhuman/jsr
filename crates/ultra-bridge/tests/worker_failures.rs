@@ -113,12 +113,23 @@ fn assert_gone(path: &std::path::Path) {
         .trim()
         .parse()
         .expect("pid");
-    // SAFETY: signal 0 only checks existence; no process is modified.
-    assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
-    assert_eq!(
-        std::io::Error::last_os_error().raw_os_error(),
-        Some(libc::ESRCH)
-    );
+    // A SIGKILLed, orphaned grandchild stays a zombie until init reaps it, and
+    // kill(pid, 0) still succeeds on a zombie. Poll (bounded) instead of
+    // checking once; the process must still disappear well within the bound.
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        // SAFETY: signal 0 only checks existence; no process is modified.
+        let rc = unsafe { libc::kill(pid, 0) };
+        let errno = std::io::Error::last_os_error().raw_os_error();
+        if rc == -1 && errno == Some(libc::ESRCH) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "grandchild {pid} still exists 3 s after drain (rc={rc}, errno={errno:?})"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 fn ready() -> String {

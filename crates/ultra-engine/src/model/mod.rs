@@ -13,6 +13,7 @@ use crate::EngineError;
 
 mod arch_json;
 mod layers;
+pub use layers::QAT_STEM_KINDS;
 pub mod prepared;
 use arch_json::{bounded, file, verify, RawArch};
 
@@ -50,6 +51,9 @@ pub struct Arch {
     pub log_floor: f32,
     pub checkpoint_sha256: String,
     pub weights_sha256: String,
+    /// Stem conv 2 + projection trained as int8 GEMMs (`qat_stem = "int8"`): they run int8
+    /// in every precision, with the trainer's weight rule (see `Model::apply_qat_stem`).
+    pub qat_stem_int8: bool,
 }
 
 /// A linear layer `y = W x + b`: the fp32 packing always, the int8 packing when requested.
@@ -59,6 +63,8 @@ pub struct Linear {
     pub q: Option<PackedI8>,
     /// Ternary layers on x86: the same codes as 2-bit T-LUT2 weights (4x smaller stream).
     pub t: Option<crate::quant::PackedT>,
+    /// Trained as an int8 GEMM (QAT): runs int8 even in the fp32 engine.
+    pub qat_i8: bool,
 }
 
 impl Linear {
@@ -67,6 +73,7 @@ impl Linear {
             f: PackedF32::pack(w, n, k, b),
             q: None,
             t: None,
+            qat_i8: false,
         }
     }
 
@@ -77,6 +84,7 @@ impl Linear {
             f: PackedF32::bias_only(n, k, b),
             q: None,
             t: None,
+            qat_i8: false,
         }
     }
 
@@ -268,6 +276,7 @@ impl Model {
             log_floor: raw.features.log_floor,
             checkpoint_sha256: raw.source.checkpoint_sha256.clone(),
             weights_sha256: wfile.sha256.clone(),
+            qat_stem_int8: layers::qat_stem_int8(raw.model.config.qat_stem.as_deref())?,
         };
         if arch.blank >= arch.vocab || arch.ctx_init.iter().any(|&c| c >= arch.vocab) {
             return Err(EngineError::Format(
@@ -315,6 +324,7 @@ impl Model {
             let path = verify(root, file(&raw, "weights_int8")?, verify_hashes)?;
             model.load_prepared_int8(&path, i8)?;
         }
+        model.apply_qat_stem()?;
         Ok(model)
     }
 

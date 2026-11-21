@@ -41,7 +41,7 @@ Same build 6df5c8f, DEV400 dev-clean, whole service, observer separated:
 | Zen 2, per 4-core CCX | 96 streams | **136 streams** |
 | M3 Ultra (xbabe4) | 64 per core | **84 per core**; 504 on 6 workers |
 
-ORT on the same harness did not sustain 32 streams per CCX.
+**Retracted pending the single-harness rerun (independent review 2026-11-21):** the engine density figures above come from `engine_density` with 4 workers per CCX, while R0's 192 came from the Python harness with 1 worker per CCX, and the ORT figure came from bench-suite. These are not comparable. Valid comparisons will come only from bench-suite on equal hardware (FREEZE §3).
 
 **Single-stream int8:**
 

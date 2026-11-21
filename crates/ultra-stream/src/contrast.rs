@@ -178,18 +178,53 @@ pub(crate) fn build_event_hashes_and_chunks(
     Ok((hashes, chunk_ms))
 }
 
+pub(crate) fn load_selected_audio(
+    npz_path: &Path,
+    offset: usize,
+    limit: Option<usize>,
+    selected_indices: Option<&[usize]>,
+) -> Result<Vec<ultra_frontend::npz::AudioUtterance>, StreamError> {
+    if let Some(idxs) = selected_indices {
+        let all = ultra_frontend::npz::load_npz_audio_only(npz_path, 0, None)?;
+        let mut out = Vec::with_capacity(idxs.len());
+        for &i in idxs {
+            let u = all.get(i).ok_or_else(|| {
+                StreamError::Protocol(format!(
+                    "panel utterance index {i} out of bounds (split has {})",
+                    all.len()
+                ))
+            })?;
+            out.push(u.clone());
+        }
+        Ok(out)
+    } else {
+        Ok(ultra_frontend::npz::load_npz_audio_only(
+            npz_path, offset, limit,
+        )?)
+    }
+}
+
 pub(crate) fn score_completed(
     npz_path: &Path,
     split_name: &str,
     offset: usize,
     limit: Option<usize>,
+    selected_indices: Option<&[usize]>,
     unique_seq_ids: bool,
     completed: &[(usize, String)],
 ) -> Result<(WerSummary, Vec<ScoreRecord>), StreamError> {
-    let refs = load_npz_references(npz_path, offset, limit)?;
+    let refs = if selected_indices.is_some() {
+        load_npz_references(npz_path, 0, None)?
+    } else {
+        load_npz_references(npz_path, offset, limit)?
+    };
     let mut scored_rows = Vec::with_capacity(completed.len());
     for (seq_k, (utt_pos, hyp)) in completed.iter().enumerate() {
-        let r = &refs[*utt_pos];
+        let ref_idx = match selected_indices {
+            Some(idxs) => idxs[*utt_pos],
+            None => *utt_pos,
+        };
+        let r = &refs[ref_idx];
         let row_id = if unique_seq_ids {
             format!("{}#{}", r.uid, seq_k)
         } else {
@@ -318,6 +353,7 @@ pub fn run_offline_contrast(cfg: &ContrastConfig) -> Result<ContrastResult, Stre
         &cfg.split_name,
         cfg.offset,
         cfg.limit,
+        None,
         false,
         &completed,
     )?;

@@ -49,6 +49,7 @@
     "crates/ultra-bridge/": "eval",
     "python/ultra/bridge/": "training",
     "crates/ultra-engine/": "runtime",
-    "python/ultra/tools/": "training"
+    "python/ultra/tools/": "training",
+    "research/": "lead"
   }
 }

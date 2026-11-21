@@ -82,9 +82,15 @@ pub struct FrontierRow {
 pub struct FrontierReport {
     pub schema: String,
     pub split: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub panel_manifest_sha256: Option<String>,
+    pub grid_ms: u32,
+    pub max_chunks: usize,
     pub source_commit: String,
     pub hardware_id: String,
     pub completion_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub density_ladder_file: Option<String>,
     pub rows: Vec<FrontierRow>,
 }
 
