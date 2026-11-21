@@ -141,3 +141,40 @@ def test_divergence_guard_stops_on_loss_trend_and_wer(workdir):
     u._watch_wer(24.0)  # within 5 points
     with pytest.raises(DivergenceError):
         u._watch_wer(27.0)
+
+
+def test_average_of_identical_is_identity_and_mean_is_mean(workdir):
+    from train.average import average, save_average
+
+    t = _trainer(workdir)
+    t.run(max_steps=1)
+    a = checkpoint.latest(workdir)
+    avg = average([a, a, a])
+    src = checkpoint.load(a, restore_rng=False)["model"]
+    assert list(avg["model"]) == list(src)
+    for k, v in src.items():
+        assert avg["model"][k].shape == v.shape and avg["model"][k].dtype == v.dtype
+        assert torch.equal(avg["model"][k], v), k
+    t.run(max_steps=1)
+    b = checkpoint.latest(workdir)
+    out = save_average([a, b], os.path.join(workdir, "avg.pt"))
+    m = checkpoint.load(out, restore_rng=False)
+    sa, sb = src, checkpoint.load(b, restore_rng=False)["model"]
+    k = next(k for k in sa if torch.is_floating_point(sa[k]) and not torch.equal(sa[k], sb[k]))
+    assert torch.allclose(m["model"][k], (sa[k].double() + sb[k].double()).div(2).float())
+    assert [s["step"] for s in m["averaged_from"]] == [1, 2]
+
+
+def test_average_refuses_mismatched_configs(workdir):
+    from train.average import average
+
+    t = _trainer(os.path.join(workdir, "a"))
+    t.run(max_steps=1)
+    cfg = TrainConfig(preset="TINY", warmup=2, total_steps=100, ckpt_every_steps=1000,
+                      ckpt_every_minutes=1e9, eval_every=0, log_every=1000)
+    u = Trainer(os.path.join(workdir, "b"), cfg, FixedBatches(_examples(), batch_size=2),
+                model_cfg=PRESETS["TINY"], device="cpu", log=False)
+    u.run(max_steps=1)
+    with pytest.raises(CheckpointError):
+        average([checkpoint.latest(os.path.join(workdir, "a")),
+                 checkpoint.latest(os.path.join(workdir, "b"))])
