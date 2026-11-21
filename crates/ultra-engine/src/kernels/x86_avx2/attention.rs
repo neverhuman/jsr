@@ -7,76 +7,114 @@ use super::super::scalar;
 use super::{exp8, hsum};
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn attend_head(
+pub(crate) fn attention_scores(
     q: &[f32],
     q_stride: usize,
     n: usize,
     dh: usize,
-    keys: [&[f32]; 2],
-    vals: [&[f32]; 2],
+    kt: &[f32],
+    ring: usize,
+    segs: [(usize, usize); 2],
     scale: f32,
+    scores: &mut [f32],
+) {
+    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    unsafe { scores_avx2(q, q_stride, n, dh, kt, ring, segs, scale, scores) }
+}
+
+/// Queries handled together per 8-key column block.
+const QB: usize = 4;
+
+/// Scores for 8 keys at a time: `kt` rows are contiguous over slots, so one load serves
+/// 8 keys and each query adds `q[e] * k[e][j..j+8]` with one FMA (no horizontal sums).
+#[allow(clippy::too_many_arguments)]
+#[target_feature(enable = "avx2,fma")]
+fn scores_avx2(
+    q: &[f32],
+    q_stride: usize,
+    n: usize,
+    dh: usize,
+    kt: &[f32],
+    ring: usize,
+    segs: [(usize, usize); 2],
+    scale: f32,
+    scores: &mut [f32],
+) {
+    let nk = segs[0].1 + segs[1].1;
+    assert!(kt.len() >= dh * ring && scores.len() >= n * nk);
+    assert!(q.len() >= (n - 1) * q_stride + dh);
+    assert!(segs.iter().all(|&(s, l)| s + l <= ring));
+    let sv = _mm256_set1_ps(scale);
+    let mut j0 = 0;
+    for (start, len) in segs {
+        let full = len - len % 8;
+        let mut i0 = 0;
+        while i0 < n {
+            let qn = (n - i0).min(QB);
+            let mut c = 0;
+            while c < full {
+                let mut acc = [_mm256_setzero_ps(); QB];
+                for e in 0..dh {
+                    // SAFETY: e * ring + start + c + 8 <= (dh - 1) * ring + ring <= kt.len().
+                    let kv = unsafe { _mm256_loadu_ps(kt.as_ptr().add(e * ring + start + c)) };
+                    for (a, qi) in acc[..qn].iter_mut().zip(i0..i0 + qn) {
+                        let qv = _mm256_set1_ps(q[qi * q_stride + e]);
+                        *a = _mm256_fmadd_ps(qv, kv, *a);
+                    }
+                }
+                for (a, qi) in acc[..qn].iter().zip(i0..i0 + qn) {
+                    let dst = &mut scores[qi * nk + j0 + c..qi * nk + j0 + c + 8];
+                    // SAFETY: dst.len() == 8.
+                    unsafe { _mm256_storeu_ps(dst.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
+                }
+                c += 8;
+            }
+            i0 += qn;
+        }
+        // Tail keys: the same ascending-e FMA chain in scalar form (bit-identical).
+        for qi in 0..n {
+            for c in full..len {
+                let mut acc = 0.0f32;
+                for e in 0..dh {
+                    acc = q[qi * q_stride + e].mul_add(kt[e * ring + start + c], acc);
+                }
+                scores[qi * nk + j0 + c] = acc * scale;
+            }
+        }
+        j0 += len;
+    }
+}
+
+pub(crate) fn attention_values(
+    n: usize,
+    dh: usize,
+    vals: [&[f32]; 2],
     scores: &mut [f32],
     out: &mut [f32],
     o_stride: usize,
 ) {
     // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
-    unsafe { attend_head_avx2(q, q_stride, n, dh, keys, vals, scale, scores, out, o_stride) }
+    unsafe { values_avx2(n, dh, vals, scores, out, o_stride) }
 }
 
 /// Up to 16 vectors (dh <= 128) of one head row, held in registers.
 const MAXV: usize = 16;
 
-#[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
-fn attend_head_avx2(
-    q: &[f32],
-    q_stride: usize,
+fn values_avx2(
     n: usize,
     dh: usize,
-    keys: [&[f32]; 2],
     vals: [&[f32]; 2],
-    scale: f32,
     scores: &mut [f32],
     out: &mut [f32],
     o_stride: usize,
 ) {
     let nv = dh / 8;
     assert!(dh.is_multiple_of(8) && nv <= MAXV);
-    let nk = (keys[0].len() + keys[1].len()) / dh;
-    assert!(scores.len() >= nk && q.len() >= (n - 1) * q_stride + dh);
-    assert!(out.len() >= (n - 1) * o_stride + dh);
+    let nk = (vals[0].len() + vals[1].len()) / dh;
+    assert!(scores.len() >= n * nk && out.len() >= (n - 1) * o_stride + dh);
     for i in 0..n {
-        let qi = &q[i * q_stride..i * q_stride + dh];
-        let mut qv = [_mm256_setzero_ps(); MAXV];
-        for (v, qr) in qv.iter_mut().zip(qi.chunks_exact(8)) {
-            // SAFETY: qr.len() == 8.
-            *v = unsafe { _mm256_loadu_ps(qr.as_ptr()) };
-        }
-        let mut j = 0;
-        for seg in keys {
-            for kr in seg.chunks_exact(dh) {
-                let (mut a0, mut a1) = (_mm256_setzero_ps(), _mm256_setzero_ps());
-                for (c, kc) in kr.chunks_exact(16).enumerate() {
-                    // SAFETY: kc.len() == 16.
-                    unsafe {
-                        a0 = _mm256_fmadd_ps(qv[2 * c], _mm256_loadu_ps(kc.as_ptr()), a0);
-                        a1 =
-                            _mm256_fmadd_ps(qv[2 * c + 1], _mm256_loadu_ps(kc.as_ptr().add(8)), a1);
-                    }
-                }
-                if !nv.is_multiple_of(2) {
-                    // SAFETY: the last 8 floats of kr.
-                    a0 = _mm256_fmadd_ps(
-                        qv[nv - 1],
-                        unsafe { _mm256_loadu_ps(kr.as_ptr().add(dh - 8)) },
-                        a0,
-                    );
-                }
-                scores[j] = hsum(_mm256_add_ps(a0, a1)) * scale;
-                j += 1;
-            }
-        }
-        let sc = &mut scores[..nk];
+        let sc = &mut scores[i * nk..(i + 1) * nk];
         let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let mv = _mm256_set1_ps(mx);
         let mut sv = _mm256_setzero_ps();
@@ -96,15 +134,12 @@ fn attend_head_avx2(
         }
         let inv = 1.0 / sum;
         let mut acc = [_mm256_setzero_ps(); MAXV];
-        let mut j = 0;
-        for seg in vals {
-            for vr in seg.chunks_exact(dh) {
-                let p = _mm256_set1_ps(scores[j] * inv);
-                for (a, vc) in acc[..nv].iter_mut().zip(vr.chunks_exact(8)) {
-                    // SAFETY: vc.len() == 8.
-                    *a = _mm256_fmadd_ps(p, unsafe { _mm256_loadu_ps(vc.as_ptr()) }, *a);
-                }
-                j += 1;
+        let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
+        for (&p, vr) in sc.iter().zip(rows) {
+            let pv = _mm256_set1_ps(p * inv);
+            for (a, vc) in acc[..nv].iter_mut().zip(vr.chunks_exact(8)) {
+                // SAFETY: vc.len() == 8.
+                *a = _mm256_fmadd_ps(pv, unsafe { _mm256_loadu_ps(vc.as_ptr()) }, *a);
             }
         }
         let o = &mut out[i * o_stride..i * o_stride + dh];

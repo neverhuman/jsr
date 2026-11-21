@@ -190,6 +190,17 @@ fn quantize_row_simd_is_bit_exact_with_scalar() {
             }
         }
     }
+    // A subnormal range would overflow 127 / half: treated as a constant row in both paths.
+    let tiny: Vec<f32> = (0..40)
+        .map(|i| if i % 2 == 0 { 1e-44 } else { -1e-44 })
+        .collect();
+    for i in [Isa::Scalar, isa] {
+        let (s, c) = quantize_row(i, &tiny, &mut z);
+        assert!(
+            s == 0.0 && c.abs() < 1e-37 && z.iter().all(|&q| q == 0),
+            "{s} {c}"
+        );
+    }
     let mut one = [0i8; 1];
     assert_eq!(quantize_row(Isa::Scalar, &[3.0], &mut one), (0.0, 3.0));
 }
@@ -227,9 +238,7 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
             } else {
                 (rng.next_u32() % 255) as i8
             };
-            if *v == i8::MIN {
-                *v = -127;
-            }
+            // Full i8 range including -128 (|a| = 128 still never saturates: 2*128*127 < 2^15).
         }
         for r in 0..rows {
             a[r * p.kp + k..(r + 1) * p.kp].fill(0);
@@ -253,31 +262,46 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
 fn attend_head_simd_matches_scalar() {
     let Some(isa) = simd() else { return };
     let mut rng = Rng::new(6);
-    for &(dh, n, n0, n1) in &[
-        (64usize, 4usize, 100usize, 32usize),
-        (64, 1, 3, 0),
-        (40, 3, 0, 9),
-        (128, 2, 7, 5),
+    // (dh, queries, ring, window start, window length): wrapped and unwrapped windows.
+    for &(dh, n, ring, start, nk) in &[
+        (64usize, 4usize, 136usize, 100usize, 132usize),
+        (64, 1, 136, 0, 3),
+        (40, 3, 20, 15, 9),
+        (128, 2, 70, 60, 17),
+        (64, 5, 144, 7, 137),
     ] {
         let q = rng.vec(n * 3 * dh, 2.0);
-        let k0 = rng.vec(n0 * dh, 2.0);
-        let k1 = rng.vec(n1 * dh, 2.0);
-        let v0 = rng.vec(n0 * dh, 1.0);
-        let v1 = rng.vec(n1 * dh, 1.0);
-        let mut s = vec![0.0; n0 + n1];
+        let kt = rng.vec(dh * ring, 2.0);
+        let vring = rng.vec(ring * dh, 1.0);
+        let first = nk.min(ring - start);
+        let segs = [(start, first), (0, nk - first)];
+        let vals = [
+            &vring[start * dh..(start + first) * dh],
+            &vring[..(nk - first) * dh],
+        ];
+        let scale = 1.0 / (dh as f32).sqrt();
+        let (mut s1, mut s2) = (vec![0.0; n * nk], vec![0.0; n * nk]);
         let mut o1 = vec![0.0; n * 2 * dh];
         let mut o2 = vec![0.0; n * 2 * dh];
-        let scale = 1.0 / (dh as f32).sqrt();
+        // Scores alone are bit-exact (same FMA chain).
+        scalar::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s1);
+        #[cfg(target_arch = "x86_64")]
+        if dh % 8 == 0 {
+            x86_avx2::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s2);
+            assert_eq!(s1, s2, "scores dh {dh}");
+        }
         attend_head(
             Isa::Scalar,
             &q,
             3 * dh,
             n,
             dh,
-            [&k0, &k1],
-            [&v0, &v1],
+            &kt,
+            ring,
+            segs,
+            vals,
             scale,
-            &mut s,
+            &mut s1,
             &mut o1,
             2 * dh,
         );
@@ -287,15 +311,44 @@ fn attend_head_simd_matches_scalar() {
             3 * dh,
             n,
             dh,
-            [&k0, &k1],
-            [&v0, &v1],
+            &kt,
+            ring,
+            segs,
+            vals,
             scale,
-            &mut s,
+            &mut s2,
             &mut o2,
             2 * dh,
         );
         for (a, b) in o1.iter().zip(&o2) {
             assert!((a - b).abs() < 1e-5, "dh {dh}: {a} {b}");
+        }
+        // And against a direct f64 softmax-attention.
+        for i in 0..n {
+            let keys: Vec<usize> = (0..nk).map(|j| (start + j) % ring).collect();
+            let sc: Vec<f64> = keys
+                .iter()
+                .map(|&c| {
+                    (0..dh)
+                        .map(|e| f64::from(q[i * 3 * dh + e]) * f64::from(kt[e * ring + c]))
+                        .sum::<f64>()
+                        * f64::from(scale)
+                })
+                .collect();
+            let mx = sc.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let w: Vec<f64> = sc.iter().map(|s| (s - mx).exp()).collect();
+            let z: f64 = w.iter().sum();
+            for e in 0..dh {
+                let r: f64 = keys
+                    .iter()
+                    .zip(&w)
+                    .map(|(&c, p)| p / z * f64::from(vring[c * dh + e]))
+                    .sum();
+                assert!(
+                    (r - f64::from(o1[i * 2 * dh + e])).abs() < 1e-4,
+                    "ref dh {dh}"
+                );
+            }
         }
     }
 }

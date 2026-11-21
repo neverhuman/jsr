@@ -214,12 +214,16 @@ fn attend(
     let ring = j.g.ring;
     let lbase = li * hn * ring * dh;
     for i in 0..n {
-        let s = ((t0 + i) % ring) * dh;
+        let slot = (t0 + i) % ring;
         let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
         for h in 0..hn {
-            let base = lbase + h * ring * dh + s;
-            j.g.k[base..base + dh].copy_from_slice(&r[d + h * dh..d + (h + 1) * dh]);
-            j.g.v[base..base + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
+            let hb = lbase + h * ring * dh;
+            // Keys transposed ([dh][ring]) so scores read 8 keys per load; values row-major.
+            for (e, &kv) in r[d + h * dh..d + (h + 1) * dh].iter().enumerate() {
+                j.g.k[hb + e * ring + slot] = kv;
+            }
+            let vb = hb + slot * dh;
+            j.g.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
         }
     }
     // Sub-chunk c = [s0, s0 + m): its queries see positions [s0 - past_c, s0 + m), with
@@ -233,10 +237,10 @@ fn attend(
         let nk = past + m;
         let start = (s0 - past) % ring;
         let first = nk.min(ring - start);
-        let sc = grow(scores, nk);
+        let sc = grow(scores, m * nk);
         for h in 0..hn {
             let hb = lbase + h * ring * dh;
-            let kr = &j.g.k[hb..hb + ring * dh];
+            let kt = &j.g.k[hb..hb + ring * dh];
             let vr = &j.g.v[hb..hb + ring * dh];
             kernels::attend_head(
                 isa,
@@ -244,7 +248,9 @@ fn attend(
                 3 * d,
                 m,
                 dh,
-                window(kr, start, first, nk, dh),
+                kt,
+                ring,
+                [(start, first), (0, nk - first)],
                 window(vr, start, first, nk, dh),
                 scale,
                 sc,

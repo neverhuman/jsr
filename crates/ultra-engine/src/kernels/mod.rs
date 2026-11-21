@@ -195,9 +195,11 @@ pub fn add_scaled(isa: Isa, y: &mut [f32], x: &[f32], alpha: f32) {
     axpy(isa, alpha, x, y);
 }
 
-/// Softmax attention of one head: queries `q[i * q_stride ..][..dh]` for `i < n`; keys and
-/// values are the rows (width `dh`) of two contiguous segments each (a ring buffer's window);
-/// writes `out[i * o_stride ..][..dh] = softmax(q k^T * scale) v`. `scores` holds >= nk floats.
+/// Softmax attention of one head for `n` queries `q[i * q_stride ..][..dh]`. Keys are
+/// stored transposed (`kt[e * ring + slot]`, a ring of `ring` slots per dimension); the
+/// window is the slot ranges `segs = [(start, len); 2]`, and `vals` holds the matching value
+/// rows (width `dh`) in the same order. Writes `out[i * o_stride ..][..dh] =
+/// softmax(q k^T * scale) v`; `scores` holds at least `n * nk` floats.
 #[allow(clippy::too_many_arguments)]
 pub fn attend_head(
     isa: Isa,
@@ -205,24 +207,38 @@ pub fn attend_head(
     q_stride: usize,
     n: usize,
     dh: usize,
-    keys: [&[f32]; 2],
+    kt: &[f32],
+    ring: usize,
+    segs: [(usize, usize); 2],
     vals: [&[f32]; 2],
     scale: f32,
     scores: &mut [f32],
     out: &mut [f32],
     o_stride: usize,
 ) {
-    assert!(dh > 0, "attend_head dh");
-    let nk = (keys[0].len() + keys[1].len()) / dh;
-    assert!(n > 0 && nk > 0 && keys[0].len() == vals[0].len() && keys[1].len() == vals[1].len());
-    assert!(keys.iter().all(|k| k.len().is_multiple_of(dh)) && scores.len() >= nk);
-    assert!(q.len() >= (n - 1) * q_stride + dh && out.len() >= (n - 1) * o_stride + dh);
+    assert!(dh > 0 && n > 0 && ring > 0, "attend_head dims");
+    let nk = segs[0].1 + segs[1].1;
+    assert!(
+        nk > 0
+            && segs
+                .iter()
+                .all(|&(s, l)| s.checked_add(l).is_some_and(|e| e <= ring))
+    );
+    assert!(
+        kt.len() >= dh * ring && vals[0].len() == segs[0].1 * dh && vals[1].len() == segs[1].1 * dh
+    );
+    assert!(scores.len() >= n * nk && q.len() >= (n - 1) * q_stride + dh);
+    assert!(out.len() >= (n - 1) * o_stride + dh);
     match isa {
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() && dh.is_multiple_of(8) && dh <= 128 => {
-            x86_avx2::attend_head(q, q_stride, n, dh, keys, vals, scale, scores, out, o_stride)
+            x86_avx2::attention_scores(q, q_stride, n, dh, kt, ring, segs, scale, scores);
+            x86_avx2::attention_values(n, dh, vals, scores, out, o_stride);
         }
-        _ => scalar::attend_head(q, q_stride, n, dh, keys, vals, scale, scores, out, o_stride),
+        _ => {
+            scalar::attention_scores(q, q_stride, n, dh, kt, ring, segs, scale, scores);
+            scalar::attention_values(n, dh, vals, scores, out, o_stride);
+        }
     }
 }
 
