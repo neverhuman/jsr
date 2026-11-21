@@ -206,7 +206,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     }
     // NEW numerical candidate (off by default): post-training int8 for a still-fp32 stem.
     let stem_quantised = if a.int8_stem && a.precision == Precision::Int8 {
-        model.quantize_fp32_kinds_int8(&["stem_c2", "stem_out"])
+        // ULTRA_ENGINE_STEM_KINDS=stem_c2|stem_out narrows it (ablation).
+        let kinds =
+            std::env::var("ULTRA_ENGINE_STEM_KINDS").unwrap_or_else(|_| "stem_c2,stem_out".into());
+        let kinds: Vec<&str> = kinds.split(',').collect();
+        model.quantize_fp32_kinds_int8(&kinds)
     } else {
         0
     };
