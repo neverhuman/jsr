@@ -18,10 +18,10 @@ use ultra_gp::{R1Precision, R1_EXPORT_SCHEMA, R1_EXPORT_SCHEMA_V1_1};
 use ultra_model::verify_bundle_dir;
 use ultra_stream::sherpa_ffi::verify_cpu_only_process;
 use ultra_stream::{
-    AsrStream, Backend, FakeBackend, FakeBackendConfig, OfflineModelKind, OperatingProfile,
-    OrtTransducerBackend, OutputPolicy, PollResult, SherpaLib, SherpaOfflineBackend,
-    SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig, StreamClock, StreamConfig,
-    StreamCoordinator,
+    AsrStream, Backend, FakeBackend, FakeBackendConfig, NativeEngineBackend, OfflineModelKind,
+    OperatingProfile, OrtTransducerBackend, OutputPolicy, PollResult, SherpaLib,
+    SherpaOfflineBackend, SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig,
+    StreamClock, StreamConfig, StreamCoordinator,
 };
 
 use crate::{git_short_commit, jsr_data_root, CliError};
@@ -161,6 +161,12 @@ pub fn instantiate_backend_with_precision(
 ) -> Result<Box<dyn Backend>, CliError> {
     if matches!(candidate_id, "fake" | "deterministic-fake-v1") {
         return Ok(Box::new(FakeBackend::new(FakeBackendConfig::default())));
+    }
+    if let Some(res) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, precision_override)
+    {
+        let (wdir, prec) = res?;
+        let eng = NativeEngineBackend::load(&wdir, prec, threads, true)?;
+        return Ok(Box::new(eng));
     }
     if let Some(res) = resolve_r1_bundle(candidate_id, precision_override) {
         let (bdir, prec) = res?;

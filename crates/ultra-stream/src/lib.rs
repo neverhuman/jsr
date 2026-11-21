@@ -8,6 +8,9 @@ pub mod delivery;
 pub mod fake;
 pub mod fleet_inproc;
 pub mod grid_sim;
+pub mod native_engine;
+pub mod native_engine_bank;
+pub mod native_engine_fleet;
 pub mod ort_c_api;
 pub mod ort_ffi;
 pub mod ort_r1;
@@ -32,6 +35,12 @@ pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
 pub use fleet_inproc::{run_sp_a_shared_workers, SharedFleetResult, WorkerSummary};
+pub use native_engine::NativeEngineBackend;
+pub use native_engine_bank::{
+    run_engine_packet_streaming_with_tokens, run_sp_a_native_engine, EnginePacketStreamingRun,
+    EngineSpAConfig, NativeEngineSlotBank,
+};
+pub use native_engine_fleet::run_sp_a_native_engine_shared_workers;
 pub use ort_c_api::{OrtElemType, OrtEnv, OrtRunScratch, OrtSession};
 pub use ort_r1::{BatchWorkspace, OrtTransducerBackend, R1PhaseCounters};
 pub use ort_r1_bank::{

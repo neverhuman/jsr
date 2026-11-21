@@ -7,6 +7,7 @@ use ultra_stream::default_npz_for_split;
 
 use crate::bench_cmd::{parse_next, partition_for_split};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
+use crate::suite_engine::{resolve_r1_weights_dir, run_engine_candidate};
 pub use crate::suite_latency::{DensityPoint, FrontierReport, FrontierRow};
 use crate::suite_manifest::{
     parse_cpuset, read_cpu_affinity_list, validate_observer_cpus_disjoint, write_bytes_create_new,
@@ -153,6 +154,11 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "nemotron-160" | "nemotron_en_q8_live_160" | "nemotron-560" | "nemotron_en_q8_live_560"
         ) {
             rows.push(run_nemotron_candidate(&ctx, raw_cand)?);
+            continue;
+        }
+        if let Some(eng_res) = resolve_r1_weights_dir(raw_cand, precision.as_deref()) {
+            let (weights_dir, prec) = eng_res?;
+            rows.push(run_engine_candidate(&ctx, raw_cand, weights_dir, prec)?);
             continue;
         }
         if let Some(r1_res) = resolve_r1_bundle(raw_cand, precision.as_deref()) {
