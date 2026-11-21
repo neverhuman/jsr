@@ -34,7 +34,10 @@ pub use api::{
 pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
-pub use fleet_inproc::{run_sp_a_shared_workers, SharedFleetResult, WorkerSummary};
+pub use fleet_inproc::{
+    physical_first_cpus, pin_current_thread_verified, run_sp_a_shared_workers, SharedFleetResult,
+    WorkerSummary,
+};
 pub use native_engine::NativeEngineBackend;
 pub use native_engine_bank::{
     run_engine_packet_streaming_with_tokens, run_sp_a_native_engine, EnginePacketStreamingRun,

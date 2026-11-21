@@ -50,6 +50,14 @@ pub fn resolve_r1_weights_dir(
             Some(data.join("runs/engine/weights-r1-d1-ckpt7800-v3")),
             "fp32",
         ),
+        "r1-d1mr-engine" | "r1-d1mr-engine-int8" => (
+            Some(data.join("runs/engine/weights-d1mr-40k-int8prep")),
+            "int8",
+        ),
+        "r1-r4t-engine" => (
+            Some(data.join("runs/engine/r4t-12000/engine-weights")),
+            "int8",
+        ),
         _ => {
             let direct = Path::new(candidate_id);
             let named = data.join("bundles").join(candidate_id);

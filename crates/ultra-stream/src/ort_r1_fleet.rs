@@ -15,7 +15,7 @@ use crate::api::StreamError;
 use crate::contrast::{
     build_event_hashes_and_chunks, current_affinity, read_loadavg, self_cpu_seconds,
 };
-use crate::fleet_inproc::WorkerSummary;
+use crate::fleet_inproc::{physical_first_cpus, pin_current_thread_verified, WorkerSummary};
 use crate::grid_sim::{simulate_grid, sustains_lateness, SimOutcome, SimParams};
 use crate::ort_r1::OrtTransducerBackend;
 use crate::ort_r1_bank::{OrtR1SlotBank, R1SpAConfig};
@@ -46,28 +46,6 @@ pub struct R1FleetResult {
     pub effective_observer_cpus: Vec<usize>,
     pub worker_summaries: Vec<WorkerSummary>,
     pub receipt: Receipt,
-}
-
-fn pin_current_thread(cpus: &[usize]) {
-    if cpus.is_empty() {
-        return;
-    }
-    let mut set = nix::sched::CpuSet::new();
-    for &c in cpus {
-        let _ = set.set(c);
-    }
-    let _ = nix::sched::sched_setaffinity(nix::unistd::Pid::from_raw(0), &set);
-}
-
-/// Filter out Zen 2 SMT siblings (`cpu >= 64` when `cpu - 64` is already present) so workers
-/// partition across distinct physical cores/CCXs.
-fn physical_first_cpus(aff: &[usize]) -> Vec<usize> {
-    let phys: Vec<usize> = aff.iter().copied().filter(|&c| c < 64).collect();
-    if phys.is_empty() {
-        aff.to_vec()
-    } else {
-        phys
-    }
 }
 
 pub fn run_sp_a_ort_r1_shared_workers(
@@ -116,24 +94,25 @@ pub fn run_sp_a_ort_r1_shared_workers(
     let wall_t0 = Instant::now();
     let barrier = Barrier::new(workers);
 
-    let (outcomes, (peak_rss_b, max_thr, obs_cpu_s, eff_obs_cpus)) = std::thread::scope(|scope| {
+    let (outcomes, obs_res) = std::thread::scope(|scope| {
         let stop_ref = Arc::clone(&stop_obs);
         let obs_pin = obs_cpus_vec.clone();
-        let obs_handle = scope.spawn(move || {
-            pin_current_thread(&obs_pin);
-            let eff_obs = current_affinity();
-            let t0 = thread_cpu_ns(true);
-            let mut sampler = TreeSampler::new(pid);
-            sampler.sample();
-            while !stop_ref.load(Ordering::Relaxed) {
-                std::thread::sleep(Duration::from_millis(25));
+        let obs_handle = scope.spawn(
+            move || -> Result<(u64, u64, f64, Vec<usize>), StreamError> {
+                let eff_obs = pin_current_thread_verified(&obs_pin)?;
+                let t0 = thread_cpu_ns(true);
+                let mut sampler = TreeSampler::new(pid);
                 sampler.sample();
-            }
-            sampler.sample();
-            let dt = (thread_cpu_ns(true).saturating_sub(t0)) as f64 * 1e-9;
-            let sum = sampler.summary();
-            (sum.peak_rss_bytes, sum.max_threads, dt, eff_obs)
-        });
+                while !stop_ref.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(25));
+                    sampler.sample();
+                }
+                sampler.sample();
+                let dt = (thread_cpu_ns(true).saturating_sub(t0)) as f64 * 1e-9;
+                let sum = sampler.summary();
+                Ok((sum.peak_rss_bytes, sum.max_threads, dt, eff_obs))
+            },
+        );
 
         let mut handles = Vec::with_capacity(workers);
         for (w, cpus) in worker_cpus.iter().enumerate() {
@@ -142,7 +121,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
             let utts_ref = &audio_utts;
             let cpus_clone = cpus.clone();
             handles.push(scope.spawn(move || {
-                pin_current_thread(&cpus_clone);
+                let pin_res = pin_current_thread_verified(&cpus_clone);
                 let mut bank = OrtR1SlotBank::with_start_offset(
                     eng,
                     utts_ref,
@@ -151,6 +130,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
                     None,
                 );
                 bar.wait();
+                let eff_cpus = pin_res?;
                 let mut clk = RealClock::new()?;
                 let sim = simulate_grid(
                     &mut bank,
@@ -168,10 +148,10 @@ pub fn run_sp_a_ort_r1_shared_workers(
                 if let Some(err) = bank.last_error {
                     return Err(err);
                 }
-                Ok((sim, bank.forced_advances))
+                Ok((sim, bank.forced_advances, eff_cpus))
             }));
         }
-        let outs: Vec<Result<(SimOutcome, u64), StreamError>> = handles
+        let outs: Vec<Result<(SimOutcome, u64, Vec<usize>), StreamError>> = handles
             .into_iter()
             .map(|h| {
                 h.join()
@@ -181,9 +161,11 @@ pub fn run_sp_a_ort_r1_shared_workers(
         stop_obs.store(true, Ordering::Relaxed);
         let obs_res = obs_handle
             .join()
-            .unwrap_or((1, workers as u64, 0.0, Vec::new()));
+            .map_err(|_| StreamError::Runtime("R1 observer thread panicked".into()))
+            .and_then(|r| r);
         (outs, obs_res)
     });
+    let (peak_rss_b, max_thr, obs_cpu_s, eff_obs_cpus) = obs_res?;
 
     let proc_cpu_s = (self_cpu_seconds()? - cpu0).max(1e-6);
     let svc_cpu_s = (proc_cpu_s - obs_cpu_s).max(1e-6);
@@ -200,7 +182,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
     let mut sustained_workers = 0usize;
 
     for (w, res) in outcomes.into_iter().enumerate() {
-        let (sim, fa) = res?;
+        let (sim, fa, eff_cpus) = res?;
         if !sim.drained {
             return Err(StreamError::Runtime(format!("R1 worker {w} did not drain")));
         }
@@ -218,6 +200,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
         summaries.push(WorkerSummary {
             worker_id: w,
             pinned_cpus: worker_cpus[w].clone(),
+            effective_cpus: eff_cpus,
             utterances: sim.completed.len(),
             audio_accepted_s: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
             wall_seconds: (sim.wall_seconds * 1000.0).round() / 1000.0,
@@ -231,6 +214,10 @@ pub fn run_sp_a_ort_r1_shared_workers(
 
     let (hashes, chunk_ms) =
         build_event_hashes_and_chunks(&bundle_id, &audio_utts, &all_completed, &mut all_ticks)?;
+    let eff_workers: Vec<&[usize]> = summaries
+        .iter()
+        .map(|s| s.effective_cpus.as_slice())
+        .collect();
     let cfg_threads = (workers as u32) * (cfg.threads.max(1) as u32);
     let receipt = Receipt {
         schema: RECEIPT_SCHEMA.into(),
@@ -252,6 +239,7 @@ pub fn run_sp_a_ort_r1_shared_workers(
             format!("observer_cpu_seconds:{obs_cpu_s:.6}"),
             format!("process_cpu_seconds:{proc_cpu_s:.6}"),
             format!("effective_observer_cpus:{eff_obs_cpus:?}"),
+            format!("effective_worker_cpus:{eff_workers:?}"),
         ],
         gaps: Vec::new(),
         hashes,

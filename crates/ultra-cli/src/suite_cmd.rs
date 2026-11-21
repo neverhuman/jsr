@@ -10,7 +10,7 @@ use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
 use crate::suite_engine::{resolve_r1_weights_dir, run_engine_candidate};
 pub use crate::suite_latency::{DensityPoint, FrontierReport, FrontierRow};
 use crate::suite_manifest::{
-    parse_cpuset, read_cpu_affinity_list, validate_observer_cpus_disjoint, write_bytes_create_new,
+    parse_cpuset, read_cpu_affinity_list, validate_qualified_preflight, write_bytes_create_new,
     SuiteHostSnapshot,
 };
 use crate::suite_r1_z::{run_r1_candidate, run_zipformer_candidate};
@@ -80,24 +80,27 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         i += 1;
     }
 
-    if qualified_requested {
-        let Some(ref obs) = observer_cpus else {
-            return Err(CliError::Config(
-                "--qualified requires explicit --observer-cpus on a separate CCX from the service cpuset".into(),
-            ));
-        };
-        validate_observer_cpus_disjoint(&read_cpu_affinity_list(), obs, true)?;
-        return Err(CliError::Config(
-            "qualifying window requires verified lease, host, freeze, and profile gate; bench-suite emits exploratory receipts only".into(),
-        ));
-    }
+    let status_tag = if qualified_requested {
+        let build_commit = option_env!("ULTRA_BUILD_GIT_COMMIT").unwrap_or("unknown");
+        let build_dirty = option_env!("ULTRA_BUILD_GIT_DIRTY") == Some("true");
+        let _freeze_commit = validate_qualified_preflight(
+            &read_cpu_affinity_list(),
+            observer_cpus.as_deref(),
+            lease_path.as_deref(),
+            build_commit,
+            build_dirty,
+            "bench-freeze-v1",
+        )?;
+        "qualified"
+    } else {
+        "exploratory"
+    };
     let out_dir = out_dir.ok_or_else(|| CliError::Config("--out-dir DIR is required".into()))?;
     std::fs::create_dir_all(&out_dir)?;
     let _lease = match &lease_path {
         Some(lp) => Some(BenchLease::acquire(lp)?),
         None => None,
     };
-    let status_tag = "exploratory";
 
     let npz_path = match npz_override {
         Some(p) => p,

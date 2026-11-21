@@ -44,6 +44,29 @@ pub(crate) fn dc_window_and_mel_avx2(
     mel_acc
 }
 
+/// Bit-exact portable AVX2 path (zero FMA contraction, zero `libm::hypot`): matches
+/// `TrainerMelConfig::frame_f32_portable_scalar` to 0 ULP across x86_64 and aarch64.
+#[cfg(target_arch = "x86_64")]
+pub(crate) fn dc_window_and_mel_avx2_portable(
+    frame: &[f32],
+    window: &[f32; WIN_SAMPLES],
+    fbank: &[f32],
+    fft_re: &[f64; FFT_SIZE],
+    fft_im: &[f64; FFT_SIZE],
+    fft_fn: fn(&mut [f64; FFT_SIZE], &mut [f64; FFT_SIZE], &[f64; FFT_SIZE], &[f64; FFT_SIZE]),
+) -> [f64; MEL_BINS] {
+    assert!(frame.len() >= WIN_SAMPLES && fbank.len() >= SPEC_BINS * MEL_BINS);
+    let mut re = [0.0f64; FFT_SIZE];
+    let mut im = [0.0f64; FFT_SIZE];
+    // SAFETY: Caller verified `avx2` + `fma` via `avx2_fma_available()`; bounds asserted above.
+    unsafe { dc_and_window_f64_avx2(frame, window, &mut re) };
+    fft_fn(&mut re, &mut im, fft_re, fft_im);
+    let mut mel_acc = [0.0f64; MEL_BINS];
+    // SAFETY: Caller verified `avx2` + `fma`; `fbank` has `SPEC_BINS * MEL_BINS` (`20_560`) elements.
+    unsafe { mel_dot_f64_avx2_unfused(&re, &im, fbank, &mut mel_acc) };
+    mel_acc
+}
+
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2,fma")]
 unsafe fn dc_and_window_f64_avx2(
@@ -119,6 +142,41 @@ unsafe fn mel_dot_f64_avx2(
     }
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn mel_dot_f64_avx2_unfused(
+    re: &[f64; FFT_SIZE],
+    im: &[f64; FFT_SIZE],
+    fbank: &[f32],
+    mel_acc: &mut [f64; MEL_BINS],
+) {
+    let mut powers = [0.0f64; SPEC_BINS];
+    for k in 0..SPEC_BINS {
+        let p32 = crate::portable_math::power_f32_from_complex_f64(re[k], im[k]);
+        powers[k] = f64::from(p32);
+    }
+
+    // Two passes of 40 mel bins using separate `vmulpd` + `vaddpd` (no FMA contraction) so
+    // every IEEE-754 rounding step matches `frame_f32_portable_scalar` to 0 ULP.
+    for half in [0usize, 40usize] {
+        let mut acc = [_mm256_setzero_pd(); 10];
+        for (k, &pk) in powers.iter().enumerate() {
+            let vp = _mm256_set1_pd(pk);
+            let row_base = k * MEL_BINS + half;
+            for (g, a_reg) in acc.iter_mut().enumerate() {
+                // SAFETY: `row_base + g * 4 + 4 <= SPEC_BINS * MEL_BINS <= fbank.len()`.
+                let w4 = unsafe { _mm_loadu_ps(fbank.as_ptr().add(row_base + g * 4)) };
+                let prod = _mm256_mul_pd(vp, _mm256_cvtps_pd(w4));
+                *a_reg = _mm256_add_pd(*a_reg, prod);
+            }
+        }
+        for (g, a_reg) in acc.into_iter().enumerate() {
+            // SAFETY: `half + g * 4 + 4 <= MEL_BINS == mel_acc.len()`.
+            unsafe { _mm256_storeu_pd(mel_acc.as_mut_ptr().add(half + g * 4), a_reg) };
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::mel::WIN_SAMPLES;
@@ -146,6 +204,40 @@ mod tests {
             let want = cfg.frame_f32_scalar(&frame);
             for (a, b) in got.iter().zip(&want) {
                 assert!((a - b).abs() <= 1e-5, "diff {} vs {}", a, b);
+            }
+        }
+    }
+
+    #[test]
+    fn avx2_portable_frame_is_bit_exact_with_scalar_reference() {
+        let cfg = TrainerMelConfig::default_htk(GlobalCmvn::identity())
+            .expect("default htk")
+            .with_portable_math(true);
+        for mode in 0..4 {
+            let frame: Vec<f32> = (0..WIN_SAMPLES)
+                .map(|i| match mode {
+                    0 => 0.0,
+                    1 => (((i * 197 + 31) % 20_000) - 10_000) as f32 / 32768.0,
+                    2 => {
+                        if i % 2 == 0 {
+                            0.95
+                        } else {
+                            -0.95
+                        }
+                    }
+                    _ => (((i * i * 17 + 7) % 65_535) as i32 - 32_768) as f32 / 32768.0,
+                })
+                .collect();
+            let got = cfg.frame_f32(&frame);
+            let want = cfg.frame_f32_portable_scalar(&frame);
+            for (bin, (a, b)) in got.iter().zip(&want).enumerate() {
+                assert_eq!(
+                    a.to_bits(),
+                    b.to_bits(),
+                    "portable bit mismatch mode={mode} bin={bin}: {a} ({:#010x}) vs {b} ({:#010x})",
+                    a.to_bits(),
+                    b.to_bits()
+                );
             }
         }
     }

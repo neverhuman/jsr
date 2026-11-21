@@ -88,8 +88,13 @@ impl NativeEngineBackend {
     }
 
     pub fn bundle_id(&self) -> String {
+        let family = if self.engine.model.arch.mid > 0 {
+            "multirate"
+        } else {
+            "dense"
+        };
         format!(
-            "ultra-engine-dense-{}-{}",
+            "ultra-engine-{family}-{}-{}",
             self.engine.precision.as_str(),
             &self.arch_sha256[..12]
         )
@@ -182,12 +187,18 @@ struct NativeEngineAsrStream {
 }
 
 impl NativeEngineAsrStream {
+    /// Lower-bound per-stream retained state bytes: covers both 25 Hz and S_MR 12.5 Hz encoder
+    /// caches (`EncState::retained_bytes`), decoder state, hypothesis string, and event queue.
+    /// Excludes `EngineStream`'s private frontend/feature-ring buffers and shared `Workspace`;
+    /// aggregate process-tree RSS/PSS from `ultra-measure` remains the authoritative memory gate.
     fn retained_stream_bytes(&self) -> u64 {
-        let enc_bytes =
-            (self.raw.enc.k.capacity() + self.raw.enc.v.capacity() + self.raw.enc.conv.capacity())
-                * 4;
-        let dec_bytes = self.raw.tokens().len() * 4;
-        (enc_bytes + dec_bytes + std::mem::size_of::<Self>()) as u64
+        let enc_bytes = self.raw.enc.retained_bytes();
+        let dec_bytes = self.raw.dec.tokens.capacity() * std::mem::size_of::<u32>()
+            + self.raw.dec.dec.capacity() * std::mem::size_of::<f32>();
+        let stream_overhead = self.last_hyp.capacity()
+            + self.events.capacity() * std::mem::size_of::<TranscriptEvent>()
+            + std::mem::size_of::<Self>();
+        (enc_bytes + dec_bytes + stream_overhead) as u64
     }
 
     fn decode_ready(&mut self) -> Result<(), StreamError> {

@@ -34,10 +34,17 @@ fn collect_events(c: &mut StreamCoordinator) -> Vec<TranscriptEvent> {
 
 #[test]
 fn native_engine_e4_lifecycle_fp32_ort_parity_and_int8_32stream_invariance() {
+    let require_native = std::env::var("ULTRA_REQUIRE_NATIVE_TESTS").as_deref() == Ok("1");
     let root = data_root();
     let weights_fp32 = root.join("runs/engine/weights-r1-d1-ckpt7800-v3");
     let npz_path = root.join("cache/librispeech_pcm/dev-clean.npz");
     if !weights_fp32.join("arch.json").exists() || !npz_path.exists() {
+        assert!(
+            !require_native,
+            "ULTRA_REQUIRE_NATIVE_TESTS=1 but weights ({}) or dev-clean.npz ({}) missing",
+            weights_fp32.display(),
+            npz_path.display()
+        );
         eprintln!("SKIPPED native_engine_e4: weights or dev-clean.npz missing");
         return;
     }
@@ -153,6 +160,11 @@ fn native_engine_e4_lifecycle_fp32_ort_parity_and_int8_32stream_invariance() {
         assert_eq!(b.int8_source, "prepared");
         b
     } else {
+        assert!(
+            !require_native,
+            "ULTRA_REQUIRE_NATIVE_TESTS=1 refuses diagnostic INT8 fallback; missing {}",
+            prep_dir.display()
+        );
         NativeEngineBackend::load_diagnostic_allow_unprepared_int8(
             &weights_fp32,
             Precision::Int8,
@@ -182,5 +194,27 @@ fn native_engine_e4_lifecycle_fp32_ort_parity_and_int8_32stream_invariance() {
             "NativeEngineBackend INT8 token drift at streams={streams}"
         );
         assert_eq!(run.hyps, base.hyps);
+    }
+}
+
+#[test]
+fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
+    use ultra_stream::{physical_first_cpus, pin_current_thread_verified};
+
+    // Out-of-range CPU ID must fail closed instead of silently ignoring affinity errors.
+    assert!(pin_current_thread_verified(&[999_999]).is_err());
+
+    // Querying and re-pinning to the thread's own current affinity succeeds and matches readback.
+    let cur = pin_current_thread_verified(&[]).expect("query current affinity");
+    assert!(!cur.is_empty());
+    let eff = pin_current_thread_verified(&cur).expect("re-pin current affinity");
+    assert_eq!(eff, cur);
+
+    // Physical-first filtering returns a non-empty subset without assuming IDs < 64.
+    let phys = physical_first_cpus(&cur);
+    assert!(!phys.is_empty());
+    assert!(phys.len() <= cur.len());
+    for &c in &phys {
+        assert!(cur.contains(&c));
     }
 }

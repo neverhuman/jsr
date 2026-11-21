@@ -26,6 +26,8 @@ use crate::sherpa_online::SherpaZipformerBackend;
 pub struct WorkerSummary {
     pub worker_id: usize,
     pub pinned_cpus: Vec<usize>,
+    #[serde(default)]
+    pub effective_cpus: Vec<usize>,
     pub utterances: usize,
     pub audio_accepted_s: f64,
     pub wall_seconds: f64,
@@ -74,15 +76,76 @@ pub struct SharedFleetResult {
     pub scored_rows: Vec<ScoreRecord>,
 }
 
-fn pin_current_thread(cpus: &[usize]) {
+/// Pin the current OS thread to `cpus` and verify via `sched_getaffinity` readback that the
+/// effective mask matches the requested set. Fails closed on invalid CPUs or OS refusal.
+pub fn pin_current_thread_verified(cpus: &[usize]) -> Result<Vec<usize>, StreamError> {
     if cpus.is_empty() {
-        return;
+        return Ok(current_affinity());
     }
+    let mut want = cpus.to_vec();
+    want.sort_unstable();
+    want.dedup();
     let mut set = nix::sched::CpuSet::new();
-    for &c in cpus {
-        let _ = set.set(c);
+    for &c in &want {
+        set.set(c).map_err(|e| {
+            StreamError::Protocol(format!("invalid CPU id {c} in worker affinity mask: {e}"))
+        })?;
     }
-    let _ = nix::sched::sched_setaffinity(nix::unistd::Pid::from_raw(0), &set);
+    nix::sched::sched_setaffinity(nix::unistd::Pid::from_raw(0), &set)
+        .map_err(|e| StreamError::Runtime(format!("sched_setaffinity({want:?}) failed: {e}")))?;
+    let eff = current_affinity();
+    if eff != want {
+        return Err(StreamError::Runtime(format!(
+            "effective thread affinity {eff:?} does not match requested {want:?}"
+        )));
+    }
+    Ok(eff)
+}
+
+fn parse_sysfs_cpu_list(raw: &str) -> Option<Vec<usize>> {
+    let mut out = Vec::new();
+    for part in raw.trim().split(',').filter(|s| !s.is_empty()) {
+        if let Some((a, b)) = part.split_once('-') {
+            let lo: usize = a.trim().parse().ok()?;
+            let hi: usize = b.trim().parse().ok()?;
+            if lo > hi {
+                return None;
+            }
+            out.extend(lo..=hi);
+        } else {
+            out.push(part.trim().parse().ok()?);
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// Select one logical CPU per distinct physical core from `aff` using Linux sysfs
+/// `topology/thread_siblings_list` (no hardcoded `< 64` assumption).
+pub fn physical_first_cpus(aff: &[usize]) -> Vec<usize> {
+    let mut sorted = aff.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut seen_sibs = std::collections::BTreeSet::new();
+    let mut phys = Vec::with_capacity(sorted.len());
+    for &cpu in &sorted {
+        if seen_sibs.contains(&cpu) {
+            continue;
+        }
+        phys.push(cpu);
+        let path = format!("/sys/devices/system/cpu/cpu{cpu}/topology/thread_siblings_list");
+        if let Ok(raw) = std::fs::read_to_string(&path) {
+            if let Some(sibs) = parse_sysfs_cpu_list(&raw) {
+                for s in sibs {
+                    seen_sibs.insert(s);
+                }
+            }
+        }
+    }
+    if phys.is_empty() {
+        sorted
+    } else {
+        phys
+    }
 }
 
 pub fn run_sp_a_shared_workers(
@@ -101,7 +164,7 @@ pub fn run_sp_a_shared_workers(
     let ort_ver = lib.onnxruntime_version();
     let engine = SherpaZipformerBackend::new(lib, cfg.zipformer.clone())?;
 
-    let aff = current_affinity();
+    let aff = physical_first_cpus(&current_affinity());
     let mut worker_cpus: Vec<Vec<usize>> = (0..workers).map(|_| Vec::new()).collect();
     if aff.len() >= workers {
         let per = aff.len() / workers;
@@ -123,48 +186,51 @@ pub fn run_sp_a_shared_workers(
     let wall_t0 = std::time::Instant::now();
     let barrier = Barrier::new(workers);
 
-    let outcomes: Vec<Result<SimOutcome, StreamError>> = std::thread::scope(|scope| {
-        let mut handles = Vec::with_capacity(workers);
-        for (w, cpus) in worker_cpus.iter().enumerate() {
-            let eng = Arc::clone(&engine);
-            let bar = &barrier;
-            let utts_ref = &audio_utts;
-            let cpus_clone = cpus.clone();
-            handles.push(scope.spawn(move || {
-                pin_current_thread(&cpus_clone);
-                let mut bank = SherpaBank::new(
-                    utts_ref,
-                    (w * 137) % utts_ref.len(),
-                    eng,
-                    cfg.streams,
-                    cfg.zipformer.tail_pad_s,
-                    None,
-                );
-                bar.wait();
-                let mut clk = RealClock::new()?;
-                simulate_grid(
-                    &mut bank,
-                    &SimParams {
-                        streams: cfg.streams,
-                        decode: cfg.decode,
-                        max_batch: cfg.max_batch,
-                        packet_ms: cfg.packet_ms,
-                        grid_ms: cfg.grid_ms,
-                        paced: cfg.paced,
-                        duration_s: cfg.duration_s,
-                    },
-                    &mut clk,
-                )
-            }));
-        }
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .map_err(|_| StreamError::Runtime("worker panicked".into()))?
-            })
-            .collect()
-    });
+    let outcomes: Vec<Result<(SimOutcome, Vec<usize>), StreamError>> =
+        std::thread::scope(|scope| {
+            let mut handles = Vec::with_capacity(workers);
+            for (w, cpus) in worker_cpus.iter().enumerate() {
+                let eng = Arc::clone(&engine);
+                let bar = &barrier;
+                let utts_ref = &audio_utts;
+                let cpus_clone = cpus.clone();
+                handles.push(scope.spawn(move || {
+                    let pin_res = pin_current_thread_verified(&cpus_clone);
+                    let mut bank = SherpaBank::new(
+                        utts_ref,
+                        (w * 137) % utts_ref.len(),
+                        eng,
+                        cfg.streams,
+                        cfg.zipformer.tail_pad_s,
+                        None,
+                    );
+                    bar.wait();
+                    let eff_cpus = pin_res?;
+                    let mut clk = RealClock::new()?;
+                    let sim = simulate_grid(
+                        &mut bank,
+                        &SimParams {
+                            streams: cfg.streams,
+                            decode: cfg.decode,
+                            max_batch: cfg.max_batch,
+                            packet_ms: cfg.packet_ms,
+                            grid_ms: cfg.grid_ms,
+                            paced: cfg.paced,
+                            duration_s: cfg.duration_s,
+                        },
+                        &mut clk,
+                    )?;
+                    Ok((sim, eff_cpus))
+                }));
+            }
+            handles
+                .into_iter()
+                .map(|h| {
+                    h.join()
+                        .map_err(|_| StreamError::Runtime("worker panicked".into()))?
+                })
+                .collect()
+        });
 
     let cpu_s = (self_cpu_seconds()? - cpu0).max(1e-6);
     let wall_s = wall_t0.elapsed().as_secs_f64().max(1e-6);
@@ -183,7 +249,7 @@ pub fn run_sp_a_shared_workers(
     let mut sustained_workers = 0usize;
 
     for (w, res) in outcomes.into_iter().enumerate() {
-        let sim = res?;
+        let (sim, eff_cpus) = res?;
         if !sim.drained {
             return Err(StreamError::Runtime(format!("worker {w} did not drain")));
         }
@@ -201,6 +267,7 @@ pub fn run_sp_a_shared_workers(
         summaries.push(WorkerSummary {
             worker_id: w,
             pinned_cpus: worker_cpus[w].clone(),
+            effective_cpus: eff_cpus,
             utterances: sim.completed.len(),
             audio_accepted_s: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
             wall_seconds: (sim.wall_seconds * 1000.0).round() / 1000.0,

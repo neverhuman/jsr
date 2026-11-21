@@ -77,6 +77,13 @@ pub struct TrainerMelConfig {
     pub log_floor: f32,
     pub cmvn: GlobalCmvn,
     window: [f32; WIN_SAMPLES],
+    portable_window: [f32; WIN_SAMPLES],
+    /// Precomputed portable 512-point FFT twiddle factors indexed by `half + k`.
+    fft_tw_re: [f64; FFT_SIZE],
+    fft_tw_im: [f64; FFT_SIZE],
+    /// When `true`, [`Self::frame_f32`] uses the 0-ULP cross-ISA portable path (zero `libm`,
+    /// unfused IEEE-754 `f64`, identical 8-lane DC reduction on AVX2 and scalar/ARM).
+    portable_math: bool,
     /// Row-major `257 x 80` filterbank (`fbank[k * 80 + b]`).
     fbank: Vec<f32>,
 }
@@ -162,22 +169,46 @@ impl TrainerMelConfig {
             )));
         }
         let mut window = [0.0f32; WIN_SAMPLES];
-        for (n, w) in window.iter_mut().enumerate() {
-            let v = 0.5
-                - 0.5
-                    * (2.0 * std::f64::consts::PI * (n as f64) / ((WIN_SAMPLES - 1) as f64)).cos();
-            *w = v as f32;
+        let mut portable_window = [0.0f32; WIN_SAMPLES];
+        for n in 0..WIN_SAMPLES {
+            let ang = 2.0 * std::f64::consts::PI * (n as f64) / ((WIN_SAMPLES - 1) as f64);
+            window[n] = (0.5 - 0.5 * ang.cos()) as f32;
+            let (_s, c) = crate::portable_math::sin_cos_portable(ang);
+            portable_window[n] = (0.5 - 0.5 * c) as f32;
         }
+        let (fft_tw_re, fft_tw_im) =
+            crate::portable_math::build_portable_fft_twiddles::<FFT_SIZE>();
         Ok(Self {
             log_floor,
             cmvn,
             window,
+            portable_window,
+            fft_tw_re,
+            fft_tw_im,
+            portable_math: false,
             fbank,
         })
     }
 
+    /// Enable or disable the 0-ULP cross-ISA portable math path (`G4`: zero `libm`, unfused
+    /// IEEE-754 `f64`, bit-identical across x86_64 AVX2, aarch64 NEON, and scalar builds).
+    #[must_use]
+    pub fn with_portable_math(mut self, enabled: bool) -> Self {
+        self.portable_math = enabled;
+        self
+    }
+
+    /// Returns whether the cross-ISA bit-exact portable math path is enabled.
+    #[inline]
+    pub fn is_portable_math(&self) -> bool {
+        self.portable_math
+    }
+
     /// Compute one normalized 80-bin log-mel frame from exactly `400` unit-range `f32` samples.
     pub fn frame_f32(&self, frame: &[f32]) -> [f32; MEL_BINS] {
+        if self.portable_math {
+            return self.frame_f32_portable(frame);
+        }
         if crate::trainer_mel_avx2::avx2_fma_available() {
             #[cfg(target_arch = "x86_64")]
             {
@@ -196,6 +227,82 @@ impl TrainerMelConfig {
             }
         }
         self.frame_f32_scalar(frame)
+    }
+
+    /// Cross-ISA bit-exact normalized 80-bin log-mel frame (0 ULP between AVX2, NEON, scalar).
+    pub fn frame_f32_portable(&self, frame: &[f32]) -> [f32; MEL_BINS] {
+        if crate::trainer_mel_avx2::avx2_fma_available() {
+            #[cfg(target_arch = "x86_64")]
+            {
+                let mel_acc = crate::trainer_mel_avx2::dc_window_and_mel_avx2_portable(
+                    frame,
+                    &self.portable_window,
+                    &self.fbank,
+                    &self.fft_tw_re,
+                    &self.fft_tw_im,
+                    crate::portable_math::fft_in_place_portable::<FFT_SIZE>,
+                );
+                let mut mel = [0.0f32; MEL_BINS];
+                for (dst, &acc) in mel.iter_mut().zip(&mel_acc) {
+                    *dst = crate::portable_math::ln_portable_f32((acc as f32) + self.log_floor);
+                }
+                self.cmvn.apply_in_place(&mut mel);
+                return mel;
+            }
+        }
+        self.frame_f32_portable_scalar(frame)
+    }
+
+    /// Pure scalar reference for [`Self::frame_f32_portable`] (0-ULP identical to AVX2 portable).
+    pub fn frame_f32_portable_scalar(&self, frame: &[f32]) -> [f32; MEL_BINS] {
+        debug_assert_eq!(frame.len(), WIN_SAMPLES);
+        // Exact 8-lane tree reduction matching `dc_and_window_f64_avx2`.
+        let mut sum0 = [0.0f64; 4];
+        let mut sum1 = [0.0f64; 4];
+        let mut i = 0usize;
+        while i + 8 <= WIN_SAMPLES {
+            for l in 0..4 {
+                sum0[l] += f64::from(frame[i + l]);
+                sum1[l] += f64::from(frame[i + 4 + l]);
+            }
+            i += 8;
+        }
+        let lanes = [
+            sum0[0] + sum1[0],
+            sum0[1] + sum1[1],
+            sum0[2] + sum1[2],
+            sum0[3] + sum1[3],
+        ];
+        let mean = ((lanes[0] + lanes[1] + lanes[2] + lanes[3]) / (WIN_SAMPLES as f64)) as f32;
+        let mut re = [0.0f64; FFT_SIZE];
+        let mut im = [0.0f64; FFT_SIZE];
+        for idx in 0..WIN_SAMPLES {
+            let v = (frame[idx] - mean) * self.portable_window[idx];
+            re[idx] = f64::from(v);
+        }
+        crate::portable_math::fft_in_place_portable::<FFT_SIZE>(
+            &mut re,
+            &mut im,
+            &self.fft_tw_re,
+            &self.fft_tw_im,
+        );
+
+        let mut mel_acc = [0.0f64; MEL_BINS];
+        for k in 0..SPEC_BINS {
+            let p = f64::from(crate::portable_math::power_f32_from_complex_f64(
+                re[k], im[k],
+            ));
+            let row = &self.fbank[k * MEL_BINS..(k + 1) * MEL_BINS];
+            for (m, &w) in mel_acc.iter_mut().zip(row) {
+                *m += p * f64::from(w);
+            }
+        }
+        let mut mel = [0.0f32; MEL_BINS];
+        for (dst, &acc) in mel.iter_mut().zip(&mel_acc) {
+            *dst = crate::portable_math::ln_portable_f32((acc as f32) + self.log_floor);
+        }
+        self.cmvn.apply_in_place(&mut mel);
+        mel
     }
 
     /// Exact portable scalar `f64` reference for [`Self::frame_f32`].
