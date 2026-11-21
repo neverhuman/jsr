@@ -47,6 +47,8 @@ impl Fixture {
                 measure: "unused".into(),
                 timeout_s: 1,
                 host_window: "negative fixture".into(),
+                service_cpus: None,
+                observer_cpus: None,
             },
             workload_sha256: "a".repeat(64),
             bundle_manifest_sha256: hash_file(&manifest_path).expect("manifest hash"),

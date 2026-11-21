@@ -27,6 +27,8 @@ fn plan(bundle: &Path) -> Plan {
             measure: PathBuf::new(),
             timeout_s: 60,
             host_window: "native contract fixture".into(),
+            service_cpus: None,
+            observer_cpus: None,
         },
         workload_sha256: "a".repeat(64),
         bundle_manifest_sha256: hash_file(&bundle.join("manifest.json")).expect("manifest hash"),

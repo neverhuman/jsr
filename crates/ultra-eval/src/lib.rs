@@ -5,6 +5,7 @@
 //!
 //! Spec anchors: v1.0-B §10, §12.4, §12.6, §12.7, §30, §33, §38.1; v1 §11.3, §11.6, §11.7.
 
+pub mod affinity;
 pub mod bootstrap;
 pub mod corpus;
 pub mod delay;

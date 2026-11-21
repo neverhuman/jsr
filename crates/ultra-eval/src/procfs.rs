@@ -164,6 +164,8 @@ pub struct ResourceSummary {
     pub peak_rss_bytes: u64,
     pub peak_pss_bytes: u64,
     pub max_threads: u64,
+    #[serde(default)]
+    pub max_processes: u64,
     pub samples: u64,
 }
 
@@ -250,6 +252,7 @@ impl TreeSampler {
         m.peak_rss_bytes = m.peak_rss_bytes.max(s.hwm_bytes.max(s.rss_bytes));
         m.peak_pss_bytes = m.peak_pss_bytes.max(s.pss_bytes);
         m.max_threads = m.max_threads.max(s.threads);
+        m.max_processes = m.max_processes.max(s.processes);
         m.samples += 1;
         s
     }
@@ -273,6 +276,14 @@ pub struct Measurement {
     /// The sampled (tick-resolution) CPU total, for cross-checking getrusage.
     pub sampled_cpu_seconds: f64,
     pub clk_tck: u64,
+    #[serde(default)]
+    pub max_processes: Option<u64>,
+    #[serde(default)]
+    pub observer_cpu_seconds: Option<f64>,
+    #[serde(default)]
+    pub interval_ms: Option<u64>,
+    #[serde(default)]
+    pub placement: Option<crate::affinity::PlacementReport>,
 }
 
 fn sleep_until(deadline: Instant) {
@@ -296,16 +307,43 @@ pub fn measure_command(
     args: &[String],
     interval: Duration,
 ) -> Result<Measurement, EvalError> {
+    measure_command_with_placement(program, args, interval, None)
+}
+
+/// Optional disjoint observer/service placement; callers must still isolate this process.
+pub fn measure_command_with_placement(
+    program: &str,
+    args: &[String],
+    interval: Duration,
+    placement: Option<&crate::affinity::PlacementSpec>,
+) -> Result<Measurement, EvalError> {
+    let interval_ms: u64 = interval
+        .as_millis()
+        .try_into()
+        .map_err(|_| EvalError::Input("measurement interval too large".into()))?;
+    if interval_ms == 0 || Duration::from_millis(interval_ms) != interval {
+        return Err(EvalError::Input(
+            "measurement interval must be whole positive milliseconds".into(),
+        ));
+    }
+    let observer_cpu_before = observer_cpu_s()?;
+    let binding = placement
+        .map(crate::affinity::PlacementSpec::bind)
+        .transpose()?;
     // SAFETY: prctl(PR_SET_CHILD_SUBREAPER, 1) only sets a flag on this process.
-    unsafe {
-        libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0);
+    if unsafe { libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
     }
     let me = std::process::id() as i32;
     let start = Instant::now();
-    let child = std::process::Command::new(program)
+    let mut command = std::process::Command::new(program);
+    command
         .args(args)
-        .stdout(std::process::Stdio::from(std::io::stderr()))
-        .spawn()?;
+        .stdout(std::process::Stdio::from(std::io::stderr()));
+    let child = match &binding {
+        Some(bound) => bound.spawn(&mut command)?,
+        None => command.spawn()?,
+    };
     let child_pid = child.id() as i32;
     let mut sampler = TreeSampler::descendants_of(me);
     let mut exit_code = None;
@@ -328,8 +366,14 @@ pub fn measure_command(
             } else if r == 0 {
                 break;
             } else if r < 0 {
-                no_children = true;
-                break;
+                match std::io::Error::last_os_error().raw_os_error() {
+                    Some(libc::EINTR) => continue,
+                    Some(libc::ECHILD) => {
+                        no_children = true;
+                        break;
+                    }
+                    _ => return Err(std::io::Error::last_os_error().into()),
+                }
             }
         }
         if root_done && no_children {
@@ -356,7 +400,21 @@ pub fn measure_command(
         samples: s.samples,
         sampled_cpu_seconds: s.cpu_seconds_user + s.cpu_seconds_sys,
         clk_tck: clk_tck(),
+        max_processes: Some(s.max_processes),
+        observer_cpu_seconds: Some((observer_cpu_s()? - observer_cpu_before).max(0.0)),
+        interval_ms: Some(interval_ms),
+        placement: binding
+            .as_ref()
+            .map(crate::affinity::ObserverBinding::report)
+            .transpose()?,
     })
+}
+
+fn observer_cpu_s() -> Result<f64, EvalError> {
+    let r = nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF)
+        .map_err(|e| EvalError::Io(format!("observer getrusage: {e}")))?;
+    let seconds = |t: nix::sys::time::TimeVal| t.tv_sec() as f64 + t.tv_usec() as f64 / 1e6;
+    Ok(seconds(r.user_time()) + seconds(r.system_time()))
 }
 
 #[cfg(test)]

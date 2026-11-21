@@ -124,7 +124,10 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
     std::fs::write(j.out.join("bundle-manifest.json"), manifest)?;
     let stderr = std::fs::File::create(j.out.join("service.stderr"))?;
     let measured = Command::new(&j.measure)
-        .args(["--interval-ms", "20", "--"])
+        .args(crate::records::measurement_args(
+            j.service_cpus.as_deref(),
+            j.observer_cpus.as_deref(),
+        )?)
         .arg(&retained_exe)
         .arg("service")
         .arg(&plan_path)

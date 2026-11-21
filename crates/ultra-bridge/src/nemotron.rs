@@ -28,6 +28,10 @@ pub struct Job {
     pub host_window: String,
     #[serde(default)]
     pub guarded: bool,
+    #[serde(default)]
+    pub service_cpus: Option<String>,
+    #[serde(default)]
+    pub observer_cpus: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +61,7 @@ pub fn execute(job_file: &Path) -> Result<()> {
             && !j.host_window.is_empty(),
         "invalid file control configuration",
     )?;
+    crate::records::measurement_args(j.service_cpus.as_deref(), j.observer_cpus.as_deref())?;
     for p in [
         &mut j.inputs,
         &mut j.candidate,
@@ -152,7 +157,10 @@ fn run_inner(mut j: Job, work: &Workload) -> Result<()> {
     let j = &plan.job;
     write_json(&j.out.join("plan.json"), &plan)?;
     let measured = Command::new(&j.measure)
-        .args(["--interval-ms", "20", "--"])
+        .args(crate::records::measurement_args(
+            j.service_cpus.as_deref(),
+            j.observer_cpus.as_deref(),
+        )?)
         .arg(retained_exe)
         .arg("service-nemotron")
         .arg(j.out.join("plan.json"))

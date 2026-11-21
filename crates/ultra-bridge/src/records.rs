@@ -221,6 +221,10 @@ pub struct Job {
     pub measure: PathBuf,
     pub timeout_s: u64,
     pub host_window: String,
+    #[serde(default)]
+    pub service_cpus: Option<String>,
+    #[serde(default)]
+    pub observer_cpus: Option<String>,
 }
 
 impl Job {
@@ -249,8 +253,33 @@ impl Job {
             "invalid scheduling settings",
         )?;
         require(!self.host_window.is_empty(), "host window label required")?;
+        measurement_args(self.service_cpus.as_deref(), self.observer_cpus.as_deref())?;
         Ok(())
     }
+}
+
+/// Shared whole-service observer placement for native, bridge and completed-file controls.
+pub fn measurement_args(service: Option<&str>, observer: Option<&str>) -> Result<Vec<String>> {
+    let mut args = vec!["--interval-ms".into(), "20".into()];
+    match (service, observer) {
+        (None, None) => {}
+        (Some(service), Some(observer)) => {
+            ultra_eval::affinity::PlacementSpec {
+                service_cpus: service.into(),
+                observer_cpus: observer.into(),
+            }
+            .validate()?;
+            args.extend([
+                "--service-cpus".into(),
+                service.into(),
+                "--observer-cpus".into(),
+                observer.into(),
+            ]);
+        }
+        _ => return Err("service_cpus and observer_cpus must be supplied together".into()),
+    }
+    args.push("--".into());
+    Ok(args)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

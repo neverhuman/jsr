@@ -120,6 +120,31 @@ or compare the saved records, preserving the speaker clusters and recommended
 
 ## Scope of measurements
 
+Optional `service_cpus` and `observer_cpus` job fields apply to R0, R1 and the
+Nemotron control. Supply both, for example `"service_cpus": "52"` and
+`"observer_cpus": "48"` on the recorded H0 topology. The measurement binary also
+accepts `--service-cpus LIST --observer-cpus LIST`. It refuses offline CPUs,
+unknown topology and any CPU/SMT/L3 overlap before starting inference. Choose
+available cores under the current host lease; example IDs are not a reservation.
+Pin the outer launcher and fleet guard away from the service CPUs as well. For
+this H0 example, a permitted launcher core 49 shares the observer's L3 domain
+and leaves the service's domain separate; pass the same guarded command through
+`taskset -c 49` instead of inheriting core 52. These job fields move the measurer
+and service, not the surrounding governance processes.
+
+The observer pins its own thread, sets and checks the service mask in the child
+before exec, and records both effective masks. Child threads and processes
+inherit the service mask. Later service/thread affinity drift is not monitored;
+the report states this limitation. The observer mask is checked at bind and
+after drain. No placement claim is made when these optional fields are absent.
+`measurement.observer_cpu_seconds` records observer setup-through-drain CPU,
+excluding result serialization; this is outside inference service CPU. The
+configured polling interval and sampled peak process count are also recorded;
+individual process-tree scans can overrun that interval and miss brief peaks.
+Old measurement JSON
+loads these previously unavailable fields as null. Existing retained rows and
+their source/runtime identities are unchanged by this instrumentation update.
+
 CPU and aggregate sampled RSS/PSS/threads cover the entire inference service tree,
 including cold load, audio I/O, IPC, feature extraction, decode, output formatting,
 collection and orphan drain. The measurement observer, reference preparation and
