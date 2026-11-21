@@ -84,13 +84,27 @@ fn hung_worker_and_its_child_are_killed_and_reaped_at_timeout() {
     let fixture = Fixture::new("");
     let pidfile = fixture.0.join("grandchild.pid");
     fixture.body(&format!(
-        "sleep 30 &\necho $! > '{}'\nwait",
-        pidfile.display()
+        "sleep 30 &\necho $! > '{}'\n{}",
+        pidfile.display(),
+        script("wait")
     ));
+    // PID publication precedes the valid init response. Returning from load is
+    // the handshake: the descendant is known before the step timeout can fire.
+    let mut worker = Worker::load(&fixture.plan()).expect("fixture init after PID publication");
+    assert!(pidfile.is_file(), "init must follow descendant publication");
+    let start = Instant::now();
+    assert!(worker.step(&[packet()]).is_err());
+    drop(worker); // Timeout returns an error; RAII owns process-group drain.
+    assert!(start.elapsed() < Duration::from_secs(5));
+    assert_gone(&pidfile);
+}
+
+#[test]
+fn hung_initialization_obeys_its_timeout() {
+    let fixture = Fixture::new("exec sleep 30");
     let start = Instant::now();
     assert!(Worker::load(&fixture.plan()).is_err());
     assert!(start.elapsed() < Duration::from_secs(5));
-    assert_gone(&pidfile);
 }
 
 fn assert_gone(path: &std::path::Path) {
@@ -171,10 +185,11 @@ fn crash_eof_oversized_and_wrong_or_absent_rows_fail_during_step() {
 fn step_timeout_drains_actual_grandchild_and_nonzero_shutdown_is_failure() {
     let fixture = Fixture::new("");
     let pidfile = fixture.0.join("grandchild.pid");
-    fixture.body(&script(&format!(
-        "sleep 30 &\necho $! > '{}'\nwait",
-        pidfile.display()
-    )));
+    fixture.body(&format!(
+        "sleep 30 &\necho $! > '{}'\n{}",
+        pidfile.display(),
+        script("wait")
+    ));
     let mut worker = Worker::load(&fixture.plan()).expect("valid init control");
     assert!(worker.step(&[packet()]).is_err());
     drop(worker);
