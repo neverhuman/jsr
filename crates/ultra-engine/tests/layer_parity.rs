@@ -15,8 +15,8 @@ use ultra_frontend::MEL_BINS;
 
 const TOL: f64 = 1e-4;
 
-/// Returns the worst normwise relative error per layer over the checked utterances.
-fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<f64>> {
+/// Per layer: (worst normwise relative error, worst absolute error) over the utterances.
+fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<(f64, f64)>> {
     let (w, r) = (common::weights_dir(), common::reference_file());
     if !common::have(&[&w, &r]) {
         return None;
@@ -29,9 +29,16 @@ fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<f64>> {
         "reference and weights come from different checkpoints"
     );
     let count: usize = reference.metadata["count"].parse().expect("count");
+    if max_chunks.is_none() {
+        assert!(
+            count >= 50,
+            "full parity needs >= 50 reference utterances, file has {count}"
+        );
+    }
     let engine = Engine::new(model.clone(), isa, Precision::F32).expect("engine");
     let n_layers = model.arch.n_blocks + 3;
-    let mut worst = vec![0.0f64; n_layers];
+    let mut worst = vec![(0.0f64, 0.0f64); n_layers];
+    let mut checked = 0usize;
     let mut ws = Workspace::default();
     for u in 0..utts.min(count) {
         let feats = &reference.tensors[&format!("u{u:03}.feats")];
@@ -45,7 +52,7 @@ fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<f64>> {
             rows.truncate(rows.len().min(16 * c + 3));
         }
         let mut s = engine.create_stream();
-        s.accept_features(&rows);
+        s.accept_features(&rows).expect("accept");
         if max_chunks.is_none() {
             s.input_finished();
         }
@@ -66,21 +73,33 @@ fn run(isa: Isa, utts: usize, max_chunks: Option<usize>) -> Option<Vec<f64>> {
                 assert_eq!(g.len(), t.data.len(), "layer {l} frame count");
             }
             let refv = &t.data[..g.len()];
+            assert!(
+                g.iter().chain(refv).all(|v| v.is_finite()),
+                "non-finite value at layer {l}, utterance {u}"
+            );
             let mx = refv.iter().fold(0.0f64, |a, &v| a.max(f64::from(v).abs()));
             let err = g.iter().zip(refv).fold(0.0f64, |a, (&x, &y)| {
                 a.max((f64::from(x) - f64::from(y)).abs())
             });
-            worst[l] = worst[l].max(err / mx.max(1e-30));
+            assert!(mx > 0.0, "all-zero reference at layer {l}");
+            worst[l].0 = worst[l].0.max(err / mx);
+            worst[l].1 = worst[l].1.max(err);
         }
+        checked += 1;
     }
+    eprintln!("checked {checked} utterances");
     Some(worst)
 }
 
-fn check(worst: &[f64]) {
-    for (l, &e) in worst.iter().enumerate() {
-        eprintln!("layer {l:02}: max normwise relative error {e:.3e}");
+fn check(worst: &[(f64, f64)]) {
+    for (l, &(e, a)) in worst.iter().enumerate() {
+        eprintln!("layer {l:02}: max normwise relative error {e:.3e}, max abs error {a:.3e}");
     }
-    let bad: Vec<_> = worst.iter().enumerate().filter(|(_, &e)| e > TOL).collect();
+    let bad: Vec<_> = worst
+        .iter()
+        .enumerate()
+        .filter(|(_, &(e, _))| e > TOL)
+        .collect();
     assert!(bad.is_empty(), "layers over {TOL}: {bad:?}");
 }
 

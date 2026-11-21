@@ -36,26 +36,51 @@ pub struct EngineStream {
     rows: Vec<[f32; MEL_BINS]>,
     ring: FeatureRing,
     finished: bool,
+    /// Set when a chunk step failed after this stream's features or state were consumed;
+    /// the stream is terminal (a retry could silently skip audio).
+    failed: bool,
     pub enc: EncState,
     pub dec: DecState,
 }
 
 impl EngineStream {
-    pub fn accept_i16(&mut self, pcm: &[i16]) {
+    fn open(&self) -> Result<(), EngineError> {
+        if self.failed {
+            return Err(EngineError::Lifecycle(
+                "stream failed in an earlier chunk".into(),
+            ));
+        }
+        if self.finished {
+            return Err(EngineError::Lifecycle("audio after input_finished".into()));
+        }
+        Ok(())
+    }
+
+    pub fn accept_i16(&mut self, pcm: &[i16]) -> Result<(), EngineError> {
+        self.open()?;
         self.rows.clear();
         self.mel.push_i16_into(pcm, &mut self.rows);
         self.ring.push_rows(&self.rows);
+        Ok(())
     }
 
-    pub fn accept_f32(&mut self, samples: &[f32]) {
+    pub fn accept_f32(&mut self, samples: &[f32]) -> Result<(), EngineError> {
+        self.open()?;
         self.rows.clear();
         self.mel.push_f32_into(samples, &mut self.rows);
         self.ring.push_rows(&self.rows);
+        Ok(())
     }
 
     /// Feed already-normalised feature rows directly (parity tests bypass the frontend).
-    pub fn accept_features(&mut self, rows: &[[f32; MEL_BINS]]) {
+    pub fn accept_features(&mut self, rows: &[[f32; MEL_BINS]]) -> Result<(), EngineError> {
+        self.open()?;
         self.ring.push_rows(rows);
+        Ok(())
+    }
+
+    pub fn is_failed(&self) -> bool {
+        self.failed
     }
 
     pub fn input_finished(&mut self) {
@@ -79,7 +104,8 @@ impl EngineStream {
     }
 }
 
-/// Per-worker scratch (no allocation per chunk after warm-up).
+/// Per-worker scratch. Tensor buffers are reused (grown on demand, never shrunk); each
+/// `decode` call still allocates a few small O(streams) index/reference vectors.
 #[derive(Debug, Default)]
 pub struct Workspace {
     enc: EncWorkspace,
@@ -139,6 +165,7 @@ impl Engine {
             rows: Vec::new(),
             ring: FeatureRing::new(),
             finished: false,
+            failed: false,
             enc: EncState::new(&self.model),
             dec: DecState::new(&self.model),
         }
@@ -174,6 +201,11 @@ impl Engine {
         let per = |n: usize| (4 * n + 3) * a.n_mels;
         ws.ready.clear();
         let mut total = 0;
+        if streams.iter().any(|s| s.failed) {
+            return Err(EngineError::Lifecycle(
+                "a stream in the batch has failed".into(),
+            ));
+        }
         for (i, s) in streams.iter().enumerate() {
             if let Some((t0, t1)) = self.next_chunk(s) {
                 ws.ready.push((i, t1 - t0));
@@ -222,7 +254,7 @@ impl Engine {
             off += per(n);
         }
         let m = &self.model;
-        encode_chunk(
+        let result = encode_chunk(
             m,
             self.isa,
             self.precision,
@@ -230,16 +262,27 @@ impl Engine {
             &mut ws.enc,
             &mut ws.enc_out,
             tap,
-        )?;
-        greedy_chunk(
-            m,
-            self.isa,
-            self.precision,
-            &mut decs,
-            &ns,
-            &ws.enc_out,
-            &mut ws.dec,
-        )?;
+        )
+        .and_then(|_| {
+            greedy_chunk(
+                m,
+                self.isa,
+                self.precision,
+                &mut decs,
+                &ns,
+                &ws.enc_out,
+                &mut ws.dec,
+            )
+        });
+        drop(jobs);
+        drop(decs);
+        if let Err(e) = result {
+            // Features were consumed and caches may have advanced: these streams are terminal.
+            for &(i, _) in &ws.ready {
+                streams[i].failed = true;
+            }
+            return Err(e);
+        }
         Ok(ns.len())
     }
 

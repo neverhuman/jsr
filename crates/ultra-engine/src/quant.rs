@@ -23,19 +23,32 @@ pub const KG: usize = 4;
 /// Int8 weights packed as `data[p][kg][j][4]` = `w_q[p*16 + j][4 kg .. 4 kg + 4]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackedI8 {
-    pub n: usize,
-    pub k: usize,
+    pub(crate) n: usize,
+    pub(crate) k: usize,
     /// `k` rounded up to a multiple of [`KG`].
-    pub kp: usize,
-    pub data: Vec<i8>,
+    pub(crate) kp: usize,
+    pub(crate) data: Vec<i8>,
     /// Per-output-channel scale, padded to whole panels (zero in padding).
-    pub scale: Vec<f32>,
+    pub(crate) scale: Vec<f32>,
     /// Per-output-channel sum of dequantised weights (`scale * sum_k w_q`), padded.
-    pub wsum: Vec<f32>,
-    pub bias: Vec<f32>,
+    pub(crate) wsum: Vec<f32>,
+    pub(crate) bias: Vec<f32>,
 }
 
 impl PackedI8 {
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    pub fn k(&self) -> usize {
+        self.k
+    }
+
+    /// Padded row stride of quantised activations.
+    pub fn kp(&self) -> usize {
+        self.kp
+    }
+
     pub fn panels(&self) -> usize {
         self.n.div_ceil(NR)
     }
@@ -46,10 +59,19 @@ impl PackedI8 {
 
     /// Quantise row-major `w` (`n x k`) with an optional bias.
     pub fn quantize(w: &[f32], n: usize, k: usize, bias: Option<&[f32]>) -> Self {
-        assert_eq!(w.len(), n * k, "PackedI8::quantize weight length");
+        assert!(n > 0 && k > 0, "PackedI8::quantize empty matrix");
+        assert_eq!(
+            Some(w.len()),
+            n.checked_mul(k),
+            "PackedI8::quantize weight length"
+        );
         let kp = k.div_ceil(KG) * KG;
         let panels = n.div_ceil(NR);
-        let mut data = vec![0i8; panels * kp * NR];
+        let len = panels
+            .checked_mul(kp)
+            .and_then(|v| v.checked_mul(NR))
+            .expect("PackedI8::quantize size overflow");
+        let mut data = vec![0i8; len];
         let mut scale = vec![0.0f32; panels * NR];
         let mut wsum = vec![0.0f32; panels * NR];
         for row in 0..n {
@@ -115,7 +137,7 @@ pub struct QuantScratch {
 
 /// Per-row centred quantisation of `rows` rows of width `k` into `a` (row stride `kp`,
 /// zero padded), `scale` and `center`.
-pub fn quantize_rows(isa: Isa, x: &[f32], rows: usize, k: usize, kp: usize, q: &mut QuantScratch) {
+fn quantize_rows(isa: Isa, x: &[f32], rows: usize, k: usize, kp: usize, q: &mut QuantScratch) {
     if q.a.len() < rows * kp {
         q.a.resize(rows * kp, 0);
     }

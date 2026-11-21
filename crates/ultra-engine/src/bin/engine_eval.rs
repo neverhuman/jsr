@@ -94,25 +94,40 @@ fn thread_cpu_s() -> f64 {
         .map_or(f64::NAN, |ns| ns * 1e-9)
 }
 
-fn reference_tokens(path: &PathBuf) -> Result<Vec<Vec<u32>>, String> {
+/// Reference token ids keyed by utterance id (`rows[].id`, `rows[].py_tokens`).
+fn reference_tokens(path: &PathBuf) -> Result<std::collections::HashMap<String, Vec<u32>>, String> {
     let v: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
     let rows = v["rows"].as_array().ok_or("reference has no rows")?;
-    rows.iter()
-        .map(|r| {
-            r["py_tokens"]
-                .as_array()
-                .ok_or_else(|| "row without py_tokens".to_string())?
-                .iter()
-                .map(|t| {
-                    t.as_u64()
-                        .map(|x| x as u32)
-                        .ok_or_else(|| "bad token".to_string())
-                })
-                .collect()
-        })
-        .collect()
+    let mut out = std::collections::HashMap::new();
+    for r in rows {
+        let id = r["id"]
+            .as_str()
+            .ok_or("reference row without id")?
+            .to_owned();
+        let toks = r["py_tokens"]
+            .as_array()
+            .ok_or("reference row without py_tokens")?
+            .iter()
+            .map(|t| {
+                t.as_u64()
+                    .and_then(|x| u32::try_from(x).ok())
+                    .ok_or("bad token")
+            })
+            .collect::<Result<Vec<u32>, _>>()?;
+        if out.insert(id.clone(), toks).is_some() {
+            return Err(format!("duplicate reference id {id}"));
+        }
+    }
+    Ok(out)
+}
+
+/// SHA-256 of the running executable (binds results to the exact binary).
+fn exe_sha256() -> String {
+    std::fs::read("/proc/self/exe")
+        .map(|b| ultra_core::receipt::sha256_hex(&b))
+        .unwrap_or_else(|_| "unavailable".into())
 }
 
 fn run(a: &Args) -> Result<serde_json::Value, String> {
@@ -141,8 +156,9 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let load_s = t_load.elapsed().as_secs_f64();
     let engine = Engine::new(Arc::new(model), a.isa, a.precision).map_err(|e| e.to_string())?;
     let utts = load_npz_audio_only(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
-    let refs = load_npz_references(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
-    let ref_toks = a.reference.as_ref().map(reference_tokens).transpose()?;
+    if utts.is_empty() {
+        return Err("empty workload".into());
+    }
     let packet = 16 * a.packet_ms;
     let mut queue: std::collections::VecDeque<usize> = (0..utts.len()).collect();
     let mut active: Vec<(usize, EngineStream, usize)> = Vec::new();
@@ -163,7 +179,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             let pcm = &utts[*i].pcm;
             if *cur < pcm.len() {
                 let end = (*cur + packet).min(pcm.len());
-                s.accept_i16(&pcm[*cur..end]);
+                s.accept_i16(&pcm[*cur..end]).map_err(|e| e.to_string())?;
                 *cur = end;
                 if end >= pcm.len() {
                     s.input_finished();
@@ -196,6 +212,13 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let cpu_s = thread_cpu_s() - c0;
     let wall_s = w0.elapsed().as_secs_f64();
     let audio_s: f64 = utts.iter().map(|u| u.seconds()).sum();
+    if !cpu_s.is_finite() || cpu_s <= 0.0 || audio_s <= 0.0 {
+        return Err(format!("unusable CPU clock ({cpu_s}) or audio ({audio_s})"));
+    }
+    // References are read only after inference and timing have finished.
+    let refs = load_npz_references(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
+    let ref_toks = a.reference.as_ref().map(reference_tokens).transpose()?;
+    let (mut subs, mut dels, mut ins) = (0u64, 0u64, 0u64);
     let (mut errs, mut words, mut same_tok, mut forced) = (0u64, 0u64, 0usize, 0u64);
     let mut rows = Vec::new();
     for (i, d) in done.into_iter().enumerate() {
@@ -203,8 +226,13 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         let al = align(&normalise_words(&refs[i].text), &normalise_words(&text));
         errs += al.counts.errors();
         words += al.counts.ref_words;
+        subs += al.counts.substitutions;
+        dels += al.counts.deletions;
+        ins += al.counts.insertions;
         forced += f;
-        let eq = ref_toks.as_ref().map(|r| r.get(i) == Some(&toks));
+        let eq = ref_toks
+            .as_ref()
+            .map(|r| r.get(&refs[i].uid) == Some(&toks));
         if eq == Some(true) {
             same_tok += 1;
         }
@@ -227,7 +255,8 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "cpu_s": cpu_s, "wall_s": wall_s, "cpu_s_per_audio_s": cpu_s / audio_s,
         "load_s": load_s, "decode_batches": batches,
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
-        "git_commit": option_env!("ULTRA_GIT_COMMIT").unwrap_or("unknown"),
+        "substitutions": subs, "deletions": dels, "insertions": ins,
+        "executable_sha256": exe_sha256(),
     });
     let mut summary = summary;
     if a.profile {
