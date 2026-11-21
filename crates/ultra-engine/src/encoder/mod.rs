@@ -57,6 +57,7 @@ pub struct GroupCache {
     pub chunk: usize,
     /// Ring slots per layer and head: `left + max_chunks * chunk`.
     pub ring: usize,
+    /// Keys `[layer][head][dh][ring + KT_PAD]` (transposed, padded rows) and values
     /// `[layer][head][ring][dh]`; absolute position `p` lives in slot `p % ring`, so a
     /// step's keys (up to `max_chunks` chunks) can be written before its queries run.
     pub k: Vec<f32>,
@@ -70,12 +71,13 @@ impl GroupCache {
         let a = &m.arch;
         let ring = left + chunk * max_chunks.max(1);
         let kv = layers * a.heads * ring * a.dh;
+        let kk = layers * a.heads * (ring + kernels::KT_PAD) * a.dh;
         Self {
             kv_len: 0,
             left,
             chunk,
             ring,
-            k: vec![0.0; kv],
+            k: vec![0.0; kk],
             v: vec![0.0; kv],
             conv: vec![0.0; layers * (a.kernel - 1) * a.d],
         }

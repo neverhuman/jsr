@@ -271,7 +271,8 @@ fn attend_head_simd_matches_scalar() {
         (64, 5, 144, 7, 137),
     ] {
         let q = rng.vec(n * 3 * dh, 2.0);
-        let kt = rng.vec(dh * ring, 2.0);
+        let kst = ring + KT_PAD;
+        let kt = rng.vec(dh * kst, 2.0);
         let vring = rng.vec(ring * dh, 1.0);
         let first = nk.min(ring - start);
         let segs = [(start, first), (0, nk - first)];
@@ -284,10 +285,10 @@ fn attend_head_simd_matches_scalar() {
         let mut o1 = vec![0.0; n * 2 * dh];
         let mut o2 = vec![0.0; n * 2 * dh];
         // Scores alone are bit-exact (same FMA chain).
-        scalar::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s1);
+        scalar::attention_scores(&q, 3 * dh, n, dh, &kt, kst, segs, scale, &mut s1);
         #[cfg(target_arch = "x86_64")]
         if dh % 8 == 0 {
-            x86_avx2::attention_scores(&q, 3 * dh, n, dh, &kt, ring, segs, scale, &mut s2);
+            x86_avx2::attention_scores(&q, 3 * dh, n, dh, &kt, kst, segs, scale, &mut s2);
             assert_eq!(s1, s2, "scores dh {dh}");
         }
         attend_head(
@@ -297,7 +298,7 @@ fn attend_head_simd_matches_scalar() {
             n,
             dh,
             &kt,
-            ring,
+            kst,
             segs,
             vals,
             scale,
@@ -312,7 +313,7 @@ fn attend_head_simd_matches_scalar() {
             n,
             dh,
             &kt,
-            ring,
+            kst,
             segs,
             vals,
             scale,
@@ -330,7 +331,7 @@ fn attend_head_simd_matches_scalar() {
                 .iter()
                 .map(|&c| {
                     (0..dh)
-                        .map(|e| f64::from(q[i * 3 * dh + e]) * f64::from(kt[e * ring + c]))
+                        .map(|e| f64::from(q[i * 3 * dh + e]) * f64::from(kt[e * kst + c]))
                         .sum::<f64>()
                         * f64::from(scale)
                 })

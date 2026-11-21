@@ -43,43 +43,39 @@ fn scores_avx2(
     let nk = segs[0].1 + segs[1].1;
     assert!(kt.len() >= dh * ring && scores.len() >= n * nk);
     assert!(q.len() >= (n - 1) * q_stride + dh);
-    assert!(segs.iter().all(|&(s, l)| s + l <= ring));
+    // `ring` is the padded row stride: the last 8-key block of a segment may overrun the
+    // segment by up to 7 columns, which stay inside the row's KT_PAD padding.
+    assert!(segs
+        .iter()
+        .all(|&(s, l)| s + l + super::super::KT_PAD <= ring));
     let sv = _mm256_set1_ps(scale);
     let mut j0 = 0;
     for (start, len) in segs {
-        let full = len - len % 8;
         let mut i0 = 0;
         while i0 < n {
             let qn = (n - i0).min(QB);
             let mut c = 0;
-            while c < full {
+            while c < len {
                 let mut acc = [_mm256_setzero_ps(); QB];
                 for e in 0..dh {
-                    // SAFETY: e * ring + start + c + 8 <= (dh - 1) * ring + ring <= kt.len().
+                    // SAFETY: e * ring + start + c + 8 <= e * ring + start + len + 7 < (e + 1) * ring
+                    // <= kt.len() (padding asserted above).
                     let kv = unsafe { _mm256_loadu_ps(kt.as_ptr().add(e * ring + start + c)) };
                     for (a, qi) in acc[..qn].iter_mut().zip(i0..i0 + qn) {
                         let qv = _mm256_set1_ps(q[qi * q_stride + e]);
                         *a = _mm256_fmadd_ps(qv, kv, *a);
                     }
                 }
+                let take = (len - c).min(8);
                 for (a, qi) in acc[..qn].iter().zip(i0..i0 + qn) {
-                    let dst = &mut scores[qi * nk + j0 + c..qi * nk + j0 + c + 8];
-                    // SAFETY: dst.len() == 8.
-                    unsafe { _mm256_storeu_ps(dst.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
+                    let mut tmp = [0.0f32; 8];
+                    // SAFETY: tmp holds 8 floats.
+                    unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
+                    scores[qi * nk + j0 + c..qi * nk + j0 + c + take].copy_from_slice(&tmp[..take]);
                 }
                 c += 8;
             }
             i0 += qn;
-        }
-        // Tail keys: the same ascending-e FMA chain in scalar form (bit-identical).
-        for qi in 0..n {
-            for c in full..len {
-                let mut acc = 0.0f32;
-                for e in 0..dh {
-                    acc = q[qi * q_stride + e].mul_add(kt[e * ring + start + c], acc);
-                }
-                scores[qi * nk + j0 + c] = acc * scale;
-            }
         }
         j0 += len;
     }

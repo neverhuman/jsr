@@ -212,15 +212,18 @@ fn attend(
     // Store the step's keys/values first. The ring holds left + (max chunks) slots, so the
     // overwritten slots (positions <= t0 + n - 1 - ring < t0 - left) are outside every window.
     let ring = j.g.ring;
+    let kst = ring + kernels::KT_PAD;
     let lbase = li * hn * ring * dh;
+    let kbase = li * hn * kst * dh;
     for i in 0..n {
         let slot = (t0 + i) % ring;
         let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
         for h in 0..hn {
             let hb = lbase + h * ring * dh;
-            // Keys transposed ([dh][ring]) so scores read 8 keys per load; values row-major.
+            let kb = kbase + h * kst * dh;
+            // Keys transposed ([dh][ring + pad]) so scores read 8 keys per load.
             for (e, &kv) in r[d + h * dh..d + (h + 1) * dh].iter().enumerate() {
-                j.g.k[hb + e * ring + slot] = kv;
+                j.g.k[kb + e * kst + slot] = kv;
             }
             let vb = hb + slot * dh;
             j.g.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
@@ -240,7 +243,8 @@ fn attend(
         let sc = grow(scores, m * nk);
         for h in 0..hn {
             let hb = lbase + h * ring * dh;
-            let kt = &j.g.k[hb..hb + ring * dh];
+            let kb = kbase + h * kst * dh;
+            let kt = &j.g.k[kb..kb + kst * dh];
             let vr = &j.g.v[hb..hb + ring * dh];
             kernels::attend_head(
                 isa,
@@ -249,7 +253,7 @@ fn attend(
                 m,
                 dh,
                 kt,
-                ring,
+                kst,
                 [(start, first), (0, nk - first)],
                 window(vr, start, first, nk, dh),
                 scale,
