@@ -125,3 +125,147 @@ fn reductions_agree_within_tolerance() {
         }
     }
 }
+
+#[test]
+fn quantize_row_simd_is_bit_exact_with_scalar() {
+    let Some(isa) = simd() else { return };
+    let mut rng = Rng::new(4);
+    for n in [1, 7, 31, 32, 33, 384, 1536, 1155] {
+        for scale in [1e-3, 1.0, 50.0] {
+            let mut x = rng.vec(n, scale);
+            if n > 3 {
+                // Exact half steps and the extremes.
+                let mx = x.iter().fold(0.0f32, |a, &v| a.max(v.abs()));
+                x[1] = mx * 0.5 / 127.0;
+                x[2] = -mx;
+            }
+            let (mut a, mut b) = (vec![0i8; n], vec![0i8; n]);
+            let s1 = quantize_row(Isa::Scalar, &x, &mut a);
+            let s2 = quantize_row(isa, &x, &mut b);
+            assert_eq!(
+                (s1.0.to_bits(), s1.1.to_bits(), &a),
+                (s2.0.to_bits(), s2.1.to_bits(), &b),
+                "n {n}"
+            );
+            assert!(a.iter().all(|&q| q != i8::MIN));
+            // Reconstruction within half a step.
+            for (&v, &q) in x.iter().zip(&a) {
+                assert!(
+                    (f32::from(q).mul_add(s1.0, s1.1) - v).abs() <= 0.5001 * s1.0 + 1e-6 * v.abs()
+                );
+            }
+        }
+    }
+    let mut z = vec![1i8; 40];
+    assert_eq!(quantize_row(isa, &[0.0; 40], &mut z), (0.0, 0.0));
+    assert!(z.iter().all(|&q| q == 0));
+    assert_eq!(quantize_row(isa, &[-2.5; 40], &mut z), (0.0, -2.5));
+    let mut one = [0i8; 1];
+    assert_eq!(quantize_row(Isa::Scalar, &[3.0], &mut one), (0.0, 3.0));
+}
+
+#[test]
+fn gemm_i8_simd_is_bit_exact_including_extremes() {
+    use crate::quant::PackedI8;
+    let Some(isa) = simd() else { return };
+    let mut rng = Rng::new(5);
+    for &(rows, n, k) in &[
+        (1, 16, 4),
+        (5, 33, 30),
+        (9, 320, 384),
+        (4, 4097, 8),
+        (7, 17, 1536),
+    ] {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 1.0);
+        let mut p = PackedI8::quantize(&w, n, k, Some(&b));
+        // Adversarial: every weight +-127 with alternating signs and activations +-127 of the
+        // same sign pattern -> every pair sums to +-32258 (the vpmaddubsw maximum).
+        if n == 17 {
+            for (i, v) in p.data.iter_mut().enumerate() {
+                *v = if i % 2 == 0 { 127 } else { -127 };
+            }
+        }
+        let mut a = vec![0i8; rows * p.kp];
+        for (i, v) in a.iter_mut().enumerate() {
+            *v = if n == 17 {
+                if i % 2 == 0 {
+                    127
+                } else {
+                    -127
+                }
+            } else {
+                (rng.next_u32() % 255) as i8
+            };
+            if *v == i8::MIN {
+                *v = -127;
+            }
+        }
+        for r in 0..rows {
+            a[r * p.kp + k..(r + 1) * p.kp].fill(0);
+        }
+        let sa = rng.vec(rows, 0.1);
+        let ca = rng.vec(rows, 1.0);
+        let mut o1 = vec![0.0; rows * n];
+        let mut o2 = vec![1.0; rows * n];
+        gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o1);
+        gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
+        assert_eq!(o1, o2, "rows {rows} n {n} k {k}");
+        if n == 17 {
+            let full = (k as f32) * 127.0 * 127.0;
+            let base = ca[0].mul_add(p.wsum[0], p.bias[0]);
+            assert_eq!(o1[0], full.mul_add(sa[0] * p.scale[0], base));
+        }
+    }
+}
+
+#[test]
+fn attend_head_simd_matches_scalar() {
+    let Some(isa) = simd() else { return };
+    let mut rng = Rng::new(6);
+    for &(dh, n, n0, n1) in &[
+        (64usize, 4usize, 100usize, 32usize),
+        (64, 1, 3, 0),
+        (40, 3, 0, 9),
+        (128, 2, 7, 5),
+    ] {
+        let q = rng.vec(n * 3 * dh, 2.0);
+        let k0 = rng.vec(n0 * dh, 2.0);
+        let k1 = rng.vec(n1 * dh, 2.0);
+        let v0 = rng.vec(n0 * dh, 1.0);
+        let v1 = rng.vec(n1 * dh, 1.0);
+        let mut s = vec![0.0; n0 + n1];
+        let mut o1 = vec![0.0; n * 2 * dh];
+        let mut o2 = vec![0.0; n * 2 * dh];
+        let scale = 1.0 / (dh as f32).sqrt();
+        attend_head(
+            Isa::Scalar,
+            &q,
+            3 * dh,
+            n,
+            dh,
+            [&k0, &k1],
+            [&v0, &v1],
+            scale,
+            &mut s,
+            &mut o1,
+            2 * dh,
+        );
+        attend_head(
+            isa,
+            &q,
+            3 * dh,
+            n,
+            dh,
+            [&k0, &k1],
+            [&v0, &v1],
+            scale,
+            &mut s,
+            &mut o2,
+            2 * dh,
+        );
+        for (a, b) in o1.iter().zip(&o2) {
+            assert!((a - b).abs() < 1e-5, "dh {dh}: {a} {b}");
+        }
+    }
+}
