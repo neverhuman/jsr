@@ -88,7 +88,7 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
         schema: SCHEMA.into(),
         run_id: format!("bridge-{now}-{}", std::process::id()),
         workload_sha256: hash_file(&job.inputs)?,
-        bundle_manifest_sha256: hash_file(&job.bundle.join("manifest.json"))?,
+        bundle_manifest_sha256: hash_file(&job.bundle_manifest_path())?,
         executable_sha256: hash_file(&exe)?,
         worker_sha256,
         consumer_sha256,
@@ -116,7 +116,7 @@ fn run_inner(mut job: Job, work: &Workload) -> Result<()> {
     let j = &plan.job;
     let plan_path = j.out.join("plan.json");
     write_json(&plan_path, &plan)?;
-    let manifest = std::fs::read(j.bundle.join("manifest.json"))?;
+    let manifest = std::fs::read(j.bundle_manifest_path())?;
     require(
         ultra_core::receipt::sha256_hex(&manifest) == plan.bundle_manifest_sha256,
         "bundle changed during preparation",

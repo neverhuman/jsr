@@ -76,6 +76,31 @@ Native services enforce `timeout_s` with a scoped deadline thread. Expiry ends
 the isolated service with status 124, and the outside observer records an invalid
 run. Its CPU and thread cost are included in the service measurement.
 
+For the fused Rust engine use `engine: r1-fused`, `precision: fp32`, `threads: 1`
+and an existing `ultra.r1-weights/v1` directory as `bundle`. Its `arch.json` is
+retained as `bundle-manifest.json` and hashed as the bundle manifest. The consumer
+loads this bundle plus audio; referenced checkpoint/source paths are provenance
+only. It checks all declared payload hashes and containment, BPE identity, finite
+stored tensors and both CMVN arrays before invoking the engine library. Model
+loading, validation and FP32 packing are included in cold service cost.
+
+This first fused path uses one ready chunk per stream per engine step
+(`max_chunks = 1`), the declared greedy rule and the same controlled-EOF ledger,
+audio digest checks and complete-workload accounting. ISA dispatch and effective
+configuration are recorded in `load.json`. The engine library supplies all model
+arithmetic. Other thread counts and INT8 are currently rejected explicitly;
+prepared INT8 weights need their own load contract and quality/parity gates.
+No export or weight quantization runs inside the measured FP32 service.
+
+Prepare fresh fused weights before measurement with the existing guarded export
+wrapper. Its job accepts `export_format: fused-fp32`, `checkpoint`, `source_bundle`
+(the matching A2 export supplying tokenizer/filterbank assets), and a fresh `out`
+directory. `run_guarded.py --export .venv/bin/python JOB.json` invokes the owner
+converter unchanged. `source-provenance.json` binds all Python source bytes before
+import to an immutable revision, checks them unchanged afterward, and records the
+checkpoint, `arch.json`, payloads and software identities. This preparation does
+not reconstruct the source of the original training run.
+
 The guard wrapper applies the recorded fleet policy to the actual driver and
 worker process groups. It retains guard source, effective job and governance logs
 outside the measured service tree. Guarded wall throughput and model-batch wall

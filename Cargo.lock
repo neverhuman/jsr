@@ -538,6 +538,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "ultra-core",
+ "ultra-engine",
  "ultra-eval",
  "ultra-frontend",
  "ultra-gp",

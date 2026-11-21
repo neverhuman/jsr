@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 ultra-core = { path = "../ultra-core" }
 ultra-eval = { path = "../ultra-eval" }
+ultra-engine = { path = "../ultra-engine" }
 ultra-frontend = { path = "../ultra-frontend" }
 ultra-gp = { path = "../ultra-gp" }
 ultra-model = { path = "../ultra-model" }

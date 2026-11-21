@@ -62,7 +62,7 @@ pub fn execute(plan: &Plan) -> Result<()> {
     require(plan.schema == SCHEMA, "wrong plan schema")?;
     require(
         hash_file(&j.inputs)? == plan.workload_sha256
-            && hash_file(&j.bundle.join("manifest.json"))? == plan.bundle_manifest_sha256
+            && hash_file(&j.bundle_manifest_path())? == plan.bundle_manifest_sha256
             && hash_file(&std::env::current_exe()?)? == plan.executable_sha256,
         "run identity changed",
     )?;

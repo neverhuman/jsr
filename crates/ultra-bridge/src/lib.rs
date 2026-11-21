@@ -1,6 +1,8 @@
 //! Temporary research bridge. No deployment or profile qualification is implied.
 
 pub mod engine;
+mod fused_bundle;
+pub mod native_fused;
 pub mod native_r1;
 pub mod nemotron;
 pub mod nemotron_service;

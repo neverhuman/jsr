@@ -7,6 +7,7 @@ use std::time::Instant;
 use sha2::{Digest, Sha256};
 use ultra_stream::{RawOnlineStream, SherpaLib, SherpaZipformerBackend, SherpaZipformerConfig};
 
+use crate::native_fused::NativeFused;
 use crate::native_r1::NativeR1;
 use crate::protocol::{Packet, Worker};
 use crate::records::{Observation, Plan};
@@ -30,10 +31,15 @@ pub enum Engine {
     R1(Worker),
     R0(Native),
     R1Native(NativeR1),
+    R1Fused(Box<NativeFused>),
 }
 
 impl Engine {
     pub fn load(plan: &Plan) -> Result<(Self, serde_json::Value)> {
+        if plan.job.engine == "r1-fused" {
+            let (native, info) = NativeFused::load(plan)?;
+            return Ok((Self::R1Fused(Box::new(native)), info));
+        }
         if plan.job.engine == "r1-bridge" {
             let w = Worker::load(plan)?;
             let info = w.info.clone();
@@ -119,6 +125,7 @@ impl Engine {
             Self::R1(w) => w.step(packets),
             Self::R0(n) => n.step(packets),
             Self::R1Native(n) => n.step(packets),
+            Self::R1Fused(n) => n.step(packets),
         }
     }
 
@@ -127,6 +134,7 @@ impl Engine {
             Self::R1(w) => w.shutdown(),
             Self::R0(n) => require(n.streams.is_empty(), "unfinished native streams"),
             Self::R1Native(n) => n.shutdown(),
+            Self::R1Fused(n) => n.shutdown(),
         }
     }
 
@@ -135,6 +143,7 @@ impl Engine {
             Self::R1(w) => w.wakeups,
             Self::R0(n) => n.calls,
             Self::R1Native(n) => n.calls,
+            Self::R1Fused(n) => n.calls,
         }
     }
 
@@ -143,6 +152,7 @@ impl Engine {
             Self::R1(w) => std::mem::take(&mut w.model_batch_ms),
             Self::R0(n) => std::mem::take(&mut n.model_batch_ms),
             Self::R1Native(n) => std::mem::take(&mut n.model_batch_ms),
+            Self::R1Fused(n) => std::mem::take(&mut n.model_batch_ms),
         }
     }
 }

@@ -12,6 +12,48 @@ import sys
 from pathlib import Path
 
 
+def fused_identity(root, run_name, baseline_name, plan, baseline, binding, base):
+    require, digest, read = [base[k] for k in ["require", "digest", "read"]]
+    arch = read(root / run_name / "bundle-manifest.json")
+    onnx = read(root / baseline_name / "bundle-manifest.json")
+    require(arch["schema"] == "ultra.r1-weights/v1" and baseline["job"]["engine"] in
+            ["r1-native", "r1-bridge"] and plan["job"]["precision"] == "fp32",
+            "unsupported representation comparison")
+    checkpoint = arch["source"]["checkpoint_sha256"]
+    require(checkpoint == onnx["model"]["checkpoint_sha256"] and
+            arch["source"]["bundle"]["manifest_sha256"] == baseline["bundle_manifest_sha256"],
+            "fused weights do not bind the reference checkpoint/export")
+    require(arch["features"]["cmvn"] == onnx["features"]["cmvn"], "different CMVN")
+    for key in ["blank_id", "vocab_size", "ctx_init", "max_symbols"]:
+        require(arch["decoder"][key] == onnx["decoder"][key], "different decoder rule")
+    for key in ["tokens", "bpe", "mel_fbank"]:
+        require(arch["files"][key]["sha256"] == onnx["files"][key]["sha256"],
+                "different tokenizer/frontend payload")
+    bundle = Path(plan["job"]["bundle"])
+    require(digest(bundle / "arch.json") == plan["bundle_manifest_sha256"], "changed fused manifest")
+    for item in arch["files"].values():
+        path = bundle / item["path"]
+        require(path.resolve().is_relative_to(bundle.resolve()) and digest(path) == item["sha256"],
+                "changed/escaping fused payload")
+    model_proof = binding["model_provenance"]
+    path = Path(model_proof["path"])
+    require(path.resolve() == (bundle / "source-provenance.json").resolve() and
+            digest(path) == model_proof["sha256"], "changed model export proof")
+    proof = read(path)
+    require(proof["export_format"] == "fused-fp32" and proof["checkpoint_sha256"] == checkpoint and
+            proof["manifest_sha256"] == plan["bundle_manifest_sha256"] and
+            proof["exporter_commit"] == arch["converter"]["commit"], "different fused export provenance")
+    require(digest(Path(arch["source"]["checkpoint"])) == checkpoint, "changed retained checkpoint")
+    for source, expected in proof["source_sha256"].items():
+        require(source.startswith("python/ultra/") and ".." not in Path(source).parts,
+                "bad fused exporter source path")
+        blob = subprocess.check_output(["rtk", "proxy", "git", "show",
+                                        f"{proof['exporter_commit']}:{source}"])
+        require(hashlib.sha256(blob).hexdigest() == expected, "fused export source differs from Git")
+    return dict(checkpoint_sha256=checkpoint, model_export_proof_sha256=digest(path),
+                reference_manifest_sha256=baseline["bundle_manifest_sha256"])
+
+
 def main():
     root, binding_path, run_name, baseline_name, output = sys.argv[1:]
     root, binding_path, output = map(Path, [root, binding_path, output])
@@ -21,13 +63,19 @@ def main():
     current, previous = [base["load"](root, name) for name in [run_name, baseline_name]]
     row, plan, references = current
     require(references == previous[2], "different reference population or clusters")
-    for field in ["workload_sha256", "bundle_manifest_sha256"]:
+    fused = plan["job"]["engine"] == "r1-fused"
+    for field in ["workload_sha256"] + ([] if fused else ["bundle_manifest_sha256"]):
         require(plan[field] == previous[1][field], f"different {field}")
-    for field in ["engine", "precision", "streams", "packet_ms", "threads", "paced", "guarded"]:
+    for field in ([] if fused else ["engine"]) + ["precision", "streams", "packet_ms", "threads", "paced", "guarded"]:
         require(plan["job"][field] == previous[1]["job"][field], f"different {field}")
     run = root / run_name
     final = rows(run / "final.jsonl")
-    require(final == rows(root / baseline_name / "final.jsonl"), "actual Final texts differ")
+    reference_final = rows(root / baseline_name / "final.jsonl")
+    require([r["input_id"] for r in final] == [r["input_id"] for r in reference_final],
+            "different final output population/order")
+    mismatches = [dict(input_id=a["input_id"], current=a["text"], reference=b["text"])
+                  for a, b in zip(final, reference_final) if a["text"] != b["text"]]
+    require(fused or not mismatches, "actual Final texts differ")
     require(final == rows(run / "commit.jsonl"), "terminal committed view differs")
     by_id = {item["input_id"]: item["text"] for item in final}
     outcomes = sorted(rows(run / "outcomes.jsonl"), key=lambda item: item["source_index"])
@@ -36,9 +84,10 @@ def main():
     require(all(record["hyp"] == outcome["final_text"] == by_id[outcome["input_id"]]
                 for record, outcome in zip(records, outcomes)), "score differs from actual output")
     score, old_score = [read(root / name / "score.json") for name in [run_name, baseline_name]]
-    for key in ["normaliser_id", "normaliser_sha256", "weights_sha256", "system_a"]:
+    for key in ["normaliser_id", "normaliser_sha256", "weights_sha256"] + ([] if fused else ["system_a"]):
         require(score[key] == old_score[key], f"different Rust score or normalization: {key}")
     binding = read(binding_path)
+    model_identity = fused_identity(root, run_name, baseline_name, plan, previous[1], binding, base) if fused else None
     binary = Path(binding["binaries"]["ultra-bridge"]["path"])
     proof_path = binary.parent.parent / "build-provenance.json"
     proof = read(proof_path)
@@ -103,13 +152,18 @@ def main():
             "different executed guard source")
     row.update(measurement=measurement, executable_sha256=plan["executable_sha256"],
                build_source_commit=proof["source_commit"], launch_checkout_commit=plan["source_commit"],
-               final_sha256=digest(run / "final.jsonl"), actual_output_matches=len(final))
+               final_sha256=digest(run / "final.jsonl"), actual_output_matches=len(final) - len(mismatches))
+    agreement = row["actual_output_matches"] / len(final)
+    wer_delta = row["wer_percent"] - previous[0]["wer_percent"]
     report = dict(schema="ultra.service-control-review/v1", current=row, baseline=previous[0],
                   binding_sha256=digest(binding_path), build_proof_sha256=digest(proof_path),
                   verifier_sha256=digest(Path(__file__)), base_verifier_sha256=digest(helper),
+                  model_identity=model_identity, mismatches=mismatches,
+                  parity=dict(exact_transcripts=not mismatches, agreement=agreement,
+                              wer_delta_pp=wer_delta, minimum_pass=agreement >= 0.98 and abs(wer_delta) <= 0.10),
                   qualifying=False, wall_timing_evidence=False,
                   interpretation="Single shared-host observations; historical date/source/placement can differ."
-                  " Exact output is verified; CPU differences alone do not establish causation or a speedup.")
+                  " Actual-output joins and parity are recorded; CPU differences alone do not establish a repeatable speedup.")
     with output.open("x") as stream:
         json.dump(report, stream, indent=2, allow_nan=False)
         stream.write("\n")

@@ -207,7 +207,7 @@ pub fn prepare(cache: &Path, out: &Path, dataset: String, count: usize) -> Resul
 pub struct Job {
     pub inputs: PathBuf,
     pub bundle: PathBuf,
-    /// r1-bridge, r1-native or r0-native; identical Rust scheduling and collection.
+    /// r1-bridge, r1-native, r1-fused or r0-native; same scheduling and collection.
     pub engine: String,
     pub precision: String,
     pub out: PathBuf,
@@ -235,13 +235,17 @@ impl Job {
         require(
             matches!(
                 self.engine.as_str(),
-                "r1-bridge" | "r1-native" | "r0-native"
+                "r1-bridge" | "r1-native" | "r1-fused" | "r0-native"
             ),
             "unsupported engine",
         )?;
         require(
             matches!(self.precision.as_str(), "fp32" | "int8"),
             "unsupported precision",
+        )?;
+        require(
+            self.engine != "r1-fused" || (self.precision == "fp32" && self.threads == 1),
+            "r1-fused currently requires prepared FP32 weights and one inference thread",
         )?;
         require(
             self.engine != "r1-bridge"
@@ -258,6 +262,14 @@ impl Job {
         require(!self.host_window.is_empty(), "host window label required")?;
         measurement_args(self.service_cpus.as_deref(), self.observer_cpus.as_deref())?;
         Ok(())
+    }
+
+    pub fn bundle_manifest_path(&self) -> PathBuf {
+        self.bundle.join(if self.engine == "r1-fused" {
+            "arch.json"
+        } else {
+            "manifest.json"
+        })
     }
 }
 
