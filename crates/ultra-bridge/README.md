@@ -88,9 +88,15 @@ This first fused path uses one ready chunk per stream per engine step
 (`max_chunks = 1`), the declared greedy rule and the same controlled-EOF ledger,
 audio digest checks and complete-workload accounting. ISA dispatch and effective
 configuration are recorded in `load.json`. The engine library supplies all model
-arithmetic. Other thread counts and INT8 are currently rejected explicitly;
-prepared INT8 weights need their own load contract and quality/parity gates.
-No export or weight quantization runs inside the measured FP32 service.
+arithmetic. Other thread counts are rejected explicitly. For `precision: int8`,
+first run `ultra-engine-prepare --weights FP32_BUNDLE --out FRESH_BUNDLE` outside
+measurement, then supply that prepared directory as `bundle`. The service refuses
+unprepared INT8 weights and never calls the weight quantizer. The loader checks
+the packed artifact, layout and source FP32 identity; `load.json` records its
+actual hash and kinds retained in FP32. Linear weights and centered per-row
+dynamic activations use INT8; remaining arithmetic and the decoder remain FP32.
+Consumer parity, precision quality and profile gates remain separate. No export
+or weight quantization runs inside either measured service.
 
 Prepare fresh fused weights before measurement with the existing guarded export
 wrapper. Its job accepts `export_format: fused-fp32`, `checkpoint`, `source_bundle`

@@ -244,8 +244,8 @@ impl Job {
             "unsupported precision",
         )?;
         require(
-            self.engine != "r1-fused" || (self.precision == "fp32" && self.threads == 1),
-            "r1-fused currently requires prepared FP32 weights and one inference thread",
+            self.engine != "r1-fused" || self.threads == 1,
+            "r1-fused requires one inference thread",
         )?;
         require(
             self.engine != "r1-bridge"

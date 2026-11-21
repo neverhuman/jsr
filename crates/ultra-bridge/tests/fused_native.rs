@@ -134,7 +134,10 @@ fn admission_checks_bpe_paths_cmvn_and_effective_settings() {
     f.write_arch(&original);
     let mut p = plan(&f.0);
     p.job.precision = "int8".into();
-    assert!(p.job.validate().is_err());
+    assert!(
+        p.job.validate().is_ok(),
+        "prepared INT8 is an admitted setting"
+    );
     p.job.precision = "fp32".into();
     p.job.threads = 2;
     assert!(p.job.validate().is_err());
@@ -262,4 +265,111 @@ fn complete_fused_service_reproduces_eight_retained_learned_texts() {
     assert_eq!(result["complete"], true);
     assert_eq!(result["unfinished_samples"], 0);
     assert_eq!(result["completed"], 8);
+}
+
+fn run_packets(
+    engine: &mut Engine,
+    audio: &[Vec<i16>],
+    batch: usize,
+    packet_samples: usize,
+) -> Vec<String> {
+    let mut texts = vec![String::new(); audio.len()];
+    for (group, pcm) in audio.chunks(batch).enumerate() {
+        let mut offsets = vec![0; pcm.len()];
+        while offsets.iter().zip(pcm).any(|(a, p)| *a < p.len()) {
+            let packets: Vec<_> = pcm
+                .iter()
+                .enumerate()
+                .filter_map(|(i, samples)| {
+                    let start = offsets[i];
+                    if start == samples.len() {
+                        return None;
+                    }
+                    let end = (start + packet_samples).min(samples.len());
+                    offsets[i] = end;
+                    Some(Packet {
+                        id: (group * batch + i).to_string(),
+                        offset: start as u64,
+                        pcm: samples[start..end].to_vec(),
+                        start: start == 0,
+                        finish: end == samples.len(),
+                    })
+                })
+                .collect();
+            let rows = engine.step(&packets).expect("prepared INT8 packet step");
+            validate_batch(&packets, &rows).expect("prepared observation contract");
+            for row in rows {
+                if row.terminal {
+                    assert!(row.drained && row.pcm_sha256.is_some());
+                    let index = row.id.parse::<usize>().expect("fixture instance ID");
+                    texts[index] = row.hyp;
+                } else {
+                    assert_eq!(row.processed_samples, 0);
+                }
+            }
+        }
+    }
+    texts
+}
+
+#[test]
+fn prepared_int8_refuses_runtime_weight_quantization_and_is_batch_packet_invariant() {
+    let data = PathBuf::from(
+        std::env::var("JSR_DATA").unwrap_or_else(|_| "/mnt/xbabe3-external/jsr".into()),
+    );
+    let fp32 = data.join("runs/engine/weights-r1-d1-ckpt7800-v3");
+    let prepared = data.join("runs/engine/weights-r1-d1-ckpt7800-v3-int8prep-723da8f");
+    let cache = data.join("cache/librispeech_pcm/dev-clean.npz");
+    if !fp32.join("arch.json").is_file()
+        || !prepared.join("arch.json").is_file()
+        || !cache.is_file()
+    {
+        assert!(
+            std::env::var_os("ULTRA_REQUIRE_NATIVE_TESTS").is_none(),
+            "prepared INT8 fixture missing"
+        );
+        eprintln!("SKIPPED prepared INT8 fixture: retained bundle/audio missing");
+        return;
+    }
+    let mut unprepared = plan(&fp32);
+    unprepared.job.precision = "int8".into();
+    assert!(Engine::load(&unprepared)
+        .err()
+        .expect("unprepared service refused")
+        .to_string()
+        .contains("requires prepared"));
+
+    let mut p = plan(&prepared);
+    p.job.precision = "int8".into();
+    let (mut engine, info) = Engine::load(&p).expect("strict prepared INT8 load");
+    let arch: serde_json::Value =
+        ultra_bridge::records::read_json(&prepared.join("arch.json")).expect("prepared manifest");
+    assert_eq!(info["precision"], "int8");
+    assert_eq!(info["int8_source"], "prepared");
+    assert_eq!(info["runtime_weight_quantization"], false);
+    assert_eq!(
+        info["weights_int8_sha256"],
+        arch["files"]["weights_int8"]["sha256"]
+    );
+    assert_eq!(info["int8_fp32_kinds"], arch["int8"]["fp32_kinds"]);
+    let sources =
+        ultra_frontend::npz::load_npz_audio_only(&cache, 0, Some(8)).expect("audio-only fixture");
+    assert_eq!(sources.len(), 8);
+    let audio: Vec<_> = (0..32)
+        .map(|i| {
+            let pcm = &sources[i % 8].pcm;
+            pcm[..pcm.len().min(16_000 + i * 317)].to_vec()
+        })
+        .collect();
+    let reference = run_packets(&mut engine, &audio, 1, 320);
+    for batch in [3, 5, 16, 32] {
+        for packet in [160, 592] {
+            assert_eq!(
+                run_packets(&mut engine, &audio, batch, packet),
+                reference,
+                "prepared INT8 drift: batch={batch}, packet_samples={packet}"
+            );
+        }
+    }
+    engine.shutdown().expect("all prepared streams drained");
 }

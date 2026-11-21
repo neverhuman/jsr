@@ -38,7 +38,13 @@ impl NativeFused {
         )?;
         let started = Instant::now();
         let model = crate::fused_bundle::load(&plan.job.bundle, &plan.bundle_manifest_sha256)?;
-        let engine = Engine::new(Arc::new(model), Isa::detect(), Precision::F32)?;
+        let precision = Precision::parse(&plan.job.precision)?;
+        let prepared = model.int8_prepared.clone();
+        require(
+            precision != Precision::Int8 || prepared.is_some(),
+            "fused INT8 requires prepared weights.int8.safetensors; run ultra-engine-prepare before service",
+        )?;
+        let engine = Engine::new(Arc::new(model), Isa::detect(), precision)?;
         require(
             ultra_stream::sherpa_ffi::verify_cpu_only_process(),
             "fused CPU-only check failed",
@@ -48,7 +54,14 @@ impl NativeFused {
             "bundle_schema": "ultra.r1-weights/v1",
             "checkpoint_sha256": engine.model.arch.checkpoint_sha256,
             "weights_sha256": engine.model.arch.weights_sha256,
-            "precision": "fp32", "isa": engine.isa.name(), "max_chunks": 1,
+            "precision": engine.precision.as_str(), "isa": engine.isa.name(), "max_chunks": 1,
+            "int8_source": if precision == Precision::Int8 { "prepared" } else { "not selected" },
+            "weights_int8_sha256": prepared.as_ref().map(|p| p.sha256.as_str()),
+            "int8_fp32_kinds": prepared.as_ref().map(|p| &p.fp32_kinds),
+            "precision_scope": if precision == Precision::Int8 {
+                "prepared linear weights and per-row centered dynamic activations; remaining arithmetic FP32"
+            } else { "FP32" },
+            "decoder_precision": "fp32",
             "chunk_frames": engine.model.arch.chunk,
             "left_context_frames": engine.model.arch.left,
             "decoder_context": 2, "blank_id": engine.model.arch.blank,
@@ -59,7 +72,7 @@ impl NativeFused {
             "runtime_libraries": crate::records::mapped_runtime_libraries()?,
             "load_s": started.elapsed().as_secs_f64(), "tail_pad_s": 0.0,
             "endpoint": "controlled_eof", "processing_watermark": "conservative EOF drain only",
-            "qualification": "experimental; FP32 parity and profile gates remain separate"
+            "qualification": "experimental; consumer parity, precision quality and profile gates remain separate"
         });
         Ok((
             Self {
