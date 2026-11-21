@@ -20,7 +20,7 @@ mod attention;
 mod int8;
 
 pub(crate) use attention::{attention_scores, attention_values};
-pub(crate) use int8::{gemm_i8_panels, quantize_row};
+pub(crate) use int8::{gemm_i8_panels, has_i8mm, quantize_row};
 
 /// Rows per fp32 GEMM register tile.
 const MR: usize = 4;

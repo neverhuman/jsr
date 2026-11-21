@@ -37,6 +37,9 @@ pub struct PackedI8 {
     /// Per-output-channel sum of dequantised weights (`scale * sum_k w_q`), padded.
     pub(crate) wsum: Vec<f32>,
     pub(crate) bias: Vec<f32>,
+    /// Optional second packing of the same codes for the aarch64 i8mm `smmla` kernel
+    /// (`[panel][k/8][col pair][2 cols][8 k]`); empty where unused.
+    pub(crate) mm: Vec<i8>,
 }
 
 impl PackedI8 {
@@ -111,7 +114,9 @@ impl PackedI8 {
             scale,
             wsum,
             bias: b,
+            mm: Vec::new(),
         }
+        .with_mm()
     }
 
     /// Rebuild from stored packed parts (a prepared int8 artifact), validating every length,
@@ -153,7 +158,41 @@ impl PackedI8 {
             scale: scale.to_vec(),
             wsum: wsum.to_vec(),
             bias: b,
-        })
+            mm: Vec::new(),
+        }
+        .with_mm())
+    }
+
+    /// Add the i8mm packing when this CPU runs the `smmla` kernel (aarch64 with i8mm and
+    /// K a multiple of 8). Same codes, different order: results are identical.
+    fn with_mm(mut self) -> Self {
+        if crate::kernels::wants_mm_packing() && self.kp.is_multiple_of(8) {
+            let (kp, panels) = (self.kp, self.panels());
+            let mut mm = vec![0i8; self.data.len()];
+            for p in 0..panels {
+                for kk in 0..kp {
+                    for j in 0..NR {
+                        let src = ((p * (kp / KG) + kk / KG) * NR + j) * KG + kk % KG;
+                        let dst = ((p * (kp / 8) + kk / 8) * (NR / 2) + j / 2) * 16
+                            + (j % 2) * 8
+                            + kk % 8;
+                        mm[dst] = self.data[src];
+                    }
+                }
+            }
+            self.mm = mm;
+        }
+        self
+    }
+
+    /// The i8mm packing of panel `p` (empty if not built).
+    #[cfg_attr(not(target_arch = "aarch64"), allow(dead_code))]
+    pub(crate) fn mm_panel(&self, p: usize) -> &[i8] {
+        if self.mm.is_empty() {
+            &[]
+        } else {
+            &self.mm[p * self.kp * NR..(p + 1) * self.kp * NR]
+        }
     }
 
     /// Packed codes, per-channel scales and weight sums (for writing a prepared artifact).

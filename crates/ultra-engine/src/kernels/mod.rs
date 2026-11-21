@@ -17,6 +17,18 @@ mod x86_avx2;
 /// 8 consecutive keys and a tile is 2 KiB of contiguous memory (dh = 64).
 pub const KT_TILE: usize = 8;
 
+/// Whether int8 weights should also carry the i8mm packing (aarch64 with `i8mm`).
+pub fn wants_mm_packing() -> bool {
+    #[cfg(target_arch = "aarch64")]
+    {
+        aarch64_neon::has_i8mm()
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        false
+    }
+}
+
 /// Index of key `slot`, dimension `e` in a tiled key cache of head width `dh`.
 #[inline]
 pub fn kt_index(slot: usize, e: usize, dh: usize) -> usize {
