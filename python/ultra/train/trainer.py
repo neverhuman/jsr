@@ -59,6 +59,7 @@ class TrainConfig:
     chunk: int = 0  # 0 = model default
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
+    speed_perturb: str = ""  # e.g. "0.9,1.0,1.1" (train batches only)
     weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
     extra: dict = field(default_factory=dict)
 
@@ -302,7 +303,9 @@ def main(argv=None) -> int:
         cfg.eval_each_epoch = False  # every step is an epoch here
     else:
         source = ParquetBatches(list(a.splits), feat, cfg.seed, cfg.budget_s, cfg.max_batch,
-                                cfg.max_seconds, workers=cfg.workers)
+                                cfg.max_seconds, workers=cfg.workers,
+                                speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
+                                                    if v.strip()))
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device)
     with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
@@ -322,7 +325,8 @@ def main(argv=None) -> int:
         import dataclasses
 
         src = ModelConfig.from_dict(p["model_config"])
-        if dataclasses.replace(src, qat="none") != dataclasses.replace(tr.model_cfg, qat="none"):
+        if dataclasses.replace(src, qat="none", qat_stem="none") != \
+                dataclasses.replace(tr.model_cfg, qat="none", qat_stem="none"):
             raise CheckpointError("--init-from checkpoint has a different model config")
         tr.model.load_state_dict(p["model"])
         tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],

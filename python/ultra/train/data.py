@@ -10,6 +10,7 @@ Only one window (a few hundred utterances) plus one prefetched window is held in
 """
 from __future__ import annotations
 
+import functools
 import glob
 import io
 import os
@@ -119,7 +120,8 @@ class ParquetBatches:
 
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
-                 parquet_root: str | None = None, workers: int = 4):
+                 parquet_root: str | None = None, workers: int = 4,
+                 speed_perturb: tuple[float, ...] = ()):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -137,6 +139,7 @@ class ParquetBatches:
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
         self.dropped_long = 0
+        self.speed_perturb = tuple(speed_perturb)
         self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
                          for f in self.files]
@@ -150,13 +153,31 @@ class ParquetBatches:
         sel = perm[window * self.window_groups:(window + 1) * self.window_groups]
         return [self.units[i] for i in sorted(sel)]
 
-    def _decode(self, row: dict) -> Example | None:
+    def _decode(self, row: dict, epoch: int = 0) -> Example | None:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
         if sr != 16000 or pcm.ndim != 1:
             raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
+        if self.speed_perturb:
+            pcm = self._perturb(pcm, row["id"], epoch)
         if len(pcm) / 16000.0 > self.max_seconds:
             return None
         return self.feat.example(row["id"], row["text"], pcm)
+
+    def _perturb(self, pcm: np.ndarray, uid: str, epoch: int) -> np.ndarray:
+        """Speed perturbation (tempo and pitch together, labels unchanged): resample by a
+        factor chosen per (seed, epoch, utterance), e.g. 0.9 / 1.0 / 1.1."""
+        import hashlib
+        from fractions import Fraction
+
+        from scipy.signal import resample_poly
+
+        h = hashlib.sha256(f"{self.seed}:{epoch}:{uid}".encode()).digest()
+        f = self.speed_perturb[h[0] % len(self.speed_perturb)]
+        if f == 1.0:
+            return pcm
+        r = Fraction(f).limit_denominator(100)  # output length = input length / f
+        y = resample_poly(pcm.astype(np.float32), r.denominator, r.numerator)
+        return np.clip(np.round(y), -32768, 32767).astype(np.int16)
 
     def _load_window(self, epoch: int, window: int) -> list[list[Example]]:
         rows: list[dict] = []
@@ -164,8 +185,8 @@ class ParquetBatches:
             t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
             rows.extend(t.to_pylist())
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
-        decoded = list(self._pool.map(self._decode, rows)) if self._pool else \
-            [self._decode(r) for r in rows]
+        dec = functools.partial(self._decode, epoch=epoch)
+        decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
         del rows
         self.dropped_long += sum(e is None for e in decoded)
         exs: list[Example] = [e for e in decoded if e is not None]

@@ -62,7 +62,12 @@ class ChunkEncoder(nn.Module):
         y = F.silu(st.c1(feats.unsqueeze(1)))  # layer-1 outputs s = 2 t0 - 2 + j
         s_idx = 2 * t0[:, None] - 2 + torch.arange(y.shape[2], device=feats.device)[None]
         y = y.masked_fill((s_idx < 0)[:, None, :, None], 0.0)  # layer-2 left padding is zeros
-        y = F.silu(st.c2(y))
+        if st.int8_qat:
+            from train.qat import int8_conv2d_as_gemm
+
+            y = F.silu(int8_conv2d_as_gemm(y, st.c2))
+        else:
+            y = F.silu(st.c2(y))
         b, ch, t, f = y.shape
         if t != n:
             raise ShapeError(f"stem produced {t} frames, expected {n}")
