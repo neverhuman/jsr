@@ -59,7 +59,7 @@ Until then, any row produced is exploratory.
   - Observer CPU is reported separately.
 
 ## 4. Protocol (qualifying window, G6)
-1. **Quiet host:** H0, all GPU training finished, other lanes paused, load recorded before and after. Announce in AGENT_CHAT at least 1 h ahead, take `BENCH_LEASE.host`, and get acks.
+1. **Quiet host:** **xbabe2** (owner decision 2026-11-21; same 3995WX SKU as H0, recorded as a deviation in DECISIONS.md). The owner pauses other projects' jobs and JSR pauses its own xbabe2 GPU job for the window; other lanes paused, load recorded before and after. Announce in AGENT_CHAT at least 1 h ahead, take `BENCH_LEASE.host`, and get acks.
    - `bench-suite --qualified` must pass its pre-flight: lease, freeze-tag ancestry, clean build, pinned identities.
 2. **Quality, one read each, logged in LOOKS.jsonl first:**
    - PUBLIC-TEST test-clean/other and the sealed OOD sets (VoxPopuli EN, AMI IHM), for all systems.

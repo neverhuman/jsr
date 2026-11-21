@@ -18,7 +18,7 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 | dev-other | **19.60%** |
 
 - **Other runs:**
-  - multirate S_MR (D2MR): 11.07% dev-clean at step 49.5k, epoch 5;
+  - multirate S_MR (D2MR, final 50k, epoch 5): 11.09% full dev-clean / 22.90% full dev-other;
   - S_MR with int8 stem (D3MRb): 15.0% at step 20k, epoch 2 (stopped by the divergence guard; fixed as D3MRc);
   - ternary S_MR (R4T, 100 h): 17.98%;
   - larger M_MR (D4M): early.
