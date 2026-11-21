@@ -26,6 +26,9 @@ pub(super) struct RawInt8 {
     pub(super) layout: String,
     pub(super) source_weights_sha256: String,
     pub(super) fp32_kinds: Vec<String>,
+    /// `"ternary"`: every code is in {-1, 0, 1} (R4 ternary weights).
+    #[serde(default)]
+    pub(super) codes: Option<String>,
 }
 
 #[derive(Deserialize)]

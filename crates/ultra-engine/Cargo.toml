@@ -10,6 +10,7 @@ repository.workspace = true
 ultra-core = { path = "../ultra-core" }
 ultra-frontend = { path = "../ultra-frontend" }
 ultra-gp = { path = "../ultra-gp" }
+ultra-kernels = { path = "../ultra-kernels" }
 ultra-eval = { path = "../ultra-eval", optional = true }
 serde.workspace = true
 serde_json.workspace = true

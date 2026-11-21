@@ -205,3 +205,52 @@ fn unavailable_backend_is_an_error_not_a_crash() {
     }
     eprintln!("available backends: {:?}", Backend::available());
 }
+
+#[test]
+fn tlut2_signed_matches_scalar_and_split_a7() {
+    use ultra_kernels::{scalar, Backend, Frames, Gemv, TLut2Matrix};
+    let (rows, din, frames) = (70usize, 197usize, 5usize);
+    let mut seed = 3u64;
+    let mut rnd = || {
+        seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        (seed >> 33) as i64
+    };
+    let trits: Vec<i8> = (0..rows * din).map(|_| (rnd() % 3) as i8 - 1).collect();
+    let m = TLut2Matrix::from_trits(rows, din, &trits).expect("tlut2");
+    let mut x: Vec<i8> = (0..frames * din)
+        .map(|_| (rnd() % 255 - 127) as i8)
+        .collect();
+    x[0] = 127;
+    x[1] = -127;
+    let mut want = vec![0i32; rows * frames];
+    scalar::gemv_tlut2_signed(m.view(), &x, frames, &mut want);
+    // Equal to the exact dot products and to the two-pass A7 split.
+    for r in 0..rows {
+        for f in 0..frames {
+            let d: i32 = (0..din)
+                .map(|j| i32::from(trits[r * din + j]) * i32::from(x[f * din + j]))
+                .sum();
+            assert_eq!(want[r * frames + f], d);
+        }
+    }
+    let pos: Vec<u8> = x.iter().map(|&v| v.max(0) as u8).collect();
+    let neg: Vec<u8> = x.iter().map(|&v| (-v).max(0) as u8).collect();
+    for b in Backend::available() {
+        let mut got = vec![0i32; rows * frames];
+        m.view().gemv_signed(b, &x, &mut got).expect("signed");
+        assert_eq!(got, want, "{b:?}");
+        let (mut p, mut n) = (vec![0i32; rows * frames], vec![0i32; rows * frames]);
+        m.view()
+            .gemv(b, &Frames::new(&pos, din).expect("pos"), &mut p)
+            .expect("p");
+        m.view()
+            .gemv(b, &Frames::new(&neg, din).expect("neg"), &mut n)
+            .expect("n");
+        let split: Vec<i32> = p.iter().zip(&n).map(|(a, c)| a - c).collect();
+        assert_eq!(split, want, "{b:?} split");
+    }
+    assert!(m
+        .view()
+        .gemv_signed(Backend::Scalar, &[i8::MIN; 197], &mut vec![0; rows])
+        .is_err());
+}

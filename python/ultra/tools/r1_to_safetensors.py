@@ -73,14 +73,18 @@ def git_commit() -> str:
 
 
 def write_safetensors(path: str, tensors: dict[str, np.ndarray], metadata: dict[str, str]) -> None:
-    """Little-endian F32 safetensors writer (spec: u64 header length, JSON header, raw bytes)."""
+    """Little-endian F32 (int8 arrays as I8) safetensors writer (spec: u64 header length, JSON header, raw bytes)."""
     header: dict = {"__metadata__": metadata}
     off = 0
     blobs = []
     for name in sorted(tensors):
-        a = np.ascontiguousarray(tensors[name], dtype="<f4")
-        nbytes = a.size * 4
-        header[name] = {"dtype": "F32", "shape": list(a.shape), "data_offsets": [off, off + nbytes]}
+        src = tensors[name]
+        if src.dtype == np.int8:
+            a, dt = np.ascontiguousarray(src), "I8"
+        else:
+            a, dt = np.ascontiguousarray(src, dtype="<f4"), "F32"
+        nbytes = a.nbytes
+        header[name] = {"dtype": dt, "shape": list(a.shape), "data_offsets": [off, off + nbytes]}
         blobs.append(a)
         off += nbytes
     hj = json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
@@ -348,6 +352,10 @@ def main() -> None:
     cv.add_argument("--checkpoint", required=True)
     cv.add_argument("--out", required=True)
     cv.add_argument("--bundle", default=None)
+    tn = sub.add_parser("ternary")
+    tn.add_argument("--bundle", required=True)
+    tn.add_argument("--assets", required=True)
+    tn.add_argument("--out", required=True)
     rf = sub.add_parser("reference")
     rf.add_argument("--checkpoint", required=True)
     rf.add_argument("--out", required=True)
@@ -358,6 +366,10 @@ def main() -> None:
     if a.cmd == "convert":
         arch = convert(a.checkpoint, a.out, a.bundle)
         print(json.dumps({"out": a.out, "files": arch["files"], "source": arch["source"]}, indent=1))
+    elif a.cmd == "ternary":
+        from r1_ternary import ternary
+
+        print(json.dumps(ternary(a.bundle, a.assets, a.out), indent=1))
     else:
         print(json.dumps(reference(a.checkpoint, a.out, a.split, a.limit, a.start), indent=1))
 

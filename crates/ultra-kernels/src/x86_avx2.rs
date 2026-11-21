@@ -41,6 +41,17 @@ pub(crate) fn gemv_tlut2(m: TLut2View<'_>, x: &Frames<'_>, out: &mut [i32]) {
     unsafe { gemv_tlut2_avx2(m, x, out) }
 }
 
+/// T-LUT2 with prebuilt per-frame tables (`f_n` frames), e.g. from signed activations.
+pub(crate) fn gemv_tlut2_tables(
+    m: TLut2View<'_>,
+    tables: &[[u8; 16]],
+    f_n: usize,
+    out: &mut [i32],
+) {
+    // SAFETY: only called after Backend::require() confirmed AVX2 (module docs).
+    unsafe { gemv_tlut2_tables_avx2(m, tables, f_n, out) }
+}
+
 /// Horizontal sum of eight i32 lanes.
 #[target_feature(enable = "avx2")]
 fn hsum(v: __m256i) -> i32 {
@@ -168,9 +179,15 @@ fn gemv_t1_avx2(m: T1View<'_>, x: &Frames<'_>, out: &mut [i32]) {
 
 #[target_feature(enable = "avx2")]
 fn gemv_tlut2_avx2(m: TLut2View<'_>, x: &Frames<'_>, out: &mut [i32]) {
-    let (f_n, quads, rows) = (x.count(), m.quads(), m.rows());
+    let tables = build_tables(x, m.quads());
+    gemv_tlut2_tables_avx2(m, &tables, x.count(), out);
+}
+
+#[target_feature(enable = "avx2")]
+fn gemv_tlut2_tables_avx2(m: TLut2View<'_>, tables: &[[u8; 16]], f_n: usize, out: &mut [i32]) {
+    let (quads, rows) = (m.quads(), m.rows());
     let pairs = 2 * quads;
-    let tables = build_tables(x, quads);
+    assert!(tables.len() >= 2 * pairs * f_n && out.len() >= rows * f_n);
     let per_block = quads * TLUT2_BLOCK;
     let mut res = [0i32; TLUT2_BLOCK];
     for (blk, idx) in m.image().chunks_exact(per_block).enumerate() {

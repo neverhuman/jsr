@@ -17,6 +17,9 @@
 
 use crate::kernels::{Isa, PackedF32, NR};
 
+mod ternary;
+pub use ternary::{linear_t, PackedT};
+
 /// Largest K whose worst-case int32 sum cannot overflow, even for public callers passing
 /// activation code -128 to `gemm_i8` (|a| <= 128, |w| <= 127).
 pub const MAX_K: usize = (i32::MAX as usize) / (128 * 127) / KG * KG;
@@ -252,6 +255,8 @@ pub struct QuantScratch {
     pub center: Vec<f32>,
     /// 7-bit activation codes (|q| <= 63) and the paired-accumulation kernel.
     pub act7: bool,
+    /// T-LUT2 int32 outputs (weight-row major).
+    pub acc: Vec<i32>,
     /// Optional panel split of int8 GEMMs across a pool (single-stream latency mode).
     pub split: Option<(
         std::sync::Arc<crate::pool::GemmPool>,

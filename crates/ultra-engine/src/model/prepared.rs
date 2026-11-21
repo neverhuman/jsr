@@ -24,6 +24,8 @@ pub const INT8_LAYOUT: &str =
 pub struct PreparedInt8 {
     pub sha256: String,
     pub fp32_kinds: Vec<String>,
+    /// Codes are ternary (R4): `"ternary"`, else `None`.
+    pub codes: Option<String>,
 }
 
 fn name(kind: &str, blk: Option<usize>) -> String {
@@ -75,14 +77,11 @@ impl Model {
             let q = st.i8(&format!("{nm}.q"), &[panels * kp * crate::kernels::NR])?;
             let scale = st.f32(&format!("{nm}.scale"), &[panels * crate::kernels::NR])?;
             let wsum = st.f32(&format!("{nm}.wsum"), &[panels * crate::kernels::NR])?;
-            lin.q = Some(PackedI8::from_parts(
-                n,
-                k,
-                q,
-                &scale,
-                &wsum,
-                &lin.f.bias[..n],
-            )?);
+            let packed = PackedI8::from_parts(n, k, q, &scale, &wsum, &lin.f.bias[..n])?;
+            if raw.codes.as_deref() == Some("ternary") {
+                lin.t = crate::quant::PackedT::from_ternary_codes(&packed)?;
+            }
+            lin.q = Some(packed);
             used += 3;
         }
         if used != st.len() {
@@ -93,6 +92,7 @@ impl Model {
         self.int8_prepared = Some(PreparedInt8 {
             sha256: sha,
             fp32_kinds,
+            codes: raw.codes.clone(),
         });
         Ok(())
     }
