@@ -31,5 +31,6 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H9](H9_960h_training_and_divergence/README.md) | 960 h training, divergence and the qkv cap | ongoing | D2 dense 9.99% dev-clean; D3 runs diverged (qkv runaway) → cap + guards |
 | [H10](H10_benchmark_methodology_review/README.md) | Independent methodology review → FREEZE | ongoing | 7 blocking findings; the cross-harness density claim was retracted; FREEZE rewritten |
 | [H11](H11_cross_isa_portable_logmel/README.md) | Cross-ISA bit-exact portable log-mel (G4) | EXPLORATORY | **7,300/7,300 (100%)** identical PCM→tokens x86 AVX2 == M3 NEON across 5 models × FP32/INT8 (R4T 636→730/730); 5/5 INT8 gates PASS |
+| [H12](H12_accuracy_diagnostics/README.md) | Accuracy diagnostics: MR padding fix, D2 error sources | EXPLORATORY | MR pad-before-pair fixed; D2MR impact ≤0.03 pp (no fine-tune). D2: beam 4 −0.65/−1.63 pp (search error); untrained chunk 16 −0.39/−0.90; no length or final-word effect; last-3 average −0.41/−1.64 (panel); k2 pruned loss exact vs ours (≤1e-13), 10× faster loss on CPU |
 
-Next wave: **H12**.
+Next wave: **H13**.
