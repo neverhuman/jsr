@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+cd /home/ubuntu/jsr/.agent/worktrees/trainer/python/ultra || exit 1
+CUDA_VISIBLE_DEVICES="" PYTHONPATH=/mnt/xbabe3-external/jsr/venvs/torch270-cpu taskset -c 12-15,76-79 nice -n 10 ../../.venv/bin/python -m train.evaluate --run-dir /mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100_copy --checkpoint /mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100_copy/ckpt-00012000.pt --split dev-clean --limit 400 --max-symbols 8 --threads 6 --dump /mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100_copy/export_r4t/ref_dev400_torch_fakequant.jsonl > /mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100_copy/export_r4t/ref_dev400_summary.json 2>/dev/null

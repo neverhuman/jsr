@@ -71,15 +71,22 @@ class Position:
         return {"epoch": self.epoch, "window": self.window, "batch": self.batch}
 
 
-def collate(exs: list[Example]) -> Batch:
+def _round_up(n: int, m: int) -> int:
+    return n if m <= 1 else (n + m - 1) // m * m
+
+
+def collate(exs: list[Example], pad_frames: int = 0, pad_tokens: int = 0) -> Batch:
+    """Pad to the longest example; with pad_frames / pad_tokens > 1 the time and target axes are
+    rounded up to those multiples, so a shape-specialising backend (Apple MPS) sees few distinct
+    shapes. Lengths are unchanged, so the extra padding is masked everywhere."""
     def pad(seqs, dtype):
-        n = max(1, max(len(s) for s in seqs))
+        n = _round_up(max(1, max(len(s) for s in seqs)), pad_tokens)
         out = torch.zeros(len(seqs), n, dtype=dtype)
         for i, s in enumerate(seqs):
             out[i, :len(s)] = torch.as_tensor(s, dtype=dtype)
         return out
 
-    T = max(e.feats.shape[0] for e in exs)
+    T = _round_up(max(e.feats.shape[0] for e in exs), pad_frames)
     feats = torch.zeros(len(exs), T, exs[0].feats.shape[1])
     for i, e in enumerate(exs):
         feats[i, :e.feats.shape[0]] = e.feats
@@ -121,7 +128,8 @@ class ParquetBatches:
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
                  parquet_root: str | None = None, workers: int = 4,
-                 speed_perturb: tuple[float, ...] = ()):
+                 speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
+                 pad_tokens: int = 0):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -140,6 +148,7 @@ class ParquetBatches:
         self.window_groups = window_groups
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
+        self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
         self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
                          for f in self.files]
@@ -192,6 +201,8 @@ class ParquetBatches:
         exs: list[Example] = [e for e in decoded if e is not None]
         rng = np.random.default_rng([self.seed, epoch, window])
         dur = [e.seconds * (1.0 + 0.05 * rng.random()) for e in exs]
+        if self.pad_frames > 1:  # pack on the padded length the batch will really have
+            dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
         groups = pack(dur, self.budget_s, self.max_batch)
         rng.shuffle(groups)
         return [[exs[i] for i in g] for g in groups]
@@ -231,7 +242,7 @@ class ParquetBatches:
                 first = False
                 for bi in range(skip, len(batches)):
                     nxt = Position(ep, w, bi + 1)
-                    yield nxt, collate(batches[bi])
+                    yield nxt, collate(batches[bi], self.pad_frames, self.pad_tokens)
         finally:
             stop.set()
 

@@ -20,35 +20,45 @@ from train.data import Featurizer, collate
 from train.tokenizer import Tokenizer, tokenizer_path
 
 
+PANEL_SCHEMA = "ultra.dev-panel/v1"
+
+
 def panel_utts(path: str, only: str | None = None):
-    """Utterances of a DEV panel file, from the dev-clean / dev-other caches (all uids must exist)."""
-    from ultra.libri import load_split
+    """Utterances of an `ultra.dev-panel/v1` panel (python/ultra/tools/dev_panel.py), verified:
+    the manifest sha256 is recomputed exactly as the tool writes it (sha256 of the panel without
+    `manifest_sha256`, json.dumps(indent=1, sort_keys=True)); each split must be a `dev-*` split
+    whose cache file hashes to the recorded `cache_sha256`; every uid must exist in its cache."""
+    import hashlib
+
+    from ultra import libri
 
     with open(path) as fh:
         spec = json.load(fh)
-    wanted: dict[str, set[str] | None] = {}
-    if isinstance(spec, dict) and "splits" in spec:
-        for sp in spec["splits"]:
-            wanted.setdefault(sp["split"], set()).update(sp["uids"])
-    elif isinstance(spec, dict) and "utterances" in spec:
-        for u in spec["utterances"]:
-            wanted.setdefault(u.get("split", "dev-clean"), set()).add(u["uid"])
-    elif isinstance(spec, dict):
-        wanted = {k: set(v) for k, v in spec.items() if k.startswith("dev-")}
-    else:
-        ids = set(spec)
-        wanted = {"dev-clean": ids, "dev-other": ids}
-    if only is not None:
-        wanted = {only: wanted[only]}
-    out, found = [], set()
-    for split, ids in wanted.items():
-        for u in load_split(split):
-            if u.uid in ids:
-                out.append(u)
-                found.add(u.uid)
-    missing = set().union(*wanted.values()) - found
-    if missing and not (isinstance(spec, list)):
-        raise ValueError(f"{len(missing)} panel uids not found, e.g. {sorted(missing)[:3]}")
+    if not isinstance(spec, dict) or spec.get("schema") != PANEL_SCHEMA:
+        raise ValueError(f"panel schema must be {PANEL_SCHEMA}")
+    body = {k: v for k, v in spec.items() if k != "manifest_sha256"}
+    digest = hashlib.sha256(json.dumps(body, indent=1, sort_keys=True).encode()).hexdigest()
+    if digest != spec.get("manifest_sha256"):
+        raise ValueError(f"panel manifest_sha256 mismatch: {digest} != {spec.get('manifest_sha256')}")
+    out = []
+    for sp in spec["splits"]:
+        split = sp["split"]
+        if not split.startswith("dev-"):
+            raise ValueError(f"panel split {split!r} refused: only dev-* splits may select")
+        if only is not None and split != only:
+            continue
+        cache = os.path.join(libri.CACHE, f"{split}.npz")
+        with open(cache, "rb") as fh:
+            got = hashlib.sha256(fh.read()).hexdigest()
+        if got != sp["cache_sha256"]:
+            raise ValueError(f"{split} cache sha256 {got} != panel {sp['cache_sha256']}")
+        ids = set(sp["uids"])
+        chosen = [u for u in libri.load_split(split) if u.uid in ids]
+        if len(chosen) != len(ids):
+            raise ValueError(f"{split}: {len(ids) - len(chosen)} panel uids missing from the cache")
+        out.extend(chosen)
+    if only is not None and not out:
+        raise ValueError(f"panel has no split {only!r}")
     return out
 
 
@@ -65,9 +75,8 @@ def main() -> None:
     ap.add_argument("--limit-all", action="store_true", help="evaluate the whole split")
     ap.add_argument("--dump", default=None, help="write per-utterance JSON lines (uid, ref, hyp)")
     ap.add_argument("--panel", default=None,
-                    help="JSON panel of utterances to score instead of --split/--limit: "
-                         "ultra.dev-panel/v1 ({\"splits\": [{\"split\", \"uids\"}]}), a list of "
-                         "uids, {split: [uids]}, or {\"utterances\": [{\"uid\", \"split\"}]}")
+                    help="ultra.dev-panel/v1 panel to score instead of --split/--limit "
+                         "(manifest and cache hashes verified; dev-* splits only)")
     ap.add_argument("--panel-split", default=None, help="score only this split of the panel")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)

@@ -54,6 +54,10 @@ PRESETS = {
     "S_MR_I8S": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
                                                   lower_blocks=4, middle_blocks=10,
                                                   final_blocks=2), qat_stem="int8"),
+    # D4M: M-width multirate (d 512, 8 heads x 64, same 4/10/2 layout as S_MR), ~102M params.
+    "M_MR": ModelConfig(encoder=EncoderConfig(d_model=512, n_heads=8, post_block_norm=False,
+                                              family="multirate", lower_blocks=4,
+                                              middle_blocks=10, final_blocks=2)),
     # The configuration of the first D1 attempt (collapsed); kept loadable.
     "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.
