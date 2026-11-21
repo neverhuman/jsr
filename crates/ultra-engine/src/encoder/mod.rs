@@ -84,12 +84,24 @@ impl GroupCache {
     }
 }
 
-/// Per-stream encoder caches.
+/// Per-stream encoder caches. The 25 Hz group (every block of a dense model; lower + final
+/// blocks of a multirate model) is stored inline with the field names of the dense layout;
+/// a multirate model adds the 12.5 Hz middle group in `gmid`.
 #[derive(Debug, Clone)]
 pub struct EncState {
     /// Absolute index of the next 25 Hz encoder frame.
     pub t: usize,
-    pub g25: GroupCache,
+    /// Valid 25 Hz attention cache entries (saturates at `left`).
+    pub kv_len: usize,
+    /// 25 Hz ring slots per layer and head (a multiple of 8, at least left + one step).
+    pub ring: usize,
+    /// 25 Hz keys `[layer][head][ring / 8][dh][8]`, values `[layer][head][ring][dh]`,
+    /// depthwise history `[layer][kernel-1][d]` (see [`GroupCache`]).
+    pub k: Vec<f32>,
+    pub v: Vec<f32>,
+    pub conv: Vec<f32>,
+    left: usize,
+    chunk: usize,
     /// Multirate only: the 12.5 Hz middle blocks.
     pub gmid: Option<GroupCache>,
 }
@@ -98,9 +110,16 @@ impl EncState {
     /// Caches for steps of up to `max_chunks` chunks.
     pub fn new(m: &Model, max_chunks: usize) -> Self {
         let a = &m.arch;
+        let g = GroupCache::new(m, a.lower + a.fin, a.left, a.chunk, max_chunks);
         Self {
             t: 0,
-            g25: GroupCache::new(m, a.lower + a.fin, a.left, a.chunk, max_chunks),
+            kv_len: 0,
+            ring: g.ring,
+            k: g.k,
+            v: g.v,
+            conv: g.conv,
+            left: g.left,
+            chunk: g.chunk,
             gmid: (a.mid > 0)
                 .then(|| GroupCache::new(m, a.mid, a.left / 2, a.chunk / 2, max_chunks)),
         }
@@ -108,15 +127,61 @@ impl EncState {
 
     /// Most frames one step may carry (cache capacity).
     pub fn max_step_frames(&self) -> usize {
-        (self.g25.ring - self.g25.left) / self.g25.chunk * self.g25.chunk
+        (self.ring - self.left) / self.chunk * self.chunk
+    }
+
+    /// Bytes held by every cache buffer (both rate groups).
+    pub fn retained_bytes(&self) -> usize {
+        let g = self
+            .gmid
+            .as_ref()
+            .map_or(0, |g| g.k.capacity() + g.v.capacity() + g.conv.capacity());
+        4 * (self.k.capacity() + self.v.capacity() + self.conv.capacity() + g)
+    }
+
+    fn view25(&mut self, n: usize) -> View<'_> {
+        View {
+            pos: self.t,
+            n,
+            kv_len: self.kv_len,
+            left: self.left,
+            chunk: self.chunk,
+            ring: self.ring,
+            k: &mut self.k,
+            v: &mut self.v,
+            conv: &mut self.conv,
+        }
     }
 }
 
-/// One stream's rows in one rate group: `n` rows from position `pos` at that rate.
+impl GroupCache {
+    fn view(&mut self, pos: usize, n: usize) -> View<'_> {
+        View {
+            pos,
+            n,
+            kv_len: self.kv_len,
+            left: self.left,
+            chunk: self.chunk,
+            ring: self.ring,
+            k: &mut self.k,
+            v: &mut self.v,
+            conv: &mut self.conv,
+        }
+    }
+}
+
+/// One stream's rows in one rate group: `n` rows from position `pos` at that rate, with
+/// that group's cache geometry and buffers.
 pub(crate) struct View<'a> {
     pos: usize,
     n: usize,
-    g: &'a mut GroupCache,
+    kv_len: usize,
+    left: usize,
+    chunk: usize,
+    ring: usize,
+    k: &'a mut [f32],
+    v: &'a mut [f32],
+    conv: &'a mut [f32],
 }
 
 /// One stream's step: `n` frames from `state.t` (one or more consecutive chunks; every
@@ -223,14 +288,7 @@ pub fn encode_chunk(
     emit(&mut tap, &ws.x[..rows * d], d);
     // 25 Hz lower blocks (every block of a dense model).
     for li in 0..a.lower {
-        let mut views: Vec<View<'_>> = jobs
-            .iter_mut()
-            .map(|j| View {
-                pos: j.state.t,
-                n: j.n,
-                g: &mut j.state.g25,
-            })
-            .collect();
+        let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
         block::block(m, isa, prec, &m.blocks[li], li, &mut views, ws, rows);
         emit(&mut tap, &ws.x[..rows * d], d);
     }
@@ -261,10 +319,10 @@ pub fn encode_chunk(
         for li in 0..a.mid {
             let mut views: Vec<View<'_>> = jobs
                 .iter_mut()
-                .map(|j| View {
-                    pos: j.state.t / 2,
-                    n: j.n.div_ceil(2),
-                    g: j.state.gmid.as_mut().expect("checked above"),
+                .map(|j| {
+                    let pos = j.state.t / 2;
+                    let g = j.state.gmid.as_mut().expect("checked above");
+                    g.view(pos, j.n.div_ceil(2))
                 })
                 .collect();
             block::block(
@@ -299,14 +357,7 @@ pub fn encode_chunk(
             rm += j.n.div_ceil(2);
         }
         for li in 0..a.fin {
-            let mut views: Vec<View<'_>> = jobs
-                .iter_mut()
-                .map(|j| View {
-                    pos: j.state.t,
-                    n: j.n,
-                    g: &mut j.state.g25,
-                })
-                .collect();
+            let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
             let b = &m.blocks[a.lower + a.mid + li];
             block::block(m, isa, prec, b, a.lower + li, &mut views, ws, rows);
             emit(&mut tap, &ws.x[..rows * d], d);
@@ -328,7 +379,7 @@ pub fn encode_chunk(
     for j in jobs.iter_mut() {
         let st = &mut *j.state;
         st.t += j.n;
-        st.g25.kv_len = (st.g25.kv_len + j.n).min(st.g25.left);
+        st.kv_len = (st.kv_len + j.n).min(st.left);
         if let Some(g) = st.gmid.as_mut() {
             g.kv_len = (g.kv_len + j.n.div_ceil(2)).min(g.left);
         }

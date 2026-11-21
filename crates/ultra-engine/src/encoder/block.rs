@@ -109,7 +109,7 @@ pub(super) fn block(
         let t_conv = ws.q.prof.start();
         let mut r0 = 0;
         for j in views.iter_mut() {
-            let hist = &mut j.g.conv[li * km1 * d..(li + 1) * km1 * d];
+            let hist = &mut j.conv[li * km1 * d..(li + 1) * km1 * d];
             let win = grow(&mut ws.win, (km1 + j.n) * d);
             win[..km1 * d].copy_from_slice(hist);
             win[km1 * d..].copy_from_slice(&g[r0 * d..(r0 + j.n) * d]);
@@ -187,7 +187,7 @@ fn attend(
     scores: &mut Vec<f32>,
 ) {
     let a = &m.arch;
-    let (d, dh, hn, left, n) = (a.d, a.dh, a.heads, j.g.left, j.n);
+    let (d, dh, hn, left, n) = (a.d, a.dh, a.heads, j.left, j.n);
     let half = dh / 2;
     let t0 = j.pos;
     let cs = grow(rope_buf, n * dh);
@@ -211,7 +211,7 @@ fn attend(
     }
     // Store the step's keys/values first. The ring holds left + (max chunks) slots, so the
     // overwritten slots (positions <= t0 + n - 1 - ring < t0 - left) are outside every window.
-    let ring = j.g.ring;
+    let ring = j.ring;
     let lbase = li * hn * ring * dh;
     for i in 0..n {
         let slot = (t0 + i) % ring;
@@ -220,10 +220,10 @@ fn attend(
             let hb = lbase + h * ring * dh;
             // Keys in 8-key tiles so scores read 8 keys per load from contiguous memory.
             for (e, &kv) in r[d + h * dh..d + (h + 1) * dh].iter().enumerate() {
-                j.g.k[hb + kernels::kt_index(slot, e, dh)] = kv;
+                j.k[hb + kernels::kt_index(slot, e, dh)] = kv;
             }
             let vb = hb + slot * dh;
-            j.g.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
+            j.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
         }
     }
     // Sub-chunk c = [s0, s0 + m): its queries see positions [s0 - past_c, s0 + m), with
@@ -231,17 +231,17 @@ fn attend(
     let scale = 1.0 / (dh as f32).sqrt();
     let mut off = 0;
     while off < n {
-        let m = j.g.chunk.min(n - off);
+        let m = j.chunk.min(n - off);
         let s0 = t0 + off;
-        let past = (j.g.kv_len + off).min(left);
+        let past = (j.kv_len + off).min(left);
         let nk = past + m;
         let start = (s0 - past) % ring;
         let first = nk.min(ring - start);
         let sc = grow(scores, m * nk);
         for h in 0..hn {
             let hb = lbase + h * ring * dh;
-            let kt = &j.g.k[hb..hb + ring * dh];
-            let vr = &j.g.v[hb..hb + ring * dh];
+            let kt = &j.k[hb..hb + ring * dh];
+            let vr = &j.v[hb..hb + ring * dh];
             kernels::attend_head(
                 isa,
                 &qkv[off * 3 * d + h * dh..],
