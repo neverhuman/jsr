@@ -141,7 +141,9 @@ pub fn gemm_f32(isa: Isa, w: &PackedF32, x: &[f32], rows: usize, out: &mut [f32]
 
 /// LayerNorm over each `d`-wide row of `x` into `out` (eps 1e-5, biased variance).
 pub fn layer_norm(isa: Isa, x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
-    assert!(x.len() == out.len() && x.len().is_multiple_of(d) && g.len() == d && b.len() == d);
+    assert!(
+        d > 0 && x.len() == out.len() && x.len().is_multiple_of(d) && g.len() == d && b.len() == d
+    );
     match isa {
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() => x86_avx2::layer_norm(x, d, g, b, out),
@@ -160,7 +162,7 @@ pub fn silu_inplace(isa: Isa, x: &mut [f32]) {
 
 /// GLU over rows of width `2 d`: `out[r][c] = a[r][c] * sigmoid(a[r][d + c])`.
 pub fn glu(isa: Isa, a: &[f32], d: usize, out: &mut [f32]) {
-    assert!(a.len() == 2 * out.len() && out.len().is_multiple_of(d));
+    assert!(d > 0 && a.len() == 2 * out.len() && out.len().is_multiple_of(d));
     match isa {
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() => x86_avx2::glu(a, d, out),
@@ -210,6 +212,7 @@ pub fn attend_head(
     out: &mut [f32],
     o_stride: usize,
 ) {
+    assert!(dh > 0, "attend_head dh");
     let nk = (keys[0].len() + keys[1].len()) / dh;
     assert!(n > 0 && nk > 0 && keys[0].len() == vals[0].len() && keys[1].len() == vals[1].len());
     assert!(keys.iter().all(|k| k.len().is_multiple_of(dh)) && scores.len() >= nk);

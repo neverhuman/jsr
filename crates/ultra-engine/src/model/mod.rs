@@ -236,10 +236,18 @@ impl Model {
             cmvn,
         )?);
         let ckpt_mean = st.take("cmvn.mean", &[arch.n_mels])?;
-        if ckpt_mean != raw.features.cmvn.mean {
+        let ckpt_istd = st.take("cmvn.istd", &[arch.n_mels])?;
+        if ckpt_mean != raw.features.cmvn.mean || ckpt_istd != raw.features.cmvn.istd {
             return Err(EngineError::Integrity(
-                "arch.json cmvn differs from weights".into(),
+                "arch.json cmvn (mean or istd) differs from weights".into(),
             ));
+        }
+        // Every declared payload, including ones the engine never opens (bpe.model).
+        for key in ["weights", "tokens", "mel_fbank", "bpe"] {
+            file(&raw, key)?;
+        }
+        for f in raw.files.values() {
+            verify(root, f, verify_hashes)?;
         }
         Self::from_tensors(arch, &st, root, mel_cfg, tokens)
     }

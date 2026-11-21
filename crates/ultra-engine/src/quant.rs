@@ -17,6 +17,9 @@
 
 use crate::kernels::{Isa, PackedF32, NR};
 
+/// Largest K whose worst-case int32 sum (K * 127 * 127) cannot overflow.
+pub const MAX_K: usize = (i32::MAX as usize) / (127 * 127) / KG * KG;
+
 /// K is padded to a multiple of this (the `vpmaddubsw` + `vpmaddwd` group).
 pub const KG: usize = 4;
 
@@ -64,6 +67,11 @@ impl PackedI8 {
             Some(w.len()),
             n.checked_mul(k),
             "PackedI8::quantize weight length"
+        );
+        // |sum_k a w| <= kp * 127 * 127 must fit the int32 accumulator.
+        assert!(
+            k <= MAX_K,
+            "PackedI8::quantize k = {k} exceeds the int32 accumulator bound {MAX_K}"
         );
         let kp = k.div_ceil(KG) * KG;
         let panels = n.div_ceil(NR);
@@ -223,6 +231,14 @@ mod tests {
         let mut out = vec![0.0; rows * n];
         let mut q = QuantScratch::default();
         linear_i8(Isa::Scalar, &p, &x, rows, &mut out, &mut q);
+        // A non-finite input row yields an all-NaN output row (refused downstream), others
+        // are unaffected.
+        let mut xb = x.clone();
+        xb[k + 3] = f32::INFINITY;
+        let mut ob = vec![0.0; rows * n];
+        linear_i8(Isa::detect(), &p, &xb, rows, &mut ob, &mut q);
+        assert!(ob[n..2 * n].iter().all(|v| v.is_nan()));
+        assert_eq!(&ob[..n], &out[..n]);
         for r in 0..rows {
             for j in 0..n {
                 let exact: f32 = (0..k).map(|kk| x[r * k + kk] * w[j * k + kk]).sum::<f32>() + b[j];

@@ -104,8 +104,11 @@ pub fn axpy(alpha: f32, x: &[f32], y: &mut [f32]) {
     }
 }
 
-/// Range `(min, max)` of a row (NaN-blind, like the SIMD max/min).
+/// Range `(min, max)` of a row; `(NaN, NaN)` if any element is NaN or infinite.
 pub fn row_range(x: &[f32]) -> (f32, f32) {
+    if x.iter().any(|v| !v.is_finite()) {
+        return (f32::NAN, f32::NAN);
+    }
     x.iter()
         .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), &v| {
             (lo.min(v), hi.max(v))
@@ -135,8 +138,14 @@ pub fn finish_row(x: &[f32], out: &mut [i8], lo: f32, hi: f32) -> (f32, f32) {
             }
             (scale, c)
         }
+        None if lo.is_nan() || hi.is_nan() => {
+            // Non-finite input: zero codes and NaN scale/centre, so every output of this row is
+            // NaN and the encoder's finite check refuses the chunk (EngineError::Output).
+            out.fill(0);
+            (f32::NAN, f32::NAN)
+        }
         None => {
-            // Constant (or empty / non-finite) row: all codes zero, the centre carries it.
+            // Constant (or empty) row: all codes zero, the centre carries it.
             out.fill(0);
             let c = if x.is_empty() {
                 0.0
