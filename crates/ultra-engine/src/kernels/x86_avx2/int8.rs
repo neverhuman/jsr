@@ -192,6 +192,8 @@ fn tile_i8<const M: usize, const A7: bool>(
             )
         };
         if pair {
+            // The pair consumes two cache lines: prefetch the second one too.
+            _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + 64 + I8_PREFETCH).cast());
             // SAFETY: (g + 1) * 64 + 64 <= groups * 64 = kp * 16 <= panel.len().
             let (x0, x1) = unsafe {
                 (

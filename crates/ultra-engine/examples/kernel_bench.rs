@@ -5,7 +5,7 @@
 
 use std::time::Instant;
 
-use ultra_engine::kernels::{gemm_f32, gemm_i8, quantize_row, Isa, PackedF32};
+use ultra_engine::kernels::{gemm_f32, gemm_i8, gemm_i8_a7, quantize_row, Isa, PackedF32};
 use ultra_engine::quant::PackedI8;
 
 fn lcg(seed: &mut u64) -> f32 {
@@ -47,6 +47,14 @@ fn main() {
                 }
             }
             let gi = (reps * copies * rows * n * k) as f64 / t.elapsed().as_secs_f64() / 1e9;
+            let a7: Vec<i8> = a.iter().map(|&v| (v / 2).clamp(-63, 63)).collect();
+            let t = Instant::now();
+            for _ in 0..reps {
+                for q in &qs {
+                    gemm_i8_a7(isa, q, &a7, &sa, &ca, rows, &mut out);
+                }
+            }
+            let g7 = (reps * copies * rows * n * k) as f64 / t.elapsed().as_secs_f64() / 1e9;
             let reps_f = (reps / 4).max(2);
             let t = Instant::now();
             for _ in 0..reps_f {
@@ -55,7 +63,9 @@ fn main() {
                 }
             }
             let gf = (reps_f * fs.len() * rows * n * k) as f64 / t.elapsed().as_secs_f64() / 1e9;
-            println!("{label:36} rows {rows:3}: int8 {gi:6.1} GMAC/s   fp32 {gf:6.1} GMAC/s");
+            println!(
+                "{label:36} rows {rows:3}: int8 {gi:6.1}  int8-a7 {g7:6.1}  fp32 {gf:6.1} GMAC/s"
+            );
         }
     }
 }
