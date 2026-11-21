@@ -138,3 +138,41 @@ qualification decision.
 
 Ternary/T-LUT2 requires appropriate trained weights and a later experiment
 identity. An untrained low-bit model cannot establish a trained-model CPU win.
+
+## Subsequent implementation and quantization review
+
+The first pure Rust engine source is `5221b05`. Its independent
+[E0/E1 review](2026-11-21-engine-e1-review.md) identifies a safe-SIMD size-overflow
+hole and loader, lifecycle, provenance and evaluator gaps. These findings require
+fixes before engine acceptance; there is no independently accepted engine speedup.
+
+The ORT v1.1 consumer update `097352b` is merged through `6b8bb6c`. Independent
+execution passes four bundle-contract tests and the two eight-example native/
+Python token/text fixtures. The latter runs stream settings up to 32 with only
+eight source examples, so it does not establish 32 active-stream coverage.
+Effective observer pinning and the remaining measurement fixes are assigned to
+the runtime owner.
+
+Independent Rust rescoring of three completed fixed-capture calibration variants
+joins all 400 IDs, reference strings and FP32 texts to the retained D1 native
+panel. The original sweep's execution provenance remains separate from this
+retained-output check:
+
+| Variant | Rust WER (%) | Change from FP32 (points) | Exact texts / 400 |
+|---|---:|---:|---:|
+| FP32 control | 29.734284 | — | 400 |
+| Static MinMax encoder and joiner | 30.304601 | +0.570318 | 178 |
+| Percentile 99.99 encoder, FP32 joiner | 29.876863 | +0.142579 | 286 |
+| Static MinMax encoder, FP32 joiner | 29.786131 | +0.051847 | 272 |
+
+The last variant passes the preset **point** margin of +0.10. Its six-speaker
+descriptive one-sided 95% bootstrap bounds are −0.120228 / +0.269251 points
+(10,000 replicates, seed 20261120). This does not establish formal noninferiority
+or transcript equivalence. Canonical export provenance, full native parity,
+batch/state checks and CPU cost remain to be verified.
+The immutable copies, Rust score records and reports are under
+`runs/bridge/a2-fixed-sweep-review-20261121` on the data drive. Their
+`review-provenance.json` has SHA-256
+`07a3450e5742a15cd17cf2cdc122cb5ce029c84eda5c707dcac9d97f2968ceb5`.
+The MinMax encoder-only Rust report has SHA-256
+`316a9a030f2123cbe64069d6a9fcc947179e36b423cd1f840cc198b477bca9af`.
