@@ -44,6 +44,13 @@ fn run(engine: &Engine, pcm: &[i16]) -> (Vec<u32>, String) {
 
 #[test]
 fn fp32_and_int8_outputs_match_the_stored_fixture() {
+    // From PCM, so this includes ultra-frontend's log-mel, whose x86 (AVX2 kernels, glibc)
+    // and aarch64 (scalar, Apple libm) features differ in the last bits; the engine itself is
+    // checked across ISAs by `encoder_outputs_from_reference_features_match_the_fixture`.
+    if !cfg!(target_arch = "x86_64") {
+        eprintln!("SKIPPED: PCM fixture recorded with the x86 frontend");
+        return;
+    }
     let (w, npz) = (common::weights_dir(), common::dev_clean_npz());
     if !common::have(&[&w, &npz]) {
         return;
@@ -96,4 +103,68 @@ fn fp32_and_int8_outputs_match_the_stored_fixture() {
         got, want,
         "engine outputs moved: a numerical change needs the full quality gate"
     );
+}
+
+/// Engine-only continuity, identical on every ISA: fp32 and int8 encoder outputs (SHA-256)
+/// and tokens when fed the torch reference features (no frontend).
+#[test]
+fn encoder_outputs_from_reference_features_match_the_fixture() {
+    use ultra_engine::safetensors::SafeTensors;
+    use ultra_frontend::MEL_BINS;
+    let (w, r) = (common::weights_dir(), common::reference_file());
+    if !common::have(&[&w, &r]) {
+        return;
+    }
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/encoder_continuity.json");
+    let mut model = Model::load(&w, true).expect("load");
+    model.quantize_int8();
+    let model = Arc::new(model);
+    let reference = SafeTensors::read(&r).expect("reference");
+    let mut entries = Vec::new();
+    for prec in [Precision::F32, Precision::Int8] {
+        let engine = Engine::new(model.clone(), Isa::detect(), prec).expect("engine");
+        for u in 0..3 {
+            let feats: Vec<[f32; MEL_BINS]> = reference.tensors[&format!("u{u:03}.feats")]
+                .data
+                .chunks_exact(MEL_BINS)
+                .map(|c| c.try_into().expect("80"))
+                .collect();
+            let mut ws = Workspace::default();
+            let mut s = engine.create_stream();
+            s.accept_features(&feats).expect("features");
+            s.input_finished();
+            let last = engine.model.arch.n_blocks + 2;
+            let mut bytes: Vec<u8> = Vec::new();
+            loop {
+                let mut tap = |l: usize, v: &[f32], _w: usize| {
+                    if l == last {
+                        bytes.extend(v.iter().flat_map(|x| x.to_bits().to_le_bytes()));
+                    }
+                };
+                let n = engine
+                    .decode_tapped(&mut [&mut s], &mut ws, Some(&mut tap))
+                    .expect("decode");
+                if n == 0 {
+                    break;
+                }
+            }
+            entries.push(serde_json::json!({"precision": prec.as_str(), "utt": u,
+                "tokens": s.tokens(), "enc_proj_sha256": sha256_hex(&bytes)}));
+        }
+    }
+    let got = serde_json::json!({"weights_sha256": model.arch.weights_sha256,
+        "reference_checkpoint_sha256": reference.metadata.get("checkpoint_sha256"),
+        "entries": entries});
+    if std::env::var("ULTRA_ENGINE_WRITE_CONTINUITY").as_deref() == Ok("1") {
+        std::fs::write(&fixture, serde_json::to_string_pretty(&got).expect("json")).expect("write");
+        return;
+    }
+    let want: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&fixture).expect("fixture")).expect("parse");
+    if want["weights_sha256"] != got["weights_sha256"] {
+        eprintln!("SKIPPED: fixture was recorded for other weights");
+        return;
+    }
+    assert_eq!(got, want, "engine outputs moved (or differ across ISAs)");
 }
