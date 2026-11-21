@@ -1,12 +1,7 @@
 //! Pure-Rust ONNX Runtime streaming transducer backend (`OrtTransducerBackend`) for R1
-//! (`dense` `S` and `multirate` `S_MR`) consuming `ultra.r1-export/{v1,v1.1}` bundles.
-//!
-//! Includes `R-ACCEL-1` hot-path accelerations:
-//! - Zero-copy single-stream (`b == 1`) state ping-pong swap (eliminating `12.72 MiB/chunk`
-//!   gather/scatter `memcpy` on single-stream latency mode and `dynamic_per_row` `max_batch=1`).
-//! - Pre-evaluated `ctx_init` (`[0, 0]`) + per-stream exact context cache (`0` ORT `decoder.onnx`
-//!   calls across unchanged contexts).
-//! - AVX2 IEEE-754 finite tensor validation and zero-allocation `OrtRunScratch`.
+//! (`dense` `S` and `multirate` `S_MR`) consuming `ultra.r1-export/{v1,v1.1}` bundles:
+//! zero-copy `b == 1` state ping-pong, pre-evaluated `ctx_init` + per-stream predictor context
+//! cache (`ort_r1_greedy::tests`), AVX2 finite checks, and zero-alloc `OrtRunScratch`.
 
 use std::collections::BTreeMap;
 use std::ffi::CString;

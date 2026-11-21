@@ -81,6 +81,14 @@ with open(f"{bundle}/manifest.json") as fh:
     hdr = json.load(fh)
 if hasattr(bi, "SCHEMA") and hdr.get("schema") in ("ultra.r1-export/v1", "ultra.r1-export/v1.1"):
     bi.SCHEMA = hdr["schema"]
+orig_json_load = bi.json.load
+def compat_json_load(fh):
+    m = orig_json_load(fh)
+    i8 = m.get("int8") or {}
+    if "joiner.int8" not in m.get("files", {}) and str(i8.get("joiner", "")).lower().startswith("fp32"):
+        m["files"]["joiner.int8"] = m["files"]["joiner.fp32"]
+    return m
+bi.json.load = compat_json_load
 rec = bi.BundleRecognizer(bundle, prec, threads=1, verify=True)
 i8 = rec.m.get("int8") or {}
 py_streams = int(i8.get("max_batch") or 16) if prec == "int8" else 16
@@ -347,11 +355,19 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
     std::fs::create_dir_all(&run_dir).expect("mkdir unique parity run_dir");
 
     let only_prec = std::env::var("ULTRA_B1_ONLY_PRECISION").ok();
+    let mut fp32_rust_wer_opt: Option<f64> = None;
     for prec in [R1Precision::Fp32, R1Precision::Int8] {
         if let Some(ref want) = only_prec {
             if !want.trim().is_empty() && want != prec.as_str() {
                 continue;
             }
+        }
+        if prec == R1Precision::Int8 && fp32_rust_wer_opt.is_none() {
+            let eng_fp32 = OrtTransducerBackend::load(&bundle_dir, R1Precision::Fp32, 1, false)
+                .expect("load FP32 baseline for INT8 WER delta");
+            let fp32_run = run_r1_packet_streaming_with_tokens(&eng_fp32, &utts, 16, 20)
+                .expect("rust 400 fp32 baseline");
+            fp32_rust_wer_opt = Some(pooled_wer_pct(&ref_texts, &fp32_run.hyps));
         }
         let engine =
             OrtTransducerBackend::load(&bundle_dir, prec, 1, true).expect("load R1 engine");
@@ -377,6 +393,10 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
 
         let py_wer = pooled_wer_pct(&ref_texts, &py_hyps);
         let rust_wer = pooled_wer_pct(&ref_texts, &rust_hyps);
+        if prec == R1Precision::Fp32 {
+            fp32_rust_wer_opt = Some(rust_wer);
+        }
+        let fp32_wer = fp32_rust_wer_opt.unwrap_or(rust_wer);
         let identical = py_hyps
             .iter()
             .zip(&rust_hyps)
@@ -426,8 +446,10 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             }));
         }
 
+        let wer_delta_vs_py = (rust_wer - py_wer).abs();
+        let wer_delta_vs_fp32 = (rust_wer - fp32_wer).abs();
         eprintln!(
-            "B1 400-utt [{}] (S=16, 20ms, audio={audio_s:.1}s): identical_text={identical}/400 ({pct:.2}%), identical_toks={identical_toks}/400, mismatches={}, rust_wer={rust_wer:.3}% vs py_wer={py_wer:.3}%, rust_rtf={:.4} ({:.2}x RT, wall={wall_s16:.2}s) vs py_rtf={:.4} ({:.2}x RT), forced={rust_forced}/{py_forced}",
+            "B1 400-utt [{}] (S=16, 20ms, audio={audio_s:.1}s): identical_text={identical}/400 ({pct:.2}%), identical_toks={identical_toks}/400, mismatches={}, rust_wer={rust_wer:.3}% vs py_wer={py_wer:.3}% (fp32={fp32_wer:.3}%), rust_rtf={:.4} ({:.2}x RT, wall={wall_s16:.2}s) vs py_rtf={:.4} ({:.2}x RT), forced={rust_forced}/{py_forced}",
             prec.as_str(),
             mismatches.len(),
             rust_cpu_s16 / audio_s,
@@ -436,11 +458,11 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             audio_s / py_cpu_s,
         );
 
-        let wer_delta = (rust_wer - py_wer).abs();
-        let wer_gate_pass = wer_delta <= 0.10;
+        let wer_gate_pass = wer_delta_vs_py <= 0.10;
+        let wer_vs_fp32_gate_pass = wer_delta_vs_fp32 <= 0.10;
         let agreement_gate_pass = identical >= 392;
         let handoff_accepted = wer_gate_pass && agreement_gate_pass;
-        let report = serde_json::json!({
+        let mut report = serde_json::json!({
             "schema": "ultra.b1-parity/v1",
             "bundle_dir": bundle_dir.to_string_lossy(),
             "bundle_schema": engine.bundle.schema,
@@ -469,11 +491,11 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             "mismatch_count": mismatches.len(),
             "rust_wer_pct": rust_wer,
             "python_wer_pct": py_wer,
-            "wer_abs_delta_pct": wer_delta,
+            "wer_abs_delta_pct": wer_delta_vs_py,
             "wer_gate_0p10_pass": wer_gate_pass,
             "agreement_gate_98pct_pass": agreement_gate_pass,
             "parity_handoff_accepted": handoff_accepted,
-            "experimental_health_screen_only": prec == R1Precision::Int8 && !engine.bundle.int8_batch_invariant,
+            "experimental_health_screen_only": prec == R1Precision::Int8 && !engine.bundle.int8_consumer_batch_invariant(),
             "rust_forced_advances": rust_forced,
             "python_forced_advances": py_forced,
             "rust_cpu_s_per_audio_s": rust_cpu_s16 / audio_s,
@@ -481,6 +503,17 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             "mismatches": mismatches,
             "rows": rows,
         });
+        if let Some(obj) = report.as_object_mut() {
+            obj.insert("rust_fp32_wer_pct".into(), serde_json::json!(fp32_wer));
+            obj.insert(
+                "wer_abs_delta_vs_fp32_pct".into(),
+                serde_json::json!(wer_delta_vs_fp32),
+            );
+            obj.insert(
+                "precision_quality_vs_fp32_0p10_pass".into(),
+                serde_json::json!(wer_vs_fp32_gate_pass),
+            );
+        }
         let out_file = run_dir.join(format!("r1_d1_400dev_{}.json", prec.as_str()));
         {
             use std::io::Write;
@@ -494,7 +527,10 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
         }
 
         if prec == R1Precision::Fp32 {
-            assert!(wer_gate_pass, "B1 FP32 WER delta {wer_delta:.4} > 0.1");
+            assert!(
+                wer_gate_pass,
+                "B1 FP32 WER delta {wer_delta_vs_py:.4} > 0.1"
+            );
             assert_eq!(identical, 400, "B1 FP32 expected 400/400 identical texts");
             assert_eq!(
                 identical_toks, 400,
@@ -503,7 +539,8 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
         } else if engine.bundle.int8_batch_invariant {
             assert!(
                 wer_gate_pass,
-                "B1 v1.1 INT8 WER delta {wer_delta:.4} > 0.10"
+                "B1 v1.1 INT8 WER delta vs Python {wer_delta_vs_py:.4} > 0.10; inspect {}",
+                out_file.display()
             );
             assert!(
                 agreement_gate_pass,
@@ -512,8 +549,8 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             );
         } else {
             assert!(
-                wer_delta <= 0.25,
-                "B1 v1 dynamic-INT8 WER delta {wer_delta:.4} > 0.25"
+                wer_delta_vs_py <= 0.25,
+                "B1 v1 dynamic-INT8 WER delta {wer_delta_vs_py:.4} > 0.25"
             );
             assert!(
                 identical >= 350,

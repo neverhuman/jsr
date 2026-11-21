@@ -36,6 +36,14 @@ with open(f"{bundle}/manifest.json") as fh:
     hdr = json.load(fh)
 if hasattr(bi, "SCHEMA") and hdr.get("schema") in ("ultra.r1-export/v1", "ultra.r1-export/v1.1"):
     bi.SCHEMA = hdr["schema"]
+orig_json_load = bi.json.load
+def compat_json_load(fh):
+    m = orig_json_load(fh)
+    i8 = m.get("int8") or {}
+    if "joiner.int8" not in m.get("files", {}) and str(i8.get("joiner", "")).lower().startswith("fp32"):
+        m["files"]["joiner.int8"] = m["files"]["joiner.fp32"]
+    return m
+bi.json.load = compat_json_load
 rec = bi.BundleRecognizer(bundle, "int8", threads=1, verify=True)
 created = []
 orig_create = rec.create_stream
@@ -98,7 +106,12 @@ fn v11_int8_bundles_are_batch_invariant_across_1_3_5_16_32_streams_and_match_pyt
     }
     let utts = load_npz_audio_only(&npz_path, 0, Some(8)).expect("load 8 dev-clean");
 
-    for rel in ["bundles/r1-d1-v1.1-dynrow", "bundles/r1-d1-v1.1"] {
+    let static_rel = if root.join("bundles/r1-d1-v1.1b/manifest.json").exists() {
+        "bundles/r1-d1-v1.1b"
+    } else {
+        "bundles/r1-d1-v1.1"
+    };
+    for rel in ["bundles/r1-d1-v1.1-dynrow", static_rel] {
         let bdir = root.join(rel);
         if !bdir.join("manifest.json").exists() {
             continue;
