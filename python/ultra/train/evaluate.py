@@ -28,6 +28,8 @@ def main() -> None:
     ap.add_argument("--max-symbols", type=int, default=8)
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--show", type=int, default=0, help="print N ref/hyp pairs")
+    ap.add_argument("--device", default="cpu")
+    ap.add_argument("--limit-all", action="store_true", help="evaluate the whole split")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
     from ultra.libri import load_split
@@ -36,15 +38,15 @@ def main() -> None:
     p = checkpoint.load(a.checkpoint or checkpoint.latest(a.run_dir), restore_rng=False)
     model = ASRModel(ModelConfig.from_dict(p["model_config"]))
     model.load_state_dict(p["model"])
-    model.eval()
+    model.eval().to(a.device)
     tok = Tokenizer(tokenizer_path(4096))
     tok_c = Tokenizer(tokenizer_path(1024))
     feat = Featurizer(tok, tok_c)
-    exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in load_split(a.split, a.limit)),
+    exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in load_split(a.split, None if a.limit_all else a.limit)),
                  key=lambda e: e.seconds)
     refs, hyps, ctc_hyps, forced, exact, ctc_exact = [], [], [], 0, 0, 0
     for i in range(0, len(exs), 8):
-        b = collate(exs[i:i + 8])
+        b = collate(exs[i:i + 8]).to(a.device)
         toks, f = model.greedy(b.feats, b.feat_lens, max_symbols=a.max_symbols)
         forced += f
         for t in model.ctc_greedy(b.feats, b.feat_lens):

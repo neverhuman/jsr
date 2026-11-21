@@ -319,7 +319,10 @@ def main(argv=None) -> int:
         tr.log({"kind": "resume", "step": tr.step, "pos": tr.pos.to_dict()})
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
-        if ModelConfig.from_dict(p["model_config"]) != tr.model_cfg:
+        import dataclasses
+
+        src = ModelConfig.from_dict(p["model_config"])
+        if dataclasses.replace(src, qat="none") != dataclasses.replace(tr.model_cfg, qat="none"):
             raise CheckpointError("--init-from checkpoint has a different model config")
         tr.model.load_state_dict(p["model"])
         tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],

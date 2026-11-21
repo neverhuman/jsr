@@ -74,7 +74,7 @@ class _JoinerLogProbs(torch.autograd.Function):
     (lp_blank (B,T,U1), lp_label (B,T,U1-1)), computed in time chunks of `tc` frames."""
 
     @staticmethod
-    def forward(ctx, enc_p, pred_p, w, bias, targets, act, tc):
+    def forward(ctx, enc_p, pred_p, w, bias, targets, act, tc, act_q=False):
         B, T, J = enc_p.shape
         U1 = pred_p.shape[1]
         lpb = enc_p.new_empty(B, T, U1)
@@ -83,20 +83,20 @@ class _JoinerLogProbs(torch.autograd.Function):
         for t0 in range(0, T, tc):
             t1 = min(T, t0 + tc)
             h = _act(enc_p[:, t0:t1, None, :] + pred_p[:, None, :, :], act)
-            z = torch.matmul(h, w.t()) + bias  # (B, tc, U1, V)
+            z = torch.matmul(_fq(h, act_q), w.t()) + bias  # (B, tc, U1, V)
             lse = torch.logsumexp(z, dim=-1)
             lpb[:, t0:t1] = z[..., BLANK] - lse
             if U1 > 1:
                 zl = torch.gather(z[:, :, :-1], 3, tgt.expand(B, t1 - t0, U1 - 1, 1)).squeeze(-1)
                 lpl[:, t0:t1] = zl - lse[:, :, :-1]
         ctx.save_for_backward(enc_p, pred_p, w, bias, targets)
-        ctx.act, ctx.tc = act, tc
+        ctx.act, ctx.tc, ctx.act_q = act, tc, act_q
         return lpb, lpl
 
     @staticmethod
     def backward(ctx, g_lpb, g_lpl):
         enc_p, pred_p, w, bias, targets = ctx.saved_tensors
-        act, tc = ctx.act, ctx.tc
+        act, tc, act_q = ctx.act, ctx.tc, ctx.act_q
         B, T, J = enc_p.shape
         U1 = pred_p.shape[1]
         g_enc = torch.zeros_like(enc_p)
@@ -108,7 +108,8 @@ class _JoinerLogProbs(torch.autograd.Function):
             t1 = min(T, t0 + tc)
             n = t1 - t0
             h = _act(enc_p[:, t0:t1, None, :] + pred_p[:, None, :, :], act)
-            z = torch.matmul(h, w.t()) + bias
+            hq = _fq(h, act_q)
+            z = torch.matmul(hq, w.t()) + bias
             p = torch.softmax(z, dim=-1)
             gb = g_lpb[:, t0:t1]  # (B, n, U1)
             gl = torch.zeros_like(gb)
@@ -119,21 +120,32 @@ class _JoinerLogProbs(torch.autograd.Function):
             if U1 > 1:
                 gz[:, :, :-1].scatter_add_(3, tgt.expand(B, n, U1 - 1, 1), gl[:, :, :-1, None])
             g_b += gz.sum(dim=(0, 1, 2))
-            g_w += torch.einsum("btuv,btuj->vj", gz, h)
-            gpre = torch.matmul(gz, w) * _act_grad_from_out(h, act)
+            g_w += torch.einsum("btuv,btuj->vj", gz, hq)
+            gpre = torch.matmul(gz, w) * _act_grad_from_out(h, act)  # STE through the act quant
             g_enc[:, t0:t1] = gpre.sum(dim=2)
             g_pred += gpre.sum(dim=1)
-        return g_enc, g_pred, g_w, g_b, None, None, None
+        return g_enc, g_pred, g_w, g_b, None, None, None, None
+
+
+def _fq(h: torch.Tensor, on: bool) -> torch.Tensor:
+    if not on:
+        return h
+    from train.qat import fake_quant_rows
+
+    return fake_quant_rows(h).detach()
 
 
 def joiner_logprobs(joiner: Joiner, enc_p, pred_p, targets, budget_elems: int = 1 << 25):
-    """Blank and target log-probs over the lattice without keeping it whole."""
+    """Blank and target log-probs over the lattice without keeping it whole. A ternary joiner
+    output layer (train.qat.TernaryLinear) contributes its STE weight and per-row int8 inputs."""
     B, T, _ = enc_p.shape
     U1 = pred_p.shape[1]
     V = joiner.out.weight.shape[0]
     tc = max(1, min(T, budget_elems // max(1, B * U1 * V)))
-    return _JoinerLogProbs.apply(enc_p, pred_p, joiner.out.weight, joiner.out.bias, targets,
-                                 joiner.act, tc)
+    ternary = hasattr(joiner.out, "effective_weight")
+    w = joiner.out.effective_weight().float() if ternary else joiner.out.weight
+    return _JoinerLogProbs.apply(enc_p, pred_p, w, joiner.out.bias, targets, joiner.act, tc,
+                                 ternary)
 
 
 def full_lattice_logprobs(joiner: Joiner, enc_p, pred_p, targets):
