@@ -2,6 +2,7 @@
 //! validator, SentencePiece (`U+2581`) detokenizer, and cached greedy RNN-T state.
 
 pub mod bundle;
+mod bundle_int8;
 pub mod rnnt;
 
 pub use bundle::{

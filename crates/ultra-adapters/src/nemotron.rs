@@ -19,8 +19,8 @@ use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
 use ultra_frontend::write_wav_pcm16;
 
 use crate::nemotron_proc::{
-    hash_file_streaming, inspect_pid_maps_cpu, kill_and_verify_pgid_gone, whole_tree_cpu_s,
-    write_create_new,
+    hash_file_streaming, inspect_pid_maps_cpu, kill_and_verify_pgid_gone, self_and_child_cpu_s,
+    whole_tree_cpu_s, write_create_new,
 };
 use crate::AdapterError;
 
@@ -108,6 +108,8 @@ pub struct NemotronRunResult {
     pub utterances: usize,
     pub audio_seconds: f64,
     pub wall_seconds: f64,
+    pub prep_hash_cpu_seconds: f64,
+    pub child_cpu_seconds: f64,
     pub whole_service_cpu_seconds: f64,
     pub rtf_cpu: f64,
     pub streams_per_core_at_full_load: f64,
@@ -135,17 +137,13 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
             cfg.model_path.display()
         )));
     }
+    let prep_cpu_t0 = whole_tree_cpu_s()?;
     let binary_sha256 = hash_file_streaming(&cfg.binary_path)?;
     let model_sha256 = hash_file_streaming(&cfg.model_path)?;
     let utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
     if utts.is_empty() {
         return Err(AdapterError::Integrity("empty utterance slice".into()));
     }
-
-    let cpu_before = whole_tree_cpu_s()?;
-    let wall_t0 = Instant::now();
-    let mut self_sampler = TreeSampler::new(std::process::id() as i32);
-    self_sampler.sample();
 
     let work = tempfile::tempdir()?;
     let wav_dir = work.path().join("wavs");
@@ -163,11 +161,18 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         let stem = format!("u{i:05}");
         let wav_path = wav_dir.join(format!("{stem}.wav"));
         write_wav_pcm16(&wav_path, 16_000, &u.pcm)?;
-        pcm_hash_concat.push_str(&sha256_hex(&std::fs::read(&wav_path)?));
+        pcm_hash_concat.push_str(&hash_file_streaming(&wav_path)?);
         expected_txt.insert(format!("{stem}.txt"));
         audio_s += u.pcm.len() as f64 / 16_000.0;
     }
     let audio_sha = sha256_hex(pcm_hash_concat.as_bytes());
+    let prep_hash_cpu_s = (whole_tree_cpu_s()? - prep_cpu_t0).max(0.0);
+
+    let (self_before, child_before) = self_and_child_cpu_s()?;
+    let cpu_before = self_before + child_before;
+    let wall_t0 = Instant::now();
+    let mut self_sampler = TreeSampler::new(std::process::id() as i32);
+    self_sampler.sample();
 
     let stdout_file = File::create(&stdout_path)?;
     let stderr_file = File::create(&stderr_path)?;
@@ -311,7 +316,9 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
     self_sampler.sample();
     let tree_sum = self_sampler.summary();
     let wall_s = wall_t0.elapsed().as_secs_f64().max(1e-6);
-    let cpu_s = (whole_tree_cpu_s()? - cpu_before).max(1e-6);
+    let (self_after, child_after) = self_and_child_cpu_s()?;
+    let child_cpu_s = (child_after - child_before).max(0.0);
+    let cpu_s = ((self_after + child_after) - cpu_before).max(1e-6);
     let rtf_cpu = cpu_s / audio_s.max(1e-9);
 
     // Reference-isolated scoring occurs strictly AFTER child exit and output validation.
@@ -347,6 +354,9 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
             "model_sha256": model_sha256,
             "pcm_wav_sha256": audio_sha,
             "ggml_cpu_verified": saw_ggml_cpu,
+            "prep_hash_cpu_seconds": (prep_hash_cpu_s * 1000.0).round() / 1000.0,
+            "child_cpu_seconds": (child_cpu_s * 1000.0).round() / 1000.0,
+            "whole_service_cpu_seconds": (cpu_s * 1000.0).round() / 1000.0,
             "mapped_shared_objects": mapped_libs,
         });
         let prov_bytes = serde_json::to_vec_pretty(&prov)
@@ -397,6 +407,8 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         utterances: utts.len(),
         audio_seconds: (audio_s * 1000.0).round() / 1000.0,
         wall_seconds: (wall_s * 1000.0).round() / 1000.0,
+        prep_hash_cpu_seconds: (prep_hash_cpu_s * 1000.0).round() / 1000.0,
+        child_cpu_seconds: (child_cpu_s * 1000.0).round() / 1000.0,
         whole_service_cpu_seconds: (cpu_s * 1000.0).round() / 1000.0,
         rtf_cpu: (rtf_cpu * 100_000.0).round() / 100_000.0,
         streams_per_core_at_full_load: ((1.0 / rtf_cpu) * 100.0).round() / 100.0,

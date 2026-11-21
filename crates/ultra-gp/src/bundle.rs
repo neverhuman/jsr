@@ -5,9 +5,11 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use serde::Deserialize;
+use ultra_core::hash::sha256_reader;
 use ultra_core::receipt::{is_sha256_hex, sha256_hex};
 use ultra_frontend::{GlobalCmvn, TrainerMelConfig, MEL_BINS};
 
+use crate::bundle_int8::{validate_int8_contract, RawInt8Meta};
 use crate::rnnt::TokenTable;
 use crate::GpError;
 
@@ -97,10 +99,15 @@ pub struct R1DecoderSpec {
 pub struct R1Bundle {
     pub root: PathBuf,
     pub schema: String,
+    pub int8_mode: Option<String>,
+    pub int8_graph_batch_invariant: bool,
     pub int8_batch_invariant: bool,
+    pub int8_max_batch_enc: Option<usize>,
+    pub int8_max_batch_joi: Option<usize>,
     pub manifest_sha256: String,
     pub family: ModelFamily,
     pub precision: R1Precision,
+    pub joiner_precision: R1Precision,
     pub exporter_commit: String,
     pub encoder_onnx: PathBuf,
     pub decoder_onnx: PathBuf,
@@ -109,12 +116,6 @@ pub struct R1Bundle {
     pub streaming: R1StreamingSpec,
     pub decoder: R1DecoderSpec,
     pub tokens: Arc<TokenTable>,
-}
-
-#[derive(Deserialize)]
-struct RawInt8Meta {
-    #[serde(default)]
-    batch_invariant: bool,
 }
 
 #[derive(Deserialize)]
@@ -219,6 +220,11 @@ fn safe_contained_path(canon_root: &Path, root: &Path, rel: &str) -> Result<Path
 }
 
 impl R1Bundle {
+    /// Whether consumer execution under the bundle's declared `max_batch` contract is batch-invariant.
+    pub fn int8_consumer_batch_invariant(&self) -> bool {
+        self.int8_batch_invariant
+    }
+
     /// Load and strictly validate an `ultra.r1-export/{v1,v1.1}` bundle directory.
     pub fn load(root: &Path, precision: R1Precision, verify_hashes: bool) -> Result<Self, GpError> {
         let canon_root = root
@@ -236,7 +242,7 @@ impl R1Bundle {
                 raw.schema
             )));
         }
-        let int8_batch_invariant = raw.int8.as_ref().is_some_and(|m| m.batch_invariant);
+        let i8 = validate_int8_contract(&raw.schema, raw.int8.as_ref(), precision)?;
         let family = ModelFamily::parse(&raw.model.family)?;
 
         let mut resolved_files = BTreeMap::new();
@@ -248,8 +254,8 @@ impl R1Bundle {
             }
             let full = safe_contained_path(&canon_root, root, &entry.path)?;
             if verify_hashes {
-                let bytes = std::fs::read(&full)?;
-                let got = sha256_hex(&bytes);
+                let mut fh = std::fs::File::open(&full)?;
+                let got = sha256_reader(&mut fh)?;
                 if got != entry.sha256 {
                     return Err(GpError::Integrity(format!(
                         "sha256 mismatch for files.{key}: expected {}, got {got}",
@@ -267,13 +273,9 @@ impl R1Bundle {
                 .ok_or_else(|| GpError::Manifest(format!("missing required files.{k} entry")))
         };
 
-        let (enc_key, joi_key) = match precision {
-            R1Precision::Fp32 => ("encoder.fp32", "joiner.fp32"),
-            R1Precision::Int8 => ("encoder.int8", "joiner.int8"),
-        };
-        let encoder_onnx = req_file(enc_key)?;
+        let encoder_onnx = req_file(i8.enc_file_key)?;
         let decoder_onnx = req_file("decoder")?;
-        let joiner_onnx = req_file(joi_key)?;
+        let joiner_onnx = req_file(i8.joi_file_key)?;
         let tokens_path = req_file("tokens")?;
         // Always load mel_fbank from checksummed `files.mel_fbank` (never unverified features.mel.file).
         let fbank_path = req_file("mel_fbank")?;
@@ -397,10 +399,15 @@ impl R1Bundle {
         Ok(Self {
             root: root.to_path_buf(),
             schema: raw.schema,
-            int8_batch_invariant,
+            int8_mode: i8.int8_mode,
+            int8_graph_batch_invariant: i8.int8_graph_batch_invariant,
+            int8_batch_invariant: i8.int8_consumer_batch_invariant,
+            int8_max_batch_enc: i8.int8_max_batch_enc,
+            int8_max_batch_joi: i8.int8_max_batch_joi,
             manifest_sha256,
             family,
             precision,
+            joiner_precision: i8.joiner_precision,
             exporter_commit: raw.model.exporter_commit,
             encoder_onnx,
             decoder_onnx,

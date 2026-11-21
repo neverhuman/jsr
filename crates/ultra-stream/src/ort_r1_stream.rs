@@ -104,6 +104,7 @@ impl OrtR1RawStream {
     pub fn retained_bytes(&self) -> usize {
         let state_bytes: usize = self.states.iter().map(StateBuf::retained_bytes).sum();
         state_bytes
+            + self.mel.retained_heap_bytes()
             + self.ring.retained_bytes()
             + self.mel_scratch.capacity() * MEL_BINS * 4
             + self.rnnt.tokens.capacity() * 8

@@ -12,76 +12,16 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ultra_frontend::{TrainerLogMel, MEL_BINS};
-use ultra_gp::{checked_argmax_f32, FeatureRing, GpError, R1Bundle, R1Precision, RnntStreamState};
+use ultra_gp::{checked_argmax_f32, FeatureRing, R1Bundle, R1Precision, RnntStreamState};
 
 use crate::api::StreamError;
 use crate::ort_c_api::{OrtEnv, OrtSession, OrtTensorIn, OrtTensorOut};
 use crate::ort_r1_stream::{validate_state_outputs, OrtR1RawStream};
+pub use crate::ort_r1_ws::BatchWorkspace;
+pub(crate) use crate::ort_r1_ws::{ensure_all_finite, StateBuf};
 
 /// Samples per 25 Hz encoder frame (`40 ms @ 16 kHz = 640` samples).
 pub const R1_SAMPLES_PER_ENC_FRAME: u64 = 640;
-
-#[derive(Debug, Clone)]
-pub(crate) enum StateBuf {
-    F32(Vec<f32>),
-    I64(Vec<i64>),
-}
-
-impl StateBuf {
-    pub(crate) fn retained_bytes(&self) -> usize {
-        match self {
-            Self::F32(v) => v.capacity() * 4,
-            Self::I64(v) => v.capacity() * 8,
-        }
-    }
-}
-
-/// Reusable contiguous scratch buffers eliminating per-chunk heap allocations across streams.
-#[derive(Default)]
-pub struct BatchWorkspace {
-    feats_in: Vec<f32>,
-    t0_in: Vec<i64>,
-    state_ins: Vec<StateBuf>,
-    state_outs: Vec<StateBuf>,
-    state_shapes: Vec<Vec<i64>>,
-    enc_out: Vec<f32>,
-    dec_ctx: Vec<i64>,
-    dec_out: Vec<f32>,
-    joi_enc: Vec<f32>,
-    joi_logits: Vec<f32>,
-}
-
-impl BatchWorkspace {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Total heap bytes retained across workspace scratch buffers.
-    pub fn retained_bytes(&self) -> usize {
-        let states_b: usize = self
-            .state_ins
-            .iter()
-            .chain(&self.state_outs)
-            .map(StateBuf::retained_bytes)
-            .sum();
-        states_b
-            + (self.feats_in.capacity()
-                + self.enc_out.capacity()
-                + self.dec_out.capacity()
-                + self.joi_enc.capacity()
-                + self.joi_logits.capacity())
-                * 4
-            + (self.t0_in.capacity() + self.dec_ctx.capacity()) * 8
-    }
-}
-
-fn ensure_all_finite(slice: &[f32], label: &'static str) -> Result<(), StreamError> {
-    if slice.iter().all(|v| v.is_finite()) {
-        Ok(())
-    } else {
-        Err(GpError::Output(format!("non-finite {label} tensor entry")).into())
-    }
-}
 
 /// Immutable R1 streaming transducer engine (`Send + Sync`, shared across CCX workers).
 pub struct OrtTransducerBackend {
@@ -186,8 +126,11 @@ impl OrtTransducerBackend {
         let mut max_b = 0usize;
         let mut wakeups = 0u64;
         for (n, items) in groups {
-            max_b = max_b.max(items.len());
-            self.run_group(streams, &items, n, ws)?;
+            let step = self.bundle.int8_max_batch_enc.unwrap_or(items.len()).max(1);
+            for sub in items.chunks(step) {
+                max_b = max_b.max(sub.len());
+                self.run_group(streams, sub, n, ws)?;
+            }
             wakeups += 1;
         }
         Ok((max_b, wakeups))
@@ -440,16 +383,52 @@ impl OrtTransducerBackend {
                 )?;
                 ensure_all_finite(&ws.dec_out, "decoder")?;
 
-                self.joi.run_into(
-                    &[
-                        (c"enc", OrtTensorIn::f32(&ws.joi_enc, &joi_in_sh)),
-                        (c"dec", OrtTensorIn::f32(&ws.dec_out, &joi_in_sh)),
-                    ],
-                    &mut [(
-                        c"logits",
-                        OrtTensorOut::f32(&mut ws.joi_logits, &joi_out_sh),
-                    )],
-                )?;
+                if let Some(mb) = self.bundle.int8_max_batch_joi {
+                    let step = mb.max(1);
+                    let mut off = 0usize;
+                    while off < a {
+                        let sub = (a - off).min(step);
+                        let sub_in = [sub as i64, d as i64];
+                        let sub_out = [sub as i64, v as i64];
+                        self.joi.run_into(
+                            &[
+                                (
+                                    c"enc",
+                                    OrtTensorIn::f32(
+                                        &ws.joi_enc[off * d..(off + sub) * d],
+                                        &sub_in,
+                                    ),
+                                ),
+                                (
+                                    c"dec",
+                                    OrtTensorIn::f32(
+                                        &ws.dec_out[off * d..(off + sub) * d],
+                                        &sub_in,
+                                    ),
+                                ),
+                            ],
+                            &mut [(
+                                c"logits",
+                                OrtTensorOut::f32(
+                                    &mut ws.joi_logits[off * v..(off + sub) * v],
+                                    &sub_out,
+                                ),
+                            )],
+                        )?;
+                        off += sub;
+                    }
+                } else {
+                    self.joi.run_into(
+                        &[
+                            (c"enc", OrtTensorIn::f32(&ws.joi_enc, &joi_in_sh)),
+                            (c"dec", OrtTensorIn::f32(&ws.dec_out, &joi_in_sh)),
+                        ],
+                        &mut [(
+                            c"logits",
+                            OrtTensorOut::f32(&mut ws.joi_logits, &joi_out_sh),
+                        )],
+                    )?;
+                }
 
                 next_active.clear();
                 for (ai, &bi) in active.iter().enumerate() {
