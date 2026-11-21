@@ -413,6 +413,60 @@ pub fn gemm_i8_panels(
     }
 }
 
+/// Integer column sums `sum_k w_q[n][k]` of a packed int8 matrix (the offset correction of
+/// [`gemm_i8_u7`]).
+pub fn colsum_i32(w: &crate::quant::PackedI8) -> Vec<i32> {
+    use crate::quant::KG;
+    (0..w.n)
+        .map(|col| {
+            let (p, j) = (col / NR, col % NR);
+            let panel = w.panel(p);
+            (0..w.kp)
+                .map(|kk| i32::from(panel[((kk / KG) * NR + j) * KG + kk % KG]))
+                .sum()
+        })
+        .collect()
+}
+
+/// EXPERIMENTAL (H15 B2; not used by the engine): [`gemm_i8_a7`] on offset codes
+/// `u = a + 64` (1..=127, padding 64) with the integer column sums of [`colsum_i32`]. Equals
+/// [`gemm_i8_a7`] on the same codes bit for bit. Scalar elsewhere.
+#[allow(clippy::too_many_arguments)]
+pub fn gemm_i8_u7(
+    isa: Isa,
+    w: &crate::quant::PackedI8,
+    colsum: &[i32],
+    u: &[u8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+) {
+    assert!(
+        rows.checked_mul(w.kp).is_some_and(|v| u.len() >= v)
+            && rows.checked_mul(w.n).is_some_and(|v| out.len() >= v)
+            && sa.len() >= rows
+            && ca.len() >= rows
+            && colsum.len() >= w.n,
+        "gemm_i8_u7 lengths"
+    );
+    assert!(
+        u[..rows * w.kp].iter().all(|&v| (1..=127).contains(&v)),
+        "gemm_i8_u7 code range"
+    );
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8_u7(w, colsum, u, sa, ca, rows, out),
+        _ => {
+            let a: Vec<i8> = u[..rows * w.kp]
+                .iter()
+                .map(|&v| (i16::from(v) - 64) as i8)
+                .collect();
+            scalar::gemm_i8(w, &a, sa, ca, rows, out)
+        }
+    }
+}
+
 /// [`gemm_i8`] for 7-bit activation codes (|a| <= 63, e.g. from `quantize_row_q(.., 63)`):
 /// the AVX2 kernel sums two `vpmaddubsw` steps in i16 before each `vpmaddwd` (fewer multiply
 /// uops). The result is the same exact integer product; codes outside +-63 are refused.
