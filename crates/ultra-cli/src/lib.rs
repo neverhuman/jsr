@@ -16,6 +16,7 @@ pub mod suite_cmd;
 pub mod suite_latency;
 pub mod suite_manifest;
 mod suite_mfa;
+mod suite_r1_z;
 mod suite_runners;
 pub mod suite_slices;
 

@@ -16,6 +16,7 @@ pub mod cochlea;
 pub mod mel;
 pub mod npz;
 pub mod trainer_mel;
+mod trainer_mel_avx2;
 pub mod wav;
 
 pub use cochlea::{CochleaConfig, StreamingCochlea};

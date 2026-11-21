@@ -111,6 +111,7 @@ pub struct NemotronRunResult {
     pub prep_hash_cpu_seconds: f64,
     pub child_cpu_seconds: f64,
     pub whole_service_cpu_seconds: f64,
+    pub total_cold_with_prep_cpu_seconds: f64,
     pub rtf_cpu: f64,
     pub streams_per_core_at_full_load: f64,
     pub load_ms: Option<f64>,
@@ -357,6 +358,7 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
             "prep_hash_cpu_seconds": (prep_hash_cpu_s * 1000.0).round() / 1000.0,
             "child_cpu_seconds": (child_cpu_s * 1000.0).round() / 1000.0,
             "whole_service_cpu_seconds": (cpu_s * 1000.0).round() / 1000.0,
+            "total_cold_with_prep_cpu_seconds": ((prep_hash_cpu_s + cpu_s) * 1000.0).round() / 1000.0,
             "mapped_shared_objects": mapped_libs,
         });
         let prov_bytes = serde_json::to_vec_pretty(&prov)
@@ -383,7 +385,12 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         cap_hits: None,
         chunk_ms,
         status_events: vec![
-            format!("cost_scope:whole_service_process_tree_cold_included"),
+            format!("cost_scope:post_prep_process_tree_service_cold_load"),
+            format!("prep_cpu_seconds:{prep_hash_cpu_s:.3}"),
+            format!(
+                "total_cold_with_prep_cpu_seconds:{:.3}",
+                prep_hash_cpu_s + cpu_s
+            ),
             format!("binary_sha256:{binary_sha256}"),
             format!("model_sha256:{model_sha256}"),
             format!("pcm_wav_sha256:{audio_sha}"),
@@ -410,6 +417,7 @@ pub fn run_nemotron_batch(cfg: &NemotronConfig) -> Result<NemotronRunResult, Ada
         prep_hash_cpu_seconds: (prep_hash_cpu_s * 1000.0).round() / 1000.0,
         child_cpu_seconds: (child_cpu_s * 1000.0).round() / 1000.0,
         whole_service_cpu_seconds: (cpu_s * 1000.0).round() / 1000.0,
+        total_cold_with_prep_cpu_seconds: ((prep_hash_cpu_s + cpu_s) * 1000.0).round() / 1000.0,
         rtf_cpu: (rtf_cpu * 100_000.0).round() / 100_000.0,
         streams_per_core_at_full_load: ((1.0 / rtf_cpu) * 100.0).round() / 100.0,
         load_ms,

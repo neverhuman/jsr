@@ -1,10 +1,12 @@
 //! Pure-Rust ONNX Runtime streaming transducer backend (`OrtTransducerBackend`) for R1
-//! (`dense` `S` and `multirate` `S_MR`) consuming `ultra.r1-export/v1` bundles.
+//! (`dense` `S` and `multirate` `S_MR`) consuming `ultra.r1-export/{v1,v1.1}` bundles.
 //!
-//! Parity status: `R1Precision::Fp32` achieves `400/400` (`100.00%`) token-and-text parity with
-//! `BundleRecognizer` on `dev-clean`. `R1Precision::Int8` is **EXPERIMENTAL** on dynamic
-//! per-tensor activation-quantized bundles (`355/400 = 88.75%` due to batch-dependent
-//! `DynamicQuantizeLinear` scales) pending static TRAIN-calibrated QDQ export.
+//! Includes `R-ACCEL-1` hot-path accelerations:
+//! - Zero-copy single-stream (`b == 1`) state ping-pong swap (eliminating `12.72 MiB/chunk`
+//!   gather/scatter `memcpy` on single-stream latency mode and `dynamic_per_row` `max_batch=1`).
+//! - Pre-evaluated `ctx_init` (`[0, 0]`) + per-stream exact context cache (`0` ORT `decoder.onnx`
+//!   calls across unchanged contexts).
+//! - AVX2 IEEE-754 finite tensor validation and zero-allocation `OrtRunScratch`.
 
 use std::collections::BTreeMap;
 use std::ffi::CString;
@@ -12,27 +14,31 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ultra_frontend::{TrainerLogMel, MEL_BINS};
-use ultra_gp::{checked_argmax_f32, FeatureRing, R1Bundle, R1Precision, RnntStreamState};
+use ultra_gp::{FeatureRing, R1Bundle, R1Precision, RnntStreamState};
 
 use crate::api::StreamError;
 use crate::ort_c_api::{OrtEnv, OrtSession, OrtTensorIn, OrtTensorOut};
 use crate::ort_r1_stream::{validate_state_outputs, OrtR1RawStream};
-pub use crate::ort_r1_ws::BatchWorkspace;
-pub(crate) use crate::ort_r1_ws::{ensure_all_finite, StateBuf};
+pub(crate) use crate::ort_r1_ws::{ensure_all_finite, thread_cpu_ns, StateBuf};
+pub use crate::ort_r1_ws::{BatchWorkspace, R1PhaseCounters};
 
 /// Samples per 25 Hz encoder frame (`40 ms @ 16 kHz = 640` samples).
 pub const R1_SAMPLES_PER_ENC_FRAME: u64 = 640;
+
+type StreamSnapshot = ([i64; 2], usize, u64, Option<[i64; 2]>, Vec<f32>);
 
 /// Immutable R1 streaming transducer engine (`Send + Sync`, shared across CCX workers).
 pub struct OrtTransducerBackend {
     pub ort: Arc<OrtEnv>,
     pub bundle: R1Bundle,
     pub threads: i32,
-    enc: OrtSession,
-    dec: OrtSession,
-    joi: OrtSession,
+    pub(crate) enc: OrtSession,
+    pub(crate) dec: OrtSession,
+    pub(crate) joi: OrtSession,
     state_in_names: Vec<CString>,
     state_out_names: Vec<CString>,
+    b1_state_shapes: Vec<Vec<i64>>,
+    dec_init_00: Vec<f32>,
 }
 
 impl OrtTransducerBackend {
@@ -60,6 +66,7 @@ impl OrtTransducerBackend {
 
         let mut state_in_names = Vec::with_capacity(bundle.streaming.states.len());
         let mut state_out_names = Vec::with_capacity(bundle.streaming.states.len());
+        let mut b1_state_shapes = Vec::with_capacity(bundle.streaming.states.len());
         for s in &bundle.streaming.states {
             state_in_names.push(
                 CString::new(s.name.as_str())
@@ -69,7 +76,24 @@ impl OrtTransducerBackend {
                 CString::new(format!("{}_out", s.name))
                     .map_err(|_| StreamError::Protocol(format!("NUL in state {}_out", s.name)))?,
             );
+            let mut sh = Vec::with_capacity(s.per_stream_dims.len());
+            for &dim in &s.per_stream_dims {
+                sh.push(
+                    i64::try_from(dim)
+                        .map_err(|_| StreamError::ResourceLimit("state dim > i64::MAX".into()))?,
+                );
+            }
+            b1_state_shapes.push(sh);
         }
+
+        let d = bundle.streaming.joiner_dim;
+        let ctx_init = bundle.decoder.ctx_init;
+        let mut dec_init_00 = vec![0.0f32; d];
+        dec.run_into(
+            &[(c"ctx", OrtTensorIn::i64(&ctx_init, &[1, 2]))],
+            &mut [(c"dec", OrtTensorOut::f32(&mut dec_init_00, &[1, d as i64]))],
+        )?;
+        ensure_all_finite(&dec_init_00, "decoder_init")?;
 
         Ok(Arc::new(Self {
             ort,
@@ -80,6 +104,8 @@ impl OrtTransducerBackend {
             joi,
             state_in_names,
             state_out_names,
+            b1_state_shapes,
+            dec_init_00,
         }))
     }
 
@@ -97,6 +123,7 @@ impl OrtTransducerBackend {
                 }
             })
             .collect();
+        let ctx_init = self.bundle.decoder.ctx_init;
         OrtR1RawStream {
             engine: Arc::clone(self),
             mel: TrainerLogMel::new(Arc::clone(&self.bundle.mel_cfg)),
@@ -106,12 +133,15 @@ impl OrtTransducerBackend {
             finished: false,
             fail_after_chunks: None,
             states,
-            rnnt: RnntStreamState::new(self.bundle.decoder.ctx_init),
+            alt_states: Vec::new(),
+            cached_ctx: Some(ctx_init),
+            cached_dec: self.dec_init_00.clone(),
+            rnnt: RnntStreamState::new(ctx_init),
         }
     }
 
     /// Decode one ready step across a slice of streams (grouping by chunk length `n` identically
-    /// to `bundle_infer.py:decode_streams`). Returns `(max_group_batch, ort_wakeups)`.
+    /// to `bundle_infer.py:decode_streams`). Returns `(max_group_batch, compatible_groups)`.
     pub fn decode_streams(
         &self,
         streams: &mut [&mut OrtR1RawStream],
@@ -129,14 +159,105 @@ impl OrtTransducerBackend {
             let step = self.bundle.int8_max_batch_enc.unwrap_or(items.len()).max(1);
             for sub in items.chunks(step) {
                 max_b = max_b.max(sub.len());
-                self.run_group(streams, sub, n, ws)?;
+                if sub.len() == 1 {
+                    self.run_single_zero_copy(streams, sub, n, ws)?;
+                } else {
+                    self.run_group(streams, sub, n, ws)?;
+                }
             }
+            ws.0.phases.compatible_groups += 1;
             wakeups += 1;
         }
         Ok((max_b, wakeups))
     }
 
-    fn ensure_ws_states(&self, b: usize, ws: &mut BatchWorkspace) -> Result<(), StreamError> {
+    /// Zero-copy `b == 1` fast path: binds `s.states` directly as ORT inputs and `s.alt_states`
+    /// directly as ORT outputs (`0` gather/scatter bytes), swapping only on complete step success.
+    fn run_single_zero_copy(
+        &self,
+        all_streams: &mut [&mut OrtR1RawStream],
+        items: &[(usize, usize)],
+        n: usize,
+        ws_outer: &mut BatchWorkspace,
+    ) -> Result<(), StreamError> {
+        let ws = &mut *ws_outer.0;
+        let prof = ws.profiling_enabled;
+        let tp0 = thread_cpu_ns(prof);
+        let (s_idx, t0) = items[0];
+        let feat_rows = 4usize
+            .checked_mul(n)
+            .and_then(|r| r.checked_add(3))
+            .ok_or_else(|| StreamError::ResourceLimit("chunk feature rows overflow".into()))?;
+        let feat_stride = feat_rows
+            .checked_mul(MEL_BINS)
+            .ok_or_else(|| StreamError::ResourceLimit("chunk feature stride overflow".into()))?;
+        ws.feats_in.resize(feat_stride, 0.0);
+        ws.t0_in.resize(1, 0);
+        ws.t0_in[0] = t0 as i64;
+        let joiner_dim = self.bundle.streaming.joiner_dim;
+        ws.enc_out.resize(n * joiner_dim, 0.0);
+
+        {
+            let s = &mut *all_streams[s_idx];
+            s.ensure_alt_states();
+            s.ring.extract_chunk_into(t0, n, &mut ws.feats_in);
+            let tp1 = thread_cpu_ns(prof);
+            ws.phases.cache_pack_cpu_ns += tp1.saturating_sub(tp0);
+
+            let feats_shape = [1i64, feat_rows as i64, MEL_BINS as i64];
+            let t0_shape = [1i64];
+            let enc_shape = [1i64, n as i64, joiner_dim as i64];
+
+            let mut ort_ins = Vec::with_capacity(2 + self.state_in_names.len());
+            ort_ins.push((c"feats", OrtTensorIn::f32(&ws.feats_in, &feats_shape)));
+            ort_ins.push((c"t0", OrtTensorIn::i64(&ws.t0_in, &t0_shape)));
+            for (si, name) in self.state_in_names.iter().enumerate() {
+                let sh = &self.b1_state_shapes[si];
+                let view = match &s.states[si] {
+                    StateBuf::F32(v) => OrtTensorIn::f32(v, sh),
+                    StateBuf::I64(v) => OrtTensorIn::i64(v, sh),
+                };
+                ort_ins.push((name.as_c_str(), view));
+            }
+
+            let mut ort_outs = Vec::with_capacity(1 + self.state_out_names.len());
+            ort_outs.push((c"enc", OrtTensorOut::f32(&mut ws.enc_out, &enc_shape)));
+            for (si, out_buf) in s.alt_states.iter_mut().enumerate() {
+                let sh = &self.b1_state_shapes[si];
+                let view = match out_buf {
+                    StateBuf::F32(v) => OrtTensorOut::f32(v, sh),
+                    StateBuf::I64(v) => OrtTensorOut::i64(v, sh),
+                };
+                ort_outs.push((self.state_out_names[si].as_c_str(), view));
+            }
+            ws.ort_ins_cap = ws.ort_ins_cap.max(ort_ins.capacity());
+
+            let te0 = thread_cpu_ns(prof);
+            self.enc
+                .run_into_with_scratch(&ort_ins, &mut ort_outs, &mut ws.ort_scratch)?;
+            let te1 = thread_cpu_ns(prof);
+            ws.phases.encoder_cpu_ns += te1.saturating_sub(te0);
+            ws.phases.encoder_ort_calls += 1;
+            ws.phases.zero_copy_single_steps += 1;
+            drop(ort_outs);
+            drop(ort_ins);
+
+            let tv0 = thread_cpu_ns(prof);
+            ensure_all_finite(&ws.enc_out, "encoder")?;
+            validate_state_outputs(
+                &self.bundle.streaming.states,
+                self.bundle.streaming.left_context_frames,
+                &s.alt_states,
+            )?;
+            let tv1 = thread_cpu_ns(prof);
+            ws.phases.finite_validation_cpu_ns += tv1.saturating_sub(tv0);
+        }
+
+        self.commit_greedy_or_rollback(all_streams, items, n, ws_outer, true)
+    }
+
+    fn ensure_ws_states(&self, b: usize, ws_outer: &mut BatchWorkspace) -> Result<(), StreamError> {
+        let ws = &mut *ws_outer.0;
         if b == 0 || b > 4096 {
             return Err(StreamError::ResourceLimit(format!(
                 "invalid R1 batch size {b} (expected 1..=4096)"
@@ -173,12 +294,7 @@ impl OrtTransducerBackend {
                 _ => {}
             }
             ws.state_shapes[si].clear();
-            for &d in &spec.per_stream_dims {
-                ws.state_shapes[si].push(
-                    i64::try_from(d)
-                        .map_err(|_| StreamError::ResourceLimit("state dim > i64::MAX".into()))?,
-                );
-            }
+            ws.state_shapes[si].extend_from_slice(&self.b1_state_shapes[si]);
             ws.state_shapes[si][spec.batch_axis] = b as i64;
         }
         Ok(())
@@ -189,8 +305,12 @@ impl OrtTransducerBackend {
         all_streams: &mut [&mut OrtR1RawStream],
         items: &[(usize, usize)],
         n: usize,
-        ws: &mut BatchWorkspace,
+        ws_outer: &mut BatchWorkspace,
     ) -> Result<(), StreamError> {
+        self.ensure_ws_states(items.len(), ws_outer)?;
+        let ws = &mut *ws_outer.0;
+        let prof = ws.profiling_enabled;
+        let tp0 = thread_cpu_ns(prof);
         let b = items.len();
         let feat_rows = 4usize
             .checked_mul(n)
@@ -204,7 +324,6 @@ impl OrtTransducerBackend {
             .ok_or_else(|| StreamError::ResourceLimit("batch feature buffer overflow".into()))?;
         ws.feats_in.resize(feat_total, 0.0);
         ws.t0_in.resize(b, 0);
-        self.ensure_ws_states(b, ws)?;
 
         for (bi, &(s_idx, t0)) in items.iter().enumerate() {
             let s = &mut *all_streams[s_idx];
@@ -234,10 +353,11 @@ impl OrtTransducerBackend {
                 }
             }
         }
+        let tp1 = thread_cpu_ns(prof);
+        ws.phases.cache_pack_cpu_ns += tp1.saturating_sub(tp0);
 
         let joiner_dim = self.bundle.streaming.joiner_dim;
         ws.enc_out.resize(b * n * joiner_dim, 0.0);
-
         let feats_shape = [b as i64, feat_rows as i64, MEL_BINS as i64];
         let t0_shape = [b as i64];
         let enc_shape = [b as i64, n as i64, joiner_dim as i64];
@@ -264,24 +384,51 @@ impl OrtTransducerBackend {
             };
             ort_outs.push((self.state_out_names[si].as_c_str(), view));
         }
+        ws.ort_ins_cap = ws.ort_ins_cap.max(ort_ins.capacity());
 
-        self.enc.run_into(&ort_ins, &mut ort_outs)?;
+        let te0 = thread_cpu_ns(prof);
+        self.enc
+            .run_into_with_scratch(&ort_ins, &mut ort_outs, &mut ws.ort_scratch)?;
+        let te1 = thread_cpu_ns(prof);
+        ws.phases.encoder_cpu_ns += te1.saturating_sub(te0);
+        ws.phases.encoder_ort_calls += 1;
+        ws.phases.batched_steps += 1;
         drop(ort_outs);
         drop(ort_ins);
+
+        let tv0 = thread_cpu_ns(prof);
         ensure_all_finite(&ws.enc_out, "encoder")?;
         validate_state_outputs(
             &self.bundle.streaming.states,
             self.bundle.streaming.left_context_frames,
             &ws.state_outs,
         )?;
+        let tv1 = thread_cpu_ns(prof);
+        ws.phases.finite_validation_cpu_ns += tv1.saturating_sub(tv0);
 
-        // Snapshot RNN-T state so any late decoder/joiner failure rolls back cleanly before
-        // committing encoder caches or advancing `t_next`.
-        let snapshots: Vec<([i64; 2], usize, u64)> = items
+        self.commit_greedy_or_rollback(all_streams, items, n, ws_outer, false)
+    }
+
+    fn commit_greedy_or_rollback(
+        &self,
+        all_streams: &mut [&mut OrtR1RawStream],
+        items: &[(usize, usize)],
+        n: usize,
+        ws: &mut BatchWorkspace,
+        zero_copy_single: bool,
+    ) -> Result<(), StreamError> {
+        let prof = ws.0.profiling_enabled;
+        let snapshots: Vec<StreamSnapshot> = items
             .iter()
             .map(|&(s_idx, _)| {
-                let r = &all_streams[s_idx].rnnt;
-                (r.ctx, r.tokens.len(), r.forced_advances)
+                let s = &all_streams[s_idx];
+                (
+                    s.rnnt.ctx,
+                    s.rnnt.tokens.len(),
+                    s.rnnt.forced_advances,
+                    s.cached_ctx,
+                    s.cached_dec.clone(),
+                )
             })
             .collect();
 
@@ -296,157 +443,53 @@ impl OrtTransducerBackend {
             None => self.greedy_step(all_streams, items, n, ws),
         };
         if let Err(err) = step_res {
-            for (&(s_idx, _), (ctx, tok_len, fa)) in items.iter().zip(snapshots) {
-                let r = &mut all_streams[s_idx].rnnt;
-                r.ctx = ctx;
-                r.tokens.truncate(tok_len);
-                r.forced_advances = fa;
+            for (&(s_idx, _), (ctx, tok_len, fa, c_ctx, c_dec)) in items.iter().zip(snapshots) {
+                let s = &mut all_streams[s_idx];
+                s.rnnt.ctx = ctx;
+                s.rnnt.tokens.truncate(tok_len);
+                s.rnnt.forced_advances = fa;
+                s.cached_ctx = c_ctx;
+                s.cached_dec = c_dec;
             }
             return Err(err);
         }
 
+        let ts0 = thread_cpu_ns(prof);
+        let b = items.len();
         for (bi, &(s_idx, t0)) in items.iter().enumerate() {
             let s = &mut *all_streams[s_idx];
             if let Some(rem) = s.fail_after_chunks.as_mut() {
                 *rem = rem.saturating_sub(1);
             }
-            for (si, spec) in self.bundle.streaming.states.iter().enumerate() {
-                let outer: usize = spec.per_stream_dims[..spec.batch_axis].iter().product();
-                let inner: usize = spec.per_stream_dims[spec.batch_axis + 1..].iter().product();
-                match (&ws.state_outs[si], &mut s.states[si]) {
-                    (StateBuf::F32(src), StateBuf::F32(dst)) => {
-                        for o in 0..outer {
-                            let s0 = (o * b + bi) * inner;
-                            dst[o * inner..(o + 1) * inner].copy_from_slice(&src[s0..s0 + inner]);
+            if zero_copy_single {
+                std::mem::swap(&mut s.states, &mut s.alt_states);
+            } else {
+                for (si, spec) in self.bundle.streaming.states.iter().enumerate() {
+                    let outer: usize = spec.per_stream_dims[..spec.batch_axis].iter().product();
+                    let inner: usize = spec.per_stream_dims[spec.batch_axis + 1..].iter().product();
+                    match (&ws.0.state_outs[si], &mut s.states[si]) {
+                        (StateBuf::F32(src), StateBuf::F32(dst)) => {
+                            for o in 0..outer {
+                                let s0 = (o * b + bi) * inner;
+                                dst[o * inner..(o + 1) * inner]
+                                    .copy_from_slice(&src[s0..s0 + inner]);
+                            }
                         }
-                    }
-                    (StateBuf::I64(src), StateBuf::I64(dst)) => {
-                        for o in 0..outer {
-                            let s0 = (o * b + bi) * inner;
-                            dst[o * inner..(o + 1) * inner].copy_from_slice(&src[s0..s0 + inner]);
+                        (StateBuf::I64(src), StateBuf::I64(dst)) => {
+                            for o in 0..outer {
+                                let s0 = (o * b + bi) * inner;
+                                dst[o * inner..(o + 1) * inner]
+                                    .copy_from_slice(&src[s0..s0 + inner]);
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             s.t_next = t0 + n;
         }
-        Ok(())
-    }
-
-    /// Exact active-set transducer greedy inner loop matching `BundleRecognizer._greedy`:
-    /// calls `decoder.onnx` on `ctx[active]` (`[a, 2] -> [a, d]`) and `joiner.{fp32,int8}.onnx`
-    /// on `(enc[active, t], dec[active])`, removing blanked rows each symbol round.
-    fn greedy_step(
-        &self,
-        all_streams: &mut [&mut OrtR1RawStream],
-        items: &[(usize, usize)],
-        n: usize,
-        ws: &mut BatchWorkspace,
-    ) -> Result<(), StreamError> {
-        let b = items.len();
-        let d = self.bundle.streaming.joiner_dim;
-        let v = self.bundle.decoder.vocab_size;
-        let blank = self.bundle.decoder.blank_id;
-        let max_sym = self.bundle.decoder.max_symbols;
-
-        let mut active: Vec<usize> = Vec::with_capacity(b);
-        let mut next_active: Vec<usize> = Vec::with_capacity(b);
-
-        for t in 0..n {
-            active.clear();
-            active.extend(0..b);
-            let mut hits = 0usize;
-            while !active.is_empty() && hits < max_sym {
-                let a = active.len();
-                ws.dec_ctx.resize(a * 2, 0);
-                ws.dec_out.resize(a * d, 0.0);
-                ws.joi_enc.resize(a * d, 0.0);
-                ws.joi_logits.resize(a * v, 0.0);
-
-                for (ai, &bi) in active.iter().enumerate() {
-                    let ctx = all_streams[items[bi].0].rnnt.ctx;
-                    ws.dec_ctx[ai * 2] = ctx[0];
-                    ws.dec_ctx[ai * 2 + 1] = ctx[1];
-                    let enc_off = (bi * n + t) * d;
-                    ws.joi_enc[ai * d..(ai + 1) * d]
-                        .copy_from_slice(&ws.enc_out[enc_off..enc_off + d]);
-                }
-
-                let ctx_sh = [a as i64, 2];
-                let joi_in_sh = [a as i64, d as i64];
-                let joi_out_sh = [a as i64, v as i64];
-
-                self.dec.run_into(
-                    &[(c"ctx", OrtTensorIn::i64(&ws.dec_ctx, &ctx_sh))],
-                    &mut [(c"dec", OrtTensorOut::f32(&mut ws.dec_out, &joi_in_sh))],
-                )?;
-                ensure_all_finite(&ws.dec_out, "decoder")?;
-
-                if let Some(mb) = self.bundle.int8_max_batch_joi {
-                    let step = mb.max(1);
-                    let mut off = 0usize;
-                    while off < a {
-                        let sub = (a - off).min(step);
-                        let sub_in = [sub as i64, d as i64];
-                        let sub_out = [sub as i64, v as i64];
-                        self.joi.run_into(
-                            &[
-                                (
-                                    c"enc",
-                                    OrtTensorIn::f32(
-                                        &ws.joi_enc[off * d..(off + sub) * d],
-                                        &sub_in,
-                                    ),
-                                ),
-                                (
-                                    c"dec",
-                                    OrtTensorIn::f32(
-                                        &ws.dec_out[off * d..(off + sub) * d],
-                                        &sub_in,
-                                    ),
-                                ),
-                            ],
-                            &mut [(
-                                c"logits",
-                                OrtTensorOut::f32(
-                                    &mut ws.joi_logits[off * v..(off + sub) * v],
-                                    &sub_out,
-                                ),
-                            )],
-                        )?;
-                        off += sub;
-                    }
-                } else {
-                    self.joi.run_into(
-                        &[
-                            (c"enc", OrtTensorIn::f32(&ws.joi_enc, &joi_in_sh)),
-                            (c"dec", OrtTensorIn::f32(&ws.dec_out, &joi_in_sh)),
-                        ],
-                        &mut [(
-                            c"logits",
-                            OrtTensorOut::f32(&mut ws.joi_logits, &joi_out_sh),
-                        )],
-                    )?;
-                }
-
-                next_active.clear();
-                for (ai, &bi) in active.iter().enumerate() {
-                    let k = checked_argmax_f32(&ws.joi_logits[ai * v..(ai + 1) * v])? as i64;
-                    if k != blank {
-                        let st = &mut all_streams[items[bi].0].rnnt;
-                        st.tokens.push(k);
-                        st.ctx = [st.ctx[1], k];
-                        next_active.push(bi);
-                    }
-                }
-                std::mem::swap(&mut active, &mut next_active);
-                hits += 1;
-            }
-            for &bi in &active {
-                all_streams[items[bi].0].rnnt.forced_advances += 1;
-            }
-        }
+        let ts1 = thread_cpu_ns(prof);
+        ws.0.phases.scatter_cpu_ns += ts1.saturating_sub(ts0);
         Ok(())
     }
 }

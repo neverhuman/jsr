@@ -26,6 +26,7 @@ struct R1ActiveSlot {
 pub struct OrtR1SlotBank<'a> {
     pub engine: Arc<OrtTransducerBackend>,
     pub utts: &'a [AudioUtterance],
+    utt_offset: usize,
     slots: Vec<Option<R1ActiveSlot>>,
     ws: BatchWorkspace,
     sampler: Option<&'a mut TreeSampler>,
@@ -40,9 +41,20 @@ impl<'a> OrtR1SlotBank<'a> {
         streams: usize,
         sampler: Option<&'a mut TreeSampler>,
     ) -> Self {
+        Self::with_start_offset(engine, utts, 0, streams, sampler)
+    }
+
+    pub fn with_start_offset(
+        engine: Arc<OrtTransducerBackend>,
+        utts: &'a [AudioUtterance],
+        utt_offset: usize,
+        streams: usize,
+        sampler: Option<&'a mut TreeSampler>,
+    ) -> Self {
         Self {
             engine,
             utts,
+            utt_offset,
             slots: (0..streams).map(|_| None).collect(),
             ws: BatchWorkspace::new(),
             sampler,
@@ -58,12 +70,14 @@ impl SimSlotBank for OrtR1SlotBank<'_> {
     }
 
     fn utt_samples(&self, utt_pos: usize) -> usize {
-        self.utts[utt_pos].pcm.len()
+        let idx = (utt_pos + self.utt_offset) % self.utts.len();
+        self.utts[idx].pcm.len()
     }
 
     fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
+        let idx = (utt_pos + self.utt_offset) % self.utts.len();
         self.slots[slot] = Some(R1ActiveSlot {
-            utt_pos,
+            utt_pos: idx,
             cursor: 0,
             finished: false,
             raw: self.engine.create_raw_stream(),
@@ -183,6 +197,11 @@ pub struct R1PacketStreamingRun {
     pub hyps: Vec<String>,
     pub tokens: Vec<Vec<i64>>,
     pub forced_advances: u64,
+    pub max_active_streams: usize,
+    pub compatible_groups: u64,
+    pub encoder_ort_calls: u64,
+    pub decoder_ort_calls: u64,
+    pub joiner_ort_calls: u64,
 }
 
 /// Exact Rust mirror of `python/ultra/train/infer.py:run_streaming` (`packet_ms` packets across
@@ -206,6 +225,7 @@ pub fn run_r1_packet_streaming_with_tokens(
     let mut toks = vec![Vec::new(); utts.len()];
     let mut ws = BatchWorkspace::new();
     let mut forced_advances = 0u64;
+    let mut max_active_streams = 0usize;
 
     while next_utt < utts.len() || !active.is_empty() {
         for (slot_id, occ) in occupied.iter_mut().enumerate() {
@@ -223,6 +243,7 @@ pub fn run_r1_packet_streaming_with_tokens(
                 next_utt += 1;
             }
         }
+        max_active_streams = max_active_streams.max(active.len());
         for (_, st) in &mut active {
             let pcm = &utts[st.utt_pos].pcm;
             if st.cursor < pcm.len() {
@@ -258,10 +279,16 @@ pub fn run_r1_packet_streaming_with_tokens(
         }
         active = remaining;
     }
+    let pc = ws.phase_counters();
     Ok(R1PacketStreamingRun {
         hyps,
         tokens: toks,
         forced_advances,
+        max_active_streams,
+        compatible_groups: pc.compatible_groups,
+        encoder_ort_calls: pc.encoder_ort_calls,
+        decoder_ort_calls: pc.decoder_ort_calls,
+        joiner_ort_calls: pc.joiner_ort_calls,
     })
 }
 
@@ -328,6 +355,7 @@ pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
         &mut clock,
     )?;
     let forced = bank.forced_advances;
+    let pc = bank.ws.phase_counters().clone();
     if let Some(err) = bank.last_error.take() {
         return Err(err);
     }
@@ -343,7 +371,7 @@ pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
         &engine.bundle.manifest_sha256[..12]
     );
 
-    finalize_sp_a_result(
+    let mut res = finalize_sp_a_result(
         SpAMeta {
             driver: "rust-ort-c-api-v1".into(),
             sherpa_ver: "n/a".into(),
@@ -378,5 +406,13 @@ pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
         res_sum.peak_rss_bytes,
         load_before,
         load_after,
-    )
+    )?;
+    res.receipt.status_events.extend([
+        format!("compatible_groups:{}", pc.compatible_groups),
+        format!("encoder_ort_calls:{}", pc.encoder_ort_calls),
+        format!("decoder_ort_calls:{}", pc.decoder_ort_calls),
+        format!("decoder_cache_hits:{}", pc.decoder_cache_hits),
+        format!("joiner_ort_calls:{}", pc.joiner_ort_calls),
+    ]);
+    Ok(res)
 }

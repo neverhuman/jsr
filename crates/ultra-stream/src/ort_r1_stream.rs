@@ -66,6 +66,9 @@ pub struct OrtR1RawStream {
     pub(crate) finished: bool,
     pub(crate) fail_after_chunks: Option<usize>,
     pub(crate) states: Vec<StateBuf>,
+    pub(crate) alt_states: Vec<StateBuf>,
+    pub(crate) cached_ctx: Option<[i64; 2]>,
+    pub(crate) cached_dec: Vec<f32>,
     pub rnnt: RnntStreamState,
 }
 
@@ -75,6 +78,20 @@ impl OrtR1RawStream {
         if !self.mel_scratch.is_empty() {
             self.ring.push_rows(&self.mel_scratch);
             self.mel_scratch.clear();
+        }
+    }
+
+    pub fn accept_i16_profiled(&mut self, pcm: &[i16], ws: &mut BatchWorkspace) {
+        let prof = ws.0.profiling_enabled;
+        let t0 = crate::ort_r1_ws::thread_cpu_ns(prof);
+        self.accept_i16(pcm);
+        let t1 = crate::ort_r1_ws::thread_cpu_ns(prof);
+        ws.0.phases.featurize_cpu_ns += t1.saturating_sub(t0);
+    }
+
+    pub(crate) fn ensure_alt_states(&mut self) {
+        if self.alt_states.len() != self.states.len() {
+            self.alt_states = self.states.clone();
         }
     }
 
@@ -102,11 +119,19 @@ impl OrtR1RawStream {
     /// Complete retained per-stream allocation in bytes: encoder caches (`k`, `v`, `kv_len`,
     /// `conv`, and MR `km`, `vm`, `kvm_len`, `convm`), feature ring, mel scratch, and RNN-T tokens.
     pub fn retained_bytes(&self) -> usize {
-        let state_bytes: usize = self.states.iter().map(StateBuf::retained_bytes).sum();
+        let state_bytes: usize = self
+            .states
+            .iter()
+            .chain(&self.alt_states)
+            .map(StateBuf::retained_bytes)
+            .sum();
         state_bytes
+            + (self.states.capacity() + self.alt_states.capacity())
+                * std::mem::size_of::<StateBuf>()
             + self.mel.retained_heap_bytes()
             + self.ring.retained_bytes()
             + self.mel_scratch.capacity() * MEL_BINS * 4
+            + self.cached_dec.capacity() * 4
             + self.rnnt.tokens.capacity() * 8
             + std::mem::size_of::<Self>()
     }

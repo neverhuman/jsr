@@ -12,6 +12,8 @@ pub mod ort_c_api;
 pub mod ort_ffi;
 pub mod ort_r1;
 pub mod ort_r1_bank;
+pub mod ort_r1_fleet;
+mod ort_r1_greedy;
 pub mod ort_r1_stream;
 mod ort_r1_ws;
 pub mod scheduler;
@@ -20,6 +22,7 @@ pub mod sherpa_c_types;
 pub mod sherpa_ffi;
 pub mod sherpa_offline;
 pub mod sherpa_online;
+mod x86_avx2_finite;
 
 pub use api::{
     AsrStream, Backend, BackendCaps, OperatingProfile, OutputPolicy, PollResult, PushReport,
@@ -29,12 +32,13 @@ pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
 pub use fleet_inproc::{run_sp_a_shared_workers, SharedFleetResult, WorkerSummary};
-pub use ort_c_api::{OrtElemType, OrtEnv, OrtSession};
-pub use ort_r1::{BatchWorkspace, OrtTransducerBackend};
+pub use ort_c_api::{OrtElemType, OrtEnv, OrtRunScratch, OrtSession};
+pub use ort_r1::{BatchWorkspace, OrtTransducerBackend, R1PhaseCounters};
 pub use ort_r1_bank::{
     run_r1_packet_streaming, run_r1_packet_streaming_with_tokens, run_sp_a_ort_r1, OrtR1SlotBank,
     R1PacketStreamingRun, R1SpAConfig,
 };
+pub use ort_r1_fleet::{run_sp_a_ort_r1_shared_workers, R1FleetResult};
 pub use ort_r1_stream::OrtR1RawStream;
 pub use scheduler::{
     default_npz_for_split, run_sp_a_zipformer, simulate_grid, sustains_lateness, DecodeMode,

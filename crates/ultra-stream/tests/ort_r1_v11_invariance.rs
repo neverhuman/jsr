@@ -7,7 +7,7 @@ use std::process::Command;
 
 use ultra_frontend::npz::load_npz_audio_only;
 use ultra_gp::R1Precision;
-use ultra_stream::{run_r1_packet_streaming_with_tokens, OrtTransducerBackend};
+use ultra_stream::{run_r1_packet_streaming_with_tokens, BatchWorkspace, OrtTransducerBackend};
 
 fn data_root() -> PathBuf {
     std::env::var("JSR_DATA")
@@ -107,36 +107,75 @@ fn v11_int8_bundles_are_batch_invariant_across_1_3_5_16_32_streams_and_match_pyt
             .expect("load v1.1 int8 bundle");
         assert!(eng.bundle.int8_consumer_batch_invariant());
 
-        let base = run_r1_packet_streaming_with_tokens(&eng, &utts, 1, 20).expect("s=1");
+        // Verify zero-copy b==1 ping-pong, decoder context cache hits, and phase CPU counters.
+        {
+            let mut raw = eng.create_raw_stream();
+            let mut ws = BatchWorkspace::with_profiling(true);
+            raw.accept_i16_profiled(&utts[0].pcm, &mut ws);
+            raw.input_finished();
+            while raw.is_ready() {
+                eng.decode_streams(&mut [&mut raw], &mut ws)
+                    .expect("profiled single-stream decode");
+            }
+            let pc = ws.phase_counters();
+            assert!(pc.zero_copy_single_steps > 0);
+            assert_eq!(pc.batched_steps, 0);
+            assert!(pc.decoder_cache_hits > 0);
+            assert!(pc.encoder_cpu_ns > 0);
+        }
+
+        // Build 32 distinct mixed-length stream instances (1.1s .. 2.5s, exercising full 160ms
+        // chunks plus odd/even partial final chunks) so `streams = 16` and `32` genuinely sustain
+        // full 16/32 simultaneous active stream occupancy without bloating debug `just required`.
+        let utts_32: Vec<ultra_frontend::npz::AudioUtterance> = (0..32)
+            .map(|i| {
+                let src = &utts[i % utts.len()];
+                let want = (18_000 + (i % 7) * 3_517).min(src.pcm.len());
+                ultra_frontend::npz::AudioUtterance {
+                    index: i,
+                    pcm: src.pcm[..want].to_vec(),
+                }
+            })
+            .collect();
+        let base32 = run_r1_packet_streaming_with_tokens(&eng, &utts_32, 1, 20).expect("s=1 (32)");
+        assert_eq!(base32.max_active_streams, 1);
         for &streams in &[3usize, 5, 16, 32] {
-            let run = run_r1_packet_streaming_with_tokens(&eng, &utts, streams, 20)
+            let run = run_r1_packet_streaming_with_tokens(&eng, &utts_32, streams, 20)
                 .expect("multi-stream v1.1 int8");
             assert_eq!(
-                run.tokens, base.tokens,
+                run.max_active_streams, streams,
+                "{rel}: expected simultaneous occupancy {streams}, got {}",
+                run.max_active_streams
+            );
+            assert!(run.encoder_ort_calls >= run.compatible_groups);
+            assert_eq!(
+                run.tokens, base32.tokens,
                 "{rel}: token drift between streams=1 and streams={streams}"
             );
             assert_eq!(
-                run.hyps, base.hyps,
+                run.hyps, base32.hyps,
                 "{rel}: transcript drift between streams=1 and streams={streams}"
             );
-            assert_eq!(run.forced_advances, base.forced_advances);
+            assert_eq!(run.forced_advances, base32.forced_advances);
         }
 
         if Path::new("/home/ubuntu/jsr/.venv/bin/python").exists() {
+            let full8 =
+                run_r1_packet_streaming_with_tokens(&eng, &utts, 16, 20).expect("full 8 s=16");
             let (py_hyps, py_toks, py_forced) = run_py_single_stream(&bdir, &npz_path, 8);
             let eq_toks = py_toks
                 .iter()
-                .zip(&base.tokens)
+                .zip(&full8.tokens)
                 .filter(|(a, b)| a == b)
                 .count();
             let eq_hyps = py_hyps
                 .iter()
-                .zip(&base.hyps)
+                .zip(&full8.hyps)
                 .filter(|(a, b)| a == b)
                 .count();
             eprintln!(
-                "v1.1 [{rel}] 8-utt INT8 parity vs Python: eq_hyps={eq_hyps}/8, eq_toks={eq_toks}/8, forced={}/{py_forced}",
-                base.forced_advances
+                "v1.1 [{rel}] 8-utt INT8 parity vs Python (32-instance S=1/3/5/16/32 occupancy verified): eq_hyps={eq_hyps}/8, eq_toks={eq_toks}/8, forced={}/{py_forced}",
+                full8.forced_advances
             );
             assert_eq!(eq_hyps, 8, "{rel}: expected 8/8 identical INT8 transcripts");
             assert_eq!(

@@ -23,6 +23,7 @@ pub struct SuiteJobManifest {
     pub driver: String,
     pub cost_scope: String,
     pub build_source_commit: String,
+    pub build_tree_dirty: bool,
     pub launch_checkout_commit: String,
     pub source_commit: String,
     pub executable_path: String,
@@ -35,6 +36,7 @@ pub struct SuiteJobManifest {
     pub cpu_affinity_list: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
+    pub observer_topology_verified: Option<bool>,
     pub loadavg_before: [f64; 3],
     pub cli_args: Vec<String>,
 }
@@ -46,6 +48,7 @@ pub(crate) struct SuiteHostSnapshot {
     pub cpu_affinity_list: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
+    pub observer_topology_verified: Option<bool>,
 }
 
 impl SuiteHostSnapshot {
@@ -54,12 +57,12 @@ impl SuiteHostSnapshot {
         let executable_sha256 = sha256_file(&exe)?;
         let npz_sha256 = sha256_file(npz_path)?;
         let cpu_affinity_list = read_cpu_affinity_list();
-        let observer_service_disjoint = match observer_cpus {
+        let (observer_service_disjoint, observer_topology_verified) = match observer_cpus {
             Some(obs) => {
-                validate_observer_cpus_disjoint(&cpu_affinity_list, obs)?;
-                Some(true)
+                let topo_ok = validate_observer_cpus_disjoint(&cpu_affinity_list, obs, false)?;
+                (Some(true), Some(topo_ok))
             }
-            None => None,
+            None => (None, None),
         };
         Ok(Self {
             executable_path: exe.to_string_lossy().into_owned(),
@@ -68,6 +71,7 @@ impl SuiteHostSnapshot {
             cpu_affinity_list,
             observer_cpus: observer_cpus.map(str::to_owned),
             observer_service_disjoint,
+            observer_topology_verified,
         })
     }
 
@@ -95,6 +99,7 @@ impl SuiteHostSnapshot {
             build_source_commit: option_env!("ULTRA_BUILD_GIT_COMMIT")
                 .unwrap_or("unknown")
                 .to_owned(),
+            build_tree_dirty: option_env!("ULTRA_BUILD_GIT_DIRTY") == Some("true"),
             launch_checkout_commit: source_commit.to_owned(),
             source_commit: source_commit.to_owned(),
             executable_path: self.executable_path.clone(),
@@ -107,6 +112,7 @@ impl SuiteHostSnapshot {
             cpu_affinity_list: self.cpu_affinity_list.clone(),
             observer_cpus: self.observer_cpus.clone(),
             observer_service_disjoint: self.observer_service_disjoint,
+            observer_topology_verified: self.observer_topology_verified,
             loadavg_before,
             cli_args: cli_args.to_vec(),
         }
@@ -147,22 +153,29 @@ pub fn parse_cpuset(spec: &str) -> Result<BTreeSet<u32>, CliError> {
 }
 
 /// Refuse any logical-CPU, SMT-sibling, or L3-CCX overlap between service and observer cpusets.
+/// When `fail_closed_topology` is `true`, unreadable sysfs topology/L3 files return `Err`.
 pub fn validate_observer_cpus_disjoint(
     service_spec: &str,
     observer_spec: &str,
-) -> Result<(), CliError> {
+    fail_closed_topology: bool,
+) -> Result<bool, CliError> {
     let svc = parse_cpuset(service_spec)?;
     let obs = parse_cpuset(observer_spec)?;
     let mut expanded_svc = svc.clone();
+    let mut all_topo_ok = true;
     for &c in &svc {
         for rel in [
             format!("/sys/devices/system/cpu/cpu{c}/topology/thread_siblings_list"),
             format!("/sys/devices/system/cpu/cpu{c}/cache/index3/shared_cpu_list"),
         ] {
-            if let Ok(s) = std::fs::read_to_string(rel) {
-                if let Ok(sibs) = parse_cpuset(s.trim()) {
-                    expanded_svc.extend(sibs);
+            match std::fs::read_to_string(&rel) {
+                Ok(s) => expanded_svc.extend(parse_cpuset(s.trim())?),
+                Err(_) if fail_closed_topology => {
+                    return Err(CliError::Config(format!(
+                        "missing CPU/L3 topology sysfs `{rel}` required for qualifying observer isolation"
+                    )))
                 }
+                Err(_) => all_topo_ok = false,
             }
         }
     }
@@ -172,7 +185,7 @@ pub fn validate_observer_cpus_disjoint(
             "--observer-cpus `{observer_spec}` overlaps service cpuset/SMT/L3 `{service_spec}` on CPUs {overlap:?}"
         )));
     }
-    Ok(())
+    Ok(all_topo_ok)
 }
 
 pub(crate) fn sha256_file(path: &Path) -> Result<String, CliError> {
@@ -269,8 +282,9 @@ mod tests {
         let err = write_bytes_create_new(&p, b"{}").expect_err("second write must fail");
         assert_eq!(err.exit_code(), crate::EXIT_CONFIG);
 
-        assert!(validate_observer_cpus_disjoint("52", "52").is_err());
-        assert!(validate_observer_cpus_disjoint("24-27", "26-29").is_err());
-        assert!(validate_observer_cpus_disjoint("52", "48-51").is_ok());
+        assert!(validate_observer_cpus_disjoint("52", "52", false).is_err());
+        assert!(validate_observer_cpus_disjoint("24-27", "26-29", false).is_err());
+        assert!(validate_observer_cpus_disjoint("52", "48-51", false).is_ok());
+        assert!(validate_observer_cpus_disjoint("4095", "48", true).is_err());
     }
 }

@@ -1,7 +1,7 @@
-//! Pre-allocated tensor views (`OrtTensorIn`, `OrtTensorOut`) and RAII `OrtSession` wrapper
-//! over [`OrtEnv`] (`OrtApi(17)`).
+//! Pre-allocated tensor views (`OrtTensorIn`, `OrtTensorOut`), zero-allocation `OrtRunScratch`,
+//! and RAII `OrtSession` wrapper over [`OrtEnv`] (`OrtApi(17)`).
 
-use std::ffi::{c_int, c_void, CStr, CString};
+use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::path::Path;
 use std::ptr::null_mut;
 use std::sync::Arc;
@@ -74,17 +74,49 @@ impl<'a> OrtTensorOut<'a> {
     }
 }
 
-struct ScopedValue<'a> {
-    env: &'a OrtEnv,
-    addr: usize,
+/// Reusable call scratch eliminating per-invocation `Vec` allocations across encoder/decoder/joiner.
+#[derive(Default)]
+pub struct OrtRunScratch {
+    in_name_addrs: Vec<usize>,
+    in_val_addrs: Vec<usize>,
+    out_name_addrs: Vec<usize>,
+    out_val_addrs: Vec<usize>,
 }
 
-impl Drop for ScopedValue<'_> {
+impl OrtRunScratch {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn retained_bytes(&self) -> usize {
+        (self.in_name_addrs.capacity()
+            + self.in_val_addrs.capacity()
+            + self.out_name_addrs.capacity()
+            + self.out_val_addrs.capacity())
+            * std::mem::size_of::<usize>()
+    }
+}
+
+struct ScratchReleaseGuard<'a> {
+    env: &'a OrtEnv,
+    scratch: &'a mut OrtRunScratch,
+}
+
+impl Drop for ScratchReleaseGuard<'_> {
     fn drop(&mut self) {
-        if self.addr != 0 {
-            // SAFETY: Valid `OrtValue*` created by `CreateTensorWithDataAsOrtValue`.
-            unsafe { (self.env.vtab.release_value)(self.addr as *mut c_void) };
+        for addr in self
+            .scratch
+            .out_val_addrs
+            .drain(..)
+            .chain(self.scratch.in_val_addrs.drain(..))
+        {
+            if addr != 0 {
+                // SAFETY: Valid `OrtValue*` created by `CreateTensorWithDataAsOrtValue`.
+                unsafe { (self.env.vtab.release_value)(addr as *mut c_void) };
+            }
         }
+        self.scratch.in_name_addrs.clear();
+        self.scratch.out_name_addrs.clear();
     }
 }
 
@@ -153,30 +185,33 @@ impl OrtSession {
         inputs: &[(&CStr, OrtTensorIn<'_>)],
         outputs: &mut [(&CStr, OrtTensorOut<'_>)],
     ) -> Result<(), StreamError> {
-        let mut in_guards = Vec::with_capacity(inputs.len());
-        let mut in_names = Vec::with_capacity(inputs.len());
-        let mut in_ptrs = Vec::with_capacity(inputs.len());
+        let mut scratch = OrtRunScratch::new();
+        self.run_into_with_scratch(inputs, outputs, &mut scratch)
+    }
+
+    pub fn run_into_with_scratch(
+        &self,
+        inputs: &[(&CStr, OrtTensorIn<'_>)],
+        outputs: &mut [(&CStr, OrtTensorOut<'_>)],
+        scratch: &mut OrtRunScratch,
+    ) -> Result<(), StreamError> {
+        const {
+            assert!(std::mem::size_of::<usize>() == std::mem::size_of::<*const c_char>());
+            assert!(std::mem::size_of::<usize>() == std::mem::size_of::<*mut c_void>());
+        }
+        let guard = ScratchReleaseGuard {
+            env: &self.env,
+            scratch,
+        };
+        guard.scratch.in_name_addrs.clear();
+        guard.scratch.in_val_addrs.clear();
+        guard.scratch.out_name_addrs.clear();
+        guard.scratch.out_val_addrs.clear();
 
         for (name, t) in inputs {
-            let expected_elems: usize = t
-                .shape
-                .iter()
-                .map(|&d| usize::try_from(d).unwrap_or(0))
-                .product();
-            let elem_bytes = match t.elem {
-                OrtElemType::Float32 => 4,
-                OrtElemType::Int64 => 8,
-            };
-            if expected_elems * elem_bytes != t.byte_len {
-                return Err(StreamError::Protocol(format!(
-                    "ORT input '{}' byte_len {} != shape {:?} * {elem_bytes}",
-                    name.to_string_lossy(),
-                    t.byte_len,
-                    t.shape
-                )));
-            }
+            validate_tensor_bytes(name, t.shape, t.elem, t.byte_len)?;
             let mut val: *mut c_void = null_mut();
-            // SAFETY: Backing Rust slice outlives `in_guards` and is read-only during `Run`.
+            // SAFETY: Backing Rust slice outlives `guard` and is read-only during `Run`.
             unsafe {
                 self.env.vtab.check(
                     (self.env.vtab.create_tensor)(
@@ -191,38 +226,14 @@ impl OrtSession {
                     "CreateTensor(in)",
                 )?;
             }
-            in_names.push(name.as_ptr());
-            in_ptrs.push(val as *const c_void);
-            in_guards.push(ScopedValue {
-                env: &self.env,
-                addr: val as usize,
-            });
+            guard.scratch.in_name_addrs.push(name.as_ptr() as usize);
+            guard.scratch.in_val_addrs.push(val as usize);
         }
 
-        let mut out_guards = Vec::with_capacity(outputs.len());
-        let mut out_names = Vec::with_capacity(outputs.len());
-        let mut out_ptrs = Vec::with_capacity(outputs.len());
-
         for (name, t) in outputs.iter_mut() {
-            let expected_elems: usize = t
-                .shape
-                .iter()
-                .map(|&d| usize::try_from(d).unwrap_or(0))
-                .product();
-            let elem_bytes = match t.elem {
-                OrtElemType::Float32 => 4,
-                OrtElemType::Int64 => 8,
-            };
-            if expected_elems * elem_bytes != t.byte_len {
-                return Err(StreamError::Protocol(format!(
-                    "ORT output '{}' byte_len {} != shape {:?} * {elem_bytes}",
-                    name.to_string_lossy(),
-                    t.byte_len,
-                    t.shape
-                )));
-            }
+            validate_tensor_bytes(name, t.shape, t.elem, t.byte_len)?;
             let mut val: *mut c_void = null_mut();
-            // SAFETY: Mutable Rust slice is exclusively borrowed for the duration of `run_into`.
+            // SAFETY: Mutable Rust slice is exclusively borrowed for the duration of `Run`.
             unsafe {
                 self.env.vtab.check(
                     (self.env.vtab.create_tensor)(
@@ -237,32 +248,59 @@ impl OrtSession {
                     "CreateTensor(out)",
                 )?;
             }
-            out_names.push(name.as_ptr());
-            out_ptrs.push(val);
-            out_guards.push(ScopedValue {
-                env: &self.env,
-                addr: val as usize,
-            });
+            guard.scratch.out_name_addrs.push(name.as_ptr() as usize);
+            guard.scratch.out_val_addrs.push(val as usize);
         }
 
-        // SAFETY: Session, input/output name arrays, and `OrtValue*` arrays are valid for `Run`.
+        // SAFETY: `usize` buffers have identical layout to pointer arrays and remain live across `Run`.
         unsafe {
             self.env.vtab.check(
                 (self.env.vtab.run)(
                     self.sess_addr as *mut c_void,
                     std::ptr::null(),
-                    in_names.as_ptr(),
-                    in_ptrs.as_ptr(),
-                    in_ptrs.len(),
-                    out_names.as_ptr(),
-                    out_ptrs.len(),
-                    out_ptrs.as_mut_ptr(),
+                    guard.scratch.in_name_addrs.as_ptr().cast::<*const c_char>(),
+                    guard.scratch.in_val_addrs.as_ptr().cast::<*const c_void>(),
+                    guard.scratch.in_val_addrs.len(),
+                    guard
+                        .scratch
+                        .out_name_addrs
+                        .as_ptr()
+                        .cast::<*const c_char>(),
+                    guard.scratch.out_val_addrs.len(),
+                    guard
+                        .scratch
+                        .out_val_addrs
+                        .as_mut_ptr()
+                        .cast::<*mut c_void>(),
                 ),
                 "Run",
             )?;
         }
-        drop(out_guards);
-        drop(in_guards);
         Ok(())
     }
+}
+
+fn validate_tensor_bytes(
+    name: &CStr,
+    shape: &[i64],
+    elem: OrtElemType,
+    byte_len: usize,
+) -> Result<(), StreamError> {
+    let elem_bytes = match elem {
+        OrtElemType::Float32 => 4usize,
+        OrtElemType::Int64 => 8usize,
+    };
+    let expected_bytes = shape
+        .iter()
+        .try_fold(elem_bytes, |acc, &d| {
+            usize::try_from(d).ok().and_then(|u| acc.checked_mul(u))
+        })
+        .unwrap_or(usize::MAX);
+    if expected_bytes != byte_len {
+        return Err(StreamError::Protocol(format!(
+            "ORT tensor '{}' byte_len {byte_len} != shape {shape:?} * {elem_bytes}",
+            name.to_string_lossy()
+        )));
+    }
+    Ok(())
 }

@@ -9,13 +9,11 @@ use crate::bench_cmd::{parse_next, partition_for_split};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
 pub use crate::suite_latency::{DensityPoint, FrontierReport, FrontierRow};
 use crate::suite_manifest::{
-    read_cpu_affinity_list, validate_observer_cpus_disjoint, write_bytes_create_new,
+    parse_cpuset, read_cpu_affinity_list, validate_observer_cpus_disjoint, write_bytes_create_new,
     SuiteHostSnapshot,
 };
-use crate::suite_runners::{
-    run_nemotron_candidate, run_offline_candidate, run_r1_candidate, run_zipformer_candidate,
-    SuiteCtx,
-};
+use crate::suite_r1_z::{run_r1_candidate, run_zipformer_candidate};
+use crate::suite_runners::{run_nemotron_candidate, run_offline_candidate, SuiteCtx};
 use crate::{git_short_commit, jsr_data_root, BenchLease, CliError};
 
 pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
@@ -87,7 +85,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
                 "--qualified requires explicit --observer-cpus on a separate CCX from the service cpuset".into(),
             ));
         };
-        validate_observer_cpus_disjoint(&read_cpu_affinity_list(), obs)?;
+        validate_observer_cpus_disjoint(&read_cpu_affinity_list(), obs, true)?;
         return Err(CliError::Config(
             "qualifying window requires verified lease, host, freeze, and profile gate; bench-suite emits exploratory receipts only".into(),
         ));
@@ -111,6 +109,15 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         )));
     }
     let host_snap = SuiteHostSnapshot::capture(&npz_path, observer_cpus.as_deref())?;
+    let obs_vec: Option<Vec<usize>> = match observer_cpus.as_deref() {
+        Some(spec) => Some(
+            parse_cpuset(spec)?
+                .into_iter()
+                .map(|c| c as usize)
+                .collect(),
+        ),
+        None => None,
+    };
     let partition = partition_for_split(&split);
     let commit = git_short_commit();
     let ctx = SuiteCtx {
@@ -126,6 +133,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         latency_limit,
         sustained_seconds,
         silence_probe_wav: silence_probe_wav.as_ref(),
+        observer_cpus: obs_vec.as_deref(),
         precision: precision.as_deref(),
         threads,
         commit: &commit,

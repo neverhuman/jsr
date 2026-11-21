@@ -178,6 +178,28 @@ impl TrainerMelConfig {
 
     /// Compute one normalized 80-bin log-mel frame from exactly `400` unit-range `f32` samples.
     pub fn frame_f32(&self, frame: &[f32]) -> [f32; MEL_BINS] {
+        if crate::trainer_mel_avx2::avx2_fma_available() {
+            #[cfg(target_arch = "x86_64")]
+            {
+                let mel_acc = crate::trainer_mel_avx2::dc_window_and_mel_avx2(
+                    frame,
+                    &self.window,
+                    &self.fbank,
+                    fft_in_place_512_f64,
+                );
+                let mut mel = [0.0f32; MEL_BINS];
+                for (dst, &acc) in mel.iter_mut().zip(&mel_acc) {
+                    *dst = ((acc as f32) + self.log_floor).ln();
+                }
+                self.cmvn.apply_in_place(&mut mel);
+                return mel;
+            }
+        }
+        self.frame_f32_scalar(frame)
+    }
+
+    /// Exact portable scalar `f64` reference for [`Self::frame_f32`].
+    pub fn frame_f32_scalar(&self, frame: &[f32]) -> [f32; MEL_BINS] {
         debug_assert_eq!(frame.len(), WIN_SAMPLES);
         let mean = (frame.iter().map(|&x| f64::from(x)).sum::<f64>() / (WIN_SAMPLES as f64)) as f32;
         let mut re = [0.0f64; FFT_SIZE];
