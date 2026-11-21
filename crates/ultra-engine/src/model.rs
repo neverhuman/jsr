@@ -69,6 +69,11 @@ struct RawFile {
 
 #[derive(Deserialize)]
 struct RawFeatures {
+    sample_rate: u32,
+    frame_length: usize,
+    frame_shift: usize,
+    n_fft: usize,
+    n_mels: usize,
     log_floor: f32,
     cmvn: RawCmvn,
 }
@@ -81,6 +86,10 @@ struct RawCmvn {
 
 #[derive(Deserialize)]
 struct RawDecoder {
+    kind: String,
+    context: usize,
+    vocab_size: usize,
+    joiner_activation: String,
     blank_id: usize,
     max_symbols: usize,
     ctx_init: [usize; 2],
@@ -187,14 +196,24 @@ pub struct Model {
     pub tokens: Arc<TokenTable>,
 }
 
+/// Resolve a declared file inside `root` (no separators, no escaping symlinks) and, when
+/// `check` is set, verify its SHA-256 against `arch.json`.
 fn verify(root: &Path, f: &RawFile, check: bool) -> Result<PathBuf, EngineError> {
-    if f.path.contains('/') || f.path.contains("..") {
+    if f.path.is_empty() || f.path.contains('/') || f.path.contains('\\') || f.path.starts_with('.')
+    {
         return Err(EngineError::Format(format!(
             "file path {} escapes the directory",
             f.path
         )));
     }
-    let p = root.join(&f.path);
+    let base = root.canonicalize()?;
+    let p = base.join(&f.path).canonicalize()?;
+    if p.parent() != Some(base.as_path()) {
+        return Err(EngineError::Format(format!(
+            "file {} resolves outside the weight directory",
+            f.path
+        )));
+    }
     if check {
         let got = sha256_hex(&std::fs::read(&p)?);
         if got != f.sha256 {
@@ -205,6 +224,16 @@ fn verify(root: &Path, f: &RawFile, check: bool) -> Result<PathBuf, EngineError>
         }
     }
     Ok(p)
+}
+
+/// Positive and at most `max` (guards every allocation product derived from arch.json).
+fn bounded(name: &str, v: usize, max: usize) -> Result<usize, EngineError> {
+    if v == 0 || v > max {
+        return Err(EngineError::Shape(format!(
+            "{name} = {v} outside 1..={max}"
+        )));
+    }
+    Ok(v)
 }
 
 fn file<'a>(raw: &'a RawArch, key: &str) -> Result<&'a RawFile, EngineError> {
@@ -239,11 +268,47 @@ impl Model {
                 raw.model.config.joiner_act
             )));
         }
+        bounded("d_model", e.d_model, 4096)?;
+        bounded("n_heads", e.n_heads, 64)?;
+        bounded("n_blocks", e.n_blocks, 256)?;
+        bounded("ffn_mult", e.ffn_mult, 16)?;
+        bounded("conv_kernel", e.conv_kernel, 255)?;
+        bounded("stem_channels", e.stem_channels, 1024)?;
+        bounded("chunk", e.chunk, 64)?;
+        bounded("left_context", e.left_context, 4096)?;
+        bounded("vocab_rnnt", raw.model.config.vocab_rnnt, 1 << 20)?;
+        bounded("pred_emb", raw.model.config.pred_emb, 4096)?;
+        bounded("joiner", raw.model.config.joiner, 4096)?;
+        bounded("max_symbols", raw.decoder.max_symbols, 64)?;
         if e.n_mels != MEL_BINS
             || !e.d_model.is_multiple_of(e.n_heads)
             || !(e.d_model / e.n_heads).is_multiple_of(2)
         {
             return Err(EngineError::Shape("n_mels/d_model/n_heads".into()));
+        }
+        let (fe, de) = (&raw.features, &raw.decoder);
+        // The frontend (ultra-frontend TrainerLogMel) and greedy rule the engine implements.
+        if (
+            fe.sample_rate,
+            fe.frame_length,
+            fe.frame_shift,
+            fe.n_fft,
+            fe.n_mels,
+        ) != (16_000, 400, 160, 512, MEL_BINS)
+            || !(fe.log_floor > 0.0 && fe.log_floor.is_finite())
+        {
+            return Err(EngineError::Unsupported(
+                "feature spec differs from TrainerLogMel".into(),
+            ));
+        }
+        if de.kind != "stateless"
+            || de.context != 2
+            || de.vocab_size != raw.model.config.vocab_rnnt
+            || de.joiner_activation != "tanh"
+        {
+            return Err(EngineError::Unsupported(
+                "decoder spec (stateless, context 2, tanh)".into(),
+            ));
         }
         if e.chunk == 0 || e.left_context == 0 || e.conv_kernel < 2 {
             return Err(EngineError::Shape("chunk/left_context/conv_kernel".into()));

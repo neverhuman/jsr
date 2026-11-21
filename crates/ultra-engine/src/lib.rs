@@ -40,6 +40,8 @@ pub enum EngineError {
     Shape(String),
     #[error("unsupported model or request: {0}")]
     Unsupported(String),
+    #[error("stream lifecycle violation: {0}")]
+    Lifecycle(String),
     #[error("malformed or non-finite engine output: {0}")]
     Output(String),
     #[error(transparent)]
@@ -71,6 +73,16 @@ impl EngineError {
                     "check the weights.safetensors hash recorded in arch.json",
                 ],
                 docs_url: "docs/errors.md#bundle",
+                repair_hint: "cargo test -p ultra-engine",
+            },
+            Self::Lifecycle(_) => RepairHint {
+                purpose: "never accept audio after input_finished or reuse a stream whose chunk step failed",
+                reason: "the caller fed a finished stream or retried a terminal (failed) stream",
+                common_fixes: &[
+                    "create a new stream for new audio",
+                    "drop streams reported failed and restart their utterance from the beginning",
+                ],
+                docs_url: "docs/errors.md#lifecycle",
                 repair_hint: "cargo test -p ultra-engine",
             },
             Self::Unsupported(_) => RepairHint {
