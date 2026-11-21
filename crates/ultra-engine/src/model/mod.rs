@@ -8,7 +8,7 @@ use ultra_gp::TokenTable;
 
 use crate::kernels::PackedF32;
 use crate::quant::PackedI8;
-use crate::safetensors::SafeTensors;
+use crate::safetensors::LazyTensors;
 use crate::EngineError;
 
 mod arch_json;
@@ -64,6 +64,20 @@ impl Linear {
             f: PackedF32::pack(w, n, k, b),
             q: None,
         }
+    }
+
+    /// Shape and bias only (its weights come from a prepared int8 artifact): the fp32
+    /// weights are never materialised.
+    fn int8_only(n: usize, k: usize, b: &[f32]) -> Self {
+        Self {
+            f: PackedF32::bias_only(n, k, b),
+            q: None,
+        }
+    }
+
+    /// Whether the fp32 weights are resident (false for prepared-int8 layers).
+    pub fn has_fp32(&self) -> bool {
+        self.f.has_weights()
     }
     pub fn n(&self) -> usize {
         self.f.n
@@ -255,7 +269,7 @@ impl Model {
                 "blank_id / ctx_init out of vocabulary".into(),
             ));
         }
-        let st = SafeTensors::read(&verify(root, wfile, verify_hashes)?)?;
+        let st = LazyTensors::open(&verify(root, wfile, verify_hashes)?)?;
         if st.metadata.get("checkpoint_sha256") != Some(&arch.checkpoint_sha256) {
             return Err(EngineError::Integrity(
                 "weights.safetensors metadata checkpoint_sha256 differs from arch.json".into(),
@@ -271,8 +285,8 @@ impl Model {
             arch.log_floor,
             cmvn,
         )?);
-        let ckpt_mean = st.take("cmvn.mean", &[arch.n_mels])?;
-        let ckpt_istd = st.take("cmvn.istd", &[arch.n_mels])?;
+        let ckpt_mean = st.f32("cmvn.mean", &[arch.n_mels])?;
+        let ckpt_istd = st.f32("cmvn.istd", &[arch.n_mels])?;
         if ckpt_mean != raw.features.cmvn.mean || ckpt_istd != raw.features.cmvn.istd {
             return Err(EngineError::Integrity(
                 "arch.json cmvn (mean or istd) differs from weights".into(),
@@ -285,7 +299,13 @@ impl Model {
         for f in raw.files.values() {
             verify(root, f, verify_hashes)?;
         }
-        let mut model = Self::from_tensors(arch, &st, root, mel_cfg, tokens)?;
+        // Prepared int8: linear layers stored in the artifact never get fp32 weights in memory.
+        let int8_only = |prefix: &str| -> bool {
+            raw.int8.as_ref().is_some_and(|i8| {
+                arch_json::kind_of(prefix).is_some_and(|k| !i8.fp32_kinds.iter().any(|f| f == k))
+            })
+        };
+        let mut model = Self::from_tensors(arch, &st, root, mel_cfg, tokens, &int8_only)?;
         if let Some(i8) = &raw.int8 {
             let path = verify(root, file(&raw, "weights_int8")?, verify_hashes)?;
             model.load_prepared_int8(&path, i8)?;
@@ -295,72 +315,81 @@ impl Model {
 
     fn from_tensors(
         arch: Arch,
-        st: &SafeTensors,
+        st: &LazyTensors,
         root: &Path,
         mel_cfg: Arc<TrainerMelConfig>,
         tokens: Arc<TokenTable>,
+        int8_only: &dyn Fn(&str) -> bool,
     ) -> Result<Self, EngineError> {
         let a = &arch;
         let (d, ch, ffn) = (a.d, a.stem_ch, a.ffn);
         let lin = |name: &str, n: usize, k: usize| -> Result<Linear, EngineError> {
-            let w = st.get(&format!("{name}.weight"), &[n, k])?;
-            let b = st.get(&format!("{name}.bias"), &[n])?;
-            Ok(Linear::new(&w.data, n, k, Some(&b.data)))
+            let b = st.f32(&format!("{name}.bias"), &[n])?;
+            if int8_only(name) {
+                return Ok(Linear::int8_only(n, k, &b));
+            }
+            let w = st.f32(&format!("{name}.weight"), &[n, k])?;
+            Ok(Linear::new(&w, n, k, Some(&b)))
         };
         let norm = |name: &str| -> Result<Norm, EngineError> {
             Ok(Norm {
-                g: st.take(&format!("{name}.weight"), &[d])?,
-                b: st.take(&format!("{name}.bias"), &[d])?,
+                g: st.f32(&format!("{name}.weight"), &[d])?,
+                b: st.f32(&format!("{name}.bias"), &[d])?,
             })
         };
         // Stem layer 1: (ch, 1, 3, 3) -> [ch][9].
-        let c1 = st.take("encoder.stem.c1.weight", &[ch, 1, 3, 3])?;
+        let c1 = st.f32("encoder.stem.c1.weight", &[ch, 1, 3, 3])?;
         let mut c1_w = vec![0.0f32; 9 * ch];
         for c in 0..ch {
             for t in 0..9 {
                 c1_w[t * ch + c] = c1[c * 9 + t];
             }
         }
-        let c1_b = st.take("encoder.stem.c1.bias", &[ch])?;
+        let c1_b = st.f32("encoder.stem.c1.bias", &[ch])?;
         // Stem layer 2: (ch_out, ch_in, 3, 3) -> rows ch_out, K index (kh*3+kw)*ch + c_in.
-        let w2 = st.get("encoder.stem.c2.weight", &[ch, ch, 3, 3])?;
-        let mut w2p = vec![0.0f32; ch * 9 * ch];
-        for o in 0..ch {
-            for i in 0..ch {
-                for t in 0..9 {
-                    w2p[o * 9 * ch + t * ch + i] = w2.data[(o * ch + i) * 9 + t];
+        let c2_b = st.f32("encoder.stem.c2.bias", &[ch])?;
+        let c2 = if int8_only("encoder.stem.c2") {
+            Linear::int8_only(ch, 9 * ch, &c2_b)
+        } else {
+            let w2 = st.f32("encoder.stem.c2.weight", &[ch, ch, 3, 3])?;
+            let mut w2p = vec![0.0f32; ch * 9 * ch];
+            for o in 0..ch {
+                for i in 0..ch {
+                    for t in 0..9 {
+                        w2p[o * 9 * ch + t * ch + i] = w2[(o * ch + i) * 9 + t];
+                    }
                 }
             }
-        }
-        let c2 = Linear::new(
-            &w2p,
-            ch,
-            9 * ch,
-            Some(&st.take("encoder.stem.c2.bias", &[ch])?),
-        );
+            Linear::new(&w2p, ch, 9 * ch, Some(&c2_b))
+        };
         // Stem projection: K index c * f2 + f in torch; f * ch + c here.
         let kin = ch * a.f2;
-        let wo = st.get("encoder.stem.out.weight", &[d, kin])?;
-        let mut wop = vec![0.0f32; d * kin];
-        for o in 0..d {
-            for c in 0..ch {
-                for f in 0..a.f2 {
-                    wop[o * kin + f * ch + c] = wo.data[o * kin + c * a.f2 + f];
+        let so_b = st.f32("encoder.stem.out.bias", &[d])?;
+        let stem_out = if int8_only("encoder.stem.out") {
+            Linear::int8_only(d, kin, &so_b)
+        } else {
+            let wo = st.f32("encoder.stem.out.weight", &[d, kin])?;
+            let mut wop = vec![0.0f32; d * kin];
+            for o in 0..d {
+                for c in 0..ch {
+                    for f in 0..a.f2 {
+                        wop[o * kin + f * ch + c] = wo[o * kin + c * a.f2 + f];
+                    }
                 }
             }
-        }
-        let stem_out = Linear::new(&wop, d, kin, Some(&st.take("encoder.stem.out.bias", &[d])?));
+            Linear::new(&wop, d, kin, Some(&so_b))
+        };
         let mut blocks = Vec::with_capacity(a.n_blocks);
         let names = (0..a.lower)
             .map(|i| format!("encoder.blocks.{i}"))
             .chain((0..a.mid).map(|i| format!("encoder.mid_blocks.{i}")))
             .chain((0..a.fin).map(|i| format!("encoder.final_blocks.{i}")));
         for p in names {
-            let dw = st.get(&format!("{p}.conv.dw.weight"), &[d, 1, a.kernel])?;
+            let dw = st.f32(&format!("{p}.conv.dw.weight"), &[d, 1, a.kernel])?;
             let mut dw_w = vec![0.0f32; a.kernel * d];
             for c in 0..d {
                 for t in 0..a.kernel {
-                    dw_w[t * d + c] = dw.data[c * a.kernel + t];
+                    dw_w[t * d + c] = dw[c * a.kernel + t];
                 }
             }
             blocks.push(Block {
@@ -373,7 +402,7 @@ impl Model {
                 conv_norm: norm(&format!("{p}.conv.norm"))?,
                 pw1: lin(&format!("{p}.conv.pw1"), 2 * d, d)?,
                 dw_w,
-                dw_b: st.take(&format!("{p}.conv.dw.bias"), &[d])?,
+                dw_b: st.f32(&format!("{p}.conv.dw.bias"), &[d])?,
                 dnorm: norm(&format!("{p}.conv.dnorm"))?,
                 pw2: lin(&format!("{p}.conv.pw2"), d, d)?,
                 ff2_norm: norm(&format!("{p}.ff2.norm"))?,
@@ -391,7 +420,7 @@ impl Model {
         } else {
             Some(norm("encoder.final_norm")?)
         };
-        let rope_inv = st.take("engine.rope_inv_freq", &[a.dh / 2])?;
+        let rope_inv = st.f32("engine.rope_inv_freq", &[a.dh / 2])?;
         let (pair, restore) = if a.mid > 0 {
             (
                 Some(lin("encoder.pair", d, 2 * d)?),
@@ -410,7 +439,7 @@ impl Model {
             blocks,
             final_norm,
             enc_proj: lin("joiner.enc_proj", a.joiner, d)?,
-            emb: st.take("predictor.emb.weight", &[a.vocab, a.pred_emb])?,
+            emb: st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?,
             pred_proj: lin("predictor.proj", a.joiner, 2 * a.pred_emb)?,
             joiner_out: lin("joiner.out", a.vocab, a.joiner)?,
             rope_inv,
@@ -431,6 +460,9 @@ impl Model {
     /// the others stay fp32 in the int8 engine.
     pub fn quantize_int8_where(&mut self, keep: impl Fn(&str, Option<usize>) -> bool) {
         for (kind, blk, l) in self.linears_mut() {
+            if !l.has_fp32() {
+                continue; // prepared int8 layer: its packing comes from the artifact
+            }
             l.q = keep(kind, blk).then(|| PackedI8::from_packed_f32(&l.f));
         }
     }

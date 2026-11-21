@@ -163,6 +163,10 @@ impl PackedI8 {
 
     /// Quantise the weights held by an fp32 packing (unpacks, then quantises).
     pub fn from_packed_f32(f: &PackedF32) -> Self {
+        assert!(
+            f.has_weights(),
+            "PackedI8::from_packed_f32 needs fp32 weights"
+        );
         let mut w = vec![0.0f32; f.n * f.k];
         for row in 0..f.n {
             let (p, j) = (row / NR, row % NR);

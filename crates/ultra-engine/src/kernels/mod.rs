@@ -119,6 +119,24 @@ impl PackedF32 {
         }
     }
 
+    /// A layer whose weights live elsewhere (prepared int8): shape and bias only, no data.
+    /// `gemm_f32` refuses it.
+    pub fn bias_only(n: usize, k: usize, bias: &[f32]) -> Self {
+        assert!(n > 0 && k > 0 && bias.len() == n, "PackedF32::bias_only");
+        let mut b = vec![0.0f32; n.div_ceil(NR) * NR];
+        b[..n].copy_from_slice(bias);
+        Self {
+            n,
+            k,
+            data: Vec::new(),
+            bias: b,
+        }
+    }
+
+    pub fn has_weights(&self) -> bool {
+        !self.data.is_empty()
+    }
+
     pub fn n(&self) -> usize {
         self.n
     }
@@ -142,6 +160,10 @@ pub fn gemm_f32(isa: Isa, w: &PackedF32, x: &[f32], rows: usize, out: &mut [f32]
     assert!(
         x.len() >= rows * w.k && out.len() >= rows * w.n,
         "gemm_f32 lengths"
+    );
+    assert!(
+        w.has_weights(),
+        "gemm_f32 on a layer without fp32 weights (prepared int8 only)"
     );
     match isa {
         #[cfg(target_arch = "x86_64")]

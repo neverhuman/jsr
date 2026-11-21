@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use ultra_core::receipt::sha256_hex;
 
 use crate::EngineError;
 
@@ -120,7 +119,7 @@ pub(super) fn verify(root: &Path, f: &RawFile, check: bool) -> Result<PathBuf, E
         )));
     }
     if check {
-        let got = sha256_hex(&std::fs::read(&p)?);
+        let got = sha256_file(&p)?;
         if got != f.sha256 {
             return Err(EngineError::Integrity(format!(
                 "{}: sha256 {got} != arch.json {}",
@@ -129,6 +128,49 @@ pub(super) fn verify(root: &Path, f: &RawFile, check: bool) -> Result<PathBuf, E
         }
     }
     Ok(p)
+}
+
+/// The quantisable-layer kind (as in `Model::linears_mut`) of a torch tensor prefix.
+pub(super) fn kind_of(prefix: &str) -> Option<&'static str> {
+    const TAIL: [(&str, &str); 8] = [
+        (".ff1.w1", "ff1_w1"),
+        (".ff1.w2", "ff1_w2"),
+        (".att.qkv", "qkv"),
+        (".att.out", "att_out"),
+        (".conv.pw1", "pw1"),
+        (".conv.pw2", "pw2"),
+        (".ff2.w1", "ff2_w1"),
+        (".ff2.w2", "ff2_w2"),
+    ];
+    match prefix {
+        "encoder.stem.c2" => Some("stem_c2"),
+        "encoder.stem.out" => Some("stem_out"),
+        "encoder.pair" => Some("pair"),
+        "encoder.restore" => Some("restore"),
+        "joiner.enc_proj" => Some("enc_proj"),
+        "joiner.out" => Some("joiner_out"),
+        _ => TAIL
+            .iter()
+            .find(|(t, _)| prefix.ends_with(t))
+            .map(|&(_, k)| k),
+    }
+}
+
+/// SHA-256 of a file, streamed in 1 MiB blocks (never the whole file in memory).
+pub(super) fn sha256_file(p: &Path) -> Result<String, EngineError> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut f = std::fs::File::open(p)?;
+    let mut h = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
+    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
 /// Positive and at most `max` (guards every allocation product derived from arch.json).

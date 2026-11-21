@@ -46,6 +46,24 @@ fn prepared_matches_load_time_quantisation_and_rejects_tampering() {
         Some(sha)
     );
     assert_eq!(packings(&mut p), packings(&mut m), "bit-identical packing");
+    // Quantised layers keep no fp32 weights; the kept-fp32 kind (joiner_out) does.
+    assert!(p
+        .linears_mut()
+        .into_iter()
+        .all(|(k, _, l)| l.has_fp32() == (k == "joiner_out")));
+    let p = std::sync::Arc::new(p);
+    assert!(ultra_engine::Engine::new(
+        p.clone(),
+        ultra_engine::Isa::detect(),
+        ultra_engine::Precision::F32
+    )
+    .is_err());
+    assert!(ultra_engine::Engine::new(
+        p,
+        ultra_engine::Isa::detect(),
+        ultra_engine::Precision::Int8
+    )
+    .is_ok());
     // Tamper with one code byte: the arch.json hash check refuses it.
     let f = out.0.join("weights.int8.safetensors");
     let mut bytes = std::fs::read(&f).expect("read");

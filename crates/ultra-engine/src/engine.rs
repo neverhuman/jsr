@@ -148,6 +148,13 @@ impl Engine {
                 isa.name()
             )));
         }
+        if precision == Precision::F32 && model.blocks.iter().any(|b| !b.qkv.has_fp32()) {
+            return Err(EngineError::Unsupported(
+                "fp32 requested on a prepared-int8 directory (its quantised layers keep no fp32 \
+                 weights); load the fp32 weight directory instead"
+                    .into(),
+            ));
+        }
         if precision == Precision::Int8
             && model
                 .blocks

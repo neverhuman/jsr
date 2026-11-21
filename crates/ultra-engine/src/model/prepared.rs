@@ -12,7 +12,7 @@ use ultra_core::receipt::sha256_hex;
 use super::arch_json::RawInt8;
 use super::Model;
 use crate::quant::PackedI8;
-use crate::safetensors::{SafeTensors, Tensor, TensorI8};
+use crate::safetensors::{LazyTensors, SafeTensors, Tensor, TensorI8};
 use crate::EngineError;
 
 /// Packing identity written into and required from every prepared artifact.
@@ -47,9 +47,8 @@ impl Model {
                 "weights.int8.safetensors was prepared from other fp32 weights".into(),
             ));
         }
-        let bytes = std::fs::read(path)?;
-        let sha = sha256_hex(&bytes);
-        let st = SafeTensors::parse(&bytes)?;
+        let sha = super::arch_json::sha256_file(path)?;
+        let st = LazyTensors::open(path)?;
         if st.metadata.get("source_weights_sha256") != Some(&self.arch.weights_sha256)
             || st.metadata.get("layout").map(String::as_str) != Some(INT8_LAYOUT)
         {
@@ -62,7 +61,7 @@ impl Model {
         for (kind, blk, lin) in self.linears_mut() {
             let nm = name(kind, blk);
             if fp32_kinds.iter().any(|k| k == kind) {
-                if st.i8_tensors.contains_key(&format!("{nm}.q")) {
+                if st.contains(&format!("{nm}.q")) {
                     return Err(EngineError::Format(format!(
                         "{nm} declared fp32 but has codes"
                     )));
@@ -73,20 +72,20 @@ impl Model {
             let (n, k) = (lin.n(), lin.k());
             let panels = n.div_ceil(crate::kernels::NR);
             let kp = k.div_ceil(crate::quant::KG) * crate::quant::KG;
-            let q = st.get_i8(&format!("{nm}.q"), &[panels * kp * crate::kernels::NR])?;
-            let scale = st.get(&format!("{nm}.scale"), &[panels * crate::kernels::NR])?;
-            let wsum = st.get(&format!("{nm}.wsum"), &[panels * crate::kernels::NR])?;
+            let q = st.i8(&format!("{nm}.q"), &[panels * kp * crate::kernels::NR])?;
+            let scale = st.f32(&format!("{nm}.scale"), &[panels * crate::kernels::NR])?;
+            let wsum = st.f32(&format!("{nm}.wsum"), &[panels * crate::kernels::NR])?;
             lin.q = Some(PackedI8::from_parts(
                 n,
                 k,
-                q.data.clone(),
-                &scale.data,
-                &wsum.data,
+                q,
+                &scale,
+                &wsum,
                 &lin.f.bias[..n],
             )?);
             used += 3;
         }
-        if used != st.i8_tensors.len() + st.tensors.len() {
+        if used != st.len() {
             return Err(EngineError::Format(
                 "int8 artifact has undeclared tensors".into(),
             ));
