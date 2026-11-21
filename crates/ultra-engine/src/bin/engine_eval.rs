@@ -32,6 +32,7 @@ struct Args {
     precision: Precision,
     max_chunks: usize,
     act7: bool,
+    gemm_threads: usize,
     isa: Isa,
     profile: bool,
 }
@@ -49,6 +50,7 @@ fn parse() -> Result<Args, String> {
         precision: Precision::F32,
         max_chunks: 1,
         act7: false,
+        gemm_threads: 1,
         isa: Isa::detect(),
         profile: false,
     };
@@ -60,6 +62,9 @@ fn parse() -> Result<Args, String> {
             "--out" => a.out = v()?.into(),
             "--profile" => a.profile = true,
             "--act7" => a.act7 = true,
+            "--gemm-threads" => {
+                a.gemm_threads = v()?.parse().map_err(|e| format!("--gemm-threads: {e}"))?
+            }
             "--max-chunks" => {
                 a.max_chunks = v()?.parse().map_err(|e| format!("--max-chunks: {e}"))?
             }
@@ -171,7 +176,8 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let engine = Engine::new(Arc::new(model), a.isa, a.precision)
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks)
-        .with_act7(a.act7);
+        .with_act7(a.act7)
+        .with_gemm_threads(a.gemm_threads);
     let utts = load_npz_audio_only(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
     if utts.is_empty() {
         return Err("empty workload".into());
@@ -184,6 +190,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     ws.set_profiling(a.profile);
     let (c0, w0) = (thread_cpu_s(), Instant::now());
     let mut batches = 0u64;
+    let mut decode_wall = 0.0f64;
     let mut batch_rows = 0u64;
     while !queue.is_empty() || !active.is_empty() {
         while active.len() < a.streams {
@@ -206,9 +213,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         loop {
             let mut refs_mut: Vec<&mut EngineStream> =
                 active.iter_mut().map(|(_, s, _)| s).collect();
+            let td = Instant::now();
             let n = engine
                 .decode(&mut refs_mut, &mut ws)
                 .map_err(|e| e.to_string())?;
+            decode_wall += td.elapsed().as_secs_f64();
             if n == 0 {
                 break;
             }
@@ -267,10 +276,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
         "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
         "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
-        "streams": a.streams, "max_chunks": a.max_chunks, "act7": a.act7, "packet_ms": a.packet_ms,
+        "streams": a.streams, "max_chunks": a.max_chunks, "act7": a.act7, "gemm_threads": a.gemm_threads, "packet_ms": a.packet_ms,
         "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
-        "cpu_s": cpu_s, "wall_s": wall_s, "cpu_s_per_audio_s": cpu_s / audio_s,
+        "cpu_s": cpu_s, "wall_s": wall_s, "decode_wall_s": decode_wall,
+        "decode_wall_s_per_audio_s": decode_wall / audio_s, "cpu_s_per_audio_s": cpu_s / audio_s,
         "load_s": load_s, "decode_batches": batches,
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
         "substitutions": subs, "deletions": dels, "insertions": ins,

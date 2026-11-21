@@ -21,6 +21,7 @@ pub mod encoder;
 pub mod engine;
 pub mod kernels;
 pub mod model;
+pub mod pool;
 pub mod prof;
 pub mod quant;
 pub mod safetensors;

@@ -467,6 +467,37 @@ impl Model {
         }
     }
 
+    /// Read-only view of the quantisable layers, in `linears_mut` order.
+    fn linears_ref(&self) -> Vec<&Linear> {
+        let mut v = vec![&self.c2, &self.stem_out];
+        for b in &self.blocks {
+            v.extend([
+                &b.ff1_w1, &b.ff1_w2, &b.qkv, &b.att_out, &b.pw1, &b.pw2, &b.ff2_w1, &b.ff2_w2,
+            ]);
+        }
+        v.extend(self.pair.iter());
+        v.extend(self.restore.iter());
+        v.extend([&self.enc_proj, &self.joiner_out]);
+        v
+    }
+
+    /// Stable id of a quantisable layer of this model (for cross-thread job descriptions).
+    pub fn linear_id(&self, l: &Linear) -> Option<usize> {
+        self.linears_ref().iter().position(|x| std::ptr::eq(*x, l))
+    }
+
+    /// Id of the layer whose int8 packing is `p` (pointer identity).
+    pub fn packed_id(&self, p: &PackedI8) -> Option<usize> {
+        self.linears_ref()
+            .iter()
+            .position(|x| x.q.as_ref().is_some_and(|q| std::ptr::eq(q, p)))
+    }
+
+    /// The layer with id `id` (see [`Model::linear_id`]).
+    pub fn linear_at(&self, id: usize) -> Option<&Linear> {
+        self.linears_ref().get(id).copied()
+    }
+
     /// Every quantisable linear layer with its kind and block index.
     pub fn linears_mut(&mut self) -> Vec<(&'static str, Option<usize>, &mut Linear)> {
         let mut v: Vec<(&'static str, Option<usize>, &mut Linear)> = vec![

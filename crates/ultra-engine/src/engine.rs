@@ -33,6 +33,8 @@ pub struct Engine {
     /// Int8 only: 7-bit activation codes with the paired-accumulation kernel (experimental;
     /// re-gate accuracy before use).
     pub act7: bool,
+    /// Optional single-stream latency mode: int8 GEMMs split across a thread pool.
+    pub pool: Option<Arc<crate::pool::GemmPool>>,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -171,7 +173,16 @@ impl Engine {
             precision,
             max_chunks: 1,
             act7: false,
+            pool: None,
         })
+    }
+
+    /// Split each small-batch int8 GEMM across `threads` threads (the caller plus
+    /// `threads - 1` pool workers; 1 = off, the default and the density mode). Outputs are
+    /// bit-identical to the single-thread engine.
+    pub fn with_gemm_threads(mut self, threads: usize) -> Self {
+        self.pool = (threads > 1).then(|| Arc::new(crate::pool::GemmPool::new(threads)));
+        self
     }
 
     /// Use 7-bit activation codes in int8 linear layers (see [`Engine::act7`]).
@@ -296,6 +307,9 @@ impl Engine {
         }
         ws.enc.q.act7 = self.act7;
         ws.dec.q.act7 = self.act7;
+        let split = self.pool.clone().map(|p| (p, self.model.clone()));
+        ws.enc.q.split = split.clone();
+        ws.dec.q.split = split;
         let m = &self.model;
         let result = encode_chunk(
             m,

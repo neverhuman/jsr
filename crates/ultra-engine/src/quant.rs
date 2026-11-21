@@ -185,6 +185,9 @@ impl PackedI8 {
     }
 }
 
+/// Largest row count for which the pool split is used (it targets single-stream latency).
+const SPLIT_MAX_ROWS: usize = 16;
+
 /// Reusable quantisation buffers (one per worker).
 #[derive(Debug, Default)]
 pub struct QuantScratch {
@@ -193,6 +196,11 @@ pub struct QuantScratch {
     pub center: Vec<f32>,
     /// 7-bit activation codes (|q| <= 63) and the paired-accumulation kernel.
     pub act7: bool,
+    /// Optional panel split of int8 GEMMs across a pool (single-stream latency mode).
+    pub split: Option<(
+        std::sync::Arc<crate::pool::GemmPool>,
+        std::sync::Arc<crate::model::Model>,
+    )>,
     /// Phase accounting of the worker that owns this scratch.
     pub prof: crate::prof::Prof,
 }
@@ -234,20 +242,38 @@ pub fn linear_i8(
     quantize_rows(isa, x, rows, p.k, p.kp, q);
     q.prof.stop(Phase::Quant, t);
     let t = q.prof.start();
-    let gemm = if q.act7 {
-        crate::kernels::gemm_i8_a7
-    } else {
-        crate::kernels::gemm_i8
-    };
-    gemm(
-        isa,
-        p,
-        &q.a[..rows * p.kp],
-        &q.scale[..rows],
-        &q.center[..rows],
-        rows,
-        out,
-    );
+    let split_id = q.split.as_ref().and_then(|(pool, m)| {
+        (rows <= SPLIT_MAX_ROWS && p.panels() >= pool.threads()).then(|| m.packed_id(p))?
+    });
+    match (split_id, q.split.as_ref()) {
+        (Some(id), Some((pool, m))) => pool.gemm_i8(
+            isa,
+            m,
+            id,
+            &q.a[..rows * p.kp],
+            &q.scale[..rows],
+            &q.center[..rows],
+            rows,
+            q.act7,
+            out,
+        ),
+        _ => {
+            let gemm = if q.act7 {
+                crate::kernels::gemm_i8_a7
+            } else {
+                crate::kernels::gemm_i8
+            };
+            gemm(
+                isa,
+                p,
+                &q.a[..rows * p.kp],
+                &q.scale[..rows],
+                &q.center[..rows],
+                rows,
+                out,
+            );
+        }
+    }
     q.prof.stop(Phase::GemmI8, t);
 }
 

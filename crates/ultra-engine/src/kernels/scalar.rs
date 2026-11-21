@@ -169,9 +169,26 @@ pub fn gemm_i8(
     rows: usize,
     out: &mut [f32],
 ) {
+    gemm_i8_panels(w, a, sa, ca, rows, out, 0, w.panels(), w.n);
+}
+
+/// Panels `p0..p1` only, into `out` with row stride `ldo` (column `p0 * 16` at offset 0).
+#[allow(clippy::too_many_arguments)]
+pub fn gemm_i8_panels(
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+    p0: usize,
+    p1: usize,
+    ldo: usize,
+) {
     use crate::quant::KG;
     let (n, kp) = (w.n, w.kp);
-    for p in 0..w.panels() {
+    let col0 = p0 * NR;
+    for p in p0..p1 {
         let panel = w.panel(p);
         for j in 0..NR.min(n - p * NR) {
             let col = p * NR + j;
@@ -183,7 +200,7 @@ pub fn gemm_i8(
                     acc += i32::from(av) * i32::from(wv);
                 }
                 let base = ca[r].mul_add(w.wsum[col], w.bias[col]);
-                out[r * n + col] = (acc as f32).mul_add(sa[r] * w.scale[col], base);
+                out[r * ldo + col - col0] = (acc as f32).mul_add(sa[r] * w.scale[col], base);
             }
         }
     }

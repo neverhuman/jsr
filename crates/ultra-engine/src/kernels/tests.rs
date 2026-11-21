@@ -249,6 +249,22 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
         let mut o2 = vec![1.0; rows * n];
         gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o1);
         gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
+        // Panel-range split reproduces every column bit for bit.
+        let panels = p.panels();
+        let cut = panels / 2;
+        if cut > 0 {
+            for (p0, p1) in [(0, cut), (cut, panels)] {
+                let width = (p1 * 16).min(n) - p0 * 16;
+                let mut part = vec![0.0; rows * width];
+                gemm_i8_panels(isa, &p, &a, &sa, &ca, rows, p0, p1, &mut part, false);
+                for r in 0..rows {
+                    assert_eq!(
+                        &part[r * width..(r + 1) * width],
+                        &o1[r * n + p0 * 16..r * n + p0 * 16 + width]
+                    );
+                }
+            }
+        }
         // 7-bit codes through the paired kernel: same exact result (extremes +-63).
         let a7: Vec<i8> = a
             .iter()

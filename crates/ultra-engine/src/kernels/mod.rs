@@ -325,6 +325,50 @@ pub fn gemm_i8(
     }
 }
 
+/// [`gemm_i8`] restricted to weight panels `p0..p1` (output columns `16 p0 ..
+/// min(16 p1, n)`), written to `out` with row stride equal to that width. Each output value
+/// is computed exactly as by [`gemm_i8`] (same tile code), so splitting a GEMM by panels is
+/// bit-identical. `a7` selects the 7-bit paired kernel (codes must satisfy |a| <= 63).
+#[allow(clippy::too_many_arguments)]
+pub fn gemm_i8_panels(
+    isa: Isa,
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    p0: usize,
+    p1: usize,
+    out: &mut [f32],
+    a7: bool,
+) {
+    assert!(
+        rows > 0 && p0 < p1 && p1 <= w.panels(),
+        "gemm_i8_panels range"
+    );
+    let width = (p1 * NR).min(w.n) - p0 * NR;
+    assert!(
+        rows.checked_mul(w.kp).is_some_and(|v| a.len() >= v)
+            && rows.checked_mul(width).is_some_and(|v| out.len() >= v)
+            && sa.len() >= rows
+            && ca.len() >= rows,
+        "gemm_i8_panels lengths"
+    );
+    if a7 {
+        assert!(
+            a[..rows * w.kp].iter().all(|v| v.unsigned_abs() <= 63),
+            "a7 code range"
+        );
+    }
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => {
+            x86_avx2::gemm_i8_panels(w, a, sa, ca, rows, out, a7, p0, p1, width)
+        }
+        _ => scalar::gemm_i8_panels(w, a, sa, ca, rows, out, p0, p1, width),
+    }
+}
+
 /// [`gemm_i8`] for 7-bit activation codes (|a| <= 63, e.g. from `quantize_row_q(.., 63)`):
 /// the AVX2 kernel sums two `vpmaddubsw` steps in i16 before each `vpmaddwd` (fewer multiply
 /// uops). The result is the same exact integer product; codes outside +-63 are refused.

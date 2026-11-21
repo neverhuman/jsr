@@ -98,10 +98,29 @@ pub(crate) fn gemm_i8(
     a7: bool,
 ) {
     // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
-    unsafe { gemm_i8_avx2(w, a, sa, ca, rows, out, a7) }
+    unsafe { gemm_i8_avx2(w, a, sa, ca, rows, out, a7, 0, w.panels(), w.n) }
+}
+
+/// Panels `p0..p1` only, into `out` with row stride `ldo` (column `p0 * 16` at offset 0).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn gemm_i8_panels(
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+    a7: bool,
+    p0: usize,
+    p1: usize,
+    ldo: usize,
+) {
+    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    unsafe { gemm_i8_avx2(w, a, sa, ca, rows, out, a7, p0, p1, ldo) }
 }
 
 #[target_feature(enable = "avx2,fma")]
+#[allow(clippy::too_many_arguments)]
 fn gemm_i8_avx2(
     w: &crate::quant::PackedI8,
     a: &[i8],
@@ -110,11 +129,18 @@ fn gemm_i8_avx2(
     rows: usize,
     out: &mut [f32],
     a7: bool,
+    p0: usize,
+    p1: usize,
+    ldo: usize,
 ) {
     let (n, kp) = (w.n, w.kp);
-    assert!(a.len() >= rows * kp && sa.len() >= rows && ca.len() >= rows && out.len() >= rows * n);
+    let col0 = p0 * NR;
+    assert!(p0 < p1 && p1 <= w.panels() && rows > 0);
+    let width = (p1 * NR).min(n) - col0;
+    assert!(ldo >= width && out.len() >= (rows - 1) * ldo + width);
+    assert!(a.len() >= rows * kp && sa.len() >= rows && ca.len() >= rows);
     assert!(w.data.len() == w.panels() * kp * NR && w.scale.len() == w.panels() * NR);
-    for p in 0..w.panels() {
+    for p in p0..p1 {
         let panel = w.panel(p);
         let sw = &w.scale[p * NR..(p + 1) * NR];
         let ws = &w.wsum[p * NR..(p + 1) * NR];
@@ -126,24 +152,32 @@ fn gemm_i8_avx2(
             let ar = &a[r * kp..(r + m) * kp];
             let sr = &sa[r..r + m];
             let cr = &ca[r..r + m];
-            let os = &mut out[r * n + p * NR..];
+            let os = &mut out[r * ldo + p * NR - col0..];
             match (m, a7) {
                 (4, false) => {
-                    tile_i8::<4, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols)
+                    tile_i8::<4, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
                 }
                 (3, false) => {
-                    tile_i8::<3, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols)
+                    tile_i8::<3, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
                 }
                 (2, false) => {
-                    tile_i8::<2, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols)
+                    tile_i8::<2, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
                 }
                 (_, false) => {
-                    tile_i8::<1, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols)
+                    tile_i8::<1, false>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
                 }
-                (4, true) => tile_i8::<4, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols),
-                (3, true) => tile_i8::<3, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols),
-                (2, true) => tile_i8::<2, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols),
-                (_, true) => tile_i8::<1, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols),
+                (4, true) => {
+                    tile_i8::<4, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
+                }
+                (3, true) => {
+                    tile_i8::<3, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
+                }
+                (2, true) => {
+                    tile_i8::<2, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
+                }
+                (_, true) => {
+                    tile_i8::<1, true>(ar, kp, panel, sw, ws, bias, sr, cr, os, ldo, ncols)
+                }
             }
             r += m;
         }

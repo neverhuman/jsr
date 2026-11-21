@@ -300,4 +300,4 @@ mod attention;
 mod int8;
 
 pub(crate) use attention::{attention_scores, attention_values};
-pub(crate) use int8::{gemm_i8, quantize_row};
+pub(crate) use int8::{gemm_i8, gemm_i8_panels, quantize_row};

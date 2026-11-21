@@ -63,6 +63,24 @@ fn fp32_and_int8_outputs_match_the_stored_fixture() {
                 "tokens": tokens, "enc_proj_sha256": enc}));
         }
     }
+    // The 4-thread panel split must reproduce the single-thread int8 entries exactly.
+    let pooled = Engine::new(model.clone(), Isa::detect(), Precision::Int8)
+        .expect("engine")
+        .with_gemm_threads(4);
+    for (i, u) in utts.iter().enumerate() {
+        let (tokens, enc) = run(&pooled, &u.pcm);
+        let single = &entries[UTTS + i];
+        assert_eq!(
+            single["tokens"],
+            serde_json::json!(tokens),
+            "pool tokens utt {i}"
+        );
+        assert_eq!(
+            single["enc_proj_sha256"],
+            serde_json::json!(enc),
+            "pool outputs utt {i}"
+        );
+    }
     let got = serde_json::json!({"weights_sha256": model.arch.weights_sha256, "entries": entries});
     if std::env::var("ULTRA_ENGINE_WRITE_CONTINUITY").as_deref() == Ok("1") {
         std::fs::write(&fixture, serde_json::to_string_pretty(&got).expect("json")).expect("write");
