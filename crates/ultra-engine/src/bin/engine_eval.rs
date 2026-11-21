@@ -30,6 +30,7 @@ struct Args {
     streams: usize,
     packet_ms: usize,
     precision: Precision,
+    max_chunks: usize,
     isa: Isa,
     profile: bool,
 }
@@ -45,6 +46,7 @@ fn parse() -> Result<Args, String> {
         streams: 16,
         packet_ms: 20,
         precision: Precision::F32,
+        max_chunks: 1,
         isa: Isa::detect(),
         profile: false,
     };
@@ -55,6 +57,9 @@ fn parse() -> Result<Args, String> {
             "--npz" => a.npz = v()?.into(),
             "--out" => a.out = v()?.into(),
             "--profile" => a.profile = true,
+            "--max-chunks" => {
+                a.max_chunks = v()?.parse().map_err(|e| format!("--max-chunks: {e}"))?
+            }
             "--reference" => a.reference = Some(v()?.into()),
             "--limit" => a.limit = v()?.parse().map_err(|e| format!("--limit: {e}"))?,
             "--streams" => a.streams = v()?.parse().map_err(|e| format!("--streams: {e}"))?,
@@ -154,7 +159,9 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         model.quantize_int8_where(|kind, _| !skip.iter().any(|s| s == kind));
     }
     let load_s = t_load.elapsed().as_secs_f64();
-    let engine = Engine::new(Arc::new(model), a.isa, a.precision).map_err(|e| e.to_string())?;
+    let engine = Engine::new(Arc::new(model), a.isa, a.precision)
+        .map_err(|e| e.to_string())?
+        .with_max_chunks(a.max_chunks);
     let utts = load_npz_audio_only(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
     if utts.is_empty() {
         return Err("empty workload".into());
@@ -249,7 +256,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "weights_sha256": engine.model.arch.weights_sha256,
         "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
         "precision": a.precision.as_str(), "isa": a.isa.name(), "int8_fp32_kinds": skip,
-        "streams": a.streams, "packet_ms": a.packet_ms,
+        "streams": a.streams, "max_chunks": a.max_chunks, "packet_ms": a.packet_ms,
         "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
         "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
         "cpu_s": cpu_s, "wall_s": wall_s, "cpu_s_per_audio_s": cpu_s / audio_s,
