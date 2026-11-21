@@ -31,6 +31,10 @@ pub struct SuiteJobManifest {
     pub split: String,
     pub npz_path: String,
     pub npz_sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub panel_manifest_sha256: Option<String>,
+    pub grid_ms: u32,
+    pub max_chunks: usize,
     pub precision_requested: Option<String>,
     pub threads: i32,
     pub cpu_affinity_list: String,
@@ -85,6 +89,9 @@ impl SuiteHostSnapshot {
         source_commit: &str,
         split: &str,
         npz_path: &Path,
+        panel_manifest_sha256: Option<&str>,
+        grid_ms: u32,
+        max_chunks: usize,
         precision_requested: Option<&str>,
         threads: i32,
         loadavg_before: [f64; 3],
@@ -107,6 +114,9 @@ impl SuiteHostSnapshot {
             split: split.to_owned(),
             npz_path: npz_path.to_string_lossy().into_owned(),
             npz_sha256: self.npz_sha256.clone(),
+            panel_manifest_sha256: panel_manifest_sha256.map(str::to_owned),
+            grid_ms,
+            max_chunks,
             precision_requested: precision_requested.map(str::to_owned),
             threads,
             cpu_affinity_list: self.cpu_affinity_list.clone(),
@@ -252,6 +262,13 @@ pub fn validate_qualified_preflight(
             "--qualified requires a clean committed release build (commit={build_commit}, dirty={build_dirty})"
         )));
     }
+    for (k, _) in std::env::vars() {
+        if k.starts_with("ULTRA_ENGINE_") {
+            return Err(CliError::Config(format!(
+                "--qualified refuses unrecorded engine environment override `{k}` (FREEZE.md §3)"
+            )));
+        }
+    }
     verify_freeze_tag_ancestor(freeze_tag)
 }
 
@@ -290,6 +307,13 @@ pub(crate) fn write_receipt_create_new(path: &Path, rec: &Receipt) -> Result<(),
 }
 
 pub(crate) fn write_scores_create_new(path: &Path, rows: &[ScoreRecord]) -> Result<(), CliError> {
+    write_jsonl_create_new(path, rows)
+}
+
+pub(crate) fn write_jsonl_create_new<T: Serialize>(
+    path: &Path,
+    rows: &[T],
+) -> Result<(), CliError> {
     let mut fh = open_create_new(path)?;
     for r in rows {
         let line = serde_json::to_string(r).map_err(|e| CliError::Internal(e.to_string()))?;

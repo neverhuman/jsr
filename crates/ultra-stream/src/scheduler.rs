@@ -1,54 +1,26 @@
 //! Pure-Rust SP-A runner over `SherpaZipformerBackend` using [`crate::grid_sim::simulate_grid`].
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use ultra_core::receipt::{HonestyLabel, Partition, Receipt, RECEIPT_SCHEMA};
 use ultra_eval::procfs::TreeSampler;
 use ultra_eval::score::ScoreRecord;
-use ultra_frontend::npz::{load_npz_audio_only, AudioUtterance};
+use ultra_frontend::npz::AudioUtterance;
 
 use crate::api::StreamError;
 use crate::contrast::{
-    build_event_hashes_and_chunks, current_affinity, read_loadavg, score_completed,
-    self_cpu_seconds,
+    build_event_hashes_and_chunks, current_affinity, load_selected_audio, read_loadavg,
+    score_completed,
 };
 pub use crate::contrast::{default_npz_for_split, WerSummary};
+pub(crate) use crate::grid_sim::RealClock;
 pub use crate::grid_sim::{
     simulate_grid, sustains_lateness, DecodeMode, LatenessQuantiles, SimClock, SimOutcome,
     SimParams, SimSlotBank, DEFAULT_LATENESS_BOUND_MS,
 };
 use crate::sherpa_ffi::{verify_cpu_only_process, SherpaLib};
 use crate::sherpa_online::{RawOnlineStream, SherpaZipformerBackend, SherpaZipformerConfig};
-
-pub(crate) struct RealClock {
-    t0: Instant,
-    c0: f64,
-}
-
-impl RealClock {
-    pub(crate) fn new() -> Result<Self, StreamError> {
-        Ok(Self {
-            t0: Instant::now(),
-            c0: self_cpu_seconds()?,
-        })
-    }
-}
-
-impl SimClock for RealClock {
-    fn now_s(&self) -> f64 {
-        self.t0.elapsed().as_secs_f64()
-    }
-    fn sleep_s(&mut self, dt_s: f64) {
-        if dt_s > 0.0 {
-            std::thread::sleep(Duration::from_secs_f64(dt_s));
-        }
-    }
-    fn cpu_s(&self) -> Result<f64, StreamError> {
-        Ok((self_cpu_seconds()? - self.c0).max(0.0))
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct SpAConfig {
@@ -59,6 +31,7 @@ pub struct SpAConfig {
     pub honesty_label: HonestyLabel,
     pub offset: usize,
     pub limit: Option<usize>,
+    pub selected_indices: Option<Vec<usize>>,
     pub duration_s: Option<f64>,
     pub streams: usize,
     pub decode: DecodeMode,
@@ -165,9 +138,10 @@ impl SimSlotBank for SherpaBank<'_> {
     }
     fn open_slot(&mut self, slot: usize, utt_pos: usize) -> Result<(), StreamError> {
         let real = (utt_pos + self.rot) % self.audio_utts.len();
+        let stream = self.engine.create_raw_stream()?;
         self.slots[slot] = Some(SherpaSlot {
             utt_pos: real,
-            stream: self.engine.create_raw_stream()?,
+            stream,
             cursor: 0,
             finished_input: false,
         });
@@ -277,6 +251,7 @@ pub(crate) struct SpAMeta {
     pub honesty_label: HonestyLabel,
     pub offset: usize,
     pub limit: Option<usize>,
+    pub selected_indices: Option<Vec<usize>>,
     pub duration_s: Option<f64>,
     pub streams: usize,
     pub decode: DecodeMode,
@@ -315,6 +290,11 @@ pub(crate) fn finalize_sp_a_result(
     )?;
     let cpu_s = sim.cpu_seconds.max(1e-6);
     let wall_s = sim.wall_seconds.max(1e-6);
+    let audio_denom = if sim.audio_processed_s > 0.0 {
+        sim.audio_processed_s
+    } else {
+        sim.audio_accepted_s
+    };
     let receipt = Receipt {
         schema: RECEIPT_SCHEMA.into(),
         bundle: meta.model_id,
@@ -324,14 +304,18 @@ pub(crate) fn finalize_sp_a_result(
         configured_threads: meta.threads.max(1) as u32,
         observed_threads: Some(max_threads.max(1) as u32),
         cpu_only_verified: cpu_only,
-        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
+        audio_seconds: (audio_denom * 1000.0).round() / 1000.0,
         process_tree_cpu_seconds: Some((cpu_s * 1000.0).round() / 1000.0),
         peak_rss_bytes: Some(peak_rss_bytes.max(1)),
         events: Some(sim.completed.len() as u64),
         wakeups: Some(sim.wakeups),
         cap_hits: meta.cap_hits,
         chunk_ms,
-        status_events: Vec::new(),
+        status_events: vec![
+            format!("audio_accepted_s:{:.3}", sim.audio_accepted_s),
+            format!("audio_processed_s:{:.3}", sim.audio_processed_s),
+            format!("audio_unfinished_s:{:.3}", sim.audio_unfinished_s),
+        ],
         gaps: Vec::new(),
         hashes,
         label: meta.honesty_label,
@@ -349,6 +333,7 @@ pub(crate) fn finalize_sp_a_result(
         &meta.split_name,
         meta.offset,
         meta.limit,
+        meta.selected_indices.as_deref(),
         meta.duration_s.is_some(),
         &sim.completed,
     )?;
@@ -364,7 +349,7 @@ pub(crate) fn finalize_sp_a_result(
         onnxruntime_version: meta.ort_ver,
         split: meta.split_name,
         utterances: sim.completed.len(),
-        audio_seconds: (sim.audio_accepted_s * 1000.0).round() / 1000.0,
+        audio_seconds: (audio_denom * 1000.0).round() / 1000.0,
         audio_completed_seconds: (sim.audio_completed_s * 1000.0).round() / 1000.0,
         streams: meta.streams,
         decode: meta.decode.as_str().into(),
@@ -385,9 +370,8 @@ pub(crate) fn finalize_sp_a_result(
         wall_seconds: (wall_s * 1000.0).round() / 1000.0,
         drain_cpu_seconds: sim.drain_cpu_seconds,
         drain_wall_seconds: sim.drain_wall_seconds,
-        rtf_cpu: ((cpu_s / sim.audio_accepted_s.max(1e-9)) * 100_000.0).round() / 100_000.0,
-        streams_per_core_at_full_load: ((sim.audio_accepted_s / cpu_s.max(1e-9)) * 100.0).round()
-            / 100.0,
+        rtf_cpu: ((cpu_s / audio_denom.max(1e-9)) * 100_000.0).round() / 100_000.0,
+        streams_per_core_at_full_load: ((audio_denom / cpu_s.max(1e-9)) * 100.0).round() / 100.0,
         wer: wer_summary,
         max_ready_backlog: sim.max_ready_batch,
         affinity: current_affinity(),
@@ -400,7 +384,12 @@ pub(crate) fn finalize_sp_a_result(
 }
 
 pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
-    let audio_utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
+    let audio_utts = load_selected_audio(
+        &cfg.npz_path,
+        cfg.offset,
+        cfg.limit,
+        cfg.selected_indices.as_deref(),
+    )?;
     if audio_utts.is_empty() {
         return Err(StreamError::Protocol("no audio utterances loaded".into()));
     }
@@ -440,13 +429,12 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
     let res_sum = sampler.summary();
     let load_after = read_loadavg();
 
-    let model_id = match &cfg.bundle_id {
-        Some(b) => b.clone(),
-        None => format!(
+    let model_id = cfg.bundle_id.clone().unwrap_or_else(|| {
+        format!(
             "sherpa-onnx-streaming-zipformer-en-2023-06-26-{}",
             cfg.zipformer.precision
-        ),
-    };
+        )
+    });
     finalize_sp_a_result(
         SpAMeta {
             driver: "rust-sherpa-c-api".into(),
@@ -462,6 +450,7 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
             honesty_label: cfg.honesty_label,
             offset: cfg.offset,
             limit: cfg.limit,
+            selected_indices: cfg.selected_indices.clone(),
             duration_s: cfg.duration_s,
             streams: cfg.streams,
             decode: cfg.decode,
@@ -472,7 +461,6 @@ pub fn run_sp_a_zipformer(cfg: &SpAConfig) -> Result<SpAResult, StreamError> {
             paced: cfg.paced,
             source_commit: cfg.source_commit.clone(),
             hardware_id: cfg.hardware_id.clone(),
-            // Sherpa C-API does not expose transducer cap-hit count; leave None rather than invent 0.
             cap_hits: None,
             completion_status: "complete".into(),
             validate_evidence: false,

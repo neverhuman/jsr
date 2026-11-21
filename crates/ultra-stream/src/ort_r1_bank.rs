@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use ultra_core::receipt::{HonestyLabel, Partition};
 use ultra_eval::procfs::TreeSampler;
-use ultra_frontend::npz::{load_npz_audio_only, AudioUtterance};
+use ultra_frontend::npz::AudioUtterance;
 use ultra_gp::R1Precision;
 
 use crate::api::StreamError;
-use crate::contrast::read_loadavg;
+use crate::contrast::{load_selected_audio, read_loadavg};
 use crate::grid_sim::{simulate_grid, DecodeMode, SimParams, SimSlotBank};
 use crate::ort_r1::{BatchWorkspace, OrtTransducerBackend};
 use crate::ort_r1_stream::OrtR1RawStream;
@@ -314,6 +314,7 @@ pub struct R1SpAConfig {
     pub honesty_label: HonestyLabel,
     pub offset: usize,
     pub limit: Option<usize>,
+    pub selected_indices: Option<Vec<usize>>,
     pub duration_s: Option<f64>,
     pub streams: usize,
     pub decode: DecodeMode,
@@ -330,7 +331,12 @@ pub struct R1SpAConfig {
 /// Run the fixed-deadline SP-A loop over [`OrtTransducerBackend`] and emit a validated receipt.
 pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
     let engine = OrtTransducerBackend::load(&cfg.bundle_dir, cfg.precision, cfg.threads, true)?;
-    let utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
+    let utts = load_selected_audio(
+        &cfg.npz_path,
+        cfg.offset,
+        cfg.limit,
+        cfg.selected_indices.as_deref(),
+    )?;
     if utts.is_empty() {
         return Err(StreamError::Protocol("empty utterance slice".into()));
     }
@@ -386,6 +392,7 @@ pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
             honesty_label: cfg.honesty_label,
             offset: cfg.offset,
             limit: cfg.limit,
+            selected_indices: cfg.selected_indices.clone(),
             duration_s: cfg.duration_s,
             streams: cfg.streams,
             decode: cfg.decode,

@@ -34,7 +34,26 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
     ) -> Result<Arc<Self>, StreamError> {
-        Self::load_inner(weights_dir, precision, threads, verify_hashes, false)
+        Self::load_inner(weights_dir, precision, threads, verify_hashes, false, 1)
+    }
+
+    /// Strict loader with configurable `max_chunks` per engine step (`FREEZE.md §3`: `2` on a
+    /// 320 ms density grid). Refuses runtime weight quantisation in timed service loads.
+    pub fn load_with_max_chunks(
+        weights_dir: &Path,
+        precision: Precision,
+        threads: i32,
+        verify_hashes: bool,
+        max_chunks: usize,
+    ) -> Result<Arc<Self>, StreamError> {
+        Self::load_inner(
+            weights_dir,
+            precision,
+            threads,
+            verify_hashes,
+            false,
+            max_chunks.clamp(1, 16),
+        )
     }
 
     /// Diagnostic-only loader allowing load-time `Model::quantize_int8()` when no prepared
@@ -45,7 +64,7 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
     ) -> Result<Arc<Self>, StreamError> {
-        Self::load_inner(weights_dir, precision, threads, verify_hashes, true)
+        Self::load_inner(weights_dir, precision, threads, verify_hashes, true, 1)
     }
 
     fn load_inner(
@@ -54,6 +73,7 @@ impl NativeEngineBackend {
         threads: i32,
         verify_hashes: bool,
         allow_unprepared_int8: bool,
+        max_chunks: usize,
     ) -> Result<Arc<Self>, StreamError> {
         if threads != 1 {
             return Err(StreamError::Protocol(format!(
@@ -79,7 +99,8 @@ impl NativeEngineBackend {
                 )));
             }
         };
-        let engine = Engine::new(Arc::new(model), Isa::detect(), precision)?;
+        let engine =
+            Engine::new(Arc::new(model), Isa::detect(), precision)?.with_max_chunks(max_chunks);
         Ok(Arc::new(Self {
             engine,
             arch_sha256,

@@ -44,6 +44,10 @@ pub(crate) fn dc_window_and_mel_avx2(
     mel_acc
 }
 
+#[cfg(target_arch = "x86_64")]
+pub(crate) type PortableFftFn =
+    fn(&mut [f64; FFT_SIZE], &mut [f64; FFT_SIZE], &[f64; FFT_SIZE], &[f64; FFT_SIZE]);
+
 /// Bit-exact portable AVX2 path (zero FMA contraction, zero `libm::hypot`): matches
 /// `TrainerMelConfig::frame_f32_portable_scalar` to 0 ULP across x86_64 and aarch64.
 #[cfg(target_arch = "x86_64")]
@@ -53,7 +57,7 @@ pub(crate) fn dc_window_and_mel_avx2_portable(
     fbank: &[f32],
     fft_re: &[f64; FFT_SIZE],
     fft_im: &[f64; FFT_SIZE],
-    fft_fn: fn(&mut [f64; FFT_SIZE], &mut [f64; FFT_SIZE], &[f64; FFT_SIZE], &[f64; FFT_SIZE]),
+    fft_fn: PortableFftFn,
 ) -> [f64; MEL_BINS] {
     assert!(frame.len() >= WIN_SAMPLES && fbank.len() >= SPEC_BINS * MEL_BINS);
     let mut re = [0.0f64; FFT_SIZE];
@@ -217,7 +221,7 @@ mod tests {
             let frame: Vec<f32> = (0..WIN_SAMPLES)
                 .map(|i| match mode {
                     0 => 0.0,
-                    1 => (((i * 197 + 31) % 20_000) - 10_000) as f32 / 32768.0,
+                    1 => (((i * 197 + 31) % 20_000) as i32 - 10_000) as f32 / 32768.0,
                     2 => {
                         if i % 2 == 0 {
                             0.95

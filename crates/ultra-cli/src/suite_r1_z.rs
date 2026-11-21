@@ -6,14 +6,15 @@ use std::path::PathBuf;
 use ultra_core::receipt::HonestyLabel;
 use ultra_gp::R1Precision;
 use ultra_stream::{
-    run_sp_a_ort_r1, run_sp_a_ort_r1_shared_workers, run_sp_a_shared_workers, run_sp_a_zipformer,
-    DecodeMode, R1SpAConfig, SherpaZipformerConfig, SpAConfig, DEFAULT_LATENESS_BOUND_MS,
+    run_sp_a_ort_r1, run_sp_a_ort_r1_shared_workers, run_sp_a_shared_workers_with_observer,
+    run_sp_a_zipformer, DecodeMode, R1SpAConfig, SherpaZipformerConfig, SpAConfig,
+    DEFAULT_LATENESS_BOUND_MS,
 };
 
 use crate::suite_latency::{DensityPoint, FrontierRow};
 use crate::suite_manifest::{
-    current_loadavg_3, sanitize_slug, write_json_create_new, write_receipt_create_new,
-    write_scores_create_new,
+    current_loadavg_3, sanitize_slug, write_json_create_new, write_jsonl_create_new,
+    write_receipt_create_new, write_scores_create_new,
 };
 use crate::suite_runners::{eval_backend_probes, SuiteCtx};
 use crate::suite_slices::compute_slice_summaries;
@@ -40,12 +41,13 @@ pub(crate) fn run_r1_candidate(
         honesty_label: HonestyLabel::InCorpus,
         offset: 0,
         limit: if dur.is_some() { None } else { ctx.limit },
+        selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
         duration_s: dur,
         streams: st,
         decode: dec,
         max_batch: 1024,
         packet_ms: 20,
-        grid_ms: 160,
+        grid_ms: ctx.grid_ms,
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         source_commit: ctx.commit.into(),
@@ -93,16 +95,47 @@ pub(crate) fn run_r1_candidate(
         };
     let (lat, sil) = eval_backend_probes(ctx, raw_cand, &slug)?;
     let sust = if let Some(sec) = ctx.sustained_seconds {
-        let s = run_sp_a_ort_r1(&mk_cfg(1, DecodeMode::Single, true, Some(sec)))?;
-        write_receipt_create_new(
-            &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
-            &s.receipt,
-        )?;
-        Some(DensityPoint::from_sp_a(&s, 1))
+        let sw = ctx.sustained_workers.max(1);
+        let sn = ctx.sustained_streams.max(1);
+        if sw > 1 || ctx.observer_cpus.is_some() {
+            let f = run_sp_a_ort_r1_shared_workers(
+                &mk_cfg(sn, DecodeMode::Batch, true, Some(sec)),
+                sw,
+                ctx.observer_cpus,
+            )?;
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &f.receipt,
+            )?;
+            write_jsonl_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.series.jsonl")),
+                &f.series,
+            )?;
+            Some(DensityPoint {
+                workers: sw,
+                streams_per_worker: sn,
+                total_streams: sw * sn,
+                sustained: f.all_sustained,
+                drained: f.worker_summaries.iter().all(|w| w.drained),
+                lateness_p99_ms: f
+                    .worker_summaries
+                    .iter()
+                    .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
+                    .max_by(f64::total_cmp),
+                peak_rss_bytes: f.receipt.peak_rss_bytes,
+            })
+        } else {
+            let s = run_sp_a_ort_r1(&mk_cfg(sn, DecodeMode::Batch, true, Some(sec)))?;
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &s.receipt,
+            )?;
+            Some(DensityPoint::from_sp_a(&s, sn))
+        }
     } else {
         None
     };
-    let scope = "in_process_engine_warm_sp_a";
+    let scope = "in_process_warm_rusage_self_post_load";
     let jm = ctx.host_snap.build_job_manifest(
         raw_cand,
         &batch.receipt.bundle,
@@ -111,6 +144,9 @@ pub(crate) fn run_r1_candidate(
         ctx.commit,
         ctx.split,
         ctx.npz_path,
+        ctx.panel_manifest_sha256,
+        ctx.grid_ms,
+        ctx.max_chunks,
         Some(prec.as_str()),
         ctx.threads,
         load_before,
@@ -168,12 +204,13 @@ pub(crate) fn run_zipformer_candidate(
         honesty_label: HonestyLabel::InCorpus,
         offset: 0,
         limit: if dur.is_some() { None } else { ctx.limit },
+        selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
         duration_s: dur,
         streams: st,
         decode: dec,
         max_batch: 1024,
         packet_ms: 20,
-        grid_ms: 320,
+        grid_ms: ctx.grid_ms,
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         zipformer: zcfg.clone(),
@@ -183,53 +220,88 @@ pub(crate) fn run_zipformer_candidate(
     let single = run_sp_a_zipformer(&mk_z(1, DecodeMode::Single, false, None))?;
     let mut batch = run_sp_a_zipformer(&mk_z(ctx.batch_streams, DecodeMode::Batch, false, None))?;
     batch.receipt.completion_status = ctx.status_tag.into();
-    let dens = if ctx.density_seconds > 0.0 && ctx.density_workers > 1 {
-        let f = run_sp_a_shared_workers(
-            &mk_z(
+    let dens =
+        if ctx.density_seconds > 0.0 && (ctx.density_workers > 1 || ctx.observer_cpus.is_some()) {
+            let w_cnt = ctx.density_workers.max(1);
+            let f = run_sp_a_shared_workers_with_observer(
+                &mk_z(
+                    ctx.density_streams,
+                    DecodeMode::Batch,
+                    true,
+                    Some(ctx.density_seconds),
+                ),
+                w_cnt,
+                ctx.observer_cpus,
+            )?;
+            Some(DensityPoint {
+                workers: w_cnt,
+                streams_per_worker: ctx.density_streams,
+                total_streams: w_cnt * ctx.density_streams,
+                sustained: f.all_sustained,
+                drained: f.worker_summaries.iter().all(|w| w.drained),
+                lateness_p99_ms: f
+                    .worker_summaries
+                    .iter()
+                    .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
+                    .max_by(f64::total_cmp),
+                peak_rss_bytes: f.receipt.peak_rss_bytes,
+            })
+        } else if ctx.density_seconds > 0.0 {
+            let d = run_sp_a_zipformer(&mk_z(
                 ctx.density_streams,
                 DecodeMode::Batch,
                 true,
                 Some(ctx.density_seconds),
-            ),
-            ctx.density_workers,
-        )?;
-        Some(DensityPoint {
-            workers: ctx.density_workers,
-            streams_per_worker: ctx.density_streams,
-            total_streams: ctx.density_workers * ctx.density_streams,
-            sustained: f.all_sustained,
-            drained: f.worker_summaries.iter().all(|w| w.drained),
-            lateness_p99_ms: f
-                .worker_summaries
-                .iter()
-                .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
-                .max_by(f64::total_cmp),
-            peak_rss_bytes: f.receipt.peak_rss_bytes,
-        })
-    } else if ctx.density_seconds > 0.0 {
-        let d = run_sp_a_zipformer(&mk_z(
-            ctx.density_streams,
-            DecodeMode::Batch,
-            true,
-            Some(ctx.density_seconds),
-        ))?;
-        Some(DensityPoint::from_sp_a(&d, ctx.density_streams))
-    } else {
-        None
-    };
+            ))?;
+            Some(DensityPoint::from_sp_a(&d, ctx.density_streams))
+        } else {
+            None
+        };
     let (lat, sil) = eval_backend_probes(ctx, raw_cand, &slug)?;
     let sust = if let Some(sec) = ctx.sustained_seconds {
-        let mut s = run_sp_a_zipformer(&mk_z(1, DecodeMode::Single, true, Some(sec)))?;
-        s.receipt.completion_status = ctx.status_tag.into();
-        write_receipt_create_new(
-            &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
-            &s.receipt,
-        )?;
-        Some(DensityPoint::from_sp_a(&s, 1))
+        let sw = ctx.sustained_workers.max(1);
+        let sn = ctx.sustained_streams.max(1);
+        if sw > 1 || ctx.observer_cpus.is_some() {
+            let mut f = run_sp_a_shared_workers_with_observer(
+                &mk_z(sn, DecodeMode::Batch, true, Some(sec)),
+                sw,
+                ctx.observer_cpus,
+            )?;
+            f.receipt.completion_status = ctx.status_tag.into();
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &f.receipt,
+            )?;
+            write_jsonl_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.series.jsonl")),
+                &f.series,
+            )?;
+            Some(DensityPoint {
+                workers: sw,
+                streams_per_worker: sn,
+                total_streams: sw * sn,
+                sustained: f.all_sustained,
+                drained: f.worker_summaries.iter().all(|w| w.drained),
+                lateness_p99_ms: f
+                    .worker_summaries
+                    .iter()
+                    .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
+                    .max_by(f64::total_cmp),
+                peak_rss_bytes: f.receipt.peak_rss_bytes,
+            })
+        } else {
+            let mut s = run_sp_a_zipformer(&mk_z(sn, DecodeMode::Batch, true, Some(sec)))?;
+            s.receipt.completion_status = ctx.status_tag.into();
+            write_receipt_create_new(
+                &ctx.out_dir.join(format!("{slug}.sustained.receipt.json")),
+                &s.receipt,
+            )?;
+            Some(DensityPoint::from_sp_a(&s, sn))
+        }
     } else {
         None
     };
-    let scope = "in_process_engine_warm_sp_a";
+    let scope = "in_process_warm_rusage_self_post_load";
     let jm = ctx.host_snap.build_job_manifest(
         raw_cand,
         &batch.receipt.bundle,
@@ -238,6 +310,9 @@ pub(crate) fn run_zipformer_candidate(
         ctx.commit,
         ctx.split,
         ctx.npz_path,
+        ctx.panel_manifest_sha256,
+        ctx.grid_ms,
+        ctx.max_chunks,
         Some(zcfg.precision.as_str()),
         ctx.threads,
         load_before,

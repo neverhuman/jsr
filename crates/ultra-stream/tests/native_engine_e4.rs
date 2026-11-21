@@ -199,7 +199,9 @@ fn native_engine_e4_lifecycle_fp32_ort_parity_and_int8_32stream_invariance() {
 
 #[test]
 fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
-    use ultra_stream::{physical_first_cpus, pin_current_thread_verified};
+    use ultra_stream::{
+        physical_first_cpus, pin_current_thread_verified, verify_worker_l3_and_smt,
+    };
 
     // Out-of-range CPU ID must fail closed instead of silently ignoring affinity errors.
     assert!(pin_current_thread_verified(&[999_999]).is_err());
@@ -216,5 +218,22 @@ fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
     assert!(phys.len() <= cur.len());
     for &c in &phys {
         assert!(cur.contains(&c));
+    }
+
+    // S4 L3 & SMT placement verification:
+    // Offline/nonexistent CPU fails closed.
+    assert!(verify_worker_l3_and_smt(&[vec![999_999]], None, true).is_err());
+    // On H0 (64-core Zen 2), CPUs 0 and 64 are SMT siblings -> must fail closed when assigned to
+    // two workers; observer in the same L3 (CPU 1) must fail; observer in another L3 (CPU 48) passes.
+    if std::path::Path::new("/sys/devices/system/cpu/cpu64/topology/thread_siblings_list").exists()
+    {
+        assert!(verify_worker_l3_and_smt(&[vec![0], vec![64]], None, true).is_err());
+        assert!(verify_worker_l3_and_smt(&[vec![0], vec![1]], Some(&[2]), true).is_err());
+        assert!(verify_worker_l3_and_smt(
+            &[vec![56], vec![57], vec![58], vec![59]],
+            Some(&[48]),
+            true
+        )
+        .is_ok());
     }
 }
