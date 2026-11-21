@@ -21,9 +21,9 @@ mod int8;
 mod smmla;
 #[cfg(test)]
 mod tests;
-mod v8;
+mod lanes8;
 
-use v8::{exp8, V8};
+use lanes8::{exp8, V8};
 
 pub(crate) use attention::{attention_scores, attention_values};
 pub(crate) use int8::{gemm_i8_panels, has_i8mm, quantize_row};
