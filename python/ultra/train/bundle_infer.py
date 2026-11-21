@@ -250,9 +250,32 @@ def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 
                 return s["shape"].index("B")
         return 0
 
+    def enc_run(f):
+        """Run the encoder as the contract allows: whole batch, or one row per call if the
+        bundle declares max_batch 1 for this precision."""
+        if not rec.max_batch_enc:
+            return rec.enc.run(None, f)
+        b = f["feats"].shape[0]
+        parts = []
+        for i in range(b):
+            fi = {}
+            for k, v in f.items():
+                idx = [slice(None)] * v.ndim
+                idx[axis(k)] = slice(i, i + 1)
+                fi[k] = v[tuple(idx)]
+            parts.append(rec.enc.run(None, fi))
+        return [np.concatenate([p[j] for p in parts], axis=axis(nm.replace("_out", "")))
+                for j, nm in enumerate(names_out)]
+
+    def joi_run(e, d):
+        if not rec.max_batch_joi:
+            return rec.joi.run(None, {"enc": e, "dec": d})[0]
+        return np.concatenate([rec.joi.run(None, {"enc": e[i:i + 1], "dec": d[i:i + 1]})[0]
+                               for i in range(e.shape[0])])
+
     base = feed(1)
     names_out = [o.name for o in rec.enc.get_outputs()]
-    ref = rec.enc.run(None, base)
+    ref = enc_run(base)
     worst = {"encoder": 0.0, "joiner": 0.0}
     for b in sizes:
         f = feed(b)
@@ -260,20 +283,21 @@ def batch_invariance(bundle: str, precision: str, sizes=(2, 8, 16), seed: int = 
             idx = [slice(None)] * f[k].ndim
             idx[axis(k)] = slice(0, 1)
             f[k][tuple(idx)] = v
-        for o_ref, o_b, nm in zip(ref, rec.enc.run(None, f), names_out, strict=True):
+        for o_ref, o_b, nm in zip(ref, enc_run(f), names_out, strict=True):
             row = np.take(o_b, [0], axis=axis(nm.replace("_out", "")))
             worst["encoder"] = max(worst["encoder"], float(np.max(np.abs(row.astype(np.float64) - o_ref))))
     J = rec.m["streaming"]["encoder_output"]["shape"][-1]
     e1 = rng.normal(0, 1, (1, J)).astype(np.float32)
     d1 = rec.dec.run(None, {"ctx": np.array([[0, 5]], dtype=np.int64)})[0]
-    l1 = rec.joi.run(None, {"enc": e1, "dec": d1})[0]
+    l1 = joi_run(e1, d1)
     for b in sizes:
         e = rng.normal(0, 2, (b, J)).astype(np.float32)
         d = rec.dec.run(None, {"ctx": rng.integers(0, 4096, (b, 2)).astype(np.int64)})[0]
         e[0], d[0] = e1[0], d1[0]
-        lb = rec.joi.run(None, {"enc": e, "dec": d})[0][:1]
+        lb = joi_run(e, d)[:1]
         worst["joiner"] = max(worst["joiner"], float(np.max(np.abs(lb - l1))))
     return {"kind": "batch_invariance", "bundle": bundle, "precision": precision,
+            "per_row_calls": bool(rec.max_batch_enc),
             "sizes": list(sizes), "max_abs_diff": worst}
 
 
