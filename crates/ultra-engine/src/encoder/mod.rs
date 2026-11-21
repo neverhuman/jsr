@@ -222,6 +222,9 @@ pub(super) fn grow(v: &mut Vec<f32>, n: usize) -> &mut [f32] {
 /// Layer 0 is the stem, `1..=n_blocks` the blocks, then the final norm and the projection.
 pub type Tap<'a> = &'a mut dyn FnMut(usize, &[f32], usize);
 
+/// Largest row count routed to the T-LUT2 ternary kernel (measured crossover on Zen 2).
+const TLUT2_MAX_ROWS: usize = 8;
+
 /// `out = lin(x)` over `rows` rows, in the requested precision.
 pub fn linear(
     isa: Isa,
@@ -233,9 +236,11 @@ pub fn linear(
     q: &mut QuantScratch,
 ) {
     match (prec, &lin.q) {
+        // T-LUT2 is a per-frame kernel: best for few rows (2-bit weights stream from cache);
+        // larger batches reuse each int8 weight panel across rows. Both are exact.
         (Precision::Int8, Some(p)) => match &lin.t {
-            Some(t) => quant::linear_t(isa, p, t, x, rows, out, q),
-            None => quant::linear_i8(isa, p, x, rows, out, q),
+            Some(t) if rows <= TLUT2_MAX_ROWS => quant::linear_t(isa, p, t, x, rows, out, q),
+            _ => quant::linear_i8(isa, p, x, rows, out, q),
         },
         _ => {
             let t = q.prof.start();
