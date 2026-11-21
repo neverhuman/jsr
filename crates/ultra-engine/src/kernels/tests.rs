@@ -24,7 +24,8 @@ impl Rng {
 }
 
 fn simd() -> Option<Isa> {
-    Isa::Avx2Fma.is_available().then_some(Isa::Avx2Fma)
+    let isa = Isa::detect();
+    (isa != Isa::Scalar).then_some(isa)
 }
 
 #[test]
