@@ -16,8 +16,10 @@ import torch
 
 from train import checkpoint
 from train.asr import ASRModel, ModelConfig
+from train.beam import modified_beam_search
 from train.data import Featurizer, collate
 from train.tokenizer import Tokenizer, tokenizer_path
+from train.transducer import greedy_decode
 
 
 PANEL_SCHEMA = "ultra.dev-panel/v1"
@@ -99,6 +101,19 @@ def main(argv=None) -> None:
                          "(manifest and cache hashes verified; dev-* splits only)")
     ap.add_argument("--panel-split", default=None, help="score only this split of the panel")
     ap.add_argument("--ema", action="store_true", help="score the checkpoint's EMA weights")
+    ap.add_argument("--batch", type=int, default=8, help="utterances per forward pass")
+    ap.add_argument("--beam", type=int, default=0,
+                    help=">0: also decode with modified beam search of this width (diagnostic)")
+    ap.add_argument("--chunk", type=int, default=0,
+                    help="override the attention chunk (frames); 0 = the trained value")
+    ap.add_argument("--left-context", type=int, default=-1,
+                    help="override the attention left context (frames); -1 = the trained value")
+    ap.add_argument("--full-context", action="store_true",
+                    help="unrestricted attention (whole utterance, incl. future frames): measures "
+                         "how much a causally trained model gains from future context it never saw")
+    ap.add_argument("--order", default="length", choices=("length", "shuffled"),
+                    help="length: sort by duration (least padding); shuffled: fixed-seed random "
+                         "order (most padding; a padding-sensitivity check)")
     a = ap.parse_args(argv)
     if a.panel is None:
         check_split(a.split)
@@ -112,6 +127,14 @@ def main(argv=None) -> None:
         raise ValueError("--ema: the checkpoint holds no EMA weights (ema_decay was 0)")
     model.load_state_dict(p["ema"] if a.ema else p["model"])
     model.eval().to(a.device)
+    ecfg = model.encoder.cfg
+    if a.full_context:
+        a.chunk, a.left_context = 1 << 16, 1 << 16
+    if a.left_context >= 0:
+        import dataclasses
+
+        ecfg = model.encoder.cfg = dataclasses.replace(ecfg, left_context=a.left_context)
+    chunk = a.chunk or None
     tok = Tokenizer(tokenizer_path(4096))
     tok_c = Tokenizer(tokenizer_path(1024))
     feat = Featurizer(tok, tok_c)
@@ -120,14 +143,31 @@ def main(argv=None) -> None:
         utts, panel_sha = load_panel(a.panel, a.panel_split)
     else:
         utts = load_split(a.split, None if a.limit_all else a.limit)
+    if a.batch < 1:
+        raise ValueError("--batch must be >= 1")
     exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in utts), key=lambda e: e.seconds)
+    if a.order == "shuffled":
+        import random
+
+        random.Random(0).shuffle(exs)
     refs, hyps, ctc_hyps, uids, forced, exact, ctc_exact = [], [], [], [], 0, 0, 0
-    for i in range(0, len(exs), 8):
-        b = collate(exs[i:i + 8]).to(a.device)
-        toks, f = model.greedy(b.feats, b.feat_lens, max_symbols=a.max_symbols)
+    beam_hyps, secs = [], []
+    for i in range(0, len(exs), a.batch):
+        b = collate(exs[i:i + a.batch]).to(a.device)
+        with torch.no_grad():
+            enc, lens = model.encode(b.feats, b.feat_lens, chunk)
+            enc_p = model.joiner.enc_proj(enc.float())
+            toks, f = greedy_decode(model.predictor, model.joiner, enc_p, lens, a.max_symbols)
+            if a.beam:
+                beam_hyps.extend(tok.decode(t) for t in modified_beam_search(
+                    model.predictor, model.joiner, enc_p, lens, a.beam))
+            best = model.ctc_head(enc.float()).argmax(dim=-1)
         forced += f
-        for t in model.ctc_greedy(b.feats, b.feat_lens):
-            ctc_hyps.append(tok_c.decode(t))
+        for j in range(best.shape[0]):
+            seq = best[j, :int(lens[j])].tolist()
+            ctc_hyps.append(tok_c.decode(
+                [k for n, k in enumerate(seq) if k != 0 and (n == 0 or seq[n - 1] != k)]))
+        secs.extend(float(x) / 100.0 for x in b.feat_lens)
         uids.extend(b.uids)
         for r, t in zip(b.texts, toks, strict=True):
             h = tok.decode(t)
@@ -140,15 +180,23 @@ def main(argv=None) -> None:
     out = {"step": p["step"], "weights": "ema" if a.ema else "model",
            "split": f"panel:{a.panel_split or 'all'}:{os.path.basename(a.panel)}" if a.panel
            else a.split,
-           "n": len(refs), "max_symbols": a.max_symbols,
+           "n": len(refs), "max_symbols": a.max_symbols, "batch": a.batch, "order": a.order,
            "forced_advances": forced, "exact_utts": exact, **w,
-           "ctc_wer": wc["wer"], "ctc_exact_utts": ctc_exact}
+           "ctc_wer": wc["wer"], "ctc_exact_utts": ctc_exact,
+           "chunk": chunk or ecfg.chunk, "left_context": ecfg.left_context,
+           "full_context": a.full_context}
+    if a.beam:
+        out["beam"] = a.beam
+        out["beam_wer"] = corpus_wer(refs, beam_hyps)
     if a.panel:
         out["panel"] = panel_record(a.panel, a.panel_split, panel_sha)
     if a.dump:
         with open(a.dump, "w") as fh:
-            for u, r, h, c in zip(uids, refs, hyps, ctc_hyps, strict=True):
-                fh.write(json.dumps({"uid": u, "ref": r, "hyp": h, "ctc_hyp": c}) + "\n")
+            for n, (u, r, h, c) in enumerate(zip(uids, refs, hyps, ctc_hyps, strict=True)):
+                row = {"uid": u, "ref": r, "hyp": h, "ctc_hyp": c, "seconds": secs[n]}
+                if a.beam:
+                    row["beam_hyp"] = beam_hyps[n]
+                fh.write(json.dumps(row) + "\n")
         out["dump"] = a.dump
     print(json.dumps(out))
     for r, h in list(zip(refs, hyps, strict=True))[:a.show]:
