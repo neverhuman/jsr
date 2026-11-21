@@ -15,13 +15,16 @@ from train.transducer import (StatelessPredictor, full_lattice_logprobs,  # noqa
 
 
 def _engine_quantize_row(x: np.ndarray) -> np.ndarray:
-    """Reference of crates/ultra-engine quantize_row followed by dequantisation."""
-    lo, hi = float(x.min()), float(x.max())
-    c, h = (hi + lo) / 2, (hi - lo) / 2
-    if h == 0:
+    """float32 reference of crates/ultra-engine row_params + quantize_row, then dequantise."""
+    f = np.float32
+    lo, hi = f(x.min()), f(x.max())
+    half = f(f(0.5) * hi) - f(f(0.5) * lo)
+    c = f(f(0.5) * hi) + f(f(0.5) * lo)
+    if half == 0:
         return np.full_like(x, c)
-    q = np.clip(np.round((x - c) * 127.0 / h), -127, 127)  # numpy rounds half to even
-    return (q * (h / 127.0) + c).astype(np.float32)
+    inv = f(127.0) / half
+    q = np.clip(np.round((x - c) * inv), -127, 127).astype(np.float32)  # ties to even
+    return (q * (half / f(127.0)) + c).astype(np.float32)
 
 
 def test_ternary_projection_absmean():
@@ -47,7 +50,11 @@ def test_fake_quant_rows_matches_engine_formula():
     x[3] = 1.5  # constant row
     got = fake_quant_rows(torch.from_numpy(x)).numpy()
     want = np.stack([_engine_quantize_row(r) for r in x])
-    assert np.allclose(got, want, atol=1e-5)
+    assert np.array_equal(got, want)  # bit-identical, also on rounding boundaries
+    # Rounding-boundary rows: values placed exactly on half-steps of the code grid.
+    b = np.array([[-1.0, 1.0, 0.5 / 127, 1.5 / 127, 2.5 / 127, -0.5 / 127]], dtype=np.float32)
+    assert np.array_equal(fake_quant_rows(torch.from_numpy(b)).numpy(),
+                          np.stack([_engine_quantize_row(r) for r in b]))
     xt = torch.from_numpy(x).requires_grad_(True)
     fake_quant_rows(xt).sum().backward()
     assert torch.equal(xt.grad, torch.ones_like(xt))

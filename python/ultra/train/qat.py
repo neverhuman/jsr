@@ -39,16 +39,21 @@ def ternary_weight_ste(w: torch.Tensor) -> torch.Tensor:
 
 
 def fake_quant_rows(x: torch.Tensor) -> torch.Tensor:
-    """Per-row (last axis) centred symmetric int8 round trip, as the engine does it."""
+    """Per-row (last axis) centred symmetric int8 round trip, with the engine's exact float32
+    arithmetic (ultra-engine kernels::scalar::row_params / quantize_row):
+        half = 0.5*hi - 0.5*lo,  c = 0.5*hi + 0.5*lo,  inv = 127 / half,
+        q = clamp(round_half_even((x - c) * inv), -127, 127),  x' = q * (half / 127) + c.
+    A row whose half range is 0, or whose inverse step is not finite, is treated as constant."""
     xf = x.float()
     hi = xf.amax(dim=-1, keepdim=True)
     lo = xf.amin(dim=-1, keepdim=True)
-    c = (hi + lo) * 0.5
-    h = (hi - lo) * 0.5
-    scale = h / QMAX
-    safe = torch.where(h > 0, scale, torch.ones_like(scale))
-    q = torch.clamp(torch.round((xf - c) / safe), -QMAX, QMAX)
-    xq = torch.where(h > 0, q * scale + c, c)
+    half = 0.5 * hi - 0.5 * lo
+    c = 0.5 * hi + 0.5 * lo
+    inv = QMAX / half
+    ok = (half > 0) & torch.isfinite(inv)
+    q = torch.clamp(torch.round((xf - c) * torch.where(ok, inv, torch.zeros_like(inv))),
+                    -QMAX, QMAX)
+    xq = torch.where(ok, q * (half / QMAX) + c, c)
     return xf + (xq - xf).detach()
 
 
