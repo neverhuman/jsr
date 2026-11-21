@@ -9,7 +9,11 @@
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use crate::mel::{FFT_SIZE, MEL_BINS, WIN_SAMPLES};
+#[cfg(any(target_arch = "x86_64", test))]
+use crate::mel::WIN_SAMPLES;
+#[cfg(target_arch = "x86_64")]
+use crate::mel::{FFT_SIZE, MEL_BINS};
+#[cfg(target_arch = "x86_64")]
 use crate::trainer_mel::SPEC_BINS;
 
 /// Returns `true` when both `avx2` and `fma` are supported on the current CPU.
