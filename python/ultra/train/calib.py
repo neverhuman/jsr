@@ -167,7 +167,8 @@ class _Capture(StreamingRecognizer):
 
 def _encoder_tap(rec: _Capture):
     orig = rec.encoder.forward
-    names = ("feats", "t0", "k", "v", "kv_len", "conv")
+    names = ("feats", "t0", "k", "v", "kv_len", "conv", "km", "vm", "kvm_len", "convm")
+    cache_axis1 = ("k", "v", "conv", "km", "vm", "convm")
 
     def wrapped(*args):
         streams, t0s, n = rec._group
@@ -177,7 +178,7 @@ def _encoder_tap(rec: _Capture):
             def make(i=i):
                 row = {}
                 for name, t in zip(names, args, strict=False):
-                    ax = 1 if name in ("k", "v", "conv") else 0
+                    ax = 1 if name in cache_axis1 else 0
                     row[name] = t.select(ax, i).unsqueeze(ax).numpy().copy()
                 row["_prov"] = {"uid": streams[i].uid, "t0": int(t0s[i]), "n": int(n),
                                 "kv_len": int(args[4][i])}
@@ -193,8 +194,6 @@ def capture(model, tokenizer, utts, seed: int = 0, max_enc_rows: int = 384,
     """Reservoir samples of real encoder-call rows and real joiner-call rows (FP32 streaming over
     `utts`), each with provenance (uid, chunk start / frame, cache occupancy or context).
     Returns (encoder feeds, joiner feeds, provenance dict)."""
-    if model.cfg.encoder.family != "dense":
-        raise ValueError("calibration capture implements the dense family; extend for multirate")
     rec = _Capture(model, tokenizer, threads=torch.get_num_threads(), utts=utts, seed=seed,
                    enc_cap=max_enc_rows, joiner_cap=max_joiner_rows)
     _encoder_tap(rec)

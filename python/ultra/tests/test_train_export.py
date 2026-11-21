@@ -85,10 +85,12 @@ def test_bundle_reproduces_streaming_path(workdir, multirate):
         BundleRecognizer(bdir, "fp32")
 
 
-def _tiny_dense():
+def _tiny_dense(multirate=False):
     torch.manual_seed(0)
+    extra = dict(family="multirate", lower_blocks=1, middle_blocks=2, final_blocks=1, chunk=4) \
+        if multirate else dict(chunk=3)
     enc = EncoderConfig(d_model=32, n_blocks=2, n_heads=2, stem_channels=8, conv_kernel=5,
-                        left_context=6, dropout=0.0, post_block_norm=False, chunk=3)
+                        left_context=6, dropout=0.0, post_block_norm=False, **extra)
     m = ASRModel(ModelConfig(encoder=enc, vocab_rnnt=11, vocab_ctc=7, pred_emb=8, joiner=16))
     with torch.no_grad():
         m.cmvn.mean.fill_(-5.0)
@@ -97,11 +99,13 @@ def _tiny_dense():
     return m.eval()
 
 
-def test_static_int8_is_batch_invariant(workdir):
+@pytest.mark.parametrize("multirate", [False, True])
+def test_static_int8_is_batch_invariant(workdir, multirate):
     import onnxruntime as ort
 
     torch.set_num_threads(1)
-    m = _tiny_dense()
+    m = _tiny_dense(multirate)
+    chunk = m.cfg.encoder.chunk
     ck = checkpoint.save(workdir, 1, {"model": m.state_dict(), "model_config": m.cfg.to_dict()})
     g = np.random.default_rng(5)
     calib = [_Utt(f"c{i}", (g.standard_normal(6000 + 1500 * i) * 2500).astype(np.int16))
@@ -133,10 +137,10 @@ def test_static_int8_is_batch_invariant(workdir):
         feed = {}
         for i in enc.get_inputs():
             shape = [bsz if (isinstance(d, str) or d is None) and k in (0, 1) and
-                     (k == 0) == (i.name in ("feats", "t0", "kv_len")) else d
+                     (k == 0) == (i.name in ("feats", "t0", "kv_len", "kvm_len")) else d
                      for k, d in enumerate(i.shape)]
             if i.name == "feats":
-                shape = [bsz, 4 * 3 + 3, 80]
+                shape = [bsz, 4 * chunk + 3, 80]
             if i.type == "tensor(int64)":
                 feed[i.name] = r.integers(0, 6, size=shape).astype(np.int64)
             else:
@@ -148,13 +152,13 @@ def test_static_int8_is_batch_invariant(workdir):
     for bsz in (2, 8, 16):
         f = enc_batch(bsz, bsz)
         for nm in names:
-            ax = 1 if nm in ("k", "v", "conv") else 0
+            ax = 1 if nm in ("k", "v", "conv", "km", "vm", "convm") else 0
             idx = [slice(None)] * f[nm].ndim
             idx[ax] = slice(0, 1)
             f[nm][tuple(idx)] = base[nm]
         outb = enc.run(None, f)
         for o1, ob, info in zip(out1, outb, enc.get_outputs(), strict=True):
-            ax = 1 if info.name.split("_out")[0] in ("k", "v", "conv") else 0
+            ax = 1 if info.name.split("_out")[0] in ("k", "v", "conv", "km", "vm", "convm") else 0
             assert np.array_equal(o1, np.take(ob, [0], axis=ax)), (bsz, info.name)
     e1 = np.random.default_rng(1).normal(0, 1, (1, 16)).astype(np.float32)
     d1 = np.random.default_rng(2).normal(0, 1, (1, 16)).astype(np.float32)
