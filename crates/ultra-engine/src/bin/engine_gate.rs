@@ -10,7 +10,7 @@
 //! clusters = speaker) <= `--max-upper-pp`. Refuses runs on different panels, checkpoints,
 //! utterance sets, or runs without a panel. `--cache-dir <dir>` scores runs written without
 //! WER (built without the `wer` feature, e.g. on macOS) from `<dir>/<split>.npz` with the
-//! same normaliser and aligner as `ultra-engine-eval`.
+//! same normaliser and aligner as `ultra-engine-eval`. Exit status: 0 PASS, 1 FAIL, 2 error.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -205,13 +205,20 @@ fn main() -> ExitCode {
         }
         Ok(v)
     }) {
+        // Exit 0 only when the gate passes: 1 = FAIL (the JSON is still printed and written),
+        // 2 = any error (no verdict).
         Ok(v) => {
             println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
-            ExitCode::SUCCESS
+            if v["pass"] == true {
+                ExitCode::SUCCESS
+            } else {
+                eprintln!("ultra-engine-gate: FAIL");
+                ExitCode::from(1)
+            }
         }
         Err(e) => {
             eprintln!("ultra-engine-gate: {e}");
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
     }
 }
