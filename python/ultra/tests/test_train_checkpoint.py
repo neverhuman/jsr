@@ -120,3 +120,24 @@ def test_weights_snapshots_are_kept_and_loadable(workdir):
     p = checkpoint.load(os.path.join(workdir, names[-1]), restore_rng=False)
     for k, v in t.model.state_dict().items():
         assert torch.equal(p["model"][k], v), k
+
+
+def test_divergence_guard_stops_on_loss_trend_and_wer(workdir):
+    from train.errors import DivergenceError
+
+    t = _trainer(workdir)
+    t.cfg.diverge_after, t.cfg.diverge_ratio, t.cfg.diverge_patience = 0, 0.3, 20
+    for _ in range(200):
+        t._watch_loss({"loss": 1.0, "grad_norm": 1.0})
+    with pytest.raises(DivergenceError):
+        for _ in range(2000):
+            t.step += 1
+            t._watch_loss({"loss": 3.0, "grad_norm": 50.0})
+    assert os.path.exists(os.path.join(workdir, "DIVERGED.json"))
+    with pytest.raises(CheckpointError):
+        _trainer(workdir).resume()
+    u = _trainer(os.path.join(workdir, "w"))
+    u._watch_wer(21.0)
+    u._watch_wer(24.0)  # within 5 points
+    with pytest.raises(DivergenceError):
+        u._watch_wer(27.0)

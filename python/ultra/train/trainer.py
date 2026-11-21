@@ -25,7 +25,7 @@ from train import checkpoint
 from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
 from train.data import Batch, Example, FixedBatches, Position, collate
-from train.errors import CheckpointError, NonFiniteLossError
+from train.errors import CheckpointError, DivergenceError, NonFiniteLossError
 
 DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
 
@@ -59,6 +59,15 @@ class TrainConfig:
     chunk: int = 0  # 0 = model default
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
+    # Divergence guard (D3MR 2026-11-21 diverged at lr 8e-4: attention qkv weights of one block
+    # grew 10x, loss rose for ~3k steps, then the model collapsed). The run stops, writes
+    # DIVERGED.json and refuses to resume when, after `diverge_after` steps, the train-loss EMA
+    # stays above (1 + diverge_ratio) x its best value for `diverge_patience` steps, or a dev
+    # eval is worse than the best one by more than `diverge_wer_points`. 0 disables a rule.
+    diverge_after: int = 3000
+    diverge_ratio: float = 0.3
+    diverge_patience: int = 300
+    diverge_wer_points: float = 5.0
     speed_perturb: str = ""  # e.g. "0.9,1.0,1.1" (train batches only)
     weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
     extra: dict = field(default_factory=dict)
@@ -95,6 +104,10 @@ class Trainer:
         self.log_enabled = log
         self.stop_requested = False
         self.saver = checkpoint.AsyncSaver()
+        self.loss_ema: float | None = None
+        self.best_ema: float | None = None
+        self.over_since: int | None = None
+        self.best_wer: float | None = None
         self.precision = "bf16-autocast" if self.device.type == "cuda" else "fp32"
         os.makedirs(run_dir, exist_ok=True)
 
@@ -115,8 +128,9 @@ class Trainer:
             self.saver.wait()
 
     def resume(self) -> bool:
-        if os.path.exists(os.path.join(self.run_dir, "PAUSED.json")):
-            raise CheckpointError(f"run is paused; inspect and remove {self.run_dir}/PAUSED.json")
+        for stop in ("PAUSED.json", "DIVERGED.json"):
+            if os.path.exists(os.path.join(self.run_dir, stop)):
+                raise CheckpointError(f"run is stopped; inspect and remove {self.run_dir}/{stop}")
         path = checkpoint.latest(self.run_dir)
         if path is None:
             return False
@@ -168,6 +182,46 @@ class Trainer:
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
                 "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
                 "utts": len(batch.uids)}
+
+    def _diverged(self, detail: str, extra: dict) -> None:
+        diag = os.path.join(self.run_dir, "DIVERGED.json")
+        with open(diag, "w") as fh:
+            json.dump({"step": self.step, "detail": detail, "loss_ema": self.loss_ema,
+                       "best_ema": self.best_ema, "best_wer": self.best_wer,
+                       "position": self.pos.to_dict(), **extra}, fh, indent=1)
+        self.save(wait=True)  # keep the state at the stop for inspection
+        raise DivergenceError(self.step, detail, diag)
+
+    def _max_qkv_norm(self) -> float:
+        """Largest attention qkv weight norm (D3MR's divergence showed up here first)."""
+        norms = [float(m.qkv.weight.detach().norm()) for m in self.model.modules()
+                 if hasattr(m, "qkv")]
+        return round(max(norms), 2) if norms else 0.0
+
+    def _watch_loss(self, r: dict) -> None:
+        c = self.cfg
+        x = r["loss"]
+        self.loss_ema = x if self.loss_ema is None else 0.99 * self.loss_ema + 0.01 * x
+        if not c.diverge_ratio or self.step < c.diverge_after:
+            return
+        if self.best_ema is None or self.loss_ema < self.best_ema:
+            self.best_ema = self.loss_ema
+        if self.loss_ema > (1 + c.diverge_ratio) * self.best_ema:
+            self.over_since = self.over_since or self.step
+            if self.step - self.over_since >= c.diverge_patience:
+                self._diverged(f"train-loss EMA {self.loss_ema:.3f} > (1 + {c.diverge_ratio}) x "
+                               f"best {self.best_ema:.3f} for {c.diverge_patience} steps",
+                               {"grad_norm": r["grad_norm"]})
+        else:
+            self.over_since = None
+
+    def _watch_wer(self, wer: float | None) -> None:
+        if wer is None or not self.cfg.diverge_wer_points:
+            return
+        if self.best_wer is not None and wer > self.best_wer + self.cfg.diverge_wer_points:
+            self._diverged(f"dev WER {wer} > best {self.best_wer} + {self.cfg.diverge_wer_points}",
+                           {"wer": wer})
+        self.best_wer = wer if self.best_wer is None else min(self.best_wer, wer)
 
     def _pause(self, batch: Batch, out: dict, gnorm: float, what: str):
         diag = os.path.join(self.run_dir, "PAUSED.json")
@@ -226,6 +280,7 @@ class Trainer:
             acc["masked"] += r["ctc_masked"]
             for k in ("loss", "rnnt", "ctc"):
                 acc[k] += r[k]
+            self._watch_loss(r)
             if self.step % self.cfg.log_every == 0:
                 dt = time.time() - t0
                 self.log({"kind": "train", "step": self.step, "pos": pos.to_dict(),
@@ -233,14 +288,17 @@ class Trainer:
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
                           "dropped_long": getattr(self.source, "dropped_long", 0),
+                          "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
             if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
+                ev = self.evaluate()
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
-                          **self.evaluate(), **self.stats.summary()})
+                          **ev, **self.stats.summary()})
+                self._watch_wer(ev.get("wer"))
                 t0 = time.time()
             if self.cfg.weights_every and self.step % self.cfg.weights_every == 0:
                 self.saver.save(self.run_dir, self.step,
@@ -338,6 +396,9 @@ def main(argv=None) -> int:
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     try:
         tr.run(a.max_steps)
+    except DivergenceError as e:
+        tr.log({"kind": "diverged", "error": str(e)})
+        return 4
     except NonFiniteLossError as e:
         tr.log({"kind": "paused", "error": str(e)})
         return 3

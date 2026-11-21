@@ -24,5 +24,15 @@ class NonFiniteLossError(TrainError):
         self.diag_path = diag_path
 
 
+class DivergenceError(TrainError):
+    """Training diverged (loss trend or dev WER); the run is stopped with diagnostics."""
+
+    def __init__(self, step: int, detail: str, diag_path: str):
+        super().__init__(f"divergence at step {step}: {detail} (diagnostics: {diag_path})")
+        self.step = step
+        self.detail = detail
+        self.diag_path = diag_path
+
+
 class ShapeError(TrainError):
     """Tensor shapes violate a model or loss contract."""
