@@ -192,6 +192,14 @@
     "python/ultra/bridge/": {
       "command": "just pytest",
       "purpose": "reference-blind worker IPC and failure behavior"
+    },
+    "crates/ultra-engine/": {
+      "command": "cargo test -p ultra-engine",
+      "purpose": "kernel scalar-vs-AVX2 agreement, safetensors validation, and per-layer/transcript parity of the pure-Rust R1 engine against the torch reference"
+    },
+    "python/ultra/tools/": {
+      "command": "cargo test -p ultra-engine",
+      "purpose": "the converted weights load and match the torch per-layer reference in the engine's parity tests"
     }
   }
 }
