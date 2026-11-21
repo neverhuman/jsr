@@ -1,0 +1,30 @@
+[package]
+name = "ultra-engine"
+description = "ULTRA pure-Rust fused CPU inference engine for the R1 streaming Conformer transducer (fp32 reference + per-row int8, AVX2/FMA)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ultra-core = { path = "../ultra-core" }
+ultra-frontend = { path = "../ultra-frontend" }
+ultra-gp = { path = "../ultra-gp" }
+ultra-eval = { path = "../ultra-eval" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "ultra-engine-eval"
+path = "src/bin/engine_eval.rs"
+
+[[bin]]
+name = "ultra-engine-density"
+path = "src/bin/engine_density.rs"

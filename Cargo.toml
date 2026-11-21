@@ -12,6 +12,7 @@ members = [
   "crates/ultra-adapters",
   "crates/ultra-cli",
   "crates/ultra-bridge",
+  "crates/ultra-engine",
 ]
 
 [workspace.package]
@@ -43,3 +44,7 @@ lto = "thin"
 
 [profile.bench]
 debug = "line-tables-only"
+
+# The engine's parity tests run real model weights; unoptimised builds are ~50x slower.
+[profile.dev.package.ultra-engine]
+opt-level = 2
