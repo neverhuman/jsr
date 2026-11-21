@@ -227,6 +227,7 @@ fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
     // two workers; observer in the same L3 (CPU 1) must fail; observer in another L3 (CPU 48) passes.
     if std::path::Path::new("/sys/devices/system/cpu/cpu64/topology/thread_siblings_list").exists()
     {
+        use ultra_stream::assign_worker_cpus;
         assert!(verify_worker_l3_and_smt(&[vec![0], vec![64]], None, true).is_err());
         assert!(verify_worker_l3_and_smt(&[vec![0], vec![1]], Some(&[2]), true).is_err());
         assert!(verify_worker_l3_and_smt(
@@ -235,5 +236,11 @@ fn verified_affinity_fails_closed_and_physical_first_deduplicates_smt() {
             true
         )
         .is_ok());
+        // B1 + S4: refuse fewer physical cores than workers, refuse excess when exact required,
+        // and assign strictly 1 physical core per worker.
+        assert!(assign_worker_cpus(4, &[56, 57], Some(&[48]), false).is_err());
+        assert!(assign_worker_cpus(4, &[56, 57, 58, 59, 60, 61], Some(&[48]), true).is_err());
+        let assigned = assign_worker_cpus(4, &[56, 57, 58, 59], Some(&[48]), true).expect("4:4 ok");
+        assert_eq!(assigned, vec![vec![56], vec![57], vec![58], vec![59]]);
     }
 }

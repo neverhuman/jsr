@@ -55,7 +55,8 @@ pub use ort_r1_bank::{
 pub use ort_r1_fleet::{run_sp_a_ort_r1_shared_workers, R1FleetResult};
 pub use ort_r1_stream::OrtR1RawStream;
 pub use placement::{
-    physical_first_cpus, pin_current_thread_verified, verify_worker_l3_and_smt, FleetSeriesPoint,
+    assign_worker_cpus, physical_first_cpus, pin_current_thread_verified, verify_worker_l3_and_smt,
+    FleetSeriesPoint,
 };
 pub use scheduler::{
     default_npz_for_split, run_sp_a_zipformer, simulate_grid, sustains_lateness, DecodeMode,

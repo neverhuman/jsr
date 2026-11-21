@@ -47,12 +47,11 @@ Until then, any row produced is exploratory.
   - **Qualifying mode refuses runtime weight quantisation.**
   - The engine configuration (stem kinds, ISA, binary sha, commit, affinity) is recorded on every row. No configuration may come from an unrecorded environment variable.
 - **A1 density rule (one implementation, in bench-suite):**
-  - Capture deadline per chunk = arrival of its last required sample + processing budget.
-  - Lateness is measured per chunk.
+  - Lateness, as implemented in `ultra-stream/src/grid_sim.rs`, is measured at each 320 ms grid tick: the age of the **oldest packet not yet decoded** in that stream, relative to its capture deadline. This is conservative: it never under-reports a chunk's lateness.
   - p99 lateness ≤ 800 ms, every worker in the same run.
   - No growth: the mean lateness of the last third is no more than 200 ms above the first third.
   - Drained at cutoff, with accepted, processed and unfinished audio accounted.
-  - CPU divided by processed audio only. Run length 300 s per step.
+  - CPU divided by processed audio only. Ladder rungs are 120 s; confirmation runs are 300 s (§4.4).
 - **Cost:** whole-service CPU-s per audio-s, warm (model load excluded and reported separately).
   - In-process scope (`in_process_warm_rusage_self_post_load`) for R0, ORT-R1 and engine-R1.
   - **Nemotron runs as a child process and has no comparable warm measurement, so it is excluded from C-cost.** Its cold process-tree row is reported as context only, labelled with its own scope.
@@ -66,15 +65,18 @@ Until then, any row produced is exploratory.
    - PUBLIC-TEST test-clean/other and the sealed OOD sets (VoxPopuli EN, AMI IHM), for all systems.
    - Rust re-scoring, bootstrap over speaker or session clusters (≥ 10,000 replicates).
    - **Disclosure:** LibriSpeech test-clean/other were read several times before this freeze (LOOKS.jsonl, historical reconstructions). The test result is reported with that disclosure. Selection never used test data.
-3. **Timing:** 5 ABAB blocks for each finalist pair, single stream. The statistic is the median of the block CPU-s/s, with a bootstrap CI over blocks.
+3. **Timing:** 8 ABAB blocks for each finalist pair against R0, single stream (statistics in §5).
    - **The 5% median CPU rerun tolerance (BENCH_PLAN §0a) applies.** A second-day rerun of one finalist must agree within 5%, or the cost row is labelled unstable.
 4. **Density (bounds fixed so the run fits the window):**
    - **Ladder, per CCX (4 workers), 120 s per rung:**
-     - N per worker from 4 to 48 in steps of 4;
+     - N per worker: 2, 4, 6 … 16 in steps of 2, then 20 … 48 in steps of 4. The finer low end avoids biasing R0, which sits near 12;
      - 3 repeats at each N, alternating systems;
      - **stop at the first N where any repeat fails.**
    - **Reported N:** the last N before that failure. A pass at a larger N never counts after a failure at a smaller one.
-   - **Confirmation:** 3 × 300 s runs at the reported N must all pass, or the claim drops one rung.
+   - **Confirmation:** 3 × 300 s runs at the reported N must all pass. If they fail, the next lower rung must itself pass its own 3 × 300 s confirmation before it can be claimed.
+   - **Top of the ladder:** a pass at 48 is reported as "≥ 48", not 48.
+   - **`--qualified` forces this preset:** ladder, repeats and confirmation can't be overridden.
+   - **Same L3:** the 4 workers of a per-CCX run must share one L3 domain (verified).
    - **Systems:** R0, ORT-R1, engine R1-dense and engine R1-MR, per CCX and on the full machine (15 CCX).
    - **Nemotron has no density path in bench-suite, so it is not in the density claim.** It gets no implied ceiling, because extrapolation is forbidden (§3).
 5. **Sustained:** two 1 h runs (BENCH_PLAN §0a) **at the claimed density N**, with RSS, backlog and lateness series.
@@ -83,7 +85,10 @@ Until then, any row produced is exploratory.
 
 ## 5. Pre-registered claims (fixed here)
 - **Holm family (tested claims only):**
-  - C-cost: two comparisons, R1-dense vs R0 and R1-MR vs R0, each a paired bootstrap over 5 ABAB blocks, H1 R1 < R0, α = 0.05.
+  - C-cost: two comparisons, R1-dense vs R0 and R1-MR vs R0. Baseline: R0.
+    - **Design:** 8 ABAB blocks, single stream, whole service.
+    - **Test:** one-sided paired t-test on log(CPU ratio) per block, H1 R1 < R0, Holm across the 2 comparisons, α = 0.05.
+    - **Reported:** median ratio with a 95% CI.
   - C-quality: two comparisons, R1-dense vs R0 and R1-MR vs R0, each a paired speaker-cluster bootstrap on test-clean+other, two-sided, α = 0.05. It reports the gap with a 95% CI and no parity margin. A parity claim needs the upper bound ≤ +0.50 pp, which isn't expected.
 - **Descriptive, not tested:** C-density, reported as measured ladder results, a ratio and WER; C-OOD; SP-A.
 - **Finalist selection (G1):** the lowest pooled WER on the 730-utterance DEV panel, on single checkpoints and checkpoint averages; ties go to the cheaper model.
@@ -97,6 +102,8 @@ Until then, any row produced is exploratory.
 - **INT8 gate (G2), revised:**
   - on the 730-utterance DEV selection panel;
   - point delta ≤ +0.10 pp **and** one-sided 95% bootstrap upper bound ≤ +0.50 pp against FP32 of the same checkpoint.
+  - The +0.50 pp bound is a lead decision. Tighter bounds are underpowered at 7.7k+ words.
+  - Token continuity across builds is enforced separately, by the engine's bit-exact continuity tests.
 - **R1-MR inclusion:** a deviation from BENCH_PLAN §0a, which held R1-MR to an add-on block. R1-MR is the density design and has measured 960 h checkpoints, so it is in the main freeze, labelled. This is recorded in DECISIONS.md.
 
 ## 6. Open before the freeze
@@ -112,17 +119,14 @@ Until then, any row produced is exploratory.
 - **Panel input everywhere:** engine_eval and bench-suite take `--panel`; the trainer already has `--panel`.
 - **G8:** re-review of this revision.
 - **Full hashes:** at the freeze, the hashes above (data manifest, workload, scorer binary) are written out in full.
-- **Re-review open items** (docs/ultra/reviews/2026-11-21-independent-freeze-rereview.md):
-  - N1: ladder stop-at-first-failure;
-  - N2: gate exit code;
-  - N3: dirty-build detection;
-  - N4: panel applied to every row;
-  - N6: ladder robustness;
-  - B1: one worker per core;
-  - B2: lateness matching §3, all ready audio processed per grid tick for every system;
-  - B4: tag ancestry against the build commit, plus CANDIDATES pins;
-  - B5: bench-suite verifies the manifest; the trainer refuses test splits;
-  - S4: placement fails closed;
-  - S5: backlog series and current RSS;
-  - S6: LOOKS append plus a one-read rule;
-  - an ABAB runner.
+- **Pass-3 open items** (docs/ultra/reviews/2026-11-21-independent-freeze-review-pass3.md):
+  - N9: same-L3 check for per-CCX workers;
+  - `--qualified` forces the frozen ladder preset;
+  - N10: 8 blocks, paired t-test on log ratios, R0 named as the baseline;
+  - B4: CANDIDATES pins for both R1 finalists, verifying the loaded weight and int8 artifact hashes;
+  - S6, test reads must fail before the freeze tag exists, with:
+    - an absolute LOOKS path and no environment override;
+    - a canonical candidate id (no aliases);
+    - guards in engine_eval and the trainer;
+  - N11: observer `smaps_rollup` period ≥ 1 s in sustained mode;
+  - S7: full hashes at the tag.

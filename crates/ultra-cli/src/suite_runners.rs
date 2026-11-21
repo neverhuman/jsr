@@ -49,6 +49,11 @@ pub(crate) fn run_nemotron_candidate(
     ctx: &SuiteCtx<'_>,
     raw_cand: &str,
 ) -> Result<FrontierRow, CliError> {
+    if ctx.selected_indices.is_some() {
+        return Err(CliError::Config(format!(
+            "Nemotron candidate `{raw_cand}` does not support --panel subset filtering; run it separately on the full split without --panel so frontier.json never mixes utterance sets (re-review N4)"
+        )));
+    }
     let slug = sanitize_slug(raw_cand);
     let scores_path = ctx.out_dir.join(format!("{slug}.scores.jsonl"));
     let receipt_path = ctx.out_dir.join(format!("{slug}.receipt.json"));
@@ -150,6 +155,7 @@ pub(crate) fn run_offline_candidate(
         honesty_label: HonestyLabel::UnknownOverlap,
         offset: 0,
         limit: ctx.limit,
+        selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
         batch_size: 1,
         offline: off_cfg,
         source_commit: ctx.commit.into(),
