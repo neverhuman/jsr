@@ -54,7 +54,9 @@ Until then, any row produced is exploratory.
   - Drained at cutoff, with accepted, processed and unfinished audio accounted.
   - CPU divided by processed audio only. Run length 300 s per step.
 - **Cost:** whole-service CPU-s per audio-s, warm (model load excluded and reported separately).
-  - Whole process tree, the same scope for R0, ORT-R1, engine-R1 and Nemotron. Nemotron also gets a cold row.
+  - In-process scope (`in_process_warm_rusage_self_post_load`) for R0, ORT-R1 and engine-R1.
+  - **Nemotron runs as a child process and has no comparable warm measurement, so it is excluded from C-cost.** Its cold process-tree row is reported as context only, labelled with its own scope.
+  - The CPU governor and boost state are recorded on every row.
   - Observer CPU is reported separately.
 
 ## 4. Protocol (qualifying window, G6)
@@ -66,17 +68,25 @@ Until then, any row produced is exploratory.
    - **Disclosure:** LibriSpeech test-clean/other were read several times before this freeze (LOOKS.jsonl, historical reconstructions). The test result is reported with that disclosure. Selection never used test data.
 3. **Timing:** 5 ABAB blocks for each finalist pair, single stream. The statistic is the median of the block CPU-s/s, with a bootstrap CI over blocks.
    - **The 5% median CPU rerun tolerance (BENCH_PLAN §0a) applies.** A second-day rerun of one finalist must agree within 5%, or the cost row is labelled unstable.
-4. **Density:**
-   - **Ladder:** N per worker in steps of 2.
-   - **Repeats:** 3 at each N, alternating systems.
-   - **Reported N:** the largest N at which all 3 repeats pass A1 for every worker.
+4. **Density (bounds fixed so the run fits the window):**
+   - **Ladder, per CCX (4 workers), 120 s per rung:**
+     - N per worker from 4 to 48 in steps of 4;
+     - 3 repeats at each N, alternating systems;
+     - **stop at the first N where any repeat fails.**
+   - **Reported N:** the last N before that failure. A pass at a larger N never counts after a failure at a smaller one.
+   - **Confirmation:** 3 × 300 s runs at the reported N must all pass, or the claim drops one rung.
    - **Systems:** R0, ORT-R1, engine R1-dense and engine R1-MR, per CCX and on the full machine (15 CCX).
-   - **Nemotron has no density path in bench-suite, so it is not in the density claim.** Its single-stream cost row gives an implied ceiling, labelled as an estimate.
+   - **Nemotron has no density path in bench-suite, so it is not in the density claim.** It gets no implied ceiling, because extrapolation is forbidden (§3).
 5. **Sustained:** two 1 h runs (BENCH_PLAN §0a) **at the claimed density N**, with RSS, backlog and lateness series.
 6. **Latency:** CQ(250/750/2000) and FC(800/1500) against MFA timings, `controlled_eof_finish_input` labelled.
 7. **Silence probe:** 10 min, inserted words per hour.
 
-## 5. Pre-registered claims (fixed here; the Holm family is the 4 claims below)
+## 5. Pre-registered claims (fixed here)
+- **Holm family (tested claims only):**
+  - C-cost: two comparisons, R1-dense vs R0 and R1-MR vs R0, each a paired bootstrap over 5 ABAB blocks, H1 R1 < R0, α = 0.05.
+  - C-quality: two comparisons, R1-dense vs R0 and R1-MR vs R0, each a paired speaker-cluster bootstrap on test-clean+other, two-sided, α = 0.05. It reports the gap with a 95% CI and no parity margin. A parity claim needs the upper bound ≤ +0.50 pp, which isn't expected.
+- **Descriptive, not tested:** C-density, reported as measured ladder results, a ratio and WER; C-OOD; SP-A.
+- **Finalist selection (G1):** the lowest pooled WER on the 730-utterance DEV panel, on single checkpoints and checkpoint averages; ties go to the cheaper model.
 - **C-density (headline):** engine **R1-MR** streams per CCX and on the full machine (15 CCX), against **R0** and against **ORT-R1**, each measured with the §4.4 ladder.
   - Reported as a ratio, **always printed next to each system's test-clean and test-other WER**.
   - The headline sentence must state the WER gap. No density claim is made without the accuracy beside it.
@@ -101,4 +111,18 @@ Until then, any row produced is exploratory.
 - **G4:** deterministic log-mel.
 - **Panel input everywhere:** engine_eval and bench-suite take `--panel`; the trainer already has `--panel`.
 - **G8:** re-review of this revision.
-- **Full hashes:** at the freeze, the hashes above (data manifest, workload) are written out in full.
+- **Full hashes:** at the freeze, the hashes above (data manifest, workload, scorer binary) are written out in full.
+- **Re-review open items** (docs/ultra/reviews/2026-11-21-independent-freeze-rereview.md):
+  - N1: ladder stop-at-first-failure;
+  - N2: gate exit code;
+  - N3: dirty-build detection;
+  - N4: panel applied to every row;
+  - N6: ladder robustness;
+  - B1: one worker per core;
+  - B2: lateness matching §3, all ready audio processed per grid tick for every system;
+  - B4: tag ancestry against the build commit, plus CANDIDATES pins;
+  - B5: bench-suite verifies the manifest; the trainer refuses test splits;
+  - S4: placement fails closed;
+  - S5: backlog series and current RSS;
+  - S6: LOOKS append plus a one-read rule;
+  - an ABAB runner.
