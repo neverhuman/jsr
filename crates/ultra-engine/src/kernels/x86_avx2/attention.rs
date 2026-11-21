@@ -43,39 +43,39 @@ fn scores_avx2(
     let nk = segs[0].1 + segs[1].1;
     assert!(kt.len() >= dh * ring && scores.len() >= n * nk);
     assert!(q.len() >= (n - 1) * q_stride + dh);
-    // `ring` is the padded row stride: the last 8-key block of a segment may overrun the
-    // segment by up to 7 columns, which stay inside the row's KT_PAD padding.
-    assert!(segs
-        .iter()
-        .all(|&(s, l)| s + l + super::super::KT_PAD <= ring));
+    assert!(ring.is_multiple_of(8) && segs.iter().all(|&(s, l)| s + l <= ring));
     let sv = _mm256_set1_ps(scale);
     let mut j0 = 0;
     for (start, len) in segs {
-        let mut i0 = 0;
-        while i0 < n {
-            let qn = (n - i0).min(QB);
-            let mut c = 0;
-            while c < len {
-                let mut acc = [_mm256_setzero_ps(); QB];
-                for e in 0..dh {
-                    // SAFETY: e * ring + start + c + 8 <= e * ring + start + len + 7 < (e + 1) * ring
-                    // <= kt.len() (padding asserted above).
-                    let kv = unsafe { _mm256_loadu_ps(kt.as_ptr().add(e * ring + start + c)) };
-                    for (a, qi) in acc[..qn].iter_mut().zip(i0..i0 + qn) {
-                        let qv = _mm256_set1_ps(q[qi * q_stride + e]);
-                        *a = _mm256_fmadd_ps(qv, kv, *a);
+        if len > 0 {
+            let (t_first, t_last) = (start / 8, (start + len - 1) / 8);
+            let mut i0 = 0;
+            while i0 < n {
+                let qn = (n - i0).min(QB);
+                for t in t_first..=t_last {
+                    let tile = &kt[t * dh * 8..(t + 1) * dh * 8];
+                    let mut acc = [_mm256_setzero_ps(); QB];
+                    for (e, kv8) in tile.chunks_exact(8).enumerate() {
+                        // SAFETY: kv8.len() == 8.
+                        let kv = unsafe { _mm256_loadu_ps(kv8.as_ptr()) };
+                        for (a, qi) in acc[..qn].iter_mut().zip(i0..i0 + qn) {
+                            let qv = _mm256_set1_ps(q[qi * q_stride + e]);
+                            *a = _mm256_fmadd_ps(qv, kv, *a);
+                        }
+                    }
+                    // Keep only the tile lanes inside the window segment.
+                    let lo = (t * 8).max(start);
+                    let hi = (t * 8 + 8).min(start + len);
+                    for (a, qi) in acc[..qn].iter().zip(i0..i0 + qn) {
+                        let mut tmp = [0.0f32; 8];
+                        // SAFETY: tmp holds 8 floats.
+                        unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
+                        let dst = qi * nk + j0 + (lo - start);
+                        scores[dst..dst + (hi - lo)].copy_from_slice(&tmp[lo - t * 8..hi - t * 8]);
                     }
                 }
-                let take = (len - c).min(8);
-                for (a, qi) in acc[..qn].iter().zip(i0..i0 + qn) {
-                    let mut tmp = [0.0f32; 8];
-                    // SAFETY: tmp holds 8 floats.
-                    unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), _mm256_mul_ps(*a, sv)) };
-                    scores[qi * nk + j0 + c..qi * nk + j0 + c + take].copy_from_slice(&tmp[..take]);
-                }
-                c += 8;
+                i0 += qn;
             }
-            i0 += qn;
         }
         j0 += len;
     }

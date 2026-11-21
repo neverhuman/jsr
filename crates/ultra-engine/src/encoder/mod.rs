@@ -57,7 +57,7 @@ pub struct GroupCache {
     pub chunk: usize,
     /// Ring slots per layer and head: `left + max_chunks * chunk`.
     pub ring: usize,
-    /// Keys `[layer][head][dh][ring + KT_PAD]` (transposed, padded rows) and values
+    /// Keys `[layer][head][ring / 8][dh][8]` (8-key tiles, `kernels::kt_index`) and values
     /// `[layer][head][ring][dh]`; absolute position `p` lives in slot `p % ring`, so a
     /// step's keys (up to `max_chunks` chunks) can be written before its queries run.
     pub k: Vec<f32>,
@@ -69,15 +69,15 @@ pub struct GroupCache {
 impl GroupCache {
     fn new(m: &Model, layers: usize, left: usize, chunk: usize, max_chunks: usize) -> Self {
         let a = &m.arch;
-        let ring = left + chunk * max_chunks.max(1);
+        // At least left + one step of keys; a whole number of 8-key tiles.
+        let ring = (left + chunk * max_chunks.max(1)).next_multiple_of(kernels::KT_TILE);
         let kv = layers * a.heads * ring * a.dh;
-        let kk = layers * a.heads * (ring + kernels::KT_PAD) * a.dh;
         Self {
             kv_len: 0,
             left,
             chunk,
             ring,
-            k: vec![0.0; kk],
+            k: vec![0.0; kv],
             v: vec![0.0; kv],
             conv: vec![0.0; layers * (a.kernel - 1) * a.d],
         }
@@ -108,7 +108,7 @@ impl EncState {
 
     /// Most frames one step may carry (cache capacity).
     pub fn max_step_frames(&self) -> usize {
-        self.g25.ring - self.g25.left
+        (self.g25.ring - self.g25.left) / self.g25.chunk * self.g25.chunk
     }
 }
 

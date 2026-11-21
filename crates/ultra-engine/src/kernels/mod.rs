@@ -10,9 +10,16 @@ pub mod scalar;
 #[cfg(target_arch = "x86_64")]
 mod x86_avx2;
 
-/// Extra columns after each transposed-key row, so 8-key SIMD blocks never read past a row
-/// (`attend_head` requires `start + len + KT_PAD <= kt_stride` for every window segment).
-pub const KT_PAD: usize = 8;
+/// Keys per tile of the attention key cache: a head's keys are stored as tiles of 8 slots,
+/// `kt[(slot / 8) * dh * 8 + e * 8 + slot % 8]`, so one 32-byte load holds dimension `e` of
+/// 8 consecutive keys and a tile is 2 KiB of contiguous memory (dh = 64).
+pub const KT_TILE: usize = 8;
+
+/// Index of key `slot`, dimension `e` in a tiled key cache of head width `dh`.
+#[inline]
+pub fn kt_index(slot: usize, e: usize, dh: usize) -> usize {
+    (slot / KT_TILE) * dh * KT_TILE + e * KT_TILE + slot % KT_TILE
+}
 
 /// Output columns per packed weight panel (two 8-lane AVX registers).
 pub const NR: usize = 16;
@@ -200,7 +207,7 @@ pub fn add_scaled(isa: Isa, y: &mut [f32], x: &[f32], alpha: f32) {
 }
 
 /// Softmax attention of one head for `n` queries `q[i * q_stride ..][..dh]`. Keys are
-/// stored transposed (`kt[e * kt_stride + slot]`, rows padded by [`KT_PAD`]); the
+/// stored in 8-key tiles (`kt[kt_index(slot, e, dh)]`, `ring` a multiple of [`KT_TILE`]); the
 /// window is the slot ranges `segs = [(start, len); 2]`, and `vals` holds the matching value
 /// rows (width `dh`) in the same order. Writes `out[i * o_stride ..][..dh] =
 /// softmax(q k^T * scale) v`; `scores` holds at least `n * nk` floats.
@@ -212,7 +219,7 @@ pub fn attend_head(
     n: usize,
     dh: usize,
     kt: &[f32],
-    kt_stride: usize,
+    ring: usize,
     segs: [(usize, usize); 2],
     vals: [&[f32]; 2],
     scale: f32,
@@ -220,29 +227,30 @@ pub fn attend_head(
     out: &mut [f32],
     o_stride: usize,
 ) {
-    assert!(dh > 0 && n > 0 && kt_stride > KT_PAD, "attend_head dims");
+    assert!(
+        dh > 0 && n > 0 && ring > 0 && ring.is_multiple_of(KT_TILE),
+        "attend_head dims"
+    );
     let nk = segs[0].1 + segs[1].1;
     assert!(
         nk > 0
             && segs
                 .iter()
-                .all(|&(s, l)| s.checked_add(l + KT_PAD).is_some_and(|e| e <= kt_stride))
+                .all(|&(s, l)| s.checked_add(l).is_some_and(|e| e <= ring))
     );
     assert!(
-        kt.len() >= dh * kt_stride
-            && vals[0].len() == segs[0].1 * dh
-            && vals[1].len() == segs[1].1 * dh
+        kt.len() >= dh * ring && vals[0].len() == segs[0].1 * dh && vals[1].len() == segs[1].1 * dh
     );
     assert!(scores.len() >= n * nk && q.len() >= (n - 1) * q_stride + dh);
     assert!(out.len() >= (n - 1) * o_stride + dh);
     match isa {
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() && dh.is_multiple_of(8) && dh <= 128 => {
-            x86_avx2::attention_scores(q, q_stride, n, dh, kt, kt_stride, segs, scale, scores);
+            x86_avx2::attention_scores(q, q_stride, n, dh, kt, ring, segs, scale, scores);
             x86_avx2::attention_values(n, dh, vals, scores, out, o_stride);
         }
         _ => {
-            scalar::attention_scores(q, q_stride, n, dh, kt, kt_stride, segs, scale, scores);
+            scalar::attention_scores(q, q_stride, n, dh, kt, ring, segs, scale, scores);
             scalar::attention_values(n, dh, vals, scores, out, o_stride);
         }
     }

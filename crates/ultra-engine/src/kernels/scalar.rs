@@ -190,7 +190,7 @@ pub fn gemm_i8(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// `scores[i * nk + j] = scale * sum_e q[i][e] * kt[e][slot_j]` for the window slots of
+/// `scores[i * nk + j] = scale * sum_e q[i][e] * k[slot_j][e]` (tiled `kt`) for the slots of
 /// `segs`, accumulated with `mul_add` in ascending `e` (the AVX2 kernel's exact order).
 pub fn attention_scores(
     q: &[f32],
@@ -203,6 +203,7 @@ pub fn attention_scores(
     scale: f32,
     scores: &mut [f32],
 ) {
+    debug_assert!(kt.len() >= ring * dh);
     let nk = segs[0].1 + segs[1].1;
     for i in 0..n {
         let qi = &q[i * q_stride..i * q_stride + dh];
@@ -211,7 +212,7 @@ pub fn attention_scores(
             for c in start..start + len {
                 let mut acc = 0.0f32;
                 for (e, &qv) in qi.iter().enumerate() {
-                    acc = qv.mul_add(kt[e * ring + c], acc);
+                    acc = qv.mul_add(kt[super::kt_index(c, e, dh)], acc);
                 }
                 scores[i * nk + j] = acc * scale;
                 j += 1;
