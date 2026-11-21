@@ -131,7 +131,7 @@ fn pct(v: &mut [f64], p: f64) -> f64 {
 
 fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
-    if a.precision == Precision::Int8 {
+    if a.precision == Precision::Int8 && model.int8_prepared.is_none() {
         model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
     }
     let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
@@ -240,6 +240,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "backlog_steps_at_cutoff": backlog_steps, "drained_chunks": drained_chunks,
         "cpu_s_per_audio_s": cpu / processed_s,
         "weights_sha256": engine.model.arch.weights_sha256,
+        "int8_prepared_sha256": engine.model.int8_prepared.as_ref().map(|p| p.sha256.clone()),
     }))
 }
 

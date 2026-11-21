@@ -17,6 +17,16 @@ pub(super) struct RawArch {
     pub(super) files: BTreeMap<String, RawFile>,
     pub(super) features: RawFeatures,
     pub(super) decoder: RawDecoder,
+    /// Present in a prepared-INT8 directory (`ultra-engine-prepare`).
+    #[serde(default)]
+    pub(super) int8: Option<RawInt8>,
+}
+
+#[derive(Deserialize)]
+pub(super) struct RawInt8 {
+    pub(super) layout: String,
+    pub(super) source_weights_sha256: String,
+    pub(super) fp32_kinds: Vec<String>,
 }
 
 #[derive(Deserialize)]
