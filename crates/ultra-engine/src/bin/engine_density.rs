@@ -1,0 +1,211 @@
+//! `ultra-engine-density`: paced live-stream density of ONE engine worker (pin the process
+//! to one core with `taskset`; one worker per CCX). `--streams N` streams replay DEV
+//! utterances back to back in real time (staggered starts); every `--grid-ms` the worker
+//! ingests the audio that has "arrived" and decodes every ready chunk (batched). Per chunk,
+//! lateness = decode end - arrival of the last sample that chunk needs. Reports p50/p99/max
+//! lateness, a no-growth check (second-half mean minus first-half mean), worker CPU per
+//! audio second, and pass/fail against the A1 rule (p99 <= 800 ms, no growth). Exploratory.
+
+use std::path::PathBuf;
+use std::process::ExitCode;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use serde_json::json;
+use ultra_engine::{Engine, EngineStream, Isa, Model, Precision, Workspace};
+use ultra_frontend::npz::load_npz_audio_only;
+
+struct Args {
+    weights: PathBuf,
+    npz: PathBuf,
+    streams: usize,
+    seconds: f64,
+    grid_ms: u64,
+    precision: Precision,
+    int8_skip: Vec<String>,
+}
+
+fn parse() -> Result<Args, String> {
+    let mut a = Args {
+        weights: PathBuf::new(),
+        npz: PathBuf::new(),
+        streams: 8,
+        seconds: 60.0,
+        grid_ms: 320,
+        precision: Precision::Int8,
+        int8_skip: Vec::new(),
+    };
+    let mut it = std::env::args().skip(1);
+    while let Some(k) = it.next() {
+        let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
+        match k.as_str() {
+            "--weights" => a.weights = v()?.into(),
+            "--npz" => a.npz = v()?.into(),
+            "--streams" => a.streams = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--seconds" => a.seconds = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
+            "--int8-fp32-kinds" => a.int8_skip = v()?.split(',').map(str::to_owned).collect(),
+            o => return Err(format!("unknown argument {o}")),
+        }
+    }
+    if a.streams == 0 || a.grid_ms == 0 || a.weights.as_os_str().is_empty() {
+        return Err("--weights, positive --streams and --grid-ms are required".into());
+    }
+    Ok(a)
+}
+
+fn thread_cpu_s() -> f64 {
+    std::fs::read_to_string("/proc/thread-self/schedstat")
+        .ok()
+        .and_then(|s| {
+            s.split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<f64>().ok())
+        })
+        .map_or(f64::NAN, |ns| ns * 1e-9)
+}
+
+struct Slot {
+    utt: usize,
+    stream: EngineStream,
+    /// Wall-clock offset (s) at which this utterance's sample 0 arrives.
+    start: f64,
+    fed: usize,
+}
+
+fn pct(v: &mut [f64], p: f64) -> f64 {
+    if v.is_empty() {
+        return f64::NAN;
+    }
+    v.sort_by(f64::total_cmp);
+    v[((v.len() - 1) as f64 * p).round() as usize]
+}
+
+fn run(a: &Args) -> Result<serde_json::Value, String> {
+    let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
+    if a.precision == Precision::Int8 {
+        model.quantize_int8_where(|k, _| !a.int8_skip.iter().any(|s| s == k));
+    }
+    let engine =
+        Engine::new(Arc::new(model), Isa::detect(), a.precision).map_err(|e| e.to_string())?;
+    let utts = load_npz_audio_only(&a.npz, 0, Some(400)).map_err(|e| e.to_string())?;
+    let grid = a.grid_ms as f64 / 1000.0;
+    let mut slots: Vec<Slot> = (0..a.streams)
+        .map(|i| Slot {
+            utt: (i * 37) % utts.len(),
+            stream: engine.create_stream(),
+            start: grid * i as f64 / a.streams as f64,
+            fed: 0,
+        })
+        .collect();
+    let mut next_utt = a.streams * 37;
+    let mut ws = Workspace::default();
+    let mut late: Vec<(f64, f64)> = Vec::new();
+    let (c0, t0) = (thread_cpu_s(), Instant::now());
+    let mut audio_s = 0.0f64;
+    let mut tick = 1u64;
+    loop {
+        let target = Duration::from_secs_f64(grid * tick as f64);
+        if let Some(d) = target.checked_sub(t0.elapsed()) {
+            std::thread::sleep(d);
+        }
+        let now = t0.elapsed().as_secs_f64();
+        if now > a.seconds {
+            break;
+        }
+        for s in &mut slots {
+            let pcm = &utts[s.utt].pcm;
+            let avail = (((now - s.start).max(0.0)) * 16_000.0) as usize;
+            let upto = avail.min(pcm.len());
+            if upto > s.fed {
+                s.stream.accept_i16(&pcm[s.fed..upto]);
+                audio_s += (upto - s.fed) as f64 / 16_000.0;
+                s.fed = upto;
+                if upto == pcm.len() {
+                    s.stream.input_finished();
+                }
+            }
+        }
+        loop {
+            // Arrival time of the sample each ready chunk waited for.
+            let arrivals: Vec<f64> = slots
+                .iter()
+                .filter_map(|s| {
+                    engine.next_chunk(&s.stream).map(|(_, t1)| {
+                        let need = if s.stream.is_finished() {
+                            utts[s.utt].pcm.len()
+                        } else {
+                            (4 * t1 - 4) * 160 + 400
+                        };
+                        s.start + need as f64 / 16_000.0
+                    })
+                })
+                .collect();
+            if arrivals.is_empty() {
+                break;
+            }
+            let mut refs: Vec<&mut EngineStream> =
+                slots.iter_mut().map(|s| &mut s.stream).collect();
+            engine
+                .decode(&mut refs, &mut ws)
+                .map_err(|e| e.to_string())?;
+            let end = t0.elapsed().as_secs_f64();
+            late.extend(arrivals.into_iter().map(|t| (t, end - t)));
+        }
+        for s in &mut slots {
+            if s.stream.is_finished() && !engine.is_ready(&s.stream) {
+                // Next utterance starts right after this one ended (real-time continuity).
+                let end = s.start + utts[s.utt].pcm.len() as f64 / 16_000.0;
+                s.utt = next_utt % utts.len();
+                next_utt += 1;
+                s.stream = engine.create_stream();
+                s.start = end;
+                s.fed = 0;
+            }
+        }
+        tick += 1;
+    }
+    let cpu = thread_cpu_s() - c0;
+    let wall = t0.elapsed().as_secs_f64();
+    let half = a.seconds / 2.0;
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;
+    let first: Vec<f64> = late
+        .iter()
+        .filter(|(t, _)| *t < half)
+        .map(|x| x.1)
+        .collect();
+    let second: Vec<f64> = late
+        .iter()
+        .filter(|(t, _)| *t >= half)
+        .map(|x| x.1)
+        .collect();
+    let growth = mean(&second) - mean(&first);
+    let mut all: Vec<f64> = late.iter().map(|x| x.1).collect();
+    let (p50, p99) = (pct(&mut all, 0.5), pct(&mut all, 0.99));
+    let mx = all.last().copied().unwrap_or(f64::NAN);
+    let pass = p99 <= 0.8 && growth <= 0.05;
+    Ok(json!({
+        "schema": "ultra.engine-density/v1", "exploratory": true,
+        "streams": a.streams, "grid_ms": a.grid_ms, "seconds": a.seconds,
+        "precision": a.precision.as_str(), "int8_fp32_kinds": a.int8_skip,
+        "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
+        "growth_s": growth, "a1_pass": pass,
+        "worker_cpu_s": cpu, "wall_s": wall, "worker_util": cpu / wall,
+        "audio_s": audio_s, "cpu_s_per_audio_s": cpu / audio_s,
+        "weights_sha256": engine.model.arch.weights_sha256,
+    }))
+}
+
+fn main() -> ExitCode {
+    match parse().and_then(|a| run(&a)) {
+        Ok(v) => {
+            println!("{}", serde_json::to_string(&v).unwrap_or_default());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("ultra-engine-density: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}

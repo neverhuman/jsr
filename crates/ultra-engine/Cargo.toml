@@ -24,3 +24,7 @@ workspace = true
 [[bin]]
 name = "ultra-engine-eval"
 path = "src/bin/engine_eval.rs"
+
+[[bin]]
+name = "ultra-engine-density"
+path = "src/bin/engine_density.rs"
