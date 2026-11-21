@@ -115,7 +115,7 @@ pub(crate) fn run_engine_candidate(
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         source_commit: ctx.commit.into(),
-        hardware_id: "H0".into(),
+        hardware_id: ctx.hardware_id.into(),
         completion_status: ctx.status_tag.into(),
     };
     let single = run_sp_a_native_engine(&mk_cfg(1, DecodeMode::Single, false, None))?;

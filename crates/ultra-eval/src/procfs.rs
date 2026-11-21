@@ -211,8 +211,13 @@ impl TreeSampler {
         }
     }
 
-    /// Take one sample and fold it into the summary.
+    /// Take one sample (including `/proc/<pid>/smaps_rollup` PSS) and fold it into the summary.
     pub fn sample(&mut self) -> TreeSample {
+        self.sample_with_pss(true)
+    }
+
+    /// Take one sample, optionally reading `/proc/<pid>/smaps_rollup` for PSS (`N11`).
+    pub fn sample_with_pss(&mut self, read_pss: bool) -> TreeSample {
         let stats = all_stats();
         let mut tree = tree_of(self.root, &stats);
         if !self.include_root {
@@ -234,7 +239,9 @@ impl TreeSampler {
             s.threads += task_count(st.pid).unwrap_or(st.num_threads);
             s.rss_bytes += read_status_bytes(st.pid, "VmRSS").unwrap_or(0);
             s.hwm_bytes += read_status_bytes(st.pid, "VmHWM").unwrap_or(0);
-            s.pss_bytes += read_pss_bytes(st.pid).unwrap_or(0);
+            if read_pss {
+                s.pss_bytes += read_pss_bytes(st.pid).unwrap_or(0);
+            }
         }
         for (key, last) in &self.seen {
             if !now.contains_key(key) && !tree.contains(&last.ppid) {

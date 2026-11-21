@@ -1,22 +1,31 @@
 //! `ultra bench-suite` (`B3`, `B4`, `B5`, `C4`, `G3`, `FREEZE.md §3-§4`): unified multi-candidate
-//! frontier, §4.4 density ladder, `--panel`, sustained series, and `--qualified` admission runner.
+//! frontier, §4.4 density ladder, `--panel`, sustained series, ABAB timing, and `--qualified` runner.
 
 use std::path::PathBuf;
 
+use ultra_core::receipt::Partition;
 use ultra_stream::default_npz_for_split;
 
-use crate::bench_cmd::{parse_next, partition_for_split};
+use crate::bench_cmd::{parse_next, partition_for_split_and_npz};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
-use crate::suite_abab::run_abab_timing_blocks;
+use crate::suite_abab::{
+    resolve_abab_baseline_index, run_abab_timing_blocks, validate_qualified_ccost_arms,
+};
 use crate::suite_engine::{resolve_r1_weights_dir, run_engine_candidate};
-use crate::suite_ladder::{run_density_ladder, LadderSpec};
+use crate::suite_ladder::{run_density_ladder, validate_qualified_ladder_preset, LadderSpec};
 pub use crate::suite_latency::{DensityPoint, FrontierReport, FrontierRow};
-use crate::suite_looks::guard_and_log_public_test_reads;
+use crate::suite_looks::{
+    git_repo_root, guard_and_log_public_test_reads, record_aborted_public_test_reads,
+};
 use crate::suite_manifest::{
-    parse_cpuset, read_cpu_affinity_list, validate_qualified_preflight, write_bytes_create_new,
-    SuiteHostSnapshot,
+    detect_hardware_id, parse_cpuset, read_cpu_affinity_list, validate_qualified_preflight,
+    write_bytes_create_new, SuiteHostSnapshot,
 };
 use crate::suite_panel::load_panel_for_split;
+use crate::suite_pins::{
+    is_nemotron_candidate, resolve_candidate_identity, verify_loaded_candidates_against_lock,
+    ResolvedCandidate,
+};
 use crate::suite_r1_z::{run_r1_candidate, run_zipformer_candidate};
 use crate::suite_runners::{run_nemotron_candidate, run_offline_candidate, SuiteCtx};
 use crate::{git_short_commit, jsr_data_root, BenchLease, CliError};
@@ -41,6 +50,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut density_repeats = 3usize;
     let mut ladder_confirm_seconds: Option<f64> = None;
     let mut abab_blocks = 0usize;
+    let mut abab_baseline: Option<String> = None;
     let mut latency_limit = 5usize;
     let mut sustained_seconds: Option<f64> = None;
     let mut sustained_streams: Option<usize> = None;
@@ -48,6 +58,8 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut silence_probe_wav: Option<(PathBuf, bool)> = None;
     let mut observer_cpus: Option<String> = None;
     let mut qualified_requested = false;
+    let mut sealed_read_flag: Option<String> = None;
+    let mut hardware_id_override: Option<String> = None;
     let mut precision: Option<String> = None;
     let mut threads = 1i32;
     let mut lease_path: Option<PathBuf> = None;
@@ -71,9 +83,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
                 density_workers = parse_next(args, &mut i, "--density-workers")?;
                 density_workers_explicit = true;
             }
-            "--full-machine" => {
-                full_machine_requested = true;
-            }
+            "--full-machine" => full_machine_requested = true,
             "--density-streams" => density_streams = parse_next(args, &mut i, "--density-streams")?,
             "--density-seconds" => {
                 density_seconds = parse_next(args, &mut i, "--density-seconds")?;
@@ -89,6 +99,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
                     Some(parse_next(args, &mut i, "--ladder-confirm-seconds")?);
             }
             "--abab-blocks" => abab_blocks = parse_next(args, &mut i, "--abab-blocks")?,
+            "--abab-baseline" => abab_baseline = Some(parse_next(args, &mut i, "--abab-baseline")?),
             "--latency-limit" => latency_limit = parse_next(args, &mut i, "--latency-limit")?,
             "--sustained-seconds" => {
                 sustained_seconds = Some(parse_next(args, &mut i, "--sustained-seconds")?)
@@ -113,6 +124,12 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--precision" => precision = Some(parse_next(args, &mut i, "--precision")?),
             "--threads" => threads = parse_next(args, &mut i, "--threads")?,
             "--qualified" => qualified_requested = true,
+            "--sealed-read" => {
+                sealed_read_flag = Some(parse_next(args, &mut i, "--sealed-read")?);
+            }
+            "--hardware-id" => {
+                hardware_id_override = Some(parse_next(args, &mut i, "--hardware-id")?);
+            }
             "--lease" => lease_path = Some(parse_next(args, &mut i, "--lease")?),
             "--out" | "--out-dir" => out_dir = Some(parse_next(args, &mut i, "--out-dir")?),
             other => {
@@ -138,7 +155,68 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .collect();
-    let partition = partition_for_split(&split);
+    if cand_list.is_empty() {
+        return Err(CliError::Config("--candidates must not be empty".into()));
+    }
+    // N4 nit: refuse Nemotron + --panel upfront before running any candidate or logging a read.
+    if panel_path.is_some() {
+        if let Some(&nem) = cand_list.iter().find(|&&c| is_nemotron_candidate(c)) {
+            return Err(CliError::Config(format!(
+                "Nemotron candidate `{nem}` does not support --panel subset filtering; run it separately on the full split without --panel so frontier.json never mixes utterance sets (re-review N4)"
+            )));
+        }
+    }
+    let abab_baseline_idx = if abab_blocks > 0 {
+        if qualified_requested {
+            Some(validate_qualified_ccost_arms(
+                &cand_list,
+                abab_blocks,
+                abab_baseline.as_deref(),
+            )?)
+        } else {
+            Some(resolve_abab_baseline_index(
+                &cand_list,
+                abab_baseline.as_deref(),
+                false,
+            )?)
+        }
+    } else {
+        None
+    };
+
+    if !density_seconds.is_finite() || density_seconds < 0.0 {
+        return Err(CliError::Config(format!(
+            "--density-seconds must be finite and >= 0 (got {density_seconds})"
+        )));
+    }
+    if let Some(cs) = ladder_confirm_seconds {
+        if !cs.is_finite() || cs < 0.0 {
+            return Err(CliError::Config(format!(
+                "--ladder-confirm-seconds must be finite and >= 0 (got {cs})"
+            )));
+        }
+    }
+    if let Some(ss) = sustained_seconds {
+        if !ss.is_finite() || ss <= 0.0 {
+            return Err(CliError::Config(format!(
+                "--sustained-seconds must be finite and > 0 (got {ss})"
+            )));
+        }
+    }
+
+    let out_dir = out_dir.ok_or_else(|| CliError::Config("--out-dir DIR is required".into()))?;
+    let npz_path = match npz_override {
+        Some(p) => p,
+        None => default_npz_for_split(&split),
+    };
+    let partition = partition_for_split_and_npz(&split, &npz_path)?;
+    if !npz_path.exists() {
+        return Err(CliError::Unavailable(format!(
+            "split cache `{}` not found",
+            npz_path.display()
+        )));
+    }
+
     let build_commit = option_env!("ULTRA_BUILD_GIT_COMMIT").unwrap_or("unknown");
     let build_dirty = option_env!("ULTRA_BUILD_GIT_DIRTY") == Some("true");
     let obs_vec: Option<Vec<usize>> = match observer_cpus.as_deref() {
@@ -150,7 +228,29 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         ),
         None => None,
     };
+
+    let confirm_s = ladder_confirm_seconds.unwrap_or(if qualified_requested { 300.0 } else { 0.0 });
     let status_tag = if qualified_requested {
+        // FREEZE.md §3: lock grid_ms=320, max_chunks=2, threads=1, and per-CCX=4 / full-machine=60.
+        if grid_ms != 320 || max_chunks != 2 || threads != 1 {
+            return Err(CliError::Config(format!(
+                "--qualified locks --grid-ms 320, --max-chunks 2, and --threads 1 per FREEZE.md §3 (got grid_ms={grid_ms}, max_chunks={max_chunks}, threads={threads})"
+            )));
+        }
+        let expected_workers = if full_machine_requested { 60 } else { 4 };
+        if density_workers != expected_workers {
+            return Err(CliError::Config(format!(
+                "--qualified requires exactly {expected_workers} workers ({}; got --density-workers {density_workers}; FREEZE.md §3 / N9)",
+                if full_machine_requested { "15 CCX x 4" } else { "per-CCX = 4" }
+            )));
+        }
+        if let Some(sw) = sustained_workers {
+            if sw != expected_workers {
+                return Err(CliError::Config(format!(
+                    "--qualified requires --sustained-workers {expected_workers} (got {sw}; FREEZE.md §3 / N9)"
+                )));
+            }
+        }
         let min_step_s = if density_ladder.is_some() {
             120.0
         } else {
@@ -159,7 +259,10 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         if !density_seconds_explicit {
             density_seconds = min_step_s;
         }
-        if density_seconds > 0.0 && density_seconds < min_step_s {
+        if let Some(ref spec) = density_ladder {
+            // B6(a): --qualified forces the frozen preset, repeats=3, 120s rungs, 300s confirm.
+            validate_qualified_ladder_preset(spec, density_repeats, density_seconds, confirm_s)?;
+        } else if density_seconds > 0.0 && density_seconds < min_step_s {
             return Err(CliError::Config(format!(
                 "--qualified density step requires >= {min_step_s} s per FREEZE.md §3/§4.4 (got {density_seconds})"
             )));
@@ -173,159 +276,198 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             build_dirty,
             "bench-freeze-v1",
         )?;
-        // B1 + S4: enforce exact 1:1 physical cores per worker when density/ladder runs qualified.
-        if density_seconds > 0.0 || density_ladder.is_some() {
+        // B1 + S4 + N9: verify exact 1:1 physical cores + L3 packing on ANY timed/sustained/ladder mode.
+        if density_seconds > 0.0 || density_ladder.is_some() || sustained_seconds.is_some() {
             let svc_cpus: Vec<usize> = parse_cpuset(&svc_spec)?
                 .into_iter()
                 .map(|c| c as usize)
                 .collect();
-            ultra_stream::assign_worker_cpus(density_workers, &svc_cpus, obs_vec.as_deref(), true)?;
+            let assigned = ultra_stream::assign_worker_cpus(
+                expected_workers,
+                &svc_cpus,
+                obs_vec.as_deref(),
+                true,
+            )?;
+            ultra_stream::verify_worker_ccx_packing(&assigned, full_machine_requested)?;
         }
         "qualified"
     } else {
         "exploratory"
     };
-    // S6: enforce ULTRA_SEALED_READ + LOOKS.jsonl append + one-read rule for EVERY PUBLIC-TEST
-    // invocation regardless of --qualified vs exploratory mode.
-    guard_and_log_public_test_reads(
+
+    // Resolve canonical loaded candidate identities upfront for B4 pins and S6 canonical LOOKS ids.
+    let resolved_cands: Option<Vec<ResolvedCandidate>> =
+        if qualified_requested || partition == Partition::PublicTest {
+            let mut v = Vec::with_capacity(cand_list.len());
+            for &c in &cand_list {
+                v.push(resolve_candidate_identity(
+                    c,
+                    precision.as_deref(),
+                    threads,
+                )?);
+            }
+            Some(v)
+        } else {
+            None
+        };
+    if qualified_requested {
+        let repo_root = git_repo_root()?;
+        verify_loaded_candidates_against_lock(
+            &repo_root.join("docs/ultra/CANDIDATES.lock"),
+            &repo_root,
+            resolved_cands.as_deref().unwrap_or(&[]),
+        )?;
+    }
+
+    let hardware_id = hardware_id_override.unwrap_or_else(detect_hardware_id);
+
+    // S6: enforce freeze-tag ancestry + clean build + canonical-id one-read rule BEFORE opening
+    // or hashing sealed NPZ reference bytes, and AFTER upfront CLI/pin/partition checks.
+    let canonical_pairs: Vec<(String, String)> = resolved_cands
+        .as_ref()
+        .map(|rc| {
+            rc.iter()
+                .map(|c| (c.canonical_id.clone(), c.raw_arg.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let logged_read = guard_and_log_public_test_reads(
         partition,
         &split,
-        &cand_list,
+        &canonical_pairs,
         "bench-freeze-v1",
         build_commit,
+        build_dirty,
         status_tag,
+        sealed_read_flag.as_deref(),
     )?;
-    let out_dir = out_dir.ok_or_else(|| CliError::Config("--out-dir DIR is required".into()))?;
-    std::fs::create_dir_all(&out_dir)?;
-    let _lease = match &lease_path {
-        Some(lp) => Some(BenchLease::acquire(lp)?),
-        None => None,
-    };
 
-    let npz_path = match npz_override {
-        Some(p) => p,
-        None => default_npz_for_split(&split),
-    };
-    if !npz_path.exists() {
-        return Err(CliError::Unavailable(format!(
-            "split cache `{}` not found",
-            npz_path.display()
-        )));
-    }
-    let host_snap = SuiteHostSnapshot::capture(&npz_path, observer_cpus.as_deref())?;
-    let resolved_panel = match panel_path.as_deref() {
-        Some(pp) => Some(load_panel_for_split(
-            pp,
-            &split,
-            &npz_path,
-            &host_snap.npz_sha256,
-        )?),
-        None => None,
-    };
-    let commit = git_short_commit();
-    let confirm_s = ladder_confirm_seconds.unwrap_or(if qualified_requested { 300.0 } else { 0.0 });
-    let ctx = SuiteCtx {
-        out_dir: &out_dir,
-        npz_path: &npz_path,
-        split: &split,
-        partition,
-        limit: if resolved_panel.is_some() {
-            None
+    let run_res = (|| -> Result<(), CliError> {
+        let host_snap =
+            SuiteHostSnapshot::capture(&npz_path, observer_cpus.as_deref(), &hardware_id)?;
+        let resolved_panel = match panel_path.as_deref() {
+            Some(pp) => Some(load_panel_for_split(
+                pp,
+                &split,
+                &npz_path,
+                &host_snap.npz_sha256,
+            )?),
+            None => None,
+        };
+        std::fs::create_dir_all(&out_dir)?;
+        let _lease = match &lease_path {
+            Some(lp) => Some(BenchLease::acquire(lp)?),
+            None => None,
+        };
+        let commit = git_short_commit();
+        let ctx = SuiteCtx {
+            out_dir: &out_dir,
+            npz_path: &npz_path,
+            split: &split,
+            partition,
+            limit: if resolved_panel.is_some() {
+                None
+            } else {
+                limit
+            },
+            selected_indices: resolved_panel.as_ref().map(|p| p.indices.as_slice()),
+            panel_manifest_sha256: resolved_panel.as_ref().map(|p| p.manifest_sha256.as_str()),
+            batch_streams,
+            grid_ms,
+            max_chunks: max_chunks.clamp(1, 16),
+            density_workers,
+            density_streams,
+            density_seconds,
+            latency_limit,
+            sustained_seconds,
+            sustained_streams: sustained_streams.unwrap_or(density_streams),
+            sustained_workers: sustained_workers.unwrap_or(density_workers),
+            silence_probe_wav: silence_probe_wav.as_ref(),
+            observer_cpus: obs_vec.as_deref(),
+            precision: precision.as_deref(),
+            threads,
+            commit: &commit,
+            hardware_id: &hardware_id,
+            status_tag,
+            host_snap: &host_snap,
+            cli_args: args,
+        };
+
+        let ladder_file = if let Some(spec) = density_ladder {
+            let _lad = run_density_ladder(&ctx, &cand_list, spec, density_repeats, confirm_s)?;
+            Some(
+                out_dir
+                    .join("density_ladder.json")
+                    .to_string_lossy()
+                    .into_owned(),
+            )
         } else {
-            limit
-        },
-        selected_indices: resolved_panel.as_ref().map(|p| p.indices.as_slice()),
-        panel_manifest_sha256: resolved_panel.as_ref().map(|p| p.manifest_sha256.as_str()),
-        batch_streams,
-        grid_ms,
-        max_chunks: max_chunks.clamp(1, 16),
-        density_workers,
-        density_streams,
-        density_seconds,
-        latency_limit,
-        sustained_seconds,
-        sustained_streams: sustained_streams.unwrap_or(density_streams),
-        sustained_workers: sustained_workers.unwrap_or(density_workers),
-        silence_probe_wav: silence_probe_wav.as_ref(),
-        observer_cpus: obs_vec.as_deref(),
-        precision: precision.as_deref(),
-        threads,
-        commit: &commit,
-        status_tag,
-        host_snap: &host_snap,
-        cli_args: args,
-    };
+            None
+        };
+        let abab_file = if let Some(base_idx) = abab_baseline_idx {
+            let _abab = run_abab_timing_blocks(&ctx, &cand_list, abab_blocks, base_idx)?;
+            Some(
+                out_dir
+                    .join("abab_timing.json")
+                    .to_string_lossy()
+                    .into_owned(),
+            )
+        } else {
+            None
+        };
 
-    let ladder_file = if let Some(spec) = density_ladder {
-        let _lad = run_density_ladder(&ctx, &cand_list, spec, density_repeats, confirm_s)?;
-        Some(
-            out_dir
-                .join("density_ladder.json")
-                .to_string_lossy()
-                .into_owned(),
-        )
-    } else {
-        None
-    };
-    let abab_file = if abab_blocks > 0 {
-        let _abab = run_abab_timing_blocks(&ctx, &cand_list, abab_blocks)?;
-        Some(
-            out_dir
-                .join("abab_timing.json")
-                .to_string_lossy()
-                .into_owned(),
-        )
-    } else {
-        None
-    };
+        let mut rows = Vec::new();
+        for raw_cand in cand_list {
+            if is_nemotron_candidate(raw_cand) {
+                rows.push(run_nemotron_candidate(&ctx, raw_cand)?);
+                continue;
+            }
+            if let Some(eng_res) = resolve_r1_weights_dir(raw_cand, precision.as_deref()) {
+                let (weights_dir, prec) = eng_res?;
+                rows.push(run_engine_candidate(&ctx, raw_cand, weights_dir, prec)?);
+                continue;
+            }
+            if let Some(r1_res) = resolve_r1_bundle(raw_cand, precision.as_deref()) {
+                let (bundle_dir, prec) = r1_res?;
+                rows.push(run_r1_candidate(&ctx, raw_cand, bundle_dir, prec)?);
+                continue;
+            }
+            if let Some(z_res) =
+                resolve_bundle_or_zipformer(raw_cand, precision.as_deref(), threads, 0.8)
+            {
+                let (bundle_id, zcfg) = z_res?;
+                rows.push(run_zipformer_candidate(&ctx, raw_cand, bundle_id, zcfg)?);
+                continue;
+            }
+            rows.push(run_offline_candidate(&ctx, raw_cand)?);
+        }
 
-    let mut rows = Vec::new();
-    for raw_cand in cand_list {
-        if matches!(
-            raw_cand,
-            "nemotron-160" | "nemotron_en_q8_live_160" | "nemotron-560" | "nemotron_en_q8_live_560"
-        ) {
-            rows.push(run_nemotron_candidate(&ctx, raw_cand)?);
-            continue;
+        let final_max_chunks = ctx.max_chunks;
+        let report = FrontierReport {
+            schema: "ultra.frontier-suite/v1".into(),
+            split: split.clone(),
+            panel_manifest_sha256: resolved_panel.map(|p| p.manifest_sha256),
+            grid_ms,
+            max_chunks: final_max_chunks,
+            source_commit: commit,
+            hardware_id: hardware_id.clone(),
+            completion_status: status_tag.into(),
+            density_ladder_file: ladder_file,
+            abab_timing_file: abab_file,
+            rows,
+        };
+        let frontier_path = out_dir.join("frontier.json");
+        let json_bytes =
+            serde_json::to_vec_pretty(&report).map_err(|e| CliError::Internal(e.to_string()))?;
+        write_bytes_create_new(&frontier_path, &json_bytes)?;
+        println!("{}", String::from_utf8_lossy(&json_bytes));
+        Ok(())
+    })();
+
+    if let Err(ref e) = run_res {
+        if let Some(ref logged) = logged_read {
+            record_aborted_public_test_reads(logged, &e.to_string());
         }
-        if let Some(eng_res) = resolve_r1_weights_dir(raw_cand, precision.as_deref()) {
-            let (weights_dir, prec) = eng_res?;
-            rows.push(run_engine_candidate(&ctx, raw_cand, weights_dir, prec)?);
-            continue;
-        }
-        if let Some(r1_res) = resolve_r1_bundle(raw_cand, precision.as_deref()) {
-            let (bundle_dir, prec) = r1_res?;
-            rows.push(run_r1_candidate(&ctx, raw_cand, bundle_dir, prec)?);
-            continue;
-        }
-        if let Some(z_res) =
-            resolve_bundle_or_zipformer(raw_cand, precision.as_deref(), threads, 0.8)
-        {
-            let (bundle_id, zcfg) = z_res?;
-            rows.push(run_zipformer_candidate(&ctx, raw_cand, bundle_id, zcfg)?);
-            continue;
-        }
-        rows.push(run_offline_candidate(&ctx, raw_cand)?);
     }
-
-    let final_max_chunks = ctx.max_chunks;
-    let report = FrontierReport {
-        schema: "ultra.frontier-suite/v1".into(),
-        split,
-        panel_manifest_sha256: resolved_panel.map(|p| p.manifest_sha256),
-        grid_ms,
-        max_chunks: final_max_chunks,
-        source_commit: commit,
-        hardware_id: "H0".into(),
-        completion_status: status_tag.into(),
-        density_ladder_file: ladder_file,
-        abab_timing_file: abab_file,
-        rows,
-    };
-    let frontier_path = out_dir.join("frontier.json");
-    let json_bytes =
-        serde_json::to_vec_pretty(&report).map_err(|e| CliError::Internal(e.to_string()))?;
-    write_bytes_create_new(&frontier_path, &json_bytes)?;
-    println!("{}", String::from_utf8_lossy(&json_bytes));
-    Ok(())
+    run_res
 }
