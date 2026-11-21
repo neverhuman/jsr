@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 
 import torch
 
@@ -19,14 +20,17 @@ from train.data import Featurizer, collate
 from train.tokenizer import Tokenizer, tokenizer_path
 
 
-def panel_utts(path: str):
+def panel_utts(path: str, only: str | None = None):
     """Utterances of a DEV panel file, from the dev-clean / dev-other caches (all uids must exist)."""
     from ultra.libri import load_split
 
     with open(path) as fh:
         spec = json.load(fh)
     wanted: dict[str, set[str] | None] = {}
-    if isinstance(spec, dict) and "utterances" in spec:
+    if isinstance(spec, dict) and "splits" in spec:
+        for sp in spec["splits"]:
+            wanted.setdefault(sp["split"], set()).update(sp["uids"])
+    elif isinstance(spec, dict) and "utterances" in spec:
         for u in spec["utterances"]:
             wanted.setdefault(u.get("split", "dev-clean"), set()).add(u["uid"])
     elif isinstance(spec, dict):
@@ -34,6 +38,8 @@ def panel_utts(path: str):
     else:
         ids = set(spec)
         wanted = {"dev-clean": ids, "dev-other": ids}
+    if only is not None:
+        wanted = {only: wanted[only]}
     out, found = [], set()
     for split, ids in wanted.items():
         for u in load_split(split):
@@ -59,8 +65,10 @@ def main() -> None:
     ap.add_argument("--limit-all", action="store_true", help="evaluate the whole split")
     ap.add_argument("--dump", default=None, help="write per-utterance JSON lines (uid, ref, hyp)")
     ap.add_argument("--panel", default=None,
-                    help="JSON panel of utterances to score instead of --split/--limit: a list of "
+                    help="JSON panel of utterances to score instead of --split/--limit: "
+                         "ultra.dev-panel/v1 ({\"splits\": [{\"split\", \"uids\"}]}), a list of "
                          "uids, {split: [uids]}, or {\"utterances\": [{\"uid\", \"split\"}]}")
+    ap.add_argument("--panel-split", default=None, help="score only this split of the panel")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
     from ultra.libri import load_split
@@ -73,7 +81,7 @@ def main() -> None:
     tok = Tokenizer(tokenizer_path(4096))
     tok_c = Tokenizer(tokenizer_path(1024))
     feat = Featurizer(tok, tok_c)
-    utts = panel_utts(a.panel) if a.panel else load_split(a.split, None if a.limit_all else a.limit)
+    utts = panel_utts(a.panel, a.panel_split) if a.panel else load_split(a.split, None if a.limit_all else a.limit)
     exs = sorted((feat.example(u.uid, u.text, u.pcm) for u in utts), key=lambda e: e.seconds)
     refs, hyps, ctc_hyps, uids, forced, exact, ctc_exact = [], [], [], [], 0, 0, 0
     for i in range(0, len(exs), 8):
@@ -91,7 +99,9 @@ def main() -> None:
     w = corpus_wer(refs, hyps)
     wc = corpus_wer(refs, ctc_hyps)
     ctc_exact = sum(r.lower().split() == h.split() for r, h in zip(refs, ctc_hyps, strict=True))
-    out = {"step": p["step"], "split": f"panel:{a.panel}" if a.panel else a.split,
+    out = {"step": p["step"],
+           "split": f"panel:{a.panel_split or 'all'}:{os.path.basename(a.panel)}" if a.panel
+           else a.split,
            "n": len(refs), "max_symbols": a.max_symbols,
            "forced_advances": forced, "exact_utts": exact, **w,
            "ctc_wer": wc["wer"], "ctc_exact_utts": ctc_exact}
