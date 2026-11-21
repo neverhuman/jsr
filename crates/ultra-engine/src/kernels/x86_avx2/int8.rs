@@ -33,13 +33,22 @@ fn quantize_row_avx2(x: &[f32], out: &mut [i8]) -> (f32, f32) {
         _mm256_set1_ps(f32::INFINITY),
         _mm256_set1_ps(f32::NEG_INFINITY),
     );
+    // v * 0 is NaN exactly for NaN/Inf inputs; the sum keeps any NaN.
+    let mut bad = _mm256_setzero_ps();
     let mut i = 0;
     while i < main8 {
         // SAFETY: i + 8 <= n.
         let v = unsafe { _mm256_loadu_ps(x.as_ptr().add(i)) };
         lo = _mm256_min_ps(lo, v);
         hi = _mm256_max_ps(hi, v);
+        bad = _mm256_add_ps(bad, _mm256_mul_ps(v, _mm256_setzero_ps()));
         i += 8;
+    }
+    let mut b8 = [0.0f32; 8];
+    // SAFETY: b8 holds 8 floats.
+    unsafe { _mm256_storeu_ps(b8.as_mut_ptr(), bad) };
+    if b8.iter().any(|v| v.is_nan()) {
+        return scalar::finish_row(x, out, f32::NAN, f32::NAN);
     }
     let (mut l8, mut h8) = ([0.0f32; 8], [0.0f32; 8]);
     // SAFETY: both arrays hold 8 floats.
