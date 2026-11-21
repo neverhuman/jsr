@@ -68,6 +68,15 @@ class TrainConfig:
     diverge_ratio: float = 0.3
     diverge_patience: int = 300
     diverge_wer_points: float = 5.0
+    # Attention-weight constraint (D3MR/D3MRb: one block's qkv norm ran away, 70 -> 426, until
+    # the model collapsed). From step qkv_cap_from, every row of each attention qkv weight and
+    # every element of its pre-attention LayerNorm gain is held at <= qkv_cap_ratio x its value
+    # at that step (projection after each optimiser step; the inference graph is unchanged).
+    # qkv_guard_ratio: stop as diverged if max_qkv_norm exceeds that multiple of its value at
+    # qkv_cap_from. 0 disables each.
+    qkv_cap_from: int = 0
+    qkv_cap_ratio: float = 1.5
+    qkv_guard_ratio: float = 0.0
     speed_perturb: str = ""
     pad_frames: int = 0  # round batch time axis up to this multiple (MPS: fewer shapes)
     pad_tokens: int = 0  # round target axes up to this multiple  # e.g. "0.9,1.0,1.1" (train batches only)
@@ -110,6 +119,8 @@ class Trainer:
         self.best_ema: float | None = None
         self.over_since: int | None = None
         self.best_wer: float | None = None
+        self.qkv_caps: dict | None = None
+        self.qkv_ref_norm: float | None = None
         self.precision = "bf16-autocast" if self.device.type == "cuda" else "fp32"
         os.makedirs(run_dir, exist_ok=True)
 
@@ -121,7 +132,8 @@ class Trainer:
                 "model_config": self.model_cfg.to_dict(),
                 "manifest": list(getattr(self.source, "manifest", [])),
                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
-                "ctc_stats": self.stats.summary()}
+                "ctc_stats": self.stats.summary(),
+                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm}
 
     def save(self, wait: bool = False) -> None:
         """Snapshot now; the write finishes in the background unless `wait`."""
@@ -147,6 +159,8 @@ class Trainer:
         self.sched.load_state_dict(p["scheduler"])
         self.pos = Position(**p["position"])
         self.step = p["step"]
+        self.qkv_caps = p.get("qkv_caps")
+        self.qkv_ref_norm = p.get("qkv_ref_norm")
         return True
 
     def init_cmvn(self, n_batches: int = 8) -> None:
@@ -178,6 +192,7 @@ class Trainer:
         if not math.isfinite(gnorm):
             self._pause(batch, out, gnorm, "gradient norm")
         self.opt.step()
+        self._qkv_constraint()
         self.sched.step()
         self.step += 1
         return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
@@ -193,6 +208,35 @@ class Trainer:
                        "position": self.pos.to_dict(), **extra}, fh, indent=1)
         self.save(wait=True)  # keep the state at the stop for inspection
         raise DivergenceError(self.step, detail, diag)
+
+    def _attention_modules(self):
+        return [(n, m) for n, m in self.model.named_modules() if hasattr(m, "qkv")]
+
+    @torch.no_grad()
+    def _qkv_constraint(self) -> None:
+        c = self.cfg
+        if not c.qkv_cap_from or self.step + 1 < c.qkv_cap_from:
+            return
+        if self.qkv_caps is None:  # record the reference at the first eligible step
+            self.qkv_caps = {n: {"rows": m.qkv.weight.norm(dim=1).cpu() * c.qkv_cap_ratio,
+                                 "gain": m.norm.weight.abs().cpu() * c.qkv_cap_ratio}
+                             for n, m in self._attention_modules()}
+            self.qkv_ref_norm = self._max_qkv_norm()
+            return
+        for n, m in self._attention_modules():
+            cap = self.qkv_caps[n]
+            w = m.qkv.weight
+            rows = w.norm(dim=1)
+            scale = torch.clamp(cap["rows"].to(w.device) / rows.clamp(min=1e-12), max=1.0)
+            w.mul_(scale[:, None])
+            g = m.norm.weight
+            lim = cap["gain"].to(g.device)
+            g.copy_(torch.maximum(torch.minimum(g, lim), -lim))
+        if c.qkv_guard_ratio and self.qkv_ref_norm:
+            cur = self._max_qkv_norm()
+            if cur > c.qkv_guard_ratio * self.qkv_ref_norm:
+                self._diverged(f"max_qkv_norm {cur} > {c.qkv_guard_ratio} x {self.qkv_ref_norm} "
+                               f"(its value at step {c.qkv_cap_from})", {"max_qkv_norm": cur})
 
     def _max_qkv_norm(self) -> float:
         """Largest attention qkv weight norm (D3MR's divergence showed up here first)."""

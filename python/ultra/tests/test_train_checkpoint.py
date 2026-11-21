@@ -178,3 +178,22 @@ def test_average_refuses_mismatched_configs(workdir):
     with pytest.raises(CheckpointError):
         average([checkpoint.latest(os.path.join(workdir, "a")),
                  checkpoint.latest(os.path.join(workdir, "b"))])
+
+
+def test_qkv_constraint_caps_rows_and_gain_and_persists(workdir):
+    t = _trainer(workdir)
+    t.cfg.qkv_cap_from, t.cfg.qkv_cap_ratio = 1, 1.2
+    t.run(max_steps=1)  # records the reference
+    att = [m for m in t.model.modules() if hasattr(m, "qkv")]
+    ref = [m.qkv.weight.norm(dim=1).clone() for m in att]
+    with torch.no_grad():
+        for m in att:
+            m.qkv.weight.mul_(5.0)
+            m.norm.weight.fill_(9.0)
+    t._qkv_constraint()
+    for m, r in zip(att, ref):
+        assert torch.all(m.qkv.weight.norm(dim=1) <= 1.2 * r * (1 + 1e-5))
+    assert all(float(m.norm.weight.abs().max()) <= 9.0 for m in att)
+    t.save(wait=True)
+    u = _trainer(workdir)
+    assert u.resume() and u.qkv_caps is not None and u.qkv_ref_norm == t.qkv_ref_norm
