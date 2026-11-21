@@ -1,0 +1,236 @@
+//! `ultra-engine-eval`: stream DEV utterances through the engine in real-time-sized packets
+//! (the `train.infer.run_streaming` schedule: `--streams` concurrent slots, `--packet-ms`
+//! packets, every ready stream decoded once per round), then score WER and compare token
+//! ids with a reference run (`ultra.b1-parity/v1` JSON, e.g. the FP32 bundle's 400 DEV).
+//!
+//! ```text
+//! ultra-engine-eval --weights <dir> --npz dev-clean.npz --limit 400 --precision fp32 \
+//!     --streams 16 --out <new run dir> [--reference r1_d1_400dev_fp32.json] [--isa scalar]
+//! ```
+//! Writes `<out>/engine_eval.json` (summary + per-utterance rows). CPU time is this thread's
+//! scheduler run time (`/proc/thread-self/schedstat`); all speed numbers are exploratory.
+
+use std::path::PathBuf;
+use std::process::ExitCode;
+use std::sync::Arc;
+use std::time::Instant;
+
+use serde_json::json;
+use ultra_engine::{Engine, EngineStream, Isa, Model, Precision, Workspace};
+use ultra_eval::normalise::normalise_words;
+use ultra_eval::wer::align;
+use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
+
+struct Args {
+    weights: PathBuf,
+    npz: PathBuf,
+    out: PathBuf,
+    reference: Option<PathBuf>,
+    limit: usize,
+    streams: usize,
+    packet_ms: usize,
+    precision: Precision,
+    isa: Isa,
+}
+
+fn parse() -> Result<Args, String> {
+    let mut it = std::env::args().skip(1);
+    let mut a = Args {
+        weights: PathBuf::new(),
+        npz: PathBuf::new(),
+        out: PathBuf::new(),
+        reference: None,
+        limit: 400,
+        streams: 16,
+        packet_ms: 20,
+        precision: Precision::F32,
+        isa: Isa::detect(),
+    };
+    while let Some(k) = it.next() {
+        let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
+        match k.as_str() {
+            "--weights" => a.weights = v()?.into(),
+            "--npz" => a.npz = v()?.into(),
+            "--out" => a.out = v()?.into(),
+            "--reference" => a.reference = Some(v()?.into()),
+            "--limit" => a.limit = v()?.parse().map_err(|e| format!("--limit: {e}"))?,
+            "--streams" => a.streams = v()?.parse().map_err(|e| format!("--streams: {e}"))?,
+            "--packet-ms" => a.packet_ms = v()?.parse().map_err(|e| format!("--packet-ms: {e}"))?,
+            "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
+            "--isa" => {
+                a.isa = match v()?.as_str() {
+                    "scalar" => Isa::Scalar,
+                    "avx2fma" => Isa::Avx2Fma,
+                    o => return Err(format!("unknown isa {o}")),
+                }
+            }
+            o => return Err(format!("unknown argument {o}")),
+        }
+    }
+    if a.weights.as_os_str().is_empty()
+        || a.npz.as_os_str().is_empty()
+        || a.out.as_os_str().is_empty()
+    {
+        return Err("--weights, --npz and --out are required".into());
+    }
+    if a.streams == 0 || a.packet_ms == 0 {
+        return Err("--streams and --packet-ms must be positive".into());
+    }
+    Ok(a)
+}
+
+/// This thread's CPU run time in seconds.
+fn thread_cpu_s() -> f64 {
+    std::fs::read_to_string("/proc/thread-self/schedstat")
+        .ok()
+        .and_then(|s| {
+            s.split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<f64>().ok())
+        })
+        .map_or(f64::NAN, |ns| ns * 1e-9)
+}
+
+fn reference_tokens(path: &PathBuf) -> Result<Vec<Vec<u32>>, String> {
+    let v: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    let rows = v["rows"].as_array().ok_or("reference has no rows")?;
+    rows.iter()
+        .map(|r| {
+            r["py_tokens"]
+                .as_array()
+                .ok_or_else(|| "row without py_tokens".to_string())?
+                .iter()
+                .map(|t| {
+                    t.as_u64()
+                        .map(|x| x as u32)
+                        .ok_or_else(|| "bad token".to_string())
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn run(a: &Args) -> Result<serde_json::Value, String> {
+    if a.out.join("engine_eval.json").exists() {
+        return Err(format!(
+            "{} already has engine_eval.json; use a new run dir",
+            a.out.display()
+        ));
+    }
+    std::fs::create_dir_all(&a.out).map_err(|e| e.to_string())?;
+    let t_load = Instant::now();
+    let mut model = Model::load(&a.weights, true).map_err(|e| e.to_string())?;
+    if a.precision == Precision::Int8 {
+        model.quantize_int8();
+    }
+    let load_s = t_load.elapsed().as_secs_f64();
+    let engine = Engine::new(Arc::new(model), a.isa, a.precision).map_err(|e| e.to_string())?;
+    let utts = load_npz_audio_only(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
+    let refs = load_npz_references(&a.npz, 0, Some(a.limit)).map_err(|e| e.to_string())?;
+    let ref_toks = a.reference.as_ref().map(reference_tokens).transpose()?;
+    let packet = 16 * a.packet_ms;
+    let mut queue: std::collections::VecDeque<usize> = (0..utts.len()).collect();
+    let mut active: Vec<(usize, EngineStream, usize)> = Vec::new();
+    let mut done: Vec<Option<(Vec<u32>, String, u64)>> = vec![None; utts.len()];
+    let mut ws = Workspace::default();
+    let (c0, w0) = (thread_cpu_s(), Instant::now());
+    let mut batches = 0u64;
+    let mut batch_rows = 0u64;
+    while !queue.is_empty() || !active.is_empty() {
+        while active.len() < a.streams {
+            match queue.pop_front() {
+                Some(i) => active.push((i, engine.create_stream(), 0)),
+                None => break,
+            }
+        }
+        for (i, s, cur) in active.iter_mut() {
+            let pcm = &utts[*i].pcm;
+            if *cur < pcm.len() {
+                let end = (*cur + packet).min(pcm.len());
+                s.accept_i16(&pcm[*cur..end]);
+                *cur = end;
+                if end >= pcm.len() {
+                    s.input_finished();
+                }
+            }
+        }
+        loop {
+            let mut refs_mut: Vec<&mut EngineStream> =
+                active.iter_mut().map(|(_, s, _)| s).collect();
+            let n = engine
+                .decode(&mut refs_mut, &mut ws)
+                .map_err(|e| e.to_string())?;
+            if n == 0 {
+                break;
+            }
+            batches += 1;
+            batch_rows += n as u64;
+        }
+        let mut k = 0;
+        while k < active.len() {
+            let (i, s, cur) = &active[k];
+            if *cur >= utts[*i].pcm.len() && !engine.is_ready(s) {
+                done[*i] = Some((s.tokens().to_vec(), engine.text(s), s.forced_advances()));
+                active.swap_remove(k);
+            } else {
+                k += 1;
+            }
+        }
+    }
+    let cpu_s = thread_cpu_s() - c0;
+    let wall_s = w0.elapsed().as_secs_f64();
+    let audio_s: f64 = utts.iter().map(|u| u.seconds()).sum();
+    let (mut errs, mut words, mut same_tok, mut forced) = (0u64, 0u64, 0usize, 0u64);
+    let mut rows = Vec::new();
+    for (i, d) in done.into_iter().enumerate() {
+        let (toks, text, f) = d.ok_or("an utterance never finished")?;
+        let al = align(&normalise_words(&refs[i].text), &normalise_words(&text));
+        errs += al.counts.errors();
+        words += al.counts.ref_words;
+        forced += f;
+        let eq = ref_toks.as_ref().map(|r| r.get(i) == Some(&toks));
+        if eq == Some(true) {
+            same_tok += 1;
+        }
+        rows.push(
+            json!({"index": i, "id": refs[i].uid, "hyp": text, "tokens": toks,
+                         "equal_reference_tokens": eq}),
+        );
+    }
+    let wer = 100.0 * errs as f64 / words.max(1) as f64;
+    let summary = json!({
+        "schema": "ultra.engine-eval/v1",
+        "exploratory": true,
+        "weights": a.weights, "arch_checkpoint_sha256": engine.model.arch.checkpoint_sha256,
+        "weights_sha256": engine.model.arch.weights_sha256,
+        "npz": a.npz, "utterances": utts.len(), "audio_s": audio_s,
+        "precision": a.precision.as_str(), "isa": a.isa.name(),
+        "streams": a.streams, "packet_ms": a.packet_ms,
+        "wer_pct": wer, "ref_words": words, "errors": errs, "forced_advances": forced,
+        "reference": a.reference, "identical_reference_tokens": ref_toks.as_ref().map(|_| same_tok),
+        "cpu_s": cpu_s, "wall_s": wall_s, "cpu_s_per_audio_s": cpu_s / audio_s,
+        "load_s": load_s, "decode_batches": batches,
+        "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
+        "git_commit": option_env!("ULTRA_GIT_COMMIT").unwrap_or("unknown"),
+    });
+    let mut full = summary.clone();
+    full["rows"] = serde_json::Value::Array(rows);
+    let text = serde_json::to_string_pretty(&full).map_err(|e| e.to_string())?;
+    std::fs::write(a.out.join("engine_eval.json"), text).map_err(|e| e.to_string())?;
+    Ok(summary)
+}
+
+fn main() -> ExitCode {
+    match parse().and_then(|a| run(&a)) {
+        Ok(s) => {
+            println!("{}", serde_json::to_string_pretty(&s).unwrap_or_default());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("ultra-engine-eval: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}

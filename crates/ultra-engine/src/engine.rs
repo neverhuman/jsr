@@ -1,0 +1,227 @@
+//! Streaming API: per-stream state, and one-chunk-per-ready-stream batched decoding.
+//!
+//! ```text
+//! let engine = Engine::new(Arc::new(Model::load(dir, true)?), Isa::detect(), Precision::F32)?;
+//! let mut s = engine.create_stream();
+//! s.accept_i16(&pcm); s.input_finished();
+//! let mut ws = Workspace::default();
+//! while engine.decode(&mut [&mut s], &mut ws)? > 0 {}
+//! let text = engine.text(&s);
+//! ```
+
+use std::sync::Arc;
+
+use ultra_frontend::{TrainerLogMel, MEL_BINS};
+use ultra_gp::{chunk_bounds, FeatureRing};
+
+use crate::decoder::{greedy_chunk, DecState, DecWorkspace};
+pub use crate::encoder::Precision;
+use crate::encoder::{encode_chunk, ChunkJob, EncState, EncWorkspace, Tap};
+use crate::kernels::Isa;
+use crate::model::Model;
+use crate::EngineError;
+
+/// A loaded model plus the execution choices; cheap to clone and share across workers.
+#[derive(Debug, Clone)]
+pub struct Engine {
+    pub model: Arc<Model>,
+    pub isa: Isa,
+    pub precision: Precision,
+}
+
+/// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
+#[derive(Debug, Clone)]
+pub struct EngineStream {
+    mel: TrainerLogMel,
+    rows: Vec<[f32; MEL_BINS]>,
+    ring: FeatureRing,
+    finished: bool,
+    pub enc: EncState,
+    pub dec: DecState,
+}
+
+impl EngineStream {
+    pub fn accept_i16(&mut self, pcm: &[i16]) {
+        self.rows.clear();
+        self.mel.push_i16_into(pcm, &mut self.rows);
+        self.ring.push_rows(&self.rows);
+    }
+
+    pub fn accept_f32(&mut self, samples: &[f32]) {
+        self.rows.clear();
+        self.mel.push_f32_into(samples, &mut self.rows);
+        self.ring.push_rows(&self.rows);
+    }
+
+    /// Feed already-normalised feature rows directly (parity tests bypass the frontend).
+    pub fn accept_features(&mut self, rows: &[[f32; MEL_BINS]]) {
+        self.ring.push_rows(rows);
+    }
+
+    pub fn input_finished(&mut self) {
+        self.finished = true;
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    pub fn n_feat(&self) -> usize {
+        self.ring.n_feat()
+    }
+
+    pub fn tokens(&self) -> &[u32] {
+        &self.dec.tokens
+    }
+
+    pub fn forced_advances(&self) -> u64 {
+        self.dec.forced
+    }
+}
+
+/// Per-worker scratch (no allocation per chunk after warm-up).
+#[derive(Debug, Default)]
+pub struct Workspace {
+    enc: EncWorkspace,
+    dec: DecWorkspace,
+    feats: Vec<f32>,
+    enc_out: Vec<f32>,
+    ready: Vec<(usize, usize)>,
+}
+
+impl Engine {
+    pub fn new(model: Arc<Model>, isa: Isa, precision: Precision) -> Result<Self, EngineError> {
+        if !isa.is_available() {
+            return Err(EngineError::Unsupported(format!(
+                "ISA {} not available on this CPU",
+                isa.name()
+            )));
+        }
+        if precision == Precision::Int8 && model.blocks.iter().any(|b| b.qkv.q.is_none()) {
+            return Err(EngineError::Unsupported(
+                "int8 requested but the model was not quantised (Model::quantize_int8)".into(),
+            ));
+        }
+        Ok(Self {
+            model,
+            isa,
+            precision,
+        })
+    }
+
+    pub fn create_stream(&self) -> EngineStream {
+        EngineStream {
+            mel: TrainerLogMel::new(self.model.mel_cfg.clone()),
+            rows: Vec::new(),
+            ring: FeatureRing::new(),
+            finished: false,
+            enc: EncState::new(&self.model),
+            dec: DecState::new(&self.model),
+        }
+    }
+
+    /// The next chunk `(t0, t1)` of `s`, if its features are complete.
+    pub fn next_chunk(&self, s: &EngineStream) -> Option<(usize, usize)> {
+        chunk_bounds(s.enc.t, s.ring.n_feat(), self.model.arch.chunk, s.finished)
+    }
+
+    pub fn is_ready(&self, s: &EngineStream) -> bool {
+        self.next_chunk(s).is_some()
+    }
+
+    /// Run one chunk for every ready stream in `streams` (one batched weight pass per
+    /// layer). Returns how many streams advanced.
+    pub fn decode(
+        &self,
+        streams: &mut [&mut EngineStream],
+        ws: &mut Workspace,
+    ) -> Result<usize, EngineError> {
+        self.decode_tapped(streams, ws, None)
+    }
+
+    /// [`Engine::decode`] with an optional per-layer tap (parity tests).
+    pub fn decode_tapped(
+        &self,
+        streams: &mut [&mut EngineStream],
+        ws: &mut Workspace,
+        tap: Option<Tap<'_>>,
+    ) -> Result<usize, EngineError> {
+        let a = &self.model.arch;
+        let per = |n: usize| (4 * n + 3) * a.n_mels;
+        ws.ready.clear();
+        let mut total = 0;
+        for (i, s) in streams.iter().enumerate() {
+            if let Some((t0, t1)) = self.next_chunk(s) {
+                ws.ready.push((i, t1 - t0));
+                total += per(t1 - t0);
+            }
+        }
+        if ws.ready.is_empty() {
+            return Ok(0);
+        }
+        if ws.feats.len() < total {
+            ws.feats.resize(total, 0.0);
+        }
+        let mut off = 0;
+        for &(i, n) in &ws.ready {
+            let s = &mut *streams[i];
+            let t0 = s.enc.t;
+            s.ring
+                .extract_chunk_into(t0, n, &mut ws.feats[off..off + per(n)]);
+            off += per(n);
+        }
+        // Split the borrowed streams into encoder and decoder halves, in ready order.
+        let mut encs: Vec<(&mut EncState, &mut DecState)> = Vec::with_capacity(ws.ready.len());
+        {
+            let mut it = streams.iter_mut().enumerate();
+            for &(i, _) in &ws.ready {
+                for (k, s) in it.by_ref() {
+                    if k == i {
+                        let s: &mut EngineStream = s;
+                        encs.push((&mut s.enc, &mut s.dec));
+                        break;
+                    }
+                }
+            }
+        }
+        let ns: Vec<usize> = ws.ready.iter().map(|&(_, n)| n).collect();
+        let mut decs: Vec<&mut DecState> = Vec::with_capacity(encs.len());
+        let mut jobs: Vec<ChunkJob<'_>> = Vec::with_capacity(encs.len());
+        let mut off = 0;
+        for ((enc, dec), &n) in encs.into_iter().zip(&ns) {
+            jobs.push(ChunkJob {
+                state: enc,
+                feats: &ws.feats[off..off + per(n)],
+                n,
+            });
+            decs.push(dec);
+            off += per(n);
+        }
+        let m = &self.model;
+        encode_chunk(
+            m,
+            self.isa,
+            self.precision,
+            &mut jobs,
+            &mut ws.enc,
+            &mut ws.enc_out,
+            tap,
+        )?;
+        greedy_chunk(
+            m,
+            self.isa,
+            self.precision,
+            &mut decs,
+            &ns,
+            &ws.enc_out,
+            &mut ws.dec,
+        )?;
+        Ok(ns.len())
+    }
+
+    /// Detokenised transcript so far.
+    pub fn text(&self, s: &EngineStream) -> String {
+        let ids: Vec<i64> = s.dec.tokens.iter().map(|&t| i64::from(t)).collect();
+        self.model.tokens.decode_ids(&ids)
+    }
+}
