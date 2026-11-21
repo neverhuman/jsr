@@ -27,6 +27,7 @@ pub mod prof;
 pub mod quant;
 pub mod run_info;
 pub mod safetensors;
+pub mod sealed;
 pub mod workload;
 
 pub use engine::{Engine, EngineStream, Precision, Workspace};
