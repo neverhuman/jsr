@@ -325,6 +325,7 @@ pub(crate) fn cmd_bench(args: &[String]) -> Result<(), CliError> {
             honesty_label: HonestyLabel::Fair,
             offset,
             limit,
+            selected_indices: None,
             batch_size: bsz,
             offline: off_cfg,
             source_commit: commit,

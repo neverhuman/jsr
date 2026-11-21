@@ -2,7 +2,7 @@
 //! periodic fleet sustained-run series records (`S5`).
 
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -17,9 +17,13 @@ use crate::ort_r1_ws::thread_cpu_ns;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FleetSeriesPoint {
     pub elapsed_s: f64,
+    /// Instantaneous process-tree RSS in bytes at sample time (`S5`).
     pub rss_bytes: u64,
+    /// Instantaneous process-tree PSS in bytes at sample time (`S5`).
     pub pss_bytes: u64,
+    /// Instantaneous thread count at sample time (`S5`).
     pub threads: u64,
+    /// Maximum worker lateness/backlog observed during the preceding 10 s interval in ms (`S5`).
     pub max_worker_backlog_ms: Option<f64>,
 }
 
@@ -32,11 +36,13 @@ pub(crate) struct ObserverRunSummary {
 }
 
 /// Shared observer thread body pinned to `obs_pin` (disjoint CCX) that samples `/proc` RSS/PSS/
-/// threads every 25 ms and emits 10-second sustained-run series points.
+/// threads every 25 ms and emits 10-second sustained-run series points with current RSS/PSS and
+/// real max worker backlog (`S5`).
 pub(crate) fn run_fleet_observer(
     pid: i32,
     obs_pin: &[usize],
     stop: &Arc<AtomicBool>,
+    max_backlog_us: &Arc<AtomicU64>,
 ) -> Result<ObserverRunSummary, StreamError> {
     let effective_cpus = pin_current_thread_verified(obs_pin)?;
     let t0_ns = thread_cpu_ns(true);
@@ -47,16 +53,16 @@ pub(crate) fn run_fleet_observer(
     sampler.sample();
     while !stop.load(Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(25));
-        sampler.sample();
+        let cur = sampler.sample();
         let el = obs_t0.elapsed().as_secs_f64();
         if el >= next_series_s {
-            let s = sampler.summary();
+            let backlog_us = max_backlog_us.swap(0, Ordering::Relaxed);
             series.push(FleetSeriesPoint {
                 elapsed_s: (el * 1000.0).round() / 1000.0,
-                rss_bytes: s.peak_rss_bytes,
-                pss_bytes: s.peak_pss_bytes,
-                threads: s.max_threads,
-                max_worker_backlog_ms: None,
+                rss_bytes: cur.rss_bytes,
+                pss_bytes: cur.pss_bytes,
+                threads: cur.threads,
+                max_worker_backlog_ms: Some(((backlog_us as f64) / 1000.0 * 100.0).round() / 100.0),
             });
             while next_series_s <= el {
                 next_series_s += 10.0;
@@ -73,6 +79,40 @@ pub(crate) fn run_fleet_observer(
         effective_cpus,
         series,
     })
+}
+
+/// Assign **exactly 1 physical core per worker** (`FREEZE.md §3` / `B1` / `S4`) and verify L3/SMT
+/// topology fail-closed (even when `observer_cpus` is `None`). Refuses `phys_aff.len() < workers`
+/// (no silent unpinned fallback) and, when `require_exact_count` is true, refuses excess CPUs.
+pub fn assign_worker_cpus(
+    workers: usize,
+    avail_affinity: &[usize],
+    observer_cpus: Option<&[usize]>,
+    require_exact_count: bool,
+) -> Result<Vec<Vec<usize>>, StreamError> {
+    if workers == 0 {
+        return Err(StreamError::Protocol("workers must be >= 1".into()));
+    }
+    let phys_aff = physical_first_cpus(avail_affinity);
+    if phys_aff.len() < workers {
+        return Err(StreamError::Protocol(format!(
+            "insufficient physical cores in process affinity for {workers} workers (only {} physical cores available from {avail_affinity:?}; S4 forbids unpinned fallback)",
+            phys_aff.len()
+        )));
+    }
+    if require_exact_count && phys_aff.len() != workers {
+        return Err(StreamError::Protocol(format!(
+            "qualified placement requires exact 1:1 physical cores ({workers} workers vs {} physical cores in affinity {avail_affinity:?}; B1)",
+            phys_aff.len()
+        )));
+    }
+    let worker_cpus: Vec<Vec<usize>> = phys_aff
+        .into_iter()
+        .take(workers)
+        .map(|c| vec![c])
+        .collect();
+    verify_worker_l3_and_smt(&worker_cpus, observer_cpus, true)?;
+    Ok(worker_cpus)
 }
 
 /// Pin the current OS thread to `cpus` and verify via `sched_getaffinity` readback that the

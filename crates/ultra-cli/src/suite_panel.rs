@@ -1,33 +1,19 @@
-//! Speaker-stratified DEV selection panel loader (`ultra.dev-panel/v1`, `FREEZE.md §1` & `B5`).
+//! Speaker-stratified DEV selection panel loader (`ultra.dev-panel/v1`, `FREEZE.md §1` / `B5` / `N5`).
 //!
-//! Validates `schema == "ultra.dev-panel/v1"`, checks the split's `cache_sha256` against the
-//! actual NPZ file SHA-256, and maps the declared `uids` to NPZ indices without exposing
-//! reference transcripts to inference.
+//! Delegates manifest parsing and canonical `manifest_sha256` recomputation to
+//! [`ultra_engine::panel::Panel::read`], refuses non-`dev-*` splits (preventing unlogged
+//! PUBLIC-TEST reads via `--panel`), verifies `cache_sha256` against the actual NPZ SHA-256,
+//! and maps the declared `uids` to ordered NPZ indices without exposing reference transcripts.
 
 use std::collections::HashMap;
 use std::path::Path;
 
-use serde::Deserialize;
+use ultra_engine::panel::Panel;
 use ultra_frontend::npz::load_npz_references;
 
-use crate::suite_manifest::sha256_file;
 use crate::CliError;
 
-pub const DEV_PANEL_SCHEMA: &str = "ultra.dev-panel/v1";
-
-#[derive(Debug, Deserialize)]
-struct PanelManifest {
-    schema: String,
-    manifest_sha256: String,
-    splits: Vec<PanelSplit>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PanelSplit {
-    split: String,
-    cache_sha256: String,
-    uids: Vec<String>,
-}
+pub const DEV_PANEL_SCHEMA: &str = ultra_engine::panel::PANEL_SCHEMA;
 
 /// Verified panel selection bound to a specific split NPZ file.
 #[derive(Debug, Clone)]
@@ -38,39 +24,34 @@ pub struct ResolvedPanel {
     pub indices: Vec<usize>,
 }
 
-/// Load and validate `ultra.dev-panel/v1` for `split` against `npz_path`, returning the exact
-/// ordered NPZ utterance indices matching the panel's `uids`.
+/// Load and cryptographically verify `ultra.dev-panel/v1` for `split` against `npz_path`.
 pub fn load_panel_for_split(
     panel_path: &Path,
     split: &str,
     npz_path: &Path,
     npz_sha256: &str,
 ) -> Result<ResolvedPanel, CliError> {
-    let raw = std::fs::read_to_string(panel_path).map_err(|e| {
+    if !split.starts_with("dev-") {
+        return Err(CliError::Config(format!(
+            "--panel only permits dev-* selection splits (refused `{split}`; re-review B5/S6)"
+        )));
+    }
+    let panel = Panel::read(panel_path).map_err(|e| {
         CliError::Config(format!(
-            "cannot read panel manifest `{}`: {e}",
+            "panel manifest verification failed for `{}`: {e}",
             panel_path.display()
         ))
     })?;
-    let manifest: PanelManifest = serde_json::from_str(&raw).map_err(|e| {
-        CliError::Config(format!(
-            "invalid panel manifest JSON `{}`: {e}",
-            panel_path.display()
-        ))
-    })?;
-    if manifest.schema != DEV_PANEL_SCHEMA {
-        return Err(CliError::Config(format!(
-            "unsupported panel schema `{}` (expected `{DEV_PANEL_SCHEMA}`)",
-            manifest.schema
-        )));
+    for s in &panel.splits {
+        if !s.split.starts_with("dev-") {
+            return Err(CliError::Config(format!(
+                "panel `{}` contains non-dev split `{}` (refused; re-review B5/S6)",
+                panel_path.display(),
+                s.split
+            )));
+        }
     }
-    if manifest.manifest_sha256.len() != 64 {
-        return Err(CliError::Config(format!(
-            "panel manifest_sha256 `{}` is not a 64-hex SHA-256",
-            manifest.manifest_sha256
-        )));
-    }
-    let split_entry = manifest
+    let split_entry = panel
         .splits
         .iter()
         .find(|s| s.split == split)
@@ -109,10 +90,9 @@ pub fn load_panel_for_split(
         })?;
         indices.push(idx);
     }
-    let _file_sha = sha256_file(panel_path)?;
     Ok(ResolvedPanel {
         manifest_path: panel_path.to_string_lossy().into_owned(),
-        manifest_sha256: manifest.manifest_sha256,
+        manifest_sha256: panel.manifest_sha256,
         split: split.to_owned(),
         indices,
     })
@@ -121,24 +101,63 @@ pub fn load_panel_for_split(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ultra_core::receipt::sha256_hex;
+    use ultra_engine::panel::py_dumps_indent1;
+
+    fn make_valid_panel_json(split: &str, cache_sha: &str, uids: &[&str]) -> String {
+        let mut spk = serde_json::Map::new();
+        for (i, u) in uids.iter().enumerate() {
+            spk.insert((*u).to_owned(), serde_json::json!(100 + i as i64));
+        }
+        let mut body = serde_json::json!({
+            "schema": DEV_PANEL_SCHEMA,
+            "splits": [{
+                "split": split,
+                "cache_sha256": cache_sha,
+                "utterances": uids.len(),
+                "uids": uids,
+                "speaker_of": spk
+            }]
+        });
+        let sha = sha256_hex(py_dumps_indent1(&body).expect("dump").as_bytes());
+        body.as_object_mut()
+            .expect("obj")
+            .insert("manifest_sha256".into(), serde_json::json!(sha));
+        serde_json::to_string_pretty(&body).expect("json")
+    }
 
     #[test]
-    fn panel_loader_rejects_bad_schema_and_mismatched_cache_hash() {
+    fn panel_loader_verifies_manifest_hash_and_rejects_tamper_or_test_split() {
         let tmp = tempfile::tempdir().expect("tempdir");
-        let bad = tmp.path().join("bad.json");
+
+        // 1. Tampered UID with old manifest_sha256 must be rejected (B5/N5).
+        let tampered = tmp.path().join("tampered.json");
+        let valid_str = make_valid_panel_json("dev-clean", &"b".repeat(64), &["u0"]);
+        std::fs::write(&tampered, valid_str.replace("\"u0\"", "\"u1\"")).expect("write");
+        let err = load_panel_for_split(&tampered, "dev-clean", &tampered, &"b".repeat(64))
+            .expect_err("tampered manifest must fail");
+        assert!(err.to_string().contains("manifest_sha256"));
+
+        // 2. Valid manifest hash for test-clean must be rejected (B5/S6).
+        let test_panel = tmp.path().join("test_panel.json");
         std::fs::write(
-            &bad,
-            r#"{"schema":"wrong/v0","manifest_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","splits":[]}"#,
+            &test_panel,
+            make_valid_panel_json("test-clean", &"c".repeat(64), &["u0"]),
         )
         .expect("write");
-        assert!(load_panel_for_split(&bad, "dev-clean", &bad, "deadbeef").is_err());
+        assert!(
+            load_panel_for_split(&test_panel, "test-clean", &test_panel, &"c".repeat(64)).is_err()
+        );
 
+        // 3. Valid manifest hash with mismatched cache_sha256 must be rejected.
         let mismatch = tmp.path().join("mismatch.json");
         std::fs::write(
             &mismatch,
-            r#"{"schema":"ultra.dev-panel/v1","manifest_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","splits":[{"split":"dev-clean","cache_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","uids":["u0"]}]}"#,
+            make_valid_panel_json("dev-clean", &"b".repeat(64), &["u0"]),
         )
         .expect("write");
-        assert!(load_panel_for_split(&mismatch, "dev-clean", &mismatch, "deadbeef").is_err());
+        let err = load_panel_for_split(&mismatch, "dev-clean", &mismatch, &"d".repeat(64))
+            .expect_err("cache mismatch must fail");
+        assert!(err.to_string().contains("cache_sha256 mismatch"));
     }
 }
