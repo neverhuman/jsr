@@ -97,6 +97,7 @@ class BundleRecognizer:
         if jp == "int8" and "joiner.int8" not in f and "joiner.int8" not in (override or {}):
             jp = "fp32"  # v1.1 static bundles keep the joiner fp32 (manifest.int8.joiner)
         joi_key = "joiner.int8" if jp == "int8" else "joiner.fp32"
+        self.joiner_precision = jp
         override = override or {}
 
         def mk(k):
@@ -340,7 +341,7 @@ def main() -> None:
     audio = sum(u.seconds for u in utts)
     refs = [u.text for u in utts]
     out = {"kind": "bundle_infer", "bundle": a.bundle, "precision": a.precision,
-           "joiner_precision": a.joiner_precision or a.precision, "split": a.split,
+           "joiner_precision": rec.joiner_precision, "split": a.split,
            "n": len(utts), "streams": a.streams, "threads": a.threads,
            "rtf_cpu": round(cpu / audio, 4), "forced_advances": rec.forced_advances,
            **corpus_wer(refs, hyps)}
