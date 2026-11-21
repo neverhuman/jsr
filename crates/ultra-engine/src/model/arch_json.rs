@@ -57,6 +57,9 @@ pub(super) struct RawEncoder {
     pub(super) left_context: usize,
     pub(super) post_block_norm: bool,
     pub(super) family: String,
+    pub(super) lower_blocks: usize,
+    pub(super) middle_blocks: usize,
+    pub(super) final_blocks: usize,
 }
 
 #[derive(Deserialize)]

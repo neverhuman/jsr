@@ -224,15 +224,55 @@ def convert(ckpt: str, out: str, bundle: str | None) -> dict:
     return arch
 
 
-def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
-    """Per-layer streaming outputs of the trainer's ChunkEncoder arithmetic (torch fp32)."""
+def _chunk_taps(ce, model, fs, tt, n, caches):
+    """One chunk through the trainer's ChunkEncoder(MR) arithmetic, one block at a time
+    (ChunkEncoder._run_blocks on single-layer cache slices computes exactly what the
+    all-layer call computes: the mask and positions depend only on the input kv_len).
+    Returns (taps, final encoder output)."""
     import torch
     import torch.nn.functional as F
 
+    e = model.encoder
+    c = e.cfg
+    taps = []
+
+    def run(blocks, x, pos0, k, v, kvl, conv):
+        for li, blk in enumerate(blocks):
+            x, *_ = ce._run_blocks([blk], x, pos0, k[li:li + 1], v[li:li + 1], kvl,
+                                   conv[li:li + 1])
+            taps.append(x[0])
+        return x
+
+    x = ce._stem(fs, tt, n)
+    taps.append(x[0])
+    if c.family == "dense":
+        k, v, kvl, conv = caches
+        x = run(e.blocks, x, tt, k, v, kvl, conv)
+    else:
+        k, v, kvl, conv, km, vm, kvm, convm = caches
+        nl = c.lower_blocks
+        x = run(e.blocks, x, tt, k[:nl], v[:nl], kvl, conv[:nl])
+        skip = x
+        b, _, d = x.shape
+        xm = F.pad(x, (0, 0, 0, 1))[:, :2 * ((n + 1) // 2)]
+        m = e.pair(xm.reshape(b, -1, 2 * d))
+        m = run(e.mid_blocks, m, torch.div(tt, 2, rounding_mode="floor"), km, vm, kvm, convm)
+        x = e.restore(m).reshape(b, -1, d)[:, :n] + skip
+        x = run(e.final_blocks, x, tt, k[nl:], v[nl:], kvl, conv[nl:])
+    x = e.final_norm(x)
+    taps.append(x[0])
+    taps.append(model.joiner.enc_proj(x)[0])
+    return taps, x
+
+
+def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
+    """Per-layer streaming outputs of the trainer's ChunkEncoder(MR) arithmetic (torch fp32)."""
+    import torch
+
     from train.asr import ASRModel, ModelConfig
     from train.features import LogMel
-    from train.model import apply_rope, stem_out_len
-    from train.infer import ChunkEncoder
+    from train.infer import ChunkEncoder, ChunkEncoderMR, cache_shapes
+    from train.model import stem_out_len
     from ultra.libri import load_split
 
     if os.path.exists(out):
@@ -243,25 +283,27 @@ def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
     model.load_state_dict(p["model"])
     model.eval()
     c = model.cfg.encoder
-    if c.family != "dense":
-        raise ConvertError("reference dump supports the dense family")
-    ce = ChunkEncoder(model.encoder).eval()
+    mr = c.family == "multirate"
+    ce = (ChunkEncoderMR if mr else ChunkEncoder)(model.encoder).eval()
+    sh = cache_shapes(c)
     logmel = LogMel()
     utts = load_split(split, start + limit)[start:]
     tensors: dict[str, np.ndarray] = {}
     ids = []
-    H, dh, lc, K = c.n_heads, c.d_model // c.n_heads, c.left_context, c.conv_kernel
+
+    def z(key):
+        L, *rest = sh[key]
+        return torch.zeros(L, 1, *rest)
+
     with torch.no_grad():
         for ui, u in enumerate(utts):
             pcm = torch.from_numpy(u.pcm.astype(np.float32) / 32768.0)
             feats = model.cmvn(logmel(pcm))  # (F, 80) normalised
-            n_feat = feats.shape[0]
-            total = int(stem_out_len(n_feat))
-            k = torch.zeros(c.n_blocks, 1, H, lc, dh)
-            v = torch.zeros_like(k)
-            kv_len = torch.zeros(1, dtype=torch.long)
-            conv = torch.zeros(c.n_blocks, 1, K - 1, c.d_model)
-            layers: list[list[torch.Tensor]] = [[] for _ in range(c.n_blocks + 3)]
+            total = int(stem_out_len(feats.shape[0]))
+            caches = [z("k"), z("k"), torch.zeros(1, dtype=torch.long), z("conv")]
+            if mr:
+                caches += [z("km"), z("km"), torch.zeros(1, dtype=torch.long), z("convm")]
+            layers: list[list[torch.Tensor]] = []
             check = []
             t0 = 0
             while t0 < total:
@@ -272,40 +314,14 @@ def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
                 fs[a - lo:] = feats[a:hi + 1]
                 fs = fs[None]
                 tt = torch.tensor([t0])
-                ref = ce(fs, tt, k, v, kv_len, conv)
-                # Same arithmetic as ChunkEncoder._run_blocks, recording every block output.
-                x = ce._stem(fs, tt, n)
-                layers[0].append(x[0])
-                inv = 1.0 / (10000 ** (torch.arange(0, dh, 2, dtype=torch.float32) / dh))
-                pos = (tt[:, None] + torch.arange(n)[None]).float()
-                ang = pos[..., None] * inv
-                cos, sin = ang.cos()[:, None], ang.sin()[:, None]
-                slot = torch.arange(lc)[None]
-                key_ok = torch.cat([slot >= (lc - kv_len[:, None]),
-                                    torch.ones(1, n, dtype=torch.bool)], dim=1)
-                mask = key_ok[:, None, None, :]
-                for li, blk in enumerate(model.encoder.blocks):
-                    x = x + 0.5 * blk.ff1(x)
-                    att = blk.att
-                    q, kk, vv = att.qkv(att.norm(x)).view(1, n, 3, H, dh).permute(2, 0, 3, 1, 4)
-                    q, kk = apply_rope(q, cos, sin), apply_rope(kk, cos, sin)
-                    kall = torch.cat([k[li], kk], dim=2)
-                    vall = torch.cat([v[li], vv], dim=2)
-                    y = F.scaled_dot_product_attention(q, kall, vall, attn_mask=mask)
-                    x = x + att.out(y.transpose(1, 2).reshape(1, n, -1))
-                    cm = blk.conv
-                    g = F.glu(cm.pw1(cm.norm(x)), dim=-1)
-                    gall = torch.cat([conv[li], g], dim=1)
-                    y = cm.dw(gall.transpose(1, 2)).transpose(1, 2)
-                    x = x + cm.pw2(F.silu(cm.dnorm(y)))
-                    x = x + 0.5 * blk.ff2(x)
-                    x = blk.norm(x)
-                    layers[li + 1].append(x[0])
-                x = model.encoder.final_norm(x)
-                layers[c.n_blocks + 1].append(x[0])
-                layers[c.n_blocks + 2].append(model.joiner.enc_proj(x)[0])
+                ref = ce(fs, tt, *caches)
+                taps, x = _chunk_taps(ce, model, fs, tt, n, caches)
+                if not layers:
+                    layers = [[] for _ in taps]
+                for li, tp in enumerate(taps):
+                    layers[li].append(tp)
                 check.append(float((x - ref[0]).abs().max()))
-                _, k, v, kv_len, conv = ref
+                caches = list(ref[1:])
                 t0 += n
             if max(check) != 0.0:
                 raise ConvertError(f"recorded path differs from ChunkEncoder by {max(check)}")
@@ -313,9 +329,12 @@ def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
             for li, rows in enumerate(layers):
                 tensors[f"u{ui:03d}.layer{li:02d}"] = torch.cat(rows, 0).numpy()
             ids.append(u.uid)
+    nb = (c.lower_blocks + c.middle_blocks + c.final_blocks) if mr else c.n_blocks
     meta = {"schema": "ultra.r1-reference/v1", "checkpoint_sha256": p["_sha256"],
             "split": split, "start": str(start), "count": str(len(ids)), "ids": json.dumps(ids),
-            "layers": "00 stem, 01..16 blocks, 17 final_norm, 18 joiner enc_proj",
+            "family": c.family,
+            "layers": f"00 stem, 01..{nb:02d} blocks in execution order (multirate middle "
+                      f"blocks at 12.5 Hz), {nb + 1:02d} final_norm, {nb + 2:02d} enc_proj",
             "source": json.dumps(source_identity())}
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     write_safetensors(out, tensors, meta)

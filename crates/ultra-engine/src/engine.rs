@@ -186,10 +186,7 @@ impl Engine {
     /// are complete (limited by the stream's cache capacity).
     pub fn next_chunk(&self, s: &EngineStream) -> Option<(usize, usize)> {
         let c = self.model.arch.chunk;
-        let cap = self
-            .max_chunks
-            .min((s.enc.ring - self.model.arch.left) / c)
-            .max(1);
+        let cap = self.max_chunks.min(s.enc.max_step_frames() / c).max(1);
         let (t0, mut t1) = chunk_bounds(s.enc.t, s.ring.n_feat(), c, s.finished)?;
         for _ in 1..cap {
             if t1 - t0 < c * ((t1 - t0).div_ceil(c)) {

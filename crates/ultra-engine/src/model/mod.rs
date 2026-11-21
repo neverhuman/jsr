@@ -17,12 +17,18 @@ use arch_json::{bounded, file, verify, RawArch};
 
 pub const WEIGHTS_SCHEMA: &str = "ultra.r1-weights/v1";
 
-/// Validated architecture (dense family).
+/// Validated architecture. Dense: `lower = n_blocks`, `mid = fin = 0`. Multirate (S_MR):
+/// `lower` blocks at 25 Hz, a pair projection to 12.5 Hz, `mid` blocks there, a restoration
+/// plus the lower-block skip, then `fin` blocks at 25 Hz.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arch {
     pub n_mels: usize,
     pub d: usize,
+    /// Total blocks in execution order (`lower + mid + fin`).
     pub n_blocks: usize,
+    pub lower: usize,
+    pub mid: usize,
+    pub fin: usize,
     pub heads: usize,
     pub dh: usize,
     pub ffn: usize,
@@ -108,6 +114,9 @@ pub struct Model {
     pub stem_out: Linear,
     pub blocks: Vec<Block>,
     pub final_norm: Option<Norm>,
+    /// Multirate: 25 Hz pair -> 12.5 Hz projection (`d x 2d`) and its restoration (`2d x d`).
+    pub pair: Option<Linear>,
+    pub restore: Option<Linear>,
     pub enc_proj: Linear,
     /// Predictor embedding table `[vocab][pred_emb]`.
     pub emb: Vec<f32>,
@@ -135,12 +144,32 @@ impl Model {
             )));
         }
         let e = &raw.model.encoder;
-        if raw.model.family != "dense" || e.family != "dense" {
-            return Err(EngineError::Unsupported(format!(
-                "encoder family {} (the engine implements dense)",
-                e.family
-            )));
+        let multirate = match (raw.model.family.as_str(), e.family.as_str()) {
+            ("dense", "dense") => false,
+            ("multirate", "multirate") => true,
+            _ => {
+                return Err(EngineError::Unsupported(format!(
+                    "encoder family {} (the engine implements dense and multirate)",
+                    e.family
+                )))
+            }
+        };
+        let (lower, mid, fin) = if multirate {
+            (e.lower_blocks, e.middle_blocks, e.final_blocks)
+        } else {
+            (e.n_blocks, 0, 0)
+        };
+        if multirate
+            && (lower == 0
+                || mid == 0
+                || !e.chunk.is_multiple_of(2)
+                || !e.left_context.is_multiple_of(2))
+        {
+            return Err(EngineError::Shape(
+                "multirate needs blocks at both rates and even chunk/left".into(),
+            ));
         }
+        bounded("total blocks", lower + mid + fin, 256)?;
         if raw.model.config.joiner_act != "tanh" {
             return Err(EngineError::Unsupported(format!(
                 "joiner activation {}",
@@ -197,7 +226,10 @@ impl Model {
         let arch = Arch {
             n_mels: e.n_mels,
             d: e.d_model,
-            n_blocks: e.n_blocks,
+            n_blocks: lower + mid + fin,
+            lower,
+            mid,
+            fin,
             heads: e.n_heads,
             dh: e.d_model / e.n_heads,
             ffn: e.d_model * e.ffn_mult,
@@ -319,8 +351,11 @@ impl Model {
         }
         let stem_out = Linear::new(&wop, d, kin, Some(&st.take("encoder.stem.out.bias", &[d])?));
         let mut blocks = Vec::with_capacity(a.n_blocks);
-        for li in 0..a.n_blocks {
-            let p = format!("encoder.blocks.{li}");
+        let names = (0..a.lower)
+            .map(|i| format!("encoder.blocks.{i}"))
+            .chain((0..a.mid).map(|i| format!("encoder.mid_blocks.{i}")))
+            .chain((0..a.fin).map(|i| format!("encoder.final_blocks.{i}")));
+        for p in names {
             let dw = st.get(&format!("{p}.conv.dw.weight"), &[d, 1, a.kernel])?;
             let mut dw_w = vec![0.0f32; a.kernel * d];
             for c in 0..d {
@@ -357,7 +392,17 @@ impl Model {
             Some(norm("encoder.final_norm")?)
         };
         let rope_inv = st.take("engine.rope_inv_freq", &[a.dh / 2])?;
+        let (pair, restore) = if a.mid > 0 {
+            (
+                Some(lin("encoder.pair", d, 2 * d)?),
+                Some(lin("encoder.restore", 2 * d, d)?),
+            )
+        } else {
+            (None, None)
+        };
         Ok(Self {
+            pair,
+            restore,
             c1_w,
             c1_b,
             c2,
@@ -408,6 +453,12 @@ impl Model {
                 ("ff2_w1", s, &mut b.ff2_w1),
                 ("ff2_w2", s, &mut b.ff2_w2),
             ]);
+        }
+        if let Some(p) = self.pair.as_mut() {
+            v.push(("pair", None, p));
+        }
+        if let Some(r) = self.restore.as_mut() {
+            v.push(("restore", None, r));
         }
         v.push(("enc_proj", None, &mut self.enc_proj));
         v.push(("joiner_out", None, &mut self.joiner_out));
