@@ -30,5 +30,6 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H8](H8_ternary_R4/README.md) | Ternary (R4) QAT pilot | EXPLORATORY | −0.6 WER cost, 14 MiB weights; no faster than INT8 at batch (compute-bound) |
 | [H9](H9_960h_training_and_divergence/README.md) | 960 h training, divergence and the qkv cap | ongoing | D2 dense 9.99% dev-clean; D3 runs diverged (qkv runaway) → cap + guards |
 | [H10](H10_benchmark_methodology_review/README.md) | Independent methodology review → FREEZE | ongoing | 7 blocking findings; the cross-harness density claim was retracted; FREEZE rewritten |
+| [H11](H11_cross_isa_portable_logmel/README.md) | Cross-ISA bit-exact portable log-mel (G4) | EXPLORATORY | **7,300/7,300 (100%)** identical PCM→tokens x86 AVX2 == M3 NEON across 5 models × FP32/INT8 (R4T 636→730/730); 5/5 INT8 gates PASS |
 
-Next wave: **H11**.
+Next wave: **H12**.
