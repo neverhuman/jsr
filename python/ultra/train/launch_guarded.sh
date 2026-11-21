@@ -5,7 +5,7 @@
 #   launch_guarded.sh <run_dir> <cpu_list> <gpu_index> -- <train.trainer arguments without --run-dir>
 #
 # Environment: JSR_DATA (data root on this host), PY (python, default <repo>/.venv/bin/python),
-# GPU_TARGET (0.82), CPU_TARGET (0.85).
+# GPU_TARGET (0.74), CPU_TARGET (0.85), MIN_DUTY (0.0).
 # Writes <run_dir>/{PID,PGID,GUARD_PID,stdout.log,fleet_guard.jsonl,guard.log}.
 set -euo pipefail
 
@@ -33,7 +33,7 @@ echo "$pid" > "$run_dir/PID"
 echo "$pgid" > "$run_dir/PGID"
 
 setsid nohup nice -n 5 "$py" -m ultra.fleet_guard --pgid "$pgid" --gpu "$gpu" \
-  --gpu-target "${GPU_TARGET:-0.82}" --cpu-target "${CPU_TARGET:-0.85}" \
+  --gpu-target "${GPU_TARGET:-0.74}" --cpu-target "${CPU_TARGET:-0.85}" --min-duty "${MIN_DUTY:-0.0}" \
   --log "$run_dir/fleet_guard.jsonl" >>"$run_dir/guard.log" 2>&1 < /dev/null &
 echo $! > "$run_dir/GUARD_PID"
 echo "host=$(hostname) pid=$pid pgid=$pgid guard_pid=$(cat "$run_dir/GUARD_PID") run_dir=$run_dir"

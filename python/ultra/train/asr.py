@@ -27,6 +27,7 @@ class ModelConfig:
     joiner: int = 320
     joiner_act: str = "tanh"
     ctc_weight: float = 0.3
+    qat: str = "none"  # "ternary": train.qat ternary weights + per-row int8 inputs
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -44,6 +45,10 @@ PRESETS = {
     # MULTIRATE S (spec v1.0-B §17.3): 4 blocks at 25 Hz, 10 at 12.5 Hz, 2 restored at 25 Hz.
     "S_MR": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
                                               lower_blocks=4, middle_blocks=10, final_blocks=2)),
+    # R4 pilot: S_MR with ternary QAT (train.qat).
+    "S_MR_T": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
+                                                lower_blocks=4, middle_blocks=10, final_blocks=2),
+                          qat="ternary"),
     # The configuration of the first D1 attempt (collapsed); kept loadable.
     "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.
@@ -92,6 +97,12 @@ class ASRModel(nn.Module):
         self.ctc_head = nn.Linear(cfg.encoder.d_model, cfg.vocab_ctc)
         self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner)
         self.joiner = Joiner(cfg.encoder.d_model, cfg.joiner, cfg.vocab_rnnt, cfg.joiner_act)
+        if cfg.qat == "ternary":
+            from train.qat import apply_ternary
+
+            self.ternary_layers = apply_ternary(self)
+        elif cfg.qat != "none":
+            raise ValueError(f"unknown qat mode {cfg.qat}")
 
     def encode(self, feats, feat_lens, chunk=None):
         return self.encoder(self.cmvn(feats), feat_lens, chunk)
