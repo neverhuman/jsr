@@ -94,6 +94,8 @@ class BundleRecognizer:
         f = m["files"]
         enc_key = "encoder.int8" if precision == "int8" else "encoder.fp32"
         jp = joiner_precision or precision
+        if jp == "int8" and "joiner.int8" not in f and "joiner.int8" not in (override or {}):
+            jp = "fp32"  # v1.1 static bundles keep the joiner fp32 (manifest.int8.joiner)
         joi_key = "joiner.int8" if jp == "int8" else "joiner.fp32"
         override = override or {}
 
