@@ -29,7 +29,7 @@ fn run(engine: &Engine, clips: &[Vec<i16>], batch: usize) -> Trace {
         for (i, s) in streams.iter_mut().enumerate() {
             if round >= i % 7 && cur[i] < clips[i].len() {
                 let end = (cur[i] + packet).min(clips[i].len());
-                s.accept_i16(&clips[i][cur[i]..end]);
+                s.accept_i16(&clips[i][cur[i]..end]).expect("accept");
                 cur[i] = end;
                 if end == clips[i].len() {
                     s.input_finished();
@@ -142,4 +142,24 @@ fn int8_is_batch_invariant() {
 #[test]
 fn fp32_is_batch_invariant() {
     check(Precision::F32);
+}
+
+#[test]
+fn lifecycle_refuses_audio_after_finish() {
+    let w = common::weights_dir();
+    if !common::have(&[&w]) {
+        return;
+    }
+    let engine = Engine::new(
+        Arc::new(Model::load(&w, true).expect("load")),
+        Isa::detect(),
+        Precision::F32,
+    )
+    .expect("engine");
+    let mut s = engine.create_stream();
+    s.accept_i16(&[0i16; 1600])
+        .expect("open stream accepts audio");
+    s.input_finished();
+    assert!(s.accept_i16(&[0i16; 160]).is_err());
+    assert!(s.accept_f32(&[0.0; 160]).is_err());
 }

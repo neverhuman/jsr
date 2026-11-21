@@ -66,18 +66,29 @@ impl Isa {
 /// `data[p][kk][j] = W[p * NR + j][kk]` (zero for padded columns), `bias` padded likewise.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackedF32 {
-    pub n: usize,
-    pub k: usize,
-    pub data: Vec<f32>,
-    pub bias: Vec<f32>,
+    pub(crate) n: usize,
+    pub(crate) k: usize,
+    pub(crate) data: Vec<f32>,
+    pub(crate) bias: Vec<f32>,
 }
 
 impl PackedF32 {
-    /// Pack row-major `w` (`n` rows of `k`) and an optional bias of length `n`.
+    /// Pack row-major `w` (`n` rows of `k`) and an optional bias of length `n`. Fields are
+    /// crate-private, so every `PackedF32` a kernel sees has `data.len() == panels * k * NR`
+    /// (sizes checked here without overflow).
     pub fn pack(w: &[f32], n: usize, k: usize, bias: Option<&[f32]>) -> Self {
-        assert_eq!(w.len(), n * k, "PackedF32::pack weight length");
+        assert!(n > 0 && k > 0, "PackedF32::pack empty matrix");
+        assert_eq!(
+            Some(w.len()),
+            n.checked_mul(k),
+            "PackedF32::pack weight length"
+        );
         let panels = n.div_ceil(NR);
-        let mut data = vec![0.0f32; panels * k * NR];
+        let len = panels
+            .checked_mul(k)
+            .and_then(|v| v.checked_mul(NR))
+            .expect("PackedF32::pack size overflow");
+        let mut data = vec![0.0f32; len];
         for row in 0..n {
             let (p, j) = (row / NR, row % NR);
             for kk in 0..k {
@@ -95,6 +106,14 @@ impl PackedF32 {
             data,
             bias: b,
         }
+    }
+
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    pub fn k(&self) -> usize {
+        self.k
     }
 
     pub fn panels(&self) -> usize {
@@ -230,7 +249,10 @@ pub fn gemm_i8(
     out: &mut [f32],
 ) {
     assert!(
-        a.len() >= rows * w.kp && sa.len() >= rows && ca.len() >= rows && out.len() >= rows * w.n,
+        rows.checked_mul(w.kp).is_some_and(|v| a.len() >= v)
+            && rows.checked_mul(w.n).is_some_and(|v| out.len() >= v)
+            && sa.len() >= rows
+            && ca.len() >= rows,
         "gemm_i8 lengths"
     );
     match isa {

@@ -51,6 +51,19 @@ def sha256_file(path: str) -> str:
     return h.hexdigest()
 
 
+def source_identity() -> dict:
+    """HEAD plus whether the converter/trainer sources differ from it, and the converter's own
+    SHA-256, so a record binds the executed source rather than only the checkout HEAD."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        dirty = subprocess.check_output(["git", "status", "--porcelain", "--", ".", "../train"],
+                                        text=True, cwd=here).strip()
+    except (OSError, subprocess.CalledProcessError):
+        dirty = "unknown"
+    return {"commit": git_commit(), "sources_dirty": dirty != "", "dirty_paths": dirty,
+            "converter_sha256": sha256_file(os.path.abspath(__file__))}
+
+
 def git_commit() -> str:
     try:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True,
@@ -141,8 +154,8 @@ def convert(ckpt: str, out: str, bundle: str | None) -> dict:
     p = load_checkpoint(ckpt)
     cfg = p["model_config"]
     enc = cfg["encoder"]
-    if os.path.exists(os.path.join(out, "arch.json")):
-        raise ConvertError(f"{out} already holds arch.json; never overwrite (use a new directory)")
+    if os.path.exists(out) and os.listdir(out):
+        raise ConvertError(f"{out} is not empty; outputs go to a fresh directory, never overwrite")
     os.makedirs(out, exist_ok=True)
     sd = {k: v.detach().to("cpu").float().numpy() for k, v in p["model"].items()}
     import torch
@@ -201,7 +214,7 @@ def convert(ckpt: str, out: str, bundle: str | None) -> dict:
         "decoder": {"kind": "stateless", "context": 2, "blank_id": 0, "ctx_init": [0, 0],
                     "max_symbols": 8, "vocab_size": cfg["vocab_rnnt"],
                     "joiner_activation": cfg.get("joiner_act", "tanh")},
-        "converter": {"tool": "python/ultra/tools/r1_to_safetensors.py", "commit": git_commit(),
+        "converter": {"tool": "python/ultra/tools/r1_to_safetensors.py", **source_identity(),
                       "torch": torch.__version__, "numpy": np.__version__},
     }
     apath = os.path.join(out, "arch.json")
@@ -303,7 +316,7 @@ def reference(ckpt: str, out: str, split: str, limit: int, start: int) -> dict:
     meta = {"schema": "ultra.r1-reference/v1", "checkpoint_sha256": p["_sha256"],
             "split": split, "start": str(start), "count": str(len(ids)), "ids": json.dumps(ids),
             "layers": "00 stem, 01..16 blocks, 17 final_norm, 18 joiner enc_proj",
-            "commit": git_commit()}
+            "source": json.dumps(source_identity())}
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     write_safetensors(out, tensors, meta)
     return {"out": out, "utterances": len(ids), "sha256": sha256_file(out)}

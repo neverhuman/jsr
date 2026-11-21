@@ -97,6 +97,26 @@ fn exp_and_activations_bit_exact_and_accurate() {
 }
 
 #[test]
+fn exp_endpoints_and_non_finite_inputs() {
+    // Upper endpoint: finite, within the stated error.
+    let e = scalar::exp_approx(scalar::EXP_HI);
+    let r = f64::from(scalar::EXP_HI).exp();
+    assert!(e.is_finite() && ((f64::from(e) - r) / r).abs() < 4e-7);
+    // Lower endpoint: results near 2^-126 lose the relative bound (the exponent field
+    // flushes subnormals); documented exception, sigmoid/SiLU only need ~0 there.
+    for v in [scalar::EXP_LO, f32::NEG_INFINITY, -1e30] {
+        let e = scalar::exp_approx(v);
+        assert!((0.0..1e-37).contains(&e), "exp({v}) = {e}");
+    }
+    assert!(scalar::exp_approx(f32::INFINITY).is_finite());
+    assert!((0.0..1e-37).contains(&scalar::sigmoid(-200.0)));
+    assert!(scalar::silu(-200.0).abs() < 1e-34);
+    assert!((scalar::sigmoid(200.0) - 1.0).abs() < 1e-7);
+    // NaN never turns into a confident value in the scalar reference.
+    assert!(scalar::silu(f32::NAN).is_nan());
+}
+
+#[test]
 fn reductions_agree_within_tolerance() {
     let Some(isa) = simd() else { return };
     let mut rng = Rng::new(3);

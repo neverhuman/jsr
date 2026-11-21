@@ -119,7 +119,9 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             let avail = (((now - s.start).max(0.0)) * 16_000.0) as usize;
             let upto = avail.min(pcm.len());
             if upto > s.fed {
-                s.stream.accept_i16(&pcm[s.fed..upto]);
+                s.stream
+                    .accept_i16(&pcm[s.fed..upto])
+                    .map_err(|e| e.to_string())?;
                 audio_s += (upto - s.fed) as f64 / 16_000.0;
                 s.fed = upto;
                 if upto == pcm.len() {

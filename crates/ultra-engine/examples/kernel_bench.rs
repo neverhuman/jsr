@@ -28,14 +28,14 @@ fn main() {
         let qs: Vec<PackedI8> = (0..copies).map(|_| pq.clone()).collect();
         for &rows in &[4usize, 16, 64] {
             let x: Vec<f32> = (0..rows * k).map(|_| lcg(&mut seed)).collect();
-            let mut a = vec![0i8; rows * pq.kp];
+            let mut a = vec![0i8; rows * pq.kp()];
             let mut sa = vec![0.0f32; rows];
             let mut ca = vec![0.0f32; rows];
             for r in 0..rows {
                 (sa[r], ca[r]) = quantize_row(
                     isa,
                     &x[r * k..(r + 1) * k],
-                    &mut a[r * pq.kp..r * pq.kp + k],
+                    &mut a[r * pq.kp()..r * pq.kp() + k],
                 );
             }
             let mut out = vec![0.0f32; rows * n];
