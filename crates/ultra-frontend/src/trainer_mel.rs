@@ -185,7 +185,7 @@ impl TrainerMelConfig {
             portable_window,
             fft_tw_re,
             fft_tw_im,
-            portable_math: false,
+            portable_math: true,
             fbank,
         })
     }

@@ -1,7 +1,7 @@
 {
   "entries": [
     {
-      "enc_proj_sha256": "5df690c05677a33f5625e9632eb721adb4baeee578d0844c0178522016230715",
+      "enc_proj_sha256": "84056cf50ec50c7b21b58ea32d855bd647241a41876bb276d02d608e2fe276e4",
       "precision": "fp32",
       "tokens": [
         32,
@@ -33,7 +33,7 @@
       "utt": 0
     },
     {
-      "enc_proj_sha256": "e1986990af236096482931c769f9f23c577a81d954d659033f9bd28317848ea4",
+      "enc_proj_sha256": "0a6c2dbb4caf962fa3b223a1d99f5665c81fddf4f5ce2580efc2d9d96a3c7bfc",
       "precision": "fp32",
       "tokens": [
         32,
@@ -68,7 +68,7 @@
       "utt": 1
     },
     {
-      "enc_proj_sha256": "c6d09ed286397b7132a389f2b740e93d6ea201f8f9472c8a0c0c752ace0c6fbb",
+      "enc_proj_sha256": "f064af7a082067a3960cbea6d2d41f1d709b8c983c2ab34a0ad0d61c434db7c0",
       "precision": "fp32",
       "tokens": [
         1079,
@@ -91,7 +91,7 @@
       "utt": 2
     },
     {
-      "enc_proj_sha256": "44fedb18b1c608cafe6ea9493d441526218468bf920a38d853f43ad5340b45a2",
+      "enc_proj_sha256": "01e4f5d8de27b0498aaf597dd95a6c9b2866858e684078eed2d87126f4f23ce7",
       "precision": "fp32",
       "tokens": [
         32,
@@ -106,7 +106,7 @@
       "utt": 3
     },
     {
-      "enc_proj_sha256": "ebd911af1d5c7ec4a6b4bbd5b0479bace6e1f1efc0fca827af6876146f02318b",
+      "enc_proj_sha256": "3e234daf3f0374e88546c150e16e4d9b3078747e8eb2039e642529f9cefa3a4a",
       "precision": "int8",
       "tokens": [
         32,
@@ -137,7 +137,7 @@
       "utt": 0
     },
     {
-      "enc_proj_sha256": "0c6872bda5f12467650536430d3754833c91e6d815dc38fc0d223c13f403bb96",
+      "enc_proj_sha256": "fc0fb221d55b7265671eb58f4920730cf6f66088ad40c4f5b124969a76a2ac8d",
       "precision": "int8",
       "tokens": [
         32,
@@ -172,7 +172,7 @@
       "utt": 1
     },
     {
-      "enc_proj_sha256": "7b53892e71e288490f9af643cf946356131ccdbc555b6edddba0aee6570b62dd",
+      "enc_proj_sha256": "feb1243e1487ff03b6066054fdb20825cdca7ee97cdca0b9cd799ff95fee2f35",
       "precision": "int8",
       "tokens": [
         1079,
@@ -195,7 +195,7 @@
       "utt": 2
     },
     {
-      "enc_proj_sha256": "6c7bd14b73b46b00344325a8b3a2574a5dd5101f615805e5f0284659681889c0",
+      "enc_proj_sha256": "a5274949fe588b69e1faf3bc85c61c6751da5881fe25dbc06961e2e560d1d212",
       "precision": "int8",
       "tokens": [
         32,
