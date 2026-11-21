@@ -1,89 +1,76 @@
-# STATUS (updated 2026-11-20 ~22:30Z)
+# STATUS (updated 2026-11-21 ~09:05Z)
 
-- **Qualified rung:** none yet. No qualifying (BENCH_LEASE.host) run has happened. Every number below is exploratory.
-- **Plan:** `docs/ultra/BENCH_PLAN_v1.md` (ULTRA-Bench v1, owner-approved). Protocol deltas in §0a. Rulings O13–O15a.
+- **Qualified rung:** none yet. No qualifying (BENCH_LEASE.host) window has run, so every number below is **exploratory**. The host is shared, and a same-day A/A CPU replay varied by +25%.
+- **Plan:** `docs/ultra/BENCH_PLAN_v1.md` (ULTRA-Bench v1). The engine plan is in `docs/ultra/ENGINE_PLAN.md`.
 
-## Built and on main (`f200b1d` and later)
-- **Contracts and evaluation:**
-  - `ultra-core` §33 event contract, hardened receipts, the `UnknownOverlap` label;
-  - `ultra-eval`: WER, CQ(D), FC(D) with ownership-mapped episodes, bootstrap, process-tree CPU, paced replay.
-- **Kernels:** `ultra-kernels` / `ultra-bench`. W01 PASS on H0.
-- **Rust runtime and CLI** (`ultra-{model,frontend,stream,cli}`, runtime-lane):
-  - the sherpa R0 backend;
-  - trainer-parity LogMel+CMVN (B2);
-  - a post-decode monotonic offline Final (WP5);
-  - `try_text`.
-- **M1 measured CPU bridge** (`ultra-bridge`, codex): whole-service, exploratory receipts only. Report: `docs/ultra/reviews/2026-11-20-trained-cpu-benchmark.md` (f200b1d).
-- **R1 native backend** (`OrtTransducerBackend` + `ultra-gp`, abed965/dd5078c): EXPERIMENTAL. FP32 parity is 400/400 (codex re-scored); the dynamic INT8 is non-qualifying (355/400, +0.156 WER).
-- **`ultra bench-suite`, Nemotron Rust adapter, `r1_costlaw`** (15e66a4, merged daf50bb): EXPERIMENTAL, with codex B3/B4 findings open.
-- **Trainer** (`python/ultra/train`):
-  - dense S and multirate S_MR;
-  - delayed SpecAugment;
-  - export contract `ultra.r1-export/v1`;
-  - the numpy/ORT reference consumer.
-- **Data:**
-  - LibriSpeech 960 h and dev/test (`DATA.lock`);
-  - MFA word timings;
-  - sealed OOD VoxPopuli EN and AMI IHM (TED-LIUM 3 is BLOCKED_RIGHTS);
-  - frozen slices;
-  - the silence probe.
-- **Fleet:** `fleet_guard` (owner rule: never more than 90% mean CPU/GPU on any host) and `fleet_util.sh`.
+## What is on main (7ae39f0)
+- **Contracts, eval and kernels:**
+  - ultra-core events and receipts;
+  - ultra-eval: WER, CQ, FC, bootstrap, `ultra-measure` with a pinned disjoint observer;
+  - ultra-kernels: AVX2 int8, T1, T-LUT2 including a signed path.
+- **Runtime (runtime-lane):**
+  - sherpa R0, and the ORT R1 backend (experimental; FP32 parity 400/400);
+  - `ultra bench-suite`: C4 slices, silence probe, MFA latency joined after inference, cost_scope, job manifests;
+  - a Nemotron adapter;
+  - the ultra-engine backend integration (E4).
+- **ultra-engine (engine-lane), pure Rust:**
+  - **Precision:** FP32, and int8 with centred per-row activations (batch-invariant, +0.000 WER) from a prepared-int8 artifact (RSS 259 MiB).
+  - **Models:** dense S and multirate S_MR; ternary R4 layers (T-LUT2 on x86).
+  - **Architectures:** AVX2 and aarch64 NEON (sdot/i8mm). The engine is bit-identical across ISAs.
+  - **Guards:** output-continuity tests.
+- **Bridge (codex):** M1/M2 whole-service measurement, with ORT and fused-engine adapters (FP32 and prepared INT8).
+- **Trainer:**
+  - dense, S_MR and S_MR_T (ternary QAT);
+  - a batch-invariant static-INT8 ORT export (v1.1);
+  - `export_ternary`.
 
-## Measured so far (exploratory; DEV unless stated)
-- **R0 Zipformer int8, machine-wide density** (xbabe0, same CPU as H0, Python harness on the real clock): **192 live streams sustained**, with 16 single-threaded CCX workers × 12 streams. p99 ≤ 636 ms, dev-clean 2.80%, 0.06 CPU-s/s.
-- **SP-A primary:** batched vs single is 1.49×, against the pre-registered 3×. The expected verdict is NO_LIFT. Density is L3-bound per Zen 2 CCX.
-- **Nemotron 0.6B Q8_0 (PUBLIC-TEST, exploratory, unknown overlap):**
+## Measured (exploratory)
+Same build 6df5c8f, DEV400 dev-clean, whole service, observer separated:
 
-  | | test-clean WER | test-other WER | Single-stream CPU-s/s (quiet) |
-  |---|---:|---:|---:|
-  | 160 ms | 2.65% | 5.60% | 0.709 |
-  | 560 ms | 2.58% | 5.18% | 0.451 |
+| System | WER | CPU-s/s | RSS |
+|---|---:|---:|---:|
+| R0 Zipformer int8 | 2.85% | 0.078 | 239 MB |
+| R1 D2-s5000 ORT FP32 | 21.88% | 0.175 | 776 MB |
+| R1 D2-s5000 engine FP32 | 21.88% | 0.104 | 478 MB |
+| **R1 D2-s5000 engine INT8** | **21.80%** | **0.041** | 647 MB (now 259 MB prepared) |
 
-- **M1 DEV400 board** (same audio, Rust-scored, whole service, guarded):
+**Engine density** (A1 rule, p99 ≤ 800 ms, int8):
 
-  | System | WER | CPU-s/s | RSS |
-  |---|---:|---:|---:|
-  | R0 Zipformer int8 | 2.85% | 0.137 | 239 MB |
-  | R1-D1 | 29.83% | 0.141 | 593 MB |
-  | Nemotron 560 ms | 2.16% | 0.472 | 1.28 GB |
-
-  A/A is exact.
-- **R1-D2 progress** (trainer-normalised, 400 DEV, read-only): 21.91% at step 5000 and 21.89% at step 6854, from R1-D1's 29.8%.
-- **Rust-runner latency figures** from before the runtime clock fixes are INVALID_INSTRUMENT. Their CPU and WER figures stand.
-
-## Training (GPU)
-
-| Run | Host | State |
+| Host | Dense S | D1MR (S_MR) |
 |---|---|---|
-| D2 (S, 960 h) | xbabe3 3090 | Running under a guard (0.74, min-duty 0). ETA slips while other projects' jobs share the GPU. |
-| D1MR (S_MR, 100 h) | xbabe1 4090 | At step ~2700, mostly paused by other users' jobs. About 4.5 h at full duty. Step 7800 kept as the matched control. |
-| D2MR (S_MR, 960 h, cut to 5 epochs) | xbabe2 3090 | Shared with another user's job. About 1.6 days at full duty. |
+| Zen 2, per 4-core CCX | 96 streams | **136 streams** |
+| M3 Ultra (xbabe4) | 64 per core | **84 per core**; 504 on 6 workers |
 
-- **GPU spend:** observed training spans about 4.0 h before D2 (D0 and the D1 attempts). The D2, D1MR and D2MR ledgers are kept in each run directory.
+ORT on the same harness did not sustain 32 streams per CCX.
 
-## Exact next tasks
-1. **runtime-lane:** one hardening commit covering codex's B1/B3/B4 findings:
-   - reference-blind latency;
-   - `--precision` reaching every subjob;
-   - a `cost_scope` label;
-   - `--qualified` gating;
-   - positive ggml-CPU evidence;
-   - pipe draining;
-   - non-finite caches;
-   - terminal errors;
-   - `retained_bytes`.
-2. **trainer-lane:**
-   - a batch-invariant INT8 export. v1.1 static MinMax is at +0.67, so the joiner moves to fp32 and an encoder calibration sweep is running.
-   - A2 loader hardening and per-example proofs.
-   - D2 to completion, with selection on DEV.
-3. **codex:** the D1 TRAIN eligibility audit; E1/E2 review of the runtime hardening.
-4. **lead:**
-   - merges and gates;
-   - FREEZE.md drafted once the INT8 path and B3 are accepted;
-   - a speaker-stratified freeze panel;
-   - scheduling the qualifying window after D2.
+**Single-stream int8:**
 
-## Blockers
-- GPU contention from other projects on all three GPUs. We yield under the owner's cap.
-- The owner listening check of the MFA timings is open.
-- TED-LIUM 3 has no rights-clear source.
+| Host | Dense | S_MR |
+|---|---:|---:|
+| Zen 2 | 0.039–0.043 | — |
+| M3 Ultra | 0.0131 | 0.0104 |
+
+## Training (dev-clean 400 unless noted)
+
+| Run | Data | Latest result |
+|---|---|---|
+| D2 dense | 960 h, xbabe3 | 21.9% @5k → 17.3% @10k → **13.9% @20k** (dev-other 27.1%); training continues under guard |
+| D2MR multirate | 960 h, xbabe2 | 34.2% @5k → 26.9% @10k → **20.4% @15k** |
+| D1MR multirate | 100 h, DONE @40k | **18.0% full dev-clean** / 36.5% dev-other (dense 100 h was 29.8%) |
+| R4T ternary QAT | from D1MR, xbabe1 | 22.8% @1k → **18.6% @9k** vs FP32 17.4% (gap 1.2); finishes at 12k, then export plus engine gate |
+
+## Next
+1. **R4T:** finish → export → engine ternary gate (engine WER within +0.10 of the torch ternary eval) → ternary speed on Zen 2 and M3.
+2. **D2 / D2MR:** converge → DEV selection → INT8 prepared → engine rows.
+3. **runtime-lane:**
+   - a same-harness ORT density row;
+   - a platform-deterministic log-mel (cross-ISA PCM → tokens);
+   - E4 follow-ups.
+4. **Freeze:** FREEZE.md, the speaker-stratified panel, and the qualifying window (quiet host, observer pinned, A/B blocks).
+
+## Blockers / owner decisions
+- GPUs are shared with other projects; we yield under the 90% cap.
+- Open owner items:
+  - the MFA 20-utterance listening check;
+  - the TED-LIUM 3 rights;
+  - data expansion beyond LibriSpeech (needed for the accuracy gap to R0).
