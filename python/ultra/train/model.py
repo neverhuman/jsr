@@ -69,11 +69,18 @@ class CausalStem(nn.Module):
         f = ((n_mels - 3) // 2 + 1 - 3) // 2 + 1
         self.out = nn.Linear(channels * f, d_model)
 
+    int8_qat = False  # set by train.qat.apply_int8_stem
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, F). Pad 2 frames of past before each conv so output s sees inputs <= 2 s.
         x = x.unsqueeze(1)
         x = F.silu(self.c1(F.pad(x, (0, 0, 2, 0))))
-        x = F.silu(self.c2(F.pad(x, (0, 0, 2, 0))))
+        if self.int8_qat:
+            from train.qat import int8_conv2d_as_gemm
+
+            x = F.silu(int8_conv2d_as_gemm(F.pad(x, (0, 0, 2, 0)), self.c2))
+        else:
+            x = F.silu(self.c2(F.pad(x, (0, 0, 2, 0))))
         b, c, t, f = x.shape
         return self.out(x.permute(0, 2, 1, 3).reshape(b, t, c * f))
 

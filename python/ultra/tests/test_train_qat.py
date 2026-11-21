@@ -159,3 +159,77 @@ def test_t1_pack_matches_ultra_core_layout_and_export_round_trips(tmp_path_facto
     assert np.array_equal(unpack_t1(tr, lay["in"]), want.numpy().astype(np.int8))
     json.dumps(man)
     shutil.rmtree(d, ignore_errors=True)
+
+
+def test_int8_conv_as_gemm_close_to_conv_and_weights_int8():
+    from train.qat import int8_conv2d_as_gemm, int8_weight_ste
+
+    torch.manual_seed(3)
+    conv = torch.nn.Conv2d(8, 8, 3, stride=2)
+    x = torch.randn(2, 8, 11, 19)
+    ref = conv(x)
+    got = int8_conv2d_as_gemm(x, conv)
+    assert got.shape == ref.shape
+    assert float((got - ref).abs().max()) < 0.05 * float(ref.abs().max())
+    w = int8_weight_ste(conv.weight).reshape(8, -1)
+    s = conv.weight.reshape(8, -1).abs().amax(1, keepdim=True) / 127
+    codes = w / s
+    assert torch.allclose(codes, codes.round(), atol=1e-4) and codes.abs().max() <= 127 + 1e-4
+
+
+def test_int8_stem_model_is_causal_and_streams_like_batch():
+    from train.model import EncoderConfig as EC
+    from train.infer import StreamingRecognizer, run_streaming
+
+    torch.manual_seed(4)
+    enc = EC(d_model=32, n_heads=2, stem_channels=8, conv_kernel=5, chunk=4, left_context=8,
+             dropout=0.0, post_block_norm=False, family="multirate", lower_blocks=1,
+             middle_blocks=1, final_blocks=1)
+    m = ASRModel(ModelConfig(encoder=enc, vocab_rnnt=11, vocab_ctc=7, pred_emb=8, joiner=16,
+                             qat_stem="int8")).eval()
+    assert m.encoder.stem.int8_qat
+    x = torch.randn(1, 120, 80)
+    with torch.no_grad():
+        base, lens = m.encode(x, torch.tensor([120]))
+        y = x.clone()
+        y[:, 4 * 8:] += 3.0
+        pert, _ = m.encode(y, torch.tensor([120]))
+    assert torch.equal(pert[:, :8], base[:, :8])
+
+    class Tok:
+        def encode(self, t):
+            return [1]
+
+        def decode(self, ids):
+            return " ".join(map(str, ids))
+
+    class U:
+        def __init__(self, i):
+            self.uid, self.text = f"u{i}", "x"
+            self.pcm = (np.random.default_rng(i).standard_normal(5000 + 2000 * i) * 3000).astype(np.int16)
+
+    rec = StreamingRecognizer(m, Tok(), threads=1)
+    rec.keep_states = True
+    made = []
+    orig = rec.create_stream
+    rec.create_stream = lambda: made.append(orig()) or made[-1]
+    utts = [U(i) for i in range(3)]
+    run_streaming(rec, utts, 2, 30)
+    from train.data import Featurizer, collate
+    for u, s in zip(utts, made):
+        b = collate([Featurizer(Tok(), Tok()).example(u.uid, u.text, u.pcm)])
+        with torch.no_grad():
+            e, l = m.encode(b.feats, b.feat_lens)
+        assert torch.allclose(torch.cat(s.states, 0), e[0, :int(l[0])], atol=1e-4)
+
+
+def test_speed_perturb_lengths_and_determinism():
+    from train.data import ParquetBatches
+
+    pb = ParquetBatches.__new__(ParquetBatches)
+    pb.seed, pb.speed_perturb = 7, (0.9, 1.0, 1.1)
+    pcm = (np.random.default_rng(0).standard_normal(16000) * 1000).astype(np.int16)
+    lens = {len(pb._perturb(pcm, f"u{i}", 0)) for i in range(40)}
+    assert lens == {round(16000 / 0.9), 16000, round(16000 / 1.1)} or \
+        all(abs(n - t) <= 1 for n, t in zip(sorted(lens), sorted([16000 / 1.1, 16000, 16000 / 0.9])))
+    assert np.array_equal(pb._perturb(pcm, "u3", 2), pb._perturb(pcm, "u3", 2))

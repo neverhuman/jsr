@@ -28,6 +28,7 @@ class ModelConfig:
     joiner_act: str = "tanh"
     ctc_weight: float = 0.3
     qat: str = "none"  # "ternary": train.qat ternary weights + per-row int8 inputs
+    qat_stem: str = "none"  # "int8": stem conv 2 + projection trained as the engine's int8 GEMMs
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -49,6 +50,10 @@ PRESETS = {
     "S_MR_T": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
                                                 lower_blocks=4, middle_blocks=10, final_blocks=2),
                           qat="ternary"),
+    # D3MR: S_MR with the stem trained as int8 (engine-lane: post-training int8 stem fails).
+    "S_MR_I8S": ModelConfig(encoder=EncoderConfig(post_block_norm=False, family="multirate",
+                                                  lower_blocks=4, middle_blocks=10,
+                                                  final_blocks=2), qat_stem="int8"),
     # The configuration of the first D1 attempt (collapsed); kept loadable.
     "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.
@@ -103,6 +108,12 @@ class ASRModel(nn.Module):
             self.ternary_layers = apply_ternary(self)
         elif cfg.qat != "none":
             raise ValueError(f"unknown qat mode {cfg.qat}")
+        if cfg.qat_stem == "int8":
+            from train.qat import apply_int8_stem
+
+            self.int8_stem_layers = apply_int8_stem(self)
+        elif cfg.qat_stem != "none":
+            raise ValueError(f"unknown qat_stem mode {cfg.qat_stem}")
 
     def encode(self, feats, feat_lens, chunk=None):
         return self.encoder(self.cmvn(feats), feat_lens, chunk)

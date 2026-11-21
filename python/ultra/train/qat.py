@@ -90,3 +90,49 @@ def apply_ternary(model: nn.Module) -> list[str]:
     for n in names:
         mods[n].__class__ = TernaryLinear
     return names
+
+
+def int8_weight_ste(w: torch.Tensor) -> torch.Tensor:
+    """Per-output-channel symmetric int8 weight round trip (ultra-engine quant.rs:
+    s_w[n] = max_k |w[n][k]| / 127, w_q = round(w / s_w)), straight-through."""
+    wf = w.float()
+    flat = wf.reshape(wf.shape[0], -1)
+    s = (flat.abs().amax(dim=1, keepdim=True) / QMAX).clamp(min=EPS)
+    wq = (torch.clamp(torch.round(flat / s), -QMAX, QMAX) * s).reshape(wf.shape)
+    return w + (wq - w).detach()
+
+
+class Int8Linear(nn.Linear):
+    """nn.Linear trained as the engine's int8 GEMM: int8 per-channel weights, per-row centred
+    int8 inputs (both straight-through). Same state-dict keys as nn.Linear."""
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            b = None if self.bias is None else self.bias.float()
+            return F.linear(fake_quant_rows(x), int8_weight_ste(self.weight).float(), b)
+
+
+def int8_conv2d_as_gemm(x: torch.Tensor, conv: nn.Conv2d) -> torch.Tensor:
+    """A 2-D convolution computed the way the engine runs stem layer 2: im2col rows (one per
+    output position, K = c_in * kh * kw), each row quantised per-row centred int8, times int8
+    per-output-channel weights. Order of K inside a row does not change its quantisation."""
+    with torch.autocast(device_type=x.device.type, enabled=False):
+        xf = x.float()
+        b, _, h, w = xf.shape
+        kh, kw = conv.kernel_size
+        sh, sw = conv.stride
+        cols = F.unfold(xf, (kh, kw), stride=(sh, sw))  # (B, C*kh*kw, L)
+        rows = fake_quant_rows(cols.transpose(1, 2))  # (B, L, K)
+        wq = int8_weight_ste(conv.weight).float().reshape(conv.out_channels, -1)
+        y = rows @ wq.t() + conv.bias.float()
+        ho, wo = (h - kh) // sh + 1, (w - kw) // sw + 1
+        return y.transpose(1, 2).reshape(b, conv.out_channels, ho, wo)
+
+
+def apply_int8_stem(model: nn.Module) -> list[str]:
+    """Train the stem's second convolution and its output projection as the engine's int8 path
+    (layer 1, a 1-channel 3x3 conv, stays fp32 as in the engine)."""
+    stem = model.encoder.stem
+    stem.int8_qat = True
+    stem.out.__class__ = Int8Linear
+    return ["encoder.stem.c2", "encoder.stem.out"]
