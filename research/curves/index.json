@@ -1,0 +1,166 @@
+{
+  "D1MR_S_MR_tc100": {
+    "source_sha256": "87a24a426c734c8225684f771a5a032be0d8e00bacc96d192c26a334cd15dba5",
+    "init_from": null,
+    "params": 59248834,
+    "last_step": 40000,
+    "last_epoch": 29,
+    "audio_h_seen": 2963.3,
+    "n_eval": 51,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 17.153,
+        "step": 38000,
+        "epoch": 28
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D1MR_S_MR_tc100/train.jsonl"
+  },
+  "D1d_S_preln_lr1e-3_b300_sa4k": {
+    "source_sha256": "347ecd07e69f6b40c665bc1b0afa489cefb3b941c90333083200cdc1afc0e533",
+    "init_from": null,
+    "params": 58657858,
+    "last_step": 7800,
+    "last_epoch": 5,
+    "audio_h_seen": 577.8,
+    "n_eval": 9,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 29.812,
+        "step": 7800,
+        "epoch": null
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D1d_S_preln_lr1e-3_b300_sa4k/train.jsonl"
+  },
+  "D2MR_S_MR_960h": {
+    "source_sha256": "9205db35509923907f8f79be6496c5b2092607afbf70337a8e7c4bfba29ffe05",
+    "init_from": "/home/ubuntu/jsr-data/runs/train/init_D1MR/ckpt-00002182.pt",
+    "params": 59248834,
+    "last_step": 50000,
+    "last_epoch": 5,
+    "audio_h_seen": 4845.0,
+    "n_eval": 17,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 11.071,
+        "step": 49488,
+        "epoch": 5
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/train.jsonl"
+  },
+  "D2_S_960h": {
+    "source_sha256": "9829104027503bc328e8e74548cc6e6af104c8276dd7f3f1da020bbb1ad898f2",
+    "init_from": "/mnt/xbabe3-external/jsr/runs/train/D1d_S_preln_lr1e-3_b300_sa4k/ckpt-00007800.pt",
+    "params": 58657858,
+    "last_step": 57050,
+    "last_epoch": 8,
+    "audio_h_seen": 7992.3,
+    "n_eval": 19,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 7.828,
+        "step": 55000,
+        "epoch": 8
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h/train.jsonl"
+  },
+  "D3MR_S_MR_I8S_960h": {
+    "source_sha256": "da28f1acb34416c39bfe639629bedc88a6344837bfcacd4b5bb85f9d9a30a62e",
+    "init_from": "/mnt/amphora-backup/jsr-data/runs/train/D1MR_S_MR_tc100/ckpt-00040000.pt",
+    "params": 59248834,
+    "last_step": 10550,
+    "last_epoch": 1,
+    "audio_h_seen": 1018.7,
+    "n_eval": 4,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 21.19,
+        "step": 5000,
+        "epoch": 0
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D3MR_S_MR_I8S_960h/train.jsonl"
+  },
+  "D3MRb_S_MR_I8S_960h": {
+    "source_sha256": "d7fee32cfd298fa63d13db5d8a1864c007173a60c735857179e8483c2f8c25ff",
+    "init_from": "/mnt/amphora-backup/jsr-data/runs/train/D1MR_S_MR_tc100/ckpt-00040000.pt",
+    "params": 59248834,
+    "last_step": 28500,
+    "last_epoch": 2,
+    "audio_h_seen": 2752.9,
+    "n_eval": 7,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 15.004,
+        "step": 20008,
+        "epoch": 2
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D3MRb_S_MR_I8S_960h/train.jsonl"
+  },
+  "D3MRc_S_MR_I8S_960h": {
+    "source_sha256": "53f0eebe70cd4cafb3af5c7016d8e8d3f7568344c8ef21d5477c3c0cfc92f17b",
+    "init_from": "/mnt/amphora-backup/jsr-data/runs/train/D1MR_S_MR_tc100/ckpt-00040000.pt",
+    "params": 59248834,
+    "last_step": 4750,
+    "last_epoch": 0,
+    "audio_h_seen": 458.7,
+    "n_eval": 0,
+    "best_eval": {},
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D3MRc_S_MR_I8S_960h/train.jsonl"
+  },
+  "D4M_M_MR_960h": {
+    "source_sha256": "35a2ca3c70a483e1e376b6cf021835cbf7a599fcc8c48def7b8005c58dd93277",
+    "init_from": null,
+    "params": 102485058,
+    "last_step": 6950,
+    "last_epoch": 0,
+    "audio_h_seen": 476.6,
+    "n_eval": 3,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 52.423,
+        "step": 5200,
+        "epoch": null
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/D4M_M_MR_960h/train.jsonl"
+  },
+  "R4T960_S_MR_T_960h": {
+    "source_sha256": "ebf22bb3a9adc9c41fe794dd8bf4dcae5c8086e7e81ebe5a4cc9d3f1aa9457ad",
+    "init_from": "/home/ubuntu/jsr-data/runs/train/D2MR_S_MR_960h/ckpt-00050000.pt",
+    "params": 59248834,
+    "last_step": 3000,
+    "last_epoch": 0,
+    "audio_h_seen": 290.2,
+    "n_eval": 1,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 17.127,
+        "step": 2500,
+        "epoch": 0
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/R4T960_S_MR_T_960h/train.jsonl"
+  },
+  "R4T_S_MR_T_tc100": {
+    "source_sha256": "4915bd732b24923962a6b2adc414727070db0cdc9dc940e04b644dbe44a5c43a",
+    "init_from": "/mnt/amphora-backup/jsr-data/runs/train/D1MR_S_MR_tc100/ckpt-00040000.pt",
+    "params": 59248834,
+    "last_step": 12000,
+    "last_epoch": 8,
+    "audio_h_seen": 889.3,
+    "n_eval": 21,
+    "best_eval": {
+      "dev-clean": {
+        "wer": 18.039,
+        "step": 12000,
+        "epoch": 8
+      }
+    },
+    "source": "/mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100/train.jsonl"
+  }
+}

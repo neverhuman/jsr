@@ -1,0 +1,2 @@
+step,split,epoch,wer,sub,del,ins,ref_words,forced_advances,time
+2500,dev-clean,0,17.127,923,273,119,7678,0,1795302168.8682575
