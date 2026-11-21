@@ -80,24 +80,25 @@ fn main() {
                 .iter()
                 .map(|l| (0..copies).map(|_| l.p.clone()).collect())
                 .collect();
+            // Visit order: every block copy, the block's layers in model order.
+            let order: Vec<(usize, &PackedI8)> = (0..copies)
+                .flat_map(|c| block.iter().map(move |&i| (i, c)))
+                .map(|(i, c)| (i, &streams[i][c]))
+                .collect();
             let mut best = [f64::MAX; 3];
             for _rep in 0..3 {
                 for (kind, slot) in best.iter_mut().enumerate() {
                     let t = Instant::now();
                     for _ in 0..reps {
-                        for c in 0..copies {
-                            for &i in &block {
-                                let l = &layers[i];
-                                let (a, a7, u, sa, ca) = &inputs[i];
-                                let p = &streams[i][c];
-                                let mut out = vec![0.0f32; rows * p.n()];
-                                match kind {
-                                    0 => gemm_i8(isa, p, a, sa, ca, rows, &mut out),
-                                    1 => gemm_i8_a7(isa, p, a7, sa, ca, rows, &mut out),
-                                    _ => gemm_i8_u7(isa, p, &l.cs, u, sa, ca, rows, &mut out),
-                                }
-                                std::hint::black_box(&out);
+                        for &(i, p) in &order {
+                            let (a, a7, u, sa, ca) = &inputs[i];
+                            let mut out = vec![0.0f32; rows * p.n()];
+                            match kind {
+                                0 => gemm_i8(isa, p, a, sa, ca, rows, &mut out),
+                                1 => gemm_i8_a7(isa, p, a7, sa, ca, rows, &mut out),
+                                _ => gemm_i8_u7(isa, p, &layers[i].cs, u, sa, ca, rows, &mut out),
                             }
+                            std::hint::black_box(&out);
                         }
                     }
                     *slot = slot.min(t.elapsed().as_secs_f64() * 1e12 / (reps * macs) as f64);
