@@ -1,76 +1,57 @@
-# STATUS (updated 2026-11-21 ~09:05Z)
+# STATUS (updated 2026-11-21 ~22:00Z)
 
-- **Qualified rung:** none yet. No qualifying (BENCH_LEASE.host) window has run, so every number below is **exploratory**. The host is shared, and a same-day A/A CPU replay varied by +25%.
-- **Plan:** `docs/ultra/BENCH_PLAN_v1.md` (ULTRA-Bench v1). The engine plan is in `docs/ultra/ENGINE_PLAN.md`.
+- **Qualified rung:** none yet. **Every number is exploratory.**
+- **Controlling docs:** `docs/ultra/PLAN_TO_V1.md` (gates G1–G9), `docs/ultra/FREEZE.md` (rev 3, not yet tagged).
+- **Research history:** `research/H1…H11` (next: H12).
 
-## What is on main (7ae39f0)
-- **Contracts, eval and kernels:**
-  - ultra-core events and receipts;
-  - ultra-eval: WER, CQ, FC, bootstrap, `ultra-measure` with a pinned disjoint observer;
-  - ultra-kernels: AVX2 int8, T1, T-LUT2 including a signed path.
-- **Runtime (runtime-lane):**
-  - sherpa R0, and the ORT R1 backend (experimental; FP32 parity 400/400);
-  - `ultra bench-suite`: C4 slices, silence probe, MFA latency joined after inference, cost_scope, job manifests;
-  - a Nemotron adapter;
-  - the ultra-engine backend integration (E4).
-- **ultra-engine (engine-lane), pure Rust:**
-  - **Precision:** FP32, and int8 with centred per-row activations (batch-invariant, +0.000 WER) from a prepared-int8 artifact (RSS 259 MiB).
-  - **Models:** dense S and multirate S_MR; ternary R4 layers (T-LUT2 on x86).
-  - **Architectures:** AVX2 and aarch64 NEON (sdot/i8mm). The engine is bit-identical across ISAs.
-  - **Guards:** output-continuity tests.
-- **Bridge (codex):** M1/M2 whole-service measurement, with ORT and fused-engine adapters (FP32 and prepared INT8).
+## Accuracy (dev-clean400 unless noted; greedy streaming)
+
+| Run | Host | Best so far | State |
+|---|---|---|---|
+| **D2** dense S, 960 h | xbabe3 3090 | **8.52%** @50k, epoch 7 (dev-other 19.60%) | training to 102k, ETA about 11-23 morning |
+| D2MR S_MR, 960 h | xbabe2 3090 | **11.07%** @49.5k, epoch 5 | finishing at 50k; then the final eval and selection (B2) |
+| D3MRb S_MR + int8 stem + speed perturbation | xbabe1 | 15.0% @20k | stopped by the divergence guard (qkv runaway); cap fix in 4d4fc03; ablations A/B running; then D3MRc |
+| D4M M_MR (d 512), from scratch | xbabe4 M3 (MPS) | early | v1.1 candidate, about 3.5 days under the guard |
+| R4T ternary, 100 h | — | 17.98% (engine) | done (H8) |
+
+Reference: R0 Zipformer 2.85%, Nemotron 0.6B 2.16% on DEV400. **The R1 accuracy gap remains.**
+
+## Speed (whole service, same build and session, H0 Zen 2; CPU-s per audio-s)
+- **Engine INT8 R1: 0.041**, against R0 0.078 and ORT FP32 0.175. Nemotron is 0.472 (different scope).
+- **Single stream INT8:** Zen 2 0.040; M3 Ultra 0.0132 (S) and 0.0105 (S_MR).
+- **Density:** not claimed. It must come from the single-harness qualifying run (FREEZE §4.4).
+
+## On main (5174e6c / 1b1b615)
+- **ultra-engine:**
+  - FP32 and per-row INT8, S/S_MR/ternary/int8-stem;
+  - AVX2 and NEON, bit-identical across ISAs, including PCM→tokens, via G4 portable log-mel (7300/7300);
+  - panel, recorded identities, `--qualifying`, bootstrap INT8 gate (exit codes), sealed test reads.
+- **bench-suite:** single harness (unified A1, 320 ms / 2-chunk grid, ladder, panel, `--qualified` preflight, placement, sustained series, LOOKS ledger, ABAB runner).
 - **Trainer:**
-  - dense, S_MR and S_MR_T (ternary QAT);
-  - a batch-invariant static-INT8 ORT export (v1.1);
-  - `export_ternary`.
+  - S/S_MR/S_MR_T/S_MR_I8S/M_MR;
+  - MPS;
+  - divergence guard and qkv cap;
+  - panel eval with test splits refused;
+  - ops scripts under `train/ops/`.
+- **Independent reviews:**
+  - pass 1 (7 blocking);
+  - pass 2;
+  - pass 3: 13 resolved / 6 partial / 1 deferred, plus N9–N12.
 
-## Measured (exploratory)
-Same build 6df5c8f, DEV400 dev-clean, whole service, observer separated:
+## Open before `bench-freeze-v1`
+1. **runtime-lane, pass-3 items:**
+   - N9 same-L3 check;
+   - `--qualified` forces the frozen ladder;
+   - N10 ABAB (8 blocks, paired t-test);
+   - B4 loaded-artifact pins;
+   - S6 suite guards;
+   - N11.
+2. **G1:** finalists selected on the 730-utterance panel: D2 (dense, about 11-23) and S_MR (D2MR-final vs D3MRb@20k vs D3MRc).
+3. **G2:** engine prepared-INT8 gates for the finalists.
+4. **Lead:** CANDIDATES.lock pins for the finalists, full hashes, the final FREEZE text, then the tag.
+5. **G6, a quiet x86 host:** **owner decision needed.** H0, xbabe0 and xbabe2 all carry other projects' unpinned jobs.
 
-| System | WER | CPU-s/s | RSS |
-|---|---:|---:|---:|
-| R0 Zipformer int8 | 2.85% | 0.078 | 239 MB |
-| R1 D2-s5000 ORT FP32 | 21.88% | 0.175 | 776 MB |
-| R1 D2-s5000 engine FP32 | 21.88% | 0.104 | 478 MB |
-| **R1 D2-s5000 engine INT8** | **21.80%** | **0.041** | 647 MB (now 259 MB prepared) |
-
-**Engine density** (A1 rule, p99 ≤ 800 ms, int8):
-
-| Host | Dense S | D1MR (S_MR) |
-|---|---|---|
-| Zen 2, per 4-core CCX | 96 streams | **136 streams** |
-| M3 Ultra (xbabe4) | 64 per core | **84 per core**; 504 on 6 workers |
-
-**Retracted pending the single-harness rerun (independent review 2026-11-21):** the engine density figures above come from `engine_density` with 4 workers per CCX, while R0's 192 came from the Python harness with 1 worker per CCX, and the ORT figure came from bench-suite. These are not comparable. Valid comparisons will come only from bench-suite on equal hardware (FREEZE §3).
-
-**Single-stream int8:**
-
-| Host | Dense | S_MR |
-|---|---:|---:|
-| Zen 2 | 0.039–0.043 | — |
-| M3 Ultra | 0.0131 | 0.0104 |
-
-## Training (dev-clean 400 unless noted)
-
-| Run | Data | Latest result |
-|---|---|---|
-| D2 dense | 960 h, xbabe3 | 21.9% @5k → 17.3% @10k → **13.9% @20k** (dev-other 27.1%); training continues under guard |
-| D2MR multirate | 960 h, xbabe2 | 34.2% @5k → 26.9% @10k → **20.4% @15k** |
-| D1MR multirate | 100 h, DONE @40k | **18.0% full dev-clean** / 36.5% dev-other (dense 100 h was 29.8%) |
-| R4T ternary QAT | from D1MR, xbabe1 | 22.8% @1k → **18.6% @9k** vs FP32 17.4% (gap 1.2); finishes at 12k, then export plus engine gate |
-
-## Next
-1. **R4T:** finish → export → engine ternary gate (engine WER within +0.10 of the torch ternary eval) → ternary speed on Zen 2 and M3.
-2. **D2 / D2MR:** converge → DEV selection → INT8 prepared → engine rows.
-3. **runtime-lane:**
-   - a same-harness ORT density row;
-   - a platform-deterministic log-mel (cross-ISA PCM → tokens);
-   - E4 follow-ups.
-4. **Freeze:** FREEZE.md, the speaker-stratified panel, and the qualifying window (quiet host, observer pinned, A/B blocks).
-
-## Blockers / owner decisions
-- GPUs are shared with other projects; we yield under the 90% cap.
-- Open owner items:
-  - the MFA 20-utterance listening check;
-  - the TED-LIUM 3 rights;
-  - data expansion beyond LibriSpeech (needed for the accuracy gap to R0).
+## Risks
+- Shared hosts: A/A replays vary by up to +25%.
+- H0's root disk ran out once and now has about 11 GB free. Other projects write there.
+- The ultra-bridge fused_native tests time out under heavy host load.

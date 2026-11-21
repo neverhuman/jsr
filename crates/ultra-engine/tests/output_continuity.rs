@@ -44,13 +44,8 @@ fn run(engine: &Engine, pcm: &[i16]) -> (Vec<u32>, String) {
 
 #[test]
 fn fp32_and_int8_outputs_match_the_stored_fixture() {
-    // From PCM, so this includes ultra-frontend's log-mel, whose x86 (AVX2 kernels, glibc)
-    // and aarch64 (scalar, Apple libm) features differ in the last bits; the engine itself is
-    // checked across ISAs by `encoder_outputs_from_reference_features_match_the_fixture`.
-    if !cfg!(target_arch = "x86_64") {
-        eprintln!("SKIPPED: PCM fixture recorded with the x86 frontend");
-        return;
-    }
+    // From PCM, including ultra-frontend's deterministic cross-ISA portable log-mel (G4):
+    // x86_64 AVX2 and aarch64 NEON produce bit-identical features, encoder projections, and tokens.
     let (w, npz) = (common::weights_dir(), common::dev_clean_npz());
     if !common::have(&[&w, &npz]) {
         return;

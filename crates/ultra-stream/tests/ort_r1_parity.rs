@@ -5,6 +5,7 @@
 //! - Full 400-utterance `dev-clean` `fp32` & `int8` parity + single-core/batched release speed
 //!   benchmark (`--ignored`, retaining per-utterance token IDs and every mismatch record for E1 review).
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,7 +15,8 @@ use std::time::Instant;
 use ultra_core::events::{Ledger, TranscriptEvent};
 use ultra_eval::normalise::normalise_words;
 use ultra_eval::wer::align;
-use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
+use ultra_frontend::npz::{load_npz_audio_only, load_npz_references, AudioUtterance};
+use ultra_frontend::{TrainerLogMel, TrainerMelConfig};
 use ultra_gp::R1Precision;
 use ultra_stream::{
     run_r1_packet_streaming_with_tokens, AsrStream, Backend, OrtTransducerBackend, OutputPolicy,
@@ -63,13 +65,32 @@ fn run_python_bundle_hyps_and_tokens(
     bundle_dir: &Path,
     npz_path: &Path,
     precision: R1Precision,
-    limit: usize,
+    utts: &[AudioUtterance],
+    mel_cfg: &Arc<TrainerMelConfig>,
 ) -> PyBundleRun {
+    let limit = utts.len();
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
         .expect("workspace root");
     let py_bin = Path::new("/home/ubuntu/jsr/.venv/bin/python");
+    // G4 Option (a): feed Python's BundleRecognizer the exact same portable log-mel features that
+    // Rust computes (like-for-like ORT/decoder parity; frontend parity vs torch is tested in B2).
+    let mut feat_file = tempfile::NamedTempFile::new().expect("temp portable feats");
+    let mut counts = Vec::with_capacity(limit);
+    for u in utts {
+        let frames = TrainerLogMel::new(Arc::clone(mel_cfg)).push_i16(&u.pcm);
+        counts.push(frames.len().to_string());
+        for fr in &frames {
+            for &v in fr {
+                feat_file
+                    .write_all(&v.to_le_bytes())
+                    .expect("write portable feat");
+            }
+        }
+    }
+    feat_file.flush().expect("flush portable feats");
+    let counts_csv = counts.join(",");
     let script = r#"
 import json, resource, sys
 import numpy as np
@@ -77,6 +98,14 @@ import train.bundle_infer as bi
 from train.infer import run_streaming
 
 bundle, npz_p, prec, lim = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+feat_path, counts_csv = sys.argv[5], sys.argv[6]
+counts = [int(x) for x in counts_csv.split(",") if x]
+flat = np.fromfile(feat_path, dtype="<f4").reshape(-1, 80)
+port_feats, off = [], 0
+for c in counts:
+    port_feats.append(flat[off:off+c])
+    off += c
+
 with open(f"{bundle}/manifest.json") as fh:
     hdr = json.load(fh)
 if hasattr(bi, "SCHEMA") and hdr.get("schema") in ("ultra.r1-export/v1", "ultra.r1-export/v1.1"):
@@ -96,9 +125,21 @@ created = []
 orig_create = rec.create_stream
 def tracked_create():
     s = orig_create()
+    s._pf = port_feats[len(created)]
     created.append(s)
     return s
 rec.create_stream = tracked_create
+def portable_featurize(s):
+    avail = s.sample_base + len(s.samples)
+    n_new = 0 if avail < rec.win else 1 + (avail - rec.win) // rec.hop - s.n_feat
+    if n_new <= 0:
+        return
+    s.feats = np.concatenate([s.feats, s._pf[s.n_feat:s.n_feat + n_new]])
+    s.n_feat += n_new
+    drop = s.n_feat * rec.hop - s.sample_base
+    s.samples = s.samples[drop:]
+    s.sample_base += drop
+rec._featurize = portable_featurize
 
 z = np.load(npz_p, allow_pickle=False)
 pcm_all, offsets = z["pcm"], z["offsets"]
@@ -120,6 +161,8 @@ print(json.dumps({"hyps": hyps, "tokens": toks, "forced": rec.forced_advances, "
         .arg(npz_path)
         .arg(precision.as_str())
         .arg(limit.to_string())
+        .arg(feat_file.path())
+        .arg(&counts_csv)
         .output()
         .expect("spawn python bundle_infer");
     assert!(
@@ -286,7 +329,13 @@ fn ort_r1_stream_coordinator_subchunk_watermark_and_16_utt_parity() {
             OrtTransducerBackend::load(&bundle_dir, R1Precision::Fp32, 1, false)
                 .expect("load OrtTransducerBackend fp32")
         };
-        let py = run_python_bundle_hyps_and_tokens(&bundle_dir, &npz_path, prec, 16);
+        let py = run_python_bundle_hyps_and_tokens(
+            &bundle_dir,
+            &npz_path,
+            prec,
+            &utts,
+            &eng.bundle.mel_cfg,
+        );
         let (py_hyps, py_toks, py_forced) = (py.hyps, py.tokens, py.forced);
         let rust =
             run_r1_packet_streaming_with_tokens(&eng, &utts, 16, 20).expect("rust r1 streaming");
@@ -371,7 +420,13 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
         }
         let engine =
             OrtTransducerBackend::load(&bundle_dir, prec, 1, true).expect("load R1 engine");
-        let py = run_python_bundle_hyps_and_tokens(&bundle_dir, &npz_path, prec, 400);
+        let py = run_python_bundle_hyps_and_tokens(
+            &bundle_dir,
+            &npz_path,
+            prec,
+            &utts,
+            &engine.bundle.mel_cfg,
+        );
         let (py_hyps, py_toks, py_forced, py_cpu_s) = (py.hyps, py.tokens, py.forced, py.cpu_s);
 
         let ru0 = nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF)

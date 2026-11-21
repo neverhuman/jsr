@@ -43,3 +43,6 @@
 
 ## 2026-11-21 — lead: R1-MR enters the main freeze (deviation from BENCH_PLAN §0a)
 BENCH_PLAN §0a held R1-MR to an add-on block after the D2 window. R1-MR (S_MR) is now the density design, and it has 960 h checkpoints (D2MR, D3MRb) finishing before the window. It is in the main freeze, labelled, with the same gates. The independent review (2026-11-21-independent-freeze-review.md B7) flagged the inconsistency, and this records it. The 5% CPU rerun tolerance and the two 1 h runs from §0a are restored in FREEZE §4.
+
+## 2026-11-21 — owner: the qualifying host is xbabe2 (deviation from H0)
+No Zen 2 host was quiet: H0, xbabe0 and xbabe2 all carry other projects' unpinned jobs. The owner chose **xbabe2** (same SKU: TR PRO 3995WX) as the qualifying host. The owner pauses the other projects' jobs there for the window, and JSR pauses its own xbabe2 GPU job (R4T-960 or any successor) during the window as well. Rows from that window carry host=xbabe2. HARDWARE.json gets an xbabe2 entry, verified from the window's own host snapshot.

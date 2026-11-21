@@ -13,6 +13,9 @@
 //! carry split and speaker for the cluster bootstrap). `--qualifying` refuses runtime weight
 //! quantisation (int8 needs a prepared directory) and requires a panel. Every knob is a
 //! flag recorded in the output; `ULTRA_ENGINE_*` environment variables are refused.
+//! `test-*` (PUBLIC-TEST) splits are refused unless `--sealed-read <look-id>` is passed and the
+//! `bench-freeze-v1` tag is an ancestor of the (clean) build commit; the read is appended to
+//! `docs/ultra/LOOKS.jsonl` first (`ultra_engine::sealed`; `--repo`, `--looks` override).
 //! Writes `<out>/engine_eval.json` (summary + per-utterance rows). CPU time is this thread's
 //! scheduler run time (`/proc/thread-self/schedstat`); all speed numbers are exploratory.
 
@@ -24,7 +27,7 @@ use std::time::Instant;
 use serde_json::json;
 use ultra_engine::panel::Panel;
 use ultra_engine::workload::Workload;
-use ultra_engine::{run_info, Engine, EngineStream, Isa, Model, Precision, Workspace};
+use ultra_engine::{run_info, sealed, Engine, EngineStream, Isa, Model, Precision, Workspace};
 #[cfg(feature = "wer")]
 use ultra_eval::{normalise::normalise_words, wer::align};
 
@@ -56,6 +59,9 @@ struct Args {
     qualifying: bool,
     int8_fp32_kinds: Vec<String>,
     int8_stem_kinds: Vec<String>,
+    sealed_read: Option<String>,
+    repo: Option<PathBuf>,
+    looks: Option<PathBuf>,
     out: PathBuf,
     reference: Option<PathBuf>,
     limit: usize,
@@ -82,6 +88,9 @@ fn parse() -> Result<Args, String> {
         qualifying: false,
         int8_fp32_kinds: Vec::new(),
         int8_stem_kinds: Vec::new(),
+        sealed_read: None,
+        repo: None,
+        looks: None,
         out: PathBuf::new(),
         reference: None,
         limit: 400,
@@ -106,6 +115,9 @@ fn parse() -> Result<Args, String> {
             "--panel" => a.panel = Some(v()?.into()),
             "--cache-dir" => a.cache_dir = v()?.into(),
             "--qualifying" => a.qualifying = true,
+            "--sealed-read" => a.sealed_read = Some(v()?),
+            "--repo" => a.repo = Some(v()?.into()),
+            "--looks" => a.looks = Some(v()?.into()),
             "--int8-fp32-kinds" => a.int8_fp32_kinds = kinds(&v()?),
             "--int8-stem-kinds" => {
                 a.int8_stem_kinds = kinds(&v()?);
@@ -188,6 +200,15 @@ fn kinds(v: &str) -> Vec<String> {
         .collect()
 }
 
+/// Repository for the freeze-tag check: `--repo` when given, otherwise the checkout the
+/// binary was built from.
+fn freeze_repo(a: &Args) -> Option<PathBuf> {
+    match &a.repo {
+        Some(r) => Some(r.clone()),
+        None => sealed::repo_root(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))),
+    }
+}
+
 fn run(a: &Args) -> Result<serde_json::Value, String> {
     if a.out.join("engine_eval.json").exists() {
         return Err(format!(
@@ -228,8 +249,51 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .with_max_chunks(a.max_chunks)
         .with_act7(a.act7)
         .with_gemm_threads(a.gemm_threads);
-    let wl = match &a.panel {
-        Some(p) => Workload::panel(&Panel::read(p)?, &a.cache_dir)?,
+    // Sealed PUBLIC-TEST guard (test-* splits), decided and logged before any audio is read.
+    let panel = a.panel.as_ref().map(|p| Panel::read(p)).transpose()?;
+    let splits: Vec<String> = match &panel {
+        Some(p) => p.splits.iter().map(|s| s.split.clone()).collect(),
+        None => vec![a
+            .npz
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default()],
+    };
+    let repo = freeze_repo(a);
+    let looks_read = match &repo {
+        Some(repo) => {
+            let looks = match &a.looks {
+                Some(l) => l.clone(),
+                None => repo.join("docs/ultra/LOOKS.jsonl"),
+            };
+            let candidate = format!(
+                "{}+{}",
+                engine.model.arch.checkpoint_sha256,
+                engine
+                    .model
+                    .int8_prepared
+                    .as_ref()
+                    .map_or("fp32", |p| p.sha256.as_str())
+            );
+            sealed::guard(
+                &splits,
+                &sealed::SealedRead {
+                    repo,
+                    looks: &looks,
+                    look_id: a.sealed_read.as_deref(),
+                    candidate: &candidate,
+                    build_commit: run_info::GIT_COMMIT,
+                    build_dirty: run_info::GIT_DIRTY,
+                },
+            )?
+        }
+        None if splits.iter().any(|s| sealed::is_public_test(s)) => {
+            return Err("PUBLIC-TEST split: no git repository to check the freeze tag".into())
+        }
+        None => Vec::new(),
+    };
+    let wl = match &panel {
+        Some(p) => Workload::panel(p, &a.cache_dir)?,
         None => Workload::first(&a.npz, a.limit)?,
     };
     let utts = &wl.items;
@@ -371,6 +435,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
         "substitutions": subs, "deletions": dels, "insertions": ins,
         "peak_rss_mib": run_info::peak_rss_mib(),
+        "sealed_reads": looks_read,
     });
     if let (Some(m), Some(x)) = (summary.as_object_mut(), extra.as_object()) {
         m.extend(x.clone());
