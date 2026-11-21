@@ -20,6 +20,20 @@ impl Model {
         }
     }
 
+    /// Post-training int8 for layers of the given kinds that are still fp32 (e.g. the stem
+    /// of an R4 ternary model, kept fp32 by its training recipe). A NEW numerical candidate,
+    /// off by default; returns how many layers were quantised.
+    pub fn quantize_fp32_kinds_int8(&mut self, kinds: &[&str]) -> usize {
+        let mut n = 0;
+        for (kind, _, l) in self.linears_mut() {
+            if kinds.contains(&kind) && l.q.is_none() && l.has_fp32() {
+                l.q = Some(PackedI8::from_packed_f32(&l.f));
+                n += 1;
+            }
+        }
+        n
+    }
+
     /// Read-only view of the quantisable layers with kind and block, in `linears_mut` order.
     pub fn linears_named(&self) -> Vec<(&'static str, Option<usize>, &Linear)> {
         let mut v = vec![
