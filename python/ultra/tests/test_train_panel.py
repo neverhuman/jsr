@@ -75,16 +75,13 @@ def test_missing_uid_refused(cache):
         panel_utts(_panel(cache, uids=["dev-clean-u0", "dev-clean-zz"]))
 
 
-def test_real_panel_manifest_if_present():
-    import subprocess
-
-    try:
-        body = subprocess.run(["git", "-C", REPO, "show",
-                               "origin/main:docs/ultra/data/dev_selection_panel.json"],
-                              capture_output=True, text=True, check=True).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pytest.skip("panel not available")
-    spec = json.loads(body)
+def test_real_panel_manifest():
+    path = os.path.join(REPO, "docs", "ultra", "data", "dev_selection_panel.json")
+    assert os.path.isfile(path), f"selection panel missing: {path}"
+    with open(path) as fh:
+        spec = json.load(fh)
+    assert spec["schema"] == "ultra.dev-panel/v1"
+    assert {s["split"] for s in spec["splits"]} == {"dev-clean", "dev-other"}
     rest = {k: v for k, v in spec.items() if k != "manifest_sha256"}
     assert hashlib.sha256(json.dumps(rest, indent=1, sort_keys=True).encode()).hexdigest() == \
         spec["manifest_sha256"]

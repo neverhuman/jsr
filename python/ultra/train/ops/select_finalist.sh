@@ -10,11 +10,11 @@ REPO=/home/ubuntu/jsr/.agent/worktrees/trainer
 PANEL=$D/dev_selection_panel.json
 git -C /home/ubuntu/jsr fetch -q origin
 git -C /home/ubuntu/jsr show origin/main:docs/ultra/data/dev_selection_panel.json > $PANEL || { echo "panel not on origin/main"; exit 2; }
-cd $REPO/python/ultra
+cd "$REPO/python/ultra" || exit 1
 E="env CUDA_VISIBLE_DEVICES= PYTHONPATH=/mnt/xbabe3-external/jsr/venvs/torch270-cpu taskset -c 12-15,76-79 nice -n 10 $REPO/.venv/bin/python"
-snaps=$(ls $D/model-*.pt | sort | tail -5)
-$E -m train.average --out $D/avg-last5.pt $snaps
-$E -m train.average --out $D/avg-last3.pt $(echo $snaps | tr ' ' '\n' | tail -3)
+mapfile -t snaps < <(ls "$D"/model-*.pt | sort | tail -5)
+$E -m train.average --out "$D/avg-last5.pt" "${snaps[@]}"
+$E -m train.average --out "$D/avg-last3.pt" "${snaps[@]: -3}"
 OUT=$D/selection.jsonl
 tag() { python3 -c "import sys,json; r=json.loads(sys.stdin.read()); r.update(candidate='$1', panel='$2'); print(json.dumps(r))"; }
 for ck in $FINAL $D/avg-last3.pt $D/avg-last5.pt; do
@@ -24,4 +24,4 @@ for ck in $FINAL $D/avg-last3.pt $D/avg-last5.pt; do
   done
   $E -m train.evaluate --run-dir $D --checkpoint $ck --split dev-clean --limit 400 --threads 6 --dump $D/sel_first400_$n.jsonl 2>/dev/null | grep '^{' | tag $n first400 >> $OUT
 done
-echo SELECTION_DONE >> $D/selection.log
+echo "SELECTION_DONE $label" >> "$D/selection.log"

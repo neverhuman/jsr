@@ -5,7 +5,7 @@ D2=/mnt/xbabe3-external/jsr/runs/train/D2_S_960h
 REPO=/home/ubuntu/jsr/.agent/worktrees/trainer
 CHAT=/home/ubuntu/jsr/AGENT_CHAT.md
 OUT=$D2/dev_curve.jsonl
-cd "$REPO/python/ultra"
+cd "$REPO/python/ultra" || exit 1
 while kill -0 "$(cat $D2/PID)" 2>/dev/null || ls $D2/model-*.sha256 >/dev/null 2>&1; do
   for m in $(ls $D2/model-*.sha256 2>/dev/null | sort); do
     step=$((10#$(basename "$m" .sha256 | sed 's/model-//')))
@@ -13,7 +13,7 @@ while kill -0 "$(cat $D2/PID)" 2>/dev/null || ls $D2/model-*.sha256 >/dev/null 2
     grep -q "\"step\": $step," "$OUT" 2>/dev/null && continue
     line=""
     for split in dev-clean dev-other; do
-      r=$(CUDA_VISIBLE_DEVICES= PYTHONPATH=/mnt/xbabe3-external/jsr/venvs/torch270-cpu taskset -c 12-15 nice -n 10 \
+      r=$(CUDA_VISIBLE_DEVICES="" PYTHONPATH=/mnt/xbabe3-external/jsr/venvs/torch270-cpu taskset -c 12-15 nice -n 10 \
           "$REPO/.venv/bin/python" -m train.evaluate --run-dir "$D2" --checkpoint "${m%.sha256}.pt" \
           --split $split --limit 400 --threads 4 2>/dev/null | grep '^{')
       echo "$r" >> "$OUT"

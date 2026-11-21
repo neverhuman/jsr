@@ -26,7 +26,7 @@ kill -TERM "$P"
 while kill -0 "$P" 2>/dev/null; do sleep 5; done
 CK="$D1/$(cat "$D1/LATEST").pt"
 log "D1d stopped; warm start from $CK"
-cd "$REPO/python/ultra"
+cd "$REPO/python/ultra" || exit 1
 taskset -c 0-11,64-75 nice -n 10 "$REPO/.venv/bin/python" -m train.trainer --run-dir "$D2" --preset S \
   --splits train-clean-100 train-clean-360 train-other-500 --device cuda --threads 8 --init-from "$CK" \
   --set budget_s=600.0 max_batch=128 workers=8 total_steps=102000 warmup=500 lr=0.001 specaug_start=0 \
