@@ -49,8 +49,10 @@ pub struct EncState {
     pub t: usize,
     /// Valid attention cache entries (saturates at `left`).
     pub kv_len: usize,
-    /// `[layer][head][left + chunk][dh]`; absolute position `p` lives in slot
-    /// `p % (left + chunk)`, so a chunk's keys can be written before its queries run.
+    /// Ring slots per layer and head: `left + max_chunks * chunk`.
+    pub ring: usize,
+    /// `[layer][head][ring][dh]`; absolute position `p` lives in slot `p % ring`, so a
+    /// step's keys (up to `max_chunks` chunks) can be written before its queries run.
     pub k: Vec<f32>,
     pub v: Vec<f32>,
     /// `[layer][kernel-1][d]`, oldest first.
@@ -58,12 +60,15 @@ pub struct EncState {
 }
 
 impl EncState {
-    pub fn new(m: &Model) -> Self {
+    /// Caches for steps of up to `max_chunks` chunks.
+    pub fn new(m: &Model, max_chunks: usize) -> Self {
         let a = &m.arch;
-        let kv = a.n_blocks * a.heads * (a.left + a.chunk) * a.dh;
+        let ring = a.left + a.chunk * max_chunks.max(1);
+        let kv = a.n_blocks * a.heads * ring * a.dh;
         Self {
             t: 0,
             kv_len: 0,
+            ring,
             k: vec![0.0; kv],
             v: vec![0.0; kv],
             conv: vec![0.0; a.n_blocks * (a.kernel - 1) * a.d],
@@ -71,7 +76,8 @@ impl EncState {
     }
 }
 
-/// One stream's chunk: `n` frames from `state.t`, with its `(4n+3) x 80` feature slice.
+/// One stream's step: `n` frames from `state.t` (one or more consecutive chunks; every
+/// sub-chunk but the last is full), with its `(4n+3) x 80` feature slice.
 pub struct ChunkJob<'a> {
     pub state: &'a mut EncState,
     pub feats: &'a [f32],
@@ -154,7 +160,7 @@ pub fn encode_chunk(
     let a = &m.arch;
     let d = a.d;
     for j in jobs.iter() {
-        if j.n == 0 || j.n > a.chunk || j.feats.len() != (4 * j.n + 3) * a.n_mels {
+        if j.n == 0 || j.n > j.state.ring - a.left || j.feats.len() != (4 * j.n + 3) * a.n_mels {
             return Err(EngineError::Shape(format!(
                 "chunk job n={} with {} feature values",
                 j.n,
@@ -446,9 +452,9 @@ fn attend(
             );
         }
     }
-    // Store this chunk's keys/values first: the ring holds left + chunk slots, so the slots
-    // overwritten (positions <= t0 + n - 1 - (left + chunk) < t0 - left) are outside the window.
-    let ring = left + a.chunk;
+    // Store the step's keys/values first. The ring holds left + (max chunks) slots, so the
+    // overwritten slots (positions <= t0 + n - 1 - ring < t0 - left) are outside every window.
+    let ring = j.state.ring;
     let lbase = li * hn * ring * dh;
     for i in 0..n {
         let s = ((t0 + i) % ring) * dh;
@@ -459,29 +465,36 @@ fn attend(
             j.state.v[base..base + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
         }
     }
-    // Window: positions [t0 - past, t0 + n), as at most two contiguous ring segments.
-    let past = j.state.kv_len;
-    let nk = past + n;
-    let start = (t0 - past) % ring;
-    let first = nk.min(ring - start);
-    let sc = grow(scores, nk);
+    // Sub-chunk c = [s0, s0 + m): its queries see positions [s0 - past_c, s0 + m), with
+    // past_c = min(left, kv_len + (s0 - t0)) -- exactly the trained chunk mask.
     let scale = 1.0 / (dh as f32).sqrt();
-    for h in 0..hn {
-        let hb = lbase + h * ring * dh;
-        let kr = &j.state.k[hb..hb + ring * dh];
-        let vr = &j.state.v[hb..hb + ring * dh];
-        kernels::attend_head(
-            isa,
-            &qkv[h * dh..],
-            3 * d,
-            n,
-            dh,
-            window(kr, start, first, nk, dh),
-            window(vr, start, first, nk, dh),
-            scale,
-            sc,
-            &mut out[h * dh..],
-            d,
-        );
+    let mut off = 0;
+    while off < n {
+        let m = a.chunk.min(n - off);
+        let s0 = t0 + off;
+        let past = (j.state.kv_len + off).min(left);
+        let nk = past + m;
+        let start = (s0 - past) % ring;
+        let first = nk.min(ring - start);
+        let sc = grow(scores, nk);
+        for h in 0..hn {
+            let hb = lbase + h * ring * dh;
+            let kr = &j.state.k[hb..hb + ring * dh];
+            let vr = &j.state.v[hb..hb + ring * dh];
+            kernels::attend_head(
+                isa,
+                &qkv[off * 3 * d + h * dh..],
+                3 * d,
+                m,
+                dh,
+                window(kr, start, first, nk, dh),
+                window(vr, start, first, nk, dh),
+                scale,
+                sc,
+                &mut out[off * d + h * dh..],
+                d,
+            );
+        }
+        off += m;
     }
 }

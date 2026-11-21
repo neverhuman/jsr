@@ -27,6 +27,9 @@ pub struct Engine {
     pub model: Arc<Model>,
     pub isa: Isa,
     pub precision: Precision,
+    /// Most consecutive ready chunks of one stream run in one step (layer by layer, so one
+    /// weight pass serves them all). Outputs are identical for every value.
+    pub max_chunks: usize,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -156,7 +159,15 @@ impl Engine {
             model,
             isa,
             precision,
+            max_chunks: 1,
         })
+    }
+
+    /// Allow up to `k` (1..=16) ready chunks per stream per step. Streams created afterwards
+    /// get caches sized for it.
+    pub fn with_max_chunks(mut self, k: usize) -> Self {
+        self.max_chunks = k.clamp(1, 16);
+        self
     }
 
     pub fn create_stream(&self) -> EngineStream {
@@ -166,14 +177,30 @@ impl Engine {
             ring: FeatureRing::new(),
             finished: false,
             failed: false,
-            enc: EncState::new(&self.model),
+            enc: EncState::new(&self.model, self.max_chunks),
             dec: DecState::new(&self.model),
         }
     }
 
-    /// The next chunk `(t0, t1)` of `s`, if its features are complete.
+    /// The next step `(t0, t1)` of `s`: up to `max_chunks` consecutive chunks whose features
+    /// are complete (limited by the stream's cache capacity).
     pub fn next_chunk(&self, s: &EngineStream) -> Option<(usize, usize)> {
-        chunk_bounds(s.enc.t, s.ring.n_feat(), self.model.arch.chunk, s.finished)
+        let c = self.model.arch.chunk;
+        let cap = self
+            .max_chunks
+            .min((s.enc.ring - self.model.arch.left) / c)
+            .max(1);
+        let (t0, mut t1) = chunk_bounds(s.enc.t, s.ring.n_feat(), c, s.finished)?;
+        for _ in 1..cap {
+            if t1 - t0 < c * ((t1 - t0).div_ceil(c)) {
+                break; // a partial chunk ends the stream
+            }
+            match chunk_bounds(t1, s.ring.n_feat(), c, s.finished) {
+                Some((_, t2)) => t1 = t2,
+                None => break,
+            }
+        }
+        Some((t0, t1))
     }
 
     pub fn is_ready(&self, s: &EngineStream) -> bool {

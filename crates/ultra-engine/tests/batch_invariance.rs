@@ -17,8 +17,7 @@ type Trace = Vec<(Vec<f32>, Vec<u32>)>;
 
 /// Run all clips with at most `batch` streams decoded together; stream `i` joins at round
 /// `i % 7` (staggered positions). Returns each stream's trace.
-fn run(engine: &Engine, clips: &[Vec<i16>], batch: usize) -> Trace {
-    let packet = 320 * 3;
+fn run(engine: &Engine, clips: &[Vec<i16>], batch: usize, packet: usize) -> Trace {
     let mut ws = Workspace::default();
     let mut streams: Vec<EngineStream> = clips.iter().map(|_| engine.create_stream()).collect();
     let mut cur = vec![0usize; clips.len()];
@@ -110,10 +109,21 @@ fn check(prec: Precision) {
         .enumerate()
         .map(|(i, u)| u.pcm[..(14_400 + 1_280 * i + 640 * (i % 4)).min(u.pcm.len())].to_vec())
         .collect();
-    let base = run(&engine, &clips, 1);
+    let base = run(&engine, &clips, 1, 960);
     assert!(base.iter().all(|(e, _)| !e.is_empty()));
-    for batch in [3, 5, 16, 32] {
-        let got = run(&engine, &clips, batch);
+    // Multi-chunk steps (1 s packets: several chunks ready at once) must not change a bit.
+    let multi = engine.clone().with_max_chunks(4);
+    let runs = [
+        (&engine, 3, 960),
+        (&engine, 5, 960),
+        (&engine, 16, 960),
+        (&engine, 32, 960),
+        (&multi, 1, 16_000),
+        (&multi, 5, 16_000),
+        (&multi, 32, 5_120),
+    ];
+    for (eng, batch, packet) in runs {
+        let got = run(eng, &clips, batch, packet);
         for (i, (g, b)) in got.iter().zip(&base).enumerate() {
             assert_eq!(
                 g.1,
