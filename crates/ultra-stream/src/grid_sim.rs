@@ -3,6 +3,8 @@
 //! Separated from native `SherpaLib` bindings so deterministic fake-clock / fake-recogniser
 //! M1–M4 qualification probes exercise the exact same scheduling loop as `run_sp_a_zipformer`.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -202,6 +204,17 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
     params: &SimParams,
     clock: &mut C,
 ) -> Result<SimOutcome, StreamError> {
+    simulate_grid_with_backlog(bank, params, clock, None)
+}
+
+/// Same as [`simulate_grid`], optionally reporting per-tick worker lateness (in microseconds) to a
+/// shared fleet observer atomic for 10-second sustained-run backlog series (`S5`).
+pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
+    bank: &mut B,
+    params: &SimParams,
+    clock: &mut C,
+    backlog_us_sink: Option<&Arc<AtomicU64>>,
+) -> Result<SimOutcome, StreamError> {
     let n_utts = bank.num_utterances();
     if params.streams == 0 || params.packet_ms == 0 || params.max_batch == 0 || n_utts == 0 {
         return Err(StreamError::Protocol(
@@ -318,36 +331,45 @@ pub fn simulate_grid<B: SimSlotBank, C: SimClock>(
             let oldest = deadline_s(k_dec);
             let step_t0 = clock.now_s();
             let mut total_ready_decoded = 0usize;
+            let mut max_step_lat = 0.0f64;
+            // Drain EVERY ready chunk on this grid tick across all backends (R0/ORT loop over
+            // ready chunks; ultra-engine fuses up to `max_chunks` chunks per pass; FREEZE §3 B2).
             loop {
                 let (ready_n, w) = bank.decode_ready_step(params.decode, params.max_batch);
                 if ready_n == 0 {
                     break;
                 }
+                let step_done_t = clock.now_s();
                 max_ready_batch = max_ready_batch.max(ready_n);
                 total_ready_decoded += ready_n;
                 wakeups += w;
+                if params.paced {
+                    // FREEZE §3 unified A1: per-chunk step completion against capture deadline,
+                    // including drain ticks after cutoff.
+                    let lat = (step_done_t - oldest).max(0.0);
+                    max_step_lat = max_step_lat.max(lat);
+                    for _ in 0..ready_n {
+                        steady_lat_s.push(lat);
+                    }
+                    if let Some(sink) = backlog_us_sink {
+                        sink.fetch_max((lat * 1_000_000.0).round() as u64, Ordering::Relaxed);
+                    }
+                }
             }
             if total_ready_decoded > 0 {
                 let done_t = clock.now_s();
                 tick_compute_ms.push((done_t - step_t0).max(0.0) * 1000.0);
-                if params.paced {
-                    // FREEZE §3 unified A1: per-chunk lateness including drain ticks.
-                    let lat = (done_t - oldest).max(0.0);
-                    for _ in 0..total_ready_decoded {
-                        steady_lat_s.push(lat);
-                    }
-                    if done_t >= next_series_t {
-                        let active = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
-                        series.push(SustainedSample {
-                            elapsed_s: ((done_t - t0) * 1000.0).round() / 1000.0,
-                            backlog_ms: (lat * 1000.0 * 100.0).round() / 100.0,
-                            active_streams: active,
-                            accepted_audio_s: (accepted_samples as f64) / 16_000.0,
-                            processed_audio_s: (processed_samples as f64) / 16_000.0,
-                        });
-                        while next_series_t <= done_t {
-                            next_series_t += 10.0;
-                        }
+                if params.paced && done_t >= next_series_t {
+                    let active = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
+                    series.push(SustainedSample {
+                        elapsed_s: ((done_t - t0) * 1000.0).round() / 1000.0,
+                        backlog_ms: (max_step_lat * 1000.0 * 100.0).round() / 100.0,
+                        active_streams: active,
+                        accepted_audio_s: (accepted_samples as f64) / 16_000.0,
+                        processed_audio_s: (processed_samples as f64) / 16_000.0,
+                    });
+                    while next_series_t <= done_t {
+                        next_series_t += 10.0;
                     }
                 }
             }

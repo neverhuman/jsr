@@ -91,6 +91,8 @@ pub struct FrontierReport {
     pub completion_status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub density_ladder_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abab_timing_file: Option<String>,
     pub rows: Vec<FrontierRow>,
 }
 

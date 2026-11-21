@@ -1,22 +1,21 @@
-//! Pre-registered §4.4 density ladder (`FREEZE.md §4.4`):
-//! step N in `start..=end` by `step`, `repeats` alternating passes across candidates,
-//! `claimed_n` = largest N where ALL workers pass A1 in ALL repeats.
+//! Pre-registered §4.4 density ladder (`FREEZE.md §4.4` / re-review `N1`, `N6`):
+//! fixed bounds (`4:48:4`, 120 s rungs, 3 repeats alternating candidates), **strictly monotone
+//! stop-at-first-failure** (`N1`), append-only point log (`density_ladder.points.jsonl`, `N6`)
+//! that records errors as failed points without aborting, and optional `3 × 300 s` confirmation
+//! at `claimed_n` (dropping one rung if confirmation fails).
+
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use ultra_core::receipt::HonestyLabel;
-use ultra_stream::{
-    run_sp_a_native_engine_shared_workers, run_sp_a_ort_r1_shared_workers,
-    run_sp_a_shared_workers_with_observer, DecodeMode, EngineSpAConfig, R1SpAConfig, SpAConfig,
-    DEFAULT_LATENESS_BOUND_MS,
-};
 
-use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
-use crate::suite_engine::resolve_r1_weights_dir;
+use crate::suite_ladder_point::run_one_density_point;
 use crate::suite_manifest::write_json_create_new;
 use crate::suite_runners::SuiteCtx;
 use crate::CliError;
 
-pub const DENSITY_LADDER_SCHEMA: &str = "ultra.density-ladder/v1";
+pub const DENSITY_LADDER_SCHEMA: &str = "ultra.density-ladder/v2";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LadderSpec {
@@ -26,12 +25,19 @@ pub struct LadderSpec {
 }
 
 impl LadderSpec {
-    /// Parse `"start:end:step"` (e.g. `"4:40:2"`).
+    /// Parse `"start:end:step"` (e.g. `"4:48:4"`) or `"freeze"` (`FREEZE.md §4.4` fixed `4:48:4`).
     pub fn parse(spec: &str) -> Result<Self, CliError> {
+        if spec.eq_ignore_ascii_case("freeze") {
+            return Ok(Self {
+                start: 4,
+                end: 48,
+                step: 4,
+            });
+        }
         let parts: Vec<&str> = spec.split(':').collect();
         if parts.len() != 3 {
             return Err(CliError::Config(format!(
-                "invalid --density-ladder `{spec}` (expected start:end:step, e.g. 4:40:2)"
+                "invalid --density-ladder `{spec}` (expected start:end:step or `freeze`, e.g. 4:48:4)"
             )));
         }
         let parse_u = |s: &str| {
@@ -61,9 +67,12 @@ impl LadderSpec {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LadderRepeatPoint {
+    pub candidate: String,
+    pub phase: String,
     pub repeat: usize,
     pub streams_per_worker: usize,
     pub total_streams: usize,
+    pub duration_seconds: f64,
     pub all_sustained: bool,
     pub drained: bool,
     pub max_worker_p99_ms: Option<f64>,
@@ -71,15 +80,29 @@ pub struct LadderRepeatPoint {
     pub peak_rss_bytes: u64,
     pub audio_processed_seconds: f64,
     pub audio_unfinished_seconds: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl LadderRepeatPoint {
+    pub fn passed(&self) -> bool {
+        self.error.is_none()
+            && self.all_sustained
+            && self.drained
+            && self.audio_unfinished_seconds == 0.0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandidateLadderResult {
     pub candidate: String,
     pub workers: usize,
+    pub ladder_claimed_streams_per_worker: Option<usize>,
     pub claimed_streams_per_worker: Option<usize>,
     pub claimed_total_streams: Option<usize>,
+    pub confirmation_passed: Option<bool>,
     pub repeats: Vec<LadderRepeatPoint>,
+    pub confirmation_repeats: Vec<LadderRepeatPoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,12 +114,15 @@ pub struct DensityLadderReport {
     pub max_chunks: usize,
     pub workers: usize,
     pub step_seconds: f64,
+    pub confirm_seconds: f64,
     pub repeats_required: usize,
     pub ladder_values: Vec<usize>,
     pub results: Vec<CandidateLadderResult>,
 }
 
-/// Compute largest N on `ladder` where every repeat in `0..repeats_required` passed A1 (`all_sustained && drained`).
+/// Strictly monotone §4.4 rule (`N1`): return the largest `N` on `ladder` such that **every**
+/// ladder rung `<= N` passed ALL `repeats_required` repeats. Stops immediately at the first rung
+/// where any repeat failed or errored (a pass at a larger N never counts after an earlier failure).
 pub fn compute_claimed_n(
     ladder: &[usize],
     repeats_required: usize,
@@ -108,211 +134,215 @@ pub fn compute_claimed_n(
             .iter()
             .filter(|p| p.streams_per_worker == n)
             .collect();
-        if matching.len() >= repeats_required
-            && matching
-                .iter()
-                .all(|p| p.all_sustained && p.drained && p.audio_unfinished_seconds == 0.0)
-        {
+        if matching.len() >= repeats_required && matching.iter().all(|p| p.passed()) {
             best = Some(n);
+        } else {
+            break;
         }
     }
     best
 }
 
-fn run_one_density_point(
-    ctx: &SuiteCtx<'_>,
-    raw_cand: &str,
-    streams_per_worker: usize,
-    repeat: usize,
-) -> Result<LadderRepeatPoint, CliError> {
-    let w_cnt = ctx.density_workers.max(1);
-    let dur = Some(ctx.density_seconds.max(1.0));
-    if let Some(eng_res) = resolve_r1_weights_dir(raw_cand, ctx.precision) {
-        let (weights_dir, prec) = eng_res?;
-        let f = run_sp_a_native_engine_shared_workers(
-            &EngineSpAConfig {
-                weights_dir,
-                precision: prec,
-                threads: ctx.threads,
-                npz_path: ctx.npz_path.to_path_buf(),
-                split_name: ctx.split.into(),
-                partition: ctx.partition,
-                honesty_label: HonestyLabel::InCorpus,
-                offset: 0,
-                limit: None,
-                selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
-                duration_s: dur,
-                streams: streams_per_worker,
-                decode: DecodeMode::Batch,
-                max_batch: 1024,
-                max_chunks: ctx.max_chunks,
-                packet_ms: 20,
-                grid_ms: ctx.grid_ms,
-                lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
-                paced: true,
-                source_commit: ctx.commit.into(),
-                hardware_id: "H0".into(),
-                completion_status: ctx.status_tag.into(),
-            },
-            w_cnt,
-            ctx.observer_cpus,
-        )?;
-        let max_p99 = f
-            .worker_summaries
-            .iter()
-            .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
-            .max_by(f64::total_cmp);
-        return Ok(LadderRepeatPoint {
-            repeat,
-            streams_per_worker,
-            total_streams: w_cnt * streams_per_worker,
-            all_sustained: f.all_sustained == Some(true),
-            drained: f.worker_summaries.iter().all(|w| w.drained),
-            max_worker_p99_ms: max_p99,
-            rtf_service_cpu: f.rtf_service_cpu,
-            peak_rss_bytes: f.peak_rss_bytes,
-            audio_processed_seconds: f.audio_processed_seconds,
-            audio_unfinished_seconds: f.audio_unfinished_seconds,
-        });
-    }
-    if let Some(r1_res) = resolve_r1_bundle(raw_cand, ctx.precision) {
-        let (bundle_dir, prec) = r1_res?;
-        let f = run_sp_a_ort_r1_shared_workers(
-            &R1SpAConfig {
-                bundle_dir,
-                precision: prec,
-                threads: ctx.threads,
-                npz_path: ctx.npz_path.to_path_buf(),
-                split_name: ctx.split.into(),
-                partition: ctx.partition,
-                honesty_label: HonestyLabel::InCorpus,
-                offset: 0,
-                limit: None,
-                selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
-                duration_s: dur,
-                streams: streams_per_worker,
-                decode: DecodeMode::Batch,
-                max_batch: 1024,
-                packet_ms: 20,
-                grid_ms: ctx.grid_ms,
-                lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
-                paced: true,
-                source_commit: ctx.commit.into(),
-                hardware_id: "H0".into(),
-                completion_status: ctx.status_tag.into(),
-            },
-            w_cnt,
-            ctx.observer_cpus,
-        )?;
-        let max_p99 = f
-            .worker_summaries
-            .iter()
-            .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
-            .max_by(f64::total_cmp);
-        return Ok(LadderRepeatPoint {
-            repeat,
-            streams_per_worker,
-            total_streams: w_cnt * streams_per_worker,
-            all_sustained: f.all_sustained == Some(true),
-            drained: f.worker_summaries.iter().all(|w| w.drained),
-            max_worker_p99_ms: max_p99,
-            rtf_service_cpu: f.rtf_service_cpu,
-            peak_rss_bytes: f.peak_rss_bytes,
-            audio_processed_seconds: f.audio_processed_seconds,
-            audio_unfinished_seconds: f.audio_unfinished_seconds,
-        });
-    }
-    if let Some(z_res) = resolve_bundle_or_zipformer(raw_cand, ctx.precision, ctx.threads, 0.8) {
-        let (bundle_id, zcfg) = z_res?;
-        let f = run_sp_a_shared_workers_with_observer(
-            &SpAConfig {
-                bundle_id: Some(bundle_id),
-                npz_path: ctx.npz_path.to_path_buf(),
-                split_name: ctx.split.into(),
-                partition: ctx.partition,
-                honesty_label: HonestyLabel::InCorpus,
-                offset: 0,
-                limit: None,
-                selected_indices: ctx.selected_indices.map(<[usize]>::to_vec),
-                duration_s: dur,
-                streams: streams_per_worker,
-                decode: DecodeMode::Batch,
-                max_batch: 1024,
-                packet_ms: 20,
-                grid_ms: ctx.grid_ms,
-                lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
-                paced: true,
-                zipformer: zcfg,
-                source_commit: ctx.commit.into(),
-                hardware_id: "H0".into(),
-            },
-            w_cnt,
-            ctx.observer_cpus,
-        )?;
-        let max_p99 = f
-            .worker_summaries
-            .iter()
-            .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
-            .max_by(f64::total_cmp);
-        return Ok(LadderRepeatPoint {
-            repeat,
-            streams_per_worker,
-            total_streams: w_cnt * streams_per_worker,
-            all_sustained: f.all_sustained == Some(true),
-            drained: f.worker_summaries.iter().all(|w| w.drained),
-            max_worker_p99_ms: max_p99,
-            rtf_service_cpu: f.rtf_cpu,
-            peak_rss_bytes: f.peak_rss_bytes,
-            audio_processed_seconds: f.audio_processed_seconds,
-            audio_unfinished_seconds: f.audio_unfinished_seconds,
-        });
-    }
-    Err(CliError::Config(format!(
-        "candidate `{raw_cand}` does not support paced density ladder"
-    )))
+fn append_point_jsonl(path: &Path, pt: &LadderRepeatPoint) -> Result<(), CliError> {
+    let mut fh = OpenOptions::new().create(true).append(true).open(path)?;
+    let line = serde_json::to_string(pt).map_err(|e| CliError::Internal(e.to_string()))?;
+    writeln!(fh, "{line}")?;
+    Ok(())
 }
 
-/// Execute the §4.4 alternating density ladder across `candidates` and write `density_ladder.json`.
+impl LadderRepeatPoint {
+    pub(crate) fn from_r1_fleet(
+        cand: &str,
+        phase: &str,
+        repeat: usize,
+        streams: usize,
+        w_cnt: usize,
+        dur: f64,
+        f: &ultra_stream::R1FleetResult,
+    ) -> Self {
+        Self::from_fields(
+            cand,
+            phase,
+            repeat,
+            streams,
+            w_cnt,
+            dur,
+            f.all_sustained,
+            &f.worker_summaries,
+            f.rtf_service_cpu,
+            f.peak_rss_bytes,
+            f.audio_processed_seconds,
+            f.audio_unfinished_seconds,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn from_fields(
+        cand: &str,
+        phase: &str,
+        repeat: usize,
+        streams_per_worker: usize,
+        w_cnt: usize,
+        duration_seconds: f64,
+        all_sustained: Option<bool>,
+        workers: &[ultra_stream::WorkerSummary],
+        rtf_service_cpu: f64,
+        peak_rss_bytes: u64,
+        audio_processed_seconds: f64,
+        audio_unfinished_seconds: f64,
+    ) -> Self {
+        let max_worker_p99_ms = workers
+            .iter()
+            .filter_map(|w| w.lateness_ms.as_ref().map(|l| l.p99))
+            .max_by(f64::total_cmp);
+        Self {
+            candidate: cand.to_owned(),
+            phase: phase.to_owned(),
+            repeat,
+            streams_per_worker,
+            total_streams: w_cnt * streams_per_worker,
+            duration_seconds,
+            all_sustained: all_sustained == Some(true),
+            drained: workers.iter().all(|w| w.drained),
+            max_worker_p99_ms,
+            rtf_service_cpu,
+            peak_rss_bytes,
+            audio_processed_seconds,
+            audio_unfinished_seconds,
+            error: None,
+        }
+    }
+}
+
+fn run_point_or_record_error(
+    ctx: &SuiteCtx<'_>,
+    cand: &str,
+    n: usize,
+    repeat: usize,
+    duration_s: f64,
+    phase: &str,
+    log_path: &Path,
+) -> Result<LadderRepeatPoint, CliError> {
+    let w_cnt = ctx.density_workers.max(1);
+    let pt = match run_one_density_point(ctx, cand, n, repeat, duration_s, phase) {
+        Ok(p) => p,
+        Err(e) => LadderRepeatPoint {
+            candidate: cand.to_owned(),
+            phase: phase.to_owned(),
+            repeat,
+            streams_per_worker: n,
+            total_streams: w_cnt * n,
+            duration_seconds: duration_s,
+            all_sustained: false,
+            drained: false,
+            max_worker_p99_ms: None,
+            rtf_service_cpu: 0.0,
+            peak_rss_bytes: 0,
+            audio_processed_seconds: 0.0,
+            audio_unfinished_seconds: 0.0,
+            error: Some(e.to_string()),
+        },
+    };
+    append_point_jsonl(log_path, &pt)?;
+    Ok(pt)
+}
+
+/// Execute the §4.4 alternating density ladder (stop-at-first-failure `N1`, error-resilient
+/// append-only log `N6`, optional `3 × confirm_seconds` confirmation) and always write
+/// `density_ladder.json`.
 pub(crate) fn run_density_ladder(
     ctx: &SuiteCtx<'_>,
     candidates: &[&str],
     spec: LadderSpec,
     repeats: usize,
+    confirm_seconds: f64,
 ) -> Result<DensityLadderReport, CliError> {
     let ladder_values = spec.values();
     let reps = repeats.max(1);
+    let log_path = ctx.out_dir.join("density_ladder.points.jsonl");
     let mut per_cand: Vec<Vec<LadderRepeatPoint>> = vec![Vec::new(); candidates.len()];
+    let mut stopped: Vec<bool> = vec![false; candidates.len()];
 
     for &n in &ladder_values {
+        if stopped.iter().all(|&s| s) {
+            break;
+        }
         for r in 0..reps {
-            // Alternate candidate order across repeats (ABAB / BABA).
             let order: Vec<usize> = if r % 2 == 0 {
                 (0..candidates.len()).collect()
             } else {
                 (0..candidates.len()).rev().collect()
             };
             for ci in order {
-                let pt = run_one_density_point(ctx, candidates[ci], n, r)?;
+                if stopped[ci] {
+                    continue;
+                }
+                let pt = run_point_or_record_error(
+                    ctx,
+                    candidates[ci],
+                    n,
+                    r,
+                    ctx.density_seconds,
+                    "ladder",
+                    &log_path,
+                )?;
+                let ok = pt.passed();
                 per_cand[ci].push(pt);
+                if !ok {
+                    stopped[ci] = true;
+                }
             }
         }
     }
 
     let w_cnt = ctx.density_workers.max(1);
-    let results: Vec<CandidateLadderResult> = candidates
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| {
-            let claimed = compute_claimed_n(&ladder_values, reps, &per_cand[i]);
-            CandidateLadderResult {
-                candidate: c.to_owned(),
-                workers: w_cnt,
-                claimed_streams_per_worker: claimed,
-                claimed_total_streams: claimed.map(|n| n * w_cnt),
-                repeats: per_cand[i].clone(),
+    let mut results = Vec::with_capacity(candidates.len());
+    for (i, &c) in candidates.iter().enumerate() {
+        let ladder_n = compute_claimed_n(&ladder_values, reps, &per_cand[i]);
+        let mut confirm_pts = Vec::new();
+        let (final_n, confirm_ok) = if confirm_seconds > 0.0 {
+            if let Some(n) = ladder_n {
+                let mut all_ok = true;
+                for r in 0..reps {
+                    let pt = run_point_or_record_error(
+                        ctx,
+                        c,
+                        n,
+                        r,
+                        confirm_seconds,
+                        "confirm",
+                        &log_path,
+                    )?;
+                    all_ok &= pt.passed();
+                    confirm_pts.push(pt);
+                }
+                if all_ok {
+                    (Some(n), Some(true))
+                } else {
+                    // FREEZE §4.4: confirmation failure drops the claim by one ladder rung.
+                    let dropped = ladder_values
+                        .iter()
+                        .position(|&v| v == n)
+                        .and_then(|idx| idx.checked_sub(1).map(|p| ladder_values[p]));
+                    (dropped, Some(false))
+                }
+            } else {
+                (None, None)
             }
-        })
-        .collect();
+        } else {
+            (ladder_n, None)
+        };
+        results.push(CandidateLadderResult {
+            candidate: c.to_owned(),
+            workers: w_cnt,
+            ladder_claimed_streams_per_worker: ladder_n,
+            claimed_streams_per_worker: final_n,
+            claimed_total_streams: final_n.map(|n| n * w_cnt),
+            confirmation_passed: confirm_ok,
+            repeats: per_cand[i].clone(),
+            confirmation_repeats: confirm_pts,
+        });
+    }
 
     let report = DensityLadderReport {
         schema: DENSITY_LADDER_SCHEMA.into(),
@@ -322,6 +352,7 @@ pub(crate) fn run_density_ladder(
         max_chunks: ctx.max_chunks,
         workers: w_cnt,
         step_seconds: ctx.density_seconds,
+        confirm_seconds,
         repeats_required: reps,
         ladder_values,
         results,
@@ -335,23 +366,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ladder_parser_and_all_repeats_pass_rule_work() {
+    fn ladder_parser_and_monotone_stop_at_first_failure_rule_work() {
         let s = LadderSpec::parse("4:10:2").expect("parse");
         assert_eq!(s.values(), vec![4, 6, 8, 10]);
+        assert_eq!(
+            LadderSpec::parse("freeze").expect("freeze").values(),
+            vec![4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
+        );
         assert!(LadderSpec::parse("10:4:2").is_err());
         assert!(LadderSpec::parse("0:4:2").is_err());
 
         let mk = |n, r, ok| LadderRepeatPoint {
+            candidate: "r1".into(),
+            phase: "ladder".into(),
             repeat: r,
             streams_per_worker: n,
             total_streams: n * 4,
+            duration_seconds: 120.0,
             all_sustained: ok,
             drained: ok,
             max_worker_p99_ms: Some(250.0),
             rtf_service_cpu: 0.04,
             peak_rss_bytes: 1024,
-            audio_processed_seconds: 300.0,
+            audio_processed_seconds: 120.0,
             audio_unfinished_seconds: 0.0,
+            error: None,
         };
         let pts = vec![
             mk(4, 0, true),
@@ -364,8 +403,8 @@ mod tests {
             mk(8, 1, true),
             mk(8, 2, true),
         ];
-        // Largest N where ALL 3 repeats pass is 8; if only N=4,6 tested, 6 fails so 4 wins.
+        // N1: Strictly monotone — N=6 failed a repeat, so claimed N MUST stop at 4 even if N=8 passed.
         assert_eq!(compute_claimed_n(&[4, 6], 3, &pts), Some(4));
-        assert_eq!(compute_claimed_n(&[4, 6, 8], 3, &pts), Some(8));
+        assert_eq!(compute_claimed_n(&[4, 6, 8], 3, &pts), Some(4));
     }
 }

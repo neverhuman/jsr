@@ -14,7 +14,7 @@ use ultra_eval::corpus::{pool, DatasetScore};
 use ultra_eval::procfs::TreeSampler;
 use ultra_eval::score::{score_records, ScoreRecord};
 use ultra_eval::wer::EditCounts;
-use ultra_frontend::npz::{load_npz_audio_only, load_npz_references, AudioUtterance};
+use ultra_frontend::npz::{load_npz_references, AudioUtterance};
 
 use crate::api::StreamError;
 use crate::sherpa_ffi::{verify_cpu_only_process, SherpaLib};
@@ -37,6 +37,7 @@ pub struct ContrastConfig {
     pub honesty_label: HonestyLabel,
     pub offset: usize,
     pub limit: Option<usize>,
+    pub selected_indices: Option<Vec<usize>>,
     pub batch_size: usize,
     pub offline: SherpaOfflineConfig,
     pub source_commit: String,
@@ -278,7 +279,12 @@ pub fn default_npz_for_split(split: &str) -> PathBuf {
 }
 
 pub fn run_offline_contrast(cfg: &ContrastConfig) -> Result<ContrastResult, StreamError> {
-    let audio_utts = load_npz_audio_only(&cfg.npz_path, cfg.offset, cfg.limit)?;
+    let audio_utts = load_selected_audio(
+        &cfg.npz_path,
+        cfg.offset,
+        cfg.limit,
+        cfg.selected_indices.as_deref(),
+    )?;
     if audio_utts.is_empty() {
         return Err(StreamError::Protocol("no audio utterances loaded".into()));
     }
@@ -353,7 +359,7 @@ pub fn run_offline_contrast(cfg: &ContrastConfig) -> Result<ContrastResult, Stre
         &cfg.split_name,
         cfg.offset,
         cfg.limit,
-        None,
+        cfg.selected_indices.as_deref(),
         false,
         &completed,
     )?;

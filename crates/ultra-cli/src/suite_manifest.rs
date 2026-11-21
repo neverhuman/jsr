@@ -38,6 +38,8 @@ pub struct SuiteJobManifest {
     pub precision_requested: Option<String>,
     pub threads: i32,
     pub cpu_affinity_list: String,
+    pub cpu_governor: String,
+    pub cpu_boost: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
     pub observer_topology_verified: Option<bool>,
@@ -50,9 +52,31 @@ pub(crate) struct SuiteHostSnapshot {
     pub executable_sha256: String,
     pub npz_sha256: String,
     pub cpu_affinity_list: String,
+    pub cpu_governor: String,
+    pub cpu_boost: String,
     pub observer_cpus: Option<String>,
     pub observer_service_disjoint: Option<bool>,
     pub observer_topology_verified: Option<bool>,
+}
+
+fn read_sysfs_trimmed(path: &str) -> Option<String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+fn read_cpu_governor_and_boost() -> (String, String) {
+    let gov = read_sysfs_trimmed("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+        .unwrap_or_else(|| "unknown".into());
+    let boost = if let Some(b) = read_sysfs_trimmed("/sys/devices/system/cpu/cpufreq/boost") {
+        format!("cpufreq_boost={b}")
+    } else if let Some(nt) = read_sysfs_trimmed("/sys/devices/system/cpu/intel_pstate/no_turbo") {
+        format!("intel_no_turbo={nt}")
+    } else {
+        "unknown".into()
+    };
+    (gov, boost)
 }
 
 impl SuiteHostSnapshot {
@@ -61,6 +85,7 @@ impl SuiteHostSnapshot {
         let executable_sha256 = sha256_file(&exe)?;
         let npz_sha256 = sha256_file(npz_path)?;
         let cpu_affinity_list = read_cpu_affinity_list();
+        let (cpu_governor, cpu_boost) = read_cpu_governor_and_boost();
         let (observer_service_disjoint, observer_topology_verified) = match observer_cpus {
             Some(obs) => {
                 let topo_ok = validate_observer_cpus_disjoint(&cpu_affinity_list, obs, false)?;
@@ -73,6 +98,8 @@ impl SuiteHostSnapshot {
             executable_sha256,
             npz_sha256,
             cpu_affinity_list,
+            cpu_governor,
+            cpu_boost,
             observer_cpus: observer_cpus.map(str::to_owned),
             observer_service_disjoint,
             observer_topology_verified,
@@ -120,6 +147,8 @@ impl SuiteHostSnapshot {
             precision_requested: precision_requested.map(str::to_owned),
             threads,
             cpu_affinity_list: self.cpu_affinity_list.clone(),
+            cpu_governor: self.cpu_governor.clone(),
+            cpu_boost: self.cpu_boost.clone(),
             observer_cpus: self.observer_cpus.clone(),
             observer_service_disjoint: self.observer_service_disjoint,
             observer_topology_verified: self.observer_topology_verified,
@@ -198,8 +227,10 @@ pub fn validate_observer_cpus_disjoint(
     Ok(all_topo_ok)
 }
 
-/// Verify that `tag` exists in Git and its target commit is an ancestor of `HEAD`.
-pub fn verify_freeze_tag_ancestor(tag: &str) -> Result<String, CliError> {
+/// Verify that `tag` exists in Git and its target commit is an ancestor of the binary's baked-in
+/// `build_commit` (NOT run-time HEAD alone; re-review `B4`/`N3`), and verify that `build_commit`
+/// matches the run-time checkout HEAD.
+pub fn verify_freeze_tag_ancestor(tag: &str, build_commit: &str) -> Result<String, CliError> {
     let rev = std::process::Command::new("git")
         .args([
             "rev-parse",
@@ -215,22 +246,72 @@ pub fn verify_freeze_tag_ancestor(tag: &str) -> Result<String, CliError> {
             "--qualified requires freeze tag `{tag}` to exist in git"
         )));
     }
-    let commit = String::from_utf8_lossy(&rev.stdout).trim().to_owned();
+    let tag_commit = String::from_utf8_lossy(&rev.stdout).trim().to_owned();
+    let head = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
+        .unwrap_or_default();
+    if !head.is_empty() && !head.starts_with(build_commit) && !build_commit.starts_with(&head) {
+        return Err(CliError::Config(format!(
+            "--qualified binary build_commit `{build_commit}` does not match checkout HEAD `{head}` (B4)"
+        )));
+    }
     let anc = std::process::Command::new("git")
-        .args(["merge-base", "--is-ancestor", &commit, "HEAD"])
+        .args(["merge-base", "--is-ancestor", &tag_commit, build_commit])
         .status()
         .map_err(|e| CliError::Config(format!("git merge-base check failed: {e}")))?;
     if !anc.success() {
         return Err(CliError::Config(format!(
-            "--qualified requires freeze tag `{tag}` ({commit}) to be an ancestor of HEAD"
+            "--qualified requires freeze tag `{tag}` ({tag_commit}) to be an ancestor of binary build_commit `{build_commit}` (B4)"
         )));
     }
-    Ok(commit)
+    Ok(tag_commit)
+}
+
+/// Verify pinned manifest SHA-256 entries in `docs/ultra/CANDIDATES.lock` (`B4`).
+pub fn verify_candidates_lock_pins(lock_path: &Path) -> Result<usize, CliError> {
+    let raw = std::fs::read_to_string(lock_path).map_err(|e| {
+        CliError::Config(format!(
+            "--qualified requires `{}` to verify pinned candidate identities: {e}",
+            lock_path.display()
+        ))
+    })?;
+    let mut cur_manifest: Option<String> = None;
+    let mut verified = 0usize;
+    for line in raw.lines() {
+        let t = line.trim();
+        if let Some(m) = t.strip_prefix("manifest:") {
+            cur_manifest = Some(m.split('#').next().unwrap_or("").trim().to_owned());
+        } else if let Some(s) = t.strip_prefix("manifest_sha256:") {
+            let want = s.split('#').next().unwrap_or("").trim();
+            if let Some(mp) = cur_manifest.take() {
+                if !mp.is_empty() && want.len() == 64 {
+                    let got = sha256_file(Path::new(&mp))?;
+                    if !got.eq_ignore_ascii_case(want) {
+                        return Err(CliError::Config(format!(
+                            "CANDIDATES.lock pin mismatch for `{mp}`: expected {want}, got {got}"
+                        )));
+                    }
+                    verified += 1;
+                }
+            }
+        }
+    }
+    if verified == 0 {
+        return Err(CliError::Config(format!(
+            "no pinned manifest_sha256 entries verified in `{}`",
+            lock_path.display()
+        )));
+    }
+    Ok(verified)
 }
 
 /// Fail-closed pre-flight validation for `--qualified` runs (`PLAN_TO_V1` G6 / `FREEZE.md` §4):
 /// requires disjoint CCX observer (sysfs verified), `BENCH_LEASE.host`, clean build provenance,
-/// and `bench-freeze-v1` tag as an ancestor of `HEAD`.
+/// `CANDIDATES.lock` pin integrity, and `bench-freeze-v1` tag as an ancestor of `build_commit`.
 pub fn validate_qualified_preflight(
     service_cpus: &str,
     observer_cpus: Option<&str>,
@@ -269,7 +350,8 @@ pub fn validate_qualified_preflight(
             )));
         }
     }
-    verify_freeze_tag_ancestor(freeze_tag)
+    verify_candidates_lock_pins(Path::new("docs/ultra/CANDIDATES.lock"))?;
+    verify_freeze_tag_ancestor(freeze_tag, build_commit)
 }
 
 pub(crate) fn sha256_file(path: &Path) -> Result<String, CliError> {

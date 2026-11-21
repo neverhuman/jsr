@@ -4,7 +4,7 @@
 //! with optional disjoint-CCX `/proc` observer thread (`observer_cpu_seconds` separated from
 //! `service_cpu_seconds`) and fail-closed L3/SMT placement verification.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Barrier};
 use std::time::Instant;
 
@@ -17,10 +17,11 @@ use crate::contrast::{
     build_event_hashes_and_chunks, current_affinity, load_selected_audio, read_loadavg,
     score_completed, self_cpu_seconds, WerSummary,
 };
-use crate::grid_sim::{simulate_grid, sustains_lateness, LatenessQuantiles, SimParams};
+use crate::grid_sim::{
+    simulate_grid_with_backlog, sustains_lateness, LatenessQuantiles, SimParams,
+};
 use crate::placement::{
-    physical_first_cpus, pin_current_thread_verified, run_fleet_observer, verify_worker_l3_and_smt,
-    FleetSeriesPoint,
+    assign_worker_cpus, pin_current_thread_verified, run_fleet_observer, FleetSeriesPoint,
 };
 use crate::scheduler::{RealClock, SherpaBank, SpAConfig};
 use crate::sherpa_ffi::{verify_cpu_only_process, SherpaLib};
@@ -120,25 +121,13 @@ pub fn run_sp_a_shared_workers_with_observer(
     let ort_ver = lib.onnxruntime_version();
     let engine = SherpaZipformerBackend::new(lib, cfg.zipformer.clone())?;
 
-    let aff = physical_first_cpus(&current_affinity());
-    let mut worker_cpus: Vec<Vec<usize>> = (0..workers).map(|_| Vec::new()).collect();
-    if aff.len() >= workers {
-        let per = aff.len() / workers;
-        for (w, dst) in worker_cpus.iter_mut().enumerate() {
-            let start = w * per;
-            let end = if w + 1 == workers {
-                aff.len()
-            } else {
-                start + per
-            };
-            dst.extend_from_slice(&aff[start..end]);
-        }
-    }
-    verify_worker_l3_and_smt(&worker_cpus, observer_cpus, observer_cpus.is_some())?;
+    let worker_cpus = assign_worker_cpus(workers, &current_affinity(), observer_cpus, false)?;
+    let aff: Vec<usize> = worker_cpus.iter().flatten().copied().collect();
 
     let load_before = read_loadavg();
     let pid = std::process::id() as i32;
     let stop_obs = Arc::new(AtomicBool::new(false));
+    let max_backlog_us = Arc::new(AtomicU64::new(0));
     let obs_cpus_vec: Vec<usize> = observer_cpus.map_or_else(Vec::new, <[usize]>::to_vec);
     let cpu0 = self_cpu_seconds()?;
     let wall_t0 = Instant::now();
@@ -146,14 +135,16 @@ pub fn run_sp_a_shared_workers_with_observer(
 
     let (outcomes, obs_res) = std::thread::scope(|scope| {
         let stop_ref = Arc::clone(&stop_obs);
+        let bl_obs = Arc::clone(&max_backlog_us);
         let obs_pin = obs_cpus_vec.clone();
-        let obs_handle = scope.spawn(move || run_fleet_observer(pid, &obs_pin, &stop_ref));
+        let obs_handle = scope.spawn(move || run_fleet_observer(pid, &obs_pin, &stop_ref, &bl_obs));
         let mut handles = Vec::with_capacity(workers);
         for (w, cpus) in worker_cpus.iter().enumerate() {
             let eng = Arc::clone(&engine);
             let bar = &barrier;
             let utts_ref = &audio_utts;
             let cpus_clone = cpus.clone();
+            let bl_sink = Arc::clone(&max_backlog_us);
             handles.push(scope.spawn(move || {
                 let pin_res = pin_current_thread_verified(&cpus_clone);
                 let mut bank = SherpaBank::new(
@@ -167,7 +158,7 @@ pub fn run_sp_a_shared_workers_with_observer(
                 bar.wait();
                 let eff_cpus = pin_res?;
                 let mut clk = RealClock::new()?;
-                let sim = simulate_grid(
+                let sim = simulate_grid_with_backlog(
                     &mut bank,
                     &SimParams {
                         streams: cfg.streams,
@@ -179,6 +170,7 @@ pub fn run_sp_a_shared_workers_with_observer(
                         duration_s: cfg.duration_s,
                     },
                     &mut clk,
+                    Some(&bl_sink),
                 )?;
                 Ok::<_, StreamError>((sim, eff_cpus))
             }));
