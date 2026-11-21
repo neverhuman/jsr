@@ -59,14 +59,22 @@ fn parse() -> Result<Args, String> {
 }
 
 fn thread_cpu_s() -> f64 {
-    std::fs::read_to_string("/proc/thread-self/schedstat")
+    // Linux: this thread's scheduler run time. Elsewhere (macOS): process user + system time
+    // (the binaries decode on one thread; pool workers, if enabled, are then included).
+    if let Some(v) = std::fs::read_to_string("/proc/thread-self/schedstat")
         .ok()
         .and_then(|s| {
             s.split_whitespace()
                 .next()
                 .and_then(|v| v.parse::<f64>().ok())
         })
-        .map_or(f64::NAN, |ns| ns * 1e-9)
+    {
+        return v * 1e-9;
+    }
+    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, |u| {
+        let t = |tv: nix::sys::time::TimeVal| tv.tv_sec() as f64 + tv.tv_usec() as f64 * 1e-6;
+        t(u.user_time()) + t(u.system_time())
+    })
 }
 
 struct Slot {

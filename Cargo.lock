@@ -581,6 +581,7 @@ dependencies = [
 name = "ultra-engine"
 version = "0.1.0"
 dependencies = [
+ "nix",
  "proptest",
  "serde",
  "serde_json",
