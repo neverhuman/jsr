@@ -157,3 +157,73 @@ output/build review. The reported 24/core and 96/CCX remain scheduler experiment
 word latency, finalization, whole-service accounting and same-harness ORT evidence
 are separate gates. The lead authorized experimental integration while assigning
 the remaining findings to the engine owner; no deployment qualification follows.
+
+## Follow-up source review of 64bf9ad and the E4 consumer
+
+`64bf9ad` integrates the loader and density corrections plus prepared INT8
+artifacts. The earlier CMVN inverse-standard-deviation and missing-BPE checks
+are now fixed: the loader compares both CMVN tensors, verifies every declared
+payload and enforces containment. Nonfinite activation rows propagate failure
+instead of being silently hidden by range reductions. Packed INT8 construction
+also bounds the accumulation dimension. These close the corresponding findings
+against `d596935`; the historical results above retain their original identities.
+
+The revised density harness assigns pending chunks their own capture deadlines
+and accounts for unfinished work at cutoff. The owner withdrew the earlier
+24/core and 96/CCX claims. Revised shared-host scheduler observations still need
+same-harness controls, real word/finalization coverage and qualification evidence.
+They are not a service capacity result.
+
+Two numerical boundary cases remain open in this source. `scalar::row_params`
+checks a finite positive half-range but not whether `127 / half` is finite;
+tiny finite ranges can therefore overflow the inverse and differ between scalar
+and SIMD conversion. `MAX_K` uses the internal quantizer's `127 * 127` operand
+bound; a public GEMM accepting activation -128 needs a `128 * 127` accumulation
+bound or an enforced narrower input contract. The trained S dimensions fit both
+bounds. No learned-panel drift is asserted from these source counterexamples.
+
+`ultra-engine-prepare` writes packed I8 codes, per-channel scales and centering
+compensation sums to `weights.int8.safetensors`, with layout and source-FP32
+hashes. The strict loader checks these declarations and consumes that artifact
+without quantizing weights. Dynamic activation quantization and remaining
+floating-point operations still occur during inference. This is mixed INT8,
+not integer-only execution. Owned FP32 tensors/packing remain in memory; neither
+prepared loading nor safetensors implies mmap or zero-copy execution.
+
+`db5c14a` adds the independently owned thin `ultra-bridge` FP32 consumer over the
+same public `Engine`/`EngineStream` API. It adds no model arithmetic. It validates
+the bundle and actual PCM digests, uses the common measured audio-only service
+and separate Rust scorer, preserves sticky failure and credits all processed
+audio only after controlled EOF drain. It currently refuses INT8. Its learned
+eight-example service test and batch/partial-tail fixtures pass, as does the full
+integration gate (108 Python tests, one skip; Jankurai 85, zero caps). A clean
+release executable and a same-checkpoint D2-s5000 safetensors conversion have
+been retained for the independent service comparison. No full-panel speed or
+parity conclusion follows before those runs complete.
+
+The separately delivered normal streaming integration `33a5c08` uses monotonic
+event observation clocks and refuses unprepared INT8 service loads. Its fleet
+pinning still ignores affinity errors and records intended worker masks without
+verifying effective placement; its physical-core selection assumes CPU IDs below
+64. Its stream byte estimate omits frontend, feature, workspace and other vector
+capacities. These require hardening or explicit lower-bound labels before fleet
+placement or per-stream memory qualification. The independent bridge comparison
+uses the separately validated `ultra-measure` service/observer envelope.
+
+`806dd96` subsequently enables the strict prepared-INT8 bridge path. Its learned
+batch/packet and admission checks pass, and the independently retained D2 runs
+are described in the [fused comparison](2026-11-21-fused-d2-cpu.md). FP32 actual
+text is 400/400 identical to ONNX. Prepared INT8 passes the descriptive point
+quality margin but does not establish formal noninferiority. Its exact 400-output
+replay passes, while the frozen 5% CPU tolerance fails. No deployment or stable
+speed claim follows from these exploratory observations.
+
+`6df5c8f` integrates the owner's transposed-K attention and MR support. Source
+inspection confirms the remaining inverse-range and accumulation bounds are
+corrected: row parameters require a finite inverse, and `MAX_K` uses `128 * 127`.
+The new attention path takes safe tile/chunk slices before its eight-float SIMD
+loads and stores. No recurrence of the original forged-packed-weight P1 is
+identified in these accesses. This is a focused source finding, not acceptance
+of every public shape or of trained MR inference. Dense D2 execution is measured
+as a separate source-bound candidate; the earlier source/precision results and
+failed CPU tolerance remain intact.

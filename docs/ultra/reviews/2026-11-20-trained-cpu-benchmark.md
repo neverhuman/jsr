@@ -1,5 +1,17 @@
 # Trained CPU benchmark: D1 and first D2 snapshot on DEV
 
+Latest implementation results are in the
+[fused Rust D2 comparison](2026-11-21-fused-d2-cpu.md). Current `6df5c8f`
+same-executable readings are Zipformer 2.85159% WER / 0.07822 CPU-s/audio-s,
+R1 FP32 21.87946% / 0.10359, and R1 mixed INT8 21.80169% / 0.04134. FP32
+reproduces 400/400 actual transcripts. The earlier matched FP32 pair reads
+0.09466 versus ONNX 0.17474. Earlier prepared INT8 reads 0.04234 and 0.05284
+on exact replay; its 24.79% CPU variation fails the frozen 5% tolerance.
+Cross-runtime INT8 continuity is 91.75%, failing the 98% minimum. These are
+DEV research results; no confirmation or output-preserving INT8 claim follows.
+These newer artifacts retain their own source, binary and measurement identities;
+the historical rows below are unchanged.
+
 This delivers the M1 research comparison and an initial native FP32 service
 extension, including D2's first retained step-5000 snapshot. It is an exploratory
 DEV comparison. Release qualification and the

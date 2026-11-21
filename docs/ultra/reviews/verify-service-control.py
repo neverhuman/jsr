@@ -7,18 +7,124 @@ import hashlib
 import json
 import math
 import runpy
+import struct
 import subprocess
 import sys
 from pathlib import Path
 
 
+def verify_sources(revision, sources, require):
+    require(len(revision) == 40 and all(c in "0123456789abcdef" for c in revision),
+            "invalid immutable source revision")
+    require(bool(sources), "missing source-content proof")
+    for path, expected in sources.items():
+        require("\n" not in path and ".." not in Path(path).parts, "bad source path")
+        blob = subprocess.check_output(["rtk", "proxy", "git", "show", f"{revision}:{path}"])
+        require(hashlib.sha256(blob).hexdigest() == expected, "source differs from Git")
+
+
+def export_identity(bundle, arch, manifest_sha, binding, base):
+    require, digest, read = [base[k] for k in ["require", "digest", "read"]]
+    item = binding["model_provenance"]
+    path = Path(item["path"])
+    require(path.resolve() == (bundle / "source-provenance.json").resolve() and
+            digest(path) == item["sha256"], "changed model export proof")
+    proof = read(path)
+    checkpoint = arch["source"]["checkpoint_sha256"]
+    require(proof["export_format"] == "fused-fp32" and proof["checkpoint_sha256"] == checkpoint and
+            proof["manifest_sha256"] == manifest_sha and
+            proof["exporter_commit"] == arch["converter"]["commit"], "different fused export provenance")
+    require(digest(Path(arch["source"]["checkpoint"])) == checkpoint, "changed retained checkpoint")
+    require(all(p.startswith("python/ultra/") for p in proof["source_sha256"]),
+            "bad fused exporter source path")
+    verify_sources(proof["exporter_commit"], proof["source_sha256"], require)
+    return dict(checkpoint_sha256=checkpoint, model_export_proof_sha256=digest(path))
+
+
+def prepared_identity(root, run_name, baseline_name, plan, baseline, binding, base, arch):
+    require, digest, read = [base[k] for k in ["require", "digest", "read"]]
+    require(baseline["job"]["engine"] == "r1-fused" and baseline["job"]["precision"] == "fp32",
+            "prepared INT8 needs the actual same-checkpoint fused FP32 control")
+    bundle, parent = [Path(p["job"]["bundle"]) for p in [plan, baseline]]
+    item = binding["preparation_provenance"]
+    path = Path(item["path"])
+    require(path.resolve() == (bundle / "preparation-provenance.json").resolve() and
+            digest(path) == item["sha256"], "changed preparation proof")
+    prep = read(path)
+    old = read(root / baseline_name / "bundle-manifest.json")
+    require(Path(prep["source_fp32_bundle"]).resolve() == parent.resolve() and
+            digest(parent / "arch.json") == prep["source_fp32_manifest_sha256"] ==
+            baseline["bundle_manifest_sha256"], "different prepared source bundle")
+    for item in old["files"].values():
+        require(digest(parent / item["path"]) == item["sha256"], "changed source FP32 payload")
+    normalized = json.loads(json.dumps(arch))
+    del normalized["int8"]
+    del normalized["files"]["weights_int8"]
+    cmvn = b""
+    for name in ["mean", "istd"]:
+        a, b = [x["features"]["cmvn"][name] for x in [old, normalized]]
+        require(len(a) == len(b) == 80, "different CMVN shape")
+        for x, y in zip(a, b):
+            bits = struct.pack("<f", x)
+            require(bits == struct.pack("<f", y), "different operational CMVN bits")
+            cmvn += bits
+        normalized["features"]["cmvn"][name] = a
+    require(normalized == old and hashlib.sha256(cmvn).hexdigest() == prep["cmvn_effective_f32_sha256"],
+            "prepared artifact changed a non-INT8 field")
+    require(prep["manifest_sha256"] == plan["bundle_manifest_sha256"] and
+            prep["weights_int8_sha256"] == arch["files"]["weights_int8"]["sha256"] and
+            prep["source_weights_sha256"] == arch["int8"]["source_weights_sha256"] ==
+            old["files"]["weights"]["sha256"] and
+            prep["int8_fp32_kinds"] == arch["int8"]["fp32_kinds"] == [] and
+            prep["producer_verified_readback"] and prep["job_exit_status"] == 0,
+            "different or incomplete prepared artifact")
+    require(prep["governance"]["cpu_target"] == 0.85 and prep["governance"]["gpu"] == -1 and
+            prep["governance"]["guard_source_sha256"] ==
+            binding["helpers"]["ultra/fleet_guard.py"]["sha256"], "different preparation governance")
+    producer_proof = prep["producer_build_proof"]
+    require(digest(Path(producer_proof["path"])) == producer_proof["sha256"], "changed producer build proof")
+    build = read(Path(producer_proof["path"]))
+    require(build["build_exit_code"] == 0 and build["source_unchanged_after_build"] and
+            not build["source_dirty"], "unverified preparation producer")
+    producer = build["binaries"]["ultra-engine-prepare"]
+    require(digest(Path(producer["path"])) == producer["sha256"] == prep["producer_executable_sha256"] and
+            prep["command"] == [producer["path"], "--weights", str(parent), "--out", str(bundle)],
+            "different executed preparation command")
+    verify_sources(build["source_commit"], build["source_sha256"], require)
+    require(digest(parent / "source-provenance.json") == prep["source_export_proof_sha256"],
+            "changed original FP32 export proof")
+    result = export_identity(parent, old, baseline["bundle_manifest_sha256"], binding, base)
+    load = read(root / run_name / "load.json")
+    require(load["int8_source"] == "prepared" and load["weights_int8_sha256"] ==
+            prep["weights_int8_sha256"] and load["int8_fp32_kinds"] == [],
+            "service did not use the prepared precision policy")
+    return dict(**result, preparation_proof_sha256=digest(path),
+                reference_manifest_sha256=baseline["bundle_manifest_sha256"],
+                weights_int8_sha256=prep["weights_int8_sha256"])
+
+
 def fused_identity(root, run_name, baseline_name, plan, baseline, binding, base):
     require, digest, read = [base[k] for k in ["require", "digest", "read"]]
     arch = read(root / run_name / "bundle-manifest.json")
+    require(arch["schema"] == "ultra.r1-weights/v1", "unsupported fused schema")
+    bundle = Path(plan["job"]["bundle"])
+    require(digest(bundle / "arch.json") == plan["bundle_manifest_sha256"], "changed fused manifest")
+    for item in arch["files"].values():
+        path = bundle / item["path"]
+        require(path.resolve().is_relative_to(bundle.resolve()) and digest(path) == item["sha256"],
+                "changed/escaping fused payload")
+    load = read(root / run_name / "load.json")
+    require(load["precision"] == plan["job"]["precision"] and load["cpu_only_verified"] and
+            load["runtime_weight_quantization"] is False and
+            load["manifest_sha256"] == plan["bundle_manifest_sha256"] and
+            load["checkpoint_sha256"] == arch["source"]["checkpoint_sha256"] and
+            load["weights_sha256"] == arch["files"]["weights"]["sha256"],
+            "different executed fused model/precision")
+    if plan["job"]["precision"] == "int8":
+        return prepared_identity(root, run_name, baseline_name, plan, baseline, binding, base, arch)
     onnx = read(root / baseline_name / "bundle-manifest.json")
-    require(arch["schema"] == "ultra.r1-weights/v1" and baseline["job"]["engine"] in
-            ["r1-native", "r1-bridge"] and plan["job"]["precision"] == "fp32",
-            "unsupported representation comparison")
+    require(baseline["job"]["engine"] in ["r1-native", "r1-bridge"] and
+            baseline["job"]["precision"] == "fp32", "unsupported representation comparison")
     checkpoint = arch["source"]["checkpoint_sha256"]
     require(checkpoint == onnx["model"]["checkpoint_sha256"] and
             arch["source"]["bundle"]["manifest_sha256"] == baseline["bundle_manifest_sha256"],
@@ -29,28 +135,7 @@ def fused_identity(root, run_name, baseline_name, plan, baseline, binding, base)
     for key in ["tokens", "bpe", "mel_fbank"]:
         require(arch["files"][key]["sha256"] == onnx["files"][key]["sha256"],
                 "different tokenizer/frontend payload")
-    bundle = Path(plan["job"]["bundle"])
-    require(digest(bundle / "arch.json") == plan["bundle_manifest_sha256"], "changed fused manifest")
-    for item in arch["files"].values():
-        path = bundle / item["path"]
-        require(path.resolve().is_relative_to(bundle.resolve()) and digest(path) == item["sha256"],
-                "changed/escaping fused payload")
-    model_proof = binding["model_provenance"]
-    path = Path(model_proof["path"])
-    require(path.resolve() == (bundle / "source-provenance.json").resolve() and
-            digest(path) == model_proof["sha256"], "changed model export proof")
-    proof = read(path)
-    require(proof["export_format"] == "fused-fp32" and proof["checkpoint_sha256"] == checkpoint and
-            proof["manifest_sha256"] == plan["bundle_manifest_sha256"] and
-            proof["exporter_commit"] == arch["converter"]["commit"], "different fused export provenance")
-    require(digest(Path(arch["source"]["checkpoint"])) == checkpoint, "changed retained checkpoint")
-    for source, expected in proof["source_sha256"].items():
-        require(source.startswith("python/ultra/") and ".." not in Path(source).parts,
-                "bad fused exporter source path")
-        blob = subprocess.check_output(["rtk", "proxy", "git", "show",
-                                        f"{proof['exporter_commit']}:{source}"])
-        require(hashlib.sha256(blob).hexdigest() == expected, "fused export source differs from Git")
-    return dict(checkpoint_sha256=checkpoint, model_export_proof_sha256=digest(path),
+    return dict(**export_identity(bundle, arch, plan["bundle_manifest_sha256"], binding, base),
                 reference_manifest_sha256=baseline["bundle_manifest_sha256"])
 
 
@@ -64,9 +149,11 @@ def main():
     row, plan, references = current
     require(references == previous[2], "different reference population or clusters")
     fused = plan["job"]["engine"] == "r1-fused"
+    precision_control = fused and plan["job"]["precision"] == "int8"
     for field in ["workload_sha256"] + ([] if fused else ["bundle_manifest_sha256"]):
         require(plan[field] == previous[1][field], f"different {field}")
-    for field in ([] if fused else ["engine"]) + ["precision", "streams", "packet_ms", "threads", "paced", "guarded"]:
+    for field in (([] if fused else ["engine"]) + ([] if precision_control else ["precision"]) +
+                  ["streams", "packet_ms", "threads", "paced", "guarded"]):
         require(plan["job"][field] == previous[1]["job"][field], f"different {field}")
     run = root / run_name
     final = rows(run / "final.jsonl")
@@ -104,11 +191,7 @@ def main():
     require(read(run / "support.json")["scorer_executable_sha256"] == digest(binary),
             "different Rust scorer executable")
     # Verify the recorded clean tree against Git content, not the checkout's later HEAD.
-    for path, expected in proof["source_sha256"].items():
-        require("\n" not in path and ".." not in Path(path).parts, "bad source path")
-        blob = subprocess.check_output(["rtk", "proxy", "git", "show",
-                                        f"{proof['source_commit']}:{path}"])
-        require(hashlib.sha256(blob).hexdigest() == expected, "build source differs from Git")
+    verify_sources(proof["source_commit"], proof["source_sha256"], require)
     summary = read(run / "summary.json")
     require(summary["guarded"] and not summary["wall_timing_evidence"], "wrong timing scope")
     measurement = summary["measurement"]
@@ -160,7 +243,12 @@ def main():
                   verifier_sha256=digest(Path(__file__)), base_verifier_sha256=digest(helper),
                   model_identity=model_identity, mismatches=mismatches,
                   parity=dict(exact_transcripts=not mismatches, agreement=agreement,
-                              wer_delta_pp=wer_delta, minimum_pass=agreement >= 0.98 and abs(wer_delta) <= 0.10),
+                              wer_delta_pp=wer_delta, consumer_equivalence_evaluated=not precision_control,
+                              minimum_pass=None if precision_control else agreement >= 0.98 and abs(wer_delta) <= 0.10),
+                  precision_quality=dict(wer_delta_pp=wer_delta, point_margin_pp=0.10,
+                                         point_gate_pass=wer_delta <= 0.10,
+                                         scope="DEV descriptive point gate; no formal noninferiority")
+                  if precision_control else None,
                   qualifying=False, wall_timing_evidence=False,
                   interpretation="Single shared-host observations; historical date/source/placement can differ."
                   " Actual-output joins and parity are recorded; CPU differences alone do not establish a repeatable speedup.")
