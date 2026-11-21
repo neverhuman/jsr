@@ -7,6 +7,7 @@
 //! Safe Rust only: a job owns copies of the (small) quantised activations and an
 //! `Arc<Model>`; workers return their column blocks, which the caller scatters.
 
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 
@@ -30,15 +31,20 @@ struct State {
     epoch: u64,
     job: Option<Arc<Job>>,
     results: Vec<Option<Vec<f32>>>,
-    pending: usize,
     quit: bool,
 }
 
 struct Shared {
     state: Mutex<State>,
     work: Condvar,
-    done: Condvar,
+    /// Published epoch and outstanding shares, polled lock-free (hand-off is per GEMM, so
+    /// futex wake-ups would cost more than the work; workers spin briefly, then park).
+    epoch: AtomicU64,
+    pending: AtomicUsize,
 }
+
+/// Spin iterations before a worker parks on the condition variable (~0.1-0.5 ms).
+const SPIN: u32 = 200_000;
 
 /// Persistent GEMM helper threads (`threads - 1` of them).
 pub struct GemmPool {
@@ -77,7 +83,8 @@ impl GemmPool {
         let shared = Arc::new(Shared {
             state: Mutex::new(State::default()),
             work: Condvar::new(),
-            done: Condvar::new(),
+            epoch: AtomicU64::new(0),
+            pending: AtomicUsize::new(0),
         });
         let handles = (1..threads)
             .map(|idx| {
@@ -85,6 +92,11 @@ impl GemmPool {
                 std::thread::spawn(move || {
                     let mut seen = 0u64;
                     loop {
+                        let mut spins = 0u32;
+                        while sh.epoch.load(Ordering::Acquire) == seen && spins < SPIN {
+                            std::hint::spin_loop();
+                            spins += 1;
+                        }
                         let job = {
                             let mut st = sh.state.lock().unwrap_or_else(|e| e.into_inner());
                             while !st.quit && st.epoch == seen {
@@ -97,13 +109,12 @@ impl GemmPool {
                             st.job.clone()
                         };
                         let Some(job) = job else { continue };
-                        let r = compute(&job, idx);
-                        let mut st = sh.state.lock().unwrap_or_else(|e| e.into_inner());
-                        st.results[idx] = Some(r);
-                        st.pending -= 1;
-                        if st.pending == 0 {
-                            sh.done.notify_one();
+                        if idx >= job.ranges.len() {
+                            continue;
                         }
+                        let r = compute(&job, idx);
+                        sh.state.lock().unwrap_or_else(|e| e.into_inner()).results[idx] = Some(r);
+                        sh.pending.fetch_sub(1, Ordering::AcqRel);
                     }
                 })
             })
@@ -155,16 +166,17 @@ impl GemmPool {
         {
             let mut st = self.shared.state.lock().unwrap_or_else(|e| e.into_inner());
             st.results = vec![None; self.threads];
-            st.pending = parts - 1;
             st.job = Some(job.clone());
             st.epoch += 1;
+            self.shared.pending.store(parts - 1, Ordering::Release);
+            self.shared.epoch.store(st.epoch, Ordering::Release);
         }
         self.shared.work.notify_all();
         let mine = compute(&job, 0);
-        let mut st = self.shared.state.lock().unwrap_or_else(|e| e.into_inner());
-        while st.pending > 0 {
-            st = self.shared.done.wait(st).unwrap_or_else(|e| e.into_inner());
+        while self.shared.pending.load(Ordering::Acquire) > 0 {
+            std::hint::spin_loop();
         }
+        let mut st = self.shared.state.lock().unwrap_or_else(|e| e.into_inner());
         st.job = None;
         let mut results = std::mem::take(&mut st.results);
         drop(st);
