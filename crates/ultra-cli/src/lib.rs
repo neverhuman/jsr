@@ -14,7 +14,10 @@ pub mod inventory;
 pub mod runner;
 pub mod suite_cmd;
 pub mod suite_latency;
+pub mod suite_manifest;
 mod suite_mfa;
+mod suite_runners;
+pub mod suite_slices;
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -222,7 +225,8 @@ pub fn usage_text() -> &'static str {
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\
        bench-suite --out-dir DIR [--candidates CSV] [--split SPLIT] [--limit N] [--batch-streams N]\n\
                    [--density-workers W] [--density-streams N] [--density-seconds S] [--latency-limit N]\n\
-                   [--sustained-seconds S] [--precision int8|fp32] [--threads N] [--lease PATH]\n\
+                   [--sustained-seconds S] [--silence-probe] [--observer-cpus LIST] [--precision int8|fp32]\n\
+                   [--threads N] [--lease PATH]\n\
        score --predictions JSONL [--md-out PATH] [--out PATH]\n\
        compare --baseline JSONL --candidate JSONL [--alpha A] [--margin-wer-pp M] [--out PATH]"
 }

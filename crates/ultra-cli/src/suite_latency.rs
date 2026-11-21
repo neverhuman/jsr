@@ -20,6 +20,7 @@ use ultra_stream::{
 };
 
 use crate::suite_mfa::load_mfa_post_inference;
+use crate::suite_slices::{SilenceProbeReport, SliceSummaries};
 use crate::CliError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +71,9 @@ pub struct FrontierRow {
     pub density: Option<DensityPoint>,
     pub latency: Option<SuiteLatencySummary>,
     pub sustained_probe: Option<DensityPoint>,
+    pub slices: SliceSummaries,
+    pub silence_probe: Option<SilenceProbeReport>,
+    pub job_manifest_file: String,
     pub scores_file: String,
     pub receipt_file: String,
 }
@@ -87,6 +91,8 @@ pub struct FrontierReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiteLatencySummary {
     pub loaded_identity: String,
+    pub finalization_mode: String,
+    pub whole_population_claim_eligible: bool,
     pub mfa_sha256: Option<String>,
     pub utterances_inferred: usize,
     pub utterances_timed: usize,
@@ -213,8 +219,15 @@ pub fn measure_paced_latency(
         format!("mfa_aligned_subset({utterances_timed}/{})", utts.len())
     };
 
+    let whole_population_claim_eligible = has_mfa
+        && timing_unavailable_ids.is_empty()
+        && utterances_timed == utts.len()
+        && !utts.is_empty();
+
     Ok(SuiteLatencySummary {
         loaded_identity,
+        finalization_mode: "controlled_eof_finish_input".into(),
+        whole_population_claim_eligible,
         mfa_sha256,
         utterances_inferred: utts.len(),
         utterances_timed,

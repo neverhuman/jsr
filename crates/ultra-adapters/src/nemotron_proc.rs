@@ -8,11 +8,11 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use nix::sys::resource::{getrusage, UsageWho};
-use ultra_core::receipt::sha256_hex;
+use ultra_core::hash::sha256_reader;
 
 use crate::AdapterError;
 
-pub(crate) fn whole_tree_cpu_s() -> Result<f64, AdapterError> {
+pub(crate) fn self_and_child_cpu_s() -> Result<(f64, f64), AdapterError> {
     let to_s = |u: UsageWho| -> Result<f64, AdapterError> {
         let r = getrusage(u).map_err(|e| AdapterError::Process(format!("getrusage: {e}")))?;
         let ut = r.user_time();
@@ -20,15 +20,20 @@ pub(crate) fn whole_tree_cpu_s() -> Result<f64, AdapterError> {
         Ok((ut.tv_sec() as f64 + ut.tv_usec() as f64 * 1e-6)
             + (st.tv_sec() as f64 + st.tv_usec() as f64 * 1e-6))
     };
-    Ok(to_s(UsageWho::RUSAGE_SELF)? + to_s(UsageWho::RUSAGE_CHILDREN)?)
+    Ok((
+        to_s(UsageWho::RUSAGE_SELF)?,
+        to_s(UsageWho::RUSAGE_CHILDREN)?,
+    ))
+}
+
+pub(crate) fn whole_tree_cpu_s() -> Result<f64, AdapterError> {
+    let (s, c) = self_and_child_cpu_s()?;
+    Ok(s + c)
 }
 
 pub(crate) fn hash_file_streaming(path: &Path) -> Result<String, AdapterError> {
-    use std::io::Read;
     let mut fh = File::open(path)?;
-    let mut all = Vec::new();
-    fh.read_to_end(&mut all)?;
-    Ok(sha256_hex(&all))
+    Ok(sha256_reader(&mut fh)?)
 }
 
 /// Inspect `/proc/<pid>/maps`: rejects any GPU shared object and records whether `libggml-cpu`

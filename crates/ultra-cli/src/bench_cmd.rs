@@ -79,7 +79,7 @@ pub fn compare_score_files(
     })
 }
 
-fn partition_for_split(split: &str) -> Partition {
+pub(crate) fn partition_for_split(split: &str) -> Partition {
     if split.starts_with("test") {
         Partition::PublicTest
     } else if split.starts_with("train") {
@@ -89,7 +89,11 @@ fn partition_for_split(split: &str) -> Partition {
     }
 }
 
-fn parse_next<T: FromStr>(args: &[String], idx: &mut usize, flag: &str) -> Result<T, CliError> {
+pub(crate) fn parse_next<T: FromStr>(
+    args: &[String],
+    idx: &mut usize,
+    flag: &str,
+) -> Result<T, CliError> {
     *idx += 1;
     args.get(*idx)
         .and_then(|v| v.parse().ok())

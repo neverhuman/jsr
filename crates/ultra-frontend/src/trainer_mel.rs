@@ -229,6 +229,16 @@ impl TrainerLogMel {
         self.frames_emitted
     }
 
+    /// Heap capacity in bytes retained by the streaming PCM lookahead buffer.
+    pub fn retained_heap_bytes(&self) -> usize {
+        self.buf.capacity() * std::mem::size_of::<f32>()
+    }
+
+    /// Total struct + heap allocation in bytes retained by this per-stream extractor.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_heap_bytes() + std::mem::size_of::<Self>()
+    }
+
     /// Push `16 kHz` `PCM16` samples (`i16 / 32768.0`) and append newly completed frames to `out`.
     pub fn push_i16_into(&mut self, pcm: &[i16], out: &mut Vec<[f32; MEL_BINS]>) {
         if pcm.is_empty() {

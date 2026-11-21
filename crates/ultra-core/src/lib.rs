@@ -2,6 +2,7 @@
 //! the stream lifecycle and receipts (Appendix D).
 
 pub mod events;
+pub mod hash;
 pub mod lifecycle;
 pub mod numeric;
 pub mod receipt;

@@ -13,6 +13,7 @@ pub mod ort_ffi;
 pub mod ort_r1;
 pub mod ort_r1_bank;
 pub mod ort_r1_stream;
+mod ort_r1_ws;
 pub mod scheduler;
 pub mod sherpa_c_offline;
 pub mod sherpa_c_types;

@@ -73,11 +73,17 @@ fn run_python_bundle_hyps_and_tokens(
     let script = r#"
 import json, resource, sys
 import numpy as np
-from train.bundle_infer import BundleRecognizer
+import train.bundle_infer as bi
 from train.infer import run_streaming
 
 bundle, npz_p, prec, lim = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
-rec = BundleRecognizer(bundle, prec, threads=1, verify=True)
+with open(f"{bundle}/manifest.json") as fh:
+    hdr = json.load(fh)
+if hasattr(bi, "SCHEMA") and hdr.get("schema") in ("ultra.r1-export/v1", "ultra.r1-export/v1.1"):
+    bi.SCHEMA = hdr["schema"]
+rec = bi.BundleRecognizer(bundle, prec, threads=1, verify=True)
+i8 = rec.m.get("int8") or {}
+py_streams = int(i8.get("max_batch") or 16) if prec == "int8" else 16
 created = []
 orig_create = rec.create_stream
 def tracked_create():
@@ -87,16 +93,12 @@ def tracked_create():
 rec.create_stream = tracked_create
 
 z = np.load(npz_p, allow_pickle=False)
-pcm_all = z["pcm"]
-offsets = z["offsets"]
-
+pcm_all, offsets = z["pcm"], z["offsets"]
 class U:
-    def __init__(self, pcm):
-        self.pcm = pcm
-
+    def __init__(self, pcm): self.pcm = pcm
 utts = [U(pcm_all[offsets[i]:offsets[i+1]]) for i in range(lim)]
 r0 = resource.getrusage(resource.RUSAGE_SELF)
-hyps = run_streaming(rec, utts, streams=16, packet_ms=20)
+hyps = run_streaming(rec, utts, streams=py_streams, packet_ms=20)
 r1 = resource.getrusage(resource.RUSAGE_SELF)
 cpu_s = (r1.ru_utime + r1.ru_stime) - (r0.ru_utime + r0.ru_stime)
 toks = [list(s.tokens) for s in created]
@@ -147,6 +149,11 @@ print(json.dumps({"hyps": hyps, "tokens": toks, "forced": rec.forced_advances, "
 }
 
 fn locate_r1_bundle(root: &Path) -> PathBuf {
+    if let Ok(p) = std::env::var("ULTRA_B1_BUNDLE_DIR") {
+        if !p.trim().is_empty() {
+            return PathBuf::from(p);
+        }
+    }
     let rev = root.join("bundles/r1-d1-reviewed-20261120-v2");
     if rev.join("manifest.json").exists() {
         rev
@@ -206,20 +213,20 @@ fn ort_r1_stream_coordinator_subchunk_watermark_and_16_utt_parity() {
         .any(|e| matches!(e.body, ultra_core::events::Body::Final { .. })));
     assert!(
         fail_coord.finish_input().is_err(),
-        "injected late failure must error on finish_input"
+        "injected late failure must error"
     );
     assert!(
         fail_coord.finish_input().is_err(),
-        "retrying finish_input after failure must be rejected"
+        "retry finish_input must error"
     );
     assert!(
         fail_coord.push_pcm(3_200, &[0i16; 320]).is_err(),
-        "push_pcm after failure must be rejected"
+        "push after failure must error"
     );
     while let PollResult::Event(ev) = fail_coord.poll_event().expect("poll after fail") {
         assert!(
             !matches!(ev.body, ultra_core::events::Body::Final { .. }),
-            "failed stream must never emit Final"
+            "no Final after fail"
         );
     }
 
@@ -339,7 +346,13 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
     };
     std::fs::create_dir_all(&run_dir).expect("mkdir unique parity run_dir");
 
+    let only_prec = std::env::var("ULTRA_B1_ONLY_PRECISION").ok();
     for prec in [R1Precision::Fp32, R1Precision::Int8] {
+        if let Some(ref want) = only_prec {
+            if !want.trim().is_empty() && want != prec.as_str() {
+                continue;
+            }
+        }
         let engine =
             OrtTransducerBackend::load(&bundle_dir, prec, 1, true).expect("load R1 engine");
         let py = run_python_bundle_hyps_and_tokens(&bundle_dir, &npz_path, prec, 400);
@@ -431,7 +444,13 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
             "schema": "ultra.b1-parity/v1",
             "bundle_dir": bundle_dir.to_string_lossy(),
             "bundle_schema": engine.bundle.schema,
+            "int8_mode": engine.bundle.int8_mode,
+            "int8_graph_batch_invariant": engine.bundle.int8_graph_batch_invariant,
+            "int8_consumer_batch_invariant": engine.bundle.int8_consumer_batch_invariant(),
             "int8_batch_invariant": engine.bundle.int8_batch_invariant,
+            "int8_max_batch_enc": engine.bundle.int8_max_batch_enc,
+            "int8_max_batch_joi": engine.bundle.int8_max_batch_joi,
+            "joiner_precision": engine.bundle.joiner_precision.as_str(),
             "bundle_manifest_sha256": engine.bundle.manifest_sha256,
             "ort_library_path": engine.ort.path.to_string_lossy(),
             "ort_library_sha256": engine.ort.sha256,
@@ -475,27 +494,30 @@ fn b1_full_400_dev_clean_parity_and_speed_report() {
         }
 
         if prec == R1Precision::Fp32 {
-            assert!(
-                (rust_wer - py_wer).abs() <= 0.1,
-                "B1 FP32 WER delta {:.4} > 0.1",
-                (rust_wer - py_wer).abs()
-            );
+            assert!(wer_gate_pass, "B1 FP32 WER delta {wer_delta:.4} > 0.1");
             assert_eq!(identical, 400, "B1 FP32 expected 400/400 identical texts");
             assert_eq!(
                 identical_toks, 400,
-                "B1 FP32 expected 400/400 identical token sequences"
+                "B1 FP32 expected 400/400 identical tokens"
+            );
+        } else if engine.bundle.int8_batch_invariant {
+            assert!(
+                wer_gate_pass,
+                "B1 v1.1 INT8 WER delta {wer_delta:.4} > 0.10"
+            );
+            assert!(
+                agreement_gate_pass,
+                "B1 v1.1 INT8 identical {identical}/400 (< 392); inspect {}",
+                out_file.display()
             );
         } else {
-            // Dynamic per-tensor activation quantization (`DynamicQuantizeLinear` without axis)
-            // shifts scales across co-batched streams; experimental until static QDQ export lands.
             assert!(
-                (rust_wer - py_wer).abs() <= 0.25,
-                "B1 experimental dynamic-INT8 WER delta {:.4} > 0.25",
-                (rust_wer - py_wer).abs()
+                wer_delta <= 0.25,
+                "B1 v1 dynamic-INT8 WER delta {wer_delta:.4} > 0.25"
             );
             assert!(
                 identical >= 350,
-                "B1 experimental dynamic-INT8 identical {identical}/400; inspect {}",
+                "B1 v1 dynamic-INT8 {identical}/400; {}",
                 out_file.display()
             );
         }

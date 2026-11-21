@@ -90,7 +90,28 @@ fn real_r1_d1_bundle_loads_and_tampered_copy_is_rejected() {
     if v11_dir.join("manifest.json").exists() {
         let b11 = R1Bundle::load(&v11_dir, R1Precision::Int8, true).expect("load r1-d1-v1.1");
         assert_eq!(b11.schema, "ultra.r1-export/v1.1");
+        assert_eq!(b11.int8_mode.as_deref(), Some("static_qdq"));
+        assert!(b11.int8_graph_batch_invariant);
         assert!(b11.int8_batch_invariant);
+        assert_eq!(b11.int8_max_batch_enc, None);
+    }
+
+    let dynrow_dir = root.join("bundles/r1-d1-v1.1-dynrow");
+    if dynrow_dir.join("manifest.json").exists() {
+        let bdr = R1Bundle::load(&dynrow_dir, R1Precision::Int8, true).expect("load dynrow int8");
+        assert_eq!(bdr.schema, "ultra.r1-export/v1.1");
+        assert_eq!(bdr.int8_mode.as_deref(), Some("dynamic_per_row"));
+        assert!(!bdr.int8_graph_batch_invariant);
+        assert!(bdr.int8_batch_invariant);
+        assert_eq!(bdr.int8_max_batch_enc, Some(1));
+        assert_eq!(bdr.int8_max_batch_joi, Some(1));
+        assert_eq!(bdr.joiner_precision, R1Precision::Int8);
+
+        let bdr_fp32 =
+            R1Bundle::load(&dynrow_dir, R1Precision::Fp32, false).expect("load dynrow fp32");
+        assert_eq!(bdr_fp32.int8_max_batch_enc, None);
+        assert_eq!(bdr_fp32.int8_max_batch_joi, None);
+        assert_eq!(bdr_fp32.joiner_precision, R1Precision::Fp32);
     }
 
     // Build a minimal synthetic bundle in tempdir and verify tamper/path-traversal rejection.
@@ -148,4 +169,108 @@ fn real_r1_d1_bundle_loads_and_tampered_copy_is_rejected() {
     )
     .expect("write sym manifest");
     assert!(R1Bundle::load(sym_bundle.path(), R1Precision::Int8, false).is_err());
+}
+
+#[test]
+fn v11_int8_contract_handles_static_fp32_joiner_and_refuses_silent_fallback() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let p = tmp.path();
+    let fbank = vec![0u8; 257 * 80 * 4];
+    let toks = b"<blk> 0\na 1\n";
+    let dummy_enc = b"onnx-enc";
+    let dummy_dec = b"onnx-dec";
+    let dummy_joi_fp32 = b"onnx-joi-fp32";
+    std::fs::write(p.join("mel_fbank.f32"), &fbank).expect("write fbank");
+    std::fs::write(p.join("tokens.txt"), toks).expect("write tokens");
+    std::fs::write(p.join("encoder.fp32.onnx"), dummy_enc).expect("write enc fp32");
+    std::fs::write(p.join("encoder.int8.onnx"), dummy_enc).expect("write enc int8");
+    std::fs::write(p.join("decoder.onnx"), dummy_dec).expect("write dec");
+    std::fs::write(p.join("joiner.fp32.onnx"), dummy_joi_fp32).expect("write joi fp32");
+
+    let mk_entry = |name: &str, bytes: &[u8]| {
+        serde_json::json!({
+            "path": name,
+            "sha256": ultra_core::receipt::sha256_hex(bytes)
+        })
+    };
+    let base_states = serde_json::json!([
+        {"name": "k", "shape": [2, "B", 4, 128, 64], "dtype": "float32"},
+        {"name": "v", "shape": [2, "B", 4, 128, 64], "dtype": "float32"},
+        {"name": "kv_len", "shape": ["B"], "dtype": "int64"},
+        {"name": "conv", "shape": [2, "B", 384, 14], "dtype": "float32"}
+    ]);
+
+    // 1. v1.1 static_qdq with explicit `"joiner": "fp32 (joiner.fp32.onnx; no int8 file)"` succeeds!
+    let ok_mixed = serde_json::json!({
+        "schema": "ultra.r1-export/v1.1",
+        "int8": {
+            "mode": "static_qdq",
+            "batch_invariant": true,
+            "joiner": "fp32 (joiner.fp32.onnx; no int8 file)"
+        },
+        "model": {"family": "dense", "exporter_commit": "abc"},
+        "files": {
+            "encoder.fp32": mk_entry("encoder.fp32.onnx", dummy_enc),
+            "encoder.int8": mk_entry("encoder.int8.onnx", dummy_enc),
+            "decoder": mk_entry("decoder.onnx", dummy_dec),
+            "joiner.fp32": mk_entry("joiner.fp32.onnx", dummy_joi_fp32),
+            "tokens": mk_entry("tokens.txt", toks),
+            "mel_fbank": mk_entry("mel_fbank.f32", &fbank)
+        },
+        "features": {
+            "sample_rate": 16000, "frame_length": 400, "frame_shift": 160,
+            "n_fft": 512, "n_mels": 80, "log_floor": 1e-6,
+            "cmvn": {"mean": vec![0.0; 80], "istd": vec![1.0; 80]}
+        },
+        "streaming": {
+            "chunk_frames": 4, "chunk_ms": 160, "left_context_frames": 128,
+            "states": base_states, "encoder_output": {"name": "enc", "shape": ["B", "n", 320]}
+        },
+        "decoder": {"blank_id": 0, "vocab_size": 2, "ctx_init": [0, 0], "max_symbols": 8}
+    });
+    std::fs::write(
+        p.join("manifest.json"),
+        serde_json::to_vec(&ok_mixed).expect("json"),
+    )
+    .expect("w");
+    let loaded = R1Bundle::load(p, R1Precision::Int8, true).expect("load static_qdq fp32 joiner");
+    assert!(loaded.int8_graph_batch_invariant);
+    assert!(loaded.int8_batch_invariant);
+    assert_eq!(loaded.joiner_precision, R1Precision::Fp32);
+    assert!(loaded.joiner_onnx.ends_with("joiner.fp32.onnx"));
+
+    // 2. Undeclared missing `joiner.int8` MUST be rejected (zero silent fallback to fp32).
+    let mut undeclared = ok_mixed.clone();
+    undeclared["int8"] = serde_json::json!({"mode": "static_qdq", "batch_invariant": true});
+    std::fs::write(
+        p.join("manifest.json"),
+        serde_json::to_vec(&undeclared).expect("json"),
+    )
+    .expect("w");
+    assert!(R1Bundle::load(p, R1Precision::Int8, true).is_err());
+
+    // 3. v1 schema attempting mixed fp32 joiner MUST be rejected.
+    let mut v1_mixed = ok_mixed.clone();
+    v1_mixed["schema"] = serde_json::json!("ultra.r1-export/v1");
+    std::fs::write(
+        p.join("manifest.json"),
+        serde_json::to_vec(&v1_mixed).expect("json"),
+    )
+    .expect("w");
+    assert!(R1Bundle::load(p, R1Precision::Int8, true).is_err());
+
+    // 4. `--no-int8` FP32-only research bundle loads under Fp32 and fails cleanly under Int8.
+    let mut fp32_only = ok_mixed;
+    fp32_only["int8"] = serde_json::Value::Null;
+    fp32_only["files"]
+        .as_object_mut()
+        .expect("obj")
+        .remove("encoder.int8");
+    std::fs::write(
+        p.join("manifest.json"),
+        serde_json::to_vec(&fp32_only).expect("json"),
+    )
+    .expect("w");
+    assert!(R1Bundle::load(p, R1Precision::Fp32, true).is_ok());
+    assert!(R1Bundle::load(p, R1Precision::Int8, true).is_err());
 }
