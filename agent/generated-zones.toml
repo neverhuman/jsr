@@ -1,23 +1,24 @@
 # Generated and hand-maintained-but-checked zones.
 #
-# The event and receipt schemas are not generated: they are reviewed by hand
-# and the Rust types in crates/ultra-core are their source of truth.
-# `command` is the drift proof that fails when the two disagree
-# (docs/generated-zones.md).
+# Event and receipt schemas are generated. The documents in
+# crates/ultra-core/src/schemas/ are the source; `emit-schemas` writes
+# contracts/events/. The Rust types remain what the runtime enforces, and
+# `schema_contract` fails when a serialised value, a refusal, or a generated
+# file disagrees (docs/generated-zones.md).
 
 [[zone]]
 path = "contracts/events/transcript-event.v1.schema.json"
-source = "crates/ultra-core/src/events/mod.rs"
-command = "cargo test -p ultra-core --test schema_contract"
-read_only = false
-write_policy = "reviewed_manual"
+source = "crates/ultra-core/src/schemas/transcript-event.v1.schema.json"
+command = "cargo run -p ultra-core --bin emit-schemas --locked"
+read_only = true
+write_policy = "generated_output"
 
 [[zone]]
 path = "contracts/events/receipt.v1.schema.json"
-source = "crates/ultra-core/src/receipt.rs"
-command = "cargo test -p ultra-core --test schema_contract"
-read_only = false
-write_policy = "reviewed_manual"
+source = "crates/ultra-core/src/schemas/receipt.v1.schema.json"
+command = "cargo run -p ultra-core --bin emit-schemas --locked"
+read_only = true
+write_policy = "generated_output"
 
 [[zone]]
 path = "Cargo.lock"

@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "emit-schemas"
+path = "src/bin/emit_schemas.rs"
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
