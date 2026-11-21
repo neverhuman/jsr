@@ -168,7 +168,7 @@ pub struct Block {
 pub struct Model {
     pub arch: Arch,
     pub root: PathBuf,
-    /// Layer-1 stem conv: `[stem_ch][9]` taps (kh * 3 + kw) and bias.
+    /// Layer-1 stem conv: `[9][stem_ch]` taps (kh * 3 + kw, channel contiguous) and bias.
     pub c1_w: Vec<f32>,
     pub c1_b: Vec<f32>,
     /// Layer-2 stem conv as a GEMM with K ordered (kh, kw, c_in).
@@ -325,7 +325,13 @@ impl Model {
             })
         };
         // Stem layer 1: (ch, 1, 3, 3) -> [ch][9].
-        let c1_w = st.take("encoder.stem.c1.weight", &[ch, 1, 3, 3])?;
+        let c1 = st.take("encoder.stem.c1.weight", &[ch, 1, 3, 3])?;
+        let mut c1_w = vec![0.0f32; 9 * ch];
+        for c in 0..ch {
+            for t in 0..9 {
+                c1_w[t * ch + c] = c1[c * 9 + t];
+            }
+        }
         let c1_b = st.take("encoder.stem.c1.bias", &[ch])?;
         // Stem layer 2: (ch_out, ch_in, 3, 3) -> rows ch_out, K index (kh*3+kw)*ch + c_in.
         let w2 = st.get("encoder.stem.c2.weight", &[ch, ch, 3, 3])?;
@@ -415,27 +421,38 @@ impl Model {
 
     /// Pack int8 copies (per-output-channel scales) of every encoder and joiner linear layer.
     pub fn quantize_int8(&mut self) {
-        for l in self.linears_mut() {
-            l.q = Some(PackedI8::from_packed_f32(&l.f));
+        self.quantize_int8_where(|_, _| true);
+    }
+
+    /// Pack int8 copies of the layers for which `keep(kind, block)` is true (ablations);
+    /// the others stay fp32 in the int8 engine.
+    pub fn quantize_int8_where(&mut self, keep: impl Fn(&str, Option<usize>) -> bool) {
+        for (kind, blk, l) in self.linears_mut() {
+            l.q = keep(kind, blk).then(|| PackedI8::from_packed_f32(&l.f));
         }
     }
 
-    /// Every encoder/decoder linear layer, for quantisation and accounting.
-    pub fn linears_mut(&mut self) -> Vec<&mut Linear> {
-        let mut v: Vec<&mut Linear> = vec![&mut self.c2, &mut self.stem_out];
-        for b in &mut self.blocks {
+    /// Every quantisable linear layer with its kind and block index.
+    pub fn linears_mut(&mut self) -> Vec<(&'static str, Option<usize>, &mut Linear)> {
+        let mut v: Vec<(&'static str, Option<usize>, &mut Linear)> = vec![
+            ("stem_c2", None, &mut self.c2),
+            ("stem_out", None, &mut self.stem_out),
+        ];
+        for (i, b) in self.blocks.iter_mut().enumerate() {
+            let s = Some(i);
             v.extend([
-                &mut b.ff1_w1,
-                &mut b.ff1_w2,
-                &mut b.qkv,
-                &mut b.att_out,
-                &mut b.pw1,
-                &mut b.pw2,
-                &mut b.ff2_w1,
-                &mut b.ff2_w2,
+                ("ff1_w1", s, &mut b.ff1_w1),
+                ("ff1_w2", s, &mut b.ff1_w2),
+                ("qkv", s, &mut b.qkv),
+                ("att_out", s, &mut b.att_out),
+                ("pw1", s, &mut b.pw1),
+                ("pw2", s, &mut b.pw2),
+                ("ff2_w1", s, &mut b.ff2_w1),
+                ("ff2_w2", s, &mut b.ff2_w2),
             ]);
         }
-        v.extend([&mut self.enc_proj, &mut self.joiner_out]);
+        v.push(("enc_proj", None, &mut self.enc_proj));
+        v.push(("joiner_out", None, &mut self.joiner_out));
         v
     }
 }

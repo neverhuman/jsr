@@ -44,7 +44,7 @@ pub struct DecWorkspace {
     logits: Vec<f32>,
     active: Vec<usize>,
     need: Vec<usize>,
-    q: QuantScratch,
+    pub(crate) q: QuantScratch,
 }
 
 fn grow(v: &mut Vec<f32>, n: usize) -> &mut [f32] {
@@ -115,6 +115,8 @@ pub fn greedy_chunk(
         })
         .collect();
     let tmax = ns.iter().copied().max().unwrap_or(0);
+    let t_all = ws.q.prof.start();
+    let gemm0 = ws.q.prof.ns;
     for t in 0..tmax {
         ws.active.clear();
         ws.active.extend((0..states.len()).filter(|&s| t < ns[s]));
@@ -157,6 +159,12 @@ pub fn greedy_chunk(
         for &s in &ws.active {
             states[s].forced += 1;
         }
+    }
+    // Greedy bookkeeping (tanh, argmax, predictor gathers) excluding the GEMM time inside.
+    if let Some(t) = t_all {
+        let inner: u64 = ws.q.prof.ns.iter().zip(&gemm0).map(|(a, b)| a - b).sum();
+        let total = u64::try_from(t.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        ws.q.prof.ns[crate::prof::Phase::Greedy as usize] += total.saturating_sub(inner);
     }
     Ok(())
 }
