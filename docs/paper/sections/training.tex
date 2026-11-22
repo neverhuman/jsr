@@ -22,8 +22,7 @@ a divergence guard stops a run when the loss moving average stays well above its
 or dev WER worsens by five points, preserving diagnostics. The relaunched run (D3MRc, which also carries
 the padding fix below and weight EMA) trains stably under the cap and reached \WerDthreeMRc\%
 on the first 400 dev-clean utterances at step 20k, below the \WerDthreeMRbTwentyK\% of its
-diverged predecessor at the same step. A ternary fine-tune at 960\,h that predated the cap failed with a gradient-norm spike and
-is reported as such (\cref{sec:negative}).
+diverged predecessor at the same step. A ternary fine-tune at 960\,h that predated the cap failed with a gradient-norm spike and was not relaunched.
 
 \para{A train/inference mismatch, found and bounded.} The batched multirate training path zeroed
 padded positions only \emph{after} pairing, so the last real frame of an odd-length utterance

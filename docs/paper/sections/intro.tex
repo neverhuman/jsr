@@ -39,8 +39,9 @@ boundary that governs serving cost but admits only systems the harness can host
 \begin{enumerate}
 \item \textbf{A density result under one harness.} With four single-threaded workers on one Zen~2
   core complex and a p99 lateness bound of 800\,ms, the \ultra multirate model sustains
-  \DenMRCCX{} streams and the dense model \DenDenseCCX, against \DenRzeroCCX{} for Zipformer int8
-  (\DenRatioMR{}$\times$ and \DenRatioDense{}$\times$; \cref{tab:density,fig:density}).
+  \DenMRCCX{} streams (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs) and the dense
+  finalist \DenDenseCCX{} (\DenRatioDense{}$\times$; \DenDenseRangeLo--\DenDenseRangeHi{} across
+  \DenReproRuns{} runs), against \DenRzeroCCX{} for Zipformer int8 (\cref{tab:density,fig:density}).
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and

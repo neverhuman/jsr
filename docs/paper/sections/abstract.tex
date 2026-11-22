@@ -5,9 +5,10 @@ reaches \WerDtwoBestClean\% / \WerDtwoBestOther\% WER on full dev-clean / dev-ot
 2{,}864 utterances); a pretrained Zipformer reaches \WerRzeroDevClean\% on the first 400 dev-clean
 utterances. \ultra is markedly less accurate. What it buys is cost: in a warm, in-process
 rehearsal of our pre-registered single-harness protocol (p99 lateness $\le$ 800\,ms, four workers
-on one Zen~2 core complex), the multirate model at step 50k sustains \DenMRCCX{} live streams and
-the dense model at step 45k \DenDenseCCX, against \DenRzeroCCX{} for Zipformer
-(\DenRatioMR{}$\times$ and \DenRatioDense{}$\times$), at \WerRehearsalMR\% and
+on one Zen~2 core complex), the multirate model at step 50k sustains \DenMRCCX{} live streams
+(\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs) and the dense finalist (average of
+three snapshots) \DenDenseCCX{} (\DenRatioDense{}$\times$; \DenDenseRangeLo--\DenDenseRangeHi{} across
+\DenReproRuns{} runs), against \DenRzeroCCX{} for Zipformer, at \WerRehearsalMR\% and
 \WerRehearsalDense\% WER against Zipformer's \WerRehearsalRzero\% on the same 400 dev-clean panel
 utterances, scored in the same harness. The engine is integer-exact: per-row
 centred INT8 makes each stream's output independent of its batch, and with a portable log-mel
