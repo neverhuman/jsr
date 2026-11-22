@@ -1083,6 +1083,18 @@
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
+  "OrtVersion": {
+   "configuration": "ONNX Runtime bundled with libsherpa-onnx-c-api.so v2.0.2, provider cpu",
+   "label": "reported",
+   "line": 5,
+   "quote": "ONNX Runtime `v1.28.2`",
+   "section": "Scope & Protocol",
+   "source": "docs/ultra/waves/P05/README.md",
+   "text": "1.28.2",
+   "unit": "version",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
   "PanelSpeakers": {
    "configuration": "panel speaker count",
    "decimals": 0,
@@ -1249,6 +1261,18 @@
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "SherpaVersion": {
+   "configuration": "sherpa-onnx C-API runtime pinned for R0 (also in P05 README line 5)",
+   "label": "reported",
+   "line": 22,
+   "quote": "commit: 2.0.2",
+   "section": "runtime",
+   "source": "docs/ultra/candidates/zipformer-en-2023-06-26.yaml",
+   "text": "2.0.2",
+   "unit": "version",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
   },
   "SingleMthreeDense": {
    "configuration": "M3 Ultra, dense S, engine INT8 (checkpoint not stated)",
