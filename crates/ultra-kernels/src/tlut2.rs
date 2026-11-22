@@ -197,16 +197,16 @@ impl TLut2View<'_> {
         if out.len() != self.rows * f_n {
             return Err(KernelError::Shape("out.len() != rows * frames"));
         }
-        let tables = build_tables_with(f_n, self.quads(), |f, j| {
-            if j < din {
-                i32::from(x[f * din + j])
-            } else {
-                0
-            }
-        });
         match backend {
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 | Backend::Avx512Vnni => {
+                let tables = build_tables_with(f_n, self.quads(), |f, j| {
+                    if j < din {
+                        i32::from(x[f * din + j])
+                    } else {
+                        0
+                    }
+                });
                 crate::x86_avx2::gemv_tlut2_tables(*self, &tables, f_n, out)
             }
             _ => scalar::gemv_tlut2_signed(*self, x, f_n, out),
@@ -218,6 +218,7 @@ impl TLut2View<'_> {
 /// Per-frame lookup tables: for frame `f` and pair `p`, entry `2 (f * pairs + p)` holds
 /// the low bytes and entry `+1` the high bytes of `t0 a0 + t1 a1` for states 0..=8
 /// (entries 9..=15 are zero). Pairs cover `2 * quads` columns; missing columns read 0.
+#[cfg(target_arch = "x86_64")]
 pub(crate) fn build_tables(x: &Frames<'_>, quads: usize) -> Vec<[u8; 16]> {
     build_tables_with(x.count(), quads, |f, j| {
         x.frame(f).get(j).map_or(0, |&v| i32::from(v))
@@ -225,6 +226,7 @@ pub(crate) fn build_tables(x: &Frames<'_>, quads: usize) -> Vec<[u8; 16]> {
 }
 
 /// [`build_tables`] over any activation source `at(frame, column)` (|value| <= 127).
+#[cfg(target_arch = "x86_64")]
 pub(crate) fn build_tables_with(
     frames: usize,
     quads: usize,

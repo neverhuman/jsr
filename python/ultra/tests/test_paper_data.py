@@ -100,42 +100,7 @@ def test_manifest_refuses_tampered_raw(tmp_path):
         pd.verify_manifest(root)
 
 
-def _mini_repo(tmp_path, rows):
-    root = tmp_path / "repo"
-    shutil.copytree(pd.REPO / pd.DATA, root / pd.DATA)
-    shutil.copytree(pd.REPO / "research" / "curves", root / "research" / "curves")
-    ev = root / pd.DATA / "evidence"
-    ev.mkdir(exist_ok=True)
-    (ev / "cold.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
-    return root
-
-
-def _row(**kw):
-    r = {"id": "sys-a", "system": "A", "role": "comparator", "configuration": "c", "workload": "panel",
-         "workload_digest": pd.PANEL_DIGEST, "scope": "cold", "hardware": "H0 core 46",
-         "cpu_s_per_audio_s": 0.2, "cpu_reps": [0.1, 0.2, 0.3], "wer_pct": 3.0, "label": "exploratory",
-         "source": "x", "receipt_sha256": "y"}
-    r.update(kw)
-    return r
-
-
-def test_evidence_rows_are_ingested(tmp_path):
-    files, missing = pd.build(_mini_repo(tmp_path, [_row(), _row(id="sys-b", system="B", role="ours")]))
-    assert missing == []
-    assert files["cold_dev.csv"].splitlines()[1:] == ["sys-a,A,comparator,0.20000,3.00,exploratory,west",
-                                                     "sys-b,B,ours,0.20000,3.00,exploratory,west"]
-    assert "\\newcommand{\\ColdRowsCount}{2}" in files["metrics.tex"]
-
-
-@pytest.mark.parametrize("bad, msg", [
-    ({"wer_pct": None}, "missing"),
-    ({"cpu_s_per_audio_s": 0.25}, "median"),
-    ({"workload_digest": "other"}, "mix"),
-])
-def test_evidence_rows_fail_visibly(tmp_path, bad, msg):
-    root = _mini_repo(tmp_path, [_row(), _row(id="sys-b", **bad)])
-    with pytest.raises(pd.PaperDataError, match=msg):
-        pd.build(root)
+# Evidence rows (schema v2), their grouping and the Figure 1 layout: tests/test_paper_evidence.py.
 
 
 # Narrow check: result numbers in the manuscript must come from metrics.tex macros. Flags a decimal

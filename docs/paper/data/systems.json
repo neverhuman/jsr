@@ -1,0 +1,65 @@
+{
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Only system, short, macro, cite and order may be set; every number comes from data/evidence/*.jsonl.",
+  "variants": {
+    "dense-r1-int8": {
+      "system": "ULTRA dense S, INT8 (ours)",
+      "short": "ULTRA dense",
+      "macro": "Dense",
+      "order": 10
+    },
+    "mr-r1-int8": {
+      "system": "ULTRA multirate S, INT8 (ours)",
+      "short": "ULTRA multirate",
+      "macro": "MR",
+      "order": 11
+    },
+    "dense-r1-fp32": {
+      "system": "ULTRA dense S, FP32, our engine",
+      "short": "ULTRA dense FP32",
+      "macro": "DenseFP",
+      "order": 12
+    },
+    "ort-r1-fp32": {
+      "system": "ULTRA dense S, FP32, ONNX Runtime",
+      "short": "ULTRA dense ORT",
+      "macro": "DenseOrt",
+      "order": 13
+    },
+    "r0-int8": {
+      "system": "Zipformer streaming, INT8",
+      "short": "Zipformer (baseline)",
+      "macro": "Zip",
+      "order": 20
+    },
+    "moonshine-tiny": {
+      "system": "Moonshine Tiny Streaming",
+      "short": "Moonshine Tiny",
+      "macro": "MoonTiny",
+      "order": 30
+    },
+    "moonshine-small": {
+      "system": "Moonshine Small Streaming",
+      "short": "Moonshine Small",
+      "macro": "MoonSmall",
+      "order": 31
+    },
+    "nemotron-en-560": {
+      "system": "Nemotron Speech Streaming EN 0.6B, 560 ms",
+      "short": "Nemotron 560 ms",
+      "macro": "NemoFiveSixty",
+      "order": 40
+    },
+    "nemotron-en-160": {
+      "system": "Nemotron Speech Streaming EN 0.6B, 160 ms",
+      "short": "Nemotron 160 ms",
+      "macro": "NemoOneSixty",
+      "order": 41
+    },
+    "nemotron-35": {
+      "system": "Nemotron 3.5 ASR Streaming 0.6B, 80 ms",
+      "short": "Nemotron 3.5",
+      "macro": "NemoThreeFive",
+      "order": 42
+    }
+  }
+}

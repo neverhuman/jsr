@@ -226,7 +226,7 @@
       "purpose": "proof for docs/paper/opponents"
     },
     "python/ultra/tools/paper_data/": {
-      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py",
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py",
       "purpose": "paper numbers regenerate byte-identically from sourced records; pairing rules; no bare numbers in sections"
     },
     "python/ultra/tools/export_curves.py": {

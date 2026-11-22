@@ -43,8 +43,9 @@ python3 python/ultra/tools/paper_cold_aggregate.py \
   target/paper-evidence/cold-aggregate.json
 ```
 
-Export the verified rotation in the manuscript generator's JSONL format once
-every configuration has three eligible repetitions. The output carries the same
+Export the verified rotation in the manuscript generator's JSONL format (schema v2,
+[data/README.md](data/README.md)) once every configuration has three eligible repetitions.
+Each configuration in `evidence.json` must declare `"class"`: `streaming` or `whole_utterance`. The output carries the same
 configuration IDs, the digest of the staged audio, and the timing and transcript
 proofs. Run `just paper` after adding the exported rows.
 

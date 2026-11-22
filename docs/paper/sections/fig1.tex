@@ -1,12 +1,11 @@
-% Fig. 1 (page 1, single column): the WARM single-harness serving frontier (owner/referee: warm
-% serving density is the headline; the cold boundary is supporting). Caption text comes from
-% paper-data's \FrontierWarmCaption so that it always describes exactly what is drawn.
-% Plot body: figures/frontier_warm.tex (paper-data), falling back to figures/rehearsal.tex.
+% Fig. 1 (page 1, single column): processing speed on one core against WER, every system measured
+% on our own hardware under the cold protocol. The caption comes from paper-data's \MoneyCaption so
+% that it always describes exactly what is drawn (hosts, watts axis, pending items).
+% Plot body: figures/money.tex (paper-data).
 \begin{figure}[!t]
 \centering
-\IfFileExists{figures/frontier_warm.tex}{\input{figures/frontier_warm.tex}}{%
-  \IfFileExists{figures/rehearsal.tex}{\input{figures/rehearsal.tex}}{%
-    \pendingfig{Warm frontier figure pending (figures/frontier_warm.tex).}}}
-\caption{\textbf{Serving density against accuracy.} \FrontierWarmCaption}
+\IfFileExists{figures/money.tex}{\input{figures/money.tex}}{%
+  \pendingfig{Speed-against-WER figure pending (figures/money.tex).}}
+\caption{\textbf{Speed against accuracy on one CPU core, every system measured here.} \MoneyCaption}
 \label{fig:money}
 \end{figure}
