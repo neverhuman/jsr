@@ -345,3 +345,20 @@ def test_chosen_collects_each_folds_choice_once_with_a_prefix(tmp_path):
     got = json.loads((tmp_path / "out.json").read_text())
     assert [c["name"] for c in got] == ["ref_T_b4_l0.30_r0.00_p0.25", "ref_T_b4_l0.40_r0.50_p0.00"]
     assert got[1]["lodr"] == "/lodr" and got[1]["lodr_weight"] == 0.2 and got[0]["lm"] == "/lm"
+
+
+def test_parity_compare_counts_wer_and_identical_outputs():
+    from train import lm_parity
+
+    refs = {"a": "THE CAT SAT", "b": "A DOG", "c": "HELLO THERE WORLD"}
+    eng = {"wer_pct": 10.0, "beam": 4, "rows": [
+        {"id": "a", "split": "dev-clean", "hyp": "THE CAT SAT", "tokens": [1, 2]},
+        {"id": "b", "split": "dev-clean", "hyp": "A FROG", "tokens": [3]},
+        {"id": "c", "split": "dev-other", "hyp": "HELLO WORLD", "tokens": [4, 5]}]}
+    py = {"a": {"hyp": "the cat sat", "tokens": [1, 2]}, "b": {"hyp": "A DOG", "tokens": [6]},
+          "c": {"hyp": "HELLO WORLD", "tokens": [4, 9]}}
+    got = lm_parity.compare_pair(eng, py, refs)
+    assert got["engine_wer"] == {"dev-clean": 20.0, "dev-other": 33.333, "pooled": 25.0}
+    assert got["python_wer"] == {"dev-clean": 0.0, "dev-other": 33.333, "pooled": 12.5}
+    assert got["identical_tokens"] == 1 and got["identical_text"] == 2
+    assert got["engine_flags"]["beam"] == 4 and got["utterances"] == 3

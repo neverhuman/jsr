@@ -141,3 +141,37 @@ Sweep results so far (FastBeam, beam 4, held-out speaker folds, baseline 8.754 p
 | L5b (548 MB, reduced grid, edge rule pending) | 4.103 / 11.681 / 7.767 | 3.873 / 11.047 / 7.342 |
 
 Pending: the edge rule for M5, S4, S5, M4, L5a, L5b; M5 at beam 8; the reference re-decode (`train.beam` + hook) of every chosen config; `ultra-score` rows; decode cost.
+
+### Overlap of the LM text with dev (2026-11-22, 23:10Z; a check I owed, not pre-registered)
+- **Why:** my first chat post said the dev and test books are "excluded by construction" from the OpenSLR 11 LM text. The OpenSLR page says nothing of the kind (it describes the corpus only as "14500 public domain books, used as training material for the LibriSpeech's LM"), so I tested it.
+- **Test:** every dev transcript with at least 12 words (1,866 dev-clean, 1,853 dev-other) searched as a fixed string in the normalised LM text (`grep -F` over `librispeech-lm-norm.txt.gz`). The test sets were not checked (sealed).
+- **Found: 42 of 3,719 occur verbatim** (11 dev-clean, 31 dev-other). 41 of them occur once and one (a famous quotation) 9 times. 23 come from dev-other speaker 3915 and 7 from speaker 7976, so the source text of those dev chapters is in the LM corpus in some edition. Shorter utterances were not tested; the list is in `/mnt/xbabe3-external/jsr/lm/work/results/leak_uids.json`.
+- **Effect on the result (M5, held-out weights):** relative pooled gain of fusion + LODR on all utterances −16.1%; without the 42 utterances −16.1%; without speakers 3915 and 7976 entirely (146 utterances) −16.0%. Fusion alone: −13.3% / −13.2% / −13.1%. The matched utterances themselves improve more (4.70 → 3.64), but they are too few to move the totals. **The overlap does not drive the gain.** The same corpus underlies every published LibriSpeech "+LM" number.
+
+### Phase 2 headline: M5 fused in the beam, FINAL (2026-11-22, 23:52Z; reference search)
+M5 = token 5-gram, `lmplz --prune 0 0 1 4 9`, 179.1 MB quantised trie. Full pre-registered grid at beam 4, edge rule run to completion (rounds 0-2; every chosen value interior). Both folds' choices were then decoded again with `train.beam.modified_beam_search` + `train.lm_fusion.NgramFusion`. **Token output was identical to the sweep decode on 5,567 / 5,567 utterances for all four chosen configs**, so the sweep's held-out numbers are the reference numbers.
+
+| arm (beam 4, held-out speaker folds) | dev-clean | dev-other | pooled | Δ pooled [95%, utterances] | [95%, speakers] | relative |
+|---|---:|---:|---:|---|---|---:|
+| no LM (baseline) | 4.803 | 12.972 | 8.754 | | | |
+| **M5 fusion** | **4.061** | **11.361** | **7.591** | −1.163 [−1.280, −1.047] | [−1.337, −0.994] | −13.3% |
+| **M5 fusion + LODR** | **3.895** | **11.027** | **7.344** | −1.410 [−1.535, −1.286] | [−1.595, −1.227] | −16.1% |
+
+- **Chosen weights.** Fusion: fold A chose λ1 0.4 with blank penalty 1.5 (scored on B); fold B chose λ1 0.5 with penalty 1.5. Fusion + LODR: fold A chose λ1 0.6, λ2 0.45, penalty 0; fold B chose λ1 0.7, λ2 0.525, penalty 0. Tuned on all dev utterances (the setting an engine would ship, not a held-out number): λ1 0.6, λ2 0.45, penalty 0 → 7.320.
+- **Verdict by the pre-registered rule:** pooled held-out WER is lower and the paired interval excludes zero (utterance and speaker level): **both M5 rows are "+LM" gains.** The size is 2-3× what I pre-registered (fusion 3-7% expected, 13.3% measured; with LODR 5-10% expected, 16.1% measured).
+- **Python decode cost (informational).** Sum of per-utterance search wall time over both dev sets, 10 single-threaded workers on H0 cores 20-29, the no-LM run in the same batch: no LM 860.9 s; M5 fusion 1,173.8-1,191.7 s; M5 + LODR 1,168.8-1,197.4 s, i.e. **+36-39%**. Almost all of the extra time is the Python KenLM row: 499 `BaseScore` calls per new context.
+- **LM work per utterance (engine-relevant).** A config needs **90 distinct LM contexts per utterance = 13.3 per audio second = 2.47 per output token** (beam 4, all hypotheses counted; contexts repeat within an utterance and are counted once). A naive engine scores a full row per context (499 lookups: ~6,600 lookups per audio second); runtime-lane's exact upper-bound pruning skips most of them.
+
+### Engine parity: the Rust engine reproduces the gain (2026-11-22, 23:57Z)
+`ultra-engine-eval` built from this branch merged with main (#49: `ultra.lm-ngram/v1`, exact upper-bound pruning; exe sha256 `28531bde…`), H22ctl-79800 EMA **INT8** (prepared weights sha256 `f4133df6…`), the 730-utterance `dev_selection_panel.json`, 16 streams, beam 4, max 1 symbol per frame (the same cap as the Python beam), `--qualifying`. LMs packed with `ultra-lm-pack` (q8, LODR bigram inside). Each LM uses its weights chosen on all dev utterances (M5: λ1 0.6, λ2 0.45, penalty 0; S4 and S5: λ1 0.6, λ2 0.3, penalty 0.5), so the panel WERs are a parity check, not held-out numbers. The Python side is the FP32 EMA model, same configs, same 730 utterances. Scorer `ultra.wer` for both; `train.lm_parity`, `results/engine_parity.json`.
+
+| panel (730), beam 4 | engine INT8: clean / other / pooled | Python FP32: clean / other / pooled | identical token sequences | engine Δ from the LM | Python Δ |
+|---|---|---|---:|---:|---:|
+| no LM | 5.075 / 12.062 / 7.944 | 5.099 / 11.943 / 7.909 | 680 / 730 | | |
+| + M5 + LODR (179 MB trie, 334 MB pack) | 4.154 / 10.622 / **6.810** | 4.072 / 10.740 / **6.810** | 681 / 730 | **−1.134** | −1.099 |
+| + S5 + LODR (48 MB trie, 95 MB pack) | 4.367 / 10.927 / 7.060 | 4.320 / 10.757 / 6.963 | 689 / 730 | −0.884 | −0.946 |
+| + S4 + LODR (47 MB trie, 82 MB pack) | 4.343 / 11.028 / 7.088 | 4.272 / 10.944 / 7.012 | 682 / 730 | −0.856 | −0.897 |
+
+- The engine's gain from each LM matches the Python gain within 0.1 pp. The hypotheses that differ (≈ 50 of 730) differ without an LM too: INT8 against FP32, not the fusion.
+- **Engine cost** (one shared H0 core each, plain beam 4, exploratory): 0.146 CPU-s per audio-s without LM; 0.162 / 0.159 / 0.161 with M5 / S5 / S4 (**+9-11%**). Peak RSS 342 MiB without LM; +357 / +90 / +79 MiB (the pack is held in RAM).
+- **Small models against M5 (ship rule "within ~0.2 pp"):** S5 +0.25 pp (engine, panel) / +0.30 pp (Python, full dev, held out); S4 +0.28 / +0.37. Neither meets it.

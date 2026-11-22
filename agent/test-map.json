@@ -328,6 +328,10 @@
     "research/H42_ngram_lm/": {
       "command": "just score",
       "purpose": "H42 n-gram LM wave (summary only) stays visible to the audit"
+    },
+    "python/ultra/train/lm_parity.py": {
+      "command": "just pytest",
+      "purpose": "verify the engine-versus-Python fusion parity comparison"
     }
   }
 }
