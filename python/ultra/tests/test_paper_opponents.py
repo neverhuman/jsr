@@ -515,8 +515,10 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     for round_id, service in lanes:  # panel73 timing; WER from the full-panel pass
         fake_repetition(runs, "1c-p73", "whispercpp-stream-tiny", round_id, 1.2 * P73_SECONDS, 1.2 * P73_SECONDS,
                         service, same if round_id < 3 else other)
-    for arm, wall in (("whispercpp-stream-tiny-t8", 0.30), ("whispercpp-stream-tiny-w8", 0.20), ("vosk-small-w8", 0.02)):
-        for round_id in (1, 2, 3):
+    for arm, wall, rounds in (("whispercpp-stream-tiny-t8", 0.30, (1, 2, 3)), ("whispercpp-stream-tiny-w8", 0.20, (1, 2, 3)),
+                              ("vosk-small-w8", 0.02, (1, 2, 3)), ("parakeet-v3-onnxasr-int8-t8", 0.05, (1, 2, 3)),
+                              ("parakeet-v3-onnxasr-int8-w8", 0.04, (1,))):
+        for round_id in rounds:
             fake_repetition(runs, "8c-p73", arm, round_id, 1.5 * P73_SECONDS, wall * P73_SECONDS, list(range(8, 16)), same)
     fake_repetition(runs, "1c", "jsr-h22ctl-79800-ema-int8", 1, 0.035 * audio, 0.035 * audio, [4], same)
     fake_repetition(runs, "1c-p73", "jsr-h22ctl-79800-ema-int8", 1, 0.036 * P73_SECONDS, 0.036 * P73_SECONDS, [24], same)
@@ -539,7 +541,7 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
             assert (rebuilt.parent / "scores.jsonl").read_bytes() == (original.parent / "scores.jsonl").read_bytes()
     rows = {row["id"]: row for row in map(json.loads, summary("rows", raw, "2026-11-22 xbabe0 test").splitlines())}
     assert set(rows) == {"vosk-small-zen2-t1", "vosk-small-zen2-t8", "whispercpp-stream-tiny-zen2-t1",
-                         "whispercpp-stream-tiny-zen2-t8"}
+                         "whispercpp-stream-tiny-zen2-t8"}  # no parakeet: no full-panel WER source yet
     one = rows["vosk-small-zen2-t1"]
     assert one["cpu_s_per_audio_s"] == pytest.approx(0.15) and one["cpu_reps"] == pytest.approx([0.20, 0.10, 0.15])
     assert one["wer_pct"] == pytest.approx(10.3) and one["peak_rss_bytes"] == 3 * 10**8
@@ -558,12 +560,19 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     assert not slow["repeated_hypotheses_identical"]
     eight = rows["whispercpp-stream-tiny-zen2-t8"]
     assert eight["parallel"] == "processes" and eight["wall_s_per_audio_s"] == pytest.approx(0.20)
-    assert [alternative["parallel"] for alternative in eight["alternatives"]] == ["intra_op"]
+    assert [(alt["parallel"], alt["reps"]) for alt in eight["alternatives"]] == [("intra_op", 3)]
     assert eight["wer_pct"] == pytest.approx(20.0)
     shared = rows["vosk-small-zen2-t8"]
     assert shared["parallel"] == "workers" and shared["timing_panel"] == "p73"
     assert shared["wer_pct"] == pytest.approx(10.3) and "one-core full-panel repetitions" in shared["wer_source"]
     assert shared["shared_hypotheses_equal_full_pass"] == ["2/2", "2/2", "2/2"]
+    for round_id, service in lanes:  # now Parakeet has full-panel repetitions to take its WER from
+        fake_repetition(runs, "1c", "parakeet-v3-onnxasr-int8", round_id, 0.15 * audio, 0.15 * audio, service, same)
+    summary("collect", runs, raw)
+    rows = {row["id"]: row for row in map(json.loads, summary("rows", raw, "session").splitlines())}
+    parakeet = rows["parakeet-v3-onnxasr-int8-zen2-t8"]
+    assert parakeet["parallel"] == "intra_op" and parakeet["class"] == "whole_utterance"
+    assert [(alt["parallel"], alt["reps"]) for alt in parakeet["alternatives"]] == [("processes", 1)]
     anchors = {row["id"]: row for row in map(json.loads, summary("anchors", raw, "session").splitlines())}
     assert set(anchors) == {"jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-full-r1",
                             "jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-p73-r1"}

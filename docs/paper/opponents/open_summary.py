@@ -364,11 +364,18 @@ def rows(root, session):
     by_variant = {}
     for (arm, kind), reps in groups.items():
         variant, threads, parallel = split_arm(arm)
-        if variant in ANCHORS or len(reps) != load["rounds"] or any(rep["verdict"] != "clean" for rep in reps):
+        reps = [rep for rep in reps if rep["verdict"] == "clean"]
+        if variant in ANCHORS or not reps:
             continue
         by_variant.setdefault((variant, threads), []).append((arm, parallel, reps, arm_summary(reps)))
-    for (variant, threads), candidates in sorted(by_variant.items()):
-        candidates.sort(key=lambda item: item[3]["wall_per_audio"])
+    for (variant, threads), measured in sorted(by_variant.items()):
+        # The primary row is the fastest mode with all its repetitions; every other mode, with any
+        # number of repetitions, is listed under alternatives.
+        complete = sorted((item for item in measured if len(item[2]) == load["rounds"]),
+                          key=lambda item: item[3]["wall_per_audio"])
+        if not complete:
+            continue
+        candidates = complete + [item for item in measured if item not in complete]
         arm, parallel, reps, total = candidates[0]
         row = base_row(variant, arm, threads, parallel, reps, total, session)
         mid = total["median"]
@@ -386,11 +393,11 @@ def rows(root, session):
                 shared_hypotheses_equal_full_pass=["%d/%d" % shared_equal(rep, full) for rep in reps])
         if len(candidates) > 1:
             row["alternatives"] = [{
-                "arm": other_arm, "parallel": other_parallel,
+                "arm": other_arm, "parallel": other_parallel, "reps": len(other_reps),
                 "cpu_s_per_audio_s": other["cpu_per_audio"], "cpu_reps": other["cpu_reps"],
                 "wall_s_per_audio_s": other["wall_per_audio"], "wall_reps": other["wall_reps"],
                 "peak_rss_bytes": other["peak_rss_bytes"],
-            } for other_arm, other_parallel, _, other in candidates[1:]]
+            } for other_arm, other_parallel, other_reps, other in candidates[1:]]
         print(json.dumps(row))
 
 
