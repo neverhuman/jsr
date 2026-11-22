@@ -84,7 +84,13 @@ fn inputs(dir: &Path) -> Result<Vec<(String, PathBuf)>> {
     Ok(entries)
 }
 
-fn decode(backend: &dyn Backend, id: &str, input: &Path) -> Result<String> {
+fn decode(
+    backend: &dyn Backend,
+    id: &str,
+    input: &Path,
+    mut trace: Option<&mut BufWriter<fs::File>>,
+) -> Result<String> {
+    use std::time::Instant;
     use ultra_core::events::Body;
 
     let wav = read_wav_pcm(&fs::read(input)?)?;
@@ -97,15 +103,43 @@ fn decode(backend: &dyn Backend, id: &str, input: &Path) -> Result<String> {
         ..StreamConfig::default()
     })?;
     let mut offset = 0;
+    let mut cum_wall_ms = 0.0f64;
     for packet in wav.samples.chunks(PACKET_SAMPLES) {
+        let t0 = Instant::now();
         let accepted = stream.push_pcm(offset, packet)?;
         require(
             accepted.status == PushStatus::AcceptedAll,
             "service rejected staged audio",
         )?;
         offset += packet.len() as u64;
-        while let PollResult::Event(_) = stream.poll_event()? {}
+        let mut latest_partial: Option<String> = None;
+        while let PollResult::Event(event) = stream.poll_event()? {
+            match event.body {
+                Body::Preview(update) | Body::Commit(update) => {
+                    latest_partial = Some(update.snapshot_utf8);
+                }
+                _ => {}
+            }
+        }
+        let dt_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        cum_wall_ms += dt_ms;
+        if let Some(ref mut tw) = trace {
+            if let Some(text) = latest_partial {
+                records::json_line(
+                    tw,
+                    &json!({
+                        "id": id,
+                        "audio_s": offset as f64 / 16_000.0,
+                        "chunk_wall_ms": dt_ms,
+                        "cum_wall_ms": cum_wall_ms,
+                        "text": text,
+                        "final": false,
+                    }),
+                )?;
+            }
+        }
     }
+    let t_fin = Instant::now();
     stream.finish_input()?;
     let mut final_text = None;
     loop {
@@ -127,19 +161,41 @@ fn decode(backend: &dyn Backend, id: &str, input: &Path) -> Result<String> {
             status => return Err(format!("invalid stream drain: {status:?}").into()),
         }
     }
+    let fin_ms = t_fin.elapsed().as_secs_f64() * 1000.0;
+    cum_wall_ms += fin_ms;
     let metrics = stream.metrics();
     require(
         metrics.accepted_samples == offset && metrics.processed_samples == offset,
         "stream did not process all staged audio",
     )?;
-    final_text.ok_or_else(|| "missing Final event".into())
+    let hyp = final_text.ok_or_else(|| "missing Final event".to_string())?;
+    if let Some(ref mut tw) = trace {
+        records::json_line(
+            tw,
+            &json!({
+                "id": id,
+                "audio_s": offset as f64 / 16_000.0,
+                "chunk_wall_ms": fin_ms,
+                "cum_wall_ms": cum_wall_ms,
+                "text": hyp,
+                "final": true,
+            }),
+        )?;
+    }
+    Ok(hyp)
 }
 
 fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let [kind, bundle, wav_dir, output] = args.as_slice() else {
-        return Err("usage: ultra-cold-wav BACKEND MODEL_DIR WAV_DIR PREDICTIONS.jsonl".into());
-    };
+    let (kind, bundle, wav_dir, output, trace_path) =
+        match args.as_slice() {
+            [kind, bundle, wav_dir, output] => (kind, bundle, wav_dir, output, None),
+            [kind, bundle, wav_dir, output, trace] => (kind, bundle, wav_dir, output, Some(trace)),
+            _ => return Err(
+                "usage: ultra-cold-wav BACKEND MODEL_DIR WAV_DIR PREDICTIONS.jsonl [TRACE.jsonl]"
+                    .into(),
+            ),
+        };
     let inputs = inputs(Path::new(wav_dir))?;
     let backend = load(kind, Path::new(bundle))?;
     let caps = backend.capabilities();
@@ -156,11 +212,24 @@ fn run() -> Result<()> {
         .create_new(true)
         .open(output)?;
     let mut out = BufWriter::new(file);
+    let mut trace = match trace_path {
+        Some(p) => Some(BufWriter::new(
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(p)?,
+        )),
+        None => None,
+    };
     for (id, path) in inputs {
-        let hyp = decode(&*backend, &id, &path)?;
+        let hyp = decode(&*backend, &id, &path, trace.as_mut())?;
         records::json_line(&mut out, &json!({"id": id, "hyp": hyp}))?;
     }
     out.flush()?;
+    if let Some(ref mut tw) = trace {
+        tw.flush()?;
+    }
     Ok(())
 }
 
