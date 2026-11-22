@@ -520,8 +520,12 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
                               ("parakeet-v3-onnxasr-int8-w8", 0.04, (1,))):
         for round_id in rounds:
             fake_repetition(runs, "8c-p73", arm, round_id, 1.5 * P73_SECONDS, wall * P73_SECONDS, list(range(8, 16)), same)
-    fake_repetition(runs, "1c", "jsr-h22ctl-79800-ema-int8", 1, 0.035 * audio, 0.035 * audio, [4], same)
-    fake_repetition(runs, "1c-p73", "jsr-h22ctl-79800-ema-int8", 1, 0.036 * P73_SECONDS, 0.036 * P73_SECONDS, [24], same)
+    for round_id, (cpu, service) in enumerate(((0.035, [4]), (0.036, [24]), (0.0355, [28]), (0.040, [4])), 1):
+        fake_repetition(runs, "1c", "jsr-h22ctl-79800-ema-int8", round_id, cpu * audio, cpu * audio, service, same,
+                        wer=0.08)
+    for round_id, service in ((1, [4]), (2, [24]), (3, [28])):
+        fake_repetition(runs, "1c-p73", "jsr-h22ctl-79800-ema-int8", round_id, 0.036 * P73_SECONDS,
+                        0.036 * P73_SECONDS, service, same)
     fake_repetition(runs, "1c", "vosk-large", 1, 1.0, 1.0, [4], same, verdict="contaminated")
     summary("collect", runs, raw)
     summary("collect-wer", fake_wer_pass(tmp_path / "pass", "whispercpp-stream-tiny", same), raw, "whispercpp-stream-tiny")
@@ -532,7 +536,8 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     assert (tiny / "p73-round-3/predictions.jsonl").is_file() and (tiny / "wer-full/score.json").is_file()
     assert (tiny / "wer-full/scores.jsonl.sha256").read_text().strip() == receipt.hashlib.sha256(b"scorer input\n").hexdigest()
     assert not list(raw.rglob("scores.jsonl")) and not (tiny / "p73-round-1/scores.jsonl.sha256").exists()
-    assert sorted(path.name for path in (raw / "jsr-h22ctl-79800-ema-int8").iterdir()) == ["p73-round-1", "round-1"]
+    assert sorted(path.name for path in (raw / "jsr-h22ctl-79800-ema-int8").iterdir()) == [
+        "p73-round-1", "p73-round-2", "p73-round-3", "round-1", "round-2", "round-3", "round-4"]
     summary("expand", raw, panel, tmp_path / "full")
     for original in runs.rglob("predictions.jsonl"):
         rebuilt = tmp_path / "full" / original.relative_to(runs)
@@ -550,12 +555,13 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     assert one["repeated_hypotheses_identical"] and one["workload_digest"] == WORKLOAD["digest"]
     assert one["timing_panel"] == "full" and one["wer_source"].startswith("the timed repetitions")
     assert "CPUs 4; 24; 28" in one["hardware"] and one["session"] == "2026-11-22 xbabe0 test"
-    assert one["n_busy_cores"] == [2, 2, 2] and one["service_mhz"] == [4100, 4100, 4100]
+    assert one["n_busy_cores_reps"] == [2, 2, 2] and one["service_mhz"] == [4100, 4100, 4100]
     assert one["recogniser_s_per_audio_s"] is None and len(one["repetition_windows"]) == 3
     slow = rows["whispercpp-stream-tiny-zen2-t1"]
-    assert slow["timing_panel"] == "p73" and slow["workload_digest"] == P73_DIGEST
+    assert slow["timing_panel"] == "p73" and slow["workload_digest"] == WORKLOAD["digest"]
+    assert slow["timing_workload_digest"] == P73_DIGEST and slow["timing_audio_seconds"] == pytest.approx(P73_SECONDS)
     assert slow["cpu_s_per_audio_s"] == pytest.approx(1.2) and slow["wer_pct"] == pytest.approx(20.0)
-    assert slow["wer_workload_digest"] == WORKLOAD["digest"] and "full-panel pass on xbabe3" in slow["wer_source"]
+    assert "full-panel pass on xbabe3" in slow["wer_source"]
     assert slow["shared_hypotheses_equal_full_pass"] == ["2/2", "2/2", "1/2"]
     assert not slow["repeated_hypotheses_identical"]
     eight = rows["whispercpp-stream-tiny-zen2-t8"]
@@ -574,11 +580,19 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     assert parakeet["parallel"] == "intra_op" and parakeet["class"] == "whole_utterance"
     assert [(alt["parallel"], alt["reps"]) for alt in parakeet["alternatives"]] == [("processes", 1)]
     anchors = {row["id"]: row for row in map(json.loads, summary("anchors", raw, "session").splitlines())}
-    assert set(anchors) == {"jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-full-r1",
-                            "jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-p73-r1"}
-    quiet = anchors["jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-p73-r1"]
-    assert quiet["anchor"] is True and quiet["role"] == "ours" and quiet["alone_on_host"]
-    assert quiet["cpu_s_per_audio_s"] == pytest.approx(0.036) and quiet["timing_panel"] == "p73"
+    assert set(anchors) == {"h22ctl-79800-ema-int8-zen2-t1-anchor-bench-open-full",
+                            "h22ctl-79800-ema-int8-zen2-t1-anchor-bench-open-p73"}
+    full = anchors["h22ctl-79800-ema-int8-zen2-t1-anchor-bench-open-full"]
+    assert full["anchor"] is True and full["role"] == "ours" and full["variant"] == "h22ctl-79800-ema-int8"
+    assert full["cpu_reps"] == pytest.approx([0.035, 0.036, 0.0355, 0.040]) and len(full["anchor_holds"]) == 4
+    assert full["cpu_s_per_audio_s"] == pytest.approx(0.03575) and full["wer_pct"] == pytest.approx(8.2, abs=0.11)
+    short = anchors["h22ctl-79800-ema-int8-zen2-t1-anchor-bench-open-p73"]
+    assert short["timing_panel"] == "p73" and short["timing_workload_digest"] == P73_DIGEST
+    assert short["wer_pct"] == full["wer_pct"] and "full-panel anchor repetitions" in short["wer_source"]
+    sys.path.insert(0, str(REPO / "python/ultra"))
+    from tools.paper_data import schema  # the paper's own row validator accepts every row as written
+    for row in list(rows.values()) + list(anchors.values()):
+        schema.check_row(dict(row), row["id"])
     table = summary("table", raw)
     assert "| vosk-small | full | 2 | 24 | 0.1000 |" in table and "| vosk-small-w8 | p73 | 3 | 1.5000 |" in table
 

@@ -7,8 +7,8 @@
     open_summary.py expand RAW_DIR PANEL OUT      rebuild the run-cold.sh layout from the compact form
                                                   and the staged full panel, hash-checked
     open_summary.py table DIR                     one line per repetition and per arm (markdown)
-    open_summary.py rows DIR SESSION              evidence rows (schema v2 of agent_paper.md) as JSONL
-    open_summary.py anchors DIR SESSION           one line per repetition of a session anchor
+    open_summary.py rows DIR SESSION              evidence rows (data/README.md schema) as JSONL
+    open_summary.py anchors DIR SESSION           our engine's anchor repetitions, one row per panel
 
 Timing panels: `full` (730 utterances; cost and WER from the same repetitions) and `p73`
 (every tenth utterance; cost only). A system timed on p73 takes its WER from one full-panel
@@ -77,6 +77,9 @@ SYSTEMS = {
         "streaming Zipformer 2023-06-26 INT8, greedy, 320 ms chunks, 20 ms packets (session anchor)"),
 }
 ANCHORS = {"jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
+# The paper's variant names where they differ from the arm names (the anchors join the primary rows).
+PAPER_VARIANT = {"jsr-h22ctl-79800-ema-int8": "h22ctl-79800-ema-int8", "jsr-d2e-16457-int8": "d2e-16457-int8",
+                 "r0-zipformer-int8": "r0-int8"}
 SHARED_MODEL = ("vosk-",)  # --workers N shares one loaded model between N recogniser threads
 PANEL_LABEL = {
     "full": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
@@ -320,21 +323,23 @@ def table(root):
 
 def base_row(variant, arm, threads, parallel, reps, total, session):
     system, short, macro, runtime, kind, role, configuration = SYSTEMS[variant]
+    load = workload()
     mid = total["median"]
     cpus = sorted({tuple(rep["service_cpus"]) for rep in reps})
-    return {
-        "id": f"{variant}-zen2-t{threads}", "variant": variant, "system": system, "short": short, "macro": macro,
-        "runtime": runtime, "role": role, "class": kind, "machine": "zen2", "host": mid["host"],
+    paper_variant = PAPER_VARIANT.get(variant, variant)
+    row = {
+        "id": f"{paper_variant}-zen2-t{threads}", "variant": paper_variant, "system": system, "short": short,
+        "macro": macro, "runtime": runtime, "role": role, "class": kind, "machine": "zen2", "host": mid["host"],
         "hardware": "AMD Ryzen Threadripper PRO 3995WX, CPUs " + "; ".join(cpu_list(group) for group in cpus)
-                    + " (one set per repetition, the arm alone on the host)",
+                    + " (one set per repetition; the arm alone on the host)",
         "threads": threads, "parallel": parallel, "configuration": configuration, "arm": arm,
-        "timing_panel": mid["panel"], "workload": PANEL_LABEL[mid["panel"]], "workload_digest": mid["workload_digest"],
-        "scope": "cold_process_tree_launch_to_exit",
+        "workload": PANEL_LABEL["full"], "workload_digest": load["digest"], "audio_seconds": load["audio_seconds"],
+        "timing_panel": mid["panel"], "scope": "cold_process_tree_launch_to_exit",
         "cpu_s_per_audio_s": total["cpu_per_audio"], "cpu_reps": total["cpu_reps"],
         "wall_s_per_audio_s": total["wall_per_audio"], "wall_reps": total["wall_reps"],
         "peak_rss_bytes": total["peak_rss_bytes"], "artifact_bytes": mid["artifact_bytes"],
         "repeated_hypotheses_identical": total["identical_hypotheses"],
-        "n_busy_cores": [len(rep["other_active_cores"]) + len(rep["service_cpus"]) for rep in reps],
+        "n_busy_cores_reps": [len(rep["other_active_cores"]) + len(rep["service_cpus"]) for rep in reps],
         "service_mhz": [round(rep["frequency_khz"] / 1000) if rep["frequency_khz"] else None for rep in reps],
         "repetition_windows": [[rep["started"], rep["finished"]] for rep in reps],
         "recogniser_s_per_audio_s": (mid["recogniser_s"] / mid["audio_seconds"]
@@ -342,6 +347,10 @@ def base_row(variant, arm, threads, parallel, reps, total, session):
         "label": "exploratory", "session": session,
         "source": str(mid["run"] / "measurement.json"), "receipt_sha256": sha256(mid["run"] / "measurement.json"),
     }
+    if mid["panel"] != "full":
+        row.update(timing_workload=PANEL_LABEL[mid["panel"]], timing_workload_digest=mid["workload_digest"],
+                   timing_audio_seconds=mid["audio_seconds"])
+    return row
 
 
 def full_panel_wer(root, variant, groups, rounds):
@@ -389,7 +398,7 @@ def rows(root, session):
             full, description = source
             row.update(
                 wer_pct=full["wer"], wer_clean_pct=full["wer_clean"], wer_other_pct=full["wer_other"],
-                wer_workload_digest=load["digest"], wer_source=description,
+                wer_source=description,
                 shared_hypotheses_equal_full_pass=["%d/%d" % shared_equal(rep, full) for rep in reps])
         if len(candidates) > 1:
             row["alternatives"] = [{
@@ -402,17 +411,31 @@ def rows(root, session):
 
 
 def anchors(root, session):
-    for (arm, kind), runs in repetitions(root).items():
+    """One anchor row per (arm, panel): every repetition of our engine in this session's holds."""
+    groups = {key: [repetition(run) for run in runs] for key, runs in repetitions(root).items()}
+    full_wer = {}
+    for (arm, kind), reps in sorted(groups.items(), key=lambda item: item[0][1] != "full"):
         variant, threads, parallel = split_arm(arm)
-        if variant not in ANCHORS:
+        reps = [rep for rep in reps if rep["verdict"] == "clean"]
+        if variant not in ANCHORS or len(reps) < workload()["rounds"]:
             continue
-        for rep in map(repetition, runs):
-            row = base_row(variant, arm, threads, parallel, [rep], arm_summary([rep]), session)
-            row.update(id=f"{row['id']}-anchor-{kind}-r{rep['round']}", anchor=True,
-                       alone_on_host=rep["verdict"] == "clean")
-            if "wer" in rep:
-                row.update(wer_pct=rep["wer"], wer_clean_pct=rep["wer_clean"], wer_other_pct=rep["wer_other"])
-            print(json.dumps(row))
+        total = arm_summary(reps)
+        row = base_row(variant, arm, threads, parallel, reps, total, session)
+        mid = total["median"]
+        row.update(id=f"{row['id']}-anchor-bench-open-{kind}", anchor=True, anchor_holds=[{
+            "window": [rep["started"], rep["finished"]], "cpus": rep["service_cpus"],
+            "cpu_s_per_audio_s": rep["cpu_per_audio"], "wall_s_per_audio_s": rep["wall_per_audio"]} for rep in reps])
+        if kind == "full":
+            full_wer[variant] = (mid, total)
+            row.update(wer_pct=mid["wer"], wer_clean_pct=mid["wer_clean"], wer_other_pct=mid["wer_other"],
+                       wer_source="the anchor repetitions (median repetition)")
+        elif variant in full_wer:
+            chosen, _ = full_wer[variant]
+            row.update(wer_pct=chosen["wer"], wer_clean_pct=chosen["wer_clean"], wer_other_pct=chosen["wer_other"],
+                       wer_source="this session's full-panel anchor repetitions (median repetition)")
+        else:
+            continue
+        print(json.dumps(row))
 
 
 def main():
