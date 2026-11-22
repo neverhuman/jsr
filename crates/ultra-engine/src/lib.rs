@@ -16,6 +16,7 @@
 //! - [`kernels`]: scalar references and runtime-dispatched AVX2/FMA kernels; `unsafe` lives
 //!   only in `kernels::x86_avx2`.
 
+pub mod beam;
 pub mod decoder;
 pub mod encoder;
 pub mod engine;

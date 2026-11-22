@@ -22,6 +22,8 @@ pub struct DecState {
     pub dec_ok: bool,
     pub tokens: Vec<u32>,
     pub forced: u64,
+    /// Beam search state (`Engine::with_beam(k)`, k > 1); `None` for greedy.
+    pub beam: Option<crate::beam::BeamState>,
 }
 
 impl DecState {
@@ -32,16 +34,17 @@ impl DecState {
             dec_ok: false,
             tokens: Vec::new(),
             forced: 0,
+            beam: None,
         }
     }
 }
 
 #[derive(Debug, Default)]
 pub struct DecWorkspace {
-    emb_in: Vec<f32>,
-    dec_out: Vec<f32>,
-    hid: Vec<f32>,
-    logits: Vec<f32>,
+    pub(crate) emb_in: Vec<f32>,
+    pub(crate) dec_out: Vec<f32>,
+    pub(crate) hid: Vec<f32>,
+    pub(crate) logits: Vec<f32>,
     active: Vec<usize>,
     need: Vec<usize>,
     pub(crate) q: QuantScratch,

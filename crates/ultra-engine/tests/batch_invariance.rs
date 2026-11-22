@@ -93,6 +93,11 @@ fn run(engine: &Engine, clips: &[Vec<i16>], batch: usize, packet: usize) -> Trac
 }
 
 fn check(prec: Precision) {
+    check_beam(prec, 1);
+}
+
+/// `beam` 1 = greedy; > 1 = bounded beam search (tokens must also be batch-invariant).
+fn check_beam(prec: Precision, beam: usize) {
     let (w, npz) = (common::weights_dir(), common::dev_clean_npz());
     if !common::have(&[&w, &npz]) {
         return;
@@ -101,7 +106,9 @@ fn check(prec: Precision) {
     if prec == Precision::Int8 {
         model.quantize_int8();
     }
-    let engine = Engine::new(Arc::new(model), Isa::detect(), prec).expect("engine");
+    let engine = Engine::new(Arc::new(model), Isa::detect(), prec)
+        .expect("engine")
+        .with_beam(beam);
     let utts = load_npz_audio_only(&npz, 0, Some(STREAMS)).expect("npz");
     // 0.9 - 2.4 s clips with lengths that leave every partial-chunk size (1..=3 frames).
     let clips: Vec<Vec<i16>> = utts
@@ -152,6 +159,11 @@ fn int8_is_batch_invariant() {
 #[test]
 fn fp32_is_batch_invariant() {
     check(Precision::F32);
+}
+
+#[test]
+fn int8_beam4_is_batch_invariant() {
+    check_beam(Precision::Int8, 4);
 }
 
 #[test]

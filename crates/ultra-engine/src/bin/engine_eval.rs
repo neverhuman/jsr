@@ -60,6 +60,7 @@ struct Args {
     int8_fp32_kinds: Vec<String>,
     int8_stem_kinds: Vec<String>,
     sealed_read: Option<String>,
+    beam: usize,
     repo: Option<PathBuf>,
     looks: Option<PathBuf>,
     out: PathBuf,
@@ -89,6 +90,7 @@ fn parse() -> Result<Args, String> {
         int8_fp32_kinds: Vec::new(),
         int8_stem_kinds: Vec::new(),
         sealed_read: None,
+        beam: 1,
         repo: None,
         looks: None,
         out: PathBuf::new(),
@@ -116,6 +118,7 @@ fn parse() -> Result<Args, String> {
             "--cache-dir" => a.cache_dir = v()?.into(),
             "--qualifying" => a.qualifying = true,
             "--sealed-read" => a.sealed_read = Some(v()?),
+            "--beam" => a.beam = v()?.parse().map_err(|e| format!("--beam: {e}"))?,
             "--repo" => a.repo = Some(v()?.into()),
             "--looks" => a.looks = Some(v()?.into()),
             "--int8-fp32-kinds" => a.int8_fp32_kinds = kinds(&v()?),
@@ -248,7 +251,8 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks)
         .with_act7(a.act7)
-        .with_gemm_threads(a.gemm_threads);
+        .with_gemm_threads(a.gemm_threads)
+        .with_beam(a.beam);
     // Sealed PUBLIC-TEST guard (test-* splits), decided and logged before any audio is read.
     let panel = a.panel.as_ref().map(|p| Panel::read(p)).transpose()?;
     let splits: Vec<String> = match &panel {
@@ -407,6 +411,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         int8_fp32_kinds: &skip,
         int8_stem_kinds: if a.int8_stem { &a.int8_stem_kinds } else { &[] },
         int8_stem_layers_quantised: stem_quantised,
+        beam: engine.beam,
     };
     let mut summary = run_info::identity(&engine.model, &a.weights, &knobs);
     let split_wer: serde_json::Map<String, serde_json::Value> = per_split
