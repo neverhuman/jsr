@@ -62,7 +62,5 @@ unfused vectorised double-precision FFT (four lanes on AVX2, two on NEON) make l
 identical to the portable reference.
 
 \para{Where the time goes.} At a single stream on Zen~2 the int8 GEMMs take \GemmShare\% of engine
-time, at about \GmacPerCore{} GMAC/s per core; attention is the largest remaining phase, and the
-greedy decoder costs about \GreedyDecoderCost{} \cpus. At batch the engine is compute-bound:
-sixteen streams per worker lower CPU per stream by at most \BatchLift\%, which shapes both the
-density result and the negative results of \cref{sec:negative}.
+time at about \GmacPerCore{} GMAC/s per core, and at batch the engine is compute-bound: batching
+sixteen streams per worker lowers CPU per stream by at most \BatchLift\%.
