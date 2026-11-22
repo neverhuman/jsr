@@ -20,7 +20,7 @@ from .evidence import HEADLINE, derived
 from .labels import place
 from .records import Records
 
-AXIS_W, AXIS_H = 197.0, 140.0  # pt; with tick and axis labels the figure stays under 243 pt
+AXIS_W, AXIS_H = 197.0, 124.0  # pt; with tick and axis labels the figure stays under 243 pt
 FONT_PT = 7.0  # \scriptsize labels
 MARK_R = {"ours": 3.3, "comparator": 2.3}  # half-extent of the drawn marker
 BETTER = (AXIS_W - 47.0, 3.0, AXIS_W - 3.0, 14.0)  # the "better" arrow, bottom right
@@ -119,10 +119,9 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
                 f"({axis['k']:.2f}\\,W; every system is within {100 * axis['spread']:.0f}\\% of it).")
     elif have:
         method = ENERGY_WORDS[next(p["row"]["energy_method"] for p in pts if p["watts"] is not None)]
-        text = (f"Watts beside a name: W per always-on stream ({method}, measured in the same run), so far for "
-                f"{have} of the {len(pts)} systems.")
+        text = f"Watts beside a name: W per always-on stream ({method}, same run)."
     else:
-        text = "Watts per live stream are not drawn: no energy measurement has been admitted yet."
+        text = "No watts drawn yet: no same-run energy measurement has been admitted."
     first = rows[0] if rows else None
     rec.add("MoneyWattsCaption", text, unit="sentence", label="reported",
             configuration="generated from the energy rows of the systems drawn in Figure 1",
@@ -179,12 +178,10 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records) -> str:
            "whole": any(p["class"] == "whole_utterance" and not p["row"]["faded"] for p in pts),
            "faded": any(p["row"]["faded"] for p in pts)}
     marks = ["Diamond: ours (\\ColdHeadDetail)."]
-    if has["stream"] or has["faded"]:
-        marks.append("Filled: live streaming systems.")
     if has["whole"] or any(p["class"] == "whole_utterance" for p in pts):
         marks.append("Hollow: whole-utterance systems, which see the whole clip before they emit a word.")
     if has["frontier"]:
-        marks.append("Dashed: the streaming systems that no other streaming system beats on both axes.")
+        marks.append("Dashed: no other streaming system is better on both axes.")
     first = rows[0]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],

@@ -22,6 +22,7 @@ on any record that is missing a required field, and on bare decimal or percent n
 | `curated.json` | Numbers that exist only in docs. Each entry has `raw` + `decimals` (or `text`), `unit`, `label`, `configuration`, `workload`, `workload_digest`, `source` (path), `section`, `line` and `quote`. The test checks that each `quote` still appears in its source file when that file is in the checkout. |
 | `evidence/*.jsonl` | Measured comparison rows, schema v2: one line per (system, runtime, machine, threads), written by the agent that measured it (format below). |
 | `systems.json` | Paper-side presentation of measured variants: table name, plot label, macro stem, citation keys, order, `plot: false` for a stale row. It cannot set a number. |
+| `reported.json` | Numbers published by others: per value the printed text, its unit, what it is, and the verbatim source line; per source the URL, revision, fetch date, sha256 of the fetched file and bibliography key. They become `\Rep...` macros for the "reported elsewhere" table and nothing else. |
 | `research/curves/` | Training curves (D2 and D2MR dev-clean WER against audio-hours). |
 
 ## Outputs (generated, do not edit)
@@ -34,6 +35,8 @@ on any record that is missing a required field, and on bare decimal or percent n
 - `SOURCES.md`: the same as a table.
 - `*.csv`: the figure tables read by `docs/paper/figures/*.tex`. `cold_dev.csv` holds every measured row of every
   group; only the generator writes it. Its columns are append-only.
+- `table_measured.tex`, `table_hardware.tex`: the bodies of the "measured here" table (one line per measured
+  system, every cell a `metrics.tex` macro) and of the hardware table (hosts, CPUs, memory configuration).
 - `money_layout.tex`, `money_frontier.csv`: Figure 1 geometry (axis limits, label boxes, leaders, frontier, the
   key of numbered labels, watts ticks).
 
@@ -208,3 +211,18 @@ the generator refuses instead. The legend lists a mark only when it is on the pl
 `\MoneyHasStream`, `\MoneyHasWhole`, `\MoneyHasFaded`). A system with a same-run energy line gets its watts beside
 its name. A watts axis appears on top once every drawn system has an energy value and one
 power per busy core fits them all within 15% (`\MoneyWattsCaption` says which state applies).
+
+## Reported numbers (`reported.json`)
+
+```json
+{"sources": {"picovoice": {"cite": "picovoice2026benchmark", "title": "...", "url": "...", "revision": "...",
+                            "retrieved": "2026-11-22", "sha256": "<sha256 of the fetched file>"}},
+ "values": {"RepPvCheetahWerAvg": {"source": "picovoice", "text": "7.7", "unit": "% WER", "what": "...",
+                                    "quote": "<the verbatim source line that prints 7.7>"}}}
+```
+
+The generator refuses a value whose text does not appear in its quoted line. A reported value becomes a macro and a
+record with the label `reported`; it cannot be an evidence row, so it cannot reach `cold_dev.csv`, a figure or the
+measured table (`tests/test_paper_claims.py` checks all three). The fetched source files are kept with their sha256
+outside the repository (they are third-party text); the URL in each source names the exact revision that was read.
+

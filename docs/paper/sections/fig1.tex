@@ -1,8 +1,8 @@
-% Fig. 1 (page 1, single column): processing speed on one core against WER, every system measured
-% on our own hardware under the cold protocol. The caption comes from paper-data's \MoneyCaption so
-% that it always describes exactly what is drawn (hosts, watts axis, pending items).
-% Plot body: figures/money.tex (paper-data).
-\begin{figure}[!t]
+% Fig. 1 (page 1, left column, directly below the keywords): processing speed on one core against
+% dev-clean WER, every system measured on our own hardware under the cold protocol. The caption comes
+% from paper-data's \MoneyCaption so that it always describes exactly what is drawn (our checkpoint,
+% hosts, interim points, watts). Plot body: figures/money.tex (paper-data).
+\begin{figure}[!ht]
 \centering
 \IfFileExists{figures/money.tex}{\input{figures/money.tex}}{%
   \pendingfig{Speed-against-WER figure pending (figures/money.tex).}}

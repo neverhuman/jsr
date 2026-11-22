@@ -1,22 +1,43 @@
 \section{Limitations}\label{sec:limitations}
 
-\para{Exploratory measurements.} Every number in this draft comes from shared hosts outside a
-qualifying window. A same-day A/A replay on such a host varied by up to \AASpread\%; the density
-ladder used 20\,s rungs and a single repeat rather than the frozen three 120\,s repeats with
-300\,s confirmations; and the CPU governor was not controlled. The qualified run may move every ratio
-in either direction.
+\para{Where \ultra loses.} \ColdAccuracySentence{} Its speed is therefore compared across
+operating points, never at equal accuracy. Its training was unfinished and used LibriSpeech only.
+Two levers are being measured and are not in this draft's numbers: a model trained further, and an
+n-gram language model fused into the beam search.
 
-\para{Threats, and what the qualifying window fixes.} The rehearsal's measurement shortcuts each
-have a scheduled fix: 120\,s rungs with three repeats and three 300\,s confirmations instead of one
-20\,s repeat; a full-machine ladder on 15 CCX; panel audio instead of \LadderUtts{} cycled
-utterances; a sweep of Zipformer's best serving configuration (threads, chunk, batching) rather
-than its defaults.
+\para{Always on, not yet shown.} The endless-stream test and the false-words test on non-speech
+audio are under way but not admitted to this draft, so it does not yet show that memory, CPU time,
+lag and WER stay flat over hours of continuous audio, nor how many words \ultra emits when nobody
+speaks. A first look suggests that WER is worse in one continuous stream than when the same
+utterances are decoded one by one; the cause is being isolated, and the number will be reported as
+measured.
 
-\para{Accuracy.} \ultra is less accurate than Zipformer and Nemotron, so density is compared
-across operating points, not at equal accuracy; training was unfinished and LibriSpeech-only.
+\para{Exploratory measurements.} Every number comes from outside a qualifying window.
+\ColdHostSentence{} Each cost is the median of three runs. On the shared host the three runs of
+one system spanned a factor of two as the load changed, and on the quiet host other benchmark arms
+slowed a recognizer by up to three quarters; this is why rows are now admitted only from an
+otherwise idle machine. Absolute speeds on that machine are limited by its memory bus (four of
+eight channels populated), so they understate what the same core does with all channels filled,
+for every system that streams its weights. The density ladder used 20\,s rungs and a single
+repeat, not the frozen three 120\,s repeats with 300\,s confirmations. The qualified run may move
+every ratio in either direction.
+
+\para{What the comparison does not cover.} Each recognizer runs in its own released
+configuration and native streaming interface; we did not tune the other systems. The cold cost
+includes one model load per \ColdAudioMinutes{} minutes of audio, so it measures neither start-up
+time nor the cost of short sessions. \ColdLagSentence{} \ColdWattsSentence{} \ColdEightSentence{}
+\ColdMachinesSentence{} Two engines of \cref{tab:reported} have no measured row: one needs a
+vendor key and restricts benchmarking in its terms of use, and the runtime of the other is
+licensed separately.
+
+\para{Domain and data.} All audio is LibriSpeech DEV: read English, in-domain for \ultra and for
+the Zipformer baseline, which are trained on LibriSpeech alone. The other systems are trained on
+other data whose overlap with LibriSpeech we do not know. A system's rank here says little about
+its rank on conversational or noisy speech; the published averages in \cref{tab:reported} cover
+more corpora.
 
 \para{Test sets and scope.} All results are DEV; the LibriSpeech test sets and the sealed
 VoxPopuli and AMI sets are unread for this paper (earlier test reads are disclosed in
-\cref{sec:protocol}). Density is measured on one CPU family (Zen~2, AVX2, no VNNI or AVX-512);
-Nemotron has no path in the density harness and so no density row and no implied ceiling.
-
+\cref{sec:protocol}). Paced density is measured only for \ultra and Zipformer, in the warm
+harness; the other systems have no path in that harness, so they have no density row and no
+implied ceiling.

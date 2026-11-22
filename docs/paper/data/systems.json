@@ -1,74 +1,115 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot and runtime_short may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that the abstract and the text quote.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short and segmenter (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that the abstract and the text quote.",
   "variants": {
     "dense-r1-int8": {
-      "system": "ULTRA dense S, INT8 (ours)",
+      "system": "ULTRA dense S, avg. 50/55/60k, INT8",
       "short": "ULTRA dense",
       "macro": "Dense",
       "order": 10,
       "text": "\\ultra{} dense",
       "detail": "the dense model, average of steps 50k, 55k and 60k",
-      "plot": false
+      "plot": false,
+      "runtime_short": "ours",
+      "segmenter": "no"
     },
     "mr-r1-int8": {
-      "system": "ULTRA multirate S, INT8 (ours)",
+      "system": "ULTRA multirate S, step 50k, INT8",
       "short": "ULTRA multirate",
       "macro": "MR",
       "order": 11,
       "text": "\\ultra{} multirate",
       "detail": "the multirate model at step 50k",
-      "plot": false
+      "plot": false,
+      "runtime_short": "ours",
+      "segmenter": "no"
     },
     "dense-r1-fp32": {
-      "system": "ULTRA dense S, FP32, our engine",
+      "system": "ULTRA dense S (avg. 50/55/60k), FP32",
       "short": "ULTRA dense FP32",
       "macro": "DenseFP",
-      "order": 12
+      "order": 12,
+      "runtime_short": "ours"
     },
     "ort-r1-fp32": {
-      "system": "ULTRA dense S, FP32, ONNX Runtime",
+      "system": "ULTRA dense S (avg. 50/55/60k), FP32",
       "short": "ULTRA dense ORT",
       "macro": "DenseOrt",
-      "order": 13
+      "order": 13,
+      "runtime_short": "ONNX Runtime",
+      "cite": [
+        "onnxruntime"
+      ]
     },
     "r0-int8": {
-      "system": "Zipformer streaming, INT8",
+      "system": "Zipformer, INT8 (baseline)",
       "short": "Zipformer (baseline)",
       "macro": "Zip",
       "order": 20,
-      "text": "Zipformer"
+      "text": "Zipformer",
+      "runtime_short": "sherpa-onnx",
+      "cite": [
+        "yao2024zipformer",
+        "sherpaonnx"
+      ],
+      "segmenter": "no"
     },
     "moonshine-tiny": {
       "system": "Moonshine Tiny Streaming",
       "short": "Moonshine Tiny",
       "macro": "MoonTiny",
-      "order": 30
+      "order": 30,
+      "runtime_short": "Moonshine Voice",
+      "cite": [
+        "kudlur2026moonshinev2"
+      ],
+      "segmenter": "yes"
     },
     "moonshine-small": {
       "system": "Moonshine Small Streaming",
       "short": "Moonshine Small",
       "macro": "MoonSmall",
-      "order": 31
+      "order": 31,
+      "runtime_short": "Moonshine Voice",
+      "cite": [
+        "kudlur2026moonshinev2"
+      ],
+      "segmenter": "yes"
     },
     "nemotron-en-560": {
-      "system": "Nemotron Speech Streaming EN 0.6B, 560 ms",
+      "system": "Nemotron Streaming EN 0.6B, 560 ms",
       "short": "Nemotron 560 ms",
       "macro": "NemoFiveSixty",
       "order": 40,
-      "text": "Nemotron at 560\\,ms"
+      "text": "Nemotron at 560\\,ms",
+      "runtime_short": "NeMo-Speech.cpp",
+      "cite": [
+        "nemotron",
+        "nemospeechcpp"
+      ],
+      "segmenter": "no"
     },
     "nemotron-en-160": {
-      "system": "Nemotron Speech Streaming EN 0.6B, 160 ms",
+      "system": "Nemotron Streaming EN 0.6B, 160 ms",
       "short": "Nemotron 160 ms",
       "macro": "NemoOneSixty",
       "order": 41,
-      "text": "Nemotron at 160\\,ms"
+      "text": "Nemotron at 160\\,ms",
+      "runtime_short": "NeMo-Speech.cpp",
+      "cite": [
+        "nemotron"
+      ],
+      "segmenter": "no"
     },
     "nemotron-35": {
-      "system": "Nemotron 3.5 ASR Streaming 0.6B, 80 ms",
+      "system": "Nemotron 3.5 Streaming 0.6B, 80 ms",
       "short": "Nemotron 3.5",
       "macro": "NemoThreeFive",
-      "order": 42
+      "order": 42,
+      "runtime_short": "NeMo-Speech.cpp",
+      "cite": [
+        "nvidia2026nemotron35"
+      ],
+      "segmenter": "no"
     },
     "d2e-16457-int8": {
       "system": "ULTRA dense S, D2e step 16,457, INT8",
@@ -77,15 +118,19 @@
       "order": 5,
       "text": "\\ultra{} D2e",
       "detail": "the dense model D2e at step 16,457",
-      "plot": false
+      "plot": false,
+      "runtime_short": "ours",
+      "segmenter": "no"
     },
     "h22ctl-79800-ema-int8": {
-      "system": "ULTRA-S, H22ctl step 79,800 EMA, INT8",
+      "system": "ULTRA-S, H22ctl 79,800 EMA, INT8",
       "short": "ULTRA-S (ours)",
       "macro": "Hctl",
       "order": 4,
       "text": "\\ultra{}-S",
-      "detail": "H22ctl, step 79,800, EMA weights, INT8"
+      "detail": "H22ctl, step 79,800, EMA weights, INT8",
+      "runtime_short": "ours",
+      "segmenter": "no"
     }
   },
   "headline": {

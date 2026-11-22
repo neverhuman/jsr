@@ -14,13 +14,13 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 
 ![Speed on one CPU core against dev-clean WER on the 730-utterance LibriSpeech DEV panel, every system measured on our own hardware](docs/paper/money.png)
 
-Figure 1 of [the paper](docs/paper/paper.pdf): 7 recognisers, each decoding the same 730 LibriSpeech DEV utterances as a cold process on one pinned Zen 2 core, model load included; median of three runs. The vertical axis is WER on the panel's 400 dev-clean utterances. Further right is faster, further down is more accurate. Blue diamonds are ours; filled marks are live streaming systems, hollow marks whole-utterance systems (the whole clip first, no live words). 5 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive. Watts beside a name: W per always-on stream (core energy registers, measured in the same run), so far for 2 of the 7 systems.
+Figure 1 of [the paper](docs/paper/paper.pdf): 7 recognisers, each decoding the same 730 LibriSpeech DEV utterances as a cold process on one pinned Zen 2 core, model load included; median of three runs. The vertical axis is WER on the panel's 400 dev-clean utterances. Further right is faster, further down is more accurate. Blue diamonds are ours; filled marks are live streaming systems, hollow marks whole-utterance systems (the whole clip first, no live words). 4 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive. Watts beside a name: W per always-on stream (core energy registers, same run).
 
 | System | Class | Always-on streams per core (× real time) | W per always-on stream | dev-clean WER (%) | dev-other WER (%) | Pooled WER (%) | Peak memory (MB) | Host |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | **ULTRA-S (ours)** | streaming | 27.8 | 0.33 | 5.20 | 12.16 | 8.06 | 74 | H1 |
 | Zipformer (baseline) | streaming | 14.5 | 0.59 | 3.03 | 8.43 | 5.25 | 153 | H1 |
-| Moonshine Tiny | streaming | 7.63 | — | 6.54 | 14.72 | 9.90 | 204 | H0, interim |
+| Moonshine Tiny | streaming | 8.20 | 1.08 | 6.54 | 14.72 | 9.90 | 201 | H1 |
 | Nemotron 560 ms | streaming | 2.22 | — | 2.61 | 4.93 | 3.56 | 1290 | H0, interim |
 | Moonshine Small | streaming | 2.02 | — | 3.98 | 8.73 | 5.93 | 476 | H0, interim |
 | Nemotron 160 ms | streaming | 1.28 | — | 2.90 | 5.42 | 3.94 | 1287 | H0, interim |
