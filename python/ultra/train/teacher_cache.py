@@ -168,6 +168,10 @@ def main(argv=None) -> int:
         audio_s += len(pcm) / 16000.0
         ids, lps, emitted, hyp = r0.greedy_topk(r0.encode(r0.fbank(pcm)), a.topk)
         uids.append(row["id"]); texts.append(row["text"]); hyps.append(hyp); nfr.append(len(emitted))
+        if len(uids) % 200 == 0:  # progress for ETA checks (the log is per task)
+            el = time.time() - t0
+            print(json.dumps({"progress": len(uids), "of": len(rows), "audio_s": round(audio_s),
+                              "rtf": round(el / max(audio_s, 1e-9), 4)}), flush=True)
         all_ids.append(ids); all_lps.append(lps); all_emit.append(emitted)
     os.makedirs(a.out, exist_ok=True)
     name = f"{a.split}_{a.shard:04d}_sp{a.speed:.1f}.npz"
