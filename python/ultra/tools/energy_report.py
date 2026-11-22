@@ -471,6 +471,70 @@ def confirmed_counts(snapshots, final_words):
     return counts
 
 
+def stitch(previous, window, slack=16):
+    """The segment's text after a new event, given its text before and the event's bounded tail window.
+
+    The window is the tail of the new text: it starts near len(new) - len(window). The overlap with the
+    old text that matches longest decides where it is placed; whatever followed in the old text (a
+    revised tail) is replaced.
+    """
+    if not previous:
+        return window
+    best_k, best_m = None, 0
+    for k in range(max(0, len(previous) - len(window) - slack), len(previous) + 1):
+        tail = previous[k:]
+        m = 0
+        while m < len(tail) and m < len(window) and tail[m] == window[m]:
+            m += 1
+        if m > best_m:
+            best_k, best_m = k, m
+    if best_k is None or best_m < min(4, len(window)):
+        return window if len(window) >= len(previous) else previous[:max(0, len(previous) - len(window))] + window
+    return previous[:best_k] + window
+
+
+def stitched_texts(events):
+    """(time, whole hypothesis so far) for every transcript event, segments joined in order."""
+    segments, out = {}, []
+    for event in events:
+        body = event["event"]
+        if body.get("event_type") not in ("Preview", "Commit", "Final"):
+            continue
+        seg = body.get("segment_id", 0)
+        segments[seg] = stitch(segments.get(seg, ""), body.get("snapshot_utf8", ""))
+        out.append((event["t_s"], " ".join(segments[k] for k in sorted(segments))))
+    return out
+
+
+def prefix_counts(texts, final_words):
+    """For each (time, whole text): how many leading final words it already holds unchanged."""
+    counts = []
+    for _, text in texts:
+        current = words(text)
+        n = 0
+        while n < len(current) and n < len(final_words) and current[n] == final_words[n]:
+            n += 1
+        counts.append(n)
+    return counts
+
+
+def stable_lags_from_events(events, ref_words, ref_ends):
+    """Stable-word lag (s) per matched reference word from a stream's own events (no external text)."""
+    texts = stitched_texts(events)
+    if not texts:
+        return [], len(ref_words), ""
+    final_words = words(texts[-1][1])
+    counts = prefix_counts(texts, final_words)
+    emitted = [texts[-1][0]] * len(final_words)
+    suffix_min = len(final_words)
+    for (moment, _), count in zip(reversed(texts), reversed(counts)):
+        suffix_min = min(suffix_min, count)
+        for j in range(suffix_min):
+            emitted[j] = moment
+    lags = [emitted[j] - ref_ends[i] for i, j in align_matches(ref_words, final_words)]
+    return lags, len(ref_words), texts[-1][1]
+
+
 def stable_word_lags(snapshots, final_text, ref_words, ref_ends):
     """Stable-word lag (s) of every reference word that the final hypothesis matches.
 
@@ -508,15 +572,11 @@ def paced_lag_main(args):
         lags, matched, total, finals = [], 0, 0, []
         for events_path in sorted(logs.glob("rep*-w*.events.jsonl")):
             events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-            snapshots = [(e["t_s"], e["event"].get("snapshot_utf8", "")) for e in events
-                         if e["event"].get("event_type") in ("Preview", "Commit", "Final")]
-            stdout = events_path.with_name(events_path.name.replace(".events.jsonl", ".stdout"))
-            final_text = json.loads(stdout.read_text(encoding="utf-8").splitlines()[-1])["text"]
-            stream_lags, refs = stable_word_lags(snapshots, final_text, ref_words, ref_ends)
+            stream_lags, refs, final_text = stable_lags_from_events(events, ref_words, ref_ends)
             lags += stream_lags
             matched += len(stream_lags)
             total += refs
-            finals.append(snapshots[-1][0] - offset if snapshots else None)
+            finals.append(events[-1]["t_s"] - offset if events else None)
         ordered = sorted(lags)
         pick = (lambda q: ordered[min(len(ordered) - 1, int(q * (len(ordered) - 1) + 0.5))] * 1000.0) if ordered else None
         rows.append({
