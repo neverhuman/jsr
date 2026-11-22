@@ -10,14 +10,15 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 
 ### Accuracy: our best R1 so far
 - **D2:** dense S (d_model 384, 16 Conformer blocks, streaming, 160 ms chunks), trained on LibriSpeech 960 h.
-- **Best checkpoint:** step 55,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
+- **Latest checkpoint evaluated:** step 60,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
 
-| Set (400 utterances, greedy, streaming) | WER |
-|---|---:|
-| dev-clean | **7.83%** (step 55k) |
-| dev-other | 19.60% (step 50k; the 55k dev-other eval is pending) |
+| Full dev sets (2,703 / 2,864 utterances), streaming, step 60k | dev-clean | dev-other |
+|---|---:|---:|
+| single checkpoint, greedy | 7.65% | 18.57% |
+| single checkpoint, beam 4 | 7.03% | 17.39% |
+| **average of the last 3 snapshots (50/55/60k), beam 4** | **6.66%** | **16.55%** |
 
-Beam search (4 candidates, same encoder, step 50k, full dev sets) gives 8.00% / 18.53%, versus greedy at 8.65% / 20.16% (H12, Python).
+Beam search and checkpoint averaging need no retraining (H12). Beam 4 is being ported to the Rust engine now; the speed rows below are greedy.
 
 - **Other runs:**
   - multirate S_MR (D2MR, final 50k, epoch 5): 11.09% full dev-clean / 22.90% full dev-other;
