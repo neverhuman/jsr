@@ -13,7 +13,7 @@ P=$DATA/venvs/train/bin/python
 if ! "$P" -c "import torch, k2" 2> /dev/null; then
   uv venv -q --python 3.12 "$DATA/venvs/train"
   uv pip install -q --python "$P" torch==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-  uv pip install -q --python "$P" numpy==1.26.4 sentencepiece==0.2.3 pyarrow==17.0.0 soundfile pytest huggingface_hub hf_transfer
+  uv pip install -q --python "$P" numpy==1.26.4 sentencepiece==0.2.3 pyarrow==17.0.0 soundfile scipy pytest huggingface_hub hf_transfer onnxruntime==1.20.1 kaldi-native-fbank
   uv pip install -q --python "$P" --no-deps "k2==1.24.4.dev20250714+cuda12.8.torch2.7.0" -f https://k2-fsa.github.io/k2/cuda.html
 fi
 "$P" -c "import torch, k2; print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), torch.cuda.device_count())"
