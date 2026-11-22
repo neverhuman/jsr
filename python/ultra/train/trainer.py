@@ -318,11 +318,19 @@ class Trainer:
         from train.dist import all_gather_floats
 
         pad = 100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0)))
-        rows = all_gather_floats([float(acc.get("frames", 0)), pad, getattr(self, "_bwd_s", 0.0)],
-                                 self.device)
+        th = getattr(self, "_throttle", None)
+        ts = th.stats() if th is not None else {"duty": 1.0, "util_5min": -1.0, "target": 0.0, "slept_s": 0.0}
+        slept = ts["slept_s"] - getattr(self, "_slept_mark", 0.0)
+        self._slept_mark = ts["slept_s"]
+        rows = all_gather_floats([float(acc.get("frames", 0)), pad, getattr(self, "_bwd_s", 0.0),
+                                  float(acc.get("step_s", 0.0)), float(acc.get("data_wait_s", 0.0)),
+                                  slept, ts["duty"], ts["util_5min"]], self.device)
         self._bwd_s = 0.0
-        return {"rank_frames": [int(r[0]) for r in rows], "rank_pad_pct": [round(r[1], 2) for r in rows],
-                "rank_bwd_comm_s": [round(r[2], 2) for r in rows]}
+        col = lambda k, nd=2: [round(r[k], nd) for r in rows]  # noqa: E731
+        return {"rank_frames": [int(r[0]) for r in rows], "rank_pad_pct": col(1),
+                "rank_bwd_comm_s": col(2), "rank_step_s": col(3), "rank_data_wait_s": col(4),
+                "rank_throttle_sleep_s": col(5), "rank_duty": col(6, 3), "rank_gpu_util_5min": col(7, 3),
+                "util_target": ts["target"]}
 
     def _global_audio(self, seconds: float) -> float:
         """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
@@ -527,13 +535,18 @@ class Trainer:
         if self.world > 1 and self.cfg.ddp_util_target > 0 and self.device.type == "cuda":
             from train.dist import StepThrottle
 
-            throttle = StepThrottle(self.cfg.ddp_util_target, self.device.index or 0)
+            from train.dist import physical_gpu
+
+            throttle = StepThrottle(self.cfg.ddp_util_target, physical_gpu(self.device.index or 0),
+                                    live_dir=self.run_dir)
+        self._throttle = throttle
         for pos, batch in self._batches():
             acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
             t_step = time.time()
             acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
             acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
+            acc["step_s"] = acc.get("step_s", 0.0) + (time.time() - t_step)
             if self.world > 1:
                 from train.dist import all_reduce_max
 

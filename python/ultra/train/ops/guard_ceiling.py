@@ -19,7 +19,6 @@ RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itse
     "D3MRc": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/D3MRc_S_MR_I8S_960h", "fleet_guard.jsonl", "linux"),
     "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
     "L1w": ("xbabe8", "/home/ubuntu/jsr-data/runs/train/L1w_S_spm512_warmH13a_960h", "fleet_guard.jsonl", "linux"),
-    "L2": ("xbabe5", "/home/ubuntu/jsr-data/runs/train/L2_S_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
     "L3": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/L3_M_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
     "H22ctl": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H22ctl_S_r0bpe_pruned_960h", "fleet_guard.jsonl", "linux"),
     "H23": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H23_current_gpu0", "fleet_guard.jsonl", "linux"),
