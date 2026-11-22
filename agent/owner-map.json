@@ -51,6 +51,8 @@
     "crates/ultra-engine/": "runtime",
     "python/ultra/tools/": "training",
     "research/": "lead",
-    "docs/paper/": "lead"
+    "docs/paper/": "lead",
+    "python/ultra/tools/paper_data.py": "lead",
+    "python/ultra/tools/export_curves.py": "lead"
   }
 }
