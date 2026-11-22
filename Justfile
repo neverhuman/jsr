@@ -69,7 +69,7 @@ paper:
     #!/usr/bin/env bash
     set -euo pipefail
     root="$PWD"
-    if [ -f python/ultra/tools/paper_data.py ]; then
+    if [ -e python/ultra/tools/paper_data/__init__.py ]; then
         pybin="$root/{{py}}"; [ -x "$pybin" ] || pybin="$(git rev-parse --git-common-dir)/../{{py}}"
         (cd python/ultra && "$pybin" -m tools.paper_data)
     fi
