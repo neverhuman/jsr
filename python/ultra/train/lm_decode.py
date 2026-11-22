@@ -191,7 +191,7 @@ def load_cache(cache: str, split: str):
 
 
 def beam(a) -> None:
-    from train.lm_fusion import NgramFusion, TokenNgram
+    from train.lm_fusion import FastBeam, NgramFusion, TokenNgram
 
     torch.set_num_threads(1)
     shard, nshard = (int(x) for x in a.shard.split("/"))
@@ -204,9 +204,10 @@ def beam(a) -> None:
 
     def lm(path):
         if path and path not in lms:
-            lms[path] = TokenNgram(path, tok.num_outputs)
+            lms[path] = TokenNgram(path, tok.num_outputs, max_rows=a.lm_rows)
         return lms.get(path)
 
+    fast = FastBeam(model.predictor, model.joiner) if a.fast else None
     caches = {s: load_cache(a.cache, s) for s in a.splits}
     for index, _ in caches.values():
         if index["checkpoint_sha256"] != sha or index["weights"] != a.weights:
@@ -225,18 +226,25 @@ def beam(a) -> None:
                 for n, u in enumerate(index["utts"]):
                     if n % nshard != shard:
                         continue
-                    enc = torch.from_numpy(np.array(frames[u["offset"]:u["offset"] + u["frames"]]))
+                    x = np.array(frames[u["offset"]:u["offset"] + u["frames"]])
                     nb: list = []
                     t0 = time.perf_counter()
-                    best = modified_beam_search(
-                        model.predictor, model.joiner, enc[None], torch.tensor([u["frames"]]),
-                        cfg["beam"], blank_penalty=cfg.get("blank_penalty", 0.0), nbest=nb,
-                        fusion=fusion)[0]
+                    if fast is not None:
+                        nb.append(fast.search(x, cfg["beam"], cfg.get("blank_penalty", 0.0),
+                                              fusion))
+                    else:
+                        modified_beam_search(
+                            model.predictor, model.joiner, torch.from_numpy(x)[None],
+                            torch.tensor([u["frames"]]), cfg["beam"],
+                            blank_penalty=cfg.get("blank_penalty", 0.0), nbest=nb, fusion=fusion)
+                    best = nb[0][0][0]
                     row = {"uid": u["uid"], "tokens": best, "hyp": tok.decode(best),
                            "score": nb[0][0][1], "sec": round(time.perf_counter() - t0, 4)}
                     if cfg.get("nbest"):
                         row["nbest"] = [[t, round(s, 4), tok.decode(t)] for t, s in nb[0]]
                     fh.write(json.dumps(row) + "\n")
+                    if n % (50 * nshard) == shard:
+                        fh.flush()  # progress is visible while a shard runs
             os.replace(out + ".tmp", out)
         print(json.dumps({"done": cfg["name"], "shard": a.shard}), flush=True)
 
@@ -312,6 +320,12 @@ def main(argv=None) -> None:
     b.add_argument("--configs", required=True, help="JSON list of {name, beam, blank_penalty, "
                    "nbest, lm, lm_weight, lodr, lodr_weight}")
     b.add_argument("--shard", default="0/1")
+    b.add_argument("--lm-rows", type=int, default=1 << 17,
+                   help="LM rows (one per n-gram context, ~2 kB each) kept per worker; the same "
+                        "contexts recur across the configs of a grid")
+    b.add_argument("--fast", action="store_true",
+                   help="search with train.lm_fusion.FastBeam (NumPy; for weight sweeps) instead "
+                        "of train.beam.modified_beam_search (the reference)")
     b.add_argument("--out", required=True)
     b.add_argument("--splits", nargs="+", default=["dev-clean", "dev-other"])
     b.add_argument("--weights", default="ema", choices=("ema", "model"))

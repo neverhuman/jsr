@@ -43,5 +43,35 @@ How much does an n-gram language model lower the word error rate of our streamin
 - **A "+LM" row is reported as a gain if** the pooled full-dev held-out WER is lower than the baseline's **and** the paired 95% interval of the difference excludes zero. Otherwise the row is recorded as "no measurable gain" with its numbers.
 - **Decode cost** of the Python beam with and without fusion is reported for information only (engine speed is measured elsewhere).
 
+## Amendment 1 (2026-11-22, about 21:18Z): written after Phase 1, before any fusion or blank-penalty decode
+What existed when this was written: the Phase 1 results below (beam 4 and beam 8 without LM, 4-gram rescoring). No decode with an LM inside the beam and no decode with a blank penalty had been run.
+1. **Sweep implementation.** One reference beam-4 pass over both dev sets costs 15 CPU-minutes in `train.beam` (1 ms per frame of Python and torch call overhead); the pre-registered grids are 85 passes per LM. The grid passes therefore use `train.lm_fusion.FastBeam`, a NumPy re-implementation of the same search (same pruning, same merging, float32 running scores). Measured before use, without LM: **identical token output on 5,567 / 5,567 utterances** at beam 4, and beam-8 N-best lists identical in content and order on 5,567 / 5,567; largest score difference 1e-4; 4.9× faster at beam 4. **Every reported held-out row is decoded again with `train.beam.modified_beam_search` + the fusion hook** at the chosen weights, so reported numbers come from the reference search; if a re-decoded row differs from its sweep value, both are shown.
+2. **One token per frame.** `modified_beam_search` (and `FastBeam`) emit at most one token per frame. The lead measured the cap at 0.07 pp on greedy (21:06Z). The baseline and every LM row carry it equally. If an uncapped beam lands in time, the chosen configs are decoded with it as an extra labelled row, without re-tuning.
+3. **Second scorer for the final table.** The pre-registered metric stays `ultra.wer`. The final rows are also scored with the pinned `ultra-score` binary that eval-lane uses (54,691 / 51,363 reference words), labelled as such, so the "+LM" rows can sit next to eval-lane's table.
+4. **Decode cost.** Reported as the sum of the per-utterance wall time of the search call, one thread per worker, 14 workers in parallel on H0 cores 16-29, with the reference beam, for the baseline and for the chosen fusion configs. Informational only.
+5. **Token LM pruning** is fixed in Amendment 2, from n-gram counts and file sizes only, before the first fusion decode.
+
 ## Results
-(none yet)
+All numbers are **exploratory**. Scorer `ultra.wer` (54,402 / 50,948 reference words) unless a row says otherwise. Every row carries the one-token-per-frame cap of the Python beam.
+
+### Phase 1: N-best rescoring with the official word 4-gram (2026-11-22, 21:14Z)
+- Encoder cache: `train.lm_decode encode`, EMA weights, 6 single-threaded workers taking every 6th `train.evaluate` batch. Its greedy hypotheses are **identical to eval-lane's EMA greedy dump on 5,567 / 5,567 utterances** (`/mnt/xbabe3-external/jsr/evals/eval-lane/full-dev/H22ctl-79800.ema.c4.ms8.*`).
+- N-best: final beam of beam 8, mean 7.26 candidates per utterance. LM: `4-gram.arpa.gz` (sha256 `f2b2d150…`) as a KenLM trie.
+
+| row | dev-clean | dev-other | pooled |
+|---|---:|---:|---:|
+| greedy, max 8 symbols per frame (eval-lane's row, same hypotheses) | 4.893 | 13.323 | 8.970 |
+| beam 4, no LM (**baseline**) | 4.803 | 12.972 | 8.754 |
+| beam 8, no LM (1-best of the list) | 4.777 | 12.988 | 8.748 |
+| **beam-8 list + word 4-gram, held-out weights** | **4.652** | **12.362** | **8.381** |
+| difference to baseline, paired bootstrap 95% (utterances) | −0.151 [−0.253, −0.049] | −0.610 [−0.734, −0.484] | **−0.373 [−0.452, −0.291]** |
+| difference to baseline, paired bootstrap 95% (whole speakers) | [−0.266, −0.035] | [−0.784, −0.433] | [−0.478, −0.268] |
+| relative change | −3.1% | −4.7% | −4.3% |
+| weights tuned per set, held-out (secondary) | 4.673 | 12.368 | — |
+| weights **tuned on itself** (not a result) | 4.638 | 12.364 | 8.374 |
+| N-best oracle (ceiling for rescoring this list) | 3.000 | 10.267 | 6.514 |
+
+- **Folds:** dev-clean A 20 speakers / 1,257 utterances / 26,490 words, B 20 / 1,446 / 27,912; dev-other A 17 / 1,487 / 26,969, B 16 / 1,377 / 23,979.
+- **Chosen weights:** fold A chose w = 0.30, b = 1.0 (scored on fold B); fold B chose w = 0.35, b = 1.5 (scored on fold A). Tuned on all utterances: w = 0.35, b = 1.5.
+- **Verdict by the pre-registered rule:** pooled held-out WER is lower and the paired interval excludes zero (utterance and speaker level): **the word 4-gram rescoring row is a gain**, 4.3% relative, inside the 4–8% expected. The oracle is 25.5% below the list's 1-best (expected 25–35%); rescoring recovers about one sixth of that.
+- Error counts (S / D / I): baseline 7,466 / 862 / 894; rescored 7,112 / 852 / 865. The gain is almost entirely fewer substitutions.

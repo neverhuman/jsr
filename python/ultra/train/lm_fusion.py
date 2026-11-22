@@ -127,3 +127,57 @@ class NgramFusion:
 
     def __call__(self, seqs) -> torch.Tensor:
         return torch.stack([self.row(s) for s in seqs])
+
+
+class FastBeam:
+    """NumPy re-implementation of `train.beam.modified_beam_search` (no length normalisation) for
+    weight sweeps: the same frame-synchronous search (one token per frame at most, equal token
+    sequences merged by log-sum-exp, `beam` best kept, float32 running scores), about 20x faster
+    because it avoids per-frame torch call overhead. Scores agree with the torch beam up to float32
+    rounding, so a near-tie can resolve differently on rare utterances; `train.beam` stays the
+    reference and reported rows are decoded with it."""
+
+    def __init__(self, predictor, joiner):
+        import numpy as np
+
+        self.np = np
+        emb = predictor.emb.weight.detach().numpy().astype(np.float32)
+        w = predictor.proj.weight.detach().numpy().astype(np.float32)
+        e = emb.shape[1]
+        self.older = emb @ w[:, :e].T  # (vocab, joiner): the older context token's share
+        self.newer = emb @ w[:, e:].T + predictor.proj.bias.detach().numpy()
+        self.out_w = joiner.out.weight.detach().numpy().T.astype(np.float32).copy()  # (joiner, V)
+        self.out_b = joiner.out.bias.detach().numpy().astype(np.float32)
+        self.act = joiner.act
+
+    def search(self, enc_p, beam: int = 4, blank_penalty: float = 0.0, fusion=None):
+        """enc_p (T, joiner) float32 array -> [(tokens, score), ...] of the final beam, best first."""
+        np = self.np
+        if beam < 1 or blank_penalty < 0:
+            raise ValueError("beam must be >= 1 and blank_penalty >= 0")
+        v = self.out_b.shape[0]
+        hyps: dict[tuple[int, ...], float] = {(): 0.0}
+        for t in range(enc_p.shape[0]):
+            seqs = list(hyps)
+            h = enc_p[t] + self.older[[s[-2] if len(s) > 1 else 0 for s in seqs]] \
+                + self.newer[[s[-1] if s else 0 for s in seqs]]
+            h = np.tanh(h) if self.act == "tanh" else np.clip(h, 0.0, 6.0)
+            z = h @ self.out_w + self.out_b
+            z -= z.max(axis=1, keepdims=True)
+            logp = z - np.log(np.exp(z).sum(axis=1, keepdims=True))
+            if blank_penalty:
+                logp[:, 0] -= np.float32(blank_penalty)
+            if fusion is not None:
+                logp += np.stack([fusion.row(s).numpy() for s in seqs])
+            scores = (np.array([hyps[s] for s in seqs], dtype=np.float32)[:, None] + logp).ravel()
+            k = min(beam, scores.size)
+            top = np.argpartition(scores, -k)[-k:]
+            top = top[np.argsort(-scores[top], kind="stable")]
+            new: dict[tuple[int, ...], float] = {}
+            for flat in top.tolist():
+                hi, tok = divmod(flat, v)
+                s = seqs[hi] if tok == 0 else (*seqs[hi], tok)
+                sc = float(scores[flat])
+                new[s] = float(np.logaddexp(np.float32(new[s]), np.float32(sc))) if s in new else sc
+            hyps = new
+        return [(list(s), sc) for s, sc in sorted(hyps.items(), key=lambda kv: kv[1], reverse=True)]

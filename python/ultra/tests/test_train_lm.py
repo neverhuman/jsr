@@ -250,3 +250,19 @@ def test_compare_reports_each_set_and_pooled():
     assert cv["chosen"] == {"tuned_on_A_scored_on_B": "lm", "tuned_on_B_scored_on_A": "lm"}
     assert cv["held_out"]["pooled"]["arm"]["wer"] == 5.0
     assert cv["tuned_on_itself"]["label"] == "tuned on itself"
+
+
+def test_fast_beam_matches_the_reference_beam():
+    for seed, beam, pen in ((0, 4, 0.0), (1, 8, 0.0), (2, 4, 0.7), (3, 1, 0.0)):
+        pred, join, enc_p, lens = _parts(seed)
+        fast = lm_fusion.FastBeam(pred, join)
+        for fusion in (None, lm_fusion.NgramFusion(_FakeLm(3), 0.4, _FakeLm(2), 0.1)):
+            nb = []
+            modified_beam_search(pred, join, enc_p, lens, beam=beam, blank_penalty=pen, nbest=nb,
+                                 fusion=fusion)
+            for b, want in enumerate(nb):
+                got = fast.search(enc_p[b, :int(lens[b])].numpy(), beam, pen, fusion)
+                assert [t for t, _ in got] == [t for t, _ in want]
+                assert np.allclose([s for _, s in got], [s for _, s in want], atol=1e-3)
+    with pytest.raises(ValueError):
+        fast.search(enc_p[0].numpy(), beam=0)
