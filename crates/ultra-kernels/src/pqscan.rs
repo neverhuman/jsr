@@ -285,6 +285,10 @@ impl CodebookMatrix {
                 crate::pqscan_avx2::scan(self, tables, sparse, out);
             }
             #[cfg(target_arch = "aarch64")]
+            Backend::Neon => {
+                crate::pqscan_neon::scan(self, tables, sparse, out);
+            }
+            #[cfg(target_arch = "aarch64")]
             Backend::Scalar => {
                 // Scalar oracle explicitly requested; keep portable path for bit-exact testing.
                 scan_scalar(self, tables, sparse, out);
@@ -292,6 +296,34 @@ impl CodebookMatrix {
             _ => scan_scalar(self, tables, sparse, out),
         }
         Ok(())
+    }
+
+    /// Quantise a non-negative row (e.g. post-`ReLU^2` FFN activation) into zero-anchored
+    /// signed `i8` codes in `0..=127` (`ULTRA-SU §6.8`): exact `0.0 -> 0i8` preserves
+    /// `pair_nonzero` zero-skipping and yields 1 extra bit of positive precision over centred
+    /// int8. Returns the dequantisation scale `max(0, max_i x_i) / 127.0`.
+    pub fn quantize_row_zero_anchored_u7(x: &[f32], out: &mut [i8]) -> f32 {
+        assert_eq!(x.len(), out.len());
+        let mut mx = 0.0f32;
+        for &v in x {
+            if v.is_finite() && v > mx {
+                mx = v;
+            }
+        }
+        if mx == 0.0 {
+            out.fill(0);
+            return 0.0;
+        }
+        let scale = mx / 127.0;
+        let inv = 127.0 / mx;
+        for (o, &v) in out.iter_mut().zip(x) {
+            if !v.is_finite() || v <= 0.0 {
+                *o = 0;
+            } else {
+                *o = (v * inv).round_ties_even().clamp(0.0, 127.0) as i8;
+            }
+        }
+        scale
     }
 
     /// ARM64 NEON explicit entry point (for cross-ISA verification & M3 Ultra benchmarks).
@@ -533,5 +565,18 @@ mod tests {
         for (u, v) in orig.iter().zip(&b) {
             assert!((u - v).abs() < 1e-4, "fwht16 inverse mismatch: {u} vs {v}");
         }
+    }
+
+    #[test]
+    fn zero_anchored_u7_preserves_exact_zeros_for_relu2_pqscan() {
+        let x = [0.0f32, 0.0, 0.0, 0.0, 2.5, 0.0, 10.0, -0.5];
+        let mut q = [0i8; 8];
+        let scale = CodebookMatrix::quantize_row_zero_anchored_u7(&x, &mut q);
+        assert!((scale - 10.0 / 127.0).abs() < 1e-6);
+        assert_eq!(q[0..4], [0, 0, 0, 0]);
+        assert_eq!(q[5], 0);
+        assert_eq!(q[6], 127);
+        assert_eq!(q[7], 0);
+        assert!((f32::from(q[4]) * scale - 2.5).abs() <= scale * 0.51);
     }
 }

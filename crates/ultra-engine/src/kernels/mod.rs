@@ -173,6 +173,32 @@ impl PackedF32 {
     pub fn panel(&self, p: usize) -> &[f32] {
         &self.data[p * self.k * NR..(p + 1) * self.k * NR]
     }
+
+    /// Algebraically fold an upstream element-wise affine `y = g * z + b` (e.g. pre-norm
+    /// LayerNorm) into this fp32 weight matrix: `W (g * z + b) + bias = (W * g) z + (bias + W b)`.
+    pub fn fold_input_affine(&mut self, g: &[f32], b: &[f32]) {
+        assert!(
+            self.has_weights(),
+            "fold_input_affine requires fp32 weights"
+        );
+        assert_eq!(g.len(), self.k);
+        assert_eq!(b.len(), self.k);
+        let panels = self.panels();
+        for p in 0..panels {
+            let ncols = NR.min(self.n - p * NR);
+            for j in 0..ncols {
+                let row = p * NR + j;
+                let mut db = 0.0f64;
+                for kk in 0..self.k {
+                    let idx = (p * self.k + kk) * NR + j;
+                    let w = self.data[idx];
+                    db += f64::from(w) * f64::from(b[kk]);
+                    self.data[idx] = w * g[kk];
+                }
+                self.bias[row] = (f64::from(self.bias[row]) + db) as f32;
+            }
+        }
+    }
 }
 
 /// `out[r][j] = bias[j] + sum_kk x[r][kk] * W[j][kk]` for `rows` rows (`x` stride `k`,

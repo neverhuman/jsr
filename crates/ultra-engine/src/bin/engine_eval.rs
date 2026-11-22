@@ -61,6 +61,10 @@ struct Args {
     int8_stem_kinds: Vec<String>,
     sealed_read: Option<String>,
     beam: usize,
+    beam_max_symbols: usize,
+    beam_margin: f32,
+    kv_int8: bool,
+    fold_prenorm: bool,
     repo: Option<PathBuf>,
     looks: Option<PathBuf>,
     out: PathBuf,
@@ -91,6 +95,10 @@ fn parse() -> Result<Args, String> {
         int8_stem_kinds: Vec::new(),
         sealed_read: None,
         beam: 1,
+        beam_max_symbols: 1,
+        beam_margin: 0.0,
+        kv_int8: false,
+        fold_prenorm: false,
         repo: None,
         looks: None,
         out: PathBuf::new(),
@@ -119,6 +127,16 @@ fn parse() -> Result<Args, String> {
             "--qualifying" => a.qualifying = true,
             "--sealed-read" => a.sealed_read = Some(v()?),
             "--beam" => a.beam = v()?.parse().map_err(|e| format!("--beam: {e}"))?,
+            "--beam-max-symbols" => {
+                a.beam_max_symbols = v()?
+                    .parse()
+                    .map_err(|e| format!("--beam-max-symbols: {e}"))?
+            }
+            "--beam-margin" => {
+                a.beam_margin = v()?.parse().map_err(|e| format!("--beam-margin: {e}"))?
+            }
+            "--kv-int8" => a.kv_int8 = true,
+            "--fold-prenorm" => a.fold_prenorm = true,
             "--repo" => a.repo = Some(v()?.into()),
             "--looks" => a.looks = Some(v()?.into()),
             "--int8-fp32-kinds" => a.int8_fp32_kinds = kinds(&v()?),
@@ -246,13 +264,19 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     } else {
         0
     };
+    if a.fold_prenorm {
+        model.fold_prenorm();
+    }
     let load_s = t_load.elapsed().as_secs_f64();
     let engine = Engine::new(Arc::new(model), a.isa, a.precision)
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks)
         .with_act7(a.act7)
         .with_gemm_threads(a.gemm_threads)
-        .with_beam(a.beam);
+        .with_beam(a.beam)
+        .with_beam_max_symbols(a.beam_max_symbols)
+        .with_beam_margin(a.beam_margin)
+        .with_kv_int8(a.kv_int8);
     // Sealed PUBLIC-TEST guard (test-* splits), decided and logged before any audio is read.
     let panel = a.panel.as_ref().map(|p| Panel::read(p)).transpose()?;
     let splits: Vec<String> = match &panel {
