@@ -67,8 +67,9 @@ fn grow(v: &mut Vec<f32>, n: usize) -> &mut [f32] {
     &mut v[..n]
 }
 
-/// `log_softmax` of one row in f32 (max-shifted; `x - max - ln(sum exp(x - max))`).
-fn log_softmax(row: &mut [f32]) -> Result<(), EngineError> {
+/// `logsumexp` of one row in f32: `max + ln(sum exp(x - max))`, the sum in the engine's
+/// fixed cross-ISA order ([`kernels::sum_exp_shifted`]). Refuses NaN/Inf logits.
+fn logsumexp(isa: Isa, row: &[f32]) -> Result<f32, EngineError> {
     let mut mx = f32::NEG_INFINITY;
     for (i, &v) in row.iter().enumerate() {
         if !v.is_finite() {
@@ -78,12 +79,7 @@ fn log_softmax(row: &mut [f32]) -> Result<(), EngineError> {
         }
         mx = mx.max(v);
     }
-    let sum: f32 = row.iter().map(|&v| (v - mx).exp()).sum();
-    let lse = mx + sum.ln();
-    for v in row.iter_mut() {
-        *v -= lse;
-    }
-    Ok(())
+    Ok(mx + crate::kernels::sum_exp_shifted(isa, row, mx).ln())
 }
 
 /// torch's `logaddexp` for finite f32: `max + log1p(exp(-|a - b|))`.
@@ -200,15 +196,16 @@ pub fn beam_chunk(
             // Top `beam` candidates over (hypothesis, token).
             cands.clear();
             for h in 0..nh {
-                let row = &mut logits[(r0 + h) * v..(r0 + h + 1) * v];
-                log_softmax(row)?;
+                let row = &logits[(r0 + h) * v..(r0 + h + 1) * v];
+                let lse = logsumexp(isa, row)?;
                 let base = st.hyps[h].score;
-                for (k, &lp) in row.iter().enumerate() {
-                    let c = Cand {
-                        score: base + lp,
-                        h,
-                        k,
-                    };
+                for (k, &x) in row.iter().enumerate() {
+                    // log_softmax value x - lse, then the hypothesis score (beam.py's order).
+                    let score = base + (x - lse);
+                    if cands.len() == beam && score < cands[beam - 1].score {
+                        continue; // cannot enter the top `beam`
+                    }
+                    let c = Cand { score, h, k };
                     if cands.len() < beam {
                         cands.push(c);
                         let mut i = cands.len() - 1;
@@ -268,11 +265,11 @@ mod tests {
     fn logaddexp_and_log_softmax_basics() {
         assert!((logaddexp(0.0, 0.0) - std::f32::consts::LN_2).abs() < 1e-7);
         assert_eq!(logaddexp(-1e30, 3.0), 3.0);
-        let mut r = vec![1.0f32, 2.0, 3.0];
-        log_softmax(&mut r).expect("finite");
-        let s: f32 = r.iter().map(|v| v.exp()).sum();
+        let r = [1.0f32, 2.0, 3.0];
+        let lse = logsumexp(Isa::Scalar, &r).expect("finite");
+        let s: f32 = r.iter().map(|v| (v - lse).exp()).sum();
         assert!((s - 1.0).abs() < 1e-6);
-        assert!(log_softmax(&mut [f32::NAN]).is_err());
+        assert!(logsumexp(Isa::Scalar, &[f32::NAN]).is_err());
         assert_eq!(context(&[], 0), [0, 0]);
         assert_eq!(context(&[7], 0), [0, 7]);
         assert_eq!(context(&[5, 7, 9], 0), [7, 9]);

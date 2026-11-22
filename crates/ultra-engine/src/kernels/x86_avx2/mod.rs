@@ -141,6 +141,32 @@ pub(super) fn neg8(x: __m256) -> __m256 {
     _mm256_xor_ps(x, _mm256_set1_ps(-0.0))
 }
 
+pub(crate) fn sum_exp_shifted(x: &[f32], shift: f32) -> f32 {
+    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    unsafe { sum_exp_avx2(x, shift) }
+}
+
+/// Lane `l` accumulates elements `8 j + l` (as `scalar::sum_exp_shifted`); the tail goes to
+/// its lanes in scalar code with the identical exp, then the shared reduction.
+#[target_feature(enable = "avx2,fma")]
+fn sum_exp_avx2(x: &[f32], shift: f32) -> f32 {
+    let s = _mm256_set1_ps(shift);
+    let mut acc = _mm256_setzero_ps();
+    let mut chunks = x.chunks_exact(8);
+    for c in &mut chunks {
+        // SAFETY: c.len() == 8.
+        let v = unsafe { _mm256_loadu_ps(c.as_ptr()) };
+        acc = _mm256_add_ps(acc, exp8(_mm256_sub_ps(v, s)));
+    }
+    let mut lanes = [0.0f32; 8];
+    // SAFETY: lanes holds 8 floats.
+    unsafe { _mm256_storeu_ps(lanes.as_mut_ptr(), acc) };
+    for (i, &v) in chunks.remainder().iter().enumerate() {
+        lanes[i] += scalar::exp_approx(v - shift);
+    }
+    scalar::reduce8(&lanes)
+}
+
 pub(crate) fn silu_inplace(x: &mut [f32]) {
     // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
     unsafe { silu_avx2(x) }
