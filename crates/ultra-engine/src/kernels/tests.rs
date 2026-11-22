@@ -480,3 +480,22 @@ fn sum_exp_shifted_is_bit_identical_across_isas() {
         assert!((f64::from(want) - exact).abs() <= 1e-5 * exact, "n = {n}");
     }
 }
+
+#[test]
+fn mul_add_exact_is_bit_identical_across_isas() {
+    let mut rng = Rng::new(37);
+    for &n in &[1usize, 7, 8, 9, 15, 384, 512] {
+        let base = rng.vec(n, 4.0);
+        let src = rng.vec(n, 4.0);
+        let w = rng.vec(n, 2.0);
+        let mut want = base.clone();
+        mul_add_exact(Isa::Scalar, &mut want, &src, &w);
+        let mut got = base;
+        mul_add_exact(Isa::detect(), &mut got, &src, &w);
+        assert_eq!(
+            got.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+            want.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+            "n = {n}"
+        );
+    }
+}

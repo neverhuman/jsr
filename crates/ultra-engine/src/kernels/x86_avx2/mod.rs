@@ -280,6 +280,33 @@ fn axpy_avx2(alpha: f32, x: &[f32], y: &mut [f32]) {
     scalar::axpy(alpha, &x[main..], &mut y[main..]);
 }
 
+pub(crate) fn mul_add_exact(dst: &mut [f32], src: &[f32], w: &[f32]) {
+    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    unsafe { mul_add_exact_avx2(dst, src, w) }
+}
+
+#[target_feature(enable = "avx2,fma")]
+fn mul_add_exact_avx2(dst: &mut [f32], src: &[f32], w: &[f32]) {
+    assert!(dst.len() == src.len() && dst.len() == w.len());
+    let n = dst.len();
+    let main = n - n % 8;
+    let mut i = 0;
+    while i < main {
+        // SAFETY: i + 8 <= n for all three slices.
+        unsafe {
+            let d = _mm256_loadu_ps(dst.as_ptr().add(i));
+            let s = _mm256_loadu_ps(src.as_ptr().add(i));
+            let wv = _mm256_loadu_ps(w.as_ptr().add(i));
+            let r = _mm256_add_ps(d, _mm256_mul_ps(wv, s));
+            _mm256_storeu_ps(dst.as_mut_ptr().add(i), r);
+        }
+        i += 8;
+    }
+    for ((d, &s), &wv) in dst[main..].iter_mut().zip(&src[main..]).zip(&w[main..]) {
+        *d += wv * s;
+    }
+}
+
 pub(crate) fn layer_norm(x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
     // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
     unsafe { layer_norm_avx2(x, d, g, b, out) }

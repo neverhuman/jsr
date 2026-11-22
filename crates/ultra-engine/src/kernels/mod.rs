@@ -511,5 +511,23 @@ pub fn gemm_i8_a7(
     }
 }
 
+/// Element-wise `dst[i] = dst[i] + w[i] * src[i]` using exact IEEE-754 mul then add
+/// (no FMA rounding drift), bit-identical across Scalar, AVX2, and NEON.
+pub fn mul_add_exact(isa: Isa, dst: &mut [f32], src: &[f32], w: &[f32]) {
+    assert_eq!(dst.len(), src.len());
+    assert_eq!(dst.len(), w.len());
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::mul_add_exact(dst, src, w),
+        #[cfg(target_arch = "aarch64")]
+        Isa::Neon => aarch64_neon::mul_add_exact(dst, src, w),
+        _ => {
+            for ((d, &s), &wv) in dst.iter_mut().zip(src).zip(w) {
+                *d += wv * s;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests;

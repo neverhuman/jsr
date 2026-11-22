@@ -158,9 +158,7 @@ pub(super) fn block(
                 for t in 0..a.kernel {
                     let src = &win[(i + t) * d..(i + t + 1) * d];
                     let w = &b.dw_w[t * d..(t + 1) * d];
-                    for ((ov, &sv), &wv) in o.iter_mut().zip(src).zip(w) {
-                        *ov += wv * sv;
-                    }
+                    kernels::mul_add_exact(isa, o, src, w);
                 }
             }
             hist.copy_from_slice(&win[j.n * d..]);
