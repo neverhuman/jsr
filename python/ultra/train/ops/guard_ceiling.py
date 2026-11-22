@@ -96,6 +96,9 @@ def main(argv=None):
     ap.add_argument("--mac-ceiling", type=float, default=0.88,
                     help="step down while the 5-min mean of the monitor metric exceeds this (all hosts)")
     ap.add_argument("--mac-floor", type=float, default=0.60, help="lowest target (all hosts)")
+    ap.add_argument("--mac-step", type=float, default=0.03, help="macOS step size (2-min cooldown)")
+    ap.add_argument("--mac-ioreg-ceiling", type=float, default=0.86,
+                    help="macOS: step down while the ioreg 5-min mean exceeds this")
     ap.add_argument("--targets", default="", help='current per-run targets as JSON, e.g. {"H13a": 0.88}')
     a = ap.parse_args(argv)
     if not 0 < a.floor <= a.start <= a.ceiling <= 1 or a.step <= 0:
@@ -127,10 +130,14 @@ def main(argv=None):
                 m = None
             rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label],
                    "metric": "ioreg_device_util" if kind == "mac" else "nvidia_smi_util"}
-            settled = time.time() - last_change[label] > 180
-            if m is not None and m > ceiling and settled and target[label] - a.step >= floor:
+            # The Mac's ioreg signal is bursty: bigger, faster steps there.
+            step, cooldown = (a.mac_step, 120) if kind == "mac" else (a.step, 180)
+            if kind == "mac":
+                ceiling = a.mac_ioreg_ceiling
+            settled = time.time() - last_change[label] > cooldown
+            if m is not None and m > ceiling and settled and target[label] - step >= floor:
                 last_change[label] = time.time()
-                target[label] = round(target[label] - a.step, 3)
+                target[label] = round(target[label] - step, 3)
                 if kind == "linux":
                     ssh(host, f"~/jsr/python/ultra/train/ops/restart_guard.sh {run} {target[label]} 0.85 "
                               f"{GPU_INDEX.get(label, 0)}", 120)
