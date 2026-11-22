@@ -138,6 +138,23 @@ def pack(durations: list[float], budget_s: float, max_batch: int) -> list[list[i
     return batches
 
 
+def weighted_share(group: list[int], durations: list[float], weights, rank: int) -> list[int]:
+    """This rank's part of one global batch when ranks differ in speed (throughput-weighted
+    shards). Utterances are dealt in the group's order to the rank whose seconds so far, relative
+    to its weight, would stay smallest, so each rank gets about weight / sum(weights) of the
+    seconds and its part spans the group's duration range. Every rank computes the same deal, so
+    the parts are disjoint and complete; equal weights give group[rank::world]."""
+    given = [0.0] * len(weights)
+    mine = []
+    for i in group:
+        d = durations[i]
+        r = min(range(len(weights)), key=lambda k: ((given[k] + d) / weights[k], k))
+        given[r] += d
+        if r == rank:
+            mine.append(i)
+    return mine
+
+
 class Featurizer:
     def __init__(self, tok_rnnt: Tokenizer, tok_ctc: Tokenizer):
         self.logmel = LogMel()
@@ -258,6 +275,7 @@ class ParquetBatches:
         self.carry_width: tuple[int, int] | None = None
         self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
         self.ddp_global_batches = False
+        self.rank_weights: tuple | None = None  # per-rank relative speed (None = equal shares)
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.synth_aug = bool(synth_aug)
@@ -403,7 +421,10 @@ class ParquetBatches:
         rng.shuffle(groups)
         if self.ddp_global_batches:
             # Preserve the same global groups and cursor as the single-rank loader.
-            parts = [g[self.rank::self.world] for g in groups]
+            if self.rank_weights:
+                parts = [weighted_share(g, dur, self.rank_weights, self.rank) for g in groups]
+            else:
+                parts = [g[self.rank::self.world] for g in groups]
             active = [bool(g) for g in parts]
             parts = [g or [global_group[0]] for g, global_group in zip(parts, groups, strict=True)]
         else:

@@ -105,6 +105,10 @@ class TrainConfig:
     ddp_util_target: float = 0.0
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
     ddp_global_batches: bool = False
+    # Throughput-weighted shards: one relative speed per rank (e.g. "1,1,0.6"); each rank takes
+    # that share of the seconds of every global batch, so a slow (shared) GPU stops making the
+    # others wait. "" = equal shares (unchanged split). ops/rank_weights.py suggests values.
+    ddp_rank_weights: str = ""
     ddp_native: bool = False  # overlap gradient communication with backward
     ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
     kd_dir: str = ""
@@ -331,6 +335,7 @@ class Trainer:
 
                 self._ddp_loss.register_comm_hook(None, default_hooks.bf16_compress_hook)
         forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
+        t_fwd = time.time()
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
             out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
@@ -349,6 +354,10 @@ class Trainer:
                                        if self.cfg.inter_ctc_weight else {}),
                                     **({"balancer_weight": self.cfg.balancer_weight}
                                        if self.cfg.balancer_weight else {}))
+        if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
+            if self.device.type == "cuda":
+                torch.cuda.synchronize(self.device)
+            self._fwd_s = getattr(self, "_fwd_s", 0.0) + (time.time() - t_fwd)
         loss = out["loss"]
         if self.world > 1:
             hb = self._hb_acc()
@@ -406,13 +415,14 @@ class Trainer:
         self._slept_mark = ts["slept_s"]
         rows = all_gather_floats([float(acc.get("frames", 0)), pad, getattr(self, "_bwd_s", 0.0),
                                   float(acc.get("step_s", 0.0)), float(acc.get("data_wait_s", 0.0)),
-                                  slept, ts["duty"], ts["util_5min"]], self.device)
-        self._bwd_s = 0.0
+                                  slept, ts["duty"], ts["util_5min"],
+                                  getattr(self, "_fwd_s", 0.0)], self.device)
+        self._bwd_s = self._fwd_s = 0.0
         col = lambda k, nd=2: [round(r[k], nd) for r in rows]  # noqa: E731
         return {"rank_frames": [int(r[0]) for r in rows], "rank_pad_pct": col(1),
                 "rank_bwd_comm_s": col(2), "rank_step_s": col(3), "rank_data_wait_s": col(4),
                 "rank_throttle_sleep_s": col(5), "rank_duty": col(6, 3), "rank_gpu_util_5min": col(7, 3),
-                "util_target": ts["target"]}
+                "rank_fwd_s": col(8), "util_target": ts["target"]}
 
     def _hb_acc(self) -> dict:
         if getattr(self, "_hb", None) is None:
@@ -901,6 +911,11 @@ def main(argv=None) -> int:
     if world > 1 and hasattr(source, "world"):
         source.rank, source.world = rank, world
         source.ddp_global_batches = cfg.ddp_global_batches
+        if cfg.ddp_rank_weights:
+            w = tuple(float(v) for v in cfg.ddp_rank_weights.split(","))
+            if len(w) != world or min(w) <= 0 or not cfg.ddp_global_batches:
+                raise ValueError("ddp_rank_weights needs one positive weight per rank and ddp_global_batches")
+            source.rank_weights = w
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
     cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"

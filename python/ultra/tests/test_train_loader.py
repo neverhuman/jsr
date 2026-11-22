@@ -134,3 +134,49 @@ def test_sharded_windows_partition_the_single_process_batches(shard, speeds):
         for g in r0._load_window(0, w):
             for e in g:
                 assert torch.equal(e.feats, feats_one[e.uid])
+
+
+def test_weighted_share_deals_seconds_by_weight_and_partitions_the_group():
+    from train.data import weighted_share
+
+    dur = [1.0 + 0.1 * i for i in range(23)]
+    group = list(range(23))
+    for world in (2, 3, 4):  # equal weights: exactly the unweighted split
+        for r in range(world):
+            assert weighted_share(group, dur, (1.0,) * world, r) == group[r::world]
+    w = (1.0, 0.5, 1.0)
+    parts = [weighted_share(group, dur, w, r) for r in range(3)]
+    assert sorted(i for p in parts for i in p) == group  # disjoint and complete
+    secs = [sum(dur[i] for i in p) for p in parts]
+    for r in range(3):
+        assert abs(secs[r] / sum(secs) - w[r] / sum(w)) < 0.06
+    assert max(dur[i] for i in parts[1]) > 2.5  # the slow rank still spans the duration range
+
+
+def test_weighted_shards_partition_the_single_process_batches(shard):
+    """world=2 with rank weights 1 : 0.5: the two ranks' parts of every global batch are disjoint
+    and together are exactly the single-process batch; rank 0 carries about two thirds."""
+    root, tok = shard
+    t = Tokenizer(tok)
+
+    def src(rank, world):
+        s = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=7, budget_s=8.0,
+                           max_batch=16, parquet_root=root, workers=1, window_groups=2)
+        s.rank, s.world = rank, world
+        if world > 1:
+            s.ddp_global_batches, s.rank_weights = True, (1.0, 0.5)
+        return s
+
+    one, r0, r1 = src(0, 1), src(0, 2), src(1, 2)
+    n0 = n1 = 0
+    for w in range(one._windows(0)):
+        full = [sorted(e.uid for e in g) for g in one._load_window(0, w)]
+        a, b = r0._load_window(0, w), r1._load_window(0, w)
+        assert len(a) == len(b) == len(full)
+        for g, (ea, act_a), (eb, act_b) in zip(full, a, b, strict=True):
+            ua = [e.uid for e in ea] if act_a else []
+            ub = [e.uid for e in eb] if act_b else []
+            assert not set(ua) & set(ub) and sorted(ua + ub) == g
+            n0, n1 = n0 + len(ua), n1 + len(ub)
+    assert n0 > n1 > 0
+
