@@ -32,3 +32,17 @@ The arms run on different GPU models. The A/A arm therefore measures seed and ha
 - **Chunk sampling:** its expected gain is at larger chunks, so it is compared with control decoded at the same chunk (4, 8 and 16). It is adopted if it beats control by more than twice the spread at chunk 8 or 16 and is not worse than control by more than the spread at chunk 4.
 - **Kill rule:** an arm stops early if its dev-clean400 WER at step 2,000 is more than 1.5 pp worse than control's at step 2,000.
 - A change that does not pass is recorded as not adopted. It is not retried with different settings under this pre-registration.
+
+## Amendment 1 (2026-11-22, about 20:20Z): two more arms, and the spread becomes a spread of three
+Written before either new arm started. At this time no arm had finished and no full-DEV score existed. The trainer's monitoring evals (dev-clean400) existed for control up to step 4,000, A/A at step 2,000 and chunk sampling at step 2,000.
+
+| arm | host | change from control |
+|---|---|---|
+| adaptive clipping | xbabe1 (RTX 4090), after control ends | `grad_clip_mode=adaptive clip_k=2.0 clip_window=200` (the H23e setting), seed 1234, identical batches |
+| A/A-2 | xbabe2 (RTX 3090), after A/A ends | `seed=9876` (a third control-like run) |
+
+- **Chunk-sampling arm host:** it runs on H0's RTX 3090 (free when D2 ended), not on xbabe7 GPU1 as the table above planned. xbabe7 GPU1 became A1's fifth rank.
+- **Spread, replacing the definition above:** the spread is the range (largest minus smallest) of the three control-like runs (control, A/A, A/A-2) on the same full-DEV metric.
+- **Adoption rule, unchanged in form:** a change is adopted only if it beats control (seed 1234, the run with identical batches) by more than twice that spread.
+- Everything else in the protocol is unchanged.
+
