@@ -42,10 +42,22 @@ DEV400_TRAINER = "dev-clean first 400 utt (trainer DEV400, 7,678 ref words)"
 PANEL_DIGEST = "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
 SWEEP_WORKLOAD = "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)"
 
+# Measured comparison rows (data/evidence/*.jsonl, schema v2): one row per (system, runtime, machine, threads).
 EVIDENCE_REQUIRED = (
-    "id", "system", "role", "configuration", "workload", "workload_digest", "scope",
-    "hardware", "cpu_s_per_audio_s", "cpu_reps", "wer_pct", "label", "source", "receipt_sha256",
+    "id", "variant", "system", "runtime", "role", "class", "configuration", "machine", "host", "hardware",
+    "threads", "parallel", "session", "workload", "workload_digest", "scope", "cpu_s_per_audio_s", "cpu_reps",
+    "wall_s_per_audio_s", "wall_reps", "wer_pct", "wer_clean_pct", "wer_other_pct", "peak_rss_bytes",
+    "artifact_bytes", "label", "source", "receipt_sha256",
 )
+# Machines whose rows may share an axis: key -> printed name, the macro suffix of its rows, and the quiet
+# host whose rows are the ones drawn and tabulated (rows from another host of that CPU are a cross-check).
+MACHINES = {
+    "zen2": {"name": "AMD Threadripper PRO 3995WX (Zen 2, AVX2)", "macro": "", "primary_host": "xbabe0"},
+    "xeon8358": {"name": "Intel Xeon Platinum 8358 (Ice Lake, AVX-512 VNNI)", "macro": "Xeon", "primary_host": None},
+    "m3ultra": {"name": "Apple M3 Ultra (ARM NEON)", "macro": "Mthree", "primary_host": None},
+}
+# Hosts as the (double-blind) paper names them; an unknown host prints as itself.
+HOST_NAMES = {"xbabe3": "H0", "xbabe0": "H1", "xbabe6": "X1", "xbabe4": "M1"}
 
 
 class PaperDataError(RuntimeError):

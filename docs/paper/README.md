@@ -37,7 +37,8 @@ poppler-utils (`pdffonts`, `pdftotext`, `pdfinfo`). siunitx is not used.
 | `sections/*.tex` | paper-writer (except `related.tex`: paper-related) | prose, tables, Fig. 1 float |
 | `sections/fallbacks.tex` | paper-writer | `\providecommand` fallback for every metric macro the sections use |
 | `data/metrics.tex`, `data/SOURCES.md` | paper-data (generated) | one macro per number, with provenance |
-| `figures/*.tex` | paper-data (generated) | pgfplots bodies: `money.tex` (Fig. 1, cold boundary), `density.tex` (warm ladder) |
+| `figures/*.tex` | paper-data | pgfplots bodies: `money.tex` (Fig. 1: speed on one core against WER, every system measured here), `frontier_warm.tex` (streams per core), `density.tex` (warm ladder) |
+| `data/evidence/*.jsonl` | the agent that measured the row | measured comparison rows (schema: `data/README.md`) |
 | `refs.bib` | paper-related | bibliography |
 
 ## Rules

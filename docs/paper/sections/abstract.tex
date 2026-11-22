@@ -15,8 +15,11 @@ costs no density.
 The engine behind this is pure Rust and integer-exact: per-row centred INT8 makes each stream's
 output independent of its batch, within \GateMaxDelta\pp WER of FP32, and with a portable log-mel
 front end the tokens decoded from raw PCM are bit-identical on x86 AVX2 and ARM NEON
-(\XisaAgree/\XisaTotal{} decodes). All results are exploratory (\DenRungSeconds\,s ladder rungs,
-shared host); cold costs, hour-long confirmation and registered test accuracy are pending.
+(\XisaAgree/\XisaTotal{} decodes). Measured cold on one pinned core, model load included, the dense
+model decodes at \ColdDenseSpeed{}$\times$ real time (\ColdDenseWer\% pooled WER) against
+\ColdZipSpeed{}$\times$ for Zipformer (\ColdZipWer\%); that comparison is interim, from a shared host.
+All results are exploratory (\DenRungSeconds\,s ladder rungs, shared host); hour-long confirmation
+and registered test accuracy are pending.
 \end{abstract}
 
 \begin{IEEEkeywords}

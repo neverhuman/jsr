@@ -10,6 +10,10 @@ import statistics
 from paper_dev_audio import NORMALIZER_SHA256, SPLIT_COUNTS, read_json, sha256
 
 
+HOST = "xbabe3"  # the rotation's host; its CPU is the paper's machine key below
+MACHINE = "zen2"
+
+
 def check(condition, message):
     if not condition:
         raise ValueError(message)
@@ -25,7 +29,7 @@ def pin_values(path):
 
 def arm_result(run, workload, configuration):
     check((run / "finished").is_file(), f"incomplete timing repetition {run}")
-    check((run / "host").read_text().strip() == "xbabe3", f"unexpected host {run}")
+    check((run / "host").read_text().strip() == HOST, f"unexpected host {run}")
     check(pin_values(run / "workload.sha256") == {workload["digest"]}, f"wrong workload {run}")
     pins = pin_values(run / "config.sha256")
     expected = {workload["measure"]["sha256"], configuration["executable"]["sha256"]}
@@ -57,6 +61,7 @@ def arm_result(run, workload, configuration):
         "round": int((run / "round").read_text()),
         "cpu_seconds": cpu,
         "cpu_seconds_per_audio_second": cpu / workload["audio_seconds"],
+        "wall_seconds": measure["wall_seconds"],
         "peak_rss_bytes": rss,
         "measurement": proof(run / "measurement.json"),
         "command": proof(run / "command"),
@@ -141,23 +146,43 @@ def aggregate(evidence, root):
 
 
 def manuscript_rows(data):
+    """Evidence rows for the paper generator (schema v2, docs/paper/data/README.md): one line per
+    (system, runtime, machine, threads). `class` must be declared by the configuration."""
     for row in data["measurements"]:
         if row["scope"] != "cold-dev":
             continue
-        config = data["configurations"][row["configuration"]]
+        name = row["configuration"]
+        config = data["configurations"][name]
         workload = data["workloads"][row["workload"]]
         receipt = row["repetitions"][row["wer_round"] - 1]
+        check(config.get("class") in ("streaming", "whole_utterance"),
+              f"configuration {name} must declare class: streaming or whole_utterance")
+        variant = config.get("variant", name.removeprefix("cold-"))
+        walls = [rep["wall_seconds"] / workload["audio_seconds"] for rep in row["repetitions"]]
         yield {
-            "id": row["id"],
-            "system": config.get("figure_label", config["label"]),
-            "role": "ours" if "checkpoint_sha256" in config else "comparator",
-            "configuration": row["configuration"],
+            "id": f"{variant}-{MACHINE}-t1-{HOST}",  # the plain id belongs to the quiet-host row of the variant
+            "variant": variant,
+            "system": config["label"],
+            "short": config.get("figure_label", config["label"]),
+            "runtime": config["runtime"],
+            "role": config.get("role") or ("ours" if "checkpoint_sha256" in config else "comparator"),
+            "class": config["class"],
+            "configuration": (f"{config['numeric_mode']}; {config['decoder']}; chunk {config['chunk_ms']} ms, "
+                              f"right context {config['right_context_ms']} ms; evidence.json {name}"),
+            "machine": MACHINE,
+            "host": HOST,
+            "hardware": workload["hardware_label"],
+            "threads": 1,
+            "parallel": "intra_op",
+            "session": f"{row['repetitions'][0]['started_utc'][:10]} {HOST} rotation {workload['measure']['sha256'][:12]}",
             "workload": workload["label"],
             "workload_digest": workload["digest"],
+            "audio_seconds": workload["audio_seconds"],
             "scope": "cold_process_tree_launch_to_exit",
-            "hardware": workload["hardware_label"],
             "cpu_s_per_audio_s": row["cpu_seconds_per_audio_second"],
             "cpu_reps": [rep["cpu_seconds_per_audio_second"] for rep in row["repetitions"]],
+            "wall_s_per_audio_s": statistics.median(walls),
+            "wall_reps": walls,
             "wer_pct": row["wer_pooled_pct"],
             "wer_clean_pct": row["wer_clean_pct"],
             "wer_other_pct": row["wer_other_pct"],
