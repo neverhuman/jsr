@@ -1,22 +1,21 @@
 \begin{abstract}
-We present \ultra, a streaming Conformer transducer with a pure-Rust integer engine for CPU speech
-recognition, and state its accuracy first. Trained on LibriSpeech 960\,h only, our best model
-reaches \WerDtwoBestClean\% / \WerDtwoBestOther\% WER on full dev-clean / dev-other (2{,}703 /
-2{,}864 utterances); a pretrained Zipformer reaches \WerRzeroDevClean\% on the first 400 dev-clean
-utterances. \ultra is markedly less accurate. What it buys is cost: in a warm, in-process
-rehearsal of our pre-registered single-harness protocol (p99 lateness $\le$ 800\,ms, four workers
-on one Zen~2 core complex), the multirate model at step 50k sustains \DenMRCCX{} live streams
-(\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs) and the dense finalist (average of
-three snapshots) \DenDenseCCX{} in one run (\DenRatioDense{}$\times$), against \DenRzeroCCX{} for
-Zipformer. On the same 400 panel dev-clean utterances the multirate model scores
-\WerRehearsalMR\% WER against Zipformer's \WerRehearsalRzero\% in the same harness; the dense
-finalist scores \WerRehearsalDense\% (FP32 decode, rescored in Rust). The engine is integer-exact: per-row
-centred INT8 makes each stream's output independent of its batch, and with a portable log-mel
-front end the tokens decoded from raw PCM are bit-identical on x86 AVX2 and ARM NEON
-(\XisaAgree/\XisaTotal{} decodes), with INT8 within \GateMaxDelta\pp WER of FP32. All numbers are
-exploratory; an earlier cross-harness density claim was retracted after independent review.
+On one four-core Zen~2 core complex, the \ultra multirate streaming transducer sustains
+\DenMRCore{} live streams per physical core (\DenMRCCX{} per complex) with worst-worker p99
+lateness under 800\,ms, against \DenRzeroCore{} per core for a pretrained Zipformer INT8 in the same
+harness: \DenRatioMR{}$\times$ the passing load (bracket \DenRatioMRBracketLo--\DenRatioMRBracketHi{}
+given the rung spacing), identical in all \DenReproRuns{} rehearsal runs. At an equal load of 32
+streams it uses \CostRatioMR{}$\times$ less CPU per audio second (\CostLadderMR{} vs.\
+\CostLadderRzero), and in eight counterbalanced single-stream blocks its median CPU time is
+\AbabMedianMR{}$\times$ Zipformer's. Accuracy lags, and training continues: \WerRehearsalMR\% against
+\WerRehearsalRzero\% WER on the same 400 dev-clean panel utterances. The engine behind this is
+pure Rust and integer-exact: per-row centred INT8 makes each stream's output independent of its
+batch, within \GateMaxDelta\pp WER of FP32, and with a portable log-mel front end the tokens decoded from raw
+PCM are bit-identical on x86 AVX2 and ARM NEON (\XisaAgree/\XisaTotal{} decodes). A multirate
+encoder runs ten of sixteen blocks at \MidRateHz\,Hz; a dense finalist sustains \DenDenseCore{}
+streams per core at \WerRehearsalDense\%. All results are exploratory (20\,s ladder rungs, shared
+host) under a pre-registered protocol whose qualifying run is pending.
 \end{abstract}
 
 \begin{IEEEkeywords}
-streaming ASR, RNN-T, CPU inference, INT8 quantisation, reproducibility, stream density
+streaming ASR, stream density, CPU inference, RNN-T, INT8 quantisation, reproducibility
 \end{IEEEkeywords}

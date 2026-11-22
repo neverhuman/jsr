@@ -36,7 +36,9 @@ accepted, processed and unfinished audio accounted. CPU time is divided by proce
 per rung, alternating systems, 120\,s per rung. The ladder stops at the first rung where any
 repeat fails, and the reported density is the last rung before it; a later pass never counts after
 an earlier failure. The reported rung must then pass three 300\,s confirmation runs, and a pass at
-the top is reported as ``$\ge 48$''. In qualifying mode these settings cannot be overridden.
+the top is reported as ``$\ge 48$''. In qualifying mode these settings cannot be overridden. The exploratory
+rehearsal reported here used a coarser preset: 4 to 48 streams per worker in steps of 4 (16 per
+CCX), 20\,s rungs, one repeat and no confirmation.
 
 \para{Cold boundary.} For the common comparison (\cref{sec:results}) every recognizer decodes the
 same staged panel audio, one stream at a time, with one inference thread on one pinned physical
@@ -58,8 +60,8 @@ its own scope label.
 in eight blocks. Each block runs every arm once on the same 50 utterances, in the order
 Zipformer, dense, multirate in odd blocks and the reverse in even blocks, giving eight paired
 $\log$ CPU ratios per comparison. The test is a one-sided paired $t$-test ($df=7$), Holm-corrected
-across the two comparisons~\cite{holm1979simple} at $\alpha=\HolmAlpha$; we report the geometric
-mean ratio with its 95\% interval and both orders' per-block values, so an order effect would be
+across the two comparisons~\cite{holm1979simple} at $\alpha=\HolmAlpha$; we report the median
+ratio with its 95\% bootstrap interval (geometric mean secondary) and both orders' per-block values, so an order effect would be
 visible.
 
 \para{Selection and quality.} Checkpoints are selected only on a DEV panel of 730 utterances that
@@ -82,15 +84,11 @@ of the same checkpoint by at most \PreregDeltaPP\pp and the one-sided 95\% boots
 the difference is at most \PreregUpperPP\pp. The gate tool exits non-zero on failure (an earlier
 version exited zero; a reviewer caught it).
 
-\para{Rehearsal catches.} Rehearsing the protocol end to end found defects that a review of the
-documents could not. Placement verification read the CPU mask from \texttt{/proc/self/status},
-which on Linux reports the main thread's mask, so a worker thread pinned to a different core
-could pass the check; it now queries the calling thread's affinity, with a regression test. Two
-routes to the sealed out-of-domain sets logged reads under different ledger keys, so one set could
-in principle have been read twice; both now share one key per set, and a second read through either
-route is refused. In qualifying mode the harness refuses, fail-closed, a wrong worker count, a
-wrong grid, a wrong block order, test audio before the freeze tag, an external recognizer on the
-panel route, and an observer sharing L3 with the workers.
+\para{Rehearsal catches.} Rehearsing the protocol end to end found defects that document review
+could not: placement verification read the main thread's CPU mask, not the worker's, and two routes
+to the sealed out-of-domain sets used different ledger keys. Both are fixed with regression tests,
+and qualifying mode refuses, fail-closed, a wrong worker count, grid or block order, test audio
+before the freeze tag, and an observer sharing L3 with the workers.
 
 \para{Pre-registered claims.} Density is descriptive and always printed beside each system's WER;
 cost and quality are tested as above. Shared hosts varied by up to \AASpread\% in a same-day A/A

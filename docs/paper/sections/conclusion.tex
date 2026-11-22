@@ -1,8 +1,7 @@
 \section{Conclusion}\label{sec:conclusion}
 
-Integer exactness (batch-invariant per-row INT8, exact int32 kernels and a portable front end)
-gives an engine whose tokens are bit-identical across batches and ISAs and that, with a multirate
-encoder, sustains \DenMRCCX{} streams per four-core complex, \DenRatioMR{}$\times$ a pretrained
-Zipformer, at a WER that is still several times higher (\WerRehearsalMR\% against \WerRehearsalRzero\% on the
-same panel utterances; our best dense configuration reaches \WerDtwoBestClean\% on full dev-clean). Next are the qualified run and closing the
-accuracy gap with recipe changes that leave the engine, and its exactness, unchanged.
+On one four-core Zen~2 complex \ultra sustains \DenMRCore{} live streams per core under an 800\,ms
+p99 lateness bound, \DenRatioMR{}$\times$ a pretrained Zipformer, from a batch-invariant INT8 engine whose
+tokens are bit-identical across x86 and ARM. Its WER is still higher (\WerRehearsalMR\% vs.\
+\WerRehearsalRzero\% on the same utterances); the qualified run and recipe changes that leave the
+engine untouched come next.
