@@ -60,6 +60,7 @@ fn loaded_candidate_pin_verification_checks_actual_artifact_hashes() {
         kind: CandidateKind::Engine {
             precision: "int8".into(),
             prepared_int8: true,
+            family: "dense".into(),
         },
         artifacts: vec![
             ("arch.json".into(), arch.clone(), arch_sha.clone()),
@@ -89,6 +90,7 @@ fn loaded_candidate_pin_verification_checks_actual_artifact_hashes() {
     unprep.kind = CandidateKind::Engine {
         precision: "int8".into(),
         prepared_int8: false,
+        family: "dense".into(),
     };
     assert!(verify_loaded_candidates_against_lock(&lock, tmp.path(), &[unprep]).is_err());
 
@@ -115,6 +117,7 @@ fn loaded_candidate_pin_verification_checks_actual_artifact_hashes() {
             kind: CandidateKind::Engine {
                 precision: "int8".into(),
                 prepared_int8: true,
+                family: "dense".into(),
             },
             artifacts: vec![
                 ("arch.json".into(), arch, arch_sha),
@@ -239,7 +242,9 @@ fn legacy_bench_and_qualified_g8_rejection_cases_fail_closed() {
     ]))
     .is_err());
 
-    // N10 / 04d09f0: --qualified C-cost enforces exact 3-arm [R0, R1-dense, R1-MR] + 8 blocks.
+    // N10 / 04d09f0: --qualified C-cost enforces exact 3-arm [R0, R1-dense, R1-MR] + 8 blocks
+    // on BOTH raw args AND resolved loaded identities (arch.json family + prepared INT8).
+    use ultra_cli::suite_abab::validate_qualified_ccost_resolved;
     assert_eq!(
         validate_qualified_ccost_arms(&["zipformer-int8", "r1-dense", "r1-mr"], 8, None)
             .expect("valid 3-arm"),
@@ -251,5 +256,58 @@ fn legacy_bench_and_qualified_g8_rejection_cases_fail_closed() {
     );
     assert!(
         validate_qualified_ccost_arms(&["zipformer-int8", "r1-dense", "r1-mr"], 5, None).is_err()
+    );
+    let mk_res = |raw: &str, canon: &str, kind: CandidateKind| ResolvedCandidate {
+        raw_arg: raw.into(),
+        canonical_id: canon.into(),
+        kind,
+        artifacts: Vec::new(),
+    };
+    let r0 = mk_res(
+        "zipformer-int8",
+        "sherpa-zipformer:int8:aaa",
+        CandidateKind::Zipformer {
+            precision: "int8".into(),
+        },
+    );
+    let dense = mk_res(
+        "r1-dense",
+        "engine:int8:dense:bbb",
+        CandidateKind::Engine {
+            precision: "int8".into(),
+            prepared_int8: true,
+            family: "dense".into(),
+        },
+    );
+    let mr = mk_res(
+        "r1-mr",
+        "engine:int8:multirate:ccc",
+        CandidateKind::Engine {
+            precision: "int8".into(),
+            prepared_int8: true,
+            family: "multirate".into(),
+        },
+    );
+    let fake_mr_actually_dense = mk_res(
+        "r1-mr",
+        "engine:int8:dense:ddd",
+        CandidateKind::Engine {
+            precision: "int8".into(),
+            prepared_int8: true,
+            family: "dense".into(),
+        },
+    );
+    assert_eq!(
+        validate_qualified_ccost_resolved(&[r0.clone(), dense.clone(), mr.clone()], 8)
+            .expect("valid resolved 3-arm"),
+        0
+    );
+    assert!(
+        validate_qualified_ccost_resolved(&[r0.clone(), mr.clone(), dense.clone()], 8).is_err(),
+        "swapped MR/dense order must fail closed"
+    );
+    assert!(
+        validate_qualified_ccost_resolved(&[r0, dense, fake_mr_actually_dense], 8).is_err(),
+        "dense model masquerading under raw alias r1-mr must fail closed"
     );
 }

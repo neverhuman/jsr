@@ -10,6 +10,7 @@ use crate::bench_cmd::{parse_next, partition_for_split_and_npz};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
 use crate::suite_abab::{
     resolve_abab_baseline_index, run_abab_timing_blocks, validate_qualified_ccost_arms,
+    validate_qualified_ccost_resolved,
 };
 use crate::suite_engine::{resolve_r1_weights_dir, run_engine_candidate};
 use crate::suite_ladder::{run_density_ladder, validate_qualified_ladder_preset, LadderSpec};
@@ -295,27 +296,33 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         "exploratory"
     };
 
-    // Resolve canonical loaded candidate identities upfront for B4 pins and S6 canonical LOOKS ids.
-    let resolved_cands: Option<Vec<ResolvedCandidate>> =
-        if qualified_requested || partition == Partition::PublicTest {
-            let mut v = Vec::with_capacity(cand_list.len());
-            for &c in &cand_list {
-                v.push(resolve_candidate_identity(
-                    c,
-                    precision.as_deref(),
-                    threads,
-                )?);
-            }
-            Some(v)
-        } else {
-            None
-        };
+    // Resolve canonical loaded candidate identities upfront for B4 pins, S6 canonical LOOKS ids
+    // (both PUBLIC-TEST and PRIVATE-OOD DomainSealed), and resolved-identity C-cost matrix check.
+    let resolved_cands: Option<Vec<ResolvedCandidate>> = if qualified_requested
+        || matches!(partition, Partition::PublicTest | Partition::DomainSealed)
+    {
+        let mut v = Vec::with_capacity(cand_list.len());
+        for &c in &cand_list {
+            v.push(resolve_candidate_identity(
+                c,
+                precision.as_deref(),
+                threads,
+            )?);
+        }
+        Some(v)
+    } else {
+        None
+    };
     if qualified_requested {
+        let rc = resolved_cands.as_deref().unwrap_or(&[]);
+        if abab_blocks > 0 {
+            validate_qualified_ccost_resolved(rc, abab_blocks)?;
+        }
         let repo_root = git_repo_root()?;
         verify_loaded_candidates_against_lock(
             &repo_root.join("docs/ultra/CANDIDATES.lock"),
             &repo_root,
-            resolved_cands.as_deref().unwrap_or(&[]),
+            rc,
         )?;
     }
 

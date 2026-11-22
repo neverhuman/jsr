@@ -44,6 +44,8 @@ struct LookRecord {
 pub struct LoggedPublicTestRead {
     pub looks_path: PathBuf,
     pub look_id: String,
+    pub board: String,
+    pub kind: String,
     pub split: String,
     pub freeze_tag: String,
     pub freeze_tag_commit: String,
@@ -75,8 +77,9 @@ pub fn git_repo_root() -> Result<PathBuf, CliError> {
         })
 }
 
-/// Guard and log every `PUBLIC-TEST` read for `candidates` (`(canonical_id, raw_arg)`) on `split`.
-/// No-op for `Partition::Dev` and `Partition::PrivateOod`.
+/// Guard and log every sealed (`Partition::PublicTest` and `Partition::DomainSealed` OOD) read for
+/// `candidates` (`(canonical_id, raw_arg)`) on `split`, BEFORE any audio/NPZ bytes are opened.
+/// No-op for `Partition::Dev` and `Partition::Train`.
 #[allow(clippy::too_many_arguments)]
 pub fn guard_and_log_public_test_reads(
     partition: Partition,
@@ -88,9 +91,14 @@ pub fn guard_and_log_public_test_reads(
     completion_status: &str,
     sealed_read_flag: Option<&str>,
 ) -> Result<Option<LoggedPublicTestRead>, CliError> {
-    if partition != Partition::PublicTest {
+    if !matches!(partition, Partition::PublicTest | Partition::DomainSealed) {
         return Ok(None);
     }
+    let board = if partition == Partition::PublicTest {
+        "PUBLIC-TEST"
+    } else {
+        "PRIVATE-OOD"
+    };
     let look_id = sealed_read_flag
         .map(str::trim)
         .filter(|s| !s.is_empty())
@@ -103,12 +111,13 @@ pub fn guard_and_log_public_test_reads(
         })
         .ok_or_else(|| {
             CliError::Config(format!(
-                "PUBLIC-TEST split `{split}` requires --sealed-read <look-id> (or ULTRA_SEALED_READ) in EVERY mode (FREEZE.md §4.2 / S6)"
+                "{board} split `{split}` requires --sealed-read <look-id> (or ULTRA_SEALED_READ) in EVERY mode (FREEZE.md §4.2 / S6)"
             ))
         })?;
     let repo_root = git_repo_root()?;
-    let logged = guard_and_log_in_repo(
+    let logged = guard_and_log_in_repo_for_partition(
         &repo_root,
+        partition,
         &look_id,
         split,
         candidates,
@@ -120,8 +129,7 @@ pub fn guard_and_log_public_test_reads(
     Ok(Some(logged))
 }
 
-/// Core S6 guard against an explicit `repo_root` (used in production with `git_repo_root()` and
-/// directly in unit tests against a scratch git repository).
+/// Core S6 guard against an explicit `repo_root` (defaults to `Partition::PublicTest`).
 #[allow(clippy::too_many_arguments)]
 pub fn guard_and_log_in_repo(
     repo_root: &Path,
@@ -133,15 +141,46 @@ pub fn guard_and_log_in_repo(
     build_dirty: bool,
     completion_status: &str,
 ) -> Result<LoggedPublicTestRead, CliError> {
+    guard_and_log_in_repo_for_partition(
+        repo_root,
+        Partition::PublicTest,
+        look_id,
+        split,
+        candidates,
+        freeze_tag,
+        build_commit,
+        build_dirty,
+        completion_status,
+    )
+}
+
+/// Core S6 guard supporting both `Partition::PublicTest` and `Partition::DomainSealed` (OOD).
+#[allow(clippy::too_many_arguments)]
+pub fn guard_and_log_in_repo_for_partition(
+    repo_root: &Path,
+    partition: Partition,
+    look_id: &str,
+    split: &str,
+    candidates: &[(String, String)],
+    freeze_tag: &str,
+    build_commit: &str,
+    build_dirty: bool,
+    completion_status: &str,
+) -> Result<LoggedPublicTestRead, CliError> {
+    let (board, kind) = if partition == Partition::DomainSealed {
+        ("PRIVATE-OOD", "sealed-ood-read")
+    } else {
+        ("PUBLIC-TEST", "public-test-read")
+    };
     let look_id = look_id.trim();
     if look_id.is_empty() {
-        return Err(CliError::Config(
-            "PUBLIC-TEST sealed read requires non-empty look_id (S6)".into(),
-        ));
+        return Err(CliError::Config(format!(
+            "{board} sealed read requires non-empty look_id (S6)"
+        )));
     }
     if build_dirty || build_commit.is_empty() || build_commit == "unknown" {
         return Err(CliError::Config(format!(
-            "PUBLIC-TEST split `{split}` requires a clean committed binary (commit={build_commit}, dirty={build_dirty}; FREEZE.md §4.2 / S6)"
+            "{board} split `{split}` requires a clean committed binary (commit={build_commit}, dirty={build_dirty}; FREEZE.md §4.2 / S6)"
         )));
     }
     let tag_commit = git_in(
@@ -155,7 +194,7 @@ pub fn guard_and_log_in_repo(
     )
     .ok_or_else(|| {
         CliError::Config(format!(
-            "PUBLIC-TEST split `{split}` is sealed until git tag `{freeze_tag}` exists in `{}` (FREEZE.md §4.2 / S6)",
+            "{board} split `{split}` is sealed until git tag `{freeze_tag}` exists in `{}` (FREEZE.md §4.2 / S6)",
             repo_root.display()
         ))
     })?;
@@ -168,7 +207,7 @@ pub fn guard_and_log_in_repo(
         .unwrap_or(false);
     if !is_ancestor {
         return Err(CliError::Config(format!(
-            "PUBLIC-TEST split `{split}` refused: `{freeze_tag}` ({}) is not an ancestor of build_commit `{build_commit}` (S6)",
+            "{board} split `{split}` refused: `{freeze_tag}` ({}) is not an ancestor of build_commit `{build_commit}` (S6)",
             &tag_commit[..tag_commit.len().min(12)]
         )));
     }
@@ -194,13 +233,13 @@ pub fn guard_and_log_in_repo(
             if v.get("historical_reconstruction").and_then(|x| x.as_bool()) == Some(true) {
                 continue;
             }
-            let same_kind = v.get("kind").and_then(|x| x.as_str()) == Some("public-test-read");
+            let same_kind = v.get("kind").and_then(|x| x.as_str()) == Some(kind);
             let same_split = v.get("split").and_then(|x| x.as_str()) == Some(split);
             let same_cand = v.get("candidate").and_then(|x| x.as_str()) == Some(canon.as_str());
             let same_tag = v.get("freeze_tag").and_then(|x| x.as_str()) == Some(freeze_tag);
             if same_kind && same_split && same_cand && same_tag {
                 return Err(CliError::Config(format!(
-                    "refusing second PUBLIC-TEST read for canonical candidate `{canon}` (arg `{raw}`) on `{split}` under `{freeze_tag}` (already logged in `{}`; FREEZE.md §4.2 / S6)",
+                    "refusing second {board} read for canonical candidate `{canon}` (arg `{raw}`) on `{split}` under `{freeze_tag}` (already logged in `{}`; FREEZE.md §4.2 / S6)",
                     looks_path.display()
                 )));
             }
@@ -212,11 +251,11 @@ pub fn guard_and_log_in_repo(
         .map_or(0, |d| d.as_secs());
     for (canon, raw) in candidates {
         let rec = LookRecord {
-            kind: "public-test-read".into(),
+            kind: kind.into(),
             look_id: look_id.to_owned(),
             time_unix_s: now_s,
             who: "ultra-bench-suite".into(),
-            board: "PUBLIC-TEST".into(),
+            board: board.into(),
             split: split.to_owned(),
             candidate: canon.clone(),
             raw_candidate: raw.clone(),
@@ -233,6 +272,8 @@ pub fn guard_and_log_in_repo(
     Ok(LoggedPublicTestRead {
         looks_path,
         look_id: look_id.to_owned(),
+        board: board.into(),
+        kind: kind.into(),
         split: split.to_owned(),
         freeze_tag: freeze_tag.to_owned(),
         freeze_tag_commit: tag_commit,
@@ -242,7 +283,7 @@ pub fn guard_and_log_in_repo(
     })
 }
 
-/// Append a matching `public-test-read-aborted` audit entry if a logged run fails downstream (`S6`).
+/// Append a matching `*-aborted` audit entry if a logged sealed run fails downstream (`S6`).
 pub fn record_aborted_public_test_reads(logged: &LoggedPublicTestRead, reason: &str) {
     let Ok(mut fh) = OpenOptions::new()
         .create(true)
@@ -256,13 +297,14 @@ pub fn record_aborted_public_test_reads(logged: &LoggedPublicTestRead, reason: &
     let now_s = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
+    let abort_kind = format!("{}-aborted", logged.kind);
     for (canon, raw) in &logged.candidates {
         let rec = LookRecord {
-            kind: "public-test-read-aborted".into(),
+            kind: abort_kind.clone(),
             look_id: logged.look_id.clone(),
             time_unix_s: now_s,
             who: "ultra-bench-suite".into(),
-            board: "PUBLIC-TEST".into(),
+            board: logged.board.clone(),
             split: logged.split.clone(),
             candidate: canon.clone(),
             raw_candidate: raw.clone(),
@@ -395,5 +437,33 @@ mod tests {
         let text = std::fs::read_to_string(&looks).expect("read");
         assert!(text.contains("public-test-read-aborted"));
         assert!(text.contains("simulated downstream error"));
+
+        // S6(OOD): Partition::DomainSealed (AMI / VoxPopuli) enforces the exact same tag/one-read guard.
+        let ood_logged = guard_and_log_in_repo_for_partition(
+            tmp.path(),
+            Partition::DomainSealed,
+            "look-ood-1",
+            "ami-ihm",
+            &cands,
+            "bench-freeze-v1",
+            &commit,
+            false,
+            "qualified",
+        )
+        .expect("first OOD read passes");
+        assert_eq!(ood_logged.board, "PRIVATE-OOD");
+        assert_eq!(ood_logged.kind, "sealed-ood-read");
+        assert!(guard_and_log_in_repo_for_partition(
+            tmp.path(),
+            Partition::DomainSealed,
+            "look-ood-2",
+            "ami-ihm",
+            &alias,
+            "bench-freeze-v1",
+            &commit,
+            false,
+            "qualified",
+        )
+        .is_err());
     }
 }

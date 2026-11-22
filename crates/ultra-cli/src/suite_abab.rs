@@ -15,6 +15,7 @@ use ultra_stream::{
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
 use crate::suite_engine::resolve_r1_weights_dir;
 use crate::suite_manifest::write_json_create_new;
+use crate::suite_pins::{CandidateKind, ResolvedCandidate};
 use crate::suite_runners::SuiteCtx;
 pub use crate::suite_stats::{
     apply_holm_correction, paired_block_comparison, student_t_cdf, student_t_critical_975,
@@ -110,6 +111,62 @@ pub fn validate_qualified_ccost_arms(
             "--qualified C-cost arms 1 and 2 must be two distinct R1 finalists (got `{}` and `{}`; FREEZE.md §5 / N10)",
             candidates[1], candidates[2]
         )));
+    }
+    Ok(0)
+}
+
+/// Enforce the `FREEZE.md §5` (`04d09f0`, `N10`) `--qualified` C-cost matrix on **resolved
+/// loaded artifact identities & `arch.json` families** (not raw CLI names):
+/// - Arm 0: resolved R0 Zipformer INT8 (`CandidateKind::Zipformer { precision: "int8" }`)
+/// - Arm 1: resolved prepared-INT8 **dense** R1 engine (`family == "dense"`)
+/// - Arm 2: resolved prepared-INT8 **multirate** R1 engine (`family == "multirate"`)
+/// - Distinct canonical identities and exact `blocks == 8` counterbalanced blocks.
+pub fn validate_qualified_ccost_resolved(
+    resolved: &[ResolvedCandidate],
+    blocks: usize,
+) -> Result<usize, CliError> {
+    if blocks != 8 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires exactly 8 counterbalanced blocks (got {blocks}; N10)"
+        )));
+    }
+    if resolved.len() != 3 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires exactly 3 resolved arms [R0, R1-dense, R1-MR] (got {}; N10)",
+            resolved.len()
+        )));
+    }
+    if !matches!(&resolved[0].kind, CandidateKind::Zipformer { precision } if precision == "int8") {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 0 must resolve to R0 Zipformer INT8 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[0].raw_arg, resolved[0].kind
+        )));
+    }
+    if !matches!(
+        &resolved[1].kind,
+        CandidateKind::Engine { precision, prepared_int8: true, family }
+            if precision == "int8" && family == "dense"
+    ) {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 1 must resolve to prepared-INT8 dense ultra-engine R1 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[1].raw_arg, resolved[1].kind
+        )));
+    }
+    if !matches!(
+        &resolved[2].kind,
+        CandidateKind::Engine { precision, prepared_int8: true, family }
+            if precision == "int8" && family == "multirate"
+    ) {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 2 must resolve to prepared-INT8 multirate ultra-engine R1 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[2].raw_arg, resolved[2].kind
+        )));
+    }
+    if resolved[1].canonical_id == resolved[2].canonical_id {
+        return Err(CliError::Config(
+            "--qualified C-cost arms 1 and 2 must have distinct canonical loaded identities (N10)"
+                .into(),
+        ));
     }
     Ok(0)
 }
