@@ -27,7 +27,7 @@
     },
     "r0-int8": {
       "system": "Zipformer streaming, INT8",
-      "short": "Zipformer",
+      "short": "Zipformer (baseline)",
       "macro": "Zip",
       "order": 20
     },

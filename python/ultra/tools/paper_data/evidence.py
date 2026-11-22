@@ -19,9 +19,17 @@ CLASSES = ("streaming", "whole_utterance")
 PARALLEL = ("intra_op", "workers")
 EVIDENCE_LABELS = ("exploratory", "qualified")
 ENERGY_METHODS = ("core_msr_active", "core_msr_dynamic", "pkg_rapl_delta", "wall_meter")
-LAG_FIELDS = ("lag_p50_ms", "lag_p95_ms", "lag_method", "lag_workload_digest", "lag_receipt_sha256")
+# Word lag = end to end, input paced at real time, at the row's own thread budget. `lag_design_*` is the
+# lag with unbounded compute. A whole-utterance row has no word lag; it may give `final_latency_*`
+# (wait for the end of the clip, then infer). All of them share the three proof fields.
+LAG_PROOF = ("lag_method", "lag_workload_digest", "lag_receipt_sha256")
+LAG_FIELDS = ("lag_p50_ms", "lag_p95_ms") + LAG_PROOF
+LAG_DESIGN = ("lag_design_p50_ms", "lag_design_p95_ms")
+FINAL_LATENCY = ("final_latency_p50_ms", "final_latency_p95_ms")
+LAG_KEYS = LAG_FIELDS + LAG_DESIGN + FINAL_LATENCY
 ENERGY_FIELDS = ("joules_per_audio_s", "energy_method", "energy_receipt_sha256")
-PRESENTATION = ("system", "short", "macro", "cite", "order", "plot")  # data/systems.json may set these per variant
+# What data/systems.json may set per variant: names and order for the paper, never a number.
+PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail")
 HEADLINE = ("zen2", 1)  # the group Figure 1 draws: one pinned Zen 2 core
 MIN_REPS = 3
 SHORT_MAX = 22
@@ -60,11 +68,20 @@ def _check_row(r: dict, where: str) -> None:
             raise PaperDataError(f"{where}: {reps} needs at least {MIN_REPS} repetitions")
         if not _median_ok(r[value], r[reps]):
             raise PaperDataError(f"{where}: {value} is not the median of {reps}")
-    lag = [k for k in LAG_FIELDS if r.get(k) not in (None, "")]
-    if lag and r["class"] == "whole_utterance":
-        raise PaperDataError(f"{where}: a whole_utterance row reports throughput only; it cannot carry a word lag")
-    if lag and len(lag) != len(LAG_FIELDS):
-        raise PaperDataError(f"{where}: lag fields are all-or-none; missing {sorted(set(LAG_FIELDS) - set(lag))}")
+    have = [k for k in LAG_KEYS if r.get(k) not in (None, "")]
+    words = [k for k in have if k not in LAG_PROOF + FINAL_LATENCY]
+    final = [k for k in have if k in FINAL_LATENCY]
+    if r["class"] == "whole_utterance":
+        if words:
+            raise PaperDataError(f"{where}: a whole_utterance row reports throughput only; it cannot carry a word "
+                                 f"lag (use final_latency_p50_ms / final_latency_p95_ms)")
+        need = FINAL_LATENCY + LAG_PROOF if have else ()
+    else:
+        if final:
+            raise PaperDataError(f"{where}: final_latency_* is for whole_utterance rows; a streaming row has a word lag")
+        need = LAG_FIELDS + (LAG_DESIGN if any(k in LAG_DESIGN for k in have) else ()) if have else ()
+    if set(need) - set(have):
+        raise PaperDataError(f"{where}: lag fields are all-or-none; missing {sorted(set(need) - set(have))}")
     r["short"] = r.get("short") or r["system"]
     if len(r["short"]) > SHORT_MAX or set(r["short"]) & set(',"{}\\$'):
         raise PaperDataError(f"{where}: `short` (the plot label) must be at most {SHORT_MAX} plain characters, "
@@ -129,7 +146,7 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
         if s["kind"] == "energy":
             _energy(target, s, s["_where"])
             continue
-        for k in LAG_FIELDS:
+        for k in LAG_KEYS:
             if s.get(k) is not None and target.get(k) is not None:
                 raise PaperDataError(f"{s['_where']}: {k} is given twice for row {target['id']}")
             target[k] = s.get(k, target.get(k))
@@ -146,16 +163,18 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
     quiet = MACHINES[group[0]]["primary_host"]
     plain = [r for r in members if not r.get("anchor")]
     home = [r for r in plain if quiet in (None, r["host"])]
-    away = [r for r in plain if quiet not in (None, r["host"])]
-    drawable = home or away  # until rows from the quiet host exist, the rows from the other host stand in
+    here = {r["variant"] for r in home}
+    for r in plain:
+        if r not in home and r["variant"] in here:
+            r["anchor"] = True  # the same variant exists on the quiet host: this row is its cross-check
+    drawable = [r for r in plain if not r.get("anchor")]  # the quiet-host row of each variant, else its other row
     primary = {r["variant"]: r for r in drawable}
     if len(primary) != len(drawable):
         raise PaperDataError(f"group {group} has two primary rows for one variant; mark the re-measurement as anchor")
     for r in members:
-        r["interim"] = r in away and (not home or r["variant"] not in primary)  # no quiet-host row of it yet
-        if home and r in away and r["variant"] in primary:
-            r["anchor"] = True  # the same variant exists on the quiet host: this row is its cross-check
-    ours = {r["session"] for r in members if r["role"] == "ours" and (r in drawable or r.get("anchor"))}
+        r["interim"] = r in drawable and r not in home  # measured only away from the quiet host so far
+        r["faded"] = r["interim"] and bool(home)        # drawn lighter once quiet-host rows share the figure
+    ours = {r["session"] for r in members if r["role"] == "ours"}
     off = set()
     for r in members:
         r["watts"], r["energy_method"] = r.get("energy", {}).get(chosen), chosen
@@ -170,18 +189,23 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
         # drawn only beside a row of ours from the same session; never an anchor or an ablation
         r["plot"] = bool(r in drawable and r["role"] != "ablation" and r.get("plot", True)
                          and (r["role"] == "ours" or r["session"] in ours))
-        r["frontier"] = r["plot"] and r["session"] not in off
+        # the frontier line joins rows of one host: the quiet host as soon as it has rows
+        r["frontier"] = r["plot"] and r["session"] not in off and not r["faded"]
         if not r.get("anchor") and stems.setdefault(r["macro"], r["id"]) != r["id"]:
             raise PaperDataError(f"rows {stems[r['macro']]} and {r['id']} share the macro stem {r['macro']}")
 
 
+def presentation(root: Path) -> dict:
+    """data/systems.json: paper-side names per variant and the headline row of ours."""
+    return read_json(root, str(DATA / "systems.json")) if (root / DATA / "systems.json").is_file() else {}
+
+
 def read_rows(root: Path) -> list[dict]:
     """Validated rows, sidecars merged, sorted by group; adds `watts`, `plot`, `frontier`, `interim`,
-    and `anchor_ratio` on cross-check rows."""
+    `faded`, and `anchor_ratio` on cross-check rows."""
     rows, sidecars, headline = _read(root)
     _merge(rows, sidecars)
-    names = root / DATA / "systems.json"
-    present = read_json(root, str(DATA / "systems.json"))["variants"] if names.is_file() else {}
+    present = presentation(root).get("variants", {})
     for r in rows:
         extra = present.get(r.get("variant"), {})
         if set(extra) - set(PRESENTATION):
@@ -206,5 +230,5 @@ def derived(r: dict) -> dict:
         "rtfx": 1.0 / float(r["wall_s_per_audio_s"]), "wer": float(r["wer_pct"]),
         "wer_clean": float(r["wer_clean_pct"]), "wer_other": float(r["wer_other_pct"]),
         "rss_mb": r["peak_rss_bytes"] / 1e6, "model_mb": r["artifact_bytes"] / 1e6,
-        "lag_p50_ms": r.get("lag_p50_ms"), "lag_p95_ms": r.get("lag_p95_ms"), "watts": r.get("watts"),
+        "watts": r.get("watts"), **{k: r.get(k) for k in LAG_KEYS if k not in LAG_PROOF},
     }

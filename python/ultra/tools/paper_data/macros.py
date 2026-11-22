@@ -27,7 +27,7 @@ def metrics_tex(rec: Records) -> str:
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
     cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps "
-             "45/50/55k; the latest checkpoint is in Fig.~1) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
+             "45/50/55k; the latest dense checkpoint of that harness is in \\cref{fig:frontier}) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
              "executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers "
              "on one CCX, \\DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in "
              "\\DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \\DenDenseFortyFiveRangeLo--"
@@ -35,8 +35,12 @@ def metrics_tex(rec: Records) -> str:
              "matched \\MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same "
              "harness and executable. "
              "Right: highest sustained streams per CCX, with each checkpoint's WER.")
-    cap_c = ("Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, "
-             "one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).")
+    cap_m = ("Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\\ColdAudioMinutes{} "
+             "minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load "
+             "included; median of three runs. Speed is audio-seconds per CPU-second; WER is pooled over the 730 "
+             "utterances. Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the "
+             "whole clip before they emit a word. Diamonds: ours. Dashed: the streaming systems that no other "
+             "streaming system beats on both axes. \\MoneyWattsCaption{} \\ColdHostSentence{} Exploratory.")
     cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per "
              "core sustained at p99 lateness of at most \\LatenessBoundMs\\,ms (top axis: per CCX, \\DenWorkers{} "
              "single-threaded workers; \\LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, "
@@ -46,7 +50,7 @@ def metrics_tex(rec: Records) -> str:
              "so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, "
              "\\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.")
     lines += ["", f"\\newcommand{{\\FrontierWarmCaption}}{{{cap_f}}}"]
-    lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]
+    lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\MoneyCaption}}{{{cap_m}}}", ""]
     return "\n".join(lines)
 
 

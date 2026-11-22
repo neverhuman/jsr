@@ -34,7 +34,8 @@ on any record that is missing a required field, and on bare decimal or percent n
 - `SOURCES.md`: the same as a table.
 - `*.csv`: the figure tables read by `docs/paper/figures/*.tex`. `cold_dev.csv` holds every measured row of every
   group; only the generator writes it. Its columns are append-only.
-- `money_layout.tex`, `money_frontier.csv`: Figure 1 geometry (axis limits, label boxes, leaders, frontier).
+- `money_layout.tex`, `money_frontier.csv`: Figure 1 geometry (axis limits, label boxes, leaders, frontier, the
+  key of numbered labels, watts ticks).
 
 **Labels:**
 - `exploratory`: measured on a shared host or outside a qualifying window. That is every measurement so far.
@@ -51,10 +52,12 @@ on any record that is missing a required field, and on bare decimal or percent n
 - **Best-WER rows** (D2 step 60k, average of the last 3 checkpoints, beam 4) appear only in
   `accuracy_full_dev.csv` and the accuracy macros. They never appear beside a speed.
 - Nemotron is an accuracy reference only.
-- **Figure 1** draws one group of measured rows: one pinned Zen 2 core (`machine: zen2`, `threads: 1`), rows from the
-  quiet host only. A comparator is drawn only if its `session` also holds a row of ours, so every ratio is same-host
-  and same-session. Until rows
-  exist it renders a pending state (`\ColdRowsCount` = 0).
+- **Figure 1** draws one group of measured rows: one pinned Zen 2 core (`machine: zen2`, `threads: 1`). Each
+  system is drawn from its quiet-host row when one exists and from its other row until then; such interim
+  points are drawn lighter once quiet-host rows share the figure, stay off the frontier line, and the caption
+  counts them (`\ColdHostSentence`). A comparator is drawn only if its `session` also holds a row of ours, so
+  every ratio is same-host and same-session. Until rows exist the figure renders a pending state
+  (`\ColdRowsCount` = 0).
 - **Published numbers never reach a measured axis.** A row with `label: reported` is refused in `evidence/`.
   Numbers quoted from other people's publications live in `reported.json` and feed only the "reported elsewhere" table.
 
@@ -91,7 +94,7 @@ format for the cold rotation.
 | `role` | `ours`, `comparator`, or `ablation` (our weights in another runtime: tables only, never Figure 1) |
 | `class` | `streaming` (emits words while audio arrives, through the system's native streaming interface) or `whole_utterance` (sees the whole clip first: throughput only, a word lag is refused) |
 | `machine` | `zen2` (Threadripper PRO 3995WX), `xeon8358` (Xeon Platinum 8358, AVX-512 VNNI) or `m3ultra` (Apple M3 Ultra); add a key in `common.MACHINES` for a new CPU |
-| `host`, `hardware` | hostname; free text with the pinned CPUs. A machine may name a quiet host (`common.MACHINES`: `zen2` → xbabe0). Its rows are the ones drawn and tabulated. A row of the same variant from another host of that CPU becomes a cross-check automatically; until quiet-host rows exist, the other host's rows stand in and the caption says so |
+| `host`, `hardware` | hostname; free text with the pinned CPUs. A machine may name a quiet host (`common.MACHINES`: `zen2` → xbabe0). A variant's quiet-host row is the one drawn and tabulated, and its row from another host of that CPU then becomes a cross-check automatically; a variant without a quiet-host row yet is drawn from its other row, as an interim point |
 | `threads`, `parallel` | pinned physical cores (1 or 8); `intra_op` = one clip at a time with N threads, `workers` = N single-thread recognisers side by side |
 | `session` | date + host + harness commit: rows measured together share it |
 | `workload`, `workload_digest` | sha256 of the staged `panel/audio.json` (ids, sample counts and content hashes only, so it is the same on every machine) |
@@ -111,14 +114,19 @@ format for the cold rotation.
   (`\ColdAnchorSentence` prints the range of CPU-cost ratios). A session whose anchor differs by more than 10% in CPU
   cost stays out of the frontier line.
 - Word lag (streaming only, all five): `lag_p50_ms`, `lag_p95_ms`, `lag_method`, `lag_workload_digest`,
-  `lag_receipt_sha256`.
+  `lag_receipt_sha256`. The lag is end to end with the input paced at real time, at the row's own thread budget.
+  Optional beside it: `lag_design_p50_ms`, `lag_design_p95_ms`, the lag with unbounded compute.
+- A `whole_utterance` row has no word lag. It may give `final_latency_p50_ms` and `final_latency_p95_ms` (wait for
+  the end of the clip, then infer) with the same three proof fields (`lag_method`, `lag_workload_digest`,
+  `lag_receipt_sha256`).
+- `audio_seconds`: the duration of the staged audio (the caption's "87.7 minutes").
 - Energy (all three): `joules_per_audio_s` (the watts one live stream costs; `watts_per_stream` may repeat it),
   `energy_method` (`core_msr_active`, `core_msr_dynamic`, `pkg_rapl_delta` or `wall_meter`), `energy_receipt_sha256`.
 
 **Sidecar lines**, so that several agents never edit one line. They may sit in any file of `evidence/`:
 
 ```json
-{"kind": "lag", "row": "<id>", "lag_p50_ms": 310, "lag_p95_ms": 720, "lag_method": "...", "lag_workload_digest": "...", "lag_receipt_sha256": "..."}
+{"kind": "lag", "row": "<id>", "lag_p50_ms": 310, "lag_p95_ms": 720, "lag_design_p50_ms": 250, "lag_design_p95_ms": 480, "lag_method": "...", "lag_workload_digest": "...", "lag_receipt_sha256": "..."}
 {"kind": "energy", "row": "<id>", "joules_per_audio_s": 0.64, "energy_method": "core_msr_active", "energy_receipt_sha256": "..."}
 {"kind": "energy_headline", "machine": "zen2", "threads": 1, "energy_method": "pkg_rapl_delta", "reason": "repeatable within 10%"}
 ```
@@ -135,9 +143,18 @@ group; two energy methods in a group without a headline line; a lag on a `whole_
 sidecar that names an unknown row or repeats a value; `label: reported`.
 
 `cold_dev.csv` columns: `id, variant, short, role, class, machine, threads, series, cpu, speed, rtfx, wer, wer_clean,
-wer_other, rss_mb, model_mb, lag_p50_ms, lag_p95_ms, watts, label, host, plot`. `series` is
+wer_other, rss_mb, model_mb, lag_p50_ms, lag_p95_ms, watts, label, host, plot, lag_design_p50_ms, lag_design_p95_ms,
+final_latency_p50_ms, final_latency_p95_ms, faded`. `faded` is 1 for an interim point that is drawn lighter. `series` is
 `<machine>-t<threads>-<role>-<streaming|whole>`; `plot` is 1 when the row may be drawn. A figure selects its marks with
 `ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}`. Empty cells mean not measured.
 There is no free-text column except `short`, because pgfplots splits on every comma.
 
 Put the receipt files themselves under the data drive. Only the JSONL row is committed.
+
+## Figure 1 labels
+
+`money.py` and `labels.py` place every label box in points inside the fixed plot box. A label first tries the eight
+positions around its marker, then positions reached by a leader line. If the figure is too crowded for a label, it
+becomes a number and its name goes into a key under the plot (`\MoneyKey`). A build never ships overlapping labels:
+the generator refuses instead. A watts axis appears on top once every drawn system has an energy value and one
+power per busy core fits them all within 15% (`\MoneyWattsCaption` says which state applies).

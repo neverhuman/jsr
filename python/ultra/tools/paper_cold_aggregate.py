@@ -177,6 +177,7 @@ def manuscript_rows(data):
             "session": f"{row['repetitions'][0]['started_utc'][:10]} {HOST} rotation {workload['measure']['sha256'][:12]}",
             "workload": workload["label"],
             "workload_digest": workload["digest"],
+            "audio_seconds": workload["audio_seconds"],
             "scope": "cold_process_tree_launch_to_exit",
             "cpu_s_per_audio_s": row["cpu_seconds_per_audio_second"],
             "cpu_reps": [rep["cpu_seconds_per_audio_second"] for rep in row["repetitions"]],

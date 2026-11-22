@@ -13,7 +13,8 @@ from .records import Records
 # drawn: a primary, non-ablation row whose session also holds a row of ours.
 CSV_HEADER = ["id", "variant", "short", "role", "class", "machine", "threads", "series", "cpu", "speed", "rtfx",
               "wer", "wer_clean", "wer_other", "rss_mb", "model_mb", "lag_p50_ms", "lag_p95_ms", "watts", "label",
-              "host", "plot"]
+              "host", "plot", "lag_design_p50_ms", "lag_design_p95_ms", "final_latency_p50_ms", "final_latency_p95_ms",
+              "faded"]
 
 
 def speed_text(x: float) -> str:
@@ -30,7 +31,8 @@ def _csv_row(r: dict) -> list:
     return [r["id"], r["variant"], r["short"], r["role"], r["class"], r["machine"], r["threads"], series,
             num("cpu", 5), num("speed", 3), num("rtfx", 3), num("wer", 2), num("wer_clean", 2), num("wer_other", 2),
             num("rss_mb", 1), num("model_mb", 1), num("lag_p50_ms", 0), num("lag_p95_ms", 0), num("watts", 3),
-            r["label"], r["host"], int(r["plot"])]
+            r["label"], r["host"], int(r["plot"]), num("lag_design_p50_ms", 0), num("lag_design_p95_ms", 0),
+            num("final_latency_p50_ms", 0), num("final_latency_p95_ms", 0), int(r["faded"])]
 
 
 def _add_row_records(rec: Records, r: dict) -> None:
@@ -52,10 +54,17 @@ def _add_row_records(rec: Records, r: dict) -> None:
         ("Rss", fmt(d["rss_mb"], 0), d["rss_mb"], "MB peak resident memory of the process tree (10^6 bytes)", ""),
         ("Model", fmt(d["model_mb"], 0), d["model_mb"], "MB of model files (10^6 bytes)", ""),
     ]
-    if d["lag_p50_ms"] is not None:
-        lag = f"; {r['lag_method']}; lag workload {str(r['lag_workload_digest'])[:12]}"
-        fields += [("LagPfifty", fmt(d["lag_p50_ms"], 0), d["lag_p50_ms"], "ms stable-word lag, p50", lag),
-                   ("LagPninetyFive", fmt(d["lag_p95_ms"], 0), d["lag_p95_ms"], "ms stable-word lag, p95", lag)]
+    for key, name, unit in (
+        ("lag_p50_ms", "LagPfifty", "ms word lag, input paced at real time, p50"),
+        ("lag_p95_ms", "LagPninetyFive", "ms word lag, input paced at real time, p95"),
+        ("lag_design_p50_ms", "LagDesignPfifty", "ms word lag with unbounded compute, p50"),
+        ("lag_design_p95_ms", "LagDesignPninetyFive", "ms word lag with unbounded compute, p95"),
+        ("final_latency_p50_ms", "FinalLatencyPfifty", "ms from the end of the clip to the transcript, p50"),
+        ("final_latency_p95_ms", "FinalLatencyPninetyFive", "ms from the end of the clip to the transcript, p95"),
+    ):
+        if d[key] is not None:
+            fields.append((name, fmt(d[key], 0), d[key], unit,
+                           f"; {r['lag_method']}; lag workload {str(r['lag_workload_digest'])[:12]}"))
     if d["watts"] is not None:
         fields.append(("Watts", fmt(d["watts"], 2), d["watts"], "W per live stream (= J per audio-s)",
                        f"; energy method {r['energy_method']}"))
@@ -78,7 +87,7 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
                   workload_digest=first["workload_digest"] if first else "pending",
                   source="docs/paper/data/evidence/*.jsonl")
     ratios = sorted(r["anchor_ratio"] for r in anchors)
-    interim = [r for r in group if r["interim"]]
+    interim = [r for r in drawn if r["interim"]]
     quiet = HOST_NAMES.get(MACHINES[HEADLINE[0]]["primary_host"], MACHINES[HEADLINE[0]]["primary_host"])
     other = HOST_NAMES.get(interim[0]["host"], interim[0]["host"]) if interim else ""
     if not anchors:
@@ -86,15 +95,20 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     else:
         sentence = (f"{len(anchors)} rows were measured a second time (another host or session); their CPU cost is "
                     f"{fmt(ratios[0], 2)} to {fmt(ratios[-1], 2)} times that of the row printed here.")
-    if interim and len(interim) == len(group):
-        host = (f"Interim: every row was measured on host {other}, a shared host that ran other jobs; rows from the "
-                f"quiet host {quiet} replace them.")
+    if interim and len(interim) == len(drawn):
+        host = (f"Interim: every point was measured on host {other}, a shared host that ran other jobs; rows from the "
+                f"quiet host {quiet} replace them as they arrive.")
     elif interim:
-        many = len(interim) != 1
-        host = (f"Rows are measured on the quiet host {quiet}; {len(interim)} system{'s' if many else ''} so far "
-                f"measured only on host {other} {'are' if many else 'is'} not drawn.")
+        host = (f"{len(interim)} of the {len(drawn)} points {'is' if len(interim) == 1 else 'are'} still interim "
+                f"(lighter marks): measured on host "
+                f"{other}, a shared host that ran other jobs, until their rows from the quiet host {quiet} arrive; the "
+                f"dashed line joins quiet-host rows only.")
     else:
-        host = f"Every row was measured on the quiet host {quiet}." if group else "No measured rows yet."
+        host = f"Every point was measured on the quiet host {quiet}." if drawn else "No measured rows yet."
+    minutes = {round(r["audio_seconds"] / 60.0, 1) for r in rows if r.get("audio_seconds")}
+    if len(minutes) == 1:
+        rec.add("ColdAudioMinutes", fmt(minutes.pop(), 1), unit="minutes of audio", configuration="duration of the "
+                "staged audio every measured row decodes", **common)
     for rid, value, what in (
         ("ColdRowsCount", len(drawn), "systems drawn in Figure 1 (one pinned Zen 2 core; 0 = pending)"),
         ("ColdRowsStreaming", sum(r["class"] == "streaming" for r in drawn), "live streaming systems in Figure 1"),
@@ -108,7 +122,8 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
         ("ColdRowsOffFrontier", sum(r["plot"] and not r["frontier"] for r in group),
          "drawn rows kept out of the frontier line because their session's anchor is more than 10% off"),
         ("ColdAnchorCount", len(anchors), "cross-check rows (a variant measured on a second host or session)"),
-        ("ColdRowsInterim", len(interim), "one-core Zen 2 rows measured only away from the quiet host"),
+        ("ColdRowsInterim", len(interim), "systems drawn in Figure 1 from a row measured away from the quiet host"),
+        ("ColdRowsFaded", sum(r["faded"] for r in drawn), "interim systems drawn lighter beside quiet-host rows"),
     ):
         rec.add(rid, str(value), raw=value, unit="rows", configuration=f"number of {what}", **common)
     rec.add("ColdAnchorSentence", sentence, unit="sentence", configuration="generated from the cross-check rows", **common)

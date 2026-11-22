@@ -50,7 +50,7 @@ Multirate density was identical in all \DenReproRunsMR{} runs.}
 
 \subsection{Serving density}
 
-\Cref{tab:density,fig:money} are the headline. On one CCX, Zipformer passes the \DenRzeroCCX-stream
+\Cref{tab:density,fig:frontier} hold the serving-density result. On one CCX, Zipformer passes the \DenRzeroCCX-stream
 rung (\DenRzeroCore{} per core) and fails at \DenFailRzeroCCX; the \ultra multirate model passes
 \DenMRCCX{} (\DenMRCore{} per core) and fails at \DenFailMRCCX: \DenRatioMR{}$\times$ the passing load,
 with the true ratio bracketed by \DenRatioMRBracketLo{} and \DenRatioMRBracketHi{} by the rung
@@ -136,10 +136,25 @@ D2MR gap against Zipformer is \GapMRvsRzeroPooled{} percentage points
 full-set results for the later dense average, which reaches
 \WerDtwoBestClean\% and \WerDtwoBestOther\% with beam four.
 
-\subsection{Cold boundary}
+\subsection{Cold boundary: speed against accuracy on one core}
 
-The cold process-tree comparison of \cref{sec:protocol} has no complete three-repetition rows yet,
-so this draft makes no cold-boundary claim.
+\Cref{fig:money} holds the cold process-tree comparison of \cref{sec:protocol}: \ColdRowsCount{}
+systems, each decoding the same 730 DEV utterances on one pinned core, model load included, median
+of three runs. The dense model costs \ColdDenseCpu{} \cpus (\ColdDenseSpeed{}$\times$ real time) at
+\ColdDenseWer\% pooled WER and peaks at \ColdDenseRss\,MB of memory; the multirate model
+\ColdMRCpu{} \cpus at \ColdMRWer\%. Zipformer INT8 costs \ColdZipCpu{} \cpus at \ColdZipWer\% in
+\ColdZipRss\,MB, and Nemotron at 560\,ms \ColdNemoFiveSixtyCpu{} \cpus at \ColdNemoFiveSixtyWer\% in
+\ColdNemoFiveSixtyRss\,MB. \ultra is faster and less accurate than both. \ColdHostSentence{} \ColdAnchorSentence{} \MoneyWattsCaption{} Word lag, the
+eight-core budget and the remaining published recognisers are being measured under the same
+protocol.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/frontier_warm.tex}{\input{figures/frontier_warm.tex}}{%
+  \pendingfig{Warm frontier figure pending (figures/frontier_warm.tex).}}
+\caption{\textbf{Serving density against accuracy, warm harness.} \FrontierWarmCaption}
+\label{fig:frontier}
+\end{figure}
 
 \begin{table}[t]
 \centering

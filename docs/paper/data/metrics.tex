@@ -59,6 +59,7 @@
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
 \newcommand{\ColdAnchorCount}{0}% [reported] rows
 \newcommand{\ColdAnchorSentence}{No system has been measured in a second session yet, so there is no host-agreement check.}% [reported] sentence
+\newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
 \newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdDenseFPCpu}{0.108}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdDenseFPModel}{235}% [exploratory] MB of model files (10^6 bytes)
@@ -83,7 +84,7 @@
 \newcommand{\ColdDenseWer}{11.33}% [exploratory] % WER
 \newcommand{\ColdDenseWerClean}{7.54}% [exploratory] % WER
 \newcommand{\ColdDenseWerOther}{16.75}% [exploratory] % WER
-\newcommand{\ColdHostSentence}{Interim: every row was measured on host H0, a shared host that ran other jobs; rows from the quiet host H1 replace them.}% [reported] sentence
+\newcommand{\ColdHostSentence}{Interim: every point was measured on host H0, a shared host that ran other jobs; rows from the quiet host H1 replace them as they arrive.}% [reported] sentence
 \newcommand{\ColdMRCpu}{0.037}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMRModel}{296}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMRRss}{77}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
@@ -134,7 +135,8 @@
 \newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
 \newcommand{\ColdRowsCount}{8}% [reported] rows
 \newcommand{\ColdRowsEnergy}{0}% [reported] rows
-\newcommand{\ColdRowsInterim}{10}% [reported] rows
+\newcommand{\ColdRowsFaded}{0}% [reported] rows
+\newcommand{\ColdRowsInterim}{8}% [reported] rows
 \newcommand{\ColdRowsLag}{0}% [reported] rows
 \newcommand{\ColdRowsOffFrontier}{0}% [reported] rows
 \newcommand{\ColdRowsStreaming}{8}% [reported] rows
@@ -310,6 +312,7 @@
 \newcommand{\MelNnzSparse}{477}% [reported] nonzeros
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
+\newcommand{\MoneyWattsCaption}{Watts per live stream are not drawn: no energy measurement has been admitted yet.}% [reported] sentence
 \newcommand{\NonGemmGain}{0--5}% [exploratory] %
 \newcommand{\OrtVersion}{1.28.2}% [reported] version
 \newcommand{\PanelSpeakers}{73}% [reported] speakers
@@ -465,5 +468,5 @@
 
 \newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per core sustained at p99 lateness of at most \LatenessBoundMs\,ms (top axis: per CCX, \DenWorkers{} single-threaded workers; \LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, measured in the same harness for the same checkpoints. Dense: the latest checkpoint (average of steps 55/60/65k), greedy (circle) and beam~4 (diamond) at the same density. R0 and multirate come from the clean same-session run; in the dense run the loaded host cut R0 to \RzeroLoadedCCX{} streams per CCX, so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.}
 
-\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps 45/50/55k; the latest checkpoint is in Fig.~1) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
-\newcommand{\ColdCaption}{Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).}
+\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps 45/50/55k; the latest dense checkpoint of that harness is in \cref{fig:frontier}) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
+\newcommand{\MoneyCaption}{Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\ColdAudioMinutes{} minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load included; median of three runs. Speed is audio-seconds per CPU-second; WER is pooled over the 730 utterances. Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the whole clip before they emit a word. Diamonds: ours. Dashed: the streaming systems that no other streaming system beats on both axes. \MoneyWattsCaption{} \ColdHostSentence{} Exploratory.}

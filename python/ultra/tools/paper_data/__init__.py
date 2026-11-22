@@ -78,7 +78,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_sweeps(root, rec, out)
     add_tables(cur, out)
     accuracy_table(rec, out)
-    add_money(load_evidence(root, rec, out), out)
+    add_money(load_evidence(root, rec, out), out, rec)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)
     out["records.jsonl"] = records_jsonl(rec)
