@@ -49,6 +49,9 @@ pub struct Engine {
     /// Opt-in deterministic int8 K/V cache compression (`false` default = fp32 K/V; `true` cuts
     /// per-stream K/V state memory by ~3.5x with per-head/per-slot symmetric int8 quantisation).
     pub kv_int8: bool,
+    /// Optional pure-Rust token n-gram LM + LODR bigram for shallow fusion inside beam search
+    /// (`None` default = 0-ULP bit-identical no-op).
+    pub lm: Option<(Arc<crate::lm::NgramLm>, crate::lm::LmConfig)>,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -194,6 +197,7 @@ impl Engine {
             beam_max_symbols: 1,
             beam_margin: 0.0,
             kv_int8: false,
+            lm: None,
         })
     }
 
@@ -267,6 +271,25 @@ impl Engine {
     pub fn with_kv_int8(mut self, on: bool) -> Self {
         self.kv_int8 = on;
         self
+    }
+
+    /// Attach a pure-Rust token n-gram LM (+ optional LODR bigram) for beam-search shallow fusion.
+    /// Requires `lm.vocab == model.arch.vocab`. When `beam == 1`, LM fusion is inactive unless
+    /// `with_beam(k > 1)` is also set.
+    pub fn with_lm(
+        mut self,
+        lm: Arc<crate::lm::NgramLm>,
+        cfg: crate::lm::LmConfig,
+    ) -> Result<Self, EngineError> {
+        cfg.validate()?;
+        if lm.vocab != self.model.arch.vocab {
+            return Err(EngineError::Shape(format!(
+                "LM vocab {} does not match model vocab {}",
+                lm.vocab, self.model.arch.vocab
+            )));
+        }
+        self.lm = Some((lm, cfg));
+        Ok(self)
     }
 
     pub fn create_stream(&self) -> EngineStream {
@@ -402,13 +425,15 @@ impl Engine {
                     .iter_mut()
                     .map(|d| d.beam.get_or_insert_with(|| crate::beam::BeamState::new(m)))
                     .collect();
-                crate::beam::beam_chunk_with_opts(
+                let lm_ref = self.lm.as_ref().map(|(l, c)| (l.as_ref(), *c));
+                crate::beam::beam_chunk_with_lm(
                     m,
                     self.isa,
                     self.precision,
                     self.beam,
                     self.beam_max_symbols,
                     self.beam_margin,
+                    lm_ref,
                     &mut bs,
                     &ns,
                     &ws.enc_out,

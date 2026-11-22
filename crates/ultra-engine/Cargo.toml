@@ -48,3 +48,7 @@ path = "src/bin/engine_prepare.rs"
 name = "ultra-engine-gate"
 path = "src/bin/engine_gate.rs"
 required-features = ["wer"]
+
+[[bin]]
+name = "ultra-lm-pack"
+path = "src/bin/lm_pack.rs"
