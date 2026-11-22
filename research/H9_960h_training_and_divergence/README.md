@@ -17,13 +17,16 @@ How far does accuracy improve with all 960 h? Which recipe is stable?
 | D2MR | S_MR, warm from D1MR@2182 | 34.2 @5k → 20.4 @15k → 12.3 @35k → **11.3 @45k** | finishing at 50k |
 | D3MR | S_MR_I8S (int8-QAT stem) + speed perturbation, warm from D1MR-40k, lr 8e-4 | 21.2 @5k → **100% @10k** | **DIVERGED** |
 | D3MRb | same, lr 3e-4, plus a divergence guard | 16.6 @5k → **15.0 @20k** | **stopped by the guard @28.5k** |
-| D3MRc | same plus a qkv cap | — | armed after the ablations |
+| D3MRc | same plus the qkv cap (from 2k at 1.5x), the qkv guard (2x), the MR padding fix and EMA 0.9995 | relaunched fresh 2026-11-21 22:15Z | training (xbabe1) |
+| R4T-960 | S_MR_T ternary QAT from D2MR-final, lr 3e-4, warmup 500, 15k steps, no qkv cap | 17.13 @2.5k | **FAILED** @4305 (grad-norm spike 94.5 at 4k; guard stop) |
+| H13a | dense S from scratch, SentencePiece-512 for RNN-T and CTC, exact loss, EMA, speed perturbation, cap from 30k | — | training (xbabe2), 544 audio-h/h |
 | D4M | M_MR (d 512) from scratch on MPS | early | training (v1.1 candidate) |
 
 ## What went wrong
 - **D3MR and D3MRb diverged.** One attention block's qkv weight norm ran away (70 → 684 in D3MR; 70 → 426 in D3MRb), together with its pre-attention LayerNorm gain.
 - **Likely cause:** that same block (`mid_blocks.5`) was already the largest in the warm-start checkpoint (D1MR-40k). AdamW weight decay applies, but it is far too weak at these learning rates. Dense from scratch (D2) grows evenly and saturates.
-- **Ablations** (D3 recipe minus the int8 stem, minus speed perturbation) are running.
+- **The ablations were inconclusive** (D3 recipe minus the int8 stem: qkv 94.5 @5k; minus speed perturbation: 98.7 @5k; D3MR itself: 190 @5k). Both ablations used `total_steps=5000`, so the learning rate decayed to 0.13e-3 by 4k, while D3MR ran on a 150k schedule. The comparison therefore cannot attribute the runaway. A rerun on the 150k schedule with `--max-steps 5000` is deferred unless D3MRc's qkv runs away.
+- **R4T-960 failed** (ternary QAT at 960 h). At step 4000 the gradient norm spiked to 94.5 (typically 1–4) and the loss jumped from 1.07 to 7.45. The divergence guard stopped the run at 4305 while it was recovering (loss 1.26 at 4300). qkv rose steadily, 138 → 159, with no cap (the run predates it). It will not be relaunched now: ternary is v1.1 at best. Diagnostics: `/mnt/xbabe3-external/jsr/runs/train/R4T960_S_MR_T_960h/diagnostics/`.
 
 ## Consequence
 - **Divergence guard:** stop when the loss EMA is 1.3× its best for 300 steps, or dev WER is 5 points worse (69a9bf2).

@@ -126,10 +126,23 @@ Averaging the last 3 snapshots is free at inference and recovers about as much a
     - These ranges are the *best case*. In training, the ranges come from a jointly trained simple joiner (icefall uses s_range 5), so the convergence check still needs a matched run.
   - **Speed** (CPU, batch 8 × T 250 × U 60 × V 4097, forward+backward of the loss alone): exact chunked 7.85 s vs pruned s_range 5 0.77 s, **10.3× faster**. This excludes the simple-joiner range computation. The GPU ratio still has to be measured.
 
+## 4. Addendum: do the levers stack? And beam on the MR finalist (xbabe0)
+
+| Model | Panel dev-clean, greedy → beam 4 | Panel dev-other, greedy → beam 4 | Full dev-clean, greedy → beam 4 | Full dev-other, greedy → beam 4 |
+|---|---:|---:|---:|---:|
+| D2 model-55000 | 8.167 | 18.923 | 8.073 → 7.496 | 19.734 → 18.380 |
+| D2 last-3 average (45/50/55k) | 7.754 → **7.258** | 17.279 → **15.941** | 7.494 → **7.003** | 17.751 → **16.603** |
+| D2MR-final (ckpt-50000, fixed code) | 11.566 → 10.233 | 22.090 → 20.413 | — | — |
+
+- **The two levers stack.** On full dev, the last-3 average with beam 4 is **−1.07 / −3.13 pp** below the single snapshot decoded greedily (8.073 → 7.003, 19.734 → 16.603).
+- Beam 4 helps the MR finalist too (−1.33 / −1.68 on the panel).
+- D2 snapshots 60k and 65k are processed automatically as they arrive (`train/ops/watch_d2_x0.sh` → `xbabe0_d2_step.sh`), with rows posted to AGENT_CHAT, so C1 selection is ready when D2 ends.
+
 ## Next (proposed)
 - Bounded native beam (width 2–4) in `ultra-engine` as a measured product option: WER vs CPU-s/s on the panel. This is engine lane work.
 - Dual-mode fine-tune of D2 (streaming + full-context branch, consistency loss), 20–30k steps, against a control with the same steps. Measure at chunk 4 and at chunk 8.
-- **H13:** pruned RNN-T (k2) with a jointly trained simple joiner, s_range 5, for more epochs per GPU-day. It is validated on CPU and needs a CUDA k2 build matching each GPU host's torch. Also consider the 512-piece tokenizer (more tokens per second, fewer outputs).
+- **H13a** (running, xbabe2): dense S from scratch with SentencePiece-512 for both heads, the exact loss, EMA and speed perturbation.
+- **H13b:** the pruned RNN-T option is now in the trainer (`rnnt_loss=pruned`, `prune_range`, `prune_warmup`). It has a training-only simple joiner and no inference change. Parity test: at full band it equals the exact loss, values and gradients. k2 CUDA 12.8 / torch 2.7.0 is installed on H0 and xbabe2. GPU smoke test (S, V 513, batch 16 × 10 s, bf16): exact 0.33 s/step vs pruned 0.22 s/step, peak memory 4.2 vs 3.7 GB. H13b launches on the next free GPU.
 - Use averaging of the last 3 snapshots for D2's final selection, as the D2MR selection already does.
 - Weight EMA is already on in D3MRc (`ema_decay=0.9995`).
 

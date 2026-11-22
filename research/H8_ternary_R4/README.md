@@ -26,3 +26,9 @@ Can S_MR be trained with ternary weights {−1, 0, +1} (per-channel absmean scal
 ## Pointers
 - Commits: dfabd0a, 875a368, c7ae75b, c4ec711, 7f89da8.
 - Checkpoint copy: `/mnt/xbabe3-external/jsr/runs/train/R4T_S_MR_T_tc100_copy/`.
+
+## 960 h follow-up (R4T-960): FAILED
+- **Run:** S_MR_T ternary QAT from D2MR-final (ckpt-00050000), 960 h, lr 3e-4, warmup 500, 15k steps, SpecAugment from step 0, no qkv cap (the run predates it). xbabe2, 2026-11-21.
+- **Result:** dev-clean400 was 17.13% at 2.5k. At step 4000 the gradient norm spiked to 94.5 and the loss jumped from 1.07 to 7.45. The divergence guard stopped the run at 4305 (loss EMA 2.76 vs best 1.15) while the loss was recovering. The max qkv norm rose steadily, 138 → 159.
+- **Decision:** not relaunched; ternary is v1.1 at best. If revisited: the qkv cap and guard, a lower learning rate or a longer warmup, and the MR padding fix (H12).
+- **Diagnostics:** `/mnt/xbabe3-external/jsr/runs/train/R4T960_S_MR_T_960h/diagnostics/` (DIVERGED.json, train.jsonl, config, stdout, guard log).
