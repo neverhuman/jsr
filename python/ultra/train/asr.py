@@ -179,17 +179,21 @@ class ASRModel(nn.Module):
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
         if cr_ctc_weight > 0 and augment is not None and gen is not None:
-            # H26 CR-CTC: second independent SpecAugment view + symmetric stop-grad KL over valid frames.
+            # H26 CR-CTC (Yao et al. 2024): supervise BOTH augmented views + symmetric stop-grad KL.
             x2 = spec_augment(x_norm, feat_lens, augment, gen)
             enc2, _ = self.encoder(x2, feat_lens, chunk)
             with torch.autocast(device_type=enc.device.type, enabled=False):
                 ctc_lp2 = torch.log_softmax(self.ctc_head(enc2.float()), dim=-1)
+                ctc_sum2, ctc_tok2, _ = ctc_loss(ctc_lp2, enc_lens, ctc_tgt, ctc_lens, None)
+                ctc2 = ctc_sum2 / max(1, ctc_tok2)
                 p1, p2 = ctc_lp.exp(), ctc_lp2.exp()
                 kl12 = (p2.detach() * (ctc_lp2.detach() - ctc_lp)).sum(-1)
                 kl21 = (p1.detach() * (ctc_lp.detach() - ctc_lp2)).sum(-1)
                 valid = torch.arange(ctc_lp.shape[1], device=enc.device)[None] < enc_lens[:, None]
                 cr_ctc = (0.5 * (kl12 + kl21) * valid).sum() / valid.sum().clamp(min=1)
-            total = total + cr_ctc_weight * cr_ctc
+            ctc_avg = 0.5 * (ctc + ctc2)
+            total = total + self.cfg.ctc_weight * (ctc_avg - ctc) + cr_ctc_weight * cr_ctc
+            out["ctc"] = ctc_avg
             out["cr_ctc"] = cr_ctc
         if kd is not None and kd_weight > 0:
             from train.kd import kd_loss
