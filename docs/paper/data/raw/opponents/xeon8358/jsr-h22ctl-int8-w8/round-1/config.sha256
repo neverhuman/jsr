@@ -1,0 +1,5 @@
+dbeb7dffb66792496df04598dc9f97e429f22210e7905a01894285e588921d57  /home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-measure
+d02bef8f55d55a5a4c1b12e1073f116c75f6d23cd6101f16fa53f748bcfd4493  /home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-cold-wav
+9aed3d32d6830946bcf1237820ecdb8ee08d9866f07ac2d2cd908682748e6d70  /home/ubuntu/jsr-data/opponents/jsr-h22ctl-79800-ema-int8/model/arch.json
+a50b1b0870effdbcb114b6ed32a7a94e048278ee7b02c58b68b0645f66e42e53  /home/ubuntu/jsr-data/opponents/jsr-h22ctl-79800-ema-int8/model/weights.int8.safetensors
+878bc86b0b6fe857d8e89d5ae34c964ca617a32501abce5ff16be935a203abef  /home/ubuntu/jsr-data/opponents/bench-cross/scripts.v3/run-opponent.sh
