@@ -297,10 +297,9 @@ def add_derived(rec: Records) -> None:
 
     ratio("SpeedupVsRzero", "CostRzero", "CostEngineIntEight", 1,
           "R0 vs engine INT8 whole-service CPU, same executable 6df5c8f")
-    ratio("SpeedupVsORT", "CostORT", "CostEngineIntEight", 1,
-          "ORT FP32 (db5c14a pair) vs engine INT8 (6df5c8f): different sessions")
-    ratio("SpeedupEngineFPVsORT", "CostORT", "CostEngineFP", 1,
-          "ORT FP32 (db5c14a pair) vs engine FP32 (6df5c8f): different sessions")
+    # No cross-run ratios: ORT FP32 exists only in Run B (db5c14a), so it is compared only with Run B's engine FP32.
+    ratio("SpeedupEngineFPVsORT", "CostORTRunB", "CostEngineFPRunB", 2,
+          "Run B (db5c14a, one executable): ORT FP32 vs fused engine FP32, 400/400 identical transcripts")
     diff("BeamGainClean", "WerDtwoGreedyClean", "WerDtwoBeamClean", 2, "D2-60k beam 4 vs greedy, full dev-clean")
     diff("BeamGainOther", "WerDtwoGreedyOther", "WerDtwoBeamOther", 2, "D2-60k beam 4 vs greedy, full dev-other")
     diff("AvgGainClean", "WerDtwoGreedyClean", "WerDtwoAvgGreedyClean", 2,
@@ -646,6 +645,17 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> None:
         [[r["id"], r["system"], r["role"], f"{float(r['cpu_s_per_audio_s']):.5f}", f"{float(r['wer_pct']):.2f}", r["label"],
           "east" if float(r["cpu_s_per_audio_s"]) > 0.3 else "west"] for r in rows])
     first = rows[0] if rows else None
+    if rows:
+        ours = [r for r in rows if r["role"] == "ours"]
+        sentence = (f"Figure~1 places {len(rows)} systems measured on one matched cold workload"
+                    f"{'' if ours else ' (no R1 row yet)'}.")
+    else:
+        sentence = "The matched cold-boundary rows are still pending, so Figure~1 shows its pending state."
+    rec.add("ColdSummarySentence", sentence, unit="sentence", label="reported",
+            configuration="generated from the number of admitted cold-DEV evidence rows",
+            workload=first["workload"] if first else "pending (no evidence rows yet)",
+            workload_digest=first["workload_digest"] if first else "pending",
+            source="docs/paper/data/evidence/*.jsonl")
     rec.add("ColdRowsCount", str(len(rows)), raw=len(rows), unit="rows", label="reported",
             configuration="number of matched cold-DEV evidence rows in Figure 1 (0 = pending)",
             workload=first["workload"] if first else "pending (no evidence rows yet)",

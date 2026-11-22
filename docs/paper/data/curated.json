@@ -296,6 +296,19 @@
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
+  "CostEngineFPRunB": {
+   "configuration": "Run B (db5c14a pair): fused engine FP32, D2@5k, same executable as CostORTRunB",
+   "decimals": 4,
+   "label": "exploratory",
+   "line": 127,
+   "quote": "0.09465545",
+   "raw": 0.09465545,
+   "section": "Earlier same-executable FP32 pair: db5c14a",
+   "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
   "CostEngineIntEight": {
    "configuration": "D2@5k prepared INT8, ultra-engine, DEV400, executable 031c06e0",
    "decimals": 3,
@@ -360,6 +373,19 @@
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "CostORTRunB": {
+   "configuration": "Run B (db5c14a pair): ONNX Runtime FP32, D2@5k",
+   "decimals": 4,
+   "label": "exploratory",
+   "line": 127,
+   "quote": "0.17474045",
+   "raw": 0.17474045,
+   "section": "Earlier same-executable FP32 pair: db5c14a",
+   "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "CostPfiveMoonBase": {
    "configuration": "P05 MoonBase, single thread core 60, dev-clean run",
@@ -1444,6 +1470,19 @@
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "WerDthreeMRbTwentyK": {
+   "configuration": "D3MRb step 20k, dev-clean400 greedy (one decimal as reported)",
+   "decimals": 1,
+   "label": "exploratory",
+   "line": 19,
+   "quote": "**15.0 @20k**",
+   "raw": 15.0,
+   "section": "Runs",
+   "source": "research/H9_960h_training_and_divergence/README.md",
+   "unit": "% WER",
+   "workload": "dev-clean first 400 utt (trainer DEV400)",
+   "workload_digest": "unrecorded"
   },
   "WerDthreeMRc": {
    "configuration": "D3MRc step 20008, epoch 2, dev-clean400 greedy",
