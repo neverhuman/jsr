@@ -352,6 +352,20 @@ class Trainer:
         w["examples"] = [{"ref": r, "hyp": h} for r, h in list(zip(refs, hyps, strict=True))[:3]]
         return w
 
+    @torch.no_grad()
+    def _evaluate_ema(self) -> dict:
+        """Dev WER of the EMA weights (swapped in, then the live weights restored)."""
+        if self.ema is None or not self.dev or self.tok is None:
+            return {}
+        live = {k: v.detach().clone() for k, v in self.model.state_dict().items()}
+        self.model.load_state_dict(self.ema)
+        try:
+            ev = self.evaluate()
+        finally:
+            self.model.load_state_dict(live)
+        return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
+                "ema_ins": ev.get("ins")}
+
     # ---- loop --------------------------------------------------------------------------------
     def log(self, rec: dict) -> None:
         rec = dict(rec, time=time.time())
@@ -365,7 +379,11 @@ class Trainer:
         acc = {"audio_s": 0.0, "loss": 0.0, "rnnt": 0.0, "ctc": 0.0, "n": 0, "masked": 0}
         t0 = time.time()
         steps_here = 0
+        t_wait = time.time()
         for pos, batch in self.source.iterate(self.pos):
+            acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
+            acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
+            acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
@@ -388,15 +406,18 @@ class Trainer:
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
-                          "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
+                          "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
+                          "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
+                          "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
             if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
                 ev = self.evaluate()
+                ema = self._evaluate_ema()
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
-                          **ev, **self.stats.summary()})
+                          **ev, **ema, **self.stats.summary()})
                 self._watch_wer(ev.get("wer"))
                 t0 = time.time()
             if self.cfg.weights_every and self.step % self.cfg.weights_every == 0:
@@ -418,6 +439,7 @@ class Trainer:
                     self.save()
                 self.saver.wait()
                 return
+            t_wait = time.time()
 
 
 def load_dev(split: str, limit: int, feat) -> list[Example]:
