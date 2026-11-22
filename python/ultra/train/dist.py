@@ -79,6 +79,13 @@ def all_reduce_max(value: float, device) -> float:
     return float(t[0])
 
 
+def all_reduce_max_vec(values: list[float], device) -> list[float]:
+    """Single batched element-wise MAX collective across ranks."""
+    t = torch.tensor(values, dtype=torch.float64, device=device)
+    dist.all_reduce(t, op=dist.ReduceOp.MAX)
+    return t.tolist()
+
+
 def broadcast_value(value: float | None, device) -> float | None:
     t = torch.tensor([float("nan") if value is None else value], dtype=torch.float64, device=device)
     dist.broadcast(t, 0)
@@ -86,29 +93,40 @@ def broadcast_value(value: float | None, device) -> float | None:
     return None if v != v else v
 
 
+def _host_cpu_times() -> tuple[int, int] | None:
+    try:
+        with open("/proc/stat") as fh:
+            parts = list(map(int, fh.readline().split()[1:]))
+        return sum(parts), parts[3] + parts[4]
+    except (OSError, ValueError, IndexError):
+        return None
+
+
 class StepThrottle:
-    """Keeps a GPU's 5-minute mean utilisation near a target by sleeping at step boundaries.
+    """Keeps a GPU's (and optionally host CPU's) 5-minute mean utilisation near a target by
+    sleeping cleanly at step boundaries (never mid-step SIGSTOP).
 
-    A daemon thread samples the rank's own GPU (nvidia-smi) every `period_s` seconds, so the
-    rolling mean covers compute, collectives, data waits and the throttle's own sleeps alike.
-    (The first version sampled once per 50 steps at the step boundary, i.e. just after a busy
-    step: it read ~100% regardless of the sleeps and walked the duty to its floor, halving D2c's
-    throughput over ~1k steps after every restart.) Every `every` steps the duty is nudged
-    towards the target; the sleep is step_compute_s * (1/duty - 1) and the caller takes the
-    max over ranks, so all ranks pause together. A `UTIL_TARGET` file in `live_dir` overrides
-    the target at run time. target <= 0 disables it."""
+    Works identically for single-GPU (`world == 1`) and DDP (`world > 1`) runs. In DDP, pass
+    `cluster_gpu_mean` (the hottest rank's 5-min GPU mean via `all_reduce_max_vec`) so every rank
+    computes the exact same sleep without starving faster peers or letting the hottest GPU exceed
+    the 5-minute ceiling. A `UTIL_TARGET` file in `live_dir` overrides the GPU target at run time.
+    """
 
-    def __init__(self, target: float, gpu_index: int, every: int = 25, period_s: float = 2.0,
-                 window: int = 150, live_dir: str | None = None, floor: float = 0.5):
+    def __init__(self, target: float, gpu_index: int | str, every: int = 25, period_s: float = 2.0,
+                 window: int = 150, live_dir: str | None = None, floor: float = 0.5,
+                 cpu_target: float = 0.0):
         import collections
         import threading
 
-        self.target, self.gpu, self.every, self.floor = target, gpu_index, every, floor
+        self.target, self.gpu, self.every, self.floor = float(target), gpu_index, every, floor
+        self.cpu_target = float(cpu_target)
         self.live = os.path.join(live_dir, "UTIL_TARGET") if live_dir else None
         self.duty, self.step_s, self.slept_s = 1.0, 0.0, 0.0
         self.samples: collections.deque = collections.deque(maxlen=window)
+        self.cpu_samples: collections.deque = collections.deque(maxlen=window)
         self._period = period_s
-        if target > 0:
+        self._cpu_prev = _host_cpu_times()
+        if self.target > 0 or self.cpu_target > 0:
             threading.Thread(target=self._sample_loop, name="gpu-util", daemon=True).start()
 
     def _util(self) -> float | None:
@@ -119,15 +137,34 @@ class StepThrottle:
         except (IndexError, ValueError, OSError, subprocess.SubprocessError):
             return None
 
+    def _sample_cpu(self) -> float | None:
+        cur = _host_cpu_times()
+        if cur is None or self._cpu_prev is None:
+            self._cpu_prev = cur
+            return None
+        dt = max(1, cur[0] - self._cpu_prev[0])
+        di = max(0, cur[1] - self._cpu_prev[1])
+        self._cpu_prev = cur
+        return max(0.0, min(1.0, 1.0 - di / dt))
+
     def _sample_loop(self) -> None:
         while True:
-            u = self._util()
-            if u is not None:
-                self.samples.append(u)
+            if self.target > 0:
+                u = self._util()
+                if u is not None:
+                    self.samples.append(u)
+            if self.cpu_target > 0:
+                c = self._sample_cpu()
+                if c is not None:
+                    self.cpu_samples.append(c)
             time.sleep(self._period)
 
     def util_mean(self) -> float | None:
         s = list(self.samples)
+        return sum(s) / len(s) if s else None
+
+    def cpu_mean(self) -> float | None:
+        s = list(self.cpu_samples)
         return sum(s) / len(s) if s else None
 
     def _live_target(self) -> None:
@@ -138,17 +175,30 @@ class StepThrottle:
             except (OSError, ValueError):
                 pass
 
-    def sleep_for(self, step: int, step_seconds: float) -> float:
-        if self.target <= 0:
+    def sleep_for(self, step: int, step_seconds: float,
+                  cluster_gpu_mean: float | None = None,
+                  cluster_cpu_mean: float | None = None) -> float:
+        if self.target <= 0 and self.cpu_target <= 0:
             return 0.0
         self.step_s = 0.9 * self.step_s + 0.1 * step_seconds if self.step_s else step_seconds
         if step % self.every == 0:
             self._live_target()
-            m = self.util_mean()
-            if m is not None and len(self.samples) >= 15:  # >= 30 s of samples
-                if m > self.target:
+            m_gpu = cluster_gpu_mean if cluster_gpu_mean is not None else self.util_mean()
+            m_cpu = cluster_cpu_mean if cluster_cpu_mean is not None else self.cpu_mean()
+            ready_gpu = self.target > 0 and m_gpu is not None and (
+                cluster_gpu_mean is not None or len(self.samples) >= 15
+            )
+            ready_cpu = self.cpu_target > 0 and m_cpu is not None and (
+                cluster_cpu_mean is not None or len(self.cpu_samples) >= 15
+            )
+            if ready_gpu or ready_cpu:
+                over = (ready_gpu and m_gpu > self.target) or (ready_cpu and m_cpu > self.cpu_target)
+                roomy = (not ready_gpu or m_gpu < self.target - 0.03) and (
+                    not ready_cpu or m_cpu < self.cpu_target - 0.03
+                )
+                if over:
                     self.duty = max(self.floor, self.duty - 0.02)
-                elif m < self.target - 0.03:
+                elif roomy:
                     self.duty = min(1.0, self.duty + 0.02)
         return self.step_s * (1.0 / self.duty - 1.0)
 
@@ -159,8 +209,13 @@ class StepThrottle:
 
     def stats(self) -> dict:
         m = self.util_mean()
-        return {"duty": round(self.duty, 3), "util_5min": round(m, 3) if m is not None else -1.0,
-                "target": self.target, "slept_s": round(self.slept_s, 2)}
+        c = self.cpu_mean()
+        out = {"duty": round(self.duty, 3), "util_5min": round(m, 3) if m is not None else -1.0,
+               "target": self.target, "slept_s": round(self.slept_s, 2)}
+        if self.cpu_target > 0:
+            out["cpu_5min"] = round(c, 3) if c is not None else -1.0
+            out["cpu_target"] = self.cpu_target
+        return out
 
 
 def physical_gpu(index: int) -> str:

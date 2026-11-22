@@ -17,6 +17,7 @@ n=$(awk -F, '{print NF}' <<< "$gpus")
 mkdir -p "$run_dir"
 cd "$repo/python/ultra"
 export CUDA_VISIBLE_DEVICES=$gpus NCCL_IB_DISABLE=1 OMP_NUM_THREADS=4
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True,garbage_collection_threshold:0.85}"
 setsid nohup taskset -c "$cpus" nice -n 10 "$py" -m torch.distributed.run \
   --nnodes "${NNODES:-1}" --node_rank "${NODE_RANK:-0}" --nproc_per_node "$n" \
   --master_addr "${MASTER_ADDR:-127.0.0.1}" --master_port "${MASTER_PORT:-29511}" \

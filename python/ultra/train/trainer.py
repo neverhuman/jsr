@@ -95,8 +95,10 @@ class TrainConfig:
     loader: str = "thread"
     # Row groups sorted together per window before packing (more = less padding per batch).
     window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
-    # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
+    # GPU-util target (5-min rolling mean) for the step-boundary throttle (0 = off; works for both
+    # single-GPU and DDP, using the hottest rank in DDP). cpu_util_target adds a host-CPU ceiling.
     ddp_util_target: float = 0.0
+    cpu_util_target: float = 0.0
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
     ddp_global_batches: bool = False
     ddp_native: bool = False  # overlap gradient communication with backward
@@ -314,7 +316,8 @@ class Trainer:
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
-        if self.world > 1 and self.device.type == "cuda":
+        sync_timing = self.world > 1 and self.device.type == "cuda" and (self.step % self.cfg.log_every == 0)
+        if sync_timing:
             torch.cuda.synchronize(self.device)
         t_bwd = time.time()
         loss.backward()
@@ -322,8 +325,8 @@ class Trainer:
             from train.dist import all_reduce_grads
 
             all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
-        if self.world > 1 and self.device.type == "cuda":
-            torch.cuda.synchronize(self.device)  # backward + gradient collective (overlapped when native)
+        if sync_timing:
+            torch.cuda.synchronize(self.device)  # backward + gradient collective (sampled on log steps)
         self._bwd_s = getattr(self, "_bwd_s", 0.0) + (time.time() - t_bwd)
         gnorm = self.clipper(self.model)  # after the gradient sync (DDP: same norm on every rank)
         if not math.isfinite(gnorm):
@@ -605,13 +608,11 @@ class Trainer:
         steps_here = 0
         t_wait = time.time()
         throttle = None
-        if self.world > 1 and self.cfg.ddp_util_target > 0 and self.device.type == "cuda":
-            from train.dist import StepThrottle
-
-            from train.dist import physical_gpu
+        if (self.cfg.ddp_util_target > 0 or self.cfg.cpu_util_target > 0) and self.device.type == "cuda":
+            from train.dist import StepThrottle, physical_gpu
 
             throttle = StepThrottle(self.cfg.ddp_util_target, physical_gpu(self.device.index or 0),
-                                    live_dir=self.run_dir)
+                                    live_dir=self.run_dir, cpu_target=self.cfg.cpu_util_target)
         self._throttle = throttle
         for pos, batch in self._batches():
             acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
@@ -619,23 +620,36 @@ class Trainer:
             acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
             acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
-            acc["step_s"] = acc.get("step_s", 0.0) + (time.time() - t_step)
+            step_wall = time.time() - t_step
+            acc["step_s"] = acc.get("step_s", 0.0) + step_wall
             if self.world > 1:
-                from train.dist import all_reduce_max
+                from train.dist import all_reduce_max_vec
 
                 hb = self._hb_acc()
-                hb["step_s"] += time.time() - t_step
+                hb["step_s"] += step_wall
                 hb["wait_s"] += t_step - t_wait
                 hb["frames"] += int(batch.feat_lens.sum())
                 hb["padded"] += batch.feats.shape[0] * batch.feats.shape[1]
                 t_c = time.time()
-                nap = all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step), self.device) \
-                    if throttle is not None else 0.0
-                self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
+                g_loc = (throttle.util_mean() if (throttle is not None and len(throttle.samples) >= 15) else -1.0)
+                c_loc = (throttle.cpu_mean() if (throttle is not None and len(throttle.cpu_samples) >= 15) else -1.0)
+                max_step, hot_g, hot_c, stop_f = all_reduce_max_vec(
+                    [step_wall, -1.0 if g_loc is None else g_loc, -1.0 if c_loc is None else c_loc,
+                     float(self.stop_requested)],
+                    self.device,
+                )
+                self.stop_requested = stop_f > 0
                 hb["comm_s"] += time.time() - t_c
-                if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
+                if throttle is not None:  # hottest-rank synchronised step-boundary sleep, never SIGSTOP
+                    nap = throttle.sleep_for(
+                        self.step, max_step,
+                        cluster_gpu_mean=hot_g if hot_g >= 0.0 else None,
+                        cluster_cpu_mean=hot_c if hot_c >= 0.0 else None,
+                    )
                     throttle.pause(nap)
                     hb["sleep_s"] += max(0.0, nap)
+            elif throttle is not None:  # single-GPU 5-min rolling step-boundary throttle
+                throttle.pause(throttle.sleep_for(self.step, step_wall))
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
             steps_here += 1
