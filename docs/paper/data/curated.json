@@ -310,7 +310,7 @@
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "CostEngineIntEight": {
-   "configuration": "D2@5k prepared INT8, ultra-engine, DEV400, executable 031c06e0",
+   "configuration": "D2@5k prepared mixed INT8 with the TILED attention kernel (runtime 6df5c8f), DEV400, executable 031c06e0. That kernel failed INT8 output continuity (367/400 texts vs the earlier 806dd96 INT8) and was later revised to restore the summation order (H6), so this cost is from a kernel that is no longer the deployed one",
    "decimals": 3,
    "label": "exploratory",
    "line": 15,
@@ -323,7 +323,7 @@
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "CostNemo": {
-   "configuration": "Nemotron cold child process incl. load; non-comparable cost scope",
+   "configuration": "Nemotron 0.6B Q8_0, 560 ms chunks: cold child process including model load, DEV400. Different cost scope from the warm in-process rows: never put it in a warm-cost column",
    "decimals": 3,
    "label": "exploratory",
    "line": 43,
@@ -332,8 +332,8 @@
    "section": "Latest frozen dense runtime: 6df5c8f",
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
+   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "CostNemoFiveSixty": {
    "configuration": "see source",
@@ -347,6 +347,19 @@
    "unit": "CPU-s/audio-s",
    "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
    "workload_digest": "unrecorded"
+  },
+  "CostNemoFiveSixtyCold": {
+   "configuration": "Nemotron 0.6B Q8_0, 560 ms chunks: cold child process including model load, DEV400. Different cost scope from the warm in-process rows: never put it in a warm-cost column",
+   "decimals": 3,
+   "label": "exploratory",
+   "line": 43,
+   "quote": "0.47212654",
+   "raw": 0.47212654,
+   "section": "Latest frozen dense runtime: 6df5c8f",
+   "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "CostNemoOneSixty": {
    "configuration": "single stream, child process",
@@ -828,8 +841,21 @@
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
   },
+  "IntEightContinuity": {
+   "configuration": "tiled 6df5c8f INT8 vs earlier 806dd96 INT8 continuity (required 98%): FAILED",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 30,
+   "quote": "**367/400 texts (91.75%)**",
+   "raw": 367,
+   "section": "Latest frozen dense runtime: 6df5c8f",
+   "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
+   "unit": "of 400 texts",
+   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
   "IntEightDenMac": {
-   "configuration": "INT8 S_MR, M3 Ultra dev tool",
+   "configuration": "engine dev-tool scope: INT8 S_MR (checkpoint not named in H8), 6 M3 Ultra workers",
    "decimals": 0,
    "label": "exploratory",
    "line": 18,
@@ -842,7 +868,7 @@
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "IntEightMRDenCCX": {
-   "configuration": "INT8 S_MR, engine dev tool (not the single-harness ladder)",
+   "configuration": "engine dev-tool scope (not bench-suite): INT8 S_MR, x86 Zen 2; H8 does not name the checkpoint (R4T was warm-started from D1MR-40k, the 100 h S_MR run)",
    "decimals": 0,
    "label": "exploratory",
    "line": 18,
@@ -1161,7 +1187,7 @@
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssEngineIntEight": {
-   "configuration": "sampled peak RSS of the 0.041 run",
+   "configuration": "sampled peak RSS of the 0.041 run (tiled kernel, unprepared load path)",
    "decimals": 0,
    "label": "exploratory",
    "line": 15,
@@ -1290,7 +1316,7 @@
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "TernaryDenCCX": {
-   "configuration": "ternary S_MR, engine dev tool",
+   "configuration": "engine dev-tool scope (not bench-suite): ternary R4T (r4t-12000, S_MR_T, 100 h), x86 Zen 2",
    "decimals": 0,
    "label": "exploratory",
    "line": 18,
@@ -1303,7 +1329,7 @@
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "TernaryDenMac": {
-   "configuration": "ternary S_MR, M3 Ultra dev tool",
+   "configuration": "engine dev-tool scope: ternary R4T (r4t-12000), 6 M3 Ultra workers",
    "decimals": 0,
    "label": "exploratory",
    "line": 18,
@@ -1576,7 +1602,20 @@
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "WerNemoDevClean": {
-   "configuration": "Nemotron 0.6B Q8_0 560 ms, DEV400, completed-file; accuracy reference only",
+   "configuration": "Nemotron 0.6B Q8_0, 560 ms chunks, DEV400, completed-file run; accuracy reference only",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 42,
+   "quote": "2.164614%",
+   "raw": 2.164614,
+   "section": "Latest frozen dense runtime: 6df5c8f",
+   "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
+   "unit": "% WER",
+   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "WerNemoFiveSixtyDevClean": {
+   "configuration": "Nemotron 0.6B Q8_0, 560 ms chunks, DEV400, completed-file run; accuracy reference only",
    "decimals": 2,
    "label": "exploratory",
    "line": 42,
@@ -1743,20 +1782,6 @@
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
    "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
-  },
-  "WerRzeroPanel": {
-   "configuration": "R0 Zipformer INT8, bench-suite --panel, same harness as the rehearsal",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": null,
-   "pending": "R0 pooled 730-utterance panel WER: runtime Jobs F1 (dev-clean) + F2 (dev-other) running on xbabe0; Job C gives only the dev-clean half (WerRehearsalRzero)",
-   "quote": "Job F1",
-   "raw": null,
-   "section": "2026-11-22T02:46Z runtime-lane Jobs F1/F2",
-   "source": "agent_paper.md",
-   "unit": "% WER",
-   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
-   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "XisaAgree": {
    "configuration": "token-identical x86 AVX2 vs M3 NEON",

@@ -2,9 +2,9 @@
 
 Most live speech recognition in production still runs on CPUs: call centres, captioning,
 meeting transcription and voice interfaces scale by adding streams, not by shortening one
-utterance. For these workloads the figure of merit is not the real-time factor of a single
-stream but its reciprocal under load: \emph{stream density}, the number of concurrent live
-streams a core sustains while every stream stays within a lateness budget. Density is the number
+utterance. For these workloads the figure of merit is not the speed of a single stream but
+\emph{stream density}: the number of concurrent paced live streams a core sustains while the
+worst worker's p99 lateness stays within a budget and no backlog grows. Density is the number
 that sets the bill, and it is rarely reported. Papers report WER and, sometimes, a
 single-stream real-time factor on an unspecified machine; serving stacks report throughput
 without a lateness bound; and neither is reproducible to the bit.
@@ -26,30 +26,31 @@ the weights, independent of batch composition, kernel tile, and instruction set.
 what lets us change kernels freely (any change must reproduce the continuity fixtures bit for
 bit) and what makes every speed measurement a measurement of the same computation.
 
-\para{Two cost boundaries.} We report cost at two boundaries and never mix them. The
-\emph{cold} boundary (\cref{fig:money}) times the whole recognizer process tree on the DEV panel,
-from launch and model load to the flushed final hypothesis and worker exit, one stream on one
-pinned core; it is the boundary on which any recognizer, including external ones that we can
-only run as a child process, can be compared. The \emph{warm} boundary times a running service
-after load, in process, inside one harness that also measures paced stream density; it is the
-boundary that governs serving cost but admits only systems the harness can host
-(\cref{sec:protocol}).
+\para{Units.} We report three distinct quantities and never convert one into another: CPU cost in
+CPU-seconds per audio-second (\cpus, measured work); its reciprocal, audio-seconds per
+CPU-second, which we call RTFx; and density, a paced pass under the lateness and no-growth rules.
+
+\para{Two cost boundaries.} \emph{Warm} cost times a running service after load, inside the one
+harness that also measures paced density; it governs serving cost and is our headline. \emph{Cold}
+cost times a whole recognizer process tree, model load included, so that external recognizers we
+can run only as child processes can be compared (\cref{sec:protocol}).
 
 \para{Contributions.}
 \begin{enumerate}
-\item \textbf{A density result under one harness.} With four single-threaded workers on one Zen~2
-  core complex and a p99 lateness bound of 800\,ms, the \ultra multirate model sustains
-  \DenMRCCX{} streams (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs) and the dense
-  finalist \DenDenseCCX{} (\DenRatioDense{}$\times$; \DenDenseRangeLo--\DenDenseRangeHi{} across
-  \DenReproRuns{} runs), against \DenRzeroCCX{} for Zipformer int8 (\cref{tab:density,fig:density}).
+\item \textbf{A serving-density result under one harness.} With four single-threaded workers on
+  one Zen~2 core complex and a worst-worker p99 lateness bound of 800\,ms, the \ultra multirate
+  model sustains \DenMRCore{} live streams per core against \DenRzeroCore{} for Zipformer int8
+  (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs), and uses \CostRatioMR{}$\times$ less CPU per
+  audio second at equal load (\cref{fig:money,tab:density}).
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and
   NEON (\cref{sec:engine}). Even in FP32, in one executable on the same weights, the engine uses
   \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX Runtime, with identical transcripts.
 \item \textbf{A multirate streaming encoder} running ten of sixteen blocks at \MidRateHz\,Hz inside
-  160\,ms chunks, which raises density by a further \DenRatioMRvsDense{}$\times$ over the dense
-  model at equal width (\cref{sec:model}).
+  160\,ms chunks, which raised density by a further
+  \DenRatioMRvsDenseLo--\DenRatioMRvsDenseHi{}$\times$ over the dense model at equal width
+  (exploratory; different training runs) (\cref{sec:model}).
 \item \textbf{A pre-registered evaluation protocol} for CPU ASR: a single harness, a fixed density
   ladder that stops at the first failure, counterbalanced timing blocks with Holm correction, a
   speaker-balanced selection panel, and a bootstrap INT8 gate (\cref{sec:protocol}).

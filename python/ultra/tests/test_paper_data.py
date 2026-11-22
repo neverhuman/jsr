@@ -80,7 +80,7 @@ def test_pairing_rule_rehearsal_rows_use_rehearsal_checkpoints():
         assert "frontier_panel.json" in recs[f"WerRehearsal{stem}"]["source"]
     # the ladder's dense row is the avg-3 (45/50/55k) finalist, so its WER must be that checkpoint's
     assert "d2-avg3-45-50-55" in pd.CANDIDATES[1][1]
-    assert "panel-d2-avg3-55k-greedy" in recs["WerRehearsalDense"]["source"]
+    assert "dense_avg3_dev-clean.json" in recs["WerRehearsalDense"]["source"]  # same-harness INT8 (F1)
     assert "d2-45000" in recs["FrontierDense"]["source"]
 
 
@@ -175,11 +175,11 @@ def test_sections_contain_no_bare_result_numbers():
     assert not bad, f"use metrics.tex macros instead of bare numbers: {bad}"
 
 
-FIGURES = ("money", "density", "rehearsal", "curve", "sweep", "leftctx")
+FIGURES = ("money", "frontier_warm", "density", "rehearsal", "curve", "sweep", "leftctx")
 _HARNESS = r"""\documentclass[conference]{IEEEtran}
 \usepackage[T1]{fontenc}\usepackage{lmodern}
 \usepackage[table]{xcolor}\usepackage{tikz}\usepackage{pgfplots}\pgfplotsset{compat=1.17}
-\usetikzlibrary{calc}\usepgfplotslibrary{groupplots}
+\usetikzlibrary{calc,arrows.meta}\usepgfplotslibrary{groupplots}
 \input{data/metrics.tex}
 \newsavebox\fbx
 \newcommand{\measure}[1]{\sbox\fbx{\input{figures/#1.tex}}\typeout{FIGWIDTH #1 \the\wd\fbx}}
@@ -206,4 +206,5 @@ def test_figures_compile_standalone_within_column(tmp_path):
     assert set(widths) == set(FIGURES)
     for name, w in widths.items():
         assert float(w) <= 252.0, f"{name} is {w}pt wide; the IEEE column is 252pt"
-    assert float(widths["money"]) <= 243.0, "Figure 1 must fit 243pt"
+    for fig1 in ("money", "frontier_warm"):
+        assert float(widths[fig1]) <= 243.0, f"Figure 1 candidate {fig1} must fit 243pt"

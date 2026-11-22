@@ -3,23 +3,24 @@
 \para{Exploratory measurements.} Every number in this draft comes from shared hosts outside a
 qualifying window. A same-day A/A replay on such a host varied by up to \AASpread\%; the density
 ladder used 20\,s rungs and a single repeat rather than the frozen three 120\,s repeats with
-300\,s confirmations; and the CPU governor was not controlled. The qualified run on a quiet host
-of the same CPU model may move every ratio, in either direction; the macros in this paper will be
-regenerated from it unchanged.
+300\,s confirmations; and the CPU governor was not controlled. The qualified run may move every ratio
+in either direction.
 
-\para{Accuracy.} \ultra is not competitive with the systems it outruns. Zipformer reaches
-\WerRzeroDevClean\% on dev-clean and Nemotron \WerNemoDevClean\%; our best dense configuration
-reaches \WerDtwoBestClean\%. The density comparison therefore compares systems at different
-operating points. It shows what an integer-exact engine and a multirate encoder buy per core; it
-does not show a better accuracy--cost trade-off than Zipformer at equal accuracy, and we do not
-claim one. Training was unfinished when this draft was written, uses LibriSpeech only, and has
-seen fewer epochs than the Zipformer recipe.
+\para{Threats, and what the qualifying window fixes.} The rehearsal's measurement shortcuts each
+have a scheduled fix: 120\,s rungs with three repeats and three 300\,s confirmations instead of one
+20\,s repeat; a full-machine ladder on 15 CCX; panel audio instead of \LadderUtts{} cycled
+utterances; a sweep of Zipformer's best serving configuration (threads, chunk, batching) rather
+than its defaults; and a ladder for the beam-4 operating point, which is more accurate and more
+expensive than the greedy rows here.
 
-\para{Test sets.} LibriSpeech test-clean and test-other, and the sealed VoxPopuli and AMI sets,
-are unread for this paper; all results are DEV (earlier test reads are disclosed in
-\cref{sec:protocol}).
+\para{Accuracy.} \ultra is less accurate than the systems it outruns (Zipformer \WerRzeroDevClean\%
+and Nemotron \WerNemoDevClean\% on dev-clean; our best dense configuration \WerDtwoBestClean\%), so
+the density comparison is between different operating points and is not a better accuracy--cost
+trade-off at equal accuracy. Training was unfinished, LibriSpeech-only, and short of the
+Zipformer recipe's epochs.
 
-\para{Scope.} Density is measured on one CPU family (Zen~2, AVX2, no VNNI or AVX-512) and one
-ARM part; we make no claim about other microarchitectures. Nemotron has no path in the density
-harness and so has no density row and no implied ceiling. Word-level emission delay against
-forced alignments~\cite{mcauliffe2017mfa} is left to the qualified run.
+\para{Test sets and scope.} All results are DEV; the LibriSpeech test sets and the sealed
+VoxPopuli and AMI sets are unread for this paper (earlier test reads are disclosed in
+\cref{sec:protocol}). Density is measured on one CPU family (Zen~2, AVX2, no VNNI or AVX-512);
+Nemotron has no path in the density harness and so no density row and no implied ceiling.
+

@@ -1,0 +1,39 @@
+{
+  "schema": "ultra.score-report/v1",
+  "normaliser_id": "ultra-en-wer-norm/v1",
+  "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+  "weights": {
+    "dev-other": 1.0
+  },
+  "weights_sha256": "b8098dcb74f8acef3d7a7a9030253e847f6295248e32a9f147a1604d2f3c0afb",
+  "system_a": {
+    "utterances": 330,
+    "datasets": {
+      "dev-other": {
+        "counts": {
+          "ref_words": 5945,
+          "hyp_words": 6002,
+          "matches": 5331,
+          "substitutions": 563,
+          "deletions": 51,
+          "insertions": 108
+        },
+        "wer": 0.12144659377628259,
+        "utterances": 330,
+        "speakers": 33,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      }
+    },
+    "pooled_wer": 0.12144659377628259,
+    "macro_wer": 0.12144659377628259
+  },
+  "system_b": null,
+  "comparison": null
+}

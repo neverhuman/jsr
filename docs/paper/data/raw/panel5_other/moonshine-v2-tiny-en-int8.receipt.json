@@ -1,0 +1,32 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "moonshine_v2_tiny_en_int8",
+  "source_commit": "unknown",
+  "hardware": "xbabe0-zen2-64c",
+  "target": "x86_64",
+  "configured_threads": 1,
+  "observed_threads": 1,
+  "cpu_only_verified": true,
+  "audio_seconds": 2207.395,
+  "process_tree_cpu_seconds": 120.191,
+  "peak_rss_bytes": 1276563456,
+  "events": 330,
+  "wakeups": 330,
+  "cap_hits": 0,
+  "chunk_ms": {
+    "p50": 220.02,
+    "p95": 875.224,
+    "p99": 1388.475
+  },
+  "status_events": [],
+  "gaps": [],
+  "hashes": {
+    "events": "5470d00d8d6317c1685c071b942c73bf16b7ca40722374e6da5144681d02407e",
+    "preview": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commit": "c6d851c72df7545d3f5e0e57dbfb7f2a112647c196fe4e20661a28b93aec0580",
+    "final": "af1dbc6a282d12dc1451a2bfd1e9836c33bc8283dd7134d416376e6075c02551"
+  },
+  "label": "unknown-overlap",
+  "partition": "DEV",
+  "completion_status": "exploratory"
+}
