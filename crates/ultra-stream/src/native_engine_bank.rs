@@ -304,6 +304,7 @@ pub struct EngineSpAConfig {
     pub decode: DecodeMode,
     pub max_batch: usize,
     pub max_chunks: usize,
+    pub beam: usize,
     pub packet_ms: u32,
     pub grid_ms: u32,
     pub lateness_bound_ms: f64,
@@ -321,6 +322,7 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
         format!("weights_sha256:{}", a.weights_sha256),
         format!("checkpoint_sha256:{}", a.checkpoint_sha256),
         format!("max_chunks:{}", b.engine.max_chunks),
+        format!("beam:{}", b.engine.beam),
     ];
     if let Some(prep) = &b.engine.model.int8_prepared {
         evs.push(format!("weights_int8_sha256:{}", prep.sha256));
@@ -330,12 +332,13 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
 
 /// Run the fixed-deadline SP-A loop over [`NativeEngineBackend`] and emit a validated receipt.
 pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, StreamError> {
-    let backend = NativeEngineBackend::load_with_max_chunks(
+    let backend = NativeEngineBackend::load_with_options(
         &cfg.weights_dir,
         cfg.precision,
         cfg.threads,
         true,
         cfg.max_chunks.max(1),
+        cfg.beam.max(1),
     )?;
     let utts = load_selected_audio(
         &cfg.npz_path,

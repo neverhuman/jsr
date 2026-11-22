@@ -95,3 +95,23 @@ Raw outputs:
 - H0: `/mnt/xbabe3-external/jsr/runs/engine/h15-u7bench-*`;
 - xbabe0: `~/jsr-engine-data/runs/x0-3e1882f-232341`, `x0-b1-232831`;
 - Mac: `~/jsr-engine-data/runs/engine/mac-b1-103c983`.
+
+---
+
+## Addendum (runtime-lane, 2026-11-22): B1 Frontend — 0-ULP Sparse Triangular Mel + Precomputed Bit-Reversal + Unfused SIMD FFT
+
+**Status:** `EXPLORATORY` (merged onto `main` @ `4efa7f2` from `lane/runtime-h15-mel @ 809a72c`).
+
+- **Question:** Can we cut portable log-mel frontend CPU cost while keeping **0-ULP bit-identity** across x86_64 AVX2, ARM64 NEON, and scalar reference (preserving G4's 7,300/7,300 cross-ISA identity from H11)?
+- **Implementation:** `crates/ultra-frontend/src/{portable_math,trainer_mel,trainer_mel_avx2}.rs`, `crates/ultra-frontend/tests/sparse_mel_parity.rs`:
+  1. Precomputed sparse triangular mel filterbank (`477` nonzeros vs `20,560` dense = **43× fewer MACs**, ~`5 KiB` L1d-resident vs `82 KiB`, automatic dense fallback on non-finite inputs).
+  2. Precomputed 512-point FFT bit-reversal table.
+  3. Unfused 4-wide AVX2 (`vmulpd`/`vaddpd`/`vsubpd` on `x86_64`) and 2-wide NEON (`vmulq_f64`/`vaddq_f64`/`vsubq_f64` on `aarch64`) FFT butterflies with zero FMA contraction.
+- **Verified results (`cargo test --locked --release -p ultra-frontend --test sparse_mel_parity -- --nocapture`, 10,000 frames = 100 audio-s):**
+
+| Host / ISA | Dense portable (CPU-ms/s) | Sparse + SIMD FFT (CPU-ms/s) | Speedup | ULP diff vs dense |
+|---|---:|---:|---:|---:|
+| H0 AMD Zen 2 (`x86_64` AVX2) | 1.126 | **0.317** | **3.55×** | **0 ULP** |
+| `xbabe4` Apple M3 Ultra (`aarch64` NEON, verified by lead) | 0.546 | **0.193** | **2.83×** | **0 ULP** |
+
+- **Continuity:** `ultra-engine --test output_continuity`, `batch_invariance`, and `prepared_int8` pass unchanged on both x86_64 and ARM64 (0 fixture updates).
