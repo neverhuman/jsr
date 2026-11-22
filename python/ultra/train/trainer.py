@@ -283,11 +283,17 @@ class Trainer:
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
+        if self.world > 1 and self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+        t_bwd = time.time()
         loss.backward()
         if self.world > 1 and self._ddp_loss is None:
             from train.dist import all_reduce_grads
 
             all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
+        if self.world > 1 and self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)  # backward + gradient collective (overlapped when native)
+        self._bwd_s = getattr(self, "_bwd_s", 0.0) + (time.time() - t_bwd)
         gnorm = self.clipper(self.model)  # after the gradient sync (DDP: same norm on every rank)
         if not math.isfinite(gnorm):
             self._pause(batch, out, gnorm, "gradient norm")
@@ -304,6 +310,19 @@ class Trainer:
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
                 **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {})}
+
+    def _ddp_interval_stats(self, acc: dict) -> dict:
+        """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
+        if self.world <= 1:
+            return {}
+        from train.dist import all_gather_floats
+
+        pad = 100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0)))
+        rows = all_gather_floats([float(acc.get("frames", 0)), pad, getattr(self, "_bwd_s", 0.0)],
+                                 self.device)
+        self._bwd_s = 0.0
+        return {"rank_frames": [int(r[0]) for r in rows], "rank_pad_pct": [round(r[1], 2) for r in rows],
+                "rank_bwd_comm_s": [round(r[2], 2) for r in rows]}
 
     def _global_audio(self, seconds: float) -> float:
         """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
@@ -550,7 +569,8 @@ class Trainer:
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
                           "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
-                          "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2)})
+                          "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2),
+                          **self._ddp_interval_stats(acc)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
@@ -729,7 +749,13 @@ def main(argv=None) -> int:
         if all_reduce_max(key, tr.device) != -all_reduce_max(-key, tr.device):
             raise CheckpointError("ranks resumed different checkpoints (step/position differ)")
         broadcast_state(tr.model)  # identical weights (and CMVN) on every rank
-        tr.log({"kind": "ddp", "world": world, "rank0_device": str(tr.device)})
+        from train.dist import all_gather_floats, state_checksum
+
+        sums = [v[0] for v in all_gather_floats([state_checksum(tr.model)], tr.device)]
+        tr.log({"kind": "ddp", "world": world, "rank0_device": str(tr.device),
+                "checksums": sums, "ranks_agree": len(set(sums)) == 1,
+                "native": cfg.ddp_native, "bf16_comm": cfg.ddp_bf16_comm,
+                "global_batches": cfg.ddp_global_batches, "util_target": cfg.ddp_util_target})
     try:
         tr.run(a.max_steps)
     except DivergenceError as e:

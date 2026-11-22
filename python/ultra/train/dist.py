@@ -122,3 +122,20 @@ class StepThrottle:
     def pause(seconds: float) -> None:
         if seconds > 0:
             time.sleep(seconds)
+
+
+def all_gather_floats(values: list[float], device) -> list[list[float]]:
+    """Every rank's list of floats, gathered on every rank (diagnostics)."""
+    t = torch.tensor(values, dtype=torch.float64, device=device)
+    out = [torch.zeros_like(t) for _ in range(dist.get_world_size())]
+    dist.all_gather(out, t)
+    return [o.tolist() for o in out]
+
+
+def state_checksum(module: torch.nn.Module) -> float:
+    """Order-sensitive float64 checksum of all parameters and buffers (rank agreement check)."""
+    total = 0.0
+    for i, t in enumerate(module.state_dict().values()):
+        if t.is_floating_point():
+            total += float(t.double().sum()) * (1.0 + 1e-6 * i)
+    return total
