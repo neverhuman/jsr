@@ -642,6 +642,18 @@ def _teacher(cfg: TrainConfig):
     return store
 
 
+def swap_weights(model, path: str) -> dict:
+    """Load a checkpoint's model weights into a resumed model (optimizer and schedule untouched).
+    Only training-only simple-joiner heads may be absent from the file; they keep their values."""
+    p = checkpoint.load(path, restore_rng=False)
+    missing, unexpected = model.load_state_dict(p["model"], strict=False)
+    allowed = {"simple_am.weight", "simple_am.bias", "simple_lm.weight", "simple_lm.bias"}
+    if unexpected or not set(missing) <= allowed:
+        raise CheckpointError(f"--swap-weights state mismatch: missing={missing} unexpected={unexpected}")
+    with open(path[:-3] + ".sha256") as fh:
+        return {"swap_from": os.path.abspath(path), "sha256": fh.read().strip(), "kept": sorted(missing)}
+
+
 def model_config_for(cfg: TrainConfig) -> ModelConfig:
     """The preset's model config with output heads sized to the configured tokenizers."""
     import dataclasses
@@ -665,6 +677,10 @@ def main(argv=None) -> int:
     ap.add_argument("--init-from", default=None,
                     help="fresh run only: start from this checkpoint's model weights (and CMVN)")
     ap.add_argument("--set", nargs="*", default=[], help="TrainConfig overrides key=value")
+    ap.add_argument("--swap-weights", default=None,
+                    help="resume only: replace the model weights by this checkpoint's (e.g. a weight "
+                         "soup), keeping optimizer state, schedule, position and any training-only "
+                         "heads the file lacks")
     a = ap.parse_args(argv)
     if a.threads:
         torch.set_num_threads(a.threads)
@@ -725,6 +741,8 @@ def main(argv=None) -> int:
     signal.signal(signal.SIGINT, on_signal)
     if tr.resume():
         tr.log({"kind": "resume", "step": tr.step, "pos": tr.pos.to_dict()})
+        if a.swap_weights:
+            tr.log({"kind": "swap_weights", "step": tr.step, **swap_weights(tr.model, a.swap_weights)})
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
         import dataclasses

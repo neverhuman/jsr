@@ -261,3 +261,25 @@ def test_logs_data_wait_pad_pct_and_ema_eval_restores_weights(workdir):
     train = [r for r in recs if r["kind"] == "train"]
     assert train and all(0 <= r["data_wait_pct"] <= 100 and 0 <= r["pad_pct"] < 100 for r in train)
     assert any(r["kind"] == "eval" and "ema_wer" in r for r in recs)
+
+
+def test_swap_weights_keeps_optimizer_and_schedule(workdir):
+    from train.trainer import swap_weights
+
+    t = _trainer(workdir)
+    t.run(max_steps=3)
+    t.save(wait=True)
+    other = _trainer(os.path.join(workdir, "other"))
+    other.run(max_steps=1)
+    checkpoint.save_weights(os.path.join(workdir, "soup"), 1, {"model": other.model.state_dict(),
+                                                             "model_config": other.model_cfg.to_dict()})
+    u = _trainer(workdir)
+    assert u.resume()
+    opt_before = {k: v.clone() for k, v in u.opt.state_dict()["state"][0].items() if torch.is_tensor(v)}
+    sched_before = u.sched.state_dict()
+    info = swap_weights(u.model, os.path.join(workdir, "soup", "model-00000001.pt"))
+    for k, v in u.model.state_dict().items():
+        assert torch.equal(v, other.model.state_dict()[k]), k
+    for k, v in opt_before.items():
+        assert torch.equal(u.opt.state_dict()["state"][0][k], v)
+    assert u.sched.state_dict() == sched_before and u.step == 3 and info["kept"] == []
