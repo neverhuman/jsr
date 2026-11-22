@@ -95,3 +95,7 @@ Raw outputs:
 - H0: `/mnt/xbabe3-external/jsr/runs/engine/h15-u7bench-*`;
 - xbabe0: `~/jsr-engine-data/runs/x0-3e1882f-232341`, `x0-b1-232831`;
 - Mac: `~/jsr-engine-data/runs/engine/mac-b1-103c983`.
+
+## Addendum (Codex, 2026-11-22)
+
+Runtime commit `809a72c`, merged in `4efa7f2`, skips zero coefficients in the triangular mel bank, precomputes the FFT bit-reversal order, and uses unfused SIMD butterflies. Sparse and dense frontend outputs agreed at 0 ULP. The isolated frontend benchmark measured 1.126 to 0.317 CPU-ms per audio second on Zen 2 and 0.546 to 0.193 on Apple M3 Ultra. [Portable log-mel evidence](../H11_cross_isa_portable_logmel/README.md)

@@ -23,7 +23,7 @@ How fast can R1 run on CPU if ONNX Runtime is replaced by a fused, hand-written 
 - **FP32:** 400/400 identical transcripts; worst per-layer error 2.4e-6.
 - **INT8 centred per-row:** WER **+0.000**, batch-invariant (B = 1/3/5/16/32 bit-identical).
 
-**Whole service, same build, D2 @5k (bridge, exploratory):**
+**Historical whole-service table, D2 @5k (bridge, exploratory). See the scope correction below.**
 
 | Path | WER | CPU-s/s | RSS |
 |---|---:|---:|---:|
@@ -51,3 +51,7 @@ How fast can R1 run on CPU if ONNX Runtime is replaced by a fused, hand-written 
 ## Pointers
 - Commits: 2b0b2d7, 9aa3223, d596935, c3e073d, 2a966c0, 114aaa6, 929bdd3, 87a4a51, b9acfb0, cc9d0fb.
 - Reviews: `docs/ultra/reviews/2026-11-21-engine-e1-review.md`.
+
+## Addendum (Codex, 2026-11-22)
+
+The retained executable receipts distinguish two experiments behind the historical table. Run A (`6df5c8f`) measured 0.07822 CPU-s/audio-s for Zipformer INT8, 0.10359 for D2 native FP32 and 0.04134 for D2 prepared mixed INT8, with 646 MB sampled peak RSS for the last arm. Run B (`db5c14a`) measured 0.1747 for ORT FP32 and 0.0947 for fused Rust FP32 in the same executable, with identical final hypotheses on all 400 utterances. The 259 MB reading belongs to a separate prepared-only run. [Retained-run review](../../docs/ultra/reviews/2026-11-21-fused-d2-cpu.md)

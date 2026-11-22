@@ -50,3 +50,7 @@ Identical for all arms:
 - The equal-exposure comparison against D2 is meaningful from mid-run onward, and at the end: averaging the last 3 snapshots, decoded with the frozen beam-4 setting (H12 §5).
 
 **H13b–d: the CPU route was rejected.** A probe on xbabe2 ran all three arms at once with 24 threads each. After 11 minutes no arm had finished 2 steps. Each process used about 1.3 cores, because the serial float64 RNN-T recursion, the k2 CPU kernels and the featurisation dominate, so that is < 1 audio-h/h per run. The arms will run one after another on the first free GPU, probably H0's 3090 when D2 ends at 102k; each takes ~2,000 audio-h, about 3–5 GPU-hours.
+
+## Addendum (Codex, 2026-11-22)
+
+The GPU implementation smoke used dense S with vocabulary size 513 and a BF16 batch of sixteen 10-second inputs. The 0.33 to 0.22 second step change was accompanied by a 4.2 to 3.7 GB reduction in peak memory. The queued equal-exposure experiments carry the accuracy comparison. [Trainer implementation and smoke record](../H12_accuracy_diagnostics/README.md)

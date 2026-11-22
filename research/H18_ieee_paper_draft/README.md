@@ -38,3 +38,7 @@ Can the project's evidence be written up as a two-column IEEE paper without over
 
 ## Pointers
 `docs/paper/` (`paper.tex`, `paper.pdf`, `data/`, `figures/`, `sections/`), `python/ultra/tools/paper_data.py`, H19 for the warm rehearsal data.
+
+## Addendum (Codex, 2026-11-22)
+
+[H20](../H20_matched_cpu_frontier/README.md) records the ten-configuration cold CPU rotation and the first verified measurement. The manuscript's common DEV plot uses the aggregate derived after all three repetitions for each arm.
