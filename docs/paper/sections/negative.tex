@@ -26,8 +26,6 @@ wins, by about \ActSevenGain\%. On this core time per MAC follows the multiply c
 instruction count. A real gain needs fewer multiplies (7-bit weights with paired accumulation) or
 none (lookup), not fewer auxiliary instructions.
 
-\para{Bit-identical non-GEMM cuts are small.} Profiling suggested that work outside the GEMM was a
-large fraction of engine time, and that hoisting rotary tables and fusing residual adds with the
-next normalisation would save a tenth of it. Both changes are bit-identical and kept, but the
-whole-engine gain is \NonGemmGain\%, inside run-to-run noise on a loaded host. The remaining
-non-GEMM time is real attention work, not overhead.
+\para{Bit-identical non-GEMM cuts are small.} Hoisting rotary tables and fusing residual adds
+with the next normalisation are bit-identical and kept, but gain only \NonGemmGain\% end to end,
+inside run-to-run noise: the remaining non-GEMM time is real attention work, not overhead.

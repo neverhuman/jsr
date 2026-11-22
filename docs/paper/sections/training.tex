@@ -13,12 +13,12 @@ band) for future runs. The dense model D2 reported here had reached step \DtwoSt
 
 \para{Divergence and the qkv-norm cap.} Two multirate runs with an int8-trained stem diverged. In
 both, the query--key--value weight norm of a single attention block ran away, from \QkvRunawayFrom{}
-to \QkvRunawayTo{}, together with its pre-attention LayerNorm gain, and WER went to 100\%. The
+to \QkvRunawayTo{}, together with its pre-attention LayerNorm gain, and the model stopped emitting words. The
 block was already the largest in the warm-start checkpoint; AdamW weight decay was far too weak to
 hold it. Dense training from scratch grew all blocks evenly. We added two safeguards that leave
 the inference graph unchanged: (i) from a reference step, every row of each qkv weight and every
 element of its LayerNorm gain is clamped to at most \QkvCapRatio{}$\times$ its reference norm; (ii)
-a divergence guard stops a run when the loss moving average exceeds its best by 30\% for 300 steps,
+a divergence guard stops a run when the loss moving average stays well above its best for 300 steps,
 or dev WER worsens by five points, preserving diagnostics. The relaunched run (D3MRc, which also carries
 the padding fix below and weight EMA) trains stably under the cap and reached \WerDthreeMRc\%
 on the first 400 dev-clean utterances at step 20k, below the \WerDthreeMRbTwentyK\% of its
@@ -43,8 +43,6 @@ against \SweepDtwoBeamFourPooled\% for beam 4 and \SweepDtwoGreedyPooled\% greed
 moving average of weights~\cite{polyak1992ema} in the newer runs. The beam is implemented in the
 engine and passes the INT8 gate (\cref{sec:results}); speed rows in this draft are greedy.
 
-\para{Error anatomy.} Decomposing D2's errors~(\cref{tab:ablate}): substitutions dominate; there is no
-utterance-length trend; final words are substituted, not dropped; and larger chunks help even
-without retraining while untrained full attention hurts dev-clean. The remaining gap to Zipformer
-is spread over interior words, pointing to capacity, exposure (at the time of writing D2 has seen fewer than half
-the epochs of the Zipformer recipe) and data rather than to a streaming boundary defect.
+\para{Error anatomy.} Substitutions dominate D2's errors, with no utterance-length trend and no
+final-word deletions (\cref{tab:ablate}); the gap to Zipformer is spread over interior words,
+pointing to capacity, exposure and data rather than a streaming boundary defect.

@@ -16,13 +16,11 @@ claim one. Training was unfinished when this draft was written, uses LibriSpeech
 seen fewer epochs than the Zipformer recipe.
 
 \para{Test sets.} LibriSpeech test-clean and test-other, and the sealed VoxPopuli and AMI sets,
-are unread for this paper; all results are DEV. LibriSpeech test sets were read several times
-earlier in the project, before the protocol was frozen; we disclose this, and no selection used
-them.
+are unread for this paper; all results are DEV (earlier test reads are disclosed in
+\cref{sec:protocol}).
 
 \para{Scope.} Density is measured on one CPU family (Zen~2, AVX2, no VNNI or AVX-512) and one
 ARM part; we make no claim about other microarchitectures. Nemotron has no path in the density
 harness and so has no density row and no implied ceiling. Beam search improves WER but all speed
-rows are greedy; its cost will be a separate, declared operating point. Latency is reported only
-as lateness under load; word-level emission delay against forced alignments~\cite{mcauliffe2017mfa}
-is part of the qualified run.
+rows are greedy; its cost will be a separate, declared operating point. Word-level emission delay against
+forced alignments~\cite{mcauliffe2017mfa} is left to the qualified run.

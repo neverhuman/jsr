@@ -44,8 +44,8 @@ boundary that governs serving cost but admits only systems the harness can host
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and
-  NEON (\cref{sec:engine}). Even in FP32 the engine uses \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX
-  Runtime on the same weights, with identical transcripts.
+  NEON (\cref{sec:engine}). Even in FP32, in one executable on the same weights, the engine uses
+  \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX Runtime, with identical transcripts.
 \item \textbf{A multirate streaming encoder} running ten of sixteen blocks at \MidRateHz\,Hz inside
   160\,ms chunks, which raises density by a further \DenRatioMRvsDense{}$\times$ over the dense
   model at equal width (\cref{sec:model}).

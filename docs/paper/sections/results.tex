@@ -65,14 +65,14 @@ rows were taken, and the dev curves were still falling.
 730-utterance panel. $\Delta$: INT8 minus FP32 WER (pp); UB: one-sided 95\% bootstrap upper bound
 (gate: $\Delta\le$ \PreregDeltaPP, UB $\le$ \PreregUpperPP). Exploratory.}
 \label{tab:xisa}
-\setlength{\tabcolsep}{3.5pt}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
  & \multicolumn{2}{c}{INT8 identical / 730} & \multicolumn{2}{c}{INT8 gate} \\
 \cmidrule(lr){2-3}\cmidrule(l){4-5}
 Checkpoint & libm & portable & $\Delta$ & UB \\
 \midrule
-dense, early (7.8k) & -- & \XisaPostDoneSeventyEight & \GateDeltaDoneSeventyEight & \GateUpperDoneSeventyEight \\
+dense, early & -- & \XisaPostDoneSeventyEight & \GateDeltaDoneSeventyEight & \GateUpperDoneSeventyEight \\
 dense (45k) & \XisaPreDtwoFortyFive & \XisaPostDtwoFortyFive & \GateDenseDelta & \GateDenseUpper \\
 multirate, 100\,h & \XisaPreDoneMR & \XisaPostDoneMR & \GateDeltaDoneMR & \GateUpperDoneMR \\
 multirate, int8 stem & \XisaPreDthreeMRb & \XisaPostDthreeMRb & \GateDeltaDthreeMRb & \GateUpperDthreeMRb \\
@@ -181,9 +181,8 @@ passes its gate with the worst upper bound at \GateMaxUpper\pp, well inside the 
 \Cref{tab:ablate} sizes the cheap levers. Search error is large: at step \DtwoStep{} beam 4 removes
 \BeamGainClean\pp / \BeamGainOther\pp on full dev-clean / dev-other, and the engine's native beam
 takes the multirate model from \MRBeamPanelGreedyFP\% to \MRBeamPanelBeamInt\% pooled on the panel
-(INT8) while passing the INT8 gate. Future context
-helps only when trained for: 640\,ms chunks gain \ChunkSixteenGainOther\pp on dev-other without
-retraining, but full attention, never seen in training, hurts dev-clean. Halving the left context
+(INT8) while passing the INT8 gate. Untrained 640\,ms
+chunks gain \ChunkSixteenGainOther\pp on dev-other, but untrained full attention hurts dev-clean. Halving the left context
 of the multirate model to 64 frames costs only \LeftSixtyFourDelta\pp, cuts attention time to about
 \LeftSixtyFourAttn{} of its original and halves the key/value state; it is a candidate density knob
 that has not yet been run through the ladder. Thirty-two frames costs \LeftThirtyTwoDelta\pp

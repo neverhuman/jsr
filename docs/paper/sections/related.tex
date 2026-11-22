@@ -3,7 +3,8 @@
 % data/metrics.tex; every literal number below is a published value with its citation in the
 % same table row. Fallbacks: any metric that paper-data has not defined yet prints a red ??.
 \providecommand{\PH}[1]{\textbf{??}}
-\providecommand{\WerDtwoGreedyClean}{\PH{WerDtwoGreedyClean}}
+\providecommand{\WerBridgeIntEight}{\PH{WerBridgeIntEight}}
+\providecommand{\BridgeStep}{\PH{BridgeStep}}
 \providecommand{\WerRzeroDevClean}{\PH{WerRzeroDevClean}}
 \providecommand{\WerNemoDevClean}{\PH{WerNemoDevClean}}
 \providecommand{\CostEngineIntEight}{\PH{CostEngineIntEight}}
@@ -88,14 +89,14 @@ Compare costs within a column, never across. \textbf{Bottom:} published values, 
 Never compare a top row with a bottom row. WER in \%; ``--'' = not measured; params in M.}
 \label{tab:related}
 \footnotesize
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}l r c l l l r r@{}}
 \toprule
 \multicolumn{8}{@{}l}{\textit{Measured by us (same host H0, Zen~2; exploratory, shared host)}}\\
 \midrule
 System & Params & Stream. & dev-clean & test-clean & test-other & \cpus [A] & \cpus [B] \\
 \midrule
-\ultra R1, dense S, engine INT8 (ours) & \ParamsRone & \checkmark{} 160\,ms & \WerDtwoGreedyClean$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostEngineIntEight & -- \\
+\ultra dense S, step 5k, INT8 (ours) & \ParamsRone & \checkmark{} 160\,ms & \WerBridgeIntEight$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostEngineIntEight & -- \\
 Zipformer int8, sherpa-onnx (\Rzero)~\cite{icefall,sherpaonnx} & (below) & \checkmark{} 320\,ms & \WerRzeroDevClean$^{b}$ & \WerPfiveRzeroTestClean$^{c}$ & -- & \CostRzero & \CostPfiveRzero \\
 Nemotron 0.6B Q8\_0, NeMo-Speech.cpp~\cite{nemotron,nemospeechcpp} & (below) & \checkmark{} 160\,ms & \WerNemoDevClean$^{b}$ & \WerNemoTestCleanOneSixty & \WerNemoTestOtherOneSixty & \CostNemo$^{\dagger}$ & -- \\
 Moonshine base int8 (sherpa ``v2'' export)~\cite{sherpaonnx} & -- & offline & \WerPfiveMoonBaseDevClean$^{c}$ & \WerPfiveMoonBaseTestClean$^{c}$ & -- & -- & \CostPfiveMoonBase \\
@@ -123,8 +124,9 @@ Whisper small.en & 244 & offline & \multicolumn{2}{l}{3.1 / 7.4} & \multicolumn{
 
 \vspace{2pt}
 \begin{minipage}{\textwidth}\scriptsize
-$^{a}$Full dev-clean (2{,}703 utt.), greedy, the checkpoint of \cref{tab:acc}; the cost [A] is
-independent of the checkpoint. $^{b}$DEV400 panel. $^{c}$First 100 utterances only (small sample).
+$^{a}$DEV400, greedy, the step-\BridgeStep{} checkpoint timed in cost run [A] (Run~A of
+\cref{sec:results}); WER and cost come from the same checkpoint. Later, more accurate checkpoints are
+in \cref{tab:acc} and have no cost [A] row. $^{b}$DEV400 panel. $^{c}$First 100 utterances only (small sample).
 $^{d}$50 utterances only (small sample). $^{e}$R1 is selected on DEV only; the LibriSpeech test sets
 stay sealed until the qualifying run. Comparator test-set numbers are historical reads, disclosed
 in \cref{sec:protocol}. $^{\dagger}$Different cost scope: a cold child process, including model

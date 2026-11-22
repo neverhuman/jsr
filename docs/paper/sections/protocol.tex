@@ -1,19 +1,16 @@
 \section{Evaluation protocol}\label{sec:protocol}
 
-Speed claims for ASR are easy to make and hard to check. We therefore fixed the protocol, the
-claims and the statistical tests in a frozen document \emph{before} the qualifying run, and we
-report here the exploratory rehearsal of that protocol. This section describes the rules; the
-lesson that produced them comes first.
+We fixed the protocol, claims and tests in a document frozen \emph{before} the qualifying run;
+this draft reports an exploratory rehearsal of it. The lesson that produced the rules comes first.
 
 \para{A retraction.} An earlier version of our density claim compared numbers from three
 different tools: the engine's development harness (four workers per core complex), a Python
 harness for Zipformer (one worker per complex), and a third lateness implementation in the bench
 suite, each with its own grid and lateness rule. An independent reviewer who read the code, not
 our summaries, found that the headline ratio of about \RetractedRatio{}$\times$ compared four workers with one;
-per core it was about \RetractedPerCore{}$\times$, and the three lateness rules disagreed. The reviewer raised seven blocking findings, including density quoted
-without the WER gap and claims that were not pre-registered. We retracted the claim and rewrote
-the protocol. A second pass found that several items we had marked as fixed were not
-implemented; a third pass closed most of the rest. The lesson we draw is procedural: \emph{have
+per core it was about \RetractedPerCore{}$\times$, and the three lateness rules disagreed. Its seven blocking findings included density quoted without the WER gap and
+claims that were not pre-registered. We retracted the claim and rewrote the protocol; a second
+pass found items marked fixed that were not implemented, and a third closed most of the rest. The lesson we draw is procedural: \emph{have
 an outsider read the code behind each claim before the claim is frozen}.
 
 \para{One harness.} Every density, cost and latency row comes from one tool, which runs
@@ -95,8 +92,7 @@ route is refused. In qualifying mode the harness refuses, fail-closed, a wrong w
 wrong grid, a wrong block order, test audio before the freeze tag, an external recognizer on the
 panel route, and an observer sharing L3 with the workers.
 
-\para{Pre-registered claims.} Density is descriptive: measured ladder results per CCX and on the
-full machine, always printed beside each system's WER, and the headline sentence must state the
-WER gap. Cost and quality are tested as above. Every number in this draft is from shared hosts
-(a same-day A/A replay varied by up to \AASpread\%) and is labelled exploratory; the qualified run
-uses a quiet host of the same CPU model with other jobs paused.
+\para{Pre-registered claims.} Density is descriptive and always printed beside each system's WER;
+cost and quality are tested as above. Shared hosts varied by up to \AASpread\% in a same-day A/A
+replay, so every number here is exploratory; the qualified run uses a quiet host of the same CPU
+model with other jobs paused.

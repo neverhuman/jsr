@@ -1,10 +1,9 @@
 \section{An integer-exact CPU engine}\label{sec:engine}
 
-The engine is a pure-Rust implementation of the inference graph: no ONNX Runtime, no BLAS, no
-framework. It loads safetensors weights, owns its kernels (scalar reference, AVX2, NEON), and runs
-one single-threaded worker per physical core, each serving many streams. Its design rule is that
-every optimisation must leave the output \emph{bit-identical}; continuity fixtures (encoder
-projections hashed with SHA-256, and token sequences) are the oracle for every kernel change.
+The engine implements the inference graph in pure Rust, with no ONNX Runtime, BLAS or framework,
+its own kernels (scalar reference, AVX2, NEON), and one single-threaded worker per physical core
+serving many streams. Every optimisation must leave the output \emph{bit-identical}: hashed
+encoder projections and token sequences are the oracle for every kernel change.
 
 \para{Per-row centred INT8.} Weights are quantised per output channel,
 $w_q = \mathrm{round}(w/s_w)$ with $s_w=\max|w|/127$. Activations are quantised per
@@ -62,10 +61,8 @@ unfused vectorised double-precision FFT (four lanes on AVX2, two on NEON) make l
 \MelSpeedupZen{}$\times$ faster on Zen~2 and \MelSpeedupMthree{}$\times$ on M3 while staying 0-ULP
 identical to the portable reference.
 
-\para{Where the time goes.} Profiling the dense model at a single stream on Zen~2, the int8 GEMMs
-take \GemmShare\% of engine time; attention scores and value mixing are the largest remaining
-phase, followed by the stem, depthwise convolution and quantisation. The greedy decoder costs
-about \GreedyDecoderCost{} \cpus, a few percent of a single stream. The engine sustains about \GmacPerCore{} GMAC/s per Zen~2
-core in the GEMM, so at batch it is compute-bound, not bandwidth-bound: batching sixteen streams
-per worker lowers CPU per stream by at most \BatchLift\% relative to one stream. This fact shapes
-both the density result and the negative results of \cref{sec:negative}.
+\para{Where the time goes.} At a single stream on Zen~2 the int8 GEMMs take \GemmShare\% of engine
+time, at about \GmacPerCore{} GMAC/s per core; attention is the largest remaining phase, and the
+greedy decoder costs about \GreedyDecoderCost{} \cpus. At batch the engine is compute-bound:
+sixteen streams per worker lower CPU per stream by at most \BatchLift\%, which shapes both the
+density result and the negative results of \cref{sec:negative}.
