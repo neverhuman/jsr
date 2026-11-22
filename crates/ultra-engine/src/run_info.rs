@@ -123,6 +123,8 @@ pub struct Knobs<'a> {
     pub int8_fp32_kinds: &'a [String],
     pub int8_stem_kinds: &'a [String],
     pub int8_stem_layers_quantised: usize,
+    /// Decoder beam width (1 = greedy).
+    pub beam: usize,
 }
 
 pub fn identity(model: &Model, weights: &std::path::Path, k: &Knobs<'_>) -> Value {
@@ -154,6 +156,7 @@ pub fn identity(model: &Model, weights: &std::path::Path, k: &Knobs<'_>) -> Valu
         "int8_fp32_kinds": k.int8_fp32_kinds,
         "int8_stem_kinds": k.int8_stem_kinds,
         "int8_stem_layers_quantised": k.int8_stem_layers_quantised,
+        "beam": k.beam,
         "qat_int8_stem_kinds": qat_stem,
     })
 }

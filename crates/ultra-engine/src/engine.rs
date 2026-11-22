@@ -35,6 +35,8 @@ pub struct Engine {
     pub act7: bool,
     /// Optional single-stream latency mode: int8 GEMMs split across a thread pool.
     pub pool: Option<Arc<crate::pool::GemmPool>>,
+    /// Beam width: 1 = greedy (default), k > 1 = bounded beam search (`crate::beam`).
+    pub beam: usize,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -174,6 +176,7 @@ impl Engine {
             max_chunks: 1,
             act7: false,
             pool: None,
+            beam: 1,
         })
     }
 
@@ -182,6 +185,14 @@ impl Engine {
     /// bit-identical to the single-thread engine.
     pub fn with_gemm_threads(mut self, threads: usize) -> Self {
         self.pool = (threads > 1).then(|| Arc::new(crate::pool::GemmPool::new(threads)));
+        self
+    }
+
+    /// Decode with a bounded beam of width `k` (1..=16; 1 = greedy, the default). Streams
+    /// created afterwards carry the beam state; a stream created before gets it at its first
+    /// step.
+    pub fn with_beam(mut self, k: usize) -> Self {
+        self.beam = k.clamp(1, 16);
         self
     }
 
@@ -321,15 +332,38 @@ impl Engine {
             tap,
         )
         .and_then(|_| {
-            greedy_chunk(
-                m,
-                self.isa,
-                self.precision,
-                &mut decs,
-                &ns,
-                &ws.enc_out,
-                &mut ws.dec,
-            )
+            if self.beam > 1 {
+                let mut bs: Vec<&mut crate::beam::BeamState> = decs
+                    .iter_mut()
+                    .map(|d| d.beam.get_or_insert_with(|| crate::beam::BeamState::new(m)))
+                    .collect();
+                crate::beam::beam_chunk(
+                    m,
+                    self.isa,
+                    self.precision,
+                    self.beam,
+                    &mut bs,
+                    &ns,
+                    &ws.enc_out,
+                    &mut ws.dec,
+                )?;
+                for d in decs.iter_mut() {
+                    if let Some(b) = &d.beam {
+                        d.tokens = b.best().to_vec();
+                    }
+                }
+                Ok(())
+            } else {
+                greedy_chunk(
+                    m,
+                    self.isa,
+                    self.precision,
+                    &mut decs,
+                    &ns,
+                    &ws.enc_out,
+                    &mut ws.dec,
+                )
+            }
         });
         drop(jobs);
         drop(decs);
