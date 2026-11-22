@@ -8,6 +8,7 @@
     "Cargo.toml": "tools",
     "Cargo.lock": "tools",
     "README.md": "workspace",
+    "CONTRIBUTING.md": "workspace",
     "README-jankurai-scaffold.md": "workspace",
     ".gitignore": "tools",
     ".pre-commit-config.yaml": "ops",
