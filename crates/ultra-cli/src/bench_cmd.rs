@@ -80,13 +80,52 @@ pub fn compare_score_files(
 }
 
 pub(crate) fn partition_for_split(split: &str) -> Partition {
-    if split.starts_with("test") {
+    let lower = split.to_ascii_lowercase();
+    if lower.starts_with("test") {
         Partition::PublicTest
-    } else if split.starts_with("train") {
+    } else if lower.contains("voxpopuli")
+        || lower.contains("ami")
+        || lower.contains("ood")
+        || lower.contains("sealed")
+    {
+        Partition::DomainSealed
+    } else if lower.starts_with("train") {
         Partition::Train
     } else {
         Partition::Dev
     }
+}
+
+/// Bind the workload partition to BOTH `--split` and the actual `--npz` basename (`S6`).
+/// Refuses masquerading a sealed `test-*` / OOD cache under a `dev-*` or `train-*` split alias.
+pub(crate) fn partition_for_split_and_npz(
+    split: &str,
+    npz_path: &Path,
+) -> Result<Partition, CliError> {
+    let sp = partition_for_split(split);
+    let stem = npz_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let npz_part = if stem.starts_with("test") {
+        Partition::PublicTest
+    } else if stem.contains("voxpopuli")
+        || stem.contains("ami")
+        || stem.contains("ood")
+        || stem.contains("sealed")
+    {
+        Partition::DomainSealed
+    } else {
+        sp
+    };
+    if sp != npz_part {
+        return Err(CliError::Config(format!(
+            "split/cache partition mismatch: --split `{split}` ({sp:?}) cannot open sealed cache `{}` ({npz_part:?}) (FREEZE.md §4.2 / S6)",
+            npz_path.display()
+        )));
+    }
+    Ok(npz_part)
 }
 
 pub(crate) fn parse_next<T: FromStr>(
@@ -208,13 +247,20 @@ pub(crate) fn cmd_bench(args: &[String]) -> Result<(), CliError> {
         i += 1;
     }
 
-    let _lease = match &lease_path {
-        Some(lp) => Some(BenchLease::acquire(lp)?),
-        None => None,
-    };
     let npz_path = match npz_override {
         Some(p) => p,
         None => default_npz_for_split(&split),
+    };
+    let partition = partition_for_split_and_npz(&split, &npz_path)?;
+    if matches!(partition, Partition::PublicTest | Partition::DomainSealed) {
+        return Err(CliError::Config(format!(
+            "legacy `ultra bench` / `sp-a` refuses sealed split/cache `{split}` (`{}`) without S6 guard; use `ultra bench-suite --sealed-read <look-id>` after `bench-freeze-v1`",
+            npz_path.display()
+        )));
+    }
+    let _lease = match &lease_path {
+        Some(lp) => Some(BenchLease::acquire(lp)?),
+        None => None,
     };
     if !npz_path.exists() {
         return Err(CliError::Unavailable(format!(
@@ -222,7 +268,6 @@ pub(crate) fn cmd_bench(args: &[String]) -> Result<(), CliError> {
             npz_path.display()
         )));
     }
-    let partition = partition_for_split(&split);
     let commit = git_short_commit();
 
     if let Some(r1_res) = resolve_r1_bundle(&candidate, precision.as_deref()) {

@@ -205,6 +205,7 @@ pub struct EncWorkspace {
     y: Vec<f32>,
     win: Vec<f32>,
     rope: Vec<f32>,
+    rope_mid: Vec<f32>,
     scores: Vec<f32>,
     skip: Vec<f32>,
     pair_in: Vec<f32>,
@@ -240,7 +241,12 @@ pub fn linear(
         // larger batches reuse each int8 weight panel across rows. Both are exact.
         // A layer trained as an int8 GEMM (`qat_i8`) runs int8 in every precision.
         Some(p) if prec == Precision::Int8 || lin.qat_i8 => match &lin.t {
-            Some(t) if rows <= TLUT2_MAX_ROWS => quant::linear_t(isa, p, t, x, rows, out, q),
+            // T-LUT2 quantises activations to 8 bits; with act7 the int8 tile uses 7, so
+            // routing by row count would change the arithmetic at the 8-row cap (a stream's
+            // output would depend on its batch). act7 therefore always takes the int8 tile.
+            Some(t) if rows <= TLUT2_MAX_ROWS && !q.act7 => {
+                quant::linear_t(isa, p, t, x, rows, out, q)
+            }
             _ => quant::linear_i8(isa, p, x, rows, out, q),
         },
         _ => {
@@ -295,21 +301,44 @@ pub fn encode_chunk(
         layer += 1;
     };
     emit(&mut tap, &ws.x[..rows * d], d);
+    // RoPE tables, once per step and rate group (taken out of `ws` for the block loops).
+    let pair_restore = match (a.mid > 0, &m.pair, &m.restore) {
+        (false, _, _) => None,
+        (true, Some(p), Some(r)) => Some((p, r)),
+        (true, _, _) => {
+            return Err(EngineError::Unsupported(
+                "multirate model without pair/restore".into(),
+            ))
+        }
+    };
+    let mut rope25 = std::mem::take(&mut ws.rope);
+    let spans: Vec<(usize, usize)> = jobs.iter().map(|j| (j.state.t, j.n)).collect();
+    block::rope_table(m, &spans, &mut rope25);
+    let mut rope_mid = std::mem::take(&mut ws.rope_mid);
+    if a.mid > 0 {
+        let spans: Vec<(usize, usize)> = jobs
+            .iter()
+            .map(|j| (j.state.t / 2, j.n.div_ceil(2)))
+            .collect();
+        block::rope_table(m, &spans, &mut rope_mid);
+    }
     // 25 Hz lower blocks (every block of a dense model).
     for li in 0..a.lower {
         let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
-        block::block(m, isa, prec, &m.blocks[li], li, &mut views, ws, rows);
+        block::block(
+            m,
+            isa,
+            prec,
+            &m.blocks[li],
+            li,
+            &mut views,
+            ws,
+            rows,
+            &rope25,
+        );
         emit(&mut tap, &ws.x[..rows * d], d);
     }
-    if a.mid > 0 {
-        let (pair, restore) = match (&m.pair, &m.restore) {
-            (Some(p), Some(r)) => (p, r),
-            _ => {
-                return Err(EngineError::Unsupported(
-                    "multirate model without pair/restore".into(),
-                ))
-            }
-        };
+    if let Some((pair, restore)) = pair_restore {
         let skip = grow(&mut ws.skip, rows * d);
         skip.copy_from_slice(&ws.x[..rows * d]);
         // Pair positions (2i, 2i+1); an odd final row pairs with zeros (as in training).
@@ -343,6 +372,7 @@ pub fn encode_chunk(
                 &mut views,
                 ws,
                 mrows,
+                &rope_mid,
             );
             emit(&mut tap, &ws.x[..mrows * d], d);
         }
@@ -368,10 +398,12 @@ pub fn encode_chunk(
         for li in 0..a.fin {
             let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
             let b = &m.blocks[a.lower + a.mid + li];
-            block::block(m, isa, prec, b, a.lower + li, &mut views, ws, rows);
+            block::block(m, isa, prec, b, a.lower + li, &mut views, ws, rows, &rope25);
             emit(&mut tap, &ws.x[..rows * d], d);
         }
     }
+    ws.rope = rope25;
+    ws.rope_mid = rope_mid;
     let x = &mut ws.x[..rows * d];
     if let Some(fnorm) = &m.final_norm {
         let ln = grow(&mut ws.ln, rows * d);

@@ -11,3 +11,4 @@ __pycache__/
 /.claude/worktrees
 /AGENT_CHAT.md
 /AGENT_CHAT.lock
+/agent_paper.md

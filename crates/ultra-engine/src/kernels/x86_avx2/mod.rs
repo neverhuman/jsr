@@ -298,6 +298,8 @@ fn layer_norm_avx2(x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
 
 mod attention;
 mod int8;
+mod int8_u7;
 
 pub(crate) use attention::{attention_scores, attention_values};
 pub(crate) use int8::{gemm_i8, gemm_i8_panels, quantize_row};
+pub(crate) use int8_u7::gemm_i8_u7;

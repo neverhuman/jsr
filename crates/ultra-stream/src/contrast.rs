@@ -92,7 +92,18 @@ pub(crate) fn read_loadavg() -> [f64; 3] {
 }
 
 pub(crate) fn current_affinity() -> Vec<usize> {
-    let Ok(status) = std::fs::read_to_string("/proc/self/status") else {
+    if let Ok(set) = nix::sched::sched_getaffinity(nix::unistd::Pid::from_raw(0)) {
+        let mut out = Vec::new();
+        for cpu in 0..nix::sched::CpuSet::count() {
+            if set.is_set(cpu).unwrap_or(false) {
+                out.push(cpu);
+            }
+        }
+        return out;
+    }
+    let Ok(status) = std::fs::read_to_string("/proc/thread-self/status")
+        .or_else(|_| std::fs::read_to_string("/proc/self/status"))
+    else {
         return Vec::new();
     };
     let Some(line) = status

@@ -110,6 +110,67 @@ pub fn build_portable_fft_twiddles<const N: usize>() -> ([f64; N], [f64; N]) {
     (tw_re, tw_im)
 }
 
+/// Precompute deterministic radix-2 bit-reversal swap pairs `(i, j)` with `i < j` for `N`.
+pub fn build_portable_fft_bitrev<const N: usize>() -> Vec<(u16, u16)> {
+    let mut pairs = Vec::with_capacity(N / 2);
+    let mut j = 0usize;
+    for i in 1..N {
+        let mut bit = N >> 1;
+        while j & bit != 0 {
+            j ^= bit;
+            bit >>= 1;
+        }
+        j ^= bit;
+        if i < j {
+            pairs.push((i as u16, j as u16));
+        }
+    }
+    pairs
+}
+
+/// Deterministic in-place radix-2 FFT using precomputed portable twiddles and bit-reversal table
+/// (unfused IEEE-754 `f64`, 0-ULP identical to [`fft_in_place_portable`]).
+pub fn fft_in_place_portable_with_bitrev<const N: usize>(
+    re: &mut [f64; N],
+    im: &mut [f64; N],
+    tw_re: &[f64; N],
+    tw_im: &[f64; N],
+    bitrev: &[(u16, u16)],
+) {
+    for &(i, j) in bitrev {
+        let (iu, ju) = (i as usize, j as usize);
+        re.swap(iu, ju);
+        im.swap(iu, ju);
+    }
+    let mut len = 2usize;
+    while len <= N {
+        let half = len / 2;
+        let tw_r = &tw_re[half..half + half];
+        let tw_i = &tw_im[half..half + half];
+        let mut start = 0usize;
+        while start < N {
+            for k in 0..half {
+                let w_re = tw_r[k];
+                let w_im = tw_i[k];
+                let a = start + k;
+                let b = a + half;
+                let u_re = re[a];
+                let u_im = im[a];
+                let b_re = re[b];
+                let b_im = im[b];
+                let v_re = b_re * w_re - b_im * w_im;
+                let v_im = b_re * w_im + b_im * w_re;
+                re[a] = u_re + v_re;
+                im[a] = u_im + v_im;
+                re[b] = u_re - v_re;
+                im[b] = u_im - v_im;
+            }
+            start += len;
+        }
+        len <<= 1;
+    }
+}
+
 /// Deterministic in-place radix-2 FFT using precomputed portable twiddles (unfused IEEE-754 `f64`).
 pub fn fft_in_place_portable<const N: usize>(
     re: &mut [f64; N],
@@ -117,9 +178,19 @@ pub fn fft_in_place_portable<const N: usize>(
     tw_re: &[f64; N],
     tw_im: &[f64; N],
 ) {
+    let bitrev = build_portable_fft_bitrev::<N>();
+    fft_in_place_portable_with_bitrev(re, im, tw_re, tw_im, &bitrev);
+}
+
+/// Legacy `libm`-twiddle 512-point radix-2 FFT retained for `portable_math = false` control.
+pub(crate) fn fft_in_place_512_libm_f64(
+    re: &mut [f64; crate::mel::FFT_SIZE],
+    im: &mut [f64; crate::mel::FFT_SIZE],
+) {
+    let n = crate::mel::FFT_SIZE;
     let mut j = 0usize;
-    for i in 1..N {
-        let mut bit = N >> 1;
+    for i in 1..n {
+        let mut bit = n >> 1;
         while j & bit != 0 {
             j ^= bit;
             bit >>= 1;
@@ -131,13 +202,14 @@ pub fn fft_in_place_portable<const N: usize>(
         }
     }
     let mut len = 2usize;
-    while len <= N {
+    while len <= n {
         let half = len / 2;
+        let ang = -2.0 * std::f64::consts::PI / (len as f64);
+        let (wlen_re, wlen_im) = (ang.cos(), ang.sin());
         let mut start = 0usize;
-        while start < N {
+        while start < n {
+            let (mut w_re, mut w_im) = (1.0f64, 0.0f64);
             for k in 0..half {
-                let w_re = tw_re[half + k];
-                let w_im = tw_im[half + k];
                 let u_re = re[start + k];
                 let u_im = im[start + k];
                 let v_re = re[start + k + half] * w_re - im[start + k + half] * w_im;
@@ -146,6 +218,9 @@ pub fn fft_in_place_portable<const N: usize>(
                 im[start + k] = u_im + v_im;
                 re[start + k + half] = u_re - v_re;
                 im[start + k + half] = u_im - v_im;
+                let next_w_re = w_re * wlen_re - w_im * wlen_im;
+                w_im = w_re * wlen_im + w_im * wlen_re;
+                w_re = next_w_re;
             }
             start += len;
         }

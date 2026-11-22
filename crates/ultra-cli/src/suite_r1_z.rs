@@ -51,7 +51,7 @@ pub(crate) fn run_r1_candidate(
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         source_commit: ctx.commit.into(),
-        hardware_id: "H0".into(),
+        hardware_id: ctx.hardware_id.into(),
         completion_status: ctx.status_tag.into(),
     };
     let single = run_sp_a_ort_r1(&mk_cfg(1, DecodeMode::Single, false, None))?;
@@ -215,7 +215,7 @@ pub(crate) fn run_zipformer_candidate(
         paced,
         zipformer: zcfg.clone(),
         source_commit: ctx.commit.into(),
-        hardware_id: "H0".into(),
+        hardware_id: ctx.hardware_id.into(),
     };
     let single = run_sp_a_zipformer(&mk_z(1, DecodeMode::Single, false, None))?;
     let mut batch = run_sp_a_zipformer(&mk_z(ctx.batch_streams, DecodeMode::Batch, false, None))?;

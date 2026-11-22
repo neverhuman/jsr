@@ -1,7 +1,7 @@
 //! Fail-closed worker L3-domain and SMT-sibling verification (`FREEZE.md §3` / `S4`) and
 //! periodic fleet sustained-run series records (`S5`).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -12,6 +12,10 @@ use ultra_eval::procfs::TreeSampler;
 use crate::api::StreamError;
 use crate::contrast::current_affinity;
 use crate::ort_r1_ws::thread_cpu_ns;
+
+/// Minimum interval between `/proc/<pid>/smaps_rollup` PSS reads (`N11`: avoids taking the service
+/// process's `mmap_lock` at 40 Hz during 1 h sustained runs; RSS/threads still sampled every 25 ms).
+pub const PSS_SAMPLE_INTERVAL: Duration = Duration::from_secs(2);
 
 /// Periodic 10-second resource & backlog sample recorded during sustained fleet runs (`FREEZE §4.5`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,8 +39,9 @@ pub(crate) struct ObserverRunSummary {
     pub series: Vec<FleetSeriesPoint>,
 }
 
-/// Shared observer thread body pinned to `obs_pin` (disjoint CCX) that samples `/proc` RSS/PSS/
-/// threads every 25 ms and emits 10-second sustained-run series points with current RSS/PSS and
+/// Shared observer thread body pinned to `obs_pin` (disjoint CCX) that samples `/proc` RSS/
+/// threads every 25 ms, throttles `/proc/<pid>/smaps_rollup` PSS reads to `PSS_SAMPLE_INTERVAL`
+/// (`>= 2 s`, `N11`), and emits 10-second sustained-run series points with current RSS/PSS and
 /// real max worker backlog (`S5`).
 pub(crate) fn run_fleet_observer(
     pid: i32,
@@ -50,17 +55,26 @@ pub(crate) fn run_fleet_observer(
     let mut next_series_s = 10.0f64;
     let mut series = Vec::new();
     let mut sampler = TreeSampler::new(pid);
-    sampler.sample();
+    let init = sampler.sample_with_pss(true);
+    let mut last_pss_bytes = init.pss_bytes;
+    let mut last_pss_at = obs_t0;
     while !stop.load(Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(25));
-        let cur = sampler.sample();
         let el = obs_t0.elapsed().as_secs_f64();
-        if el >= next_series_s {
+        let emit_series = el >= next_series_s;
+        let want_pss = last_pss_at.elapsed() >= PSS_SAMPLE_INTERVAL
+            || (emit_series && last_pss_at.elapsed() >= Duration::from_secs(1));
+        let cur = sampler.sample_with_pss(want_pss);
+        if want_pss {
+            last_pss_bytes = cur.pss_bytes;
+            last_pss_at = Instant::now();
+        }
+        if emit_series {
             let backlog_us = max_backlog_us.swap(0, Ordering::Relaxed);
             series.push(FleetSeriesPoint {
                 elapsed_s: (el * 1000.0).round() / 1000.0,
                 rss_bytes: cur.rss_bytes,
-                pss_bytes: cur.pss_bytes,
+                pss_bytes: last_pss_bytes,
                 threads: cur.threads,
                 max_worker_backlog_ms: Some(((backlog_us as f64) / 1000.0 * 100.0).round() / 100.0),
             });
@@ -69,7 +83,7 @@ pub(crate) fn run_fleet_observer(
             }
         }
     }
-    sampler.sample();
+    sampler.sample_with_pss(true);
     let observer_cpu_s = (thread_cpu_ns(true).saturating_sub(t0_ns)) as f64 * 1e-9;
     let sum = sampler.summary();
     Ok(ObserverRunSummary {
@@ -81,9 +95,11 @@ pub(crate) fn run_fleet_observer(
     })
 }
 
-/// Assign **exactly 1 physical core per worker** (`FREEZE.md §3` / `B1` / `S4`) and verify L3/SMT
-/// topology fail-closed (even when `observer_cpus` is `None`). Refuses `phys_aff.len() < workers`
-/// (no silent unpinned fallback) and, when `require_exact_count` is true, refuses excess CPUs.
+/// Assign **exactly 1 physical core per worker** (`FREEZE.md §3` / `B1` / `S4` / `N9`) and verify
+/// L3/SMT/CCX topology fail-closed (even when `observer_cpus` is `None`). Refuses
+/// `phys_aff.len() < workers` (no silent unpinned fallback) and, when `require_exact_count` is
+/// true, refuses excess CPUs. For per-CCX runs (`2..=4` workers), enforces single shared L3 (`N9`);
+/// for full-machine (`60` workers), enforces 4 workers per L3 domain across 15 domains (`N9`).
 pub fn assign_worker_cpus(
     workers: usize,
     avail_affinity: &[usize],
@@ -112,7 +128,58 @@ pub fn assign_worker_cpus(
         .map(|c| vec![c])
         .collect();
     verify_worker_l3_and_smt(&worker_cpus, observer_cpus, true)?;
+    if workers == 60 {
+        verify_worker_ccx_packing(&worker_cpus, true)?;
+    } else if workers > 1 && workers <= 4 {
+        verify_worker_ccx_packing(&worker_cpus, false)?;
+    }
     Ok(worker_cpus)
+}
+
+/// Enforce CCX / L3 domain packing (`FREEZE.md §3` / pass-3 review `N9`):
+/// - When `full_machine == false` (per-CCX run): all workers MUST share ONE identical L3 cache
+///   domain (`cache/index3/shared_cpu_list`), refusing cross-CCX spreads such as `0,4,8,12`.
+/// - When `full_machine == true` (15-CCX full-machine run): requires 60 workers packed as
+///   exactly 4 workers per L3 domain across 15 distinct L3 domains.
+pub fn verify_worker_ccx_packing(
+    worker_cpus: &[Vec<usize>],
+    full_machine: bool,
+) -> Result<(), StreamError> {
+    if worker_cpus.is_empty() {
+        return Ok(());
+    }
+    let mut l3_counts: BTreeMap<BTreeSet<usize>, usize> = BTreeMap::new();
+    for (w, cpus) in worker_cpus.iter().enumerate() {
+        let Some(&first) = cpus.first() else {
+            return Err(StreamError::Protocol(format!(
+                "worker {w} has no assigned CPU for L3 CCX verification (N9)"
+            )));
+        };
+        let l3_path = format!("/sys/devices/system/cpu/cpu{first}/cache/index3/shared_cpu_list");
+        let l3 = read_cpu_set(&l3_path)?;
+        *l3_counts.entry(l3).or_insert(0) += 1;
+    }
+    if full_machine {
+        if worker_cpus.len() != 60
+            || l3_counts.len() != 15
+            || !l3_counts.values().all(|&cnt| cnt == 4)
+        {
+            let dist: Vec<usize> = l3_counts.values().copied().collect();
+            return Err(StreamError::Protocol(format!(
+                "--full-machine placement requires 60 workers packed as 4 workers per L3 domain across 15 domains (got {} workers across {} L3 domains with counts {dist:?}; FREEZE.md §3 / N9)",
+                worker_cpus.len(),
+                l3_counts.len()
+            )));
+        }
+    } else if worker_cpus.len() > 1 && l3_counts.len() != 1 {
+        let dist: Vec<usize> = l3_counts.values().copied().collect();
+        return Err(StreamError::Protocol(format!(
+            "per-CCX placement requires all {} workers to share ONE L3 cache domain, but assigned CPUs {worker_cpus:?} span {} L3 domains (counts {dist:?}; FREEZE.md §3 / N9)",
+            worker_cpus.len(),
+            l3_counts.len()
+        )));
+    }
+    Ok(())
 }
 
 /// Pin the current OS thread to `cpus` and verify via `sched_getaffinity` readback that the

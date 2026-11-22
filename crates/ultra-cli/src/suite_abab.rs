@@ -1,9 +1,9 @@
-//! Pre-registered §4.3 ABAB single-stream whole-service timing-block runner (`FREEZE.md §4.3`).
+//! Pre-registered §4.3 / §5 ABAB single-stream whole-service timing-block runner (`FREEZE.md §4.3`, `§5`, `N10`).
 //!
-//! Runs `blocks` (default 5 in qualifying window) alternating single-stream warm blocks across
-//! in-process candidates (`R0`, `ORT-R1`, `engine-R1`), reports per-candidate median/min/max
-//! `rtf_cpu`, and computes paired block differences (`cand - baseline`) with min/max and a
-//! deterministic 10,000-resample paired bootstrap CI over blocks.
+//! Runs `blocks` (`>= 8` required in `--qualified`) alternating single-stream warm blocks across
+//! in-process candidates (`R0`, `ORT-R1`, `engine-R1`), requires an explicit or resolved `R0`
+//! baseline (never arbitrary `candidates[0]`), and delegates paired log-ratio t-test + Holm
+//! statistics to [`crate::suite_stats`].
 
 use serde::{Deserialize, Serialize};
 use ultra_core::receipt::HonestyLabel;
@@ -15,10 +15,15 @@ use ultra_stream::{
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
 use crate::suite_engine::resolve_r1_weights_dir;
 use crate::suite_manifest::write_json_create_new;
+use crate::suite_pins::{CandidateKind, ResolvedCandidate};
 use crate::suite_runners::SuiteCtx;
+pub use crate::suite_stats::{
+    apply_holm_correction, paired_block_comparison, student_t_cdf, student_t_critical_975,
+    summarize_values, AbabPairedComparison,
+};
 use crate::CliError;
 
-pub const ABAB_TIMING_SCHEMA: &str = "ultra.abab-timing/v1";
+pub const ABAB_TIMING_SCHEMA: &str = "ultra.abab-timing/v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AbabBlockObservation {
@@ -41,112 +46,162 @@ pub struct AbabCandidateSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AbabPairedComparison {
-    pub baseline: String,
-    pub candidate: String,
-    pub median_diff_rtf_cpu: f64,
-    pub min_diff_rtf_cpu: f64,
-    pub max_diff_rtf_cpu: f64,
-    pub median_ratio_cand_over_base: f64,
-    pub bootstrap_ci95_diff: [f64; 2],
-    pub bootstrap_replicates: usize,
-    pub seed: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AbabTimingReport {
     pub schema: String,
     pub split: String,
     pub completion_status: String,
     pub blocks_count: usize,
+    pub baseline_candidate: String,
     pub grid_ms: u32,
     pub max_chunks: usize,
     pub candidates: Vec<AbabCandidateSummary>,
-    pub paired_vs_first: Vec<AbabPairedComparison>,
+    pub paired_vs_baseline: Vec<AbabPairedComparison>,
 }
 
-fn median_sorted(sorted: &[f64]) -> f64 {
-    let n = sorted.len();
-    if n == 0 {
-        return 0.0;
-    }
-    if n % 2 == 1 {
-        sorted[n / 2]
-    } else {
-        0.5 * (sorted[n / 2 - 1] + sorted[n / 2])
-    }
+pub fn is_r0_baseline_candidate(cand: &str) -> bool {
+    let lower = cand.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "r0" | "r0-zipformer-int8"
+            | "zipformer-int8"
+            | "zipformer_en_int8_320"
+            | "sherpa-onnx-streaming-zipformer-en"
+            | "sherpa-onnx-streaming-zipformer-en-int8"
+    ) || (lower.contains("zipformer") && !lower.contains("fp32"))
 }
 
-pub fn summarize_values(vals: &[f64]) -> (f64, f64, f64) {
-    if vals.is_empty() {
-        return (0.0, 0.0, 0.0);
+/// Validate the pre-registered `FREEZE.md §5` (`04d09f0`, `N10`) `--qualified` C-cost matrix:
+/// exact 8 counterbalanced 3-arm blocks in order `R0 → R1-dense → R1-MR` (reverse on odd blocks),
+/// producing `n = 8` pairs (`df = 7`) for the 2 Holm-adjusted contrasts against R0.
+pub fn validate_qualified_ccost_arms(
+    candidates: &[&str],
+    blocks: usize,
+    explicit_baseline: Option<&str>,
+) -> Result<usize, CliError> {
+    if blocks != 8 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires exactly 8 counterbalanced blocks per FREEZE.md §5 (got {blocks}; N10)"
+        )));
     }
-    let mut s = vals.to_vec();
-    s.sort_by(f64::total_cmp);
-    (median_sorted(&s), s[0], s[s.len() - 1])
-}
-
-/// Deterministic splitmix64-seeded paired bootstrap CI over block differences (`cand - base`).
-pub fn paired_block_comparison(
-    baseline_name: &str,
-    cand_name: &str,
-    base_rtfs: &[f64],
-    cand_rtfs: &[f64],
-    replicates: usize,
-    seed: u64,
-) -> AbabPairedComparison {
-    let n = base_rtfs.len().min(cand_rtfs.len());
-    let diffs: Vec<f64> = (0..n).map(|i| cand_rtfs[i] - base_rtfs[i]).collect();
-    let (med_d, min_d, max_d) = summarize_values(&diffs);
-    let (med_base, _, _) = summarize_values(&base_rtfs[..n]);
-    let (med_cand, _, _) = summarize_values(&cand_rtfs[..n]);
-    let ratio = if med_base > 0.0 {
-        med_cand / med_base
-    } else {
-        0.0
-    };
-    let mut state = seed;
-    let mut next_idx = |len: usize| -> usize {
-        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        ((z ^ (z >> 31)) as usize) % len
-    };
-    let reps = replicates.max(1);
-    let mut boot = Vec::with_capacity(reps);
-    let mut sample = vec![0.0f64; n];
-    if n > 0 {
-        for _ in 0..reps {
-            for dst in &mut sample {
-                *dst = diffs[next_idx(n)];
-            }
-            sample.sort_by(f64::total_cmp);
-            boot.push(median_sorted(&sample));
+    if candidates.len() != 3 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires the exact 3-arm R0,R1-dense,R1-MR matrix per FREEZE.md §5 (got {} candidates: {candidates:?}; N10)",
+            candidates.len()
+        )));
+    }
+    if !is_r0_baseline_candidate(candidates[0]) {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires R0 (Zipformer INT8) as arm 0 in `R0,R1-dense,R1-MR` order (got `{}`; FREEZE.md §5 / N10)",
+            candidates[0]
+        )));
+    }
+    if let Some(b) = explicit_baseline {
+        if b != candidates[0] {
+            return Err(CliError::Config(format!(
+                "--qualified C-cost --abab-baseline `{b}` must match arm 0 R0 `{}` (N10)",
+                candidates[0]
+            )));
         }
-        boot.sort_by(f64::total_cmp);
     }
-    let ci_lo = if boot.is_empty() {
-        0.0
-    } else {
-        boot[((boot.len() as f64) * 0.025) as usize]
-    };
-    let ci_hi = if boot.is_empty() {
-        0.0
-    } else {
-        boot[(((boot.len() as f64) * 0.975) as usize).min(boot.len() - 1)]
-    };
-    AbabPairedComparison {
-        baseline: baseline_name.to_owned(),
-        candidate: cand_name.to_owned(),
-        median_diff_rtf_cpu: med_d,
-        min_diff_rtf_cpu: min_d,
-        max_diff_rtf_cpu: max_d,
-        median_ratio_cand_over_base: ratio,
-        bootstrap_ci95_diff: [ci_lo, ci_hi],
-        bootstrap_replicates: reps,
-        seed,
+    if candidates[1] == candidates[2]
+        || is_r0_baseline_candidate(candidates[1])
+        || is_r0_baseline_candidate(candidates[2])
+    {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arms 1 and 2 must be two distinct R1 finalists (got `{}` and `{}`; FREEZE.md §5 / N10)",
+            candidates[1], candidates[2]
+        )));
     }
+    Ok(0)
+}
+
+/// Enforce the `FREEZE.md §5` (`04d09f0`, `N10`) `--qualified` C-cost matrix on **resolved
+/// loaded artifact identities & `arch.json` families** (not raw CLI names):
+/// - Arm 0: resolved R0 Zipformer INT8 (`CandidateKind::Zipformer { precision: "int8" }`)
+/// - Arm 1: resolved prepared-INT8 **dense** R1 engine (`family == "dense"`)
+/// - Arm 2: resolved prepared-INT8 **multirate** R1 engine (`family == "multirate"`)
+/// - Distinct canonical identities and exact `blocks == 8` counterbalanced blocks.
+pub fn validate_qualified_ccost_resolved(
+    resolved: &[ResolvedCandidate],
+    blocks: usize,
+) -> Result<usize, CliError> {
+    if blocks != 8 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires exactly 8 counterbalanced blocks (got {blocks}; N10)"
+        )));
+    }
+    if resolved.len() != 3 {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost requires exactly 3 resolved arms [R0, R1-dense, R1-MR] (got {}; N10)",
+            resolved.len()
+        )));
+    }
+    if !matches!(&resolved[0].kind, CandidateKind::Zipformer { precision } if precision == "int8") {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 0 must resolve to R0 Zipformer INT8 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[0].raw_arg, resolved[0].kind
+        )));
+    }
+    if !matches!(
+        &resolved[1].kind,
+        CandidateKind::Engine { precision, prepared_int8: true, family }
+            if precision == "int8" && family == "dense"
+    ) {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 1 must resolve to prepared-INT8 dense ultra-engine R1 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[1].raw_arg, resolved[1].kind
+        )));
+    }
+    if !matches!(
+        &resolved[2].kind,
+        CandidateKind::Engine { precision, prepared_int8: true, family }
+            if precision == "int8" && family == "multirate"
+    ) {
+        return Err(CliError::Config(format!(
+            "--qualified C-cost arm 2 must resolve to prepared-INT8 multirate ultra-engine R1 (got `{}` {:?}; FREEZE.md §5 / N10)",
+            resolved[2].raw_arg, resolved[2].kind
+        )));
+    }
+    if resolved[1].canonical_id == resolved[2].canonical_id {
+        return Err(CliError::Config(
+            "--qualified C-cost arms 1 and 2 must have distinct canonical loaded identities (N10)"
+                .into(),
+        ));
+    }
+    Ok(0)
+}
+
+/// Resolve the named R0 baseline index in `candidates` (`FREEZE.md §5` / `N10`).
+pub fn resolve_abab_baseline_index(
+    candidates: &[&str],
+    explicit_baseline: Option<&str>,
+    qualified: bool,
+) -> Result<usize, CliError> {
+    if candidates.is_empty() {
+        return Err(CliError::Config(
+            "--abab-blocks requires >= 1 candidate".into(),
+        ));
+    }
+    if let Some(b) = explicit_baseline {
+        if qualified && !is_r0_baseline_candidate(b) {
+            return Err(CliError::Config(format!(
+                "--qualified C-cost ABAB baseline must be R0 (Zipformer INT8), got `{b}` (FREEZE.md §5 / N10)"
+            )));
+        }
+        return candidates.iter().position(|&c| c == b).ok_or_else(|| {
+            CliError::Config(format!(
+                "--abab-baseline `{b}` is not present in --candidates {candidates:?}"
+            ))
+        });
+    }
+    candidates
+        .iter()
+        .position(|&c| is_r0_baseline_candidate(c))
+        .ok_or_else(|| {
+            CliError::Config(format!(
+                "ABAB timing requires an R0 baseline (`zipformer-int8` / `zipformer_en_int8_320`) in --candidates {candidates:?} or explicit --abab-baseline (FREEZE.md §5 / N10)"
+            ))
+        })
 }
 
 fn run_single_warm_block(
@@ -178,7 +233,7 @@ fn run_single_warm_block(
             lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
             paced: false,
             source_commit: ctx.commit.into(),
-            hardware_id: "H0".into(),
+            hardware_id: ctx.hardware_id.into(),
             completion_status: ctx.status_tag.into(),
         })?;
         return Ok(AbabBlockObservation {
@@ -212,7 +267,7 @@ fn run_single_warm_block(
             lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
             paced: false,
             source_commit: ctx.commit.into(),
-            hardware_id: "H0".into(),
+            hardware_id: ctx.hardware_id.into(),
             completion_status: ctx.status_tag.into(),
         })?;
         return Ok(AbabBlockObservation {
@@ -245,7 +300,7 @@ fn run_single_warm_block(
             paced: false,
             zipformer: zcfg,
             source_commit: ctx.commit.into(),
-            hardware_id: "H0".into(),
+            hardware_id: ctx.hardware_id.into(),
         })?;
         return Ok(AbabBlockObservation {
             block,
@@ -261,17 +316,13 @@ fn run_single_warm_block(
     )))
 }
 
-/// Execute `blocks` alternating single-stream timing blocks (`FREEZE.md §4.3`) and write `abab_timing.json`.
+/// Execute `blocks` alternating single-stream timing blocks (`FREEZE.md §4.3` / `§5`) and write `abab_timing.json`.
 pub(crate) fn run_abab_timing_blocks(
     ctx: &SuiteCtx<'_>,
     candidates: &[&str],
     blocks: usize,
+    baseline_idx: usize,
 ) -> Result<AbabTimingReport, CliError> {
-    if candidates.is_empty() {
-        return Err(CliError::Config(
-            "--abab-blocks requires >= 1 candidate".into(),
-        ));
-    }
     let mut per_cand: Vec<Vec<AbabBlockObservation>> =
         vec![Vec::with_capacity(blocks); candidates.len()];
     for b in 0..blocks {
@@ -301,26 +352,29 @@ pub(crate) fn run_abab_timing_blocks(
             }
         })
         .collect();
-    let base_rtfs: Vec<f64> = per_cand[0].iter().map(|o| o.rtf_cpu).collect();
-    let paired_vs_first: Vec<AbabPairedComparison> = candidates
+    let base_name = candidates[baseline_idx];
+    let base_rtfs: Vec<f64> = per_cand[baseline_idx].iter().map(|o| o.rtf_cpu).collect();
+    let mut paired_vs_baseline: Vec<AbabPairedComparison> = candidates
         .iter()
         .enumerate()
-        .skip(1)
+        .filter(|&(i, _)| i != baseline_idx)
         .map(|(i, &c)| {
             let rtfs: Vec<f64> = per_cand[i].iter().map(|o| o.rtf_cpu).collect();
-            paired_block_comparison(candidates[0], c, &base_rtfs, &rtfs, 10_000, 20_261_121)
+            paired_block_comparison(base_name, c, &base_rtfs, &rtfs, 10_000, 20_261_121)
         })
         .collect();
+    apply_holm_correction(&mut paired_vs_baseline, 0.05);
 
     let report = AbabTimingReport {
         schema: ABAB_TIMING_SCHEMA.into(),
         split: ctx.split.into(),
         completion_status: ctx.status_tag.into(),
         blocks_count: blocks,
+        baseline_candidate: base_name.to_owned(),
         grid_ms: ctx.grid_ms,
         max_chunks: ctx.max_chunks,
         candidates: summaries,
-        paired_vs_first,
+        paired_vs_baseline,
     };
     write_json_create_new(&ctx.out_dir.join("abab_timing.json"), &report)?;
     Ok(report)
@@ -331,19 +385,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abab_summary_and_paired_bootstrap_compute_exact_medians() {
-        let base = [0.080, 0.078, 0.082, 0.079, 0.081];
-        let cand = [0.041, 0.040, 0.042, 0.041, 0.040];
-        let (med_b, min_b, max_b) = summarize_values(&base);
-        assert!((med_b - 0.080).abs() < 1e-9);
-        assert!((min_b - 0.078).abs() < 1e-9);
-        assert!((max_b - 0.082).abs() < 1e-9);
-
-        let cmp = paired_block_comparison("r0", "r1-engine", &base, &cand, 2_000, 42);
-        assert!((cmp.median_diff_rtf_cpu - (-0.039)).abs() < 1e-9);
-        assert!(cmp.bootstrap_ci95_diff[0] <= cmp.median_diff_rtf_cpu);
-        assert!(cmp.bootstrap_ci95_diff[1] >= cmp.median_diff_rtf_cpu);
-        assert!(cmp.bootstrap_ci95_diff[1] < 0.0);
-        assert!((cmp.median_ratio_cand_over_base - (0.041 / 0.080)).abs() < 1e-9);
+    fn abab_baseline_resolution_requires_r0() {
+        assert_eq!(
+            resolve_abab_baseline_index(&["r1-engine", "zipformer-int8"], None, true).expect("r0"),
+            1
+        );
+        assert!(resolve_abab_baseline_index(&["r1-engine", "r1-d1"], None, true).is_err());
+        assert!(resolve_abab_baseline_index(
+            &["r1-engine", "zipformer-int8"],
+            Some("r1-engine"),
+            true
+        )
+        .is_err());
     }
 }

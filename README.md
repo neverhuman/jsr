@@ -10,14 +10,15 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 
 ### Accuracy: our best R1 so far
 - **D2:** dense S (d_model 384, 16 Conformer blocks, streaming, 160 ms chunks), trained on LibriSpeech 960 h.
-- **Best checkpoint:** step 55,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
+- **Latest checkpoint evaluated:** step 60,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
 
-| Set (400 utterances, greedy, streaming) | WER |
-|---|---:|
-| dev-clean | **7.83%** (step 55k) |
-| dev-other | 19.60% (step 50k; the 55k dev-other eval is pending) |
+| Full dev sets (2,703 / 2,864 utterances), streaming, step 60k | dev-clean | dev-other |
+|---|---:|---:|
+| single checkpoint, greedy | 7.65% | 18.57% |
+| single checkpoint, beam 4 | 7.03% | 17.39% |
+| **average of the last 3 snapshots (50/55/60k), beam 4** | **6.66%** | **16.55%** |
 
-Beam search (4 candidates, same encoder, step 50k, full dev sets) gives 8.00% / 18.53%, versus greedy at 8.65% / 20.16% (H12, Python).
+Beam search and checkpoint averaging need no retraining (H12). Beam 4 is being ported to the Rust engine now; the speed rows below are greedy.
 
 - **Other runs:**
   - multirate S_MR (D2MR, final 50k, epoch 5): 11.09% full dev-clean / 22.90% full dev-other;
@@ -31,17 +32,28 @@ Beam search (4 candidates, same encoder, step 50k, full dev sets) gives 8.00% / 
 - **Host:** H0, AMD TR PRO 3995WX (Zen 2, AVX2).
 - **Metric:** CPU-seconds per audio-second; lower is better.
 
-| System | Path | WER on this run | CPU-s/s | Peak RSS |
-|---|---|---:|---:|---:|
-| **R1 (ours), ultra-engine INT8** | pure Rust, prepared int8, per-row activations | 21.80%* | **0.041** | 259 MB |
-| R0 Zipformer int8 (alternative) | sherpa-onnx | 2.85% | 0.078 | 239 MB |
-| R1 (ours), ultra-engine FP32 | pure Rust | 21.88%* | 0.104 | 478 MB |
-| R1 (ours), ONNX Runtime FP32 | ORT | 21.88%* | 0.175 | 776 MB |
-| Nemotron 0.6B Q8_0 (alternative) | NeMo-Speech.cpp, child process | 2.16% | 0.472† | 1.28 GB |
+**Run A: same retained executable** (`docs/ultra/reviews/2026-11-21-fused-d2-cpu.md`, build 6df5c8f). 400 dev-clean utterances, eight unpaced streams, one inference thread, 20 ms packets. The R1 rows are the early D2 **step-5,000** checkpoint.
 
-- \* That speed run used the early D2 snapshot (step 5,000). Cost per audio-second does not depend on the checkpoint's accuracy. The current checkpoint is 8.52% (above).
-- † A different cost scope (cold, child process including model load), so it is not directly comparable.
-- **Roughly,** our engine runs R1 at **about 1.9× less CPU than R0** and **about 4× less than ONNX Runtime** running the same model.
+| System | Path | WER on this run | CPU-s/s | Sampled peak RSS |
+|---|---|---:|---:|---:|
+| **R1 (ours), ultra-engine prepared INT8** | pure Rust, per-row activations | 21.80%* | **0.0413** | 646 MB |
+| R0 Zipformer int8 (alternative) | sherpa-onnx | 2.85% | 0.0782 | 239 MB |
+| R1 (ours), ultra-engine FP32 | pure Rust | 21.88%* | 0.1036 | 478 MB |
+
+**Run B: FP32 runtime control, same executable, same checkpoint** (same review). This is a separate run:
+
+| System | CPU-s/s | Sampled peak RSS | Transcripts |
+|---|---:|---:|---|
+| R1 ONNX Runtime FP32 | 0.1747 | 776 MB | 400/400 identical |
+| R1 ultra-engine fused FP32 | 0.0947 | 478 MB | 400/400 identical |
+
+**Reference:** Nemotron 0.6B Q8_0 (NeMo-Speech.cpp, child process) scored 2.16% WER at 0.472 CPU-s/s and 1.28 GB on the same DEV400. That's a different cost scope (cold, includes model load), so it's not directly comparable.
+
+- \* Cost per audio-second does not depend on the checkpoint's accuracy. The current checkpoint is far more accurate (above). Speed and WER for the *current* checkpoints come from the qualifying run.
+- **Roughly:**
+  - in Run A, engine INT8 uses **about 1.9× less CPU than R0**, but more memory (646 vs 239 MB);
+  - in Run B, the fused FP32 engine uses **1.85× less CPU than ONNX Runtime** on the same model, with identical transcripts.
+  - The two runs are not combined into a single INT8-vs-ORT ratio.
 
 **Single stream, engine INT8:**
 
