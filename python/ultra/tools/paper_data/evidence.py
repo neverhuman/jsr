@@ -16,7 +16,10 @@ from .common import DATA, EVIDENCE_REQUIRED, MACHINES, NAME_RE, PaperDataError, 
 
 ROLES = ("ours", "comparator", "ablation")  # ablation: our weights in another runtime; tables only
 CLASSES = ("streaming", "whole_utterance")
-PARALLEL = ("intra_op", "workers")
+# How a row uses its cores. intra_op: one recogniser with N threads, one clip at a time. workers: one process
+# with N single-thread workers that share the weights (the serving path). processes: N separate
+# single-thread processes, each with its own copy of the weights.
+PARALLEL = ("intra_op", "workers", "processes")
 EVIDENCE_LABELS = ("exploratory", "qualified")
 ENERGY_METHODS = ("core_msr_active", "core_msr_dynamic", "pkg_rapl_delta", "wall_meter")
 # Word lag = end to end, input paced at real time, at the row's own thread budget. `lag_design_*` is the
@@ -100,6 +103,9 @@ def _energy(target: dict, src: dict, where: str) -> None:
         return
     if len(have) != len(ENERGY_FIELDS):
         raise PaperDataError(f"{where}: energy fields are all-or-none; missing {sorted(set(ENERGY_FIELDS) - set(have))}")
+    if src is not target and src.get("host") != target.get("host"):
+        raise PaperDataError(f"{where}: an energy line names its host, and it must be the row's own host "
+                             f"({target.get('host')}); watts and seconds come from one run")
     method = src["energy_method"]
     if method not in ENERGY_METHODS:
         raise PaperDataError(f"{where}: bad energy_method {method!r}; allowed: {', '.join(ENERGY_METHODS)}")
@@ -161,14 +167,19 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
         raise PaperDataError(f"group {group} has energy by {methods}; add an energy_headline line naming one")
     chosen = chosen or (methods[0] if methods else None)
     quiet = MACHINES[group[0]]["primary_host"]
+    seen: dict[tuple, dict] = {}
+    for r in sorted(members, key=lambda r: (r["session"], r["id"])):
+        if not r.get("anchor") and quiet in (None, r["host"]):
+            if seen.setdefault((r["variant"], r["parallel"]), r) is not r:
+                r["anchor"] = True  # measured again in a later session on the same host: a cross-check
     plain = [r for r in members if not r.get("anchor")]
     home = [r for r in plain if quiet in (None, r["host"])]
-    here = {r["variant"] for r in home}
+    here = {(r["variant"], r["parallel"]) for r in home}
     for r in plain:
-        if r not in home and r["variant"] in here:
+        if r not in home and (r["variant"], r["parallel"]) in here:
             r["anchor"] = True  # the same variant exists on the quiet host: this row is its cross-check
     drawable = [r for r in plain if not r.get("anchor")]  # the quiet-host row of each variant, else its other row
-    primary = {r["variant"]: r for r in drawable}
+    primary = {(r["variant"], r["parallel"]): r for r in drawable}
     if len(primary) != len(drawable):
         raise PaperDataError(f"group {group} has two primary rows for one variant; mark the re-measurement as anchor")
     for r in members:
@@ -179,19 +190,20 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
     for r in members:
         r["watts"], r["energy_method"] = r.get("energy", {}).get(chosen), chosen
         if r.get("anchor"):
-            if r["variant"] not in primary:
+            base = primary.get((r["variant"], r["parallel"]))
+            if base is None:
                 raise PaperDataError(f"{r['_where']}: anchor row has no primary row of {r['variant']} in {group}")
-            r["anchor_ratio"] = float(r["cpu_s_per_audio_s"]) / float(primary[r["variant"]]["cpu_s_per_audio_s"])
+            r["anchor_ratio"] = float(r["cpu_s_per_audio_s"]) / float(base["cpu_s_per_audio_s"])
             if abs(r["anchor_ratio"] - 1.0) > ANCHOR_LIMIT_PCT / 100.0:
                 off.add(r["session"])
-    stems: dict[str, str] = {}
+    stems: dict[tuple, str] = {}
     for r in members:
         # drawn only beside a row of ours from the same session; never an anchor or an ablation
         r["plot"] = bool(r in drawable and r["role"] != "ablation" and r.get("plot", True)
                          and (r["role"] == "ours" or r["session"] in ours))
         # the frontier line joins rows of one host: the quiet host as soon as it has rows
         r["frontier"] = r["plot"] and r["session"] not in off and not r["faded"]
-        if not r.get("anchor") and stems.setdefault(r["macro"], r["id"]) != r["id"]:
+        if not r.get("anchor") and stems.setdefault((r["macro"], r["parallel"]), r["id"]) != r["id"]:
             raise PaperDataError(f"rows {stems[r['macro']]} and {r['id']} share the macro stem {r['macro']}")
 
 

@@ -37,8 +37,8 @@ def metrics_tex(rec: Records) -> str:
              "Right: highest sustained streams per CCX, with each checkpoint's WER.")
     cap_m = ("Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\\ColdAudioMinutes{} "
              "minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load "
-             "included; median of three runs. Speed is audio-seconds per CPU-second; WER is pooled over the 730 "
-             "utterances. Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the "
+             "included; median of three runs. Speed is audio-seconds per CPU-second; WER is on the 400 dev-clean "
+             "utterances of that panel. \\ColdOrderSentence{} Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the "
              "whole clip before they emit a word. Diamonds: ours. Dashed: the streaming systems that no other "
              "streaming system beats on both axes. \\MoneyWattsCaption{} \\ColdHostSentence{} Exploratory.")
     cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per "

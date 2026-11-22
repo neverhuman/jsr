@@ -1,17 +1,23 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Only system, short, macro, cite and order may be set; every number comes from data/evidence/*.jsonl.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot and runtime_short may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that the abstract and the text quote.",
   "variants": {
     "dense-r1-int8": {
       "system": "ULTRA dense S, INT8 (ours)",
       "short": "ULTRA dense",
       "macro": "Dense",
-      "order": 10
+      "order": 10,
+      "text": "\\ultra{} dense",
+      "detail": "the dense model, average of steps 50k, 55k and 60k",
+      "plot": false
     },
     "mr-r1-int8": {
       "system": "ULTRA multirate S, INT8 (ours)",
       "short": "ULTRA multirate",
       "macro": "MR",
-      "order": 11
+      "order": 11,
+      "text": "\\ultra{} multirate",
+      "detail": "the multirate model at step 50k",
+      "plot": false
     },
     "dense-r1-fp32": {
       "system": "ULTRA dense S, FP32, our engine",
@@ -29,7 +35,8 @@
       "system": "Zipformer streaming, INT8",
       "short": "Zipformer (baseline)",
       "macro": "Zip",
-      "order": 20
+      "order": 20,
+      "text": "Zipformer"
     },
     "moonshine-tiny": {
       "system": "Moonshine Tiny Streaming",
@@ -47,19 +54,32 @@
       "system": "Nemotron Speech Streaming EN 0.6B, 560 ms",
       "short": "Nemotron 560 ms",
       "macro": "NemoFiveSixty",
-      "order": 40
+      "order": 40,
+      "text": "Nemotron at 560\\,ms"
     },
     "nemotron-en-160": {
       "system": "Nemotron Speech Streaming EN 0.6B, 160 ms",
       "short": "Nemotron 160 ms",
       "macro": "NemoOneSixty",
-      "order": 41
+      "order": 41,
+      "text": "Nemotron at 160\\,ms"
     },
     "nemotron-35": {
       "system": "Nemotron 3.5 ASR Streaming 0.6B, 80 ms",
       "short": "Nemotron 3.5",
       "macro": "NemoThreeFive",
       "order": 42
+    },
+    "d2e-16457-int8": {
+      "system": "ULTRA dense S, D2e step 16,457, INT8",
+      "short": "ULTRA D2e step 16457",
+      "macro": "DtwoE",
+      "order": 5,
+      "text": "\\ultra{} D2e",
+      "detail": "the dense model D2e at step 16,457"
     }
+  },
+  "headline": {
+    "ours": "d2e-16457-int8"
   }
 }

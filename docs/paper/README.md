@@ -15,7 +15,8 @@ has its own measured figure and table.
 ## Build
 
 ```bash
-just paper     # from the repository root
+just paper          # from the repository root
+just paper-refresh  # the same, plus docs/paper/money.png, the README block and the paper tests
 ```
 
 The recipe:
