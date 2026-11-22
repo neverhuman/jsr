@@ -16,62 +16,106 @@
 \newcommand{\AbabRatioMRLo}{0.578}% [exploratory] x
 \newcommand{\AbabSpeedDense}{1.50}% [exploratory] x
 \newcommand{\AbabSpeedMR}{1.59}% [exploratory] x
-\newcommand{\AvgGainClean}{0.43}% [exploratory] pp WER
-\newcommand{\AvgGainOther}{0.84}% [exploratory] pp WER
+\newcommand{\AblBeamClean}{8.00}% [exploratory] % WER
+\newcommand{\AblBeamOther}{18.53}% [exploratory] % WER
+\newcommand{\AblChunkEightClean}{8.47}% [exploratory] % WER
+\newcommand{\AblChunkEightOther}{19.65}% [exploratory] % WER
+\newcommand{\AblChunkSixteenClean}{8.26}% [exploratory] % WER
+\newcommand{\AblChunkSixteenOther}{19.26}% [exploratory] % WER
+\newcommand{\AblFullClean}{9.46}% [exploratory] % WER
+\newcommand{\AblFullOther}{20.01}% [exploratory] % WER
+\newcommand{\AblGreedyClean}{8.65}% [exploratory] % WER
+\newcommand{\AblGreedyOther}{20.16}% [exploratory] % WER
+\newcommand{\ActSevenGain}{6}% [exploratory] %
+\newcommand{\AttnFlipCount}{33}% [exploratory] of 400 transcripts
+\newcommand{\AvgGainClean}{0.44}% [exploratory] pp WER
+\newcommand{\AvgGainOther}{0.81}% [exploratory] pp WER
 \newcommand{\BOneAttnCut}{3--10}% [exploratory] %
-\newcommand{\BeamGainClean}{0.63}% [exploratory] pp WER
-\newcommand{\BeamGainOther}{1.19}% [exploratory] pp WER
+\newcommand{\BatchLift}{8}% [exploratory] %
+\newcommand{\BeamGainClean}{0.62}% [exploratory] pp WER
+\newcommand{\BeamGainOther}{1.17}% [exploratory] pp WER
 \newcommand{\BridgeStep}{5{,}000}% [reported] steps
 \newcommand{\CCXCount}{16}% [reported] CCX
+\newcommand{\CapMatchDelta}{+0.015}% [exploratory] pp WER
+\newcommand{\CapOneBeamClean}{7.50}% [exploratory] % WER
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
 \newcommand{\ColdRowsCount}{0}% [reported] rows
 \newcommand{\CoresPerCCX}{4}% [reported] cores
-\newcommand{\CostClaimDense}{0.0369}% [exploratory] CPU-s/audio-s
-\newcommand{\CostClaimMR}{0.0279}% [exploratory] CPU-s/audio-s
-\newcommand{\CostClaimRzero}{0.0864}% [exploratory] CPU-s/audio-s
+\newcommand{\CostClaimDense}{0.0349}% [exploratory] CPU-s/audio-s
+\newcommand{\CostClaimMR}{0.0254}% [exploratory] CPU-s/audio-s
+\newcommand{\CostClaimRzero}{0.0681}% [exploratory] CPU-s/audio-s
 \newcommand{\CostEngineFP}{0.104}% [exploratory] CPU-s/audio-s
 \newcommand{\CostEngineIntEight}{0.041}% [exploratory] CPU-s/audio-s
-\newcommand{\CostLadderDense}{0.0443}% [exploratory] CPU-s/audio-s
-\newcommand{\CostLadderMR}{0.0354}% [exploratory] CPU-s/audio-s
-\newcommand{\CostLadderRzero}{0.0864}% [exploratory] CPU-s/audio-s
+\newcommand{\CostLadderDense}{0.0406}% [exploratory] CPU-s/audio-s
+\newcommand{\CostLadderMR}{0.0321}% [exploratory] CPU-s/audio-s
+\newcommand{\CostLadderRzero}{0.0681}% [exploratory] CPU-s/audio-s
 \newcommand{\CostNemo}{0.472}% [exploratory] CPU-s/audio-s
+\newcommand{\CostNemoFiveSixty}{0.451}% [exploratory] CPU-s/audio-s
+\newcommand{\CostNemoOneSixty}{0.709}% [exploratory] CPU-s/audio-s
 \newcommand{\CostORT}{0.175}% [exploratory] CPU-s/audio-s
-\newcommand{\CostRatioDense}{1.95}% [exploratory] x
-\newcommand{\CostRatioMR}{2.44}% [exploratory] x
+\newcommand{\CostPfiveMoonBase}{0.0826}% [exploratory] CPU-s/audio-s
+\newcommand{\CostPfiveMoonTiny}{0.0454}% [exploratory] CPU-s/audio-s
+\newcommand{\CostPfiveRzero}{0.2019}% [exploratory] CPU-s/audio-s
+\newcommand{\CostPfiveWhisperSmall}{3.68}% [exploratory] CPU-s/audio-s
+\newcommand{\CostRatioDense}{1.68}% [exploratory] x
+\newcommand{\CostRatioMR}{2.12}% [exploratory] x
 \newcommand{\CostRzero}{0.078}% [exploratory] CPU-s/audio-s
-\newcommand{\DenDenseCCX}{96}% [exploratory] streams/CCX
-\newcommand{\DenDenseCore}{24}% [exploratory] streams/core
-\newcommand{\DenFailDenseCCX}{112}% [exploratory] streams/CCX
+\newcommand{\DecoderShare}{4--5}% [exploratory] % of single stream
+\newcommand{\DenDenseBeforeFailCCX}{112}% [exploratory] streams/CCX
+\newcommand{\DenDenseCCX}{112}% [exploratory] streams/CCX
+\newcommand{\DenDenseCore}{28}% [exploratory] streams/core
+\newcommand{\DenFailDenseCCX}{128}% [exploratory] streams/CCX
 \newcommand{\DenFailMRCCX}{160}% [exploratory] streams/CCX
 \newcommand{\DenFailRzeroCCX}{48}% [exploratory] streams/CCX
+\newcommand{\DenMRBeforeFailCCX}{144}% [exploratory] streams/CCX
 \newcommand{\DenMRCCX}{144}% [exploratory] streams/CCX
 \newcommand{\DenMRCore}{36}% [exploratory] streams/core
-\newcommand{\DenPninetyNineDense}{596}% [exploratory] ms
-\newcommand{\DenPninetyNineMR}{735}% [exploratory] ms
-\newcommand{\DenPninetyNineRzero}{729}% [exploratory] ms
-\newcommand{\DenRatioDense}{3.0}% [exploratory] x
+\newcommand{\DenPninetyNineDense}{630}% [exploratory] ms
+\newcommand{\DenPninetyNineMR}{600}% [exploratory] ms
+\newcommand{\DenPninetyNineRzero}{549}% [exploratory] ms
+\newcommand{\DenRatioDense}{3.5}% [exploratory] x
+\newcommand{\DenRatioDenseBeforeFail}{3.5}% [exploratory] x
 \newcommand{\DenRatioMR}{4.5}% [exploratory] x
-\newcommand{\DenRatioMRvsDense}{1.5}% [exploratory] x
+\newcommand{\DenRatioMRBeforeFail}{4.5}% [exploratory] x
+\newcommand{\DenRatioMRvsDense}{1.3}% [exploratory] x
+\newcommand{\DenRssDense}{1.82}% [exploratory] GB
+\newcommand{\DenRssMR}{2.06}% [exploratory] GB
+\newcommand{\DenRssRzero}{1.41}% [exploratory] GB
 \newcommand{\DenRungSeconds}{20}% [reported] s
+\newcommand{\DenRzeroBeforeFailCCX}{32}% [exploratory] streams/CCX
 \newcommand{\DenRzeroCCX}{32}% [exploratory] streams/CCX
 \newcommand{\DenRzeroCore}{8}% [exploratory] streams/core
 \newcommand{\DenWorkers}{4}% [reported] workers
+\newcommand{\DthreeMRcStep}{20{,}008}% [reported] steps
 \newcommand{\DtwoAudioHoursRehearsal}{6303}% [reported] audio-h
 \newcommand{\DtwoEpoch}{8}% [reported] epoch (0-indexed)
 \newcommand{\DtwoEpochRehearsal}{6}% [reported] epoch (0-indexed)
 \newcommand{\DtwoStep}{60{,}000}% [reported] steps
 \newcommand{\EngineBeamMRDelta}{\ensuremath{-}1.43}% [exploratory] pp WER
-\newcommand{\FrontierDense}{0.0435}% [exploratory] CPU-s/audio-s
-\newcommand{\FrontierMR}{0.0330}% [exploratory] CPU-s/audio-s
-\newcommand{\FrontierPerCoreDense}{23.0}% [exploratory] streams/core
-\newcommand{\FrontierPerCoreMR}{30.3}% [exploratory] streams/core
-\newcommand{\FrontierPerCoreRzero}{14.3}% [exploratory] streams/core
-\newcommand{\FrontierRzero}{0.0698}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierChunkPninetyNineDense}{163}% [exploratory] ms
+\newcommand{\FrontierChunkPninetyNineMR}{117}% [exploratory] ms
+\newcommand{\FrontierChunkPninetyNineRzero}{335}% [exploratory] ms
+\newcommand{\FrontierDense}{0.0407}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierMR}{0.0319}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierPerCoreDense}{24.6}% [exploratory] streams/core
+\newcommand{\FrontierPerCoreMR}{31.4}% [exploratory] streams/core
+\newcommand{\FrontierPerCoreRzero}{16.8}% [exploratory] streams/core
+\newcommand{\FrontierRatioDense}{1.46}% [exploratory] x
+\newcommand{\FrontierRatioMR}{1.86}% [exploratory] x
+\newcommand{\FrontierRzero}{0.0594}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierSingleDense}{0.170}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierSingleMR}{0.167}% [exploratory] CPU-s/audio-s
+\newcommand{\FrontierSingleRzero}{0.226}% [exploratory] CPU-s/audio-s
 \newcommand{\FrontierStreams}{16}% [reported] streams
 \newcommand{\FullAttnLossClean}{0.81}% [exploratory] pp WER
 \newcommand{\GateBeamDelta}{+0.007}% [exploratory] pp WER
 \newcommand{\GateBeamUpper}{+0.150}% [exploratory] pp WER
+\newcommand{\GateDeltaDoneMR}{\ensuremath{-}0.021}% [exploratory] pp WER
+\newcommand{\GateDeltaDoneSeventyEight}{+0.021}% [exploratory] pp WER
+\newcommand{\GateDeltaDthreeMRb}{\ensuremath{-}0.014}% [exploratory] pp WER
+\newcommand{\GateDeltaDtwoFortyFive}{+0.021}% [exploratory] pp WER
+\newcommand{\GateDeltaRfourT}{\ensuremath{-}0.076}% [exploratory] pp WER
 \newcommand{\GateDenseDelta}{+0.021}% [exploratory] pp WER
 \newcommand{\GateDenseUpper}{+0.157}% [exploratory] pp WER
 \newcommand{\GateDtwoAvgDelta}{+0.042}% [exploratory] pp WER
@@ -79,34 +123,49 @@
 \newcommand{\GateMRDelta}{+0.069}% [exploratory] pp WER
 \newcommand{\GateMRUpper}{+0.203}% [exploratory] pp WER
 \newcommand{\GateMargin}{0.10}% [reported] pp WER
+\newcommand{\GateMaxDelta}{+0.069}% [exploratory] pp WER
 \newcommand{\GateMaxUpper}{+0.211}% [exploratory] pp WER
+\newcommand{\GateUpperDoneMR}{+0.151}% [exploratory] pp WER
+\newcommand{\GateUpperDoneSeventyEight}{+0.211}% [exploratory] pp WER
+\newcommand{\GateUpperDthreeMRb}{+0.129}% [exploratory] pp WER
+\newcommand{\GateUpperDtwoFortyFive}{+0.157}% [exploratory] pp WER
+\newcommand{\GateUpperRfourT}{+0.035}% [exploratory] pp WER
 \newcommand{\GemmShare}{75--80}% [exploratory] %
+\newcommand{\GmacPerCore}{62}% [exploratory] GMAC/s per core
 \newcommand{\GreedyDecoderCost}{0.0016}% [exploratory] CPU-s/audio-s
+\newcommand{\HThirteenAStep}{10{,}000}% [reported] steps
+\newcommand{\IntEightDenMac}{504}% [exploratory] streams (6 Mac workers)
 \newcommand{\IntEightMRDenCCX}{136}% [exploratory] streams/CCX
 \newcommand{\IntEightUncentred}{+0.207}% [exploratory] pp WER
 \newcommand{\LThreeMiB}{16}% [reported] MiB
+\newcommand{\LatenessBoundMs}{800}% [reported] ms
+\newcommand{\LeftOneTwentyEightWer}{15.93}% [exploratory] % WER
 \newcommand{\LeftSixtyFourAttn}{0.70}% [exploratory] x of 128
 \newcommand{\LeftSixtyFourDelta}{+0.09}% [exploratory] pp WER
+\newcommand{\LeftSixtyFourWer}{16.02}% [exploratory] % WER
 \newcommand{\LeftThirtyTwoAttn}{0.45}% [exploratory] x of 128
 \newcommand{\LeftThirtyTwoDelta}{+0.68}% [exploratory] pp WER
+\newcommand{\LeftThirtyTwoWer}{16.61}% [exploratory] % WER
 \newcommand{\MRBeamPanelBeamFP}{14.43}% [exploratory] % WER
 \newcommand{\MRBeamPanelBeamInt}{14.44}% [exploratory] % WER
 \newcommand{\MRBeamPanelGreedyFP}{15.86}% [exploratory] % WER
 \newcommand{\MRPadDeltaMax}{0.03}% [exploratory] pp WER
 \newcommand{\MatchedRung}{32}% [reported] streams/CCX
-\newcommand{\NemoLongCost}{0.451}% [exploratory] CPU-s/audio-s
-\newcommand{\NemoLongTestClean}{2.58}% [exploratory] % WER
-\newcommand{\NemoLongTestOther}{5.18}% [exploratory] % WER
-\newcommand{\NemoShortCost}{0.709}% [exploratory] CPU-s/audio-s
-\newcommand{\NemoShortTestClean}{2.65}% [exploratory] % WER
-\newcommand{\NemoShortTestOther}{5.60}% [exploratory] % WER
+\newcommand{\MelNnzDense}{20{,}560}% [reported] nonzeros
+\newcommand{\MelNnzSparse}{477}% [reported] nonzeros
+\newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
+\newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
+\newcommand{\NonGemmGain}{0--5}% [exploratory] %
 \newcommand{\PanelSpeakers}{73}% [reported] speakers
 \newcommand{\ParamsDtwo}{58.7}% [reported] M parameters
 \newcommand{\ParamsDtwoMR}{59.2}% [reported] M parameters
+\newcommand{\ParamsRone}{58.7}% [reported] M parameters
 \newcommand{\ParityFP}{\ensuremath{2.4\times10^{-6}}}% [exploratory] abs error
 \newcommand{\QkvCapRatio}{1.5}% [reported] x
 \newcommand{\QkvRunawayFrom}{70}% [exploratory] norm
 \newcommand{\QkvRunawayTo}{684}% [exploratory] norm
+\newcommand{\RetractedPerCore}{2.8}% [exploratory] x
+\newcommand{\RetractedRatio}{11}% [exploratory] x
 \newcommand{\RssEngineFP}{478}% [exploratory] MB
 \newcommand{\RssEngineIntEight}{646}% [exploratory] MB
 \newcommand{\RssEngineIntEightPrepared}{259}% [reported] MB
@@ -119,8 +178,8 @@
 \newcommand{\SpeedupEngineFPVsORT}{1.7}% [exploratory] x
 \newcommand{\SpeedupVsORT}{4.2}% [exploratory] x
 \newcommand{\SpeedupVsRzero}{1.9}% [exploratory] x
-\newcommand{\StackGainClean}{0.99}% [exploratory] pp WER
-\newcommand{\StackGainOther}{2.02}% [exploratory] pp WER
+\newcommand{\StackGainClean}{1.00}% [exploratory] pp WER
+\newcommand{\StackGainOther}{1.98}% [exploratory] pp WER
 \newcommand{\StreamsPerCoreMthreeMR}{84}% [exploratory] streams/core
 \newcommand{\StreamsPerCoreMthreeMRFail}{96}% [exploratory] streams/core
 \newcommand{\SweepDtwoBeamFourPooled}{10.82}% [exploratory] % WER
@@ -132,8 +191,10 @@
 \newcommand{\SweepDtwoMRBestPooled}{14.20}% [exploratory] % WER
 \newcommand{\SweepDtwoMRGreedyPooled}{15.89}% [exploratory] % WER
 \newcommand{\TernaryDenCCX}{112}% [exploratory] streams/CCX
+\newcommand{\TernaryDenMac}{432}% [exploratory] streams (6 Mac workers)
 \newcommand{\TernaryEngineWer}{17.98}% [exploratory] % WER
 \newcommand{\TernaryMiB}{14.26}% [reported] MiB
+\newcommand{\TernaryWerCost}{0.63}% [exploratory] pp WER
 \newcommand{\TernaryZeros}{31.8}% [reported] %
 \newcommand{\TrainHours}{960}% [reported] h
 \newcommand{\UsevenBar}{1.2}% [reported] x
@@ -143,30 +204,63 @@
 \newcommand{\UsevenVsKzeroLo}{0.94}% [exploratory] x
 \newcommand{\WerBridgeFP}{21.88}% [exploratory] % WER
 \newcommand{\WerBridgeIntEight}{21.80}% [exploratory] % WER
+\newcommand{\WerDthreeMRc}{13.96}% [exploratory] % WER
 \newcommand{\WerDtwoAvgGreedyClean}{7.22}% [exploratory] % WER
-\newcommand{\WerDtwoAvgGreedyOther}{17.73}% [exploratory] % WER
+\newcommand{\WerDtwoAvgGreedyOther}{17.70}% [exploratory] % WER
+\newcommand{\WerDtwoAvgGreedyPanelPooled}{11.43}% [exploratory] % WER
+\newcommand{\WerDtwoAvgOldGreedyPanelPooled}{11.66}% [exploratory] % WER
 \newcommand{\WerDtwoBeamClean}{7.03}% [exploratory] % WER
-\newcommand{\WerDtwoBeamOther}{17.39}% [exploratory] % WER
-\newcommand{\WerDtwoBestClean}{6.66}% [exploratory] % WER
-\newcommand{\WerDtwoBestOther}{16.55}% [exploratory] % WER
-\newcommand{\WerDtwoBestPanelClean}{6.93}% [exploratory] % WER
-\newcommand{\WerDtwoBestPanelOther}{16.08}% [exploratory] % WER
-\newcommand{\WerDtwoGreedyClean}{7.65}% [exploratory] % WER
-\newcommand{\WerDtwoGreedyOther}{18.57}% [exploratory] % WER
+\newcommand{\WerDtwoBeamOther}{17.34}% [exploratory] % WER
+\newcommand{\WerDtwoBestClean}{6.65}% [exploratory] % WER
+\newcommand{\WerDtwoBestOther}{16.54}% [exploratory] % WER
+\newcommand{\WerDtwoBestPanelClean}{6.92}% [exploratory] % WER
+\newcommand{\WerDtwoBestPanelOther}{16.20}% [exploratory] % WER
+\newcommand{\WerDtwoBestPanelPooled}{10.74}% [exploratory] % WER
+\newcommand{\WerDtwoBestPooled}{11.44}% [exploratory] % WER
+\newcommand{\WerDtwoGreedyClean}{7.66}% [exploratory] % WER
+\newcommand{\WerDtwoGreedyOther}{18.51}% [exploratory] % WER
+\newcommand{\WerDtwoMRAvgFivePanelPooled}{16.09}% [exploratory] % WER
+\newcommand{\WerDtwoMRAvgThreePanelPooled}{16.03}% [exploratory] % WER
+\newcommand{\WerDtwoMRBeamPanelClean}{10.18}% [exploratory] % WER
+\newcommand{\WerDtwoMRBeamPanelOther}{20.52}% [exploratory] % WER
 \newcommand{\WerDtwoMRClean}{11.10}% [exploratory] % WER
 \newcommand{\WerDtwoMROther}{22.90}% [exploratory] % WER
-\newcommand{\WerLadderDenseDevClean}{8.95}% [exploratory] % WER
+\newcommand{\WerDtwoSnapGreedyPanelPooled}{12.62}% [exploratory] % WER
+\newcommand{\WerHThirteenA}{20.98}% [exploratory] % WER
 \newcommand{\WerLadderDensePanel}{14.19}% [exploratory] % WER
-\newcommand{\WerLadderMRDevClean}{11.19}% [exploratory] % WER
 \newcommand{\WerLadderMRPanel}{15.93}% [exploratory] % WER
 \newcommand{\WerLadderMRPanelClean}{11.56}% [exploratory] % WER
 \newcommand{\WerNemoDevClean}{2.16}% [exploratory] % WER
+\newcommand{\WerNemoTestCleanFiveSixty}{2.58}% [exploratory] % WER
+\newcommand{\WerNemoTestCleanOneSixty}{2.65}% [exploratory] % WER
+\newcommand{\WerNemoTestOtherFiveSixty}{5.18}% [exploratory] % WER
+\newcommand{\WerNemoTestOtherOneSixty}{5.60}% [exploratory] % WER
+\newcommand{\WerPfiveMoonBaseDevClean}{2.36}% [exploratory] % WER
+\newcommand{\WerPfiveMoonBaseTestClean}{2.55}% [exploratory] % WER
+\newcommand{\WerPfiveMoonTinyDevClean}{3.19}% [exploratory] % WER
+\newcommand{\WerPfiveMoonTinyTestClean}{4.51}% [exploratory] % WER
+\newcommand{\WerPfiveRzeroTestClean}{2.18}% [exploratory] % WER
+\newcommand{\WerPfiveWhisperSmallDevClean}{2.53}% [exploratory] % WER
+\newcommand{\WerPfiveWhisperSmallTestClean}{3.77}% [exploratory] % WER
+\newcommand{\WerRehearsalDense}{9.56}% [exploratory] % WER
+\newcommand{\WerRehearsalMR}{11.56}% [exploratory] % WER
+\newcommand{\WerRehearsalRzero}{2.95}% [exploratory] % WER
 \newcommand{\WerRzeroDevClean}{2.85}% [exploratory] % WER
+\newcommand{\WerRzeroPanel}{\PaperMissing{WerRzeroPanel}}% [exploratory] % WER
 \newcommand{\XisaAgree}{7{,}300}% [exploratory] utterances
 \newcommand{\XisaModels}{5}% [reported] checkpoints
 \newcommand{\XisaPanel}{730}% [reported] utterances
+\newcommand{\XisaPostDoneMR}{730}% [exploratory] of 730
+\newcommand{\XisaPostDoneSeventyEight}{730}% [exploratory] of 730
+\newcommand{\XisaPostDthreeMRb}{730}% [exploratory] of 730
+\newcommand{\XisaPostDtwoFortyFive}{730}% [exploratory] of 730
+\newcommand{\XisaPostRfourT}{730}% [exploratory] of 730
+\newcommand{\XisaPreDoneMR}{717}% [exploratory] of 730
+\newcommand{\XisaPreDthreeMRb}{720}% [exploratory] of 730
+\newcommand{\XisaPreDtwoFortyFive}{725}% [exploratory] of 730
+\newcommand{\XisaPreRfourT}{636}% [exploratory] of 730
 \newcommand{\XisaRfourPre}{636}% [exploratory] of 730
 \newcommand{\XisaTotal}{7{,}300}% [exploratory] utterances
 
-\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, D2 step 45k dense INT8 and D2MR step 50k multirate INT8 in one \texttt{ultra bench-suite} binary on a shared AMD Threadripper PRO 3995WX (Zen~2), \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against the DEV400 dev-clean WER of the same checkpoints. Right: highest sustained streams per CCX; the WER of each checkpoint is printed on its bar.}
+\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense model at step 45k and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against the WER of the same checkpoints on the 400 dev-clean utterances of the DEV panel, scored in the same harness. Right: highest sustained streams per CCX, with each checkpoint's WER.}
 \newcommand{\ColdCaption}{Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).}

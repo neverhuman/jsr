@@ -11,7 +11,163 @@
    "source": "research/H5_whole_service_cpu_benchmark/README.md",
    "unit": "% CPU",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "AblBeamClean": {
+   "configuration": "D2 model-50000, Beam, full dev-clean, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 63,
+   "quote": "**7.998 (−0.65)** | **18.529 (−1.63)**",
+   "raw": 7.998,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblBeamOther": {
+   "configuration": "D2 model-50000, Beam, full dev-other, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 63,
+   "quote": "**7.998 (−0.65)** | **18.529 (−1.63)**",
+   "raw": 18.529,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblChunkEightClean": {
+   "configuration": "D2 model-50000, ChunkEight, full dev-clean, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 64,
+   "quote": "8.467 (−0.18) | 19.653 (−0.51)",
+   "raw": 8.467,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblChunkEightOther": {
+   "configuration": "D2 model-50000, ChunkEight, full dev-other, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 64,
+   "quote": "8.467 (−0.18) | 19.653 (−0.51)",
+   "raw": 19.653,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblChunkSixteenClean": {
+   "configuration": "D2 model-50000, ChunkSixteen, full dev-clean, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 65,
+   "quote": "8.264 (−0.39) | 19.259 (−0.90)",
+   "raw": 8.264,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblChunkSixteenOther": {
+   "configuration": "D2 model-50000, ChunkSixteen, full dev-other, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 65,
+   "quote": "8.264 (−0.39) | 19.259 (−0.90)",
+   "raw": 19.259,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblFullClean": {
+   "configuration": "D2 model-50000, Full, full dev-clean, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 66,
+   "quote": "9.456 (+0.81) | 20.007 (−0.15)",
+   "raw": 9.456,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblFullOther": {
+   "configuration": "D2 model-50000, Full, full dev-other, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 66,
+   "quote": "9.456 (+0.81) | 20.007 (−0.15)",
+   "raw": 20.007,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblGreedyClean": {
+   "configuration": "D2 model-50000, Greedy, full dev-clean, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 62,
+   "quote": "| greedy, trained chunk 4 (160 ms) | 8.650 | 20.160 |",
+   "raw": 8.65,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "AblGreedyOther": {
+   "configuration": "D2 model-50000, Greedy, full dev-other, FP32 trainer",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 62,
+   "quote": "| greedy, trained chunk 4 (160 ms) | 8.650 | 20.160 |",
+   "raw": 20.16,
+   "section": "2. D2 error sources (D2 model-50000)",
+   "source": "research/H12_accuracy_diagnostics/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "ActSevenGain": {
+   "configuration": "act7 vs K0 GEMM tile gain",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 54,
+   "quote": "wins by about 6%",
+   "raw": 6,
+   "section": "B2",
+   "source": "research/H15_engine_non_gemm_and_kernels/README.md",
+   "unit": "%",
+   "workload": "synthetic GEMM layer shapes (u7_bench)",
+   "workload_digest": "n/a"
+  },
+  "AttnFlipCount": {
+   "configuration": "INT8 transcripts changed by a reordered attention sum",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 43,
+   "quote": "flipping 33/400",
+   "raw": 33,
+   "section": "What went wrong",
+   "source": "research/H6_pure_rust_engine/README.md",
+   "unit": "of 400 transcripts",
+   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "BOneAttnCut": {
    "configuration": "bit-identical non-GEMM cuts",
@@ -21,6 +177,19 @@
    "section": "B1",
    "source": "research/H15_engine_non_gemm_and_kernels/README.md",
    "text": "3--10",
+   "unit": "%",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "BatchLift": {
+   "configuration": "max CPU-per-stream saving from batching, Zen 2 engine",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 26,
+   "quote": "Batching amortises ≤ 8% on Zen 2",
+   "raw": 8,
+   "section": "Spec claims our data contradict",
+   "source": "research/H17_spec_corrections/README.md",
    "unit": "%",
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
@@ -49,6 +218,31 @@
    "unit": "CCX",
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
+  },
+  "CapMatchDelta": {
+   "configuration": "D2 model-55000 greedy max-symbols 1 vs 8, full dev-clean",
+   "label": "exploratory",
+   "line": 4755,
+   "quote": "cap 8 greedy 8.073, cap 1 greedy 8.088",
+   "section": "2026-11-22T02:40:30Z grok-lane cap-match",
+   "source": "AGENT_CHAT.md",
+   "text": "+0.015",
+   "unit": "pp WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
+  },
+  "CapOneBeamClean": {
+   "configuration": "D2 model-55000 beam 4 at max-symbols 1, full dev-clean",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 4755,
+   "quote": "beam 4 at cap 1 is 7.496",
+   "raw": 7.496,
+   "section": "2026-11-22T02:40:30Z grok-lane cap-match",
+   "source": "AGENT_CHAT.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
+   "workload_digest": "unrecorded (whole split)"
   },
   "ChunkSixteenGainClean": {
    "configuration": "D2 model-50000 greedy chunk 16 (640 ms, untrained) vs chunk 4, full dev-clean",
@@ -100,7 +294,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "CostEngineIntEight": {
    "configuration": "D2@5k prepared INT8, ultra-engine, DEV400, executable 031c06e0",
@@ -113,7 +307,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "CostNemo": {
    "configuration": "Nemotron cold child process incl. load; non-comparable cost scope",
@@ -125,8 +319,34 @@
    "section": "Latest frozen dense runtime: 6df5c8f",
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
-   "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "CostNemoFiveSixty": {
+   "configuration": "see source",
+   "decimals": 3,
+   "label": "exploratory",
+   "line": 19,
+   "quote": "0.451 (quiet)",
+   "raw": 0.451,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "CostNemoOneSixty": {
+   "configuration": "single stream, child process",
+   "decimals": 3,
+   "label": "exploratory",
+   "line": 18,
+   "quote": "0.709 (quiet)",
+   "raw": 0.709,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
   },
   "CostORT": {
    "configuration": "ONNX Runtime FP32, earlier db5c14a pair (executable 13d0b91e), NOT the 6df5c8f session",
@@ -139,7 +359,59 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "CostPfiveMoonBase": {
+   "configuration": "P05 MoonBase, single thread core 60, dev-clean run",
+   "decimals": 4,
+   "label": "exploratory",
+   "line": 33,
+   "quote": "0.0826",
+   "raw": 0.0826,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "CostPfiveMoonTiny": {
+   "configuration": "P05 MoonTiny, single thread core 60, dev-clean run",
+   "decimals": 4,
+   "label": "exploratory",
+   "line": 32,
+   "quote": "0.0454",
+   "raw": 0.0454,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "CostPfiveRzero": {
+   "configuration": "P05 Rzero, single thread core 60, dev-clean run",
+   "decimals": 4,
+   "label": "exploratory",
+   "line": 30,
+   "quote": "0.2019",
+   "raw": 0.2019,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "CostPfiveWhisperSmall": {
+   "configuration": "P05 WhisperSmall, single thread core 60, dev-clean run",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 34,
+   "quote": "3.6814",
+   "raw": 3.6814,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "CPU-s/audio-s",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
   },
   "CostRzero": {
    "configuration": "R0 Zipformer INT8, same executable/session as CostEngineIntEight",
@@ -152,7 +424,31 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "DecoderShare": {
+   "configuration": "greedy decoder share",
+   "label": "exploratory",
+   "line": 72,
+   "quote": "roughly 4–5% of single stream",
+   "section": "Also measured",
+   "source": "research/H15_engine_non_gemm_and_kernels/README.md",
+   "text": "4--5",
+   "unit": "% of single stream",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "DthreeMRcStep": {
+   "configuration": "see source",
+   "label": "reported",
+   "line": 4752,
+   "quote": "step 20008, epoch 2",
+   "section": "2026-11-22T02:37Z trainer-lane D3MRc dev-clean eval",
+   "source": "AGENT_CHAT.md",
+   "text": "20{,}008",
+   "unit": "steps",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
   },
   "DtwoEpoch": {
    "configuration": "0-indexed, i.e. the 9th pass over 960 h",
@@ -223,6 +519,66 @@
    "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
    "source": "AGENT_CHAT.md",
    "text": "+0.150",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateDeltaDoneMR": {
+   "configuration": "d1mr-s18200 (S_MR, 100 h) INT8 vs FP32 point delta, panel (post-G4)",
+   "label": "exploratory",
+   "line": 33,
+   "quote": "−0.0208 pp",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "\\ensuremath{-}0.021",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateDeltaDoneSeventyEight": {
+   "configuration": "d1-7800 (dense S, 100 h) INT8 vs FP32 point delta, panel (post-G4)",
+   "label": "exploratory",
+   "line": 41,
+   "quote": "+0.0208 pp",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.021",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateDeltaDthreeMRb": {
+   "configuration": "d3mrb-20000 (S_MR int8 stem) INT8 vs FP32 point delta, panel (post-G4)",
+   "label": "exploratory",
+   "line": 37,
+   "quote": "−0.0138 pp",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "\\ensuremath{-}0.014",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateDeltaDtwoFortyFive": {
+   "configuration": "d2-45000 (dense S) INT8 vs FP32 point delta, panel (post-G4)",
+   "label": "exploratory",
+   "line": 35,
+   "quote": "+0.0208 pp",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.021",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateDeltaRfourT": {
+   "configuration": "r4t-12000 (ternary) INT8 vs FP32 point delta, panel (post-G4)",
+   "label": "exploratory",
+   "line": 39,
+   "quote": "−0.0761 pp",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "\\ensuremath{-}0.076",
    "unit": "pp WER",
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
@@ -312,6 +668,18 @@
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
   },
+  "GateMaxDelta": {
+   "configuration": "largest INT8-vs-FP32 point delta among the reported panel gates (D2MR-final; H11 max is +0.021)",
+   "label": "exploratory",
+   "line": 3992,
+   "quote": "+0.069 | +0.203",
+   "section": "2026-11-21T22:31:44Z engine-lane DONE A4 D2MR-final",
+   "source": "AGENT_CHAT.md",
+   "text": "+0.069",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
   "GateMaxUpper": {
    "configuration": "worst upper bound across the H11 INT8 gates (d1-7800)",
    "label": "exploratory",
@@ -320,6 +688,66 @@
    "section": "2. Cross-ISA 730-utterance DEV panel",
    "source": "research/H11_cross_isa_portable_logmel/README.md",
    "text": "+0.211",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateUpperDoneMR": {
+   "configuration": "d1mr-s18200 (S_MR, 100 h) one-sided 95% upper bound",
+   "label": "exploratory",
+   "line": 33,
+   "quote": "upper +0.1510",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.151",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateUpperDoneSeventyEight": {
+   "configuration": "d1-7800 (dense S, 100 h) one-sided 95% upper bound",
+   "label": "exploratory",
+   "line": 41,
+   "quote": "upper +0.2110",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.211",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateUpperDthreeMRb": {
+   "configuration": "d3mrb-20000 (S_MR int8 stem) one-sided 95% upper bound",
+   "label": "exploratory",
+   "line": 37,
+   "quote": "upper +0.1291",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.129",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateUpperDtwoFortyFive": {
+   "configuration": "d2-45000 (dense S) one-sided 95% upper bound",
+   "label": "exploratory",
+   "line": 35,
+   "quote": "upper +0.1567",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.157",
+   "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "GateUpperRfourT": {
+   "configuration": "r4t-12000 (ternary) one-sided 95% upper bound",
+   "label": "exploratory",
+   "line": 39,
+   "quote": "upper +0.0352",
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "text": "+0.035",
    "unit": "pp WER",
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
@@ -336,6 +764,19 @@
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
+  "GmacPerCore": {
+   "configuration": "engine compute rate, Zen 2",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 26,
+   "quote": "about 62 GMAC/s per core",
+   "raw": 62,
+   "section": "Spec claims our data contradict",
+   "source": "research/H17_spec_corrections/README.md",
+   "unit": "GMAC/s per core",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
   "GreedyDecoderCost": {
    "configuration": "greedy decoder share (4-5% of single stream)",
    "decimals": 4,
@@ -346,6 +787,31 @@
    "section": "Also measured",
    "source": "research/H15_engine_non_gemm_and_kernels/README.md",
    "unit": "CPU-s/audio-s",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "HThirteenAStep": {
+   "configuration": "see source",
+   "label": "reported",
+   "line": 4745,
+   "quote": "step 10000, epoch 1",
+   "section": "2026-11-22T02:33Z trainer-lane H13a dev-clean eval",
+   "source": "AGENT_CHAT.md",
+   "text": "10{,}000",
+   "unit": "steps",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
+  "IntEightDenMac": {
+   "configuration": "INT8 S_MR, M3 Ultra dev tool",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 18,
+   "quote": "432 vs 504",
+   "raw": 504,
+   "section": "Results",
+   "source": "research/H8_ternary_R4/README.md",
+   "unit": "streams (6 Mac workers)",
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
@@ -387,6 +853,32 @@
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
   },
+  "LatenessBoundMs": {
+   "configuration": "pre-registered sustained-stream lateness bound",
+   "decimals": 0,
+   "label": "reported",
+   "line": 51,
+   "quote": "p99 lateness ≤ 800 ms",
+   "raw": 800,
+   "section": "4.4 density",
+   "source": "docs/ultra/FREEZE.md",
+   "unit": "ms",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
+  "LeftOneTwentyEightWer": {
+   "configuration": "D2MR-final INT8, panel pooled, left context sweep",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 4669,
+   "quote": "| 128 | 15.933",
+   "raw": 15.933,
+   "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
+   "source": "AGENT_CHAT.md",
+   "unit": "% WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
   "LeftSixtyFourAttn": {
    "configuration": "attention phase relative to left 128; contaminated host, indicative",
    "decimals": 2,
@@ -409,6 +901,19 @@
    "source": "AGENT_CHAT.md",
    "text": "+0.09",
    "unit": "pp WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "LeftSixtyFourWer": {
+   "configuration": "D2MR-final INT8, panel pooled, left context sweep",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 4670,
+   "quote": "**16.023**",
+   "raw": 16.023,
+   "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
+   "source": "AGENT_CHAT.md",
+   "unit": "% WER",
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
@@ -437,39 +942,13 @@
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
-  "MRBeamPanelBeamFP": {
-   "configuration": "D2MR-final engine FP32 beam 4, panel pooled",
+  "LeftThirtyTwoWer": {
+   "configuration": "D2MR-final INT8, panel pooled, left context sweep",
    "decimals": 2,
    "label": "exploratory",
-   "line": 4676,
-   "quote": "**14.431**",
-   "raw": 14.431,
-   "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
-   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
-  },
-  "MRBeamPanelBeamInt": {
-   "configuration": "D2MR-final engine INT8 beam 4, panel pooled",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4676,
-   "quote": "**14.438**",
-   "raw": 14.438,
-   "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
-   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
-  },
-  "MRBeamPanelGreedyFP": {
-   "configuration": "D2MR-final engine FP32 greedy, panel pooled",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4676,
-   "quote": "FP32 15.864",
-   "raw": 15.864,
+   "line": 4671,
+   "quote": "| 32 | 16.611",
+   "raw": 16.611,
    "section": "2026-11-22T01:10:56Z engine-lane D2 avg-3 INT8 gate PASS",
    "source": "AGENT_CHAT.md",
    "unit": "% WER",
@@ -489,83 +968,68 @@
    "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
    "workload_digest": "unrecorded (whole split)"
   },
-  "NemoLongCost": {
-   "configuration": "see source",
-   "decimals": 3,
-   "label": "exploratory",
-   "line": 19,
-   "quote": "0.451 (quiet)",
-   "raw": 0.451,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "CPU-s/audio-s",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
+  "MelNnzDense": {
+   "configuration": "dense mel matrix",
+   "label": "reported",
+   "line": 4474,
+   "quote": "`20,560` dense",
+   "section": "2026-11-22T00:25:00Z runtime-lane DONE Wave H15 (B1 frontend)",
+   "source": "AGENT_CHAT.md",
+   "text": "20{,}560",
+   "unit": "nonzeros",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
   },
-  "NemoLongTestClean": {
-   "configuration": "Nemotron 560 ms, test-clean",
+  "MelNnzSparse": {
+   "configuration": "sparse triangular mel filterbank",
+   "decimals": 0,
+   "label": "reported",
+   "line": 4474,
+   "quote": "`nnz = 477`",
+   "raw": 477,
+   "section": "2026-11-22T00:25:00Z runtime-lane DONE Wave H15 (B1 frontend)",
+   "source": "AGENT_CHAT.md",
+   "unit": "nonzeros",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
+  "MelSpeedupMthree": {
+   "configuration": "log-mel 0.546 -> 0.193 CPU-ms/s, M3 Ultra NEON",
    "decimals": 2,
    "label": "exploratory",
-   "line": 19,
-   "quote": "| Nemotron 560 ms | 2.58% | 5.18% | 0.451 (quiet) |",
-   "raw": 2.58,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
+   "line": 4489,
+   "quote": "NEON 2.83×",
+   "raw": 2.83,
+   "section": "2026-11-22T00:26:40Z claude-lead H15 frontend verified on M3",
+   "source": "AGENT_CHAT.md",
+   "unit": "x",
+   "workload": "sparse_mel_parity: 10,000 synthetic and speech frames (100 audio-s)",
+   "workload_digest": "n/a"
   },
-  "NemoLongTestOther": {
-   "configuration": "see source",
+  "MelSpeedupZen": {
+   "configuration": "log-mel 1.126 -> 0.317 CPU-ms/s, Zen 2, 0-ULP identical",
    "decimals": 2,
    "label": "exploratory",
-   "line": 19,
-   "quote": "| Nemotron 560 ms | 2.58% | 5.18% | 0.451 (quiet) |",
-   "raw": 5.18,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
+   "line": 4478,
+   "quote": "`3.55x` speedup",
+   "raw": 3.55,
+   "section": "2026-11-22T00:25:00Z runtime-lane DONE Wave H15 (B1 frontend)",
+   "source": "AGENT_CHAT.md",
+   "unit": "x",
+   "workload": "sparse_mel_parity: 10,000 synthetic and speech frames (100 audio-s)",
+   "workload_digest": "n/a"
   },
-  "NemoShortCost": {
-   "configuration": "single stream, child process",
-   "decimals": 3,
+  "NonGemmGain": {
+   "configuration": "whole-engine change from bit-identical non-GEMM cuts",
    "label": "exploratory",
-   "line": 18,
-   "quote": "0.709 (quiet)",
-   "raw": 0.709,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "CPU-s/audio-s",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
-  },
-  "NemoShortTestClean": {
-   "configuration": "Nemotron 160 ms, test-clean",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 18,
-   "quote": "| Nemotron 160 ms | 2.65% | 5.60% | 0.709 (quiet) |",
-   "raw": 2.65,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
-  },
-  "NemoShortTestOther": {
-   "configuration": "see source",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 18,
-   "quote": "| Nemotron 160 ms | 2.65% | 5.60% | 0.709 (quiet) |",
-   "raw": 5.6,
-   "section": "Results",
-   "source": "research/H2_baselines_nemotron_contrast/README.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
-   "workload_digest": "unrecorded"
+   "line": 30,
+   "quote": "Whole-engine change is 0–5%",
+   "section": "B1",
+   "source": "research/H15_engine_non_gemm_and_kernels/README.md",
+   "text": "0--5",
+   "unit": "%",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "PanelSpeakers": {
    "configuration": "panel speaker count",
@@ -631,6 +1095,32 @@
    "workload": "training run (no evaluation workload)",
    "workload_digest": "n/a"
   },
+  "RetractedPerCore": {
+   "configuration": "the same ratio per core",
+   "decimals": 1,
+   "label": "exploratory",
+   "line": 14,
+   "quote": "2.8× per core",
+   "raw": 2.8,
+   "section": "Findings",
+   "source": "research/H10_benchmark_methodology_review/README.md",
+   "unit": "x",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
+  "RetractedRatio": {
+   "configuration": "retracted cross-harness density ratio (4 vs 1 workers per CCX)",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 14,
+   "quote": "about-11×",
+   "raw": 11,
+   "section": "Findings",
+   "source": "research/H10_benchmark_methodology_review/README.md",
+   "unit": "x",
+   "workload": "none (configuration or descriptive constant)",
+   "workload_digest": "n/a"
+  },
   "RssEngineFP": {
    "configuration": "engine FP32 sampled peak RSS",
    "decimals": 0,
@@ -642,7 +1132,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssEngineIntEight": {
    "configuration": "sampled peak RSS of the 0.041 run",
@@ -655,7 +1145,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssEngineIntEightPrepared": {
    "configuration": "prepared-only INT8 artifact RSS, a different run from CostEngineIntEight",
@@ -668,7 +1158,7 @@
    "source": "research/H6_pure_rust_engine/README.md",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssNemo": {
    "configuration": "Nemotron peak RSS",
@@ -680,7 +1170,7 @@
    "text": "1{,}284",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssORT": {
    "configuration": "ORT FP32 sampled peak RSS (db5c14a pair)",
@@ -693,7 +1183,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "RssRzero": {
    "configuration": "R0 sampled peak RSS",
@@ -706,7 +1196,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "MB",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "SingleMthreeDense": {
    "configuration": "M3 Ultra, dense S, engine INT8 (checkpoint not stated)",
@@ -719,7 +1209,7 @@
    "source": "README.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "SingleMthreeMR": {
    "configuration": "M3 Ultra, D2MR-final INT8, panel, single stream (README 0.0105 is an older S_MR run)",
@@ -745,7 +1235,7 @@
    "source": "README.md",
    "unit": "CPU-s/audio-s",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "StreamsPerCoreMthreeMR": {
    "configuration": "M3 Ultra dev density tool, D2MR-final, 6 workers, 60 s; dev-tool number, not single-harness",
@@ -786,6 +1276,19 @@
    "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
    "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
+  "TernaryDenMac": {
+   "configuration": "ternary S_MR, M3 Ultra dev tool",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 18,
+   "quote": "432 vs 504",
+   "raw": 432,
+   "section": "Results",
+   "source": "research/H8_ternary_R4/README.md",
+   "unit": "streams (6 Mac workers)",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
   "TernaryEngineWer": {
    "configuration": "R4T engine, dev-clean400",
    "decimals": 2,
@@ -811,6 +1314,19 @@
    "unit": "MiB",
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
+  },
+  "TernaryWerCost": {
+   "configuration": "R4T torch 18.04 minus FP32 17.41, dev-clean400",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 14,
+   "quote": "**18.04% final** (torch), against the FP32 baseline of 17.41%",
+   "raw": 0.63,
+   "section": "Results",
+   "source": "research/H8_ternary_R4/README.md",
+   "unit": "pp WER",
+   "workload": "dev-clean first 400 utt (trainer DEV400)",
+   "workload_digest": "unrecorded"
   },
   "TernaryZeros": {
    "configuration": "see source",
@@ -914,7 +1430,7 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
   "WerBridgeIntEight": {
    "configuration": "D2@5k INT8 WER in the cost run (early checkpoint; cost does not depend on accuracy)",
@@ -927,137 +1443,20 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
   },
-  "WerDtwoAvgGreedyClean": {
-   "configuration": "D2 avg of 50/55/60k, full dev-clean, greedy",
+  "WerDthreeMRc": {
+   "configuration": "D3MRc step 20008, epoch 2, dev-clean400 greedy",
    "decimals": 2,
    "label": "exploratory",
-   "line": 4640,
-   "quote": "| dev-clean_avg3_60000_beam4.json | 7.22 | 6.662 |",
-   "raw": 7.22,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
+   "line": 4752,
+   "quote": "**WER 13.962%**",
+   "raw": 13.962,
+   "section": "2026-11-22T02:37Z trainer-lane D3MRc dev-clean eval",
    "source": "AGENT_CHAT.md",
    "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoAvgGreedyOther": {
-   "configuration": "D2 avg of 50/55/60k, full dev-other, greedy",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4642,
-   "quote": "| dev-other_avg3_60000_beam4.json | 17.728 | 16.554 |",
-   "raw": 17.728,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoBeamClean": {
-   "configuration": "D2 model-60000, full dev-clean, beam 4",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4639,
-   "quote": "| dev-clean_60000_beam4.json | 7.654 | 7.029 |",
-   "raw": 7.029,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoBeamOther": {
-   "configuration": "D2 model-60000, full dev-other, beam 4",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4641,
-   "quote": "| dev-other_60000_beam4.json | 18.572 | 17.386 |",
-   "raw": 17.386,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoBestClean": {
-   "configuration": "D2 avg of 50/55/60k + beam 4, full dev-clean (best R1)",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4640,
-   "quote": "| dev-clean_avg3_60000_beam4.json | 7.22 | 6.662 |",
-   "raw": 6.662,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoBestOther": {
-   "configuration": "D2 avg of 50/55/60k + beam 4, full dev-other (best R1)",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4642,
-   "quote": "| dev-other_avg3_60000_beam4.json | 17.728 | 16.554 |",
-   "raw": 16.554,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoBestPanelClean": {
-   "configuration": "D2 avg-3 (50/55/60k) + beam 4, panel dev-clean 400",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4643,
-   "quote": "| panel-clean_avg3_60000_beam4.json | 7.671 | 6.928 |",
-   "raw": 6.928,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
-   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
-  },
-  "WerDtwoBestPanelOther": {
-   "configuration": "D2 avg-3 (50/55/60k) + beam 4, panel dev-other 330",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4644,
-   "quote": "| panel-other_avg3_60000_beam4.json | 16.822 | 16.077 |",
-   "raw": 16.077,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
-   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
-  },
-  "WerDtwoGreedyClean": {
-   "configuration": "D2 model-60000, full dev-clean (2,703 utt), greedy",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4639,
-   "quote": "| dev-clean_60000_beam4.json | 7.654 | 7.029 |",
-   "raw": 7.654,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
-  },
-  "WerDtwoGreedyOther": {
-   "configuration": "D2 model-60000, full dev-other (2,864 utt), greedy",
-   "decimals": 2,
-   "label": "exploratory",
-   "line": 4641,
-   "quote": "| dev-other_60000_beam4.json | 18.572 | 17.386 |",
-   "raw": 18.572,
-   "section": "2026-11-22T01:04Z trainer-lane D2 step 60000 on xbabe0",
-   "source": "AGENT_CHAT.md",
-   "unit": "% WER",
-   "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
-   "workload_digest": "unrecorded (whole split)"
+   "workload": "dev-clean first 400 utt (trainer DEV400)",
+   "workload_digest": "unrecorded"
   },
   "WerDtwoMRClean": {
    "configuration": "D2MR-final ckpt-50000, full dev-clean, fixed code / batch 1 (deployed)",
@@ -1084,6 +1483,19 @@
    "unit": "% WER",
    "workload": "LibriSpeech full dev-clean (2,703 utt) and dev-other (2,864 utt)",
    "workload_digest": "unrecorded (whole split)"
+  },
+  "WerHThirteenA": {
+   "configuration": "H13a (SentencePiece 512) step 10000, epoch 1, dev-clean400 greedy",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 4745,
+   "quote": "**WER 20.982%**",
+   "raw": 20.982,
+   "section": "2026-11-22T02:33Z trainer-lane H13a dev-clean eval",
+   "source": "AGENT_CHAT.md",
+   "unit": "% WER",
+   "workload": "dev-clean first 400 utt (trainer DEV400)",
+   "workload_digest": "unrecorded"
   },
   "WerLadderDensePanel": {
    "configuration": "d2-45000 INT8 engine, panel 730 pooled (post-G4)",
@@ -1135,7 +1547,150 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "WerNemoTestCleanFiveSixty": {
+   "configuration": "Nemotron 560 ms, test-clean",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 19,
+   "quote": "| Nemotron 560 ms | 2.58% | 5.18% | 0.451 (quiet) |",
+   "raw": 2.58,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerNemoTestCleanOneSixty": {
+   "configuration": "Nemotron 160 ms, test-clean",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 18,
+   "quote": "| Nemotron 160 ms | 2.65% | 5.60% | 0.709 (quiet) |",
+   "raw": 2.65,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerNemoTestOtherFiveSixty": {
+   "configuration": "see source",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 19,
+   "quote": "| Nemotron 560 ms | 2.58% | 5.18% | 0.451 (quiet) |",
+   "raw": 5.18,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerNemoTestOtherOneSixty": {
+   "configuration": "see source",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 18,
+   "quote": "| Nemotron 160 ms | 2.65% | 5.60% | 0.709 (quiet) |",
+   "raw": 5.6,
+   "section": "Results",
+   "source": "research/H2_baselines_nemotron_contrast/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveMoonBaseDevClean": {
+   "configuration": "P05 MoonBase, dev-clean first 100 utt, sherpa offline, 1 thread",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 33,
+   "quote": "`2.360%`",
+   "raw": 2.36,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveMoonBaseTestClean": {
+   "configuration": "P05 MoonBase, test-clean first 100 utt (pre-freeze read)",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 43,
+   "quote": "`2.549%`",
+   "raw": 2.549,
+   "section": "Measured Results / LibriSpeech test-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveMoonTinyDevClean": {
+   "configuration": "P05 MoonTiny, dev-clean first 100 utt, sherpa offline, 1 thread",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 32,
+   "quote": "`3.186%`",
+   "raw": 3.186,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveMoonTinyTestClean": {
+   "configuration": "P05 MoonTiny, test-clean first 100 utt (pre-freeze read)",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 42,
+   "quote": "`4.514%`",
+   "raw": 4.514,
+   "section": "Measured Results / LibriSpeech test-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveRzeroTestClean": {
+   "configuration": "P05 Rzero, test-clean first 100 utt (pre-freeze read)",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 40,
+   "quote": "**2.177%**",
+   "raw": 2.177,
+   "section": "Measured Results / LibriSpeech test-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveWhisperSmallDevClean": {
+   "configuration": "P05 WhisperSmall, dev-clean first 50 utt, sherpa offline, 1 thread",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 34,
+   "quote": "`2.532%`",
+   "raw": 2.532,
+   "section": "Measured Results / LibriSpeech dev-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "P05: dev-clean first 100 utt (Whisper: 50)",
+   "workload_digest": "unrecorded"
+  },
+  "WerPfiveWhisperSmallTestClean": {
+   "configuration": "P05 WhisperSmall, test-clean first 50 utt (pre-freeze read)",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": 44,
+   "quote": "`3.772%`",
+   "raw": 3.772,
+   "section": "Measured Results / LibriSpeech test-clean",
+   "source": "docs/ultra/waves/P05/README.md",
+   "unit": "% WER",
+   "workload": "LibriSpeech test-clean/test-other (pre-freeze exploratory reads, disclosed)",
+   "workload_digest": "unrecorded"
   },
   "WerRzeroDevClean": {
    "configuration": "R0 Zipformer INT8 (sherpa-onnx), DEV400, Rust scorer",
@@ -1148,7 +1703,21 @@
    "source": "docs/ultra/reviews/2026-11-21-fused-d2-cpu.md",
    "unit": "% WER",
    "workload": "DEV400: first 400 dev-clean utt, 2,559.535 audio-s",
-   "workload_digest": "fb8241b9 (prefix as printed in H5; full digest in the bridge receipts)"
+   "workload_digest": "fb8241b9e609820a27fa36ad6ae85631bcbf3f99af1913acc097d7ba18f3301e"
+  },
+  "WerRzeroPanel": {
+   "configuration": "R0 Zipformer INT8, bench-suite --panel, same harness as the rehearsal",
+   "decimals": 2,
+   "label": "exploratory",
+   "line": null,
+   "pending": "R0 pooled 730-utterance panel WER: runtime Jobs F1 (dev-clean) + F2 (dev-other) running on xbabe0; Job C gives only the dev-clean half (WerRehearsalRzero)",
+   "quote": "Job F1",
+   "raw": null,
+   "section": "2026-11-22T02:46Z runtime-lane Jobs F1/F2",
+   "source": "agent_paper.md",
+   "unit": "% WER",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "XisaAgree": {
    "configuration": "token-identical x86 AVX2 vs M3 NEON",
@@ -1187,6 +1756,123 @@
    "unit": "utterances",
    "workload": "none (configuration or descriptive constant)",
    "workload_digest": "n/a"
+  },
+  "XisaPostDoneMR": {
+   "configuration": "d1mr-s18200 (S_MR, 100 h) INT8 x86==Mac after portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 33,
+   "quote": "**730/730**",
+   "raw": 730,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPostDoneSeventyEight": {
+   "configuration": "d1-7800 (dense S, 100 h) INT8 x86==Mac after portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 41,
+   "quote": "**730/730**",
+   "raw": 730,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPostDthreeMRb": {
+   "configuration": "d3mrb-20000 (S_MR int8 stem) INT8 x86==Mac after portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 37,
+   "quote": "**730/730**",
+   "raw": 730,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPostDtwoFortyFive": {
+   "configuration": "d2-45000 (dense S) INT8 x86==Mac after portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 35,
+   "quote": "**730/730**",
+   "raw": 730,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPostRfourT": {
+   "configuration": "r4t-12000 (ternary) INT8 x86==Mac after portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 39,
+   "quote": "**730/730**",
+   "raw": 730,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPreDoneMR": {
+   "configuration": "d1mr-s18200 (S_MR, 100 h) INT8 x86==Mac before portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 33,
+   "quote": "717/730",
+   "raw": 717,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPreDthreeMRb": {
+   "configuration": "d3mrb-20000 (S_MR int8 stem) INT8 x86==Mac before portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 37,
+   "quote": "720/730",
+   "raw": 720,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPreDtwoFortyFive": {
+   "configuration": "d2-45000 (dense S) INT8 x86==Mac before portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 35,
+   "quote": "725/730",
+   "raw": 725,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
+  },
+  "XisaPreRfourT": {
+   "configuration": "r4t-12000 (ternary) INT8 x86==Mac before portable log-mel",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 39,
+   "quote": "636/730",
+   "raw": 636,
+   "section": "2. Cross-ISA 730-utterance DEV panel",
+   "source": "research/H11_cross_isa_portable_logmel/README.md",
+   "unit": "of 730",
+   "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+   "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
   },
   "XisaRfourPre": {
    "configuration": "R4T INT8 x86==Mac before portable log-mel",

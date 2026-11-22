@@ -1,0 +1,32 @@
+% Warm single-harness rehearsal (paper-data), exploratory. Left: whole-service CPU-s per audio-s at the
+% matched 32-stream rung (Job D) vs same-harness panel dev-clean WER (Job C) of the same checkpoints.
+% Right: claimed streams per CCX, each bar labelled with its checkpoint's WER. Caption: \RehearsalCaption.
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base, name=cost,
+  width=0.50\columnwidth, height=4.2cm,
+  xmode=log, xmin=0.025, xmax=0.1, log basis x=10,
+  xtick={0.03,0.05,0.1}, xticklabels={0.03,0.05,0.1},
+  ymin=0, ymax=14,
+  xlabel={CPU-s per audio-s (log)}, ylabel={WER (\%), panel dev-clean},
+]
+\addplot[ultra/rzero, only marks] coordinates {(\CostLadderRzero,\WerRehearsalRzero)}
+  node[pos=0, anchor=south east, font=\scriptsize, text=okVermillion, align=right] {R0};
+\addplot[ultra/dense, only marks] coordinates {(\CostLadderDense,\WerRehearsalDense)}
+  node[pos=0, anchor=south west, font=\scriptsize, text=okBlue] {dense 45k};
+\addplot[ultra/mr, only marks] coordinates {(\CostLadderMR,\WerRehearsalMR)}
+  node[pos=0, anchor=south west, font=\scriptsize, text=okGreen] {MR 50k};
+\end{axis}
+\begin{axis}[ultra/base, at={(cost.east)}, anchor=west, xshift=0.13\columnwidth,
+  width=0.42\columnwidth, height=4.2cm,
+  ybar, bar width=0.5, ymin=0, ymax=175, xmin=0.25, xmax=3.75,
+  xtick={1,2,3}, xticklabels={R0, dense, MR}, ylabel={Streams per CCX}, grid=none, ymajorgrids,
+]
+\addplot[fill=okVermillion, draw=okVermillion] coordinates {(1,\DenRzeroCCX)};
+\addplot[fill=okBlue, draw=okBlue] coordinates {(2,\DenDenseCCX)};
+\addplot[fill=okGreen, draw=okGreen] coordinates {(3,\DenMRCCX)};
+\node[font=\scriptsize, anchor=south] at (axis cs:1,\DenRzeroCCX) {\WerRehearsalRzero\,\%};
+\node[font=\scriptsize, anchor=south] at (axis cs:2,\DenDenseCCX) {\WerRehearsalDense\,\%};
+\node[font=\scriptsize, anchor=south] at (axis cs:3,\DenMRCCX) {\WerRehearsalMR\,\%};
+\end{axis}
+\end{tikzpicture}

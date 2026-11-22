@@ -1,0 +1,33 @@
+% Fig. 1 body (paper-data): cold process-tree CPU cost (log) vs pooled DEV WER, one IEEE column.
+% Rows come only from data/cold_dev.csv (one matched evidence set; see data/README.md). Until rows
+% exist (\ColdRowsCount = 0) this draws the labelled pending state, never placeholder points.
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base,
+  width=0.87\columnwidth, height=5.2cm,
+  xmode=log, xmin=0.01, xmax=2, log basis x=10,
+  xtick={0.01,0.03,0.1,0.3,1}, xticklabels={0.01,0.03,0.1,0.3,1},
+  ymin=0, ymax=25,
+  xlabel={Cold CPU-seconds per audio-second (log)},
+  ylabel={Pooled DEV WER (\%)},
+]
+\ifnum\ColdRowsCount>0
+  \addplot[only marks, mark=*, mark size=1.8pt, color=okBlue,
+    ultra/keep if={role}{ours},
+    nodes near coords, point meta=explicit symbolic,
+    visualization depends on={value \thisrow{anchor}\as\lblanchor},
+    every node near coord/.style={font=\scriptsize, anchor=\lblanchor, inner sep=2pt, text=okBlue}]
+    table[col sep=comma, x=cpu, y=wer, meta=system]{\paperdatadir cold_dev.csv};
+  \addplot[only marks, mark=square*, mark size=1.6pt, color=okVermillion,
+    ultra/keep if={role}{comparator},
+    nodes near coords, point meta=explicit symbolic,
+    visualization depends on={value \thisrow{anchor}\as\lblanchor},
+    every node near coord/.style={font=\scriptsize, anchor=\lblanchor, inner sep=2pt, text=okVermillion}]
+    table[col sep=comma, x=cpu, y=wer, meta=system]{\paperdatadir cold_dev.csv};
+\else
+  \node[align=center, font=\footnotesize, text=okGrey, fill=gray!6, draw=gray!50, inner sep=6pt]
+    at (rel axis cs:0.5,0.5) {\textbf{PENDING}\\[2pt]matched cold-DEV receipts\\not yet admitted\\[1pt]
+    \scriptsize (730-utt panel, one pinned core, median of 3)};
+\fi
+\end{axis}
+\end{tikzpicture}

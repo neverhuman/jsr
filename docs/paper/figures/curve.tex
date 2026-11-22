@@ -1,0 +1,27 @@
+% Training curves (paper-data): dev-clean WER (first 400 utterances, trainer greedy streaming decode)
+% against audio-hours seen in each run (warm starts excluded). Ticks on the top mark epoch boundaries
+% of D2. Hollow marks: the checkpoints timed in the warm rehearsal (D2 step 45k, D2MR step 50k).
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base,
+  width=0.87\columnwidth, height=4.6cm,
+  xmin=0, xmax=8200, ymin=5, ymax=36,
+  xlabel={Audio-hours seen in the run}, ylabel={dev-clean WER (\%)},
+  legend pos=north east, legend cell align=left,
+  scaled x ticks=false, xticklabel style={/pgf/number format/.cd, 1000 sep={,}},
+]
+\addplot[ultra/dense, mark size=1.2pt] table[col sep=comma, x=audio_h, y=wer]{\paperdatadir curve_d2.csv};
+\addlegendentry{D2 dense S}
+\addplot[ultra/mr, mark size=1.5pt] table[col sep=comma, x=audio_h, y=wer]{\paperdatadir curve_d2mr.csv};
+\addlegendentry{D2MR multirate S}
+\addplot[ultra/dense, ultra/failed, only marks, mark size=2.6pt, forget plot, ultra/keep if={step}{45000}]
+  table[col sep=comma, x=audio_h, y=wer]{\paperdatadir curve_d2.csv};
+\addplot[ultra/mr, ultra/failed, only marks, mark size=3pt, forget plot, ultra/keep if={step}{50000}]
+  table[col sep=comma, x=audio_h, y=wer]{\paperdatadir curve_d2mr.csv};
+% epoch boundaries of D2 (off-grid evals) as ticks along the top edge
+\addplot[okGrey, only marks, mark=|, mark size=3pt, forget plot,
+  nodes near coords={\scriptsize e\pgfplotspointmeta}, point meta=explicit symbolic,
+  every node near coord/.style={anchor=south, text=okGrey, font=\tiny}]
+  table[col sep=comma, x=audio_h, y expr=36, meta=epoch]{\paperdatadir epochs_d2.csv};
+\end{axis}
+\end{tikzpicture}

@@ -1,6 +1,6 @@
 system,dev_clean,dev_other,macro_clean,macro_other
-D2-60k greedy,7.65,18.57,WerDtwoGreedyClean,WerDtwoGreedyOther
-D2-60k beam 4,7.03,17.39,WerDtwoBeamClean,WerDtwoBeamOther
-D2 avg-3 greedy,7.22,17.73,WerDtwoAvgGreedyClean,WerDtwoAvgGreedyOther
-D2 avg-3 + beam 4,6.66,16.55,WerDtwoBestClean,WerDtwoBestOther
+D2-60k greedy,7.66,18.51,WerDtwoGreedyClean,WerDtwoGreedyOther
+D2-60k beam 4,7.03,17.34,WerDtwoBeamClean,WerDtwoBeamOther
+D2 avg-3 greedy,7.22,17.70,WerDtwoAvgGreedyClean,WerDtwoAvgGreedyOther
+D2 avg-3 + beam 4,6.65,16.54,WerDtwoBestClean,WerDtwoBestOther
 D2MR-50k greedy,11.10,22.90,WerDtwoMRClean,WerDtwoMROther

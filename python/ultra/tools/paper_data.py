@@ -60,7 +60,24 @@ EVIDENCE_REQUIRED = (
 
 
 class PaperDataError(RuntimeError):
-    """A source is inconsistent with its manifest or a required value is malformed."""
+    """A paper source is inconsistent with its manifest, or a required value is missing or malformed.
+
+    purpose: every paper number must come from a pinned, repo-tracked source; nothing is defaulted.
+    common_fixes: re-copy the raw artifact and run `--write-manifest`; add the missing field to
+    docs/paper/data/curated.json or the evidence row; never edit generated outputs by hand.
+    docs_url: docs/paper/data/README.md
+    repair_hint: cd python/ultra && ../../.venv/bin/python -m tools.paper_data && \
+    ../../.venv/bin/python -m pytest -q tests/test_paper_data.py
+    """
+
+    purpose = "paper numbers come only from pinned sources"
+    docs_url = "docs/paper/data/README.md"
+    repair_hint = "cd python/ultra && ../../.venv/bin/python -m tools.paper_data"
+
+    def __init__(self, reason: str):
+        super().__init__(f"paper data refused: {reason}. repair: fix the source named above, then run "
+                         f"`{self.repair_hint}` (docs: {self.docs_url})")
+        self.reason = reason
 
 
 # ---------------------------------------------------------------- helpers
@@ -181,9 +198,14 @@ class Records:
             raise PaperDataError(f"{rid} has no numeric raw value")
         return float(r)
 
+    def pending(self) -> list[str]:
+        return sorted(rid for rid, r in self.rows.items() if r.get("pending"))
+
     def missing(self) -> list[str]:
         out = []
         for rid, r in self.rows.items():
+            if r.get("pending"):
+                continue
             if any(r.get(k) in (None, "") for k in REQUIRED):
                 out.append(rid)
         return sorted(out)
@@ -208,7 +230,53 @@ def add_curated(root: Path, rec: Records) -> dict:
             workload=e.get("workload"), workload_digest=e.get("workload_digest"),
             source=f"{e['source']} \u00a7 {e['section']}", line=e.get("line"), quote=e.get("quote"),
         )
+        if e.get("pending"):
+            rec.rows[rid]["pending"] = e["pending"]
     return cur
+
+
+# Codex Evidence: Rust-rescored DEV accuracy rows (schema jsr.paper-evidence/v1), pinned in raw/.
+CODEX_ROWS = (
+    # macro stem, measurement id, which WER fields
+    ("WerDtwoGreedy", "d2-60k-greedy", ("Clean", "Other")),
+    ("WerDtwoBeam", "d2-60k-beam4", ("Clean", "Other")),
+    ("WerDtwoAvgGreedy", "d2-avg3-60k-greedy", ("Clean", "Other")),
+    ("WerDtwoBest", "d2-avg3-60k-beam4", ("Clean", "Other", "Pooled")),
+    ("WerDtwoBestPanel", "panel-d2-avg3-60k-beam4", ("Clean", "Other", "Pooled")),
+    ("WerDtwoAvgGreedyPanel", "panel-d2-avg3-60k-greedy", ("Pooled",)),
+    ("WerDtwoAvgOldGreedyPanel", "panel-d2-avg3-55k-greedy", ("Pooled",)),
+    ("WerDtwoSnapGreedyPanel", "panel-d2-55k-greedy", ("Pooled",)),
+    ("WerDtwoMRAvgThreePanel", "panel-smr-avg3-50k-greedy", ("Pooled",)),
+    ("WerDtwoMRAvgFivePanel", "panel-smr-avg5-50k-greedy", ("Pooled",)),
+    ("MRBeamPanelGreedyFP", "panel-d2mr-greedy-fp32", ("",)),
+    ("MRBeamPanelBeamFP", "panel-d2mr-beam4-fp32", ("",)),
+    ("MRBeamPanelBeamInt", "panel-d2mr-beam4-int8", ("",)),
+    ("WerDtwoMRBeamPanel", "panel-d2mr-beam4-int8", ("Clean", "Other")),
+)
+
+
+def add_codex_evidence(root: Path, rec: Records) -> None:
+    rel = RAW / "evidence_codex.json"
+    ev = read_json(root, str(rel))
+    if ev.get("schema") != "jsr.paper-evidence/v1":
+        raise PaperDataError(f"{rel}: unexpected schema {ev.get('schema')!r}")
+    meas = {m["id"]: m for m in ev["measurements"]}
+    norm = ev["normalizer"]
+    for stem, mid, fields in CODEX_ROWS:
+        if mid not in meas:
+            raise PaperDataError(f"{rel}: measurement {mid} missing")
+        m = meas[mid]
+        wl = ev["workloads"][m["workload"]]
+        conf = ev["configurations"][m["configuration"]]
+        cdesc = (f"{conf['label']}; {conf.get('numeric_mode', '')}; {conf.get('decoder', '')}; {conf.get('runtime', '')}; "
+                 f"weights {str(conf.get('weights_sha256', ''))[:12]}; rescored by ultra-score {norm['scorer']['sha256'][:12]} "
+                 f"({norm['id']})")
+        for f in fields:
+            key = {"Clean": "wer_clean_pct", "Other": "wer_other_pct", "Pooled": "wer_pooled_pct", "": "wer_pooled_pct"}[f]
+            v = m.get(key)
+            rec.add(f"{stem}{f}", None if v is None else fmt(v, 2), raw=v, unit="% WER", label="exploratory",
+                    configuration=cdesc, workload=f"{wl['label']} ({wl['utterances']} utt)",
+                    workload_digest=wl["digest"], source=f"docs/paper/data/raw/evidence_codex.json measurements[id={mid}].{key}")
 
 
 def add_derived(rec: Records) -> None:
@@ -282,16 +350,20 @@ def curve_wer(root: Path, run: str, step: int) -> float:
 
 
 def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
-    ladder = read_json(root, str(RAW / "density_ladder.json"))
-    points = [json.loads(x) for x in (root / RAW / "density_ladder.points.jsonl").read_text().splitlines() if x]
+    """Warm single-harness rehearsal (exploratory): Job D ladder, Job C panel frontier, Job B ABAB.
+
+    Job C and Job D ran the same `ultra` executable; Job B ran an earlier build (4fafb45)."""
+    ldir = RAW / "ladder_d_ce58952"
+    ladder = read_json(root, str(ldir / "density_ladder.json"))
+    points = [json.loads(x) for x in (root / ldir / "density_ladder.points.jsonl").read_text().splitlines() if x]
     abab = read_json(root, str(RAW / "abab_timing.json"))
-    front = read_json(root, str(RAW / "frontier.json"))
-    lsrc = "docs/paper/data/raw/density_ladder.json"
-    psrc = "docs/paper/data/raw/density_ladder.points.jsonl"
+    panel = read_json(root, str(RAW / "frontier_panel.json"))
+    lsrc = f"docs/paper/data/{ldir.relative_to(DATA)}/density_ladder.json"
+    psrc = f"docs/paper/data/{ldir.relative_to(DATA)}/density_ladder.points.jsonl"
     asrc = "docs/paper/data/raw/abab_timing.json"
-    fsrc = "docs/paper/data/raw/frontier.json"
+    fsrc = "docs/paper/data/raw/frontier_panel.json"
     man = {}
-    for sub in ("abab_manifests", "ladder_manifests"):
+    for sub in ("abab_manifests", "ladder_d_ce58952", "panel_manifests"):
         for p in sorted((root / RAW / sub).glob("*.job_manifest.json")):
             j = json.loads(p.read_text())
             man[(sub, j["candidate"])] = j
@@ -299,112 +371,136 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
     if len(npz) != 1:
         raise PaperDataError(f"rehearsal jobs ran on different audio caches: {npz}")
     npz_sha = npz.pop()
+    exe = {j["executable_sha256"] for (sub, _), j in man.items() if sub != "abab_manifests"}
+    if len(exe) != 1:
+        raise PaperDataError(f"ladder and panel frontier must share one executable, got {exe}")
+    if panel.get("panel_manifest_sha256") != PANEL_DIGEST:
+        raise PaperDataError("frontier_panel.json is not on the frozen DEV panel")
+    for d in (ladder, abab, panel):
+        if d["completion_status"] != "exploratory":
+            raise PaperDataError("rehearsal inputs must be labelled exploratory")
     hw = "xbabe0 AMD TR PRO 3995WX (Zen 2), shared host, nice 10"
-    lconf = (f"density ladder 4:48:4, {ladder['workers']} workers on one CCX, observer on a separate CCX, "
-             f"{ladder['step_seconds']:.0f} s rungs, grid {ladder['grid_ms']} ms, whole-service fleet CPU; {hw}")
-    if ladder["completion_status"] != "exploratory" or abab["completion_status"] != "exploratory":
-        raise PaperDataError("rehearsal inputs must be labelled exploratory")
+    lconf = (f"density ladder 4:48:4, {ladder['workers']} single-thread workers on one CCX, observer on a separate CCX, "
+             f"{ladder['step_seconds']:.0f} s rungs, one repeat, grid {ladder['grid_ms']} ms, whole-service fleet CPU; "
+             f"ultra ce58952 (post-H15 sparse mel); {hw}")
+    pconf = f"bench-suite --panel, dev-clean half, threads 1, grid {panel['grid_ms']} ms, warm in-process rusage; ultra ce58952; {hw}"
+    pwl = "DEV selection panel, dev-clean half (400 utt, 3,052.165 audio-s)"
 
-    wer_dev400 = {
-        "rzero": (rec.raw("WerRzeroDevClean"), rec.rows["WerRzeroDevClean"]["source"], "Rust scorer"),
-        "dense": (curve_wer(root, "D2_S_960h", 45000), "research/curves/D2_S_960h/eval.csv step 45000", "trainer scorer, FP32 greedy"),
-        "mr": (curve_wer(root, "D2MR_S_MR_960h", 50000), "research/curves/D2MR_S_MR_960h/eval.csv step 50000", "trainer scorer, FP32 greedy"),
-    }
     by_cand = {r["candidate"]: r for r in ladder["results"]}
     rows_cost, rows_ladder = [], []
-    claims = {}
+    claims, early = {}, {}
     for key, cand, disp, stem in CANDIDATES:
         res = by_cand[cand]
         pts = sorted((p for p in points if p["candidate"] == cand), key=lambda p: p["total_streams"])
+        ok = [p for p in pts if p["all_sustained"] and p["drained"]]
         claim = res["claimed_total_streams"]
-        passing = [p for p in pts if p["all_sustained"] and p["drained"]]
-        if max(p["total_streams"] for p in passing) != claim:
+        if max(p["total_streams"] for p in ok) != claim:
             raise PaperDataError(f"{cand}: claimed {claim} disagrees with the points file")
+        first_fail = next((p for p in pts if not (p["all_sustained"] and p["drained"])), None)
+        before_fail = max(p["total_streams"] for p in ok if first_fail is None or p["total_streams"] < first_fail["total_streams"])
+        above = [p for p in pts if p["total_streams"] > claim]
         at_claim = next(p for p in pts if p["total_streams"] == claim)
-        failing = [p for p in pts if p["total_streams"] > claim]
         at_match = next(p for p in pts if p["total_streams"] == MATCHED_RUNG)
-        if not at_match["all_sustained"]:
+        if not (at_match["all_sustained"] and at_match["drained"]):
             raise PaperDataError(f"{cand} did not sustain the matched rung {MATCHED_RUNG}")
         claims[key] = (claim, at_match["rtf_service_cpu"])
-        wl = LADDER_WORKLOAD
-        rec.add(f"Den{stem}CCX", str(claim), raw=claim, unit="streams/CCX", label="exploratory",
-                configuration=f"{disp}; highest sustained rung; {lconf}", workload=wl, workload_digest=npz_sha,
-                source=f"{lsrc} results[candidate={cand}].claimed_total_streams")
+        early[key] = before_fail
+        wl, dg = LADDER_WORKLOAD, npz_sha
+        common = dict(label="exploratory", workload=wl, workload_digest=dg)
+        rec.add(f"Den{stem}CCX", str(claim), raw=claim, unit="streams/CCX",
+                configuration=f"{disp}; highest sustained rung (tool claim); {lconf}",
+                source=f"{lsrc} results[candidate={cand}].claimed_total_streams", **common)
+        rec.add(f"Den{stem}BeforeFailCCX", str(before_fail), raw=before_fail, unit="streams/CCX",
+                configuration=f"{disp}; last sustained rung before the first failing rung (conservative)",
+                source=f"{psrc} candidate={cand}", **common)
         rec.add(f"Den{stem}Core", fmt(claim / ladder["workers"], 0), raw=claim / ladder["workers"],
-                unit="streams/core", label="exploratory", configuration=f"{disp}; claimed streams / {ladder['workers']} workers",
-                workload=wl, workload_digest=npz_sha, source=f"{lsrc} results[candidate={cand}]")
+                unit="streams/core", configuration=f"{disp}; claimed streams / {ladder['workers']} workers",
+                source=f"{lsrc} results[candidate={cand}]", **common)
         rec.add(f"DenPninetyNine{stem}", fmt(at_claim["max_worker_p99_ms"], 0), raw=at_claim["max_worker_p99_ms"],
-                unit="ms", label="exploratory", configuration=f"{disp}; max worker p99 lateness at the passing rung",
-                workload=wl, workload_digest=npz_sha, source=f"{psrc} total_streams={claim}")
-        if failing:
-            rec.add(f"DenFail{stem}CCX", str(failing[0]["total_streams"]), raw=failing[0]["total_streams"],
-                    unit="streams/CCX", label="exploratory", configuration=f"{disp}; first failing rung",
-                    workload=wl, workload_digest=npz_sha, source=f"{psrc} total_streams={failing[0]['total_streams']}")
+                unit="ms", configuration=f"{disp}; max worker p99 lateness at the claimed rung",
+                source=f"{psrc} candidate={cand} total_streams={claim}", **common)
+        rec.add(f"DenRss{stem}", fmt(at_claim["peak_rss_bytes"] / 1e9, 2), raw=at_claim["peak_rss_bytes"], unit="GB",
+                configuration=f"{disp}; peak RSS of the whole 4-worker fleet at the claimed rung",
+                source=f"{psrc} candidate={cand} total_streams={claim}", **common)
+        if above:
+            rec.add(f"DenFail{stem}CCX", str(above[0]["total_streams"]), raw=above[0]["total_streams"],
+                    unit="streams/CCX", configuration=f"{disp}; first rung above the claim (failed)",
+                    source=f"{psrc} candidate={cand} total_streams={above[0]['total_streams']}", **common)
         rec.add(f"CostLadder{stem}", fmt(at_match["rtf_service_cpu"], 4), raw=at_match["rtf_service_cpu"],
-                unit="CPU-s/audio-s", label="exploratory",
-                configuration=f"{disp}; whole-service CPU at the matched {MATCHED_RUNG}-stream rung; {lconf}",
-                workload=wl, workload_digest=npz_sha, source=f"{psrc} total_streams={MATCHED_RUNG}")
+                unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at the matched {MATCHED_RUNG}-stream rung; {lconf}",
+                source=f"{psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
         rec.add(f"CostClaim{stem}", fmt(at_claim["rtf_service_cpu"], 4), raw=at_claim["rtf_service_cpu"],
-                unit="CPU-s/audio-s", label="exploratory", configuration=f"{disp}; whole-service CPU at its passing rung",
-                workload=wl, workload_digest=npz_sha, source=f"{psrc} total_streams={claim}")
-        fr = next(r for r in front["rows"] if r["candidate"] == cand)
+                unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at its claimed rung",
+                source=f"{psrc} candidate={cand} total_streams={claim}", **common)
+        fr = next(r for r in panel["rows"] if r["candidate"] == cand)
+        pcommon = dict(label="exploratory", workload=pwl, workload_digest=PANEL_DIGEST)
+        fsel = f"{fsrc} rows[candidate={cand}]"
         rec.add(f"Frontier{stem}", fmt(fr["batch_rtf_cpu"], 4), raw=fr["batch_rtf_cpu"], unit="CPU-s/audio-s",
-                label="exploratory", configuration=f"{disp}; batch-16 warm in-process rusage; {hw}",
-                workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=f"{fsrc} rows[candidate={cand}].batch_rtf_cpu")
+                configuration=f"{disp}; batch-16; {pconf}", source=f"{fsel}.batch_rtf_cpu", **pcommon)
         rec.add(f"FrontierPerCore{stem}", fmt(fr["batch_streams_per_core"], 1), raw=fr["batch_streams_per_core"],
-                unit="streams/core", label="exploratory", configuration=f"{disp}; 1/batch_rtf_cpu",
-                workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=f"{fsrc} rows[candidate={cand}].batch_streams_per_core")
-        w, wsrc, scorer = wer_dev400[key]
-        if key != "rzero":
-            rec.add(f"WerLadder{stem}DevClean", fmt(w, 2), raw=w, unit="% WER", label="exploratory",
-                    configuration=f"{disp} checkpoint (FP32 greedy streaming, {scorer}); pairs with the rehearsal",
-                    workload=DEV400_TRAINER, workload_digest="unrecorded (trainer --limit 400)", source=wsrc)
-        rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(w, 2), claim,
-                          fmt(at_claim["rtf_service_cpu"], 5), fmt(fr["batch_rtf_cpu"], 5)])
+                unit="streams/core", configuration=f"{disp}; 1/batch-16 cost", source=f"{fsel}.batch_streams_per_core", **pcommon)
+        rec.add(f"FrontierSingle{stem}", fmt(fr["single_rtf_cpu"], 3), raw=fr["single_rtf_cpu"], unit="CPU-s/audio-s",
+                configuration=f"{disp}; single stream; {pconf}", source=f"{fsel}.single_rtf_cpu", **pcommon)
+        rec.add(f"FrontierChunkPninetyNine{stem}", fmt(fr["chunk_ms"]["p99"], 0), raw=fr["chunk_ms"]["p99"], unit="ms",
+                configuration=f"{disp}; per-chunk compute p99, single stream", source=f"{fsel}.chunk_ms.p99", **pcommon)
+        rec.add(f"WerRehearsal{stem}", fmt(fr["wer_pct"], 2), raw=fr["wer_pct"], unit="% WER",
+                configuration=f"{disp}; same harness and executable as the ladder, Rust scorer, greedy",
+                source=f"{fsel}.wer_pct", **pcommon)
+        rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(fr["wer_pct"], 3), claim, before_fail,
+                          fmt(at_claim["rtf_service_cpu"], 5), fmt(fr["batch_rtf_cpu"], 5), fmt(fr["single_rtf_cpu"], 5)])
         for p in pts:
-            rows_ladder.append([key, p["total_streams"], fmt(p["rtf_service_cpu"], 5),
-                                fmt(p["max_worker_p99_ms"], 2), int(bool(p["all_sustained"] and p["drained"]))])
+            rows_ladder.append([key, p["total_streams"], fmt(p["rtf_service_cpu"], 5), fmt(p["max_worker_p99_ms"], 2),
+                                int(bool(p["all_sustained"] and p["drained"])), fmt(p["peak_rss_bytes"] / 1e9, 3)])
 
     base_claim, base_cost = claims["rzero"]
+    base_fb = next(r for r in panel["rows"] if r["candidate"] == CANDIDATES[0][1])["batch_rtf_cpu"]
     for key, stem in (("dense", "Dense"), ("mr", "MR")):
         c, cost = claims[key]
-        rec.add(f"DenRatio{stem}", fmt(c / base_claim, 1), raw=c / base_claim, unit="x", label="exploratory",
-                configuration=f"streams/CCX {key} over R0, same ladder", workload=LADDER_WORKLOAD,
-                workload_digest=npz_sha, source=f"derived: {lsrc}")
-        rec.add(f"CostRatio{stem}", fmt(base_cost / cost, 2), raw=base_cost / cost, unit="x", label="exploratory",
-                configuration=f"R0 over {key} CPU-s/audio-s at the {MATCHED_RUNG}-stream rung", workload=LADDER_WORKLOAD,
-                workload_digest=npz_sha, source=f"derived: {psrc}")
+        common = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha)
+        rec.add(f"DenRatio{stem}", fmt(c / base_claim, 1), raw=c / base_claim, unit="x",
+                configuration=f"claimed streams/CCX {key} over R0, same ladder", source=f"derived: {lsrc}", **common)
+        rec.add(f"DenRatio{stem}BeforeFail", fmt(early[key] / early["rzero"], 1), raw=early[key] / early["rzero"], unit="x",
+                configuration=f"last-rung-before-first-failure streams/CCX {key} over R0", source=f"derived: {psrc}", **common)
+        rec.add(f"CostRatio{stem}", fmt(base_cost / cost, 2), raw=base_cost / cost, unit="x",
+                configuration=f"R0 over {key} CPU-s/audio-s at the {MATCHED_RUNG}-stream rung", source=f"derived: {psrc}", **common)
+        fb = next(r for r in panel["rows"] if r["candidate"] == dict((k, c) for k, c, _, _ in CANDIDATES)[key])["batch_rtf_cpu"]
+        rec.add(f"FrontierRatio{stem}", fmt(base_fb / fb, 2), raw=base_fb / fb, unit="x", label="exploratory",
+                configuration=f"R0 over {key} batch-16 CPU-s/audio-s, panel frontier", workload=pwl,
+                workload_digest=PANEL_DIGEST, source=f"derived: {fsrc}")
     rec.add("DenRatioMRvsDense", fmt(claims["mr"][0] / claims["dense"][0], 1), raw=claims["mr"][0] / claims["dense"][0],
-            unit="x", label="exploratory", configuration="streams/CCX MR over dense", workload=LADDER_WORKLOAD,
+            unit="x", label="exploratory", configuration="claimed streams/CCX MR over dense", workload=LADDER_WORKLOAD,
             workload_digest=npz_sha, source=f"derived: {lsrc}")
-    for rid, v, unit, conf in (
-        ("DenWorkers", ladder["workers"], "workers", "single-threaded workers on one 4-core CCX"),
-        ("DenRungSeconds", int(ladder["step_seconds"]), "s", "duration of each ladder rung"),
-        ("MatchedRung", MATCHED_RUNG, "streams/CCX", "highest rung all three candidates sustained"),
-        ("AbabBlocks", abab["blocks_count"], "blocks", "counterbalanced ABAB blocks"),
-        ("FrontierStreams", 16, "streams", "batch size of the frontier batch row"),
+    for rid, v, unit, conf, src, wl in (
+        ("DenWorkers", ladder["workers"], "workers", "single-threaded workers on one 4-core CCX", lsrc, LADDER_WORKLOAD),
+        ("DenRungSeconds", int(ladder["step_seconds"]), "s", "duration of each ladder rung", lsrc, LADDER_WORKLOAD),
+        ("MatchedRung", MATCHED_RUNG, "streams/CCX", "highest rung all three candidates sustained", psrc, LADDER_WORKLOAD),
+        ("AbabBlocks", abab["blocks_count"], "blocks", "counterbalanced ABAB blocks", asrc, ABAB_WORKLOAD),
+        ("FrontierStreams", 16, "streams", "batch size of the frontier batch row", fsrc, pwl),
     ):
-        rec.add(rid, str(v), raw=v, unit=unit, label="reported", configuration=conf,
-                workload=LADDER_WORKLOAD if rid.startswith(("Den", "Matched")) else ABAB_WORKLOAD,
-                workload_digest=npz_sha, source=lsrc if rid.startswith(("Den", "Matched")) else asrc)
+        rec.add(rid, str(v), raw=v, unit=unit, label="reported", configuration=conf, workload=wl,
+                workload_digest=PANEL_DIGEST if wl == pwl else npz_sha, source=src)
 
     for pair in abab["paired_vs_baseline"]:
         stem = "Dense" if "d2-45000" in pair["candidate"] else "MR"
         g = pair["geometric_mean_ratio"]
         lo, hi = pair["geometric_mean_ratio_ci95_t"]
         conf = (f"{stem} vs R0 single-stream warm in-process CPU, {pair['blocks_paired']} paired blocks, "
-                f"geometric-mean ratio, Student-t 95% CI, Holm; {hw}")
+                f"geometric-mean ratio, Student-t 95% CI, Holm; ultra 4fafb45; {hw}")
         src = f"{asrc} paired_vs_baseline[candidate~{stem}]"
+        common = dict(label="exploratory", configuration=conf, workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=src)
         for rid, v, nd in ((f"AbabRatio{stem}", g, 3), (f"AbabRatio{stem}Lo", lo, 3), (f"AbabRatio{stem}Hi", hi, 3),
                            (f"AbabSpeed{stem}", 1 / g, 2)):
-            rec.add(rid, fmt(v, nd), raw=v, unit="x", label="exploratory", configuration=conf,
-                    workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=src)
-        rec.add(f"AbabPholm{stem}", sci_tex(pair["holm_p_value"]), raw=pair["holm_p_value"], unit="p",
-                label="exploratory", configuration=conf, workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=src)
+            rec.add(rid, fmt(v, nd), raw=v, unit="x", **common)
+        rec.add(f"AbabPholm{stem}", sci_tex(pair["holm_p_value"]), raw=pair["holm_p_value"], unit="p", **common)
 
     out["rehearsal_cost.csv"] = csv_text(
-        ["key", "system", "cpu_matched", "wer_dev400", "streams_ccx", "cpu_at_claim", "cpu_batch16"], rows_cost)
-    out["rehearsal_ladder.csv"] = csv_text(["key", "total_streams", "cpu", "p99_ms", "sustained"], rows_ladder)
+        ["key", "system", "cpu_matched", "wer_panel_clean", "streams_ccx", "streams_before_fail",
+         "cpu_at_claim", "cpu_batch16", "cpu_single"], rows_cost)
+    out["rehearsal_ladder.csv"] = csv_text(["key", "total_streams", "cpu", "p99_ms", "sustained", "fleet_rss_gb"], rows_ladder)
+    # one file per candidate for pgfplots (no filtering needed in TeX)
+    for key, *_ in CANDIDATES:
+        rows = [r for r in rows_ladder if r[0] == key]
+        out[f"ladder_{key}.csv"] = csv_text(["total_streams", "p99_ms", "sustained"], [[r[1], r[3], r[4]] for r in rows])
 
 
 def add_curves(root: Path, rec: Records, out: dict[str, str]) -> None:
@@ -420,6 +516,9 @@ def add_curves(root: Path, rec: Records, out: dict[str, str]) -> None:
         rec.add(f"Params{stem}", fmt(params / 1e6, 1), raw=params, unit="M parameters", label="reported",
                 configuration=run, workload="none (model size)", workload_digest="n/a",
                 source=f"research/curves/index.json {run}.params")
+    rec.add("ParamsRone", fmt(idx["D2_S_960h"]["params"] / 1e6, 1), raw=idx["D2_S_960h"]["params"], unit="M parameters",
+            label="reported", configuration="R1 dense S (same as ParamsDtwo)", workload="none (model size)",
+            workload_digest="n/a", source="research/curves/index.json D2_S_960h.params")
     d2rows, _ = curve_rows(root, "D2_S_960h")
     r45 = next(r for r in d2rows if r["step"] == 45000)
     rec.add("DtwoAudioHoursRehearsal", thousands(fmt(r45["audio_h"], 0)), raw=round(r45["audio_h"], 3),
@@ -541,10 +640,11 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> None:
     if len(ids) != len(set(ids)):
         raise PaperDataError("duplicate evidence ids")
     rows.sort(key=lambda r: r["id"])
+    # label anchor for Figure 1: right of the point, except near the right edge of the log axis
     out["cold_dev.csv"] = csv_text(
-        ["id", "system", "role", "cpu", "wer", "label"],
-        [[r["id"], r["system"], r["role"], f"{float(r['cpu_s_per_audio_s']):.5f}", f"{float(r['wer_pct']):.2f}", r["label"]]
-         for r in rows])
+        ["id", "system", "role", "cpu", "wer", "label", "anchor"],
+        [[r["id"], r["system"], r["role"], f"{float(r['cpu_s_per_audio_s']):.5f}", f"{float(r['wer_pct']):.2f}", r["label"],
+          "east" if float(r["cpu_s_per_audio_s"]) > 0.3 else "west"] for r in rows])
     first = rows[0] if rows else None
     rec.add("ColdRowsCount", str(len(rows)), raw=len(rows), unit="rows", label="reported",
             configuration="number of matched cold-DEV evidence rows in Figure 1 (0 = pending)",
@@ -571,15 +671,15 @@ def metrics_tex(rec: Records) -> str:
     ]
     for rid in sorted(rec.rows):
         r = rec.rows[rid]
-        missing = any(r.get(k) in (None, "") for k in REQUIRED)
+        missing = r.get("pending") or any(r.get(k) in (None, "") for k in REQUIRED)
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
-    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, D2 step 45k dense INT8 and "
-             "D2MR step 50k multirate INT8 in one \\texttt{ultra bench-suite} binary on a shared AMD Threadripper PRO "
-             "3995WX (Zen~2), \\DenWorkers{} single-threaded workers on one CCX, \\DenRungSeconds{}~s ladder rungs. "
-             "Left: whole-service CPU-seconds per audio-second at the matched \\MatchedRung-stream rung against the "
-             "DEV400 dev-clean WER of the same checkpoints. Right: highest sustained streams per CCX; "
-             "the WER of each checkpoint is printed on its bar.")
+    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense model at step 45k and the "
+             "multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} executable on a shared AMD "
+             "Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers on one CCX, "
+             "\\DenRungSeconds{}~s ladder rungs, one repeat. Left: whole-service CPU-seconds per audio-second at the matched "
+             "\\MatchedRung-stream rung against the WER of the same checkpoints on the 400 dev-clean utterances of the DEV "
+             "panel, scored in the same harness. Right: highest sustained streams per CCX, with each checkpoint's WER.")
     cap_c = ("Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, "
              "one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).")
     lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]
@@ -607,7 +707,7 @@ def sources_md(rec: Records) -> str:
         dig = r["workload_digest"] or "MISSING"
         dig = dig if len(dig) < 20 else dig[:12] + "\u2026"
         out.append("| " + " | ".join(cell(x) for x in (
-            f"`\\{rid}`", r["value"] if r["value"] not in (None, "") else "**MISSING**", r["unit"], r["label"],
+            f"`\\{rid}`", r["value"] if r["value"] not in (None, "") else ("**PENDING**: " + r["pending"] if r.get("pending") else "**MISSING**"), r["unit"], r["label"],
             r["configuration"], f"{r['workload']} ({dig})", r["source"], r["line"] or "")) + " |")
     return "\n".join(out) + "\n"
 
@@ -622,6 +722,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     rec = Records()
     out: dict[str, str] = {}
     cur = add_curated(root, rec)
+    add_codex_evidence(root, rec)
     add_derived(rec)
     add_rehearsal(root, rec, out)
     add_curves(root, rec, out)
@@ -655,6 +756,10 @@ def main(argv: list[str] | None = None) -> int:
         bad = []
     for m in missing:
         print(f"MISSING required value: {m}", file=sys.stderr)
+    for line in (files["records.jsonl"].splitlines()):
+        r = json.loads(line)
+        if r.get("pending"):
+            print(f"PENDING (prints red ?? in the PDF): {r['id']}: {r['pending']}", file=sys.stderr)
     return 1 if (bad or missing) else 0
 
 

@@ -1,5 +1,4 @@
 \section{Introduction}\label{sec:intro}
-\input{sections/fig1.tex}%
 
 Most live speech recognition in production still runs on CPUs: call centres, captioning,
 meeting transcription and voice interfaces scale by adding streams, not by shortening one
@@ -18,6 +17,7 @@ blocks that need not run at the full rate. Third, density claims are easy to inf
 harnesses, worker counts and lateness rules can move a ratio by a factor of several, as we learned
 ourselves (\cref{sec:protocol}).
 
+\input{sections/fig1.tex}%
 \para{Our approach.} \ultra co-designs a small streaming transducer and a CPU engine around one
 invariant: \emph{integer exactness}. Every quantised GEMM accumulates exactly in int32; every
 activation row is quantised from its own range; and the log-mel front end is computed in portable

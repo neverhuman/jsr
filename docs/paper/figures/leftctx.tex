@@ -1,0 +1,23 @@
+% Left-context sweep (paper-data): D2MR-final INT8 on the DEV panel, no retraining.
+% Pooled WER (left axis) and attention-phase time relative to left context 128 (right axis).
+% The attention ratios come from a contaminated shared host: indicative only.
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base, axis y line*=left,
+  width=0.74\columnwidth, height=3.6cm, xmode=log, log basis x=2,
+  xtick={32,64,128}, xticklabels={32,64,128}, xmin=26, xmax=158,
+  ymin=15.5, ymax=17, xlabel={Left context (frames)}, ylabel={Pooled WER (\%)},
+]
+\addplot[ultra/mr] table[col sep=comma, x=left, y=wer_pooled]{\paperdatadir left_context.csv};
+\label{plot:leftwer}
+\end{axis}
+\begin{axis}[ultra/base, axis y line*=right, axis x line=none, grid=none,
+  width=0.74\columnwidth, height=3.6cm, xmode=log, log basis x=2, xmin=26, xmax=158,
+  ymin=0, ymax=1.2, ylabel={Attention time (rel.)},
+  legend style={at={(0.5,0.03)}, anchor=south}, legend columns=2, legend cell align=left,
+]
+\addlegendimage{/pgfplots/refstyle=plot:leftwer}\addlegendentry{WER}
+\addplot[color=okOrange, mark=square*, mark size=1.5pt, thick, dashed] table[col sep=comma, x=left, y=attn_rel]{\paperdatadir left_context.csv};
+\addlegendentry{attention (indicative)}
+\end{axis}
+\end{tikzpicture}
