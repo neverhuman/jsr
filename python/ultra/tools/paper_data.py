@@ -290,15 +290,19 @@ def add_codex_evidence(root: Path, rec: Records) -> None:
 
 
 PANEL5 = (
-    # macro, rust score report under raw/panel5_rust_scores/, configuration
+    # rust score report under raw/panel5_rust_scores/, system, split
     ("rzero_dev-clean.json", "R0 Zipformer INT8", "dev-clean"),
     ("rzero_dev-other.json", "R0 Zipformer INT8", "dev-other"),
+    ("dense_avg3_dev-clean.json", "D2 avg-3 (45/50/55k) dense INT8", "dev-clean"),
     ("dense_avg3_dev-other.json", "D2 avg-3 (45/50/55k) dense INT8", "dev-other"),
+    ("mr_dev-clean_jobc.json", "D2MR-50k MR INT8", "dev-clean"),
+    ("mr_dev-other.json", "D2MR-50k MR INT8", "dev-other"),
+    ("moontiny_dev-other.json", "Moonshine v2 tiny INT8", "dev-other"),
 )
 
 
 def add_panel5(root: Path, rec: Records) -> None:
-    """Runtime Jobs F1/F2: same-harness (ultra ce58952) panel runs, rescored by ultra-score 38eacc04."""
+    """Runtime Jobs C/F1/F2: same-harness (ultra ce58952) panel runs, rescored by ultra-score 38eacc04."""
     rep = {}
     for name, system, split in PANEL5:
         d = read_json(root, str(RAW / "panel5_rust_scores" / name))
@@ -306,27 +310,33 @@ def add_panel5(root: Path, rec: Records) -> None:
             raise PaperDataError(f"{name}: unexpected normaliser {d.get('normaliser_id')}")
         ds = d["system_a"]["datasets"][split]
         c = ds["counts"]
-        rep[name] = (c["substitutions"] + c["deletions"] + c["insertions"], c["ref_words"], ds["utterances"])
+        want = {"dev-clean": 400, "dev-other": 330}[split]
+        if ds["utterances"] != want:
+            raise PaperDataError(f"{name}: {ds['utterances']} utterances, expected the full panel half ({want})")
+        rep[name] = (c["substitutions"] + c["deletions"] + c["insertions"], c["ref_words"])
     conf = ("bench-suite --panel, threads 1, grid 320 ms, ultra ce58952 (same executable as Jobs C/D/E); "
             "scored by ultra-score 38eacc04 (ultra-en-wer-norm/v1)")
     src = "docs/paper/data/raw/panel5_rust_scores/"
-    pc = ("DEV selection panel, dev-clean half (400 utt)", PANEL_DIGEST)
-    po = ("DEV selection panel, dev-other half (330 utt)", PANEL_DIGEST)
-    pp = ("DEV selection panel, pooled (730 utt)", PANEL_DIGEST)
-    e, n, _ = rep["rzero_dev-other.json"]
-    rec.add("WerRzeroPanelOther", fmt(100 * e / n, 2), raw=100 * e / n, unit="% WER", label="exploratory",
-            configuration=f"R0 Zipformer INT8; {conf}", workload=po[0], workload_digest=po[1], source=src + "rzero_dev-other.json")
-    ec, nc, _ = rep["rzero_dev-clean.json"]
-    pooled = 100 * (e + ec) / (n + nc)
-    rec.add("WerRzeroPanel", fmt(pooled, 2), raw=pooled, unit="% WER", label="exploratory",
-            configuration=f"R0 Zipformer INT8, pooled errors/ref words over both halves; {conf}", workload=pp[0],
-            workload_digest=pp[1], source=src + "rzero_dev-{clean,other}.json")
-    rec.add("WerRzeroPanelClean", fmt(100 * ec / nc, 2), raw=100 * ec / nc, unit="% WER", label="exploratory",
-            configuration=f"R0 Zipformer INT8; {conf}", workload=pc[0], workload_digest=pc[1], source=src + "rzero_dev-clean.json")
-    e, n, _ = rep["dense_avg3_dev-other.json"]
-    rec.add("WerRehearsalDenseOther", fmt(100 * e / n, 2), raw=100 * e / n, unit="% WER", label="exploratory",
-            configuration=f"D2 avg-3 (45/50/55k) dense prepared INT8, the ladder's dense finalist; {conf}", workload=po[0],
-            workload_digest=po[1], source=src + "dense_avg3_dev-other.json")
+    halves = {"Clean": ("DEV selection panel, dev-clean half (400 utt)", "clean"),
+              "Other": ("DEV selection panel, dev-other half (330 utt)", "other")}
+
+    def add(rid, files, system):
+        e = sum(rep[f][0] for f in files)
+        n = sum(rep[f][1] for f in files)
+        wl = "DEV selection panel, pooled (730 utt)" if len(files) == 2 else halves["Clean" if "clean" in files[0] else "Other"][0]
+        rec.add(rid, fmt(100 * e / n, 2), raw=100 * e / n, unit="% WER", label="exploratory",
+                configuration=f"{system}; {'pooled errors / ref words over both halves; ' if len(files) == 2 else ''}{conf}",
+                workload=wl, workload_digest=PANEL_DIGEST, source=src + " + ".join(files))
+
+    add("WerRzeroPanel", ["rzero_dev-clean.json", "rzero_dev-other.json"], "R0 Zipformer INT8")
+    add("WerRzeroPanelClean", ["rzero_dev-clean.json"], "R0 Zipformer INT8")
+    add("WerRzeroPanelOther", ["rzero_dev-other.json"], "R0 Zipformer INT8")
+    add("WerRehearsalDense", ["dense_avg3_dev-clean.json"], "D2 avg-3 (45/50/55k) dense prepared INT8, the ladder's dense finalist")
+    add("WerRehearsalDenseOther", ["dense_avg3_dev-other.json"], "D2 avg-3 (45/50/55k) dense prepared INT8")
+    add("WerRehearsalDensePooled", ["dense_avg3_dev-clean.json", "dense_avg3_dev-other.json"], "D2 avg-3 dense prepared INT8")
+    add("WerRehearsalMROther", ["mr_dev-other.json"], "D2MR-50k multirate prepared INT8")
+    add("WerRehearsalMRPooled", ["mr_dev-clean_jobc.json", "mr_dev-other.json"], "D2MR-50k multirate prepared INT8")
+    add("WerMoonTinyPanelOther", ["moontiny_dev-other.json"], "Moonshine v2 tiny INT8 (sherpa offline)")
 
 
 def add_derived(rec: Records) -> None:
@@ -499,12 +509,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                 configuration=f"{fdisp}; same harness and executable as the ladder, Rust scorer, greedy",
                 source=f"{fsel}.wer_pct", **pcommon)
         if key == "dense":
-            wsrc = rec.rows["WerDtwoAvgOldGreedyPanelClean"]
-            wer = float(wsrc["raw"])
-            rec.add("WerRehearsalDense", fmt(wer, 2), raw=wer, unit="% WER", label="exploratory",
-                    configuration=(f"{disp}; FP32 trainer greedy decode, Rust-rescored (Codex evidence); the same-harness "
-                                   "INT8 row (runtime Job F1) is pending; INT8 gate on this checkpoint +0.042 pp pooled"),
-                    workload=wsrc["workload"], workload_digest=wsrc["workload_digest"], source=wsrc["source"])
+            wer = rec.raw("WerRehearsalDense")
         else:
             wer = fr["wer_pct"]
         rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(wer, 3), claim, before_fail,
@@ -825,6 +830,13 @@ def metrics_tex(rec: Records) -> str:
              "Right: highest sustained streams per CCX, with each checkpoint's WER.")
     cap_c = ("Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, "
              "one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).")
+    cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host): highest sustained "
+             "live streams per CCX (\\DenWorkers{} single-threaded workers, p99 lateness at most \\LatenessBoundMs\\,ms, "
+             "\\DenRungSeconds{}~s rungs, one repeat) against WER on the 400 dev-clean utterances of the DEV panel, both "
+             "measured in one \\texttt{ultra bench-suite} executable for the same checkpoints. The hollow bar is the "
+             "earlier dense step-45k checkpoint, which reached \\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} "
+             "streams over two runs.")
+    lines += ["", f"\\newcommand{{\\FrontierWarmCaption}}{{{cap_f}}}"]
     lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]
     return "\n".join(lines)
 

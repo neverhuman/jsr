@@ -15,7 +15,8 @@
   legend style={at={(0.42,-0.30)}, anchor=north, font=\scriptsize}, legend cell align=left,
 ]
 \addplot[okGrey, dashed, thin, mark=none, forget plot] coordinates {(0,\LatenessBoundMs) (176,\LatenessBoundMs)};
-\node[font=\scriptsize, text=okGrey, anchor=south west] at (axis cs:62,\LatenessBoundMs) {p99 bound \LatenessBoundMs\,ms};
+% bound label below the line, in the gap between R0's last (failed) rung and the dense/MR curves
+\node[font=\scriptsize, text=okGrey, anchor=north west, inner sep=1.5pt] at (axis cs:50,\LatenessBoundMs) {\LatenessBoundMs\,ms bound};
 \addplot[ultra/rzero] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_rzero.csv};
 \addlegendentry{R0 Zipformer: \DenRzeroCCX{}/CCX, WER \WerRehearsalRzero\,\%}
 \addplot[ultra/dense] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_dense.csv};

@@ -1,0 +1,39 @@
+% Fig. 1 body (paper-data): warm single-harness frontier, exploratory, Zen 2. One IEEE column (<= 243 pt).
+% x: WER on the 400 dev-clean utterances of the DEV panel, same harness and executable as the ladder
+%    (ultra ce58952, Rust scorer). y: highest sustained live streams per CCX (Job E ladder, 4 workers).
+% The dense step-45k checkpoint (a different, earlier checkpoint) is drawn hollow with its density
+% range over ladder runs A/D. Caption text: \FrontierWarmCaption.
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base,
+  width=0.82\columnwidth, height=5.0cm,
+  xmin=0, xmax=14, ymin=0, ymax=176, xtick={0,2,4,6,8,10,12,14}, ytick={0,32,64,96,128,160},
+  xlabel={WER (\%), DEV panel dev-clean, same harness},
+  ylabel={Live streams per CCX},
+]
+% step-45k density range (runs A/D), hollow, at that checkpoint's own WER
+\addplot[okBlue, thin, mark=none, forget plot]
+  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) (\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
+\addplot[okBlue, only marks, mark=-, mark size=2.5pt, forget plot]
+  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) (\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
+\addplot[ultra/dense, ultra/failed, only marks, mark size=1.7pt, forget plot]
+  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
+\draw[okBlue, thin, densely dotted] (axis cs:\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) -- (axis cs:10.0,80)
+  node[anchor=north, font=\tiny, text=okBlue, inner sep=1pt, align=center]
+  {dense step 45k (earlier ckpt.):\\\DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} over runs A, D};
+% the three timed systems
+\addplot[ultra/rzero, only marks, mark size=2pt] coordinates {(\WerRehearsalRzero,\DenRzeroCCX)};
+\addplot[ultra/dense, only marks, mark size=2.1pt] coordinates {(\WerRehearsalDense,\DenDenseCCX)};
+\addplot[ultra/mr, only marks, mark size=2.6pt] coordinates {(\WerRehearsalMR,\DenMRCCX)};
+% direct labels with leaders
+\draw[okVermillion, thin] (axis cs:\WerRehearsalRzero,\DenRzeroCCX) -- (axis cs:4.2,22)
+  node[anchor=west, font=\scriptsize, text=okVermillion, inner sep=1pt, align=left]
+  {R0 Zipformer: \DenRzeroCCX{} at \WerRehearsalRzero\,\%};
+\draw[okBlue, thin] (axis cs:\WerRehearsalDense,\DenDenseCCX) -- (axis cs:4.4,118)
+  node[anchor=south, font=\scriptsize, text=okBlue, inner sep=1pt, align=center]
+  {dense avg-3: \DenDenseCCX\\at \WerRehearsalDense\,\%};
+\draw[okGreen, thin] (axis cs:\WerRehearsalMR,\DenMRCCX) -- (axis cs:9.9,152)
+  node[anchor=east, font=\scriptsize, text=okGreen, inner sep=1pt, align=right]
+  {multirate 50k: \DenMRCCX\\at \WerRehearsalMR\,\%};
+\end{axis}
+\end{tikzpicture}

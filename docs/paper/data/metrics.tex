@@ -255,6 +255,7 @@
 \newcommand{\WerLadderDensePanel}{14.19}% [exploratory] % WER
 \newcommand{\WerLadderMRPanel}{15.93}% [exploratory] % WER
 \newcommand{\WerLadderMRPanelClean}{11.56}% [exploratory] % WER
+\newcommand{\WerMoonTinyPanelOther}{12.14}% [exploratory] % WER
 \newcommand{\WerNemoDevClean}{2.16}% [exploratory] % WER
 \newcommand{\WerNemoFiveSixtyDevClean}{2.16}% [exploratory] % WER
 \newcommand{\WerNemoTestCleanFiveSixty}{2.58}% [exploratory] % WER
@@ -268,10 +269,13 @@
 \newcommand{\WerPfiveRzeroTestClean}{2.18}% [exploratory] % WER
 \newcommand{\WerPfiveWhisperSmallDevClean}{2.53}% [exploratory] % WER
 \newcommand{\WerPfiveWhisperSmallTestClean}{3.77}% [exploratory] % WER
-\newcommand{\WerRehearsalDense}{7.75}% [exploratory] % WER
+\newcommand{\WerRehearsalDense}{7.76}% [exploratory] % WER
 \newcommand{\WerRehearsalDenseFortyFive}{9.56}% [exploratory] % WER
 \newcommand{\WerRehearsalDenseOther}{17.34}% [exploratory] % WER
+\newcommand{\WerRehearsalDensePooled}{11.70}% [exploratory] % WER
 \newcommand{\WerRehearsalMR}{11.56}% [exploratory] % WER
+\newcommand{\WerRehearsalMROther}{22.19}% [exploratory] % WER
+\newcommand{\WerRehearsalMRPooled}{15.93}% [exploratory] % WER
 \newcommand{\WerRehearsalRzero}{2.95}% [exploratory] % WER
 \newcommand{\WerRzeroDevClean}{2.85}% [exploratory] % WER
 \newcommand{\WerRzeroPanel}{5.11}% [exploratory] % WER
@@ -291,6 +295,8 @@
 \newcommand{\XisaPreRfourT}{636}% [exploratory] of 730
 \newcommand{\XisaRfourPre}{636}% [exploratory] of 730
 \newcommand{\XisaTotal}{7{,}300}% [exploratory] utterances
+
+\newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host): highest sustained live streams per CCX (\DenWorkers{} single-threaded workers, p99 lateness at most \LatenessBoundMs\,ms, \DenRungSeconds{}~s rungs, one repeat) against WER on the 400 dev-clean utterances of the DEV panel, both measured in one \texttt{ultra bench-suite} executable for the same checkpoints. The hollow bar is the earlier dense step-45k checkpoint, which reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams over two runs.}
 
 \newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense finalist (average of steps 45/50/55k) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs, dense ranged \DenDenseRangeLo--\DenDenseRangeHi{} per CCX. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances (R0 and multirate: same harness; dense: trainer FP32 decode, Rust-rescored). Right: highest sustained streams per CCX, with each checkpoint's WER.}
 \newcommand{\ColdCaption}{Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).}
