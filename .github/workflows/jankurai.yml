@@ -70,7 +70,7 @@ jobs:
           "$RUNNER_TEMP/jankurai-bin/jankurai" audit . --full --mode standard \
             --fail-under 85 --no-badge --no-score-history \
             --json "$report/repo-score.json" --md "$report/repo-score.md" \
-            --sarif "$report/jankurai.sarif" --github-step-summary "$GITHUB_STEP_SUMMARY" \
+            --github-step-summary "$GITHUB_STEP_SUMMARY" \
             --repair-queue-jsonl "$report/repair-queue.jsonl"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
