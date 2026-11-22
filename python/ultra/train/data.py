@@ -53,15 +53,17 @@ class Batch:
     ctc: torch.Tensor
     ctc_lens: torch.Tensor
     kd: tuple | None = None  # (kd_ids, kd_lp, kd_u, kd_mask), padded to the longest teacher track
+    active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
 
     @property
     def audio_seconds(self) -> float:
-        return float(self.feat_lens.sum()) / 100.0
+        return float(self.feat_lens.sum()) / 100.0 if self.active else 0.0
 
     def to(self, device) -> Batch:
         return Batch(self.uids, self.texts, *(t.to(device) for t in (
             self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
-            kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None)
+            kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
+            active=self.active)
 
 
 @dataclass(frozen=True)
@@ -213,6 +215,7 @@ class ParquetBatches:
         # change), so a mid-epoch resume never skips or repeats data; set by the trainer.
         self.carry_width: tuple[int, int] | None = None
         self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
+        self.ddp_global_batches = False
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.teacher = teacher
@@ -353,14 +356,19 @@ class ParquetBatches:
             dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
         groups = pack(dur, self.budget_s, self.max_batch)
         rng.shuffle(groups)
-        # Every rank gets the same number of groups and no group is dropped: the window's tail
-        # (fewer than world groups) goes to the first ranks, and the remaining ranks repeat the
-        # window's first groups, so each example is used at least once.
-        n = len(groups)
-        if n % self.world:
-            groups = groups + groups[: self.world - n % self.world]
-        groups = groups[self.rank::self.world]
-        mine = [[rows[keep[i]] for i in g] for g in groups]
+        if self.ddp_global_batches:
+            # Preserve the same global groups and cursor as the single-rank loader.
+            parts = [g[self.rank::self.world] for g in groups]
+            active = [bool(g) for g in parts]
+            parts = [g or [global_group[0]] for g, global_group in zip(parts, groups, strict=True)]
+        else:
+            n = len(groups)
+            if n % self.world:
+                target = n + self.world - n % self.world  # repeat the first groups up to a multiple
+                groups = (groups * -(-target // max(1, n)))[:target]
+            parts = groups[self.rank::self.world]
+            active = [True] * len(parts)
+        mine = [[rows[keep[i]] for i in g] for g in parts]
         flat = [r for g in mine for r in g]
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
@@ -375,6 +383,8 @@ class ParquetBatches:
             k += len(g)
         if any(e is None for g in out for e in g):
             raise DataError("header-predicted length disagrees with the decoded audio")
+        if self.ddp_global_batches:
+            return list(zip(out, active, strict=True))
         return out
 
     def iterate(self, start: Position):
@@ -417,7 +427,14 @@ class ParquetBatches:
                 first = False
                 for bi in range(skip, len(batches)):
                     nxt = Position(ep, w, bi + 1)
-                    yield nxt, collate(batches[bi], self.pad_frames, self.pad_tokens)
+                    group = batches[bi]
+                    if self.ddp_global_batches and self.world > 1:
+                        examples, active = group
+                        batch = collate(examples, self.pad_frames, self.pad_tokens)
+                        batch.active = active
+                    else:
+                        batch = collate(group, self.pad_frames, self.pad_tokens)
+                    yield nxt, batch
         finally:
             stop.set()
             runner.shutdown(wait=False)

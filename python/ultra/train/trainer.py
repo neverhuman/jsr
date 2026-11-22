@@ -94,6 +94,9 @@ class TrainConfig:
     window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
     # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
     ddp_util_target: float = 0.0
+    # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
+    ddp_global_batches: bool = False
+    ddp_native: bool = False  # overlap gradient communication with backward
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -123,6 +126,15 @@ def lr_lambda(cfg: TrainConfig):
     return f
 
 
+class _ForwardLoss(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, *args, **kwargs):
+        return self.model.losses(*args, **kwargs)
+
+
 class Trainer:
     def __init__(self, run_dir: str, cfg: TrainConfig, source, model_cfg: ModelConfig | None = None,
                  dev: list[Example] | None = None, tokenizer=None, device: str | None = None,
@@ -137,6 +149,7 @@ class Trainer:
         self.model_cfg = model_cfg or PRESETS[cfg.preset]
         torch.manual_seed(cfg.seed)
         self.model = ASRModel(self.model_cfg).to(self.device)
+        self._ddp_loss = None
         decay = [p for n, p in self.model.named_parameters() if p.ndim >= 2]
         no_decay = [p for n, p in self.model.named_parameters() if p.ndim < 2]
         self.opt = torch.optim.AdamW([{"params": decay, "weight_decay": cfg.weight_decay},
@@ -221,10 +234,18 @@ class Trainer:
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
+        if self.world > 1 and self.cfg.ddp_native and self._ddp_loss is None:
+            from torch.nn.parallel import DistributedDataParallel
+
+            devices = [self.device.index] if self.device.type == "cuda" else None
+            self._ddp_loss = DistributedDataParallel(_ForwardLoss(self.model), device_ids=devices,
+                                                     broadcast_buffers=False,
+                                                     gradient_as_bucket_view=True)
+        forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
-            out = self.model.losses(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
-                                    stats=self.stats,
+            out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
+                                    stats=self.stats if b.active else None,
                                     augment=self.augment if self.step >= self.cfg.specaug_start
                                     else None, gen=gen,
                                     chunk=self.cfg.chunk or None,
@@ -233,13 +254,13 @@ class Trainer:
                                     simple_detach=self.step < self.cfg.prune_hold)
         loss = out["loss"]
         if self.world > 1:
-            loss, out = self._global_loss(out)
+            loss, out = self._global_loss(out, active=b.active)
         # finite-loss agreement: under DDP the all-reduced loss decides for every rank at once
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
         loss.backward()
-        if self.world > 1:
+        if self.world > 1 and self._ddp_loss is None:
             from train.dist import all_reduce_grads
 
             all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
@@ -253,9 +274,9 @@ class Trainer:
         self.step += 1
         return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
                 "ctc": float(out["ctc"]),
-                "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
+                "grad_norm": gnorm, "ctc_masked": out["ctc_masked"] if b.active else 0,
                 "lr": self.sched.get_last_lr()[0], "audio_s": self._global_audio(batch.audio_seconds),
-                "utts": len(batch.uids),
+                "utts": len(batch.uids) if b.active else 0,
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
 
@@ -267,7 +288,7 @@ class Trainer:
 
         return all_reduce_sum([seconds], self.device)[0]
 
-    def _global_loss(self, out: dict):
+    def _global_loss(self, out: dict, active: bool = True):
         """Rescale each loss component by world * N_rank / N_total (all-reduced token / frame
         counts) so the averaged gradient equals one process on the concatenated batch; the
         reported scalars become the global per-token values (identical on every rank)."""
@@ -275,9 +296,10 @@ class Trainer:
 
         c, w = self.model.cfg, self.world
         nr, nc, nk = float(out["rnnt_tokens"]), float(out["ctc_tokens"]), float(out.get("kd_frames", 0))
-        tr, tc, tk = all_reduce_sum([nr, nc, nk], self.device)
-        fr, fc = w * nr / max(tr, 1.0), w * nc / max(tc, 1.0)
-        fk = w * nk / max(tk, 1.0)
+        tr, tc, tk = all_reduce_sum([nr * active, nc * active, nk * active], self.device)
+        fr = w * active * max(1.0, nr) / max(1.0, tr)
+        fc = w * active * max(1.0, nc) / max(1.0, tc)
+        fk = w * active * nk / max(1.0, tk)
         if "rnnt_simple" in out:
             rn = self._pruned_scale() * out["rnnt"] + c.simple_loss_scale * out["rnnt_simple"]
         else:
@@ -285,7 +307,13 @@ class Trainer:
         loss = fr * rn + c.ctc_weight * fc * out["ctc"]
         if "kd" in out:
             loss = loss + self.cfg.kd_weight * fk * out["kd"]
-        keys = [k for k in ("rnnt", "ctc", "rnnt_simple", "kd") if k in out]
+        if self.cfg.kd_weight > 0 and "kd" not in out:
+            out["kd"] = out["rnnt"].new_zeros(())
+        keys = ["rnnt", "ctc"]
+        if "rnnt_simple" in out:
+            keys.append("rnnt_simple")
+        if self.cfg.kd_weight > 0:
+            keys.append("kd")
         scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
         vals = all_reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], self.device)
         out = dict(out, **{k: torch.tensor(v) for k, v in zip(keys, vals[:-1], strict=True)})
@@ -622,6 +650,7 @@ def main(argv=None) -> int:
     rank, world, local_rank = init_from_env(dev_type)
     if world > 1 and hasattr(source, "world"):
         source.rank, source.world = rank, world
+        source.ddp_global_batches = cfg.ddp_global_batches
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
     cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
