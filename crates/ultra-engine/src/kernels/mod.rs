@@ -220,6 +220,18 @@ pub fn silu_inplace(isa: Isa, x: &mut [f32]) {
     }
 }
 
+/// `sum_i exp(x[i] - shift)` with the engine's exp, in one fixed order on every ISA
+/// (bit-identical across scalar, AVX2 and NEON).
+pub fn sum_exp_shifted(isa: Isa, x: &[f32], shift: f32) -> f32 {
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::sum_exp_shifted(x, shift),
+        #[cfg(target_arch = "aarch64")]
+        Isa::Neon => aarch64_neon::sum_exp_shifted(x, shift),
+        _ => scalar::sum_exp_shifted(x, shift),
+    }
+}
+
 /// GLU over rows of width `2 d`: `out[r][c] = a[r][c] * sigmoid(a[r][d + c])`.
 pub fn glu(isa: Isa, a: &[f32], d: usize, out: &mut [f32]) {
     assert!(d > 0 && a.len() == 2 * out.len() && out.len().is_multiple_of(d));
