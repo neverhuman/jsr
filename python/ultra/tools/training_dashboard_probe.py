@@ -116,6 +116,26 @@ def linux_process(pid):
         return [], ""
 
 
+def distributed_process(pid, start_ticks):
+    if not sys.platform.startswith("linux"):
+        return None
+    keys = {b"RANK", b"WORLD_SIZE", b"MASTER_ADDR", b"MASTER_PORT", b"TORCHELASTIC_RUN_ID"}
+    try:
+        entries = (Path("/proc") / str(pid) / "environ").read_bytes().split(b"\0")
+        env = {key: value for entry in entries for key, _, value in [entry.partition(b"=")] if key in keys}
+        rank, world_size = int(env[b"RANK"]), int(env[b"WORLD_SIZE"])
+        if not 0 <= rank < world_size or world_size <= 1:
+            return None
+        master, port = env[b"MASTER_ADDR"], env[b"MASTER_PORT"]
+        identity = b"\0".join((master, port, env[b"WORLD_SIZE"], env.get(b"TORCHELASTIC_RUN_ID", b"")))
+        uptime = float(Path("/proc/uptime").read_text().split()[0])
+        started_at = time.time() - uptime + int(start_ticks) / os.sysconf("SC_CLK_TCK")
+    except (OSError, KeyError, IndexError, ValueError):
+        return None
+    return {"group": hashlib.sha256(identity).hexdigest()[:24], "rank": rank,
+            "world_size": world_size, "started_at": started_at}
+
+
 def run_path(pid, text):
     path = Path(text)
     if not path.is_absolute():
@@ -164,7 +184,7 @@ def trainer_processes():
                 break
             parent = parents.get(parent, 0)
         else:
-            result.setdefault(path, (pid, start, overfit))
+            result.setdefault(path, (pid, start, overfit, distributed_process(pid, start)))
     return result
 
 
@@ -432,12 +452,12 @@ def live(args):
                 previous_ticks = ticks
                 gpu_by_pid = {
                     (pid, start): mapping[pid]
-                    for pid, start, _ in hardware_processes.values() if pid in mapping
+                    for pid, start, _, _ in hardware_processes.values() if pid in mapping
                 }
                 hardware_job = None
             runs = []
             for path, history in histories.items():
-                pid, start, overfit = processes.get(path, (None, "", history.overfit))
+                pid, start, overfit, ddp = processes.get(path, (None, "", history.overfit, None))
                 if overfit:
                     scope = "overfit"
                 elif history.dev_limit:
@@ -448,9 +468,9 @@ def live(args):
                              "name": path.name, "active": pid is not None, "pid": pid,
                              "gpu_index": gpu_by_pid.get((pid, start)), "total_steps": history.total_steps,
                              "dev_limit": history.dev_limit, "eval_scope": scope,
-                             "overfit": bool(overfit) if overfit is not None else None,
-                             "train": sorted(history.train.values(), key=lambda row: row["step"]),
-                             "eval": sorted(history.evals.values(), key=lambda row: (row["step"], row["split"], row["decoder"]))})
+                             "overfit": bool(overfit) if overfit is not None else None, "ddp": ddp,
+                             "train": [] if ddp and ddp["rank"] else sorted(history.train.values(), key=lambda row: row["step"]),
+                             "eval": [] if ddp and ddp["rank"] else sorted(history.evals.values(), key=lambda row: (row["step"], row["split"], row["decoder"]))})
             info = {"gpu": gpus[0] if gpus else None, "gpus": gpus, "disk_free_bytes": free,
                     "cpu_pct": cpu_pct, "cpu_load": cpu_load, "cpu_count": os.cpu_count(), "runs": runs}
             if detail or not dirs:

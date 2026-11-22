@@ -57,6 +57,10 @@ running the server, or `--run-dir` to add a local log directory explicitly.
   come from trainer evaluations.
 - **Loss** is the latest logged training objective. The fleet median is a
   summary across fresh runs. Use each run's history to compare its trend.
+- **DDP** workers follow the fresh step, loss, and WER from their live rank 0.
+  Select a worker to see its local GPU telemetry alongside the shared run.
+  The fleet counts the shared run's throughput once. A live worker whose
+  rank 0 has stopped reporting progress shows as stale.
 - **Stale** means the probe is connected and an active trainer's block is
   overdue. **Offline** means the probe connection is down. Its retained
   history is still visible and its rate is excluded from the fleet sum.

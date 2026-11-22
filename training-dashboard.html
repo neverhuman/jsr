@@ -269,7 +269,7 @@
             </div>
           </div>
           <dl class="facts">
-            <div class="fact"><dt>Audio/s</dt><dd id="node-audio">—</dd></div>
+            <div class="fact"><dt id="node-audio-label">Audio/s</dt><dd id="node-audio">—</dd></div>
             <div class="fact"><dt>Run step</dt><dd id="node-step">—</dd></div>
             <div class="fact"><dt>Run loss</dt><dd id="node-loss">—</dd></div>
             <div class="fact" id="node-cpu-fact"><dt id="node-cpu-label">Host CPU</dt><dd id="node-cpu">—</dd></div>
@@ -733,7 +733,10 @@ function renderHosts() {
       statusText(button.parts.status, host.state);
       button.parts.state = host.state;
     }
-    button.parts.speed.textContent = finite(host.audio_per_second) ? `${rounded.format(host.audio_per_second)} audio/s` : "—";
+    const worker = list(host.runs).find((item) => item.shared_from);
+    const unit = host.has_group_rate ? "audio/s incl. DDP" : "audio/s";
+    button.parts.speed.textContent = finite(host.audio_per_second) ? `${rounded.format(host.audio_per_second)} ${unit}` :
+      worker ? `DDP rank ${worker.ddp.rank}` : "—";
   }
   $("hosts-empty").hidden = hosts.size > 0;
   $("nodes-summary").textContent = hosts.size ? `${integer.format(hosts.size)} monitored` : "";
@@ -821,18 +824,24 @@ function renderNode(force) {
   if (!host) { lastNodePaint = null; return; }
   const runs = list(host.runs);
   const run = runs.find((item) => item.id === selectedRun) ?? runs.find((item) => item.active) ?? runs[0];
+  const shared = run?.shared_from;
+  const leader = shared ? list(hosts.get(shared.host)?.runs).find((item) => item.id === shared.id) : null;
+  const measured = leader ?? run;
   selectedRun = run?.id ?? null;
-  if (!force && lastNodePaint?.host === host && lastNodePaint?.run === run && lastNodePaint?.metric === runMetric) return;
-  lastNodePaint = { host, run, metric: runMetric };
+  if (!force && lastNodePaint?.host === host && lastNodePaint?.run === run && lastNodePaint?.measured === measured && lastNodePaint?.metric === runMetric) return;
+  lastNodePaint = { host, run, measured, metric: runMetric };
   $("node-name").textContent = host.host;
   statusText($("node-status"), host.state);
   const runLabel = run ? [
     run.active === true ? "Active run" : run.active === false ? "Inactive run" : "",
-    run.active && run.fresh === false ? "Training log overdue" : "",
+    run.ddp ? `DDP rank ${run.ddp.rank} of ${run.ddp.world_size} · group metrics from rank 0` : "",
+    shared ? `Rank 0 on ${shared.host}` : "",
+    run.active && run.fresh === false && !shared && !run.ddp?.rank ? "Training log overdue" : "",
     finite(run.pid) ? `PID ${run.pid}` : "",
   ].filter(Boolean).join(" · ") : "";
   $("node-detail").textContent = [host.detail, runLabel].filter(Boolean).join(" · ");
-  $("node-audio").textContent = format(host.audio_per_second, rounded);
+  $("node-audio-label").textContent = host.has_group_rate ? "Audio/s incl. DDP" : shared ? "Shared group audio/s" : "Audio/s";
+  $("node-audio").textContent = format(shared ? list(leader?.train).at(-1)?.audio_per_second : host.audio_per_second, rounded);
   const utilization = finite(host.cpu_pct);
   const load = finite(host.cpu_load);
   $("node-cpu-fact").hidden = !utilization && !load;
@@ -849,16 +858,16 @@ function renderNode(force) {
   }
   $("run-select").disabled = runs.length === 0;
   if (run) $("run-select").value = run.id;
-  const training = list(run?.train);
+  const training = list(measured?.train);
   const last = training.at(-1);
   const step = format(last?.step, integer);
-  $("node-step").textContent = finite(run?.total_steps) && finite(last?.step) ? `${step} / ${integer.format(run.total_steps)}` : step;
+  $("node-step").textContent = finite(measured?.total_steps) && finite(last?.step) ? `${step} / ${integer.format(measured.total_steps)}` : step;
   $("node-loss").textContent = format(last?.loss);
   $("run-charts").hidden = !run;
   const blockMetrics = [
     finite(last?.time) ? humanTime(last.time) : "",
     finite(last?.epoch) ? `Epoch ${rounded.format(last.epoch)}` : "",
-    finite(last?.audio_per_second) ? `${rounded.format(last.audio_per_second)} audio/s` : "",
+    finite(last?.audio_per_second) ? `${rounded.format(last.audio_per_second)} ${run?.ddp ? "group audio/s" : "audio/s"}` : "",
     finite(last?.audio_s) ? `${rounded.format(last.audio_s)} audio seconds` : "",
     finite(last?.wall_s) ? `${rounded.format(last.wall_s)} wall seconds` : "",
   ].filter(Boolean);
@@ -875,7 +884,7 @@ function renderNode(force) {
     ...stepOptions, title: runMetric === "loss" ? "Run loss by step" : "Run throughput by step",
     yTick: format, value: format, empty: "No training data reported for this metric",
   });
-  const evaluations = list(run?.eval).map((row) => addEvalScope(row, run));
+  const evaluations = list(measured?.eval).map((row) => addEvalScope(row, measured));
   runWerChart.set(groups(evaluations, "step"), {
     ...stepOptions, title: "Run word error rate by step", yTick: werText, value: werText,
     describe: evaluationDetails, empty: "No evaluations reported",

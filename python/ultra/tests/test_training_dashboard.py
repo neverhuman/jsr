@@ -68,6 +68,47 @@ def test_rate_includes_wall_time_when_evaluation_resets_the_block_timer():
     assert point["rate_wall_s"] == 60
 
 
+def test_distributed_workers_follow_fresh_rank_zero_without_double_counting():
+    from tools.training_dashboard import Fleet
+
+    now = time.time()
+    fleet = Fleet(("xbabe5", "xbabe8", "xbabe9"))
+    for host, ranks in (("xbabe5", (0, 1)), ("xbabe8", (3,)), ("xbabe9", (2,))):
+        runs = []
+        for rank in ranks:
+            run = sample(now, 300, 3, 6)["runs"][0]
+            run.update(id=f"run-{rank}", ddp={"group": "job", "rank": rank, "world_size": 4,
+                                             "started_at": now - 1})
+            runs.append(run)
+        fleet.feed(host, {"updated_at": now, "runs": runs})
+    fleet.pulse()
+    assert fleet.summary["nodes_live"] == 3
+    assert fleet.summary["active_runs"] == 1
+    assert fleet.summary["audio_per_second"] == 100
+    assert len(fleet.summary["wer_by_split"]) == 1
+    worker = fleet.hosts["xbabe8"]["runs"][0]
+    assert worker["shared_from"]["host"] == "xbabe5"
+    assert not worker["train"] and not worker["eval"]
+    fleet.lost("xbabe5", "Collector disconnected")
+    fleet.pulse()
+    assert fleet.hosts["xbabe8"]["state"] == "stale"
+    assert fleet.hosts["xbabe8"]["runs"][0]["shared_from"] is None
+    assert fleet.summary["audio_per_second"] is None
+
+
+def test_old_leader_log_cannot_mark_workers_live_after_restart():
+    from tools.training_dashboard import Fleet
+
+    now = time.time()
+    fleet = Fleet(("leader", "worker"))
+    for rank, host in enumerate(("leader", "worker")):
+        payload = sample(now, 300, 3, 6)
+        payload["runs"][0]["ddp"] = {"group": "reused", "rank": rank, "world_size": 2, "started_at": now + 1}
+        fleet.feed(host, payload)
+    fleet.pulse()
+    assert fleet.hosts["leader"]["state"] == fleet.hosts["worker"]["state"] == "stale"
+
+
 def test_websocket_snapshot_delta_reconnect_and_origin():
     aiohttp = pytest.importorskip("aiohttp")
     from aiohttp import web
