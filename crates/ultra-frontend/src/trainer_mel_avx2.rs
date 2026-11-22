@@ -48,31 +48,166 @@ pub(crate) fn dc_window_and_mel_avx2(
     mel_acc
 }
 
+/// Bit-exact portable AVX2 DC removal + Hann windowing (0-ULP identical to scalar tree sum).
 #[cfg(target_arch = "x86_64")]
-pub(crate) type PortableFftFn =
-    fn(&mut [f64; FFT_SIZE], &mut [f64; FFT_SIZE], &[f64; FFT_SIZE], &[f64; FFT_SIZE]);
-
-/// Bit-exact portable AVX2 path (zero FMA contraction, zero `libm::hypot`): matches
-/// `TrainerMelConfig::frame_f32_portable_scalar` to 0 ULP across x86_64 and aarch64.
-#[cfg(target_arch = "x86_64")]
-pub(crate) fn dc_window_and_mel_avx2_portable(
+pub(crate) fn dc_and_window_avx2_portable(
     frame: &[f32],
     window: &[f32; WIN_SAMPLES],
-    fbank: &[f32],
-    fft_re: &[f64; FFT_SIZE],
-    fft_im: &[f64; FFT_SIZE],
-    fft_fn: PortableFftFn,
-) -> [f64; MEL_BINS] {
-    assert!(frame.len() >= WIN_SAMPLES && fbank.len() >= SPEC_BINS * MEL_BINS);
-    let mut re = [0.0f64; FFT_SIZE];
-    let mut im = [0.0f64; FFT_SIZE];
+    re: &mut [f64; FFT_SIZE],
+) {
+    assert!(frame.len() >= WIN_SAMPLES);
     // SAFETY: Caller verified `avx2` + `fma` via `avx2_fma_available()`; bounds asserted above.
-    unsafe { dc_and_window_f64_avx2(frame, window, &mut re) };
-    fft_fn(&mut re, &mut im, fft_re, fft_im);
-    let mut mel_acc = [0.0f64; MEL_BINS];
-    // SAFETY: Caller verified `avx2` + `fma`; `fbank` has `SPEC_BINS * MEL_BINS` (`20_560`) elements.
-    unsafe { mel_dot_f64_avx2_unfused(&re, &im, fbank, &mut mel_acc) };
-    mel_acc
+    unsafe { dc_and_window_f64_avx2(frame, window, re) };
+}
+
+/// Bit-exact portable AVX2 512-point radix-2 FFT using unfused `vmulpd`/`vaddpd`/`vsubpd`
+/// (zero FMA contraction, 0-ULP identical to `portable_math::fft_in_place_portable_with_bitrev`).
+#[cfg(target_arch = "x86_64")]
+pub(crate) fn fft_in_place_avx2_portable(
+    re: &mut [f64; FFT_SIZE],
+    im: &mut [f64; FFT_SIZE],
+    tw_re: &[f64; FFT_SIZE],
+    tw_im: &[f64; FFT_SIZE],
+    bitrev: &[(u16, u16)],
+) {
+    // SAFETY: Caller verified `avx2` + `fma` via `avx2_fma_available()`.
+    unsafe { fft_in_place_avx2_unfused(re, im, tw_re, tw_im, bitrev) };
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn fft_in_place_avx2_unfused(
+    re: &mut [f64; FFT_SIZE],
+    im: &mut [f64; FFT_SIZE],
+    tw_re: &[f64; FFT_SIZE],
+    tw_im: &[f64; FFT_SIZE],
+    bitrev: &[(u16, u16)],
+) {
+    for &(i, j) in bitrev {
+        let (iu, ju) = (i as usize, j as usize);
+        re.swap(iu, ju);
+        im.swap(iu, ju);
+    }
+    // Stages len = 2, 4 (half = 1, 2): scalar unfused f64.
+    for len in [2usize, 4usize] {
+        let half = len / 2;
+        let tw_r = &tw_re[half..half + half];
+        let tw_i = &tw_im[half..half + half];
+        let mut start = 0usize;
+        while start < FFT_SIZE {
+            for k in 0..half {
+                let (w_re, w_im) = (tw_r[k], tw_i[k]);
+                let (a, b) = (start + k, start + k + half);
+                let (u_re, u_im, b_re, b_im) = (re[a], im[a], re[b], im[b]);
+                let v_re = b_re * w_re - b_im * w_im;
+                let v_im = b_re * w_im + b_im * w_re;
+                re[a] = u_re + v_re;
+                im[a] = u_im + v_im;
+                re[b] = u_re - v_re;
+                im[b] = u_im - v_im;
+            }
+            start += len;
+        }
+    }
+    // Stages len = 8..=512 (half = 4..=256, multiples of 4): 4-wide unfused AVX2 f64 butterflies.
+    let mut len = 8usize;
+    while len <= FFT_SIZE {
+        let half = len / 2;
+        let tw_r_ptr = tw_re[half..].as_ptr();
+        let tw_i_ptr = tw_im[half..].as_ptr();
+        let mut start = 0usize;
+        while start < FFT_SIZE {
+            let mut k = 0usize;
+            while k < half {
+                let a = start + k;
+                let b = a + half;
+                // SAFETY: `k + 4 <= half` and `b + 4 <= FFT_SIZE`.
+                unsafe {
+                    let wr = _mm256_loadu_pd(tw_r_ptr.add(k));
+                    let wi = _mm256_loadu_pd(tw_i_ptr.add(k));
+                    let ur = _mm256_loadu_pd(re.as_ptr().add(a));
+                    let ui = _mm256_loadu_pd(im.as_ptr().add(a));
+                    let br = _mm256_loadu_pd(re.as_ptr().add(b));
+                    let bi = _mm256_loadu_pd(im.as_ptr().add(b));
+                    let vr = _mm256_sub_pd(_mm256_mul_pd(br, wr), _mm256_mul_pd(bi, wi));
+                    let vi = _mm256_add_pd(_mm256_mul_pd(br, wi), _mm256_mul_pd(bi, wr));
+                    _mm256_storeu_pd(re.as_mut_ptr().add(a), _mm256_add_pd(ur, vr));
+                    _mm256_storeu_pd(im.as_mut_ptr().add(a), _mm256_add_pd(ui, vi));
+                    _mm256_storeu_pd(re.as_mut_ptr().add(b), _mm256_sub_pd(ur, vr));
+                    _mm256_storeu_pd(im.as_mut_ptr().add(b), _mm256_sub_pd(ui, vi));
+                }
+                k += 4;
+            }
+            start += len;
+        }
+        len <<= 1;
+    }
+}
+
+/// Bit-exact portable aarch64 NEON 512-point radix-2 FFT using unfused `vmulq_f64`/`vaddq_f64`/
+/// `vsubq_f64` (zero FMA contraction, 0-ULP identical to x86_64 AVX2 and scalar).
+#[cfg(target_arch = "aarch64")]
+pub(crate) fn fft_in_place_neon_portable(
+    re: &mut [f64; crate::mel::FFT_SIZE],
+    im: &mut [f64; crate::mel::FFT_SIZE],
+    tw_re: &[f64; crate::mel::FFT_SIZE],
+    tw_im: &[f64; crate::mel::FFT_SIZE],
+    bitrev: &[(u16, u16)],
+) {
+    use std::arch::aarch64::*;
+    let n = crate::mel::FFT_SIZE;
+    for &(i, j) in bitrev {
+        let (iu, ju) = (i as usize, j as usize);
+        re.swap(iu, ju);
+        im.swap(iu, ju);
+    }
+    // Stage len = 2 (half = 1): scalar unfused f64.
+    let (w_re, w_im) = (tw_re[1], tw_im[1]);
+    let mut start = 0usize;
+    while start < n {
+        let (a, b) = (start, start + 1);
+        let (u_re, u_im, b_re, b_im) = (re[a], im[a], re[b], im[b]);
+        let v_re = b_re * w_re - b_im * w_im;
+        let v_im = b_re * w_im + b_im * w_re;
+        re[a] = u_re + v_re;
+        im[a] = u_im + v_im;
+        re[b] = u_re - v_re;
+        im[b] = u_im - v_im;
+        start += 2;
+    }
+    // Stages len = 4..=512 (half = 2..=256, multiples of 2): 2-wide unfused NEON f64 butterflies.
+    let mut len = 4usize;
+    while len <= n {
+        let half = len / 2;
+        // SAFETY: NEON is mandatory on aarch64; `k + 2 <= half` and `b + 2 <= FFT_SIZE`.
+        unsafe {
+            let tw_r_ptr = tw_re.as_ptr().add(half);
+            let tw_i_ptr = tw_im.as_ptr().add(half);
+            let mut st = 0usize;
+            while st < n {
+                let mut k = 0usize;
+                while k < half {
+                    let a = st + k;
+                    let b = a + half;
+                    let wr = vld1q_f64(tw_r_ptr.add(k));
+                    let wi = vld1q_f64(tw_i_ptr.add(k));
+                    let ur = vld1q_f64(re.as_ptr().add(a));
+                    let ui = vld1q_f64(im.as_ptr().add(a));
+                    let br = vld1q_f64(re.as_ptr().add(b));
+                    let bi = vld1q_f64(im.as_ptr().add(b));
+                    let vr = vsubq_f64(vmulq_f64(br, wr), vmulq_f64(bi, wi));
+                    let vi = vaddq_f64(vmulq_f64(br, wi), vmulq_f64(bi, wr));
+                    vst1q_f64(re.as_mut_ptr().add(a), vaddq_f64(ur, vr));
+                    vst1q_f64(im.as_mut_ptr().add(a), vaddq_f64(ui, vi));
+                    vst1q_f64(re.as_mut_ptr().add(b), vsubq_f64(ur, vr));
+                    vst1q_f64(im.as_mut_ptr().add(b), vsubq_f64(ui, vi));
+                    k += 2;
+                }
+                st += len;
+            }
+        }
+        len <<= 1;
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -141,41 +276,6 @@ unsafe fn mel_dot_f64_avx2(
                 // SAFETY: `row_base + g * 4 + 4 <= SPEC_BINS * MEL_BINS <= fbank.len()`.
                 let w4 = unsafe { _mm_loadu_ps(fbank.as_ptr().add(row_base + g * 4)) };
                 *a_reg = _mm256_fmadd_pd(vp, _mm256_cvtps_pd(w4), *a_reg);
-            }
-        }
-        for (g, a_reg) in acc.into_iter().enumerate() {
-            // SAFETY: `half + g * 4 + 4 <= MEL_BINS == mel_acc.len()`.
-            unsafe { _mm256_storeu_pd(mel_acc.as_mut_ptr().add(half + g * 4), a_reg) };
-        }
-    }
-}
-
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx2,fma")]
-unsafe fn mel_dot_f64_avx2_unfused(
-    re: &[f64; FFT_SIZE],
-    im: &[f64; FFT_SIZE],
-    fbank: &[f32],
-    mel_acc: &mut [f64; MEL_BINS],
-) {
-    let mut powers = [0.0f64; SPEC_BINS];
-    for k in 0..SPEC_BINS {
-        let p32 = crate::portable_math::power_f32_from_complex_f64(re[k], im[k]);
-        powers[k] = f64::from(p32);
-    }
-
-    // Two passes of 40 mel bins using separate `vmulpd` + `vaddpd` (no FMA contraction) so
-    // every IEEE-754 rounding step matches `frame_f32_portable_scalar` to 0 ULP.
-    for half in [0usize, 40usize] {
-        let mut acc = [_mm256_setzero_pd(); 10];
-        for (k, &pk) in powers.iter().enumerate() {
-            let vp = _mm256_set1_pd(pk);
-            let row_base = k * MEL_BINS + half;
-            for (g, a_reg) in acc.iter_mut().enumerate() {
-                // SAFETY: `row_base + g * 4 + 4 <= SPEC_BINS * MEL_BINS <= fbank.len()`.
-                let w4 = unsafe { _mm_loadu_ps(fbank.as_ptr().add(row_base + g * 4)) };
-                let prod = _mm256_mul_pd(vp, _mm256_cvtps_pd(w4));
-                *a_reg = _mm256_add_pd(*a_reg, prod);
             }
         }
         for (g, a_reg) in acc.into_iter().enumerate() {
