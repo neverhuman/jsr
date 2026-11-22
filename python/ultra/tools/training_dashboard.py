@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from aiohttp import web
 
-from tools.training_dashboard_metrics import fleet_summary, host_view, probe_view
+from tools.training_dashboard_metrics import attach_shared_runs, fleet_summary, host_view, probe_view
 
 ROOT = Path(__file__).resolve().parents[3]
 HTML = ROOT / "training-dashboard.html"
@@ -47,8 +47,10 @@ class Fleet:
 
     def pulse(self):
         self.at = now = time.time()
-        for host, (reading, seen, detail) in self.readings.items():
-            view = host_view(host, reading, seen, detail, now)
+        views = {host: host_view(host, reading, seen, detail, now)
+                 for host, (reading, seen, detail) in self.readings.items()}
+        attach_shared_runs(views)
+        for host, view in views.items():
             if view != self.hosts.get(host):
                 self.revisions[host] += 1
                 self.hosts[host] = view
