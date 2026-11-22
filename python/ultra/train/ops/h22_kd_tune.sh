@@ -3,7 +3,7 @@
 # 2026-11-22: each arm forks H22ctl's ckpt-00030000 weights and trains 3k steps on train-clean-100
 # (the first complete speed-1.0 teacher-cache split) with KD at kd_weight w; KL is masked on the
 # 0.9/1.1 speed copies (no teacher entry). Arms run one after another on one GPU, each under
-# fleet_guard; pick = lowest dev-clean400 WER at 3k (DEV only). w=0 is the same-fork reference.
+# fleet_guard; pick = lowest dev-clean400 WER at 3k (chosen on DEV, never test). w=0 is the same-fork reference.
 # Half of H22ctl's global batch (650 s / 144) to fit 24 GB; LR = H22ctl's LR at 30k x sqrt(1/2).
 #   h22_kd_tune.sh <jsr_data> <cpu_list> <gpu> <w...>
 set -uo pipefail
