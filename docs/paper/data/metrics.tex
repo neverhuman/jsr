@@ -6,6 +6,14 @@
 
 \newcommand{\AASpread}{25}% [exploratory] % CPU
 \newcommand{\AbabBlocks}{8}% [reported] blocks
+\newcommand{\AbabMedianDense}{0.667}% [exploratory] x
+\newcommand{\AbabMedianDenseHi}{0.680}% [exploratory] x
+\newcommand{\AbabMedianDenseLo}{0.653}% [exploratory] x
+\newcommand{\AbabMedianMR}{0.647}% [exploratory] x
+\newcommand{\AbabMedianMRHi}{0.666}% [exploratory] x
+\newcommand{\AbabMedianMRLo}{0.543}% [exploratory] x
+\newcommand{\AbabMedianSpeedDense}{1.50}% [exploratory] x
+\newcommand{\AbabMedianSpeedMR}{1.55}% [exploratory] x
 \newcommand{\AbabPholmDense}{\ensuremath{1.4\times10^{-10}}}% [exploratory] p
 \newcommand{\AbabPholmMR}{\ensuremath{1.9\times10^{-6}}}% [exploratory] p
 \newcommand{\AbabRatioDense}{0.666}% [exploratory] x
@@ -54,6 +62,7 @@
 \newcommand{\CostLadderRzero}{0.0725}% [exploratory] CPU-s/audio-s
 \newcommand{\CostNemo}{0.472}% [exploratory] CPU-s/audio-s
 \newcommand{\CostNemoFiveSixty}{0.451}% [exploratory] CPU-s/audio-s
+\newcommand{\CostNemoFiveSixtyCold}{0.472}% [exploratory] CPU-s/audio-s
 \newcommand{\CostNemoOneSixty}{0.709}% [exploratory] CPU-s/audio-s
 \newcommand{\CostORT}{0.175}% [exploratory] CPU-s/audio-s
 \newcommand{\CostORTRunB}{0.1747}% [exploratory] CPU-s/audio-s
@@ -69,8 +78,9 @@
 \newcommand{\DenDenseCCX}{96}% [exploratory] streams/CCX
 \newcommand{\DenDenseCore}{24}% [exploratory] streams/core
 \newcommand{\DenDenseFortyFiveCCX}{112}% [exploratory] streams/CCX
-\newcommand{\DenDenseRangeHi}{112}% [exploratory] streams/CCX
-\newcommand{\DenDenseRangeLo}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseFortyFiveRangeHi}{112}% [exploratory] streams/CCX
+\newcommand{\DenDenseFortyFiveRangeLo}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseFortyFiveRuns}{2}% [exploratory] runs
 \newcommand{\DenFailDenseCCX}{112}% [exploratory] streams/CCX
 \newcommand{\DenFailMRCCX}{160}% [exploratory] streams/CCX
 \newcommand{\DenFailRzeroCCX}{48}% [exploratory] streams/CCX
@@ -83,11 +93,12 @@
 \newcommand{\DenRatioDense}{3.0}% [exploratory] x
 \newcommand{\DenRatioDenseBeforeFail}{3.0}% [exploratory] x
 \newcommand{\DenRatioDenseFortyFive}{3.5}% [exploratory] x
-\newcommand{\DenRatioDenseRangeHi}{3.5}% [exploratory] x
-\newcommand{\DenRatioDenseRangeLo}{3.0}% [exploratory] x
+\newcommand{\DenRatioDenseFortyFiveRangeHi}{3.5}% [exploratory] x
+\newcommand{\DenRatioDenseFortyFiveRangeLo}{3.0}% [exploratory] x
 \newcommand{\DenRatioMR}{4.5}% [exploratory] x
 \newcommand{\DenRatioMRBeforeFail}{4.5}% [exploratory] x
-\newcommand{\DenRatioMRvsDense}{1.5}% [exploratory] x
+\newcommand{\DenRatioMRvsDenseHi}{1.5}% [exploratory] x
+\newcommand{\DenRatioMRvsDenseLo}{1.3}% [exploratory] x
 \newcommand{\DenReproRuns}{3}% [exploratory] runs
 \newcommand{\DenRssDense}{1.91}% [exploratory] GB
 \newcommand{\DenRssMR}{2.15}% [exploratory] GB
@@ -144,6 +155,7 @@
 \newcommand{\GmacPerCore}{62}% [exploratory] GMAC/s per core
 \newcommand{\GreedyDecoderCost}{0.0016}% [exploratory] CPU-s/audio-s
 \newcommand{\HThirteenAStep}{10{,}000}% [reported] steps
+\newcommand{\IntEightContinuity}{367}% [exploratory] of 400 texts
 \newcommand{\IntEightDenMac}{504}% [exploratory] streams (6 Mac workers)
 \newcommand{\IntEightMRDenCCX}{136}% [exploratory] streams/CCX
 \newcommand{\IntEightUncentred}{+0.207}% [exploratory] pp WER
@@ -159,6 +171,7 @@
 \newcommand{\MRBeamPanelBeamFP}{14.43}% [exploratory] % WER
 \newcommand{\MRBeamPanelBeamInt}{14.44}% [exploratory] % WER
 \newcommand{\MRBeamPanelGreedyFP}{15.86}% [exploratory] % WER
+\newcommand{\MRBeamPanelGreedyInt}{15.93}% [exploratory] % WER
 \newcommand{\MRPadDeltaMax}{0.03}% [exploratory] pp WER
 \newcommand{\MatchedRung}{32}% [reported] streams/CCX
 \newcommand{\MelNnzDense}{20{,}560}% [reported] nonzeros
@@ -243,6 +256,7 @@
 \newcommand{\WerLadderMRPanel}{15.93}% [exploratory] % WER
 \newcommand{\WerLadderMRPanelClean}{11.56}% [exploratory] % WER
 \newcommand{\WerNemoDevClean}{2.16}% [exploratory] % WER
+\newcommand{\WerNemoFiveSixtyDevClean}{2.16}% [exploratory] % WER
 \newcommand{\WerNemoTestCleanFiveSixty}{2.58}% [exploratory] % WER
 \newcommand{\WerNemoTestCleanOneSixty}{2.65}% [exploratory] % WER
 \newcommand{\WerNemoTestOtherFiveSixty}{5.18}% [exploratory] % WER
@@ -256,10 +270,13 @@
 \newcommand{\WerPfiveWhisperSmallTestClean}{3.77}% [exploratory] % WER
 \newcommand{\WerRehearsalDense}{7.75}% [exploratory] % WER
 \newcommand{\WerRehearsalDenseFortyFive}{9.56}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseOther}{17.34}% [exploratory] % WER
 \newcommand{\WerRehearsalMR}{11.56}% [exploratory] % WER
 \newcommand{\WerRehearsalRzero}{2.95}% [exploratory] % WER
 \newcommand{\WerRzeroDevClean}{2.85}% [exploratory] % WER
-\newcommand{\WerRzeroPanel}{\PaperMissing{WerRzeroPanel}}% [exploratory] % WER
+\newcommand{\WerRzeroPanel}{5.11}% [exploratory] % WER
+\newcommand{\WerRzeroPanelClean}{2.95}% [exploratory] % WER
+\newcommand{\WerRzeroPanelOther}{8.21}% [exploratory] % WER
 \newcommand{\XisaAgree}{7{,}300}% [exploratory] utterances
 \newcommand{\XisaModels}{5}% [reported] checkpoints
 \newcommand{\XisaPanel}{730}% [reported] utterances

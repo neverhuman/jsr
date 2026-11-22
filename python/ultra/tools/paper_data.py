@@ -260,6 +260,7 @@ CODEX_ROWS = (
     ("MRBeamPanelGreedyFP", "panel-d2mr-greedy-fp32", ("",)),
     ("MRBeamPanelBeamFP", "panel-d2mr-beam4-fp32", ("",)),
     ("MRBeamPanelBeamInt", "panel-d2mr-beam4-int8", ("",)),
+    ("MRBeamPanelGreedyInt", "panel-d2mr-greedy-int8", ("",)),
     ("WerDtwoMRBeamPanel", "panel-d2mr-beam4-int8", ("Clean", "Other")),
 )
 
@@ -286,6 +287,46 @@ def add_codex_evidence(root: Path, rec: Records) -> None:
             rec.add(f"{stem}{f}", None if v is None else fmt(v, 2), raw=v, unit="% WER", label="exploratory",
                     configuration=cdesc, workload=f"{wl['label']} ({wl['utterances']} utt)",
                     workload_digest=wl["digest"], source=f"docs/paper/data/raw/evidence_codex.json measurements[id={mid}].{key}")
+
+
+PANEL5 = (
+    # macro, rust score report under raw/panel5_rust_scores/, configuration
+    ("rzero_dev-clean.json", "R0 Zipformer INT8", "dev-clean"),
+    ("rzero_dev-other.json", "R0 Zipformer INT8", "dev-other"),
+    ("dense_avg3_dev-other.json", "D2 avg-3 (45/50/55k) dense INT8", "dev-other"),
+)
+
+
+def add_panel5(root: Path, rec: Records) -> None:
+    """Runtime Jobs F1/F2: same-harness (ultra ce58952) panel runs, rescored by ultra-score 38eacc04."""
+    rep = {}
+    for name, system, split in PANEL5:
+        d = read_json(root, str(RAW / "panel5_rust_scores" / name))
+        if d.get("normaliser_id") != "ultra-en-wer-norm/v1":
+            raise PaperDataError(f"{name}: unexpected normaliser {d.get('normaliser_id')}")
+        ds = d["system_a"]["datasets"][split]
+        c = ds["counts"]
+        rep[name] = (c["substitutions"] + c["deletions"] + c["insertions"], c["ref_words"], ds["utterances"])
+    conf = ("bench-suite --panel, threads 1, grid 320 ms, ultra ce58952 (same executable as Jobs C/D/E); "
+            "scored by ultra-score 38eacc04 (ultra-en-wer-norm/v1)")
+    src = "docs/paper/data/raw/panel5_rust_scores/"
+    pc = ("DEV selection panel, dev-clean half (400 utt)", PANEL_DIGEST)
+    po = ("DEV selection panel, dev-other half (330 utt)", PANEL_DIGEST)
+    pp = ("DEV selection panel, pooled (730 utt)", PANEL_DIGEST)
+    e, n, _ = rep["rzero_dev-other.json"]
+    rec.add("WerRzeroPanelOther", fmt(100 * e / n, 2), raw=100 * e / n, unit="% WER", label="exploratory",
+            configuration=f"R0 Zipformer INT8; {conf}", workload=po[0], workload_digest=po[1], source=src + "rzero_dev-other.json")
+    ec, nc, _ = rep["rzero_dev-clean.json"]
+    pooled = 100 * (e + ec) / (n + nc)
+    rec.add("WerRzeroPanel", fmt(pooled, 2), raw=pooled, unit="% WER", label="exploratory",
+            configuration=f"R0 Zipformer INT8, pooled errors/ref words over both halves; {conf}", workload=pp[0],
+            workload_digest=pp[1], source=src + "rzero_dev-{clean,other}.json")
+    rec.add("WerRzeroPanelClean", fmt(100 * ec / nc, 2), raw=100 * ec / nc, unit="% WER", label="exploratory",
+            configuration=f"R0 Zipformer INT8; {conf}", workload=pc[0], workload_digest=pc[1], source=src + "rzero_dev-clean.json")
+    e, n, _ = rep["dense_avg3_dev-other.json"]
+    rec.add("WerRehearsalDenseOther", fmt(100 * e / n, 2), raw=100 * e / n, unit="% WER", label="exploratory",
+            configuration=f"D2 avg-3 (45/50/55k) dense prepared INT8, the ladder's dense finalist; {conf}", workload=po[0],
+            workload_digest=po[1], source=src + "dense_avg3_dev-other.json")
 
 
 def add_derived(rec: Records) -> None:
@@ -492,9 +533,6 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                 configuration=f"R0 over {key} batch-16 CPU-s/audio-s, panel frontier", workload=pwl,
                 workload_digest=PANEL_DIGEST, source=f"derived: {fsrc}")
     add_ladder_runs(root, rec, npz_sha)
-    rec.add("DenRatioMRvsDense", fmt(claims["mr"][0] / claims["dense"][0], 1), raw=claims["mr"][0] / claims["dense"][0],
-            unit="x", label="exploratory", configuration="claimed streams/CCX MR over dense", workload=LADDER_WORKLOAD,
-            workload_digest=npz_sha, source=f"derived: {lsrc}")
     for rid, v, unit, conf, src, wl in (
         ("DenWorkers", ladder["workers"], "workers", "single-threaded workers on one 4-core CCX", lsrc, LADDER_WORKLOAD),
         ("DenRungSeconds", int(ladder["step_seconds"]), "s", "duration of each ladder rung", lsrc, LADDER_WORKLOAD),
@@ -510,13 +548,23 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
         g = pair["geometric_mean_ratio"]
         lo, hi = pair["geometric_mean_ratio_ci95_t"]
         conf = (f"{stem} vs R0 single-stream warm in-process CPU, {pair['blocks_paired']} paired blocks, "
-                f"geometric-mean ratio, Student-t 95% CI, Holm; ultra 4fafb45; {hw}")
+                f"geometric-mean ratio (secondary), Student-t 95% CI, Holm; ultra 4fafb45; {hw}")
         src = f"{asrc} paired_vs_baseline[candidate~{stem}]"
         common = dict(label="exploratory", configuration=conf, workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=src)
         for rid, v, nd in ((f"AbabRatio{stem}", g, 3), (f"AbabRatio{stem}Lo", lo, 3), (f"AbabRatio{stem}Hi", hi, 3),
                            (f"AbabSpeed{stem}", 1 / g, 2)):
             rec.add(rid, fmt(v, nd), raw=v, unit="x", **common)
         rec.add(f"AbabPholm{stem}", sci_tex(pair["holm_p_value"]), raw=pair["holm_p_value"], unit="p", **common)
+        # pre-registered primary statistic (FREEZE section 5): median paired ratio with a bootstrap 95% CI
+        med = pair["median_ratio_cand_over_base"]
+        mlo, mhi = pair["ratio_ci95_bootstrap"]
+        mconf = (f"{stem} vs R0 single-stream warm in-process CPU, median of {pair['blocks_paired']} paired block ratios, "
+                 f"bootstrap 95% CI ({pair['bootstrap_replicates']} replicates, seed {pair['seed']}); PRIMARY statistic; "
+                 f"ultra 4fafb45; {hw}")
+        mcommon = dict(label="exploratory", configuration=mconf, workload=ABAB_WORKLOAD, workload_digest=npz_sha, source=src)
+        for rid, v, nd in ((f"AbabMedian{stem}", med, 3), (f"AbabMedian{stem}Lo", mlo, 3),
+                           (f"AbabMedian{stem}Hi", mhi, 3), (f"AbabMedianSpeed{stem}", 1 / med, 2)):
+            rec.add(rid, fmt(v, nd), raw=v, unit="x", **mcommon)
 
     out["rehearsal_cost.csv"] = csv_text(
         ["key", "system", "cpu_matched", "wer_panel_clean", "streams_ccx", "streams_before_fail",
@@ -549,22 +597,40 @@ def add_ladder_runs(root: Path, rec: Records, npz_sha: str) -> None:
             configuration=(f"single-harness ladder runs in which R0 ({claims['rzero'][0][0]}/CCX) and MR "
                            f"({claims['mr'][0][0]}/CCX) gave identical densities: " + "; ".join(n for _, n in claims["rzero"])),
             **common)
-    dense = [v for v, _ in claims["dense"]]
     base = claims["rzero"][0][0]
-    detail = "; ".join(f"{n}: {v}" for v, n in claims["dense"])
-    rec.add("DenDenseRangeLo", str(min(dense)), raw=min(dense), unit="streams/CCX",
-            configuration=f"lowest dense density across ladder runs ({detail})", **common)
-    rec.add("DenDenseRangeHi", str(max(dense)), raw=max(dense), unit="streams/CCX",
-            configuration=f"highest dense density across ladder runs ({detail})", **common)
-    rec.add("DenRatioDenseRangeLo", fmt(min(dense) / base, 1), raw=min(dense) / base, unit="x",
-            configuration="lowest dense/R0 density ratio across ladder runs", **common)
-    rec.add("DenRatioDenseRangeHi", fmt(max(dense) / base, 1), raw=max(dense) / base, unit="x",
-            configuration="highest dense/R0 density ratio across ladder runs", **common)
-    d45 = dict((n, v) for v, n in claims["dense"])
-    rec.add("DenDenseFortyFiveCCX", str(d45[LADDER_RUNS[1][2]]), raw=d45[LADDER_RUNS[1][2]], unit="streams/CCX",
-            configuration=f"dense step 45k, {LADDER_RUNS[1][2]} (the checkpoint of the ABAB and panel-frontier rows)", **common)
-    rec.add("DenRatioDenseFortyFive", fmt(d45[LADDER_RUNS[1][2]] / base, 1), raw=d45[LADDER_RUNS[1][2]] / base, unit="x",
-            configuration=f"dense step 45k over R0, {LADDER_RUNS[1][2]}", **common)
+    # Step-45k dense was timed in two runs (A, D); the avg-3 finalist in one (E). Never pool the two checkpoints.
+    d45 = [v for (v, n), (_, dense, _) in zip(claims["dense"], LADDER_RUNS) if dense == FRONT_DENSE]
+    d45_notes = "; ".join(f"{n}: {v}" for (v, n), (_, dense, _) in zip(claims["dense"], LADDER_RUNS) if dense == FRONT_DENSE)
+    src45 = "; ".join(f"docs/paper/data/raw/{sub}/density_ladder.json" for sub, dense, _ in LADDER_RUNS if dense == FRONT_DENSE)
+    c45 = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha, source=src45)
+    rec.add("DenDenseFortyFiveRangeLo", str(min(d45)), raw=min(d45), unit="streams/CCX",
+            configuration=f"dense step-45k checkpoint, lowest over its {len(d45)} ladder runs ({d45_notes})", **c45)
+    rec.add("DenDenseFortyFiveRangeHi", str(max(d45)), raw=max(d45), unit="streams/CCX",
+            configuration=f"dense step-45k checkpoint, highest over its {len(d45)} ladder runs ({d45_notes})", **c45)
+    rec.add("DenRatioDenseFortyFiveRangeLo", fmt(min(d45) / base, 1), raw=min(d45) / base, unit="x",
+            configuration="dense step-45k over R0, lowest over runs A/D", **c45)
+    rec.add("DenRatioDenseFortyFiveRangeHi", fmt(max(d45) / base, 1), raw=max(d45) / base, unit="x",
+            configuration="dense step-45k over R0, highest over runs A/D", **c45)
+    rec.add("DenDenseFortyFiveRuns", str(len(d45)), raw=len(d45), unit="runs",
+            configuration=f"ladder runs that timed dense step 45k ({d45_notes})", **c45)
+    dD = dict((sub, v) for (v, _), (sub, _, _) in zip(claims["dense"], LADDER_RUNS))["ladder_d_ce58952"]
+    cD = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha,
+              source="docs/paper/data/raw/ladder_d_ce58952/density_ladder.json")
+    rec.add("DenDenseFortyFiveCCX", str(dD), raw=dD, unit="streams/CCX",
+            configuration=("dense step 45k in Job D (ultra ce58952, the executable of the Job C panel-frontier row); "
+                           f"the same checkpoint gave {min(d45)} in Job A, see DenDenseFortyFiveRange*"), **cD)
+    rec.add("DenRatioDenseFortyFive", fmt(dD / base, 1), raw=dD / base, unit="x",
+            configuration="dense step 45k over R0 in Job D", **cD)
+    # MR over dense: different training runs (dense S vs multirate S_MR) and different dense checkpoints
+    mr = claims["mr"][0][0]
+    alld = [v for v, _ in claims["dense"]]
+    cmv = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha, source=srcs)
+    rec.add("DenRatioMRvsDenseLo", fmt(mr / max(alld), 1), raw=mr / max(alld), unit="x",
+            configuration=(f"MR {mr}/CCX over the highest dense value {max(alld)}; different training runs (dense S vs "
+                           "multirate S_MR), not a matched architecture ablation"), **cmv)
+    rec.add("DenRatioMRvsDenseHi", fmt(mr / min(alld), 1), raw=mr / min(alld), unit="x",
+            configuration=(f"MR {mr}/CCX over the lowest dense value {min(alld)}; different training runs (dense S vs "
+                           "multirate S_MR), not a matched architecture ablation"), **cmv)
 
 
 def add_curves(root: Path, rec: Records, out: dict[str, str]) -> None:
@@ -800,6 +866,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     out: dict[str, str] = {}
     cur = add_curated(root, rec)
     add_codex_evidence(root, rec)
+    add_panel5(root, rec)
     add_derived(rec)
     add_rehearsal(root, rec, out)
     add_curves(root, rec, out)
