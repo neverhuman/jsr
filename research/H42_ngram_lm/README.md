@@ -51,6 +51,26 @@ What existed when this was written: the Phase 1 results below (beam 4 and beam 8
 4. **Decode cost.** Reported as the sum of the per-utterance wall time of the search call, one thread per worker, 14 workers in parallel on H0 cores 16-29, with the reference beam, for the baseline and for the chosen fusion configs. Informational only.
 5. **Token LM pruning** is fixed in Amendment 2, from n-gram counts and file sizes only, before the first fusion decode.
 
+## Amendment 2 (2026-11-22, about 21:27Z): wider Phase 2 at the lead's direction (21:21Z), written before any fusion decode
+What existed when this was written: Phase 1 (rescoring of the beam-8 list with the word 4-gram and the two pruned word 3-grams) and the no-LM blank-penalty control. **No decode with an LM inside the beam had been run.** The lead asked for the size/WER trade over n-gram order 3–5 and pruning (one model under 50 MB, one under 200 MB), beam 4 and 8, and a larger rescoring list.
+
+1. **Token LM set, fixed from n-gram counts and KenLM's own size estimates only.** Counts from `lmplz` on the tokenised LM text (1,577,847,566 tokens, 40,418,261 lines): distinct n-grams of order 1–5 = 500 / 194,853 / 14,346,832 / 127,835,812 / 379,564,581; seen at least twice: 10.05 M 3-grams, 59.1 M 4-grams, 114.4 M 5-grams; at least 3 times: 40.3 M 4-grams; at least 4 times: 46.8 M 5-grams. **Size** means the KenLM trie with 8-bit quantised probabilities and backoffs and compressed pointers (`build_binary -a 22 -q 8 -b 8 trie`); the fusion decodes query that same file, so every WER belongs to the stated size. Classes: S ≤ 50 MB, M ≤ 200 MB, L larger (reference only).
+
+   | name | order | `lmplz --prune` (counts ≤ value dropped) | size expected from the counts |
+   |---|---:|---|---:|
+   | S3 | 3 | none | ~32 MB |
+   | S4 | 4 | 0 0 4 15 | ~42 MB |
+   | S5 | 5 | 0 0 6 30 60 | ~40 MB |
+   | M4 | 4 | 0 0 0 1 | ~182 MB |
+   | **M5 (primary)** | 5 | 0 0 1 4 9 | ~162 MB |
+   | L5a | 5 | 0 0 1 2 3 | 290 MB (KenLM estimate) |
+   | L5b | 5 | 0 0 0 1 1 | 523 MB (KenLM estimate) |
+
+   If a build misses its class limit, its thresholds are raised once from the counts and it is rebuilt. No threshold is chosen from WER. `lmplz` only prunes by count; a smarter (entropy) pruning might do better at the same size and is not tried here.
+2. **Grids.** M5 gets the full pre-registered grids at beam 4. Every other LM gets a reduced grid at beam 4: fusion λ1 ∈ {0.1, 0.2, 0.3, 0.4, 0.5} × blank penalty ∈ {0, 0.25}; fusion + LODR λ1 ∈ {0.2, 0.3, 0.4, 0.5, 0.6}, λ2 = 0.5·λ1, blank penalty ∈ {0, 0.25}. **Beam 8:** M5 with the reduced grid, reported against the beam-4 baseline and against beam 8 without LM. The edge-extension rule applies to every grid. Folds, held-out scoring and bootstrap are unchanged; each (LM, beam, with or without LODR) is its own family with its own held-out choice of weights.
+3. **Reading the size table.** Each LM's row is its own held-out number. Choosing the best LM from that table would be a choice made on the scored utterances, so the table is reported as a trade-off and **the headline "+LM" rows stay M5**, fixed here before any fusion decode.
+4. **Larger rescoring lists (post hoc).** Beam-16 and beam-32 lists rescored with the word 4-gram, same grid and folds. This was added after seeing that the beam-8 oracle (6.51 pooled) is far below what rescoring reached (8.38), and is labelled post hoc.
+
 ## Results
 All numbers are **exploratory**. Scorer `ultra.wer` (54,402 / 50,948 reference words) unless a row says otherwise. Every row carries the one-token-per-frame cap of the Python beam.
 
