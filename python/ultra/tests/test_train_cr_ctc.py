@@ -40,9 +40,20 @@ def test_cr_ctc_zero_weight_is_bit_exact_and_positive_weight_trains():
     g3 = torch.Generator().manual_seed(99)
     out_cr = m.losses(feats, feat_lens, rnnt, rnnt_lens, ctc, ctc_lens, augment=aug, gen=g3, cr_ctc_weight=0.2)
     assert "cr_ctc" in out_cr and float(out_cr["cr_ctc"]) > 0.0
+    # View-2 supervised CTC changes out["ctc"] relative to single-view out0["ctc"] (average of two views).
+    assert abs(float(out_cr["ctc"]) - float(out0["ctc"])) > 1e-6
     out_cr["loss"].backward()
     grads = [p.grad for p in m.ctc_head.parameters() if p.grad is not None]
     assert grads and all(torch.isfinite(g).all() for g in grads)
+
+    # Verify View-2 receives supervised CTC gradients even with tiny cr_ctc_weight (KL negligible).
+    m.zero_grad(set_to_none=True)
+    g4 = torch.Generator().manual_seed(99)
+    out_tiny_kl = m.losses(feats, feat_lens, rnnt, rnnt_lens, ctc, ctc_lens, augment=aug, gen=g4,
+                           cr_ctc_weight=1e-9)
+    assert abs(float(out_tiny_kl["ctc"]) - float(out0["ctc"])) > 1e-6
+    out_tiny_kl["loss"].backward()
+    assert all(torch.isfinite(p.grad).all() for p in m.ctc_head.parameters() if p.grad is not None)
 
 
 def test_verify_emitted_path_rejects_mismatched_subword_segmentation():

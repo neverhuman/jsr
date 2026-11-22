@@ -263,7 +263,8 @@ class Trainer:
                     if p.get("ema") is not None else None)
         return True
 
-    def init_cmvn(self, n_batches: int = 8) -> None:
+    def init_cmvn(self, n_batches: int = 32) -> None:
+        """Compute initial CMVN over up to `n_batches` batches (32 = low-variance fresh-run stats)."""
         feats = []
         for i, (_, b) in enumerate(self.source.iterate(Position())):
             feats.extend(b.feats[j, :b.feat_lens[j]] for j in range(len(b.uids)))
