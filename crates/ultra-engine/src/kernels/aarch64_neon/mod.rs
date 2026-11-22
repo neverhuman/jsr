@@ -114,6 +114,25 @@ fn tile_f32<const M: usize>(
     }
 }
 
+/// Lane `l` accumulates elements `8 j + l` (as `scalar::sum_exp_shifted`), then the shared
+/// reduction; identical sums to the scalar and AVX2 versions.
+pub(crate) fn sum_exp_shifted(x: &[f32], shift: f32) -> f32 {
+    let s = V8::splat(shift);
+    let mut acc = V8::splat(0.0);
+    let main = x.len() - x.len() % 8;
+    let mut i = 0;
+    while i < main {
+        acc = acc.add(exp8(V8::load(x, i).sub(s)));
+        i += 8;
+    }
+    let mut lanes = [0.0f32; 8];
+    acc.store(&mut lanes, 0);
+    for (j, &v) in x[main..].iter().enumerate() {
+        lanes[j] += scalar::exp_approx(v - shift);
+    }
+    scalar::reduce8(&lanes)
+}
+
 pub(crate) fn silu_inplace(x: &mut [f32]) {
     let one = V8::splat(1.0);
     let main = x.len() - x.len() % 8;
