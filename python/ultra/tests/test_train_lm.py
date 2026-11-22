@@ -63,6 +63,7 @@ def test_fusion_combines_lm_and_lodr_rows_and_caches_by_context():
             - 0.2 * _FakeLm(2).row(lm_fusion.context(s, 1))
         assert torch.allclose(row, want)
     assert torch.equal(got[2], got[3])  # same last two tokens, same row
+    assert np.array_equal(f.stack(seqs), got.numpy()) and f.row((3, 4)).dtype == np.float32
     n = len(lm.calls)
     f(seqs)
     assert len(lm.calls) == n  # second pass is served from the cache
@@ -235,6 +236,17 @@ def test_paired_bootstrap_interval():
     spk = np.arange(n) // 20
     by_speaker = lm_tune.bootstrap(np.maximum(base - 1, 0), base, nref, strata, spk, resamples=500)
     assert by_speaker["unit"] == "speaker" and by_speaker["hi"] < 0
+    # the cached count matrices are exactly the explicit draws
+    arm = np.maximum(base - 1, 0)
+    rng = np.random.default_rng(lm_tune.SEED)
+    d_err, n_ref = np.zeros(500), np.zeros(500)
+    for s in ("a", "b"):
+        m = strata == s
+        idx = rng.integers(0, int(m.sum()), size=(500, int(m.sum())))
+        d_err += (arm[m] - base[m])[idx].sum(axis=1)
+        n_ref += nref[m][idx].sum(axis=1)
+    lo, hi = np.percentile(100.0 * d_err / n_ref, [2.5, 97.5])
+    assert (better["lo"], better["hi"]) == (round(float(lo), 3), round(float(hi), 3))
 
 
 def test_compare_reports_each_set_and_pooled():
@@ -246,7 +258,8 @@ def test_compare_reports_each_set_and_pooled():
     assert res["dev-clean"]["arm"]["wer"] == 0.0 and res["dev-clean"]["baseline"]["wer"] == 10.0
     assert res["dev-other"]["bootstrap"]["diff_pp"] == 0.0
     assert res["pooled"]["arm"]["wer"] == 5.0 and res["pooled"]["rel_change_pct"] == -50.0
-    cv = lm_tune.cross_validate(np.stack([base, arm]), base, utts, ["none", "lm"])
+    cv, pick = lm_tune.cross_validate(np.stack([base, arm]), base, utts, ["none", "lm"])
+    assert pick.tolist() == [1] * 12
     assert cv["chosen"] == {"tuned_on_A_scored_on_B": "lm", "tuned_on_B_scored_on_A": "lm"}
     assert cv["held_out"]["pooled"]["arm"]["wer"] == 5.0
     assert cv["tuned_on_itself"]["label"] == "tuned on itself"
@@ -266,3 +279,48 @@ def test_fast_beam_matches_the_reference_beam():
                 assert np.allclose([s for _, s in got], [s for _, s in want], atol=1e-3)
     with pytest.raises(ValueError):
         fast.search(enc_p[0].numpy(), beam=0)
+    pred.context_len = 4  # a longer predictor context is refused, not silently truncated
+    with pytest.raises(ValueError):
+        lm_fusion.FastBeam(pred, join)
+
+
+def test_edge_rule_extends_only_axes_whose_choice_sits_on_an_edge():
+    grid = lm_tune.make_grid("T", "/lm", "/lodr", kind="reduced")
+    fam_f, fam_l = "T_b4_fusion", "T_b4_fusion_lodr"
+
+    def lab(name):
+        c = next(x for x in grid if x["name"] == name)
+        return {k: c[k] for k in ("name", "lm_weight", "lodr_weight", "blank_penalty") if k in c}
+
+    res = {"families": {
+        fam_f: {"chosen": {"a": lab("T_b4_l0.30_r0.00_p0.25"), "b": lab("T_b4_l0.30_r0.00_p0.00")}},
+        fam_l: {"chosen": {"a": lab("T_b4_l0.60_r0.50_p0.00"), "b": lab("T_b4_l0.20_r0.50_p0.00")}}}}
+    new = lm_tune.extensions(grid, res)
+    names = sorted(c["name"] for c in new)
+    # fusion: penalty 0.25 is the top of {0, 0.25} -> 0.5 for every LM weight; 0.3 is interior
+    assert [n for n in names if "r0.00" in n] == [f"T_b4_l{w:.2f}_r0.00_p0.50"
+                                                 for w in (0.1, 0.2, 0.3, 0.4, 0.5)]
+    # LODR: 0.6 is the top -> 0.7; 0.2 is the bottom -> 0.1; the ratio axis has one value
+    lodr = [c for c in new if c["family"] == fam_l]
+    assert sorted({c["lm_weight"] for c in lodr}) == [0.1, 0.7]
+    assert all(c["lodr_weight"] == round(0.5 * c["lm_weight"], 6) for c in lodr)
+    assert all(c["lm"] == "/lm" for c in new) and all(c["lodr"] == "/lodr" for c in lodr)
+    assert not any("lodr" in c for c in new if c["family"] == fam_f)
+    assert lm_tune.extensions(grid + new, res) == []  # the same choices add nothing twice
+
+
+def test_complete_shards_picks_a_full_set_whatever_the_shard_count(tmp_path):
+    d = tmp_path / "cfg"
+    d.mkdir()
+    for i in range(3):
+        (d / f"dev-clean.{i:02d}of03.jsonl").write_text(json.dumps({"uid": f"u{i}"}) + "\n")
+    for i in (0, 2):
+        (d / f"dev-clean.{i:02d}of04.jsonl").write_text("")
+    (d / "dev-clean.01of04.jsonl.tmp").write_text("")
+    got = lm_decode.complete_shards(str(d), "dev-clean")
+    assert [os.path.basename(f) for f in got] == [f"dev-clean.{i:02d}of03.jsonl" for i in range(3)]
+    assert lm_decode.complete_shards(str(d), "dev-other") is None
+    rows = lm_tune.load_run(str(tmp_path), "cfg", ["dev-clean"], 3)
+    assert sorted(rows) == ["u0", "u1", "u2"]
+    with pytest.raises(ValueError):
+        lm_tune.load_run(str(tmp_path), "cfg", ["dev-other"])

@@ -51,7 +51,7 @@ What existed when this was written: the Phase 1 results below (beam 4 and beam 8
 4. **Decode cost.** Reported as the sum of the per-utterance wall time of the search call, one thread per worker, 14 workers in parallel on H0 cores 16-29, with the reference beam, for the baseline and for the chosen fusion configs. Informational only.
 5. **Token LM pruning** is fixed in Amendment 2, from n-gram counts and file sizes only, before the first fusion decode.
 
-## Amendment 2 (2026-11-22, about 21:27Z): wider Phase 2 at the lead's direction (21:21Z), written before any fusion decode
+## Amendment 2 (2026-11-22, 21:24Z): wider Phase 2 at the lead's direction (21:21Z), written before any fusion decode
 What existed when this was written: Phase 1 (rescoring of the beam-8 list with the word 4-gram and the two pruned word 3-grams) and the no-LM blank-penalty control. **No decode with an LM inside the beam had been run.** The lead asked for the size/WER trade over n-gram order 3–5 and pruning (one model under 50 MB, one under 200 MB), beam 4 and 8, and a larger rescoring list.
 
 1. **Token LM set, fixed from n-gram counts and KenLM's own size estimates only.** Counts from `lmplz` on the tokenised LM text (1,577,847,566 tokens, 40,418,261 lines): distinct n-grams of order 1–5 = 500 / 194,853 / 14,346,832 / 127,835,812 / 379,564,581; seen at least twice: 10.05 M 3-grams, 59.1 M 4-grams, 114.4 M 5-grams; at least 3 times: 40.3 M 4-grams; at least 4 times: 46.8 M 5-grams. **Size** means the KenLM trie with 8-bit quantised probabilities and backoffs and compressed pointers (`build_binary -a 22 -q 8 -b 8 trie`); the fusion decodes query that same file, so every WER belongs to the stated size. Classes: S ≤ 50 MB, M ≤ 200 MB, L larger (reference only).

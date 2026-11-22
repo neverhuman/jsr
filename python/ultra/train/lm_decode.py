@@ -177,6 +177,23 @@ def merge(a) -> None:
         print(json.dumps({k: v for k, v in index.items() if k != "utts"}), flush=True)
 
 
+def complete_shards(folder: str, split: str) -> list[str] | None:
+    """The shard files of one complete decode of `split` in `folder` (all i of some n present),
+    or None. If several shard counts are complete, the one with the fewest files is used."""
+    import glob
+    import re
+
+    sets: dict[int, set[int]] = {}
+    for f in glob.glob(os.path.join(folder, f"{split}.*of*.jsonl")):
+        m = re.fullmatch(r"(\d+)of(\d+)\.jsonl", os.path.basename(f)[len(split) + 1:])
+        if m:
+            sets.setdefault(int(m.group(2)), set()).add(int(m.group(1)))
+    for n in sorted(sets):
+        if sets[n] == set(range(n)):
+            return [os.path.join(folder, f"{split}.{i:02d}of{n:02d}.jsonl") for i in range(n)]
+    return None
+
+
 def load_cache(cache: str, split: str):
     """(index dict, memory-mapped (frames, J) float32 array) of an `encode` output."""
     check_split(split)
@@ -212,41 +229,48 @@ def beam(a) -> None:
     for index, _ in caches.values():
         if index["checkpoint_sha256"] != sha or index["weights"] != a.weights:
             raise ValueError("encoder cache was made from other weights than --checkpoint")
-    for cfg in configs:
-        fusion = None
-        if cfg.get("lm"):
-            fusion = NgramFusion(lm(cfg["lm"]), cfg["lm_weight"], lm(cfg.get("lodr")),
-                                 cfg.get("lodr_weight", 0.0))
-        for split, (index, frames) in caches.items():
+    fusions = [NgramFusion(lm(c["lm"]), c["lm_weight"], lm(c.get("lodr")),
+                           c.get("lodr_weight", 0.0)) if c.get("lm") else None for c in configs]
+    for split, (index, frames) in caches.items():
+        # Utterance-outer loop: the configs of a grid visit nearly the same LM contexts on one
+        # utterance, so each LM row is computed once and shared by all of them.
+        todo = []
+        for cfg, fusion in zip(configs, fusions, strict=True):
             out = os.path.join(a.out, cfg["name"], f"{split}.{shard:02d}of{nshard:02d}.jsonl")
-            if os.path.exists(out):
+            if not os.path.exists(out) and not complete_shards(os.path.dirname(out), split):
+                os.makedirs(os.path.dirname(out), exist_ok=True)
+                todo.append((cfg, fusion, out, open(out + ".tmp", "w")))  # noqa: SIM115
+        for n, u in enumerate(index["utts"]):
+            if n % nshard != shard or not todo:
                 continue
-            os.makedirs(os.path.dirname(out), exist_ok=True)
-            with open(out + ".tmp", "w") as fh:
-                for n, u in enumerate(index["utts"]):
-                    if n % nshard != shard:
-                        continue
-                    x = np.array(frames[u["offset"]:u["offset"] + u["frames"]])
-                    nb: list = []
-                    t0 = time.perf_counter()
-                    if fast is not None:
-                        nb.append(fast.search(x, cfg["beam"], cfg.get("blank_penalty", 0.0),
-                                              fusion))
-                    else:
-                        modified_beam_search(
-                            model.predictor, model.joiner, torch.from_numpy(x)[None],
-                            torch.tensor([u["frames"]]), cfg["beam"],
-                            blank_penalty=cfg.get("blank_penalty", 0.0), nbest=nb, fusion=fusion)
-                    best = nb[0][0][0]
-                    row = {"uid": u["uid"], "tokens": best, "hyp": tok.decode(best),
-                           "score": nb[0][0][1], "sec": round(time.perf_counter() - t0, 4)}
-                    if cfg.get("nbest"):
-                        row["nbest"] = [[t, round(s, 4), tok.decode(t)] for t, s in nb[0]]
-                    fh.write(json.dumps(row) + "\n")
-                    if n % (50 * nshard) == shard:
-                        fh.flush()  # progress is visible while a shard runs
+            x = np.array(frames[u["offset"]:u["offset"] + u["frames"]])
+            for cfg, fusion, _, fh in todo:
+                nb: list = []
+                t0 = time.perf_counter()
+                if fast is not None:
+                    nb.append(fast.search(x, cfg["beam"], cfg.get("blank_penalty", 0.0), fusion))
+                else:
+                    modified_beam_search(
+                        model.predictor, model.joiner, torch.from_numpy(x)[None],
+                        torch.tensor([u["frames"]]), cfg["beam"],
+                        blank_penalty=cfg.get("blank_penalty", 0.0), nbest=nb, fusion=fusion)
+                best = nb[0][0][0]
+                row = {"uid": u["uid"], "tokens": best, "hyp": tok.decode(best),
+                       "score": nb[0][0][1], "sec": round(time.perf_counter() - t0, 4)}
+                if cfg.get("nbest"):
+                    row["nbest"] = [[t, round(sc, 4), tok.decode(t)] for t, sc in nb[0]]
+                fh.write(json.dumps(row) + "\n")
+                if fusion is not None:
+                    fusion.rows.clear()  # weighted rows are per utterance; raw LM rows stay cached
+            if n % (50 * nshard) == shard:
+                for *_, fh in todo:
+                    fh.flush()  # progress is visible while a shard runs
+        for _, _, out, fh in todo:
+            fh.close()
             os.replace(out + ".tmp", out)
-        print(json.dumps({"done": cfg["name"], "shard": a.shard}), flush=True)
+        print(json.dumps({"done": split, "shard": a.shard, "configs": len(todo),
+                          "lm_lookups": {os.path.basename(k): v.lookups for k, v in lms.items()}}),
+              flush=True)
 
 
 def token_line(sp, cache: dict, line: str) -> str:
@@ -320,9 +344,8 @@ def main(argv=None) -> None:
     b.add_argument("--configs", required=True, help="JSON list of {name, beam, blank_penalty, "
                    "nbest, lm, lm_weight, lodr, lodr_weight}")
     b.add_argument("--shard", default="0/1")
-    b.add_argument("--lm-rows", type=int, default=1 << 17,
-                   help="LM rows (one per n-gram context, ~2 kB each) kept per worker; the same "
-                        "contexts recur across the configs of a grid")
+    b.add_argument("--lm-rows", type=int, default=1 << 15,
+                   help="LM rows (one per n-gram context, ~2 kB each) kept per worker")
     b.add_argument("--fast", action="store_true",
                    help="search with train.lm_fusion.FastBeam (NumPy; for weight sweeps) instead "
                         "of train.beam.modified_beam_search (the reference)")

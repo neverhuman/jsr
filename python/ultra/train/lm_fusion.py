@@ -111,22 +111,29 @@ class NgramFusion:
         self.lodr, self.lodr_weight = (lodr, float(lodr_weight)) if lodr_weight else (None, 0.0)
         self.n = max(lm.order, self.lodr.order if self.lodr else 1) - 1
         self.max_rows = max_rows
-        self.rows: dict[tuple[int, ...], torch.Tensor] = {}
+        self.rows: dict = {}  # context -> weighted row as a float32 NumPy array
 
-    def row(self, seq) -> torch.Tensor:
+    def row(self, seq):
+        """(vocab,) float32 NumPy array: the additive scores of every token after `seq`."""
         key = context(seq, self.n)
         got = self.rows.get(key)
         if got is None:
-            got = self.lm_weight * self.lm.row(narrow(key, self.lm.order - 1))
+            got = self.lm.row(narrow(key, self.lm.order - 1)).numpy() * self.lm_weight
             if self.lodr is not None:
-                got = got - self.lodr_weight * self.lodr.row(narrow(key, self.lodr.order - 1))
+                got -= self.lodr.row(narrow(key, self.lodr.order - 1)).numpy() * self.lodr_weight
             if len(self.rows) >= self.max_rows:
                 self.rows.pop(next(iter(self.rows)))
             self.rows[key] = got
         return got
 
     def __call__(self, seqs) -> torch.Tensor:
-        return torch.stack([self.row(s) for s in seqs])
+        return torch.from_numpy(self.stack(seqs))
+
+    def stack(self, seqs):
+        """(len, vocab) float32 NumPy array of the rows of `seqs`."""
+        import numpy as np
+
+        return np.stack([self.row(s) for s in seqs])
 
 
 class FastBeam:
@@ -140,6 +147,8 @@ class FastBeam:
     def __init__(self, predictor, joiner):
         import numpy as np
 
+        if getattr(predictor, "context_len", 2) != 2:  # train.beam builds two-token contexts too
+            raise ValueError("FastBeam supports the two-token stateless predictor only")
         self.np = np
         emb = predictor.emb.weight.detach().numpy().astype(np.float32)
         w = predictor.proj.weight.detach().numpy().astype(np.float32)
@@ -168,7 +177,7 @@ class FastBeam:
             if blank_penalty:
                 logp[:, 0] -= np.float32(blank_penalty)
             if fusion is not None:
-                logp += np.stack([fusion.row(s).numpy() for s in seqs])
+                logp += fusion.stack(seqs)
             scores = (np.array([hyps[s] for s in seqs], dtype=np.float32)[:, None] + logp).ravel()
             k = min(beam, scores.size)
             top = np.argpartition(scores, -k)[-k:]

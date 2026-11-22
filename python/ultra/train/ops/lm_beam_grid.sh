@@ -15,11 +15,15 @@ LOGS=${3:-$OUT/logs}
 : "${LM_CACHE:?encoder cache dir (train.lm_decode encode)}"
 : "${LM_CKPT:?checkpoint .pt}"
 PY=${PY:-/home/ubuntu/jsr/.venv/bin/python}
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1  # one core per worker
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 read -r -a cores <<< "$CORES"
 # shellcheck disable=SC2086  # LM_BEAM_ARGS is a list of options, split on purpose
 n=${#cores[@]}
 mkdir -p "$OUT" "$LOGS"
+CONFIGS=$(realpath "$CONFIGS")
+OUT=$(realpath "$OUT")
+LOGS=$(realpath "$LOGS")
 : > "$LOGS/pids"
 cd "$ROOT"
 for i in "${!cores[@]}"; do
