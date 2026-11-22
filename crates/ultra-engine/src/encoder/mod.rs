@@ -57,30 +57,68 @@ pub struct GroupCache {
     pub chunk: usize,
     /// Ring slots per layer and head: `left + max_chunks * chunk`.
     pub ring: usize,
+    /// Whether this cache stores K/V symmetrically quantised in int8 (~3.5x smaller per stream).
+    pub kv_int8: bool,
     /// Keys `[layer][head][ring / 8][dh][8]` (8-key tiles, `kernels::kt_index`) and values
-    /// `[layer][head][ring][dh]`; absolute position `p` lives in slot `p % ring`, so a
-    /// step's keys (up to `max_chunks` chunks) can be written before its queries run.
+    /// `[layer][head][ring][dh]`; empty when `kv_int8` is true.
     pub k: Vec<f32>,
     pub v: Vec<f32>,
+    /// Int8 K/V ring buffers `[layer][head][ring][dh]` and per-(layer, head, slot) scales
+    /// `[layer][head][ring]`; empty when `kv_int8` is false.
+    pub k_q: Vec<i8>,
+    pub k_s: Vec<f32>,
+    pub v_q: Vec<i8>,
+    pub v_s: Vec<f32>,
     /// `[layer][kernel-1][d]`, oldest first.
     pub conv: Vec<f32>,
 }
 
 impl GroupCache {
-    fn new(m: &Model, layers: usize, left: usize, chunk: usize, max_chunks: usize) -> Self {
+    fn new(
+        m: &Model,
+        layers: usize,
+        left: usize,
+        chunk: usize,
+        max_chunks: usize,
+        kv_int8: bool,
+    ) -> Self {
         let a = &m.arch;
         // At least left + one step of keys; a whole number of 8-key tiles.
         let ring = (left + chunk * max_chunks.max(1)).next_multiple_of(kernels::KT_TILE);
         let kv = layers * a.heads * ring * a.dh;
+        let slots = layers * a.heads * ring;
         Self {
             kv_len: 0,
             left,
             chunk,
             ring,
-            k: vec![0.0; kv],
-            v: vec![0.0; kv],
+            kv_int8,
+            k: if kv_int8 { Vec::new() } else { vec![0.0; kv] },
+            v: if kv_int8 { Vec::new() } else { vec![0.0; kv] },
+            k_q: if kv_int8 { vec![0i8; kv] } else { Vec::new() },
+            k_s: if kv_int8 {
+                vec![0.0; slots]
+            } else {
+                Vec::new()
+            },
+            v_q: if kv_int8 { vec![0i8; kv] } else { Vec::new() },
+            v_s: if kv_int8 {
+                vec![0.0; slots]
+            } else {
+                Vec::new()
+            },
             conv: vec![0.0; layers * (a.kernel - 1) * a.d],
         }
+    }
+
+    fn retained_bytes(&self) -> usize {
+        4 * (self.k.capacity()
+            + self.v.capacity()
+            + self.k_s.capacity()
+            + self.v_s.capacity()
+            + self.conv.capacity())
+            + self.k_q.capacity()
+            + self.v_q.capacity()
     }
 }
 
@@ -95,10 +133,16 @@ pub struct EncState {
     pub kv_len: usize,
     /// 25 Hz ring slots per layer and head (a multiple of 8, at least left + one step).
     pub ring: usize,
+    /// Whether this stream stores K/V quantised in int8 (~3.5x smaller per stream).
+    pub kv_int8: bool,
     /// 25 Hz keys `[layer][head][ring / 8][dh][8]`, values `[layer][head][ring][dh]`,
     /// depthwise history `[layer][kernel-1][d]` (see [`GroupCache`]).
     pub k: Vec<f32>,
     pub v: Vec<f32>,
+    pub k_q: Vec<i8>,
+    pub k_s: Vec<f32>,
+    pub v_q: Vec<i8>,
+    pub v_s: Vec<f32>,
     pub conv: Vec<f32>,
     left: usize,
     chunk: usize,
@@ -111,21 +155,31 @@ pub struct EncState {
 }
 
 impl EncState {
-    /// Caches for steps of up to `max_chunks` chunks.
+    /// Caches for steps of up to `max_chunks` chunks (fp32 K/V cache).
     pub fn new(m: &Model, max_chunks: usize) -> Self {
+        Self::new_with_kv(m, max_chunks, false)
+    }
+
+    /// Caches for steps of up to `max_chunks` chunks with optional int8 K/V compression.
+    pub fn new_with_kv(m: &Model, max_chunks: usize, kv_int8: bool) -> Self {
         let a = &m.arch;
-        let g = GroupCache::new(m, a.lower + a.fin, a.left, a.chunk, max_chunks);
+        let g = GroupCache::new(m, a.lower + a.fin, a.left, a.chunk, max_chunks, kv_int8);
         Self {
             t: 0,
             kv_len: 0,
             ring: g.ring,
+            kv_int8,
             k: g.k,
             v: g.v,
+            k_q: g.k_q,
+            k_s: g.k_s,
+            v_q: g.v_q,
+            v_s: g.v_s,
             conv: g.conv,
             left: g.left,
             chunk: g.chunk,
             gmid: (a.mid > 0)
-                .then(|| GroupCache::new(m, a.mid, a.left / 2, a.chunk / 2, max_chunks)),
+                .then(|| GroupCache::new(m, a.mid, a.left / 2, a.chunk / 2, max_chunks, kv_int8)),
             c1_prev: vec![0.0; a.f1 * a.stem_ch],
             c1_prev_t: None,
         }
@@ -138,15 +192,16 @@ impl EncState {
 
     /// Bytes held by every cache buffer (both rate groups + stem overlap row).
     pub fn retained_bytes(&self) -> usize {
-        let g = self
-            .gmid
-            .as_ref()
-            .map_or(0, |g| g.k.capacity() + g.v.capacity() + g.conv.capacity());
+        let g = self.gmid.as_ref().map_or(0, GroupCache::retained_bytes);
         4 * (self.k.capacity()
             + self.v.capacity()
+            + self.k_s.capacity()
+            + self.v_s.capacity()
             + self.conv.capacity()
-            + self.c1_prev.capacity()
-            + g)
+            + self.c1_prev.capacity())
+            + self.k_q.capacity()
+            + self.v_q.capacity()
+            + g
     }
 
     fn view25(&mut self, n: usize) -> View<'_> {
@@ -157,8 +212,13 @@ impl EncState {
             left: self.left,
             chunk: self.chunk,
             ring: self.ring,
+            kv_int8: self.kv_int8,
             k: &mut self.k,
             v: &mut self.v,
+            k_q: &mut self.k_q,
+            k_s: &mut self.k_s,
+            v_q: &mut self.v_q,
+            v_s: &mut self.v_s,
             conv: &mut self.conv,
         }
     }
@@ -173,8 +233,13 @@ impl GroupCache {
             left: self.left,
             chunk: self.chunk,
             ring: self.ring,
+            kv_int8: self.kv_int8,
             k: &mut self.k,
             v: &mut self.v,
+            k_q: &mut self.k_q,
+            k_s: &mut self.k_s,
+            v_q: &mut self.v_q,
+            v_s: &mut self.v_s,
             conv: &mut self.conv,
         }
     }
@@ -189,8 +254,13 @@ pub(crate) struct View<'a> {
     left: usize,
     chunk: usize,
     ring: usize,
+    kv_int8: bool,
     k: &'a mut [f32],
     v: &'a mut [f32],
+    k_q: &'a mut [i8],
+    k_s: &'a mut [f32],
+    v_q: &'a mut [i8],
+    v_s: &'a mut [f32],
     conv: &'a mut [f32],
 }
 
@@ -216,6 +286,8 @@ pub struct EncWorkspace {
     rope: Vec<f32>,
     rope_mid: Vec<f32>,
     scores: Vec<f32>,
+    kv_k: Vec<f32>,
+    kv_v: Vec<f32>,
     skip: Vec<f32>,
     pair_in: Vec<f32>,
     pub(crate) q: QuantScratch,

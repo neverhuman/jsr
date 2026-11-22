@@ -167,6 +167,35 @@ fn int8_beam4_is_batch_invariant() {
 }
 
 #[test]
+fn kv_int8_reduces_retained_bytes_over_3x_and_is_batch_invariant() {
+    let (w, npz) = (common::weights_dir(), common::dev_clean_npz());
+    if !common::have(&[&w, &npz]) {
+        return;
+    }
+    let mut model = Model::load(&w, true).expect("load");
+    model.quantize_int8();
+    let model = Arc::new(model);
+    let e_f32 = Engine::new(model.clone(), Isa::detect(), Precision::Int8).expect("engine");
+    let e_kv8 = e_f32.clone().with_kv_int8(true);
+    let s_f32 = e_f32.create_stream();
+    let s_kv8 = e_kv8.create_stream();
+    assert!(
+        s_f32.enc.retained_bytes() > s_kv8.enc.retained_bytes() * 3,
+        "expected >3x K/V memory reduction: fp32={} vs kv_int8={}",
+        s_f32.enc.retained_bytes(),
+        s_kv8.enc.retained_bytes()
+    );
+    let utts = load_npz_audio_only(&npz, 0, Some(4)).expect("npz");
+    let clips: Vec<Vec<i16>> = utts
+        .iter()
+        .map(|u| u.pcm[..u.pcm.len().min(24_000)].to_vec())
+        .collect();
+    let b1 = run(&e_kv8, &clips, 1, 960);
+    let b4 = run(&e_kv8, &clips, 4, 960);
+    assert_eq!(b1, b4, "kv_int8 must be strictly batch-invariant");
+}
+
+#[test]
 fn lifecycle_refuses_audio_after_finish() {
     let w = common::weights_dir();
     if !common::have(&[&w]) {

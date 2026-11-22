@@ -499,3 +499,34 @@ fn mul_add_exact_is_bit_identical_across_isas() {
         );
     }
 }
+
+#[test]
+fn fold_input_affine_matches_unfolded_layernorm_linear() {
+    let mut rng = Rng::new(71);
+    let (rows, k, n) = (3usize, 32, 48);
+    let x = rng.vec(rows * k, 3.0);
+    let g = rng.vec(k, 2.0);
+    let b = rng.vec(k, 1.0);
+    let w = rng.vec(n * k, 1.0);
+    let bias = rng.vec(n, 0.5);
+    let isa = Isa::detect();
+
+    let mut ln_out = vec![0.0f32; rows * k];
+    layer_norm(isa, &x, k, &g, &b, &mut ln_out);
+    let p_orig = PackedF32::pack(&w, n, k, Some(&bias));
+    let mut y_orig = vec![0.0f32; rows * n];
+    gemm_f32(isa, &p_orig, &ln_out, rows, &mut y_orig);
+
+    let mut ln_unit = vec![0.0f32; rows * k];
+    layer_norm(isa, &x, k, &vec![1.0; k], &vec![0.0; k], &mut ln_unit);
+    let mut p_folded = p_orig;
+    p_folded.fold_input_affine(&g, &b);
+    let mut y_folded = vec![0.0f32; rows * n];
+    gemm_f32(isa, &p_folded, &ln_unit, rows, &mut y_folded);
+
+    let mx = y_orig
+        .iter()
+        .zip(&y_folded)
+        .fold(0.0f32, |a, (&u, &v)| a.max((u - v).abs()));
+    assert!(mx < 1e-4, "folded prenorm max diff = {mx}");
+}

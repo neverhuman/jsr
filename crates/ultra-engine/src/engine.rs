@@ -43,6 +43,9 @@ pub struct Engine {
     /// Entropy-gated Micro-Beam-4 threshold (`0.0` default = always-on exact beam; e.g. `3.5`
     /// collapses to width-1 joiner whenever the top hypothesis & blank logit dominate by `> margin`).
     pub beam_margin: f32,
+    /// Opt-in deterministic int8 K/V cache compression (`false` default = fp32 K/V; `true` cuts
+    /// per-stream K/V state memory by ~3.5x with per-head/per-slot symmetric int8 quantisation).
+    pub kv_int8: bool,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -185,6 +188,7 @@ impl Engine {
             beam: 1,
             beam_max_symbols: 1,
             beam_margin: 0.0,
+            kv_int8: false,
         })
     }
 
@@ -235,6 +239,12 @@ impl Engine {
         self
     }
 
+    /// Enable deterministic int8 K/V cache compression (~3.5x smaller per-stream memory).
+    pub fn with_kv_int8(mut self, on: bool) -> Self {
+        self.kv_int8 = on;
+        self
+    }
+
     pub fn create_stream(&self) -> EngineStream {
         EngineStream {
             mel: TrainerLogMel::new(self.model.mel_cfg.clone()),
@@ -242,7 +252,7 @@ impl Engine {
             ring: FeatureRing::new(),
             finished: false,
             failed: false,
-            enc: EncState::new(&self.model, self.max_chunks),
+            enc: EncState::new_with_kv(&self.model, self.max_chunks, self.kv_int8),
             dec: DecState::new(&self.model),
         }
     }

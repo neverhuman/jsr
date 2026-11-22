@@ -47,6 +47,35 @@ impl Model {
             .and_then(|q| super::BlankCert::from_packed_i8(q, self.arch.blank));
     }
 
+    /// Zero-retrain algebraic pre-norm folding (`X2 S2b`): folds each block's pre-norm
+    /// LayerNorm `(g, b)` into its downstream linear layer (`ff1_w1`, `qkv`, `pw1`, `ff2_w1`)
+    /// whenever fp32 weights are resident, setting `g = 1.0`, `b = 0.0` (and re-packing int8
+    /// weights if already quantised). Returns the number of folded pairs.
+    pub fn fold_prenorm(&mut self) -> usize {
+        let mut folded = 0usize;
+        for blk in &mut self.blocks {
+            let pairs = [
+                (&mut blk.ff1_norm, &mut blk.ff1_w1),
+                (&mut blk.att_norm, &mut blk.qkv),
+                (&mut blk.conv_norm, &mut blk.pw1),
+                (&mut blk.ff2_norm, &mut blk.ff2_w1),
+            ];
+            for (nm, lin) in pairs {
+                if !lin.has_fp32() || lin.qat_i8 || lin.t.is_some() {
+                    continue;
+                }
+                lin.f.fold_input_affine(&nm.g, &nm.b);
+                nm.g.fill(1.0);
+                nm.b.fill(0.0);
+                if lin.q.is_some() {
+                    lin.q = Some(PackedI8::from_packed_f32(&lin.f));
+                }
+                folded += 1;
+            }
+        }
+        folded
+    }
+
     /// For a checkpoint whose stem was trained int8 (`qat_stem = "int8"`), pack stem conv 2
     /// and the projection with the trainer's weight rule and run them int8 in every
     /// precision (the fp32 engine is then "fp32 except the int8-trained stem", as trained).

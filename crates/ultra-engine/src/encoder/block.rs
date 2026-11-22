@@ -114,6 +114,8 @@ pub(super) fn block(
                 &mut att[r0 * d..(r0 + j.n) * d],
                 &cs[r0 * a.dh..(r0 + j.n) * a.dh],
                 &mut ws.scores,
+                &mut ws.kv_k,
+                &mut ws.kv_v,
             );
             r0 += j.n;
         }
@@ -256,6 +258,22 @@ fn rope(v: &mut [f32], cs: &[f32]) {
     }
 }
 
+/// Symmetric per-head/per-slot int8 quantisation for K/V cache compression.
+#[inline]
+fn quantize_kv_slot(src: &[f32], dst: &mut [i8]) -> f32 {
+    let mx = src.iter().fold(0.0f32, |a, &v| a.max(v.abs()));
+    if mx == 0.0 || !mx.is_finite() {
+        dst.fill(0);
+        return 0.0;
+    }
+    let scale = mx / 127.0;
+    let inv = 127.0 / mx;
+    for (o, &v) in dst.iter_mut().zip(src) {
+        *o = (v * inv).round_ties_even().clamp(-127.0, 127.0) as i8;
+    }
+    scale
+}
+
 /// Attention for one stream: `qkv` holds its `n` rows (`[q | k | v]`, heads contiguous);
 /// writes `n` rows of concatenated head outputs to `out` and stores the chunk's keys and
 /// values into the ring after use.
@@ -269,6 +287,8 @@ fn attend(
     out: &mut [f32],
     cs: &[f32],
     scores: &mut Vec<f32>,
+    kv_k: &mut Vec<f32>,
+    kv_v: &mut Vec<f32>,
 ) {
     let a = &m.arch;
     let (d, dh, hn, left, n) = (a.d, a.dh, a.heads, j.left, j.n);
@@ -288,17 +308,35 @@ fn attend(
     // overwritten slots (positions <= t0 + n - 1 - ring < t0 - left) are outside every window.
     let ring = j.ring;
     let lbase = li * hn * ring * dh;
-    for i in 0..n {
-        let slot = (t0 + i) % ring;
-        let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
-        for h in 0..hn {
-            let hb = lbase + h * ring * dh;
-            // Keys in 8-key tiles so scores read 8 keys per load from contiguous memory.
-            for (e, &kv) in r[d + h * dh..d + (h + 1) * dh].iter().enumerate() {
-                j.k[hb + kernels::kt_index(slot, e, dh)] = kv;
+    let sbase = li * hn * ring;
+    if j.kv_int8 {
+        for i in 0..n {
+            let slot = (t0 + i) % ring;
+            let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
+            for h in 0..hn {
+                let hb = lbase + h * ring * dh + slot * dh;
+                let sb = sbase + h * ring + slot;
+                j.k_s[sb] =
+                    quantize_kv_slot(&r[d + h * dh..d + (h + 1) * dh], &mut j.k_q[hb..hb + dh]);
+                j.v_s[sb] = quantize_kv_slot(
+                    &r[2 * d + h * dh..2 * d + (h + 1) * dh],
+                    &mut j.v_q[hb..hb + dh],
+                );
             }
-            let vb = hb + slot * dh;
-            j.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
+        }
+    } else {
+        for i in 0..n {
+            let slot = (t0 + i) % ring;
+            let r = &qkv[i * 3 * d..(i + 1) * 3 * d];
+            for h in 0..hn {
+                let hb = lbase + h * ring * dh;
+                // Keys in 8-key tiles so scores read 8 keys per load from contiguous memory.
+                for (e, &kv) in r[d + h * dh..d + (h + 1) * dh].iter().enumerate() {
+                    j.k[hb + kernels::kt_index(slot, e, dh)] = kv;
+                }
+                let vb = hb + slot * dh;
+                j.v[vb..vb + dh].copy_from_slice(&r[2 * d + h * dh..2 * d + (h + 1) * dh]);
+            }
         }
     }
     // Sub-chunk c = [s0, s0 + m): its queries see positions [s0 - past_c, s0 + m), with
@@ -313,25 +351,67 @@ fn attend(
         let start = (s0 - past) % ring;
         let first = nk.min(ring - start);
         let sc = grow(scores, m * nk);
-        for h in 0..hn {
-            let hb = lbase + h * ring * dh;
-            let kt = &j.k[hb..hb + ring * dh];
-            let vr = &j.v[hb..hb + ring * dh];
-            kernels::attend_head(
-                isa,
-                &qkv[off * 3 * d + h * dh..],
-                3 * d,
-                m,
-                dh,
-                kt,
-                ring,
-                [(start, first), (0, nk - first)],
-                window(vr, start, first, nk, dh),
-                scale,
-                sc,
-                &mut out[off * d + h * dh..],
-                d,
-            );
+        if j.kv_int8 {
+            let kt_ring = nk.next_multiple_of(kernels::KT_TILE);
+            let kt_buf = grow(kv_k, kt_ring * dh);
+            let vr_buf = grow(kv_v, nk * dh);
+            for h in 0..hn {
+                let hb = lbase + h * ring * dh;
+                let sb = sbase + h * ring;
+                let mut dst_slot = 0usize;
+                for (seg_start, seg_len) in [(start, first), (0, nk - first)] {
+                    for slot in seg_start..seg_start + seg_len {
+                        let ks = j.k_s[sb + slot];
+                        let vs = j.v_s[sb + slot];
+                        let kq = &j.k_q[hb + slot * dh..hb + (slot + 1) * dh];
+                        let vq = &j.v_q[hb + slot * dh..hb + (slot + 1) * dh];
+                        for (e, &q) in kq.iter().enumerate() {
+                            kt_buf[kernels::kt_index(dst_slot, e, dh)] = f32::from(q) * ks;
+                        }
+                        let vo = &mut vr_buf[dst_slot * dh..(dst_slot + 1) * dh];
+                        for (o, &q) in vo.iter_mut().zip(vq) {
+                            *o = f32::from(q) * vs;
+                        }
+                        dst_slot += 1;
+                    }
+                }
+                kernels::attend_head(
+                    isa,
+                    &qkv[off * 3 * d + h * dh..],
+                    3 * d,
+                    m,
+                    dh,
+                    kt_buf,
+                    kt_ring,
+                    [(0, nk), (0, 0)],
+                    [vr_buf, &[]],
+                    scale,
+                    sc,
+                    &mut out[off * d + h * dh..],
+                    d,
+                );
+            }
+        } else {
+            for h in 0..hn {
+                let hb = lbase + h * ring * dh;
+                let kt = &j.k[hb..hb + ring * dh];
+                let vr = &j.v[hb..hb + ring * dh];
+                kernels::attend_head(
+                    isa,
+                    &qkv[off * 3 * d + h * dh..],
+                    3 * d,
+                    m,
+                    dh,
+                    kt,
+                    ring,
+                    [(start, first), (0, nk - first)],
+                    window(vr, start, first, nk, dh),
+                    scale,
+                    sc,
+                    &mut out[off * d + h * dh..],
+                    d,
+                );
+            }
         }
         off += m;
     }
