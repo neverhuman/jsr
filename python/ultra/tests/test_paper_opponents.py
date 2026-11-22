@@ -576,6 +576,11 @@ def test_loaded_cross_checks_never_become_rows(tmp_path):
     audio = WORKLOAD["audio_seconds"]
     for round_id, service in ((1, [4]), (2, [24]), (3, [28])):
         fake_repetition(runs, "1c", "vosk-small", round_id, 0.3 * audio, 0.3 * audio, service, {"u00000": "a", "u00001": "c"})
+    for legacy in runs.rglob("panel"):  # receipts written before protocol v3 have no panel file
+        if legacy.is_file():
+            legacy.unlink()
+    for legacy in runs.rglob("audio.seconds"):
+        legacy.unlink()
     summary("collect", runs, raw / "loaded-2118Z")
     assert summary("rows", raw, "session") == ""
     assert "| vosk-small | full | 3 | 0.3000 |" in summary("table", raw / "loaded-2118Z")

@@ -115,9 +115,14 @@ def repetitions(root):
             continue
         if not (run / "finished").is_file() or not (run / "arm").is_file():
             continue
-        key = ((run / "arm").read_text().strip(), (run / "panel").read_text().strip())
+        key = ((run / "arm").read_text().strip(), panel_of(run))
         found.setdefault(key, []).append(run)
     return {key: sorted(runs, key=lambda run: int((run / "round").read_text())) for key, runs in sorted(found.items())}
+
+
+def panel_of(run):
+    """Timing panel of a repetition; receipts written before protocol v3 are full-panel runs."""
+    return (run / "panel").read_text().strip() if (run / "panel").is_file() else "full"
 
 
 def mean_frequency_khz(run):
@@ -155,11 +160,12 @@ def repetition(run):
     guard = json.loads((run / "host.cpu.json").read_text())
     if measure["exit_code"] != 0:
         raise ValueError(f"failed repetition {run}")
-    audio = float((run / "audio.seconds").read_text())
+    audio = (float((run / "audio.seconds").read_text()) if (run / "audio.seconds").is_file()
+             else workload()["audio_seconds"])
     cpu = measure["cpu_seconds_user"] + measure["cpu_seconds_sys"]
     result = {
         "run": run, "round": int((run / "round").read_text()), "host": (run / "host").read_text().strip(),
-        "panel": (run / "panel").read_text().strip(), "audio_seconds": audio,
+        "panel": panel_of(run), "audio_seconds": audio,
         "workload_digest": (run / "workload.sha256").read_text().split()[0],
         "service_cpus": measure["placement"]["effective_service_cpus_at_spawn"],
         "cpu_s": cpu, "wall_s": measure["wall_seconds"],
