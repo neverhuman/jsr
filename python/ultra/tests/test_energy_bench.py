@@ -496,3 +496,19 @@ def test_idle_pairs_report_the_noise_floor_of_run_minus_idle():
     assert result["core_per_pinned_core"]["median_abs_watts"] == pytest.approx(0.1)   # 0.2, 0.1 and 0.1 W per core
     assert result["package"]["median_abs_watts"] == pytest.approx(15.0)
     assert result["package"]["max_abs_watts"] == pytest.approx(38.0)
+
+
+def test_stable_word_lag_from_bounded_snapshot_windows():
+    # Reference "a b c d e f" ending at 1..6 s; the hypothesis grows one word per second, revises "x" to "d",
+    # and every snapshot shows only the last three words (the first may be cut).
+    ref = list("abcdef")
+    ends = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    snapshots = [(1.2, "a"), (2.2, "a b"), (3.2, "a b c"), (4.2, "b c x"), (4.6, "b c d"),
+                 (5.3, "c d e"), (6.4, "d e f"), (6.5, "d e f")]
+    lags, total = er.stable_word_lags(snapshots, "A B C D E F", ref, ends)
+    assert total == 6
+    assert lags == pytest.approx([0.2, 0.2, 0.2, 0.6, 0.3, 0.4])     # "d" counts from 4.6 s, when "x" was replaced
+    assert er.align_matches(["a", "b", "c"], ["a", "c"]) == [(0, 0), (2, 1)]
+    # A cut first word ("ister" of "mister") is not mistaken for a different word.
+    counts = er.confirmed_counts([(1.0, "ister quilter has")], ["mister", "quilter", "has", "missed"])
+    assert counts == [3]

@@ -9,6 +9,7 @@
     energy_report.py join --log LOG --run NAME=CPUS:START:END:AUDIO_S   (watts for a run someone else timed)
     energy_report.py stair SERIES --plateau LABEL:WORKERS:START:END ...  (levels inside one staircase run)
     energy_report.py idle RECEIPT...                 (idle against idle: the noise floor of run minus idle)
+    energy_report.py paced-lag RECEIPT... --timestamps T --utterances N   (word lag of paced streams)
 """
 
 from __future__ import annotations
@@ -415,6 +416,128 @@ def stair_main(args):
     return 0
 
 
+WORD_RE = __import__("re").compile(r"[a-z0-9']+")
+
+
+def words(text):
+    return WORD_RE.findall((text or "").lower())
+
+
+def align_matches(ref, hyp):
+    """(ref index, hyp index) pairs of exact matches along one optimal Levenshtein alignment."""
+    n, m = len(ref), len(hyp)
+    dp = [list(range(m + 1))] + [[i] + [0] * m for i in range(1, n + 1)]
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (ref[i - 1] != hyp[j - 1]))
+    out, i, j = [], n, m
+    while i > 0 and j > 0:
+        if ref[i - 1] == hyp[j - 1] and dp[i][j] == dp[i - 1][j - 1]:
+            out.append((i - 1, j - 1))
+            i, j = i - 1, j - 1
+        elif dp[i][j] == dp[i - 1][j - 1] + 1:
+            i, j = i - 1, j - 1
+        elif dp[i][j] == dp[i - 1][j] + 1:
+            i -= 1
+        else:
+            j -= 1
+    return out[::-1]
+
+
+def confirmed_counts(snapshots, final_words):
+    """For each (time, snapshot) the number of final words already emitted and unchanged.
+
+    A snapshot is the tail of the hypothesis at that moment (the event payload is a bounded window),
+    so its first word may be cut. The window is placed in the final hypothesis where its words, after
+    the first, match longest; everything before the matched run counts as emitted.
+    """
+    counts, floor = [], 0
+    for _, text in snapshots:
+        window = words(text)
+        best = (floor, 0)
+        if window:
+            for start in range(max(0, floor - len(window)), len(final_words) + 1):
+                run = 0
+                while (run + 1 < len(window) and start + run + 1 <= len(final_words)
+                       and window[run + 1] == final_words[start + run]):
+                    run += 1
+                head = 1 if start >= 1 and window[0] == final_words[start - 1] else 0
+                if run and (start + run > sum(best) or (run == len(window) - 1 and start + run == sum(best))):
+                    best = (start - head, run + head)
+            if best[1] == 0 and window == final_words[:len(window)]:
+                best = (0, len(window))
+        floor = max(floor, best[0])
+        counts.append(sum(best))
+    return counts
+
+
+def stable_word_lags(snapshots, final_text, ref_words, ref_ends):
+    """Stable-word lag (s) of every reference word that the final hypothesis matches.
+
+    A word counts as emitted at the first snapshot after which it is never withdrawn; its lag is that
+    time minus the word's end in the audio (input paced at real time, both from the start of the stream).
+    """
+    final_words = words(final_text)
+    counts = confirmed_counts(snapshots, final_words)
+    emitted = [None] * len(final_words)
+    suffix_min = len(final_words)
+    for (moment, _), count in zip(reversed(snapshots), reversed(counts)):
+        suffix_min = min(suffix_min, count)
+        for j in range(suffix_min):
+            emitted[j] = moment
+    if snapshots:
+        for j in range(len(final_words)):
+            if emitted[j] is None:
+                emitted[j] = snapshots[-1][0]
+    lags = [emitted[j] - ref_ends[i] for i, j in align_matches(ref_words, final_words) if emitted[j] is not None]
+    return lags, len(ref_words)
+
+
+def paced_lag_main(args):
+    """Word lag of every paced stream of energy_bench runs, next to that run's watts per stream."""
+    timing = json.loads(Path(args.timestamps).read_text(encoding="utf-8"))[:args.utterances]
+    ref_words, ref_ends, offset = [], [], 0.0
+    for utterance in timing:
+        ref_words += utterance["ref_words"]
+        ref_ends += [offset + end for end in utterance["ref_word_end_s"]]
+        offset += float(utterance["duration_s"])
+    rows = []
+    for path in args.receipts:
+        receipt = load_receipts([path])[0]
+        logs = Path(args.log_root) / receipt["arm"] if args.log_root else Path(path).parent / "out" / receipt["arm"]
+        lags, matched, total, finals = [], 0, 0, []
+        for events_path in sorted(logs.glob("rep*-w*.events.jsonl")):
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            snapshots = [(e["t_s"], e["event"].get("snapshot_utf8", "")) for e in events
+                         if e["event"].get("event_type") in ("Preview", "Commit", "Final")]
+            stdout = events_path.with_name(events_path.name.replace(".events.jsonl", ".stdout"))
+            final_text = json.loads(stdout.read_text(encoding="utf-8").splitlines()[-1])["text"]
+            stream_lags, refs = stable_word_lags(snapshots, final_text, ref_words, ref_ends)
+            lags += stream_lags
+            matched += len(stream_lags)
+            total += refs
+            finals.append(snapshots[-1][0] - offset if snapshots else None)
+        ordered = sorted(lags)
+        pick = (lambda q: ordered[min(len(ordered) - 1, int(q * (len(ordered) - 1) + 0.5))] * 1000.0) if ordered else None
+        rows.append({
+            "arm": receipt["arm"], "streams": receipt["workers"],
+            "watts_per_stream_core": receipt["joules_per_audio_s"],
+            "gross_watts_per_stream_core": receipt["summary"]["gross_joules_per_audio_s"]["median"]
+            if receipt["summary"].get("gross_joules_per_audio_s") else None,
+            "cpu_s_per_audio_s_per_stream": receipt["cpu_s_per_audio_s"],
+            "core_busy_fraction": receipt["reps"][0]["busy"]["pinned_busy_fraction_run"],
+            "lag_p50_ms": pick(0.50) if ordered else None, "lag_p95_ms": pick(0.95) if ordered else None,
+            "lag_max_ms": ordered[-1] * 1000.0 if ordered else None,
+            "words_matched": matched, "words_reference": total,
+            "final_after_audio_end_s_max": max((f for f in finals if f is not None), default=None),
+            "flags": receipt["flags"],
+        })
+        print(json.dumps(rounded(rows[-1])))
+    if args.out:
+        Path(args.out).write_text("".join(json.dumps(rounded(r)) + "\n" for r in rows), encoding="utf-8")
+    return 0
+
+
 class PowerLog:
     """The continuous 1 Hz log (`energy_bench.py sample` lines with `wall`): cumulative joules by UTC time.
 
@@ -676,6 +799,14 @@ def build_parser():
     idle.add_argument("receipts", nargs="+")
     idle.add_argument("--out", default=None)
     idle.set_defaults(handler=idle_main)
+
+    lag = sub.add_parser("paced-lag", help="stable-word lag of paced streams beside their watts per stream")
+    lag.add_argument("receipts", nargs="+", help="energy_bench receipts of paced runs (--events written)")
+    lag.add_argument("--timestamps", required=True, help="word end times: [{duration_s, ref_words, ref_word_end_s}]")
+    lag.add_argument("--utterances", type=int, required=True, help="how many leading utterances the paced audio holds")
+    lag.add_argument("--log-root", default=None, help="directory holding <arm>/rep*-w*.events.jsonl")
+    lag.add_argument("--out", default=None)
+    lag.set_defaults(handler=paced_lag_main)
 
     stair = sub.add_parser("stair", help="plateau levels of a staircase run and the package-against-core line")
     stair.add_argument("series", help="the --series-out file of the staircase run")

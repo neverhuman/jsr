@@ -96,6 +96,7 @@ Core registers, full 730-utterance panel, one pinned core alone on its 4-core L3
 | Zipformer INT8 (sherpa-onnx) | 0.0692 | 8.5 | **0.591** (0.597 / 0.586 / 0.591) | 1.77 | 0.65–0.74 (factor 1.10–1.26, one plateau) |
 
 - "W per live stream" is energy per audio-second: a stream at 1× consumes one audio-second per second.
+- **Always-on (owner's direction, 22:32Z):** a stream running all year at those watts costs **ours 2.9 kWh (core registers) / 3.6 kWh (package marginal), the Zipformer 5.2 / 5.7–6.5 kWh per stream-year** (W × 8,766 h). Streams one core can carry unpaced (1 / CPU-s per audio-s, no latency bound): **ours 27.8, the Zipformer 14.5**; the measured number at a latency bound comes from the paced check (§3.8).
 - One stream alone on an otherwise idle machine raises the package by about 34 W (H22ctl: 97.7 W median while running against 63.3 W in the 13 idle minutes after entry 2), i.e. 1.2 J per audio-second; almost all of that is the step every busy core causes (§3.5), paid once per machine.
 - The package column multiplies the core figure by the measured package watts per core-register watt (§3.5). On top of it the package draws about 16 W more as soon as any core is busy, once per machine.
 - Rows for the other recognisers come from the continuous power log joined with each agent's timed runs (§3.9); they are appended to `docs/paper/data/raw/energy/evidence/` as the serial timing queue produces them.
@@ -177,6 +178,7 @@ Our engine, 1 to 8 single-thread processes started in steps inside one run, each
 
 ### 3.8 Live-paced check
 
+- **Word lag** is the stable-word lag the lead ruled for the paper (end to end, input paced at real time): a reference word counts as emitted at the first event after which it is never withdrawn from the hypothesis; lag = that time minus the word's end in the audio (MFA word ends, `word-lag/timestamps_100_mfa.json`, the first 22 utterances of the panel concatenated). Event payloads are bounded windows (the tail of the hypothesis, about 60 bytes), so `energy_report.py paced-lag` places each window in the final hypothesis. Check against runtime-lane's harness on the same model: one paced stream of ours on an idle H0 core gave 346 / 442 ms (p50 / p95), its trace gave 350 / 494 ms; the Zipformer 593 / 769 ms against 570 / 770 ms.
 - **Pending: TIMING entry 23 on xbabe0** (N = 1, 4, 8, 16 paced streams of ours on CPU 16 and N = 1, 2, 4, 8 of the Zipformer on CPU 20, `ultra stream --pace 1.0`, one process per stream, 128 s of audio, 12 s cut at both ends). The result is compared with the unpaced figures above, on the same host and model.
 - A first attempt on H0 (xbabe3, 21:31–22:15Z) is discarded: every repetition was flagged (SMT siblings busy with other agents' work, foreign load changing by tens of watts, idle drift), net core watts came out negative, and the engine ran 4–7× slower than on xbabe0 because of memory-bus load. Receipts kept in `/mnt/xbabe3-external/jsr/runs/energy-h39/runs/` as an example of what the flags are for.
 

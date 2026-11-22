@@ -243,7 +243,7 @@ f38daf0ffb38ba3d36c8481c7389a2cfce87dd01e8dd0722ba2c7e7dd9d5ec09  energy/derived
 df7d0c44a8c224ecc1ddd17150447bdb3b2d7f1258b70be75603f4d254e09ed2  energy/derived/v2-spin-fit.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 cc429824aeb844d2007fc57e02fc7d529de7a029ecd4a1eb8d23524fea911377  energy/derived/zipformer-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 8a3213722a67f12e3190902bb78005deadc2d69e0b5123ff969361b90484a523  energy/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
-a2ceb5a83077c9b4e095ff836d1a2b23146ef68b55d22eba1f6905f617d302d0  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
+0ce510219967d911e7b0618a7f127373dd0be14f4c17ccd852ff59870055cc84  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
 683b9b8ec5d9dd6d6d8a078a446061062db36b32f3514b97c02da56110590567  energy/series/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 2f93f046017525c9ce09a1cefa7e6262551fb2694f69625061e85c844a3806fa  energy/series/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 7820892f07f681b39b25a3d18ed4c8f4bb84952b76e846aff5e5d4586db2a23e  energy/v1-idle-vs-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
