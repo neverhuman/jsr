@@ -146,6 +146,45 @@ class Featurizer:
                        self.tok_ctc.encode(text))
 
 
+_WORKER: dict = {}
+
+
+def _worker_init(tok_rnnt: str, tok_ctc: str, jsr_data: str) -> None:
+    if jsr_data:
+        os.environ["JSR_DATA"] = jsr_data
+    torch.set_num_threads(1)
+    from train.tokenizer import Tokenizer
+
+    _WORKER["feat"] = Featurizer(Tokenizer(tok_rnnt), Tokenizer(tok_ctc))
+
+
+def _decode_job(args):
+    """Worker side of ParquetBatches(loader="process"): the thread path's _decode, returning
+    plain arrays (uid, text, feats float32 (T, 80), rnnt ids, ctc ids, speed factor) or None."""
+    uid, text, audio, epoch, seed, speeds, max_seconds = args
+    pcm, sr = sf.read(io.BytesIO(audio), dtype="int16")
+    if sr != 16000 or pcm.ndim != 1:
+        raise DataError(f"{uid}: expected 16 kHz mono, got {sr} {pcm.shape}")
+    f = 1.0
+    if speeds:
+        import hashlib
+
+        h = hashlib.sha256(f"{seed}:{epoch}:{uid}".encode()).digest()
+        f = speeds[h[0] % len(speeds)]
+        if f != 1.0:
+            from fractions import Fraction
+
+            from scipy.signal import resample_poly
+
+            r = Fraction(f).limit_denominator(100)
+            y = resample_poly(pcm.astype(np.float32), r.denominator, r.numerator)
+            pcm = np.clip(np.round(y), -32768, 32767).astype(np.int16)
+    if len(pcm) / 16000.0 > max_seconds:
+        return None
+    ex = _WORKER["feat"].example(uid, text, pcm)
+    return uid, text, ex.feats.numpy(), ex.rnnt, ex.ctc, f
+
+
 class ParquetBatches:
     """Endless, resumable batch stream over one or more LibriSpeech parquet splits."""
 
@@ -153,7 +192,7 @@ class ParquetBatches:
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
                  parquet_root: str | None = None, workers: int = 4, teacher=None,
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
-                 pad_tokens: int = 0):
+                 pad_tokens: int = 0, loader: str = "thread"):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -174,7 +213,20 @@ class ParquetBatches:
         self.speed_perturb = tuple(speed_perturb)
         self.teacher = teacher
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
-        self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
+        if loader not in ("thread", "process"):
+            raise DataError(f"unknown loader {loader!r}")
+        self.loader = loader
+        if loader == "process" and workers > 1:
+            # Decode, speed perturbation and log-mel run in spawned worker processes (no GIL);
+            # the same functions as the thread path, one torch thread each, so features match.
+            import multiprocessing as mp
+            from concurrent.futures import ProcessPoolExecutor
+
+            self._pool = ProcessPoolExecutor(
+                workers, mp_context=mp.get_context("spawn"), initializer=_worker_init,
+                initargs=(feat.tok_rnnt.path, feat.tok_ctc.path, os.environ.get("JSR_DATA", "")))
+        else:
+            self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
                          for f in self.files]
 
@@ -199,6 +251,16 @@ class ParquetBatches:
         ex = self.feat.example(row["id"], row["text"], pcm)
         if self.teacher is not None:
             ex.kd = self.teacher.get(row["id"], f)
+        return ex
+
+    def _attach(self, x):
+        """Process-path result -> Example in the main process (teacher lookup lives here)."""
+        if x is None:
+            return None
+        uid, text, feats, rnnt, ctc, f = x
+        ex = Example(uid, text, torch.from_numpy(feats), rnnt, ctc)
+        if self.teacher is not None:
+            ex.kd = self.teacher.get(uid, f)
         return ex
 
     def _speed(self, uid: str, epoch: int) -> float:
@@ -229,8 +291,13 @@ class ParquetBatches:
             t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
             rows.extend(t.to_pylist())
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
-        dec = functools.partial(self._decode, epoch=epoch)
-        decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
+        if self.loader == "process" and self._pool is not None:
+            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
+                     self.max_seconds) for r in rows]
+            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+        else:
+            dec = functools.partial(self._decode, epoch=epoch)
+            decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
         del rows
         self.dropped_long += sum(e is None for e in decoded)
         exs: list[Example] = [e for e in decoded if e is not None]

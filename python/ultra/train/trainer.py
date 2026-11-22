@@ -87,6 +87,9 @@ class TrainConfig:
     # simple joiner that picks the band is still untrained (0 = weight 1 from the start).
     # H22 distillation from R0: cache dir of train/teacher_cache.py outputs and the KL weight;
     # tokenizer overrides both heads' SentencePiece model path (R0's bpe.model for H22).
+    # Batch loader: "thread" (decode in a thread pool; GIL-bound) or "process" (spawned worker
+    # processes running the same decode/perturb/log-mel code; bit-identical batches, test).
+    loader: str = "thread"
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -490,7 +493,7 @@ def main(argv=None) -> int:
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
-                                teacher=_teacher(cfg))
+                                teacher=_teacher(cfg), loader=cfg.loader)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg)
