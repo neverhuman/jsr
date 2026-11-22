@@ -69,3 +69,26 @@ def test_trainer_resume_persists_divergence_baselines(tmp_path):
     assert tr2.loss_ema == 1.234
     assert tr2.best_ema == 1.111
     assert tr2.best_wer == 5.783
+
+
+def test_resume_rearms_the_guard_when_the_loss_or_dev_panel_changes(tmp_path):
+    import dataclasses
+
+    exs = [Example(f"u{i}", "hi", torch.randn(24, 80), [1, 2], [1, 2]) for i in range(4)]
+    cfg = TrainConfig(preset="TINY", total_steps=4, warmup=1, log_every=1, eval_every=0,
+                      ckpt_every_steps=100, specaug=False)
+
+    def trainer(c):
+        return Trainer(str(tmp_path), c, FixedBatches(exs, batch_size=2), model_cfg=PRESETS["TINY"],
+                       device="cpu", log=False)
+
+    tr = trainer(cfg)
+    tr.loss_ema, tr.best_ema, tr.best_wer = 1.234, 1.111, 5.783
+    tr.save(wait=True)
+    kd_on = trainer(dataclasses.replace(cfg, zloss=1e-4))  # loss definition changed: baselines reset
+    assert kd_on.resume() and kd_on.loss_ema is None and kd_on.best_ema is None
+    assert kd_on.best_wer == 5.783  # same dev panel
+    panel = trainer(dataclasses.replace(cfg, dev_limit=400))  # dev panel changed: best WER resets
+    assert panel.resume() and panel.best_wer is None and panel.best_ema == 1.111
+    panel.reset_watch()
+    assert panel.loss_ema is None and panel.best_ema is None and panel.best_wer is None
