@@ -190,3 +190,20 @@ def test_timing_turn_waits_for_earlier_entries_and_releases_the_lock(tmp_path):
     assert (first / "finished").read_text() == "32 48\n"
     assert (first / "timing.lock").read_text().startswith("bench-cross 3 pid=")
     assert (first.parent / "round-2/timing.lock").is_file()
+
+
+def test_exported_rows_pass_the_paper_evidence_checks():
+    """Every row bench-cross exports is a valid schema-v2 evidence row (paper_data.evidence)."""
+    sys.path.insert(0, str(TOOLS.parents[2] / "python/ultra"))
+    from tools.paper_data import evidence
+
+    rows_dir = TOOLS.parent / "data/raw/opponents/rows"
+    files = sorted(path for path in rows_dir.glob("*.jsonl") if not path.name.endswith(".partial.jsonl"))
+    assert files, "no exported rows"
+    for path in files:
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        for number, row in enumerate(rows, 1):
+            evidence._check_row(dict(row), f"{path.name}:{number}")
+        if not path.name.endswith((".slow.jsonl", ".loaded.jsonl")):
+            assert {row["workload_digest"] for row in rows} == {"010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963"}
+        assert len({row["id"] for row in rows}) == len(rows)

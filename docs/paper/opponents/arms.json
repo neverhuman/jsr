@@ -16,47 +16,51 @@
   },
   "arms": {
     "jsr-d2e-int8": {
-      "variant": "jsr-d2e-16457-int8",
+      "variant": "d2e-16457-int8",
       "system": "JSR D2e-16457 INT8",
-      "short": "JSR D2e INT8",
-      "macro": "JsrDtwoeInt",
+      "short": "ULTRA D2e",
+      "macro": "DtwoE",
       "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
       "role": "ours",
       "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
-      "artifact_bytes": 58142413
+      "artifact_bytes": 58142413,
+      "variant_w8": "d2e-16457-int8-separate-processes",
+      "system_w8": "JSR D2e-16457 INT8, 8 separate processes (weights not shared)"
     },
     "jsr-d2e-int8-enginetool": {
-      "variant": "jsr-d2e-16457-int8-enginetool",
+      "variant": "d2e-16457-int8-enginetool",
       "system": "JSR D2e-16457 INT8 (engine tool)",
-      "short": "JSR D2e (tool)",
-      "macro": "JsrDtwoeTool",
+      "short": "ULTRA D2e (tool)",
+      "macro": "DtwoETool",
       "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
       "role": "ours",
       "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
-      "artifact_bytes": 58142413
+      "artifact_bytes": 58142413,
+      "variant_w8": "d2e-16457-int8-enginetool-separate-processes",
+      "system_w8": "JSR D2e-16457 INT8 (engine tool), 8 separate processes (weights not shared)"
     },
     "zipformer-int8": {
-      "variant": "zipformer-en-2023-06-26-int8",
+      "variant": "r0-int8",
       "system": "Streaming Zipformer int8",
-      "short": "Zipformer int8",
-      "macro": "ZipformerInt",
+      "short": "Zipformer (baseline)",
+      "macro": "Zip",
       "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav",
       "role": "comparator",
       "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
       "artifact_bytes": 72654782
     },
     "zipformer-int8-sherpapy": {
-      "variant": "zipformer-en-2023-06-26-int8-sherpapy",
+      "variant": "r0-int8-sherpapy",
       "system": "Streaming Zipformer int8 (Python binding)",
-      "short": "Zipformer int8 py",
-      "macro": "ZipformerIntPy",
+      "short": "Zipformer (sherpa py)",
+      "macro": "ZipPy",
       "runtime": "sherpa-onnx 2.0.2 Python binding (sherpa_zipformer.py)",
       "role": "comparator",
       "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding; same library and bundle as the Rust service",
       "artifact_bytes": 72654782
     },
     "moonshine-tiny": {
-      "variant": "moonshine-tiny-streaming",
+      "variant": "moonshine-tiny",
       "system": "Moonshine Tiny Streaming",
       "short": "Moonshine Tiny",
       "macro": "MoonTiny",
@@ -127,29 +131,29 @@
       "artifact_bytes": 2507735040
     },
     "jsr-d2e-int8-trace": {
-      "variant": "jsr-d2e-16457-int8-trace",
+      "variant": "d2e-16457-int8-trace",
       "system": "JSR D2e-16457 INT8",
-      "short": "JSR D2e trace",
-      "macro": "JsrDtwoeIntTrace",
+      "short": "ULTRA D2e trace",
+      "macro": "DtwoETrace",
       "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
       "role": "ours",
       "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
       "artifact_bytes": 58142413
     },
     "zipformer-int8-trace": {
-      "variant": "zipformer-en-2023-06-26-int8-trace",
+      "variant": "r0-int8-trace",
       "system": "Streaming Zipformer int8",
-      "short": "Zipformer in trace",
-      "macro": "ZipformerIntTrace",
+      "short": "Zipformer trace",
+      "macro": "ZipTrace",
       "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav (trace build, main after PR #38)",
       "role": "comparator",
       "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
       "artifact_bytes": 72654782
     },
     "moonshine-tiny-trace": {
-      "variant": "moonshine-tiny-streaming-trace",
+      "variant": "moonshine-tiny-trace",
       "system": "Moonshine Tiny Streaming",
-      "short": "Moonshine Ti trace",
+      "short": "Moonshine Tiny trace",
       "macro": "MoonTinyTrace",
       "runtime": "Moonshine Voice SDK 0.1.6 (ONNX Runtime, one thread) (trace build, main after PR #38)",
       "role": "comparator",
@@ -157,34 +161,66 @@
       "artifact_bytes": 45398523
     },
     "jsr-h22ctl-int8": {
-      "variant": "jsr-h22ctl-79800-ema-int8",
+      "variant": "h22ctl-79800-ema-int8",
       "system": "JSR H22ctl-79800 EMA INT8",
-      "short": "JSR H22ctl INT8",
-      "macro": "JsrHctlInt",
+      "short": "ULTRA-S (ours)",
+      "macro": "Hctl",
       "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
       "role": "ours",
       "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
-      "artifact_bytes": 56855247
+      "artifact_bytes": 56855247,
+      "variant_w8": "h22ctl-79800-ema-int8-separate-processes",
+      "system_w8": "JSR H22ctl-79800 EMA INT8, 8 separate processes (weights not shared)"
     },
     "jsr-h22ctl-int8-enginetool": {
-      "variant": "jsr-h22ctl-79800-ema-int8-enginetool",
+      "variant": "h22ctl-79800-ema-int8-enginetool",
       "system": "JSR H22ctl-79800 EMA INT8 (engine tool)",
-      "short": "JSR H22ctl (tool)",
-      "macro": "JsrHctlTool",
+      "short": "ULTRA-S (tool)",
+      "macro": "HctlTool",
       "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
       "role": "ours",
       "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
-      "artifact_bytes": 56855247
+      "artifact_bytes": 56855247,
+      "variant_w8": "h22ctl-79800-ema-int8-enginetool-separate-processes",
+      "system_w8": "JSR H22ctl-79800 EMA INT8 (engine tool), 8 separate processes (weights not shared)"
     },
     "jsr-h22ctl-int8-trace": {
-      "variant": "jsr-h22ctl-79800-ema-int8-trace",
+      "variant": "h22ctl-79800-ema-int8-trace",
       "system": "JSR H22ctl-79800 EMA INT8",
-      "short": "JSR H22ctl trace",
-      "macro": "JsrHctlIntTrace",
+      "short": "ULTRA-S trace",
+      "macro": "HctlTrace",
       "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
       "role": "ours",
       "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
       "artifact_bytes": 56855247
+    },
+    "jsr-h22ctl-int8-shared8": {
+      "variant": "h22ctl-79800-ema-int8",
+      "system": "JSR H22ctl-79800 EMA INT8",
+      "short": "ULTRA-S (ours)",
+      "macro": "Hctl",
+      "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, 20 ms packets; one process, shared weights, 8 worker threads on disjoint shards, not batched",
+      "artifact_bytes": 56855247,
+      "parallel_override": "workers"
+    },
+    "jsr-d2e-int8-shared8": {
+      "variant": "d2e-16457-int8",
+      "system": "JSR D2e-16457 INT8",
+      "short": "ULTRA D2e",
+      "macro": "DtwoE",
+      "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, 20 ms packets; one process, shared weights, 8 worker threads on disjoint shards, not batched",
+      "artifact_bytes": 58142413,
+      "parallel_override": "workers"
     }
+  },
+  "workloads": {
+    "panel730": "LibriSpeech DEV panel as staged PCM16 WAV",
+    "panel73": "LibriSpeech DEV panel73: every tenth staged file, one utterance per speaker",
+    "panel10": "LibriSpeech DEV panel10: five dev-clean and five dev-other staged files",
+    "lag100": "LibriSpeech dev-clean, first 100 staged files"
   }
 }

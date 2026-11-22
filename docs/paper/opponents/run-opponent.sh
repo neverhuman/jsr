@@ -94,6 +94,12 @@ configure() {
                 "$venv"/lib/python3.*/site-packages/torch/lib/libtorch_cpu.*)
             envs=(HF_HOME="$O/parakeet-redux/hf-home" HF_HUB_OFFLINE=1)
             ;;
+        jsr-d2e-int8-shared8|jsr-h22ctl-int8-shared8)
+            # One process, shared weights, eight worker threads (ultra-cold-wav --workers, main 9ec239a).
+            class=streaming
+            cmd=("$bin/ultra-cold-wav-main" --workers 8 r1-engine-int8 "$ours" "{wav}" "{out}")
+            files=("$ours/arch.json" "$ours/weights.int8.safetensors")
+            ;;
         jsr-d2e-int8|jsr-h22ctl-int8)
             class=streaming single=1
             cmd=("$bin/ultra-cold-wav" r1-engine-int8 "$ours" "{wav}" "{out}")

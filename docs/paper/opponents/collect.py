@@ -17,7 +17,8 @@ the hypotheses once per arm, their digest in every repetition. `rows` writes the
 rows (schema v2 of agent_paper.md) under RAW/rows: `<machine>-bench-cross.jsonl` for the
 730-utterance arms, `.slow.jsonl` for arms measured on a smaller view (never the money
 plot's group) and `.loaded.jsonl` for xbabe0 repetitions taken outside the host's timing lock
-(cross-checks only). Arms on hold in arms.json (licence under review) are neither exported nor
+(cross-checks only); rows with fewer than three repetitions go to `.partial.jsonl`. Arms on hold
+in arms.json (licence under review) are neither exported nor
 written as rows; their receipts stay on the benchmark machines.
 """
 
@@ -221,13 +222,18 @@ def evidence(stage, panel_seconds, raw):
         arm, machine = registry["arms"][row["arm"]], registry["machines"][row["machine"]]
         run = Path(row["source"]) / f"round-{row['median_round']}"
         view_digest = (run / "workload.sha256").read_text().split()[0]
+        separate = row["budget"] == "w8" and "variant_w8" in arm
+        variant = arm["variant_w8"] if separate else arm["variant"]
         record = {
-            "id": f"{arm['variant']}-{row['machine']}-t{row['threads']}",
-            "variant": arm["variant"], "system": arm["system"], "short": arm["short"], "macro": arm["macro"],
+            "id": f"{variant}-{row['machine']}-t{row['threads']}",
+            "variant": variant, "system": arm["system_w8"] if separate else arm["system"],
+            "short": arm["short"], "macro": arm["macro"] + ("Procs" if separate else ""),
             "runtime": arm["runtime"], "role": arm["role"], "configuration": arm["configuration"],
             "class": row["class"], "machine": row["machine"], "host": machine["host"],
-            "hardware": machine["hardware"], "threads": row["threads"], "parallel": row["parallel"],
-            "workload": row["workload"], "workload_digest": view_digest,
+            "hardware": machine["hardware"], "threads": row["threads"],
+            "parallel": arm.get("parallel_override", row["parallel"]),
+            "workload": registry["workloads"][row["workload"]], "workload_view": row["workload"],
+            "workload_digest": view_digest,
             "scope": "cold_process_tree_launch_to_exit",
             "cpu_s_per_audio_s": row["cpu_s_per_audio_s"], "cpu_reps": row["cpu_reps"],
             "wall_s_per_audio_s": row["wall_s_per_audio_s"], "wall_reps": row["wall_reps"],
@@ -239,7 +245,9 @@ def evidence(stage, panel_seconds, raw):
             "receipt_sha256": row["receipt_sha256"], "label": "exploratory",
             "session": f"{row['started'][:10]} {machine['host']} bench-cross harness e2ef608",
         }
-        kind = "main" if row["workload"] == "panel730" else "slow"
+        kind = "main" if record["workload_view"] == "panel730" else "slow"
+        if row["repetitions"] < 3:
+            kind = "partial"  # the evidence schema wants three repetitions; kept for the record
         if row["machine"] == "zen2":
             # xbabe0 is shared by four benchmark lanes: only repetitions taken under the host's
             # timing lock (one arm on the whole host) are primary; the rest are loaded cross-checks.
@@ -259,7 +267,7 @@ def evidence(stage, panel_seconds, raw):
             record = better
         by_id[key] = record
     for (kind, _, _), record in sorted(by_id.items()):
-        suffix = {"main": "", "slow": ".slow", "loaded": ".loaded"}[kind]
+        suffix = {"main": "", "slow": ".slow", "loaded": ".loaded", "partial": ".partial"}[kind]
         files.setdefault(raw / "rows" / f"{record['machine']}-bench-cross{suffix}.jsonl", []).append(record)
     (raw / "rows").mkdir(parents=True, exist_ok=True)
     for path, records in files.items():
