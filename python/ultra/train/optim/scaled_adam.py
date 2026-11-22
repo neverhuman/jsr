@@ -76,17 +76,18 @@ class ScaledAdam(torch.optim.Optimizer):
                     p.clamp_(-group["scalar_max"], group["scalar_max"])
                     continue
                 pf = p.float()
-                rms = float(pf.pow(2).mean().sqrt())
-                r = min(max(rms, group["param_min_rms"]), group["param_max_rms"])
+                # Tensor ops only (no host sync per parameter on GPU).
+                rms = pf.pow(2).mean().sqrt()
+                r = rms.clamp(group["param_min_rms"], group["param_max_rms"])
                 # Scale (log-magnitude) learning.
                 h = (g * pf).sum()
                 ms, vs = st["scale_avg"], st["scale_avg_sq"]
                 ms.mul_(b1).add_(h, alpha=1 - b1)
                 vs.mul_(b2).add_(h * h, alpha=1 - b2)
                 s_step = -lr * group["scalar_lr_scale"] * ms / ((vs / bc2).sqrt() + eps)
-                if rms > group["param_max_rms"]:
-                    s_step = torch.clamp(s_step, max=0.0)  # only allow shrinking above the ceiling
-                delta = (m / denom).mul_(-lr * r).add_(pf * s_step)
+                # Above the RMS ceiling only shrinking is allowed.
+                s_step = torch.where(rms > group["param_max_rms"], s_step.clamp(max=0.0), s_step)
+                delta = (m / denom).mul_(r * -lr).add_(pf * s_step)
                 p.add_(delta.to(p.dtype))
         return loss
 
