@@ -420,7 +420,8 @@
       "training_overlap": "in-corpus",
       "tokenizer": {
         "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
-      }
+      },
+      "class": "streaming"
     },
     "cold-dense-r1-int8": {
       "label": "R1 dense INT8",
@@ -488,7 +489,8 @@
       "training_overlap": "in-corpus",
       "tokenizer": {
         "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
-      }
+      },
+      "class": "streaming"
     },
     "cold-mr-r1-int8": {
       "label": "R1 multirate INT8",
@@ -556,7 +558,8 @@
       "training_overlap": "in-corpus",
       "tokenizer": {
         "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
-      }
+      },
+      "class": "streaming"
     },
     "cold-dense-r1-fp32": {
       "label": "R1 dense FP32",
@@ -618,7 +621,9 @@
       "training_overlap": "in-corpus",
       "tokenizer": {
         "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
-      }
+      },
+      "class": "streaming",
+      "role": "ablation"
     },
     "cold-ort-r1-fp32": {
       "label": "ORT R1 FP32",
@@ -692,7 +697,9 @@
       "training_overlap": "in-corpus",
       "tokenizer": {
         "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
-      }
+      },
+      "class": "streaming",
+      "role": "ablation"
     },
     "cold-moonshine-tiny": {
       "label": "Moonshine Tiny Streaming",
@@ -764,7 +771,8 @@
       "update_policy": "Unforced SDK calls; cached partials may be reused until sufficient new input.",
       "tokenizer": {
         "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d"
-      }
+      },
+      "class": "streaming"
     },
     "cold-moonshine-small": {
       "label": "Moonshine Small Streaming",
@@ -836,7 +844,8 @@
       "update_policy": "Unforced SDK calls; cached partials may be reused until sufficient new input.",
       "tokenizer": {
         "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d"
-      }
+      },
+      "class": "streaming"
     },
     "cold-nemotron-en-160": {
       "label": "Nemotron English Q8 (160 ms)",
@@ -868,7 +877,8 @@
         "sha256": "60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2",
         "bytes": 400216
       },
-      "training_overlap": "unknown"
+      "training_overlap": "unknown",
+      "class": "streaming"
     },
     "cold-nemotron-en-560": {
       "label": "Nemotron English Q8 (560 ms)",
@@ -900,7 +910,8 @@
         "sha256": "60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2",
         "bytes": 400216
       },
-      "training_overlap": "unknown"
+      "training_overlap": "unknown",
+      "class": "streaming"
     },
     "cold-nemotron-35": {
       "label": "Nemotron 3.5 Q8 (80 ms)",
@@ -931,7 +942,8 @@
         "sha256": "255f12b722ab15b2a38a51cf125d56e3fa97058b528f7e895b39d6a473deb06e",
         "bytes": 9605101
       },
-      "training_overlap": "unknown"
+      "training_overlap": "unknown",
+      "class": "streaming"
     },
     "d3mrb-20k-engine-fp32": {
       "label": "D3MRb 20k FP32 control",

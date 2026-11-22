@@ -57,8 +57,95 @@
 \newcommand{\CapOneBeamClean}{7.50}% [exploratory] % WER
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
-\newcommand{\ColdRowsCount}{0}% [reported] rows
-\newcommand{\ColdSummarySentence}{The matched cold-boundary rows are still pending, so Figure~1 shows its pending state.}% [reported] sentence
+\newcommand{\ColdAnchorCount}{0}% [reported] rows
+\newcommand{\ColdAnchorSentence}{No system has been re-measured in a second session yet, so there is no host-agreement check.}% [reported] sentence
+\newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdDenseFPCpu}{0.108}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdDenseFPModel}{235}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdDenseFPRss}{247}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdDenseFPRtfx}{9.21}% [exploratory] audio-s per wall-s
+\newcommand{\ColdDenseFPSpeed}{9.22}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdDenseFPWer}{11.43}% [exploratory] % WER
+\newcommand{\ColdDenseFPWerClean}{7.64}% [exploratory] % WER
+\newcommand{\ColdDenseFPWerOther}{16.84}% [exploratory] % WER
+\newcommand{\ColdDenseModel}{293}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdDenseOrtCpu}{0.159}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdDenseOrtModel}{234}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdDenseOrtRss}{460}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdDenseOrtRtfx}{6.27}% [exploratory] audio-s per wall-s
+\newcommand{\ColdDenseOrtSpeed}{6.28}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdDenseOrtWer}{11.43}% [exploratory] % WER
+\newcommand{\ColdDenseOrtWerClean}{7.64}% [exploratory] % WER
+\newcommand{\ColdDenseOrtWerOther}{16.84}% [exploratory] % WER
+\newcommand{\ColdDenseRss}{78}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdDenseRtfx}{25.9}% [exploratory] audio-s per wall-s
+\newcommand{\ColdDenseSpeed}{25.9}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdDenseWer}{11.33}% [exploratory] % WER
+\newcommand{\ColdDenseWerClean}{7.54}% [exploratory] % WER
+\newcommand{\ColdDenseWerOther}{16.75}% [exploratory] % WER
+\newcommand{\ColdMRCpu}{0.037}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMRModel}{296}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdMRRss}{77}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdMRRtfx}{26.6}% [exploratory] audio-s per wall-s
+\newcommand{\ColdMRSpeed}{27.3}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdMRWer}{15.93}% [exploratory] % WER
+\newcommand{\ColdMRWerClean}{11.56}% [exploratory] % WER
+\newcommand{\ColdMRWerOther}{22.19}% [exploratory] % WER
+\newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdMoonSmallRss}{476}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdMoonSmallRtfx}{2.02}% [exploratory] audio-s per wall-s
+\newcommand{\ColdMoonSmallSpeed}{2.02}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdMoonSmallWer}{5.93}% [exploratory] % WER
+\newcommand{\ColdMoonSmallWerClean}{3.98}% [exploratory] % WER
+\newcommand{\ColdMoonSmallWerOther}{8.73}% [exploratory] % WER
+\newcommand{\ColdMoonTinyCpu}{0.131}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonTinyModel}{45}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdMoonTinyRss}{204}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdMoonTinyRtfx}{7.63}% [exploratory] audio-s per wall-s
+\newcommand{\ColdMoonTinySpeed}{7.63}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdMoonTinyWer}{9.90}% [exploratory] % WER
+\newcommand{\ColdMoonTinyWerClean}{6.54}% [exploratory] % WER
+\newcommand{\ColdMoonTinyWerOther}{14.72}% [exploratory] % WER
+\newcommand{\ColdNemoFiveSixtyCpu}{0.451}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoFiveSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdNemoFiveSixtyRss}{1290}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdNemoFiveSixtyRtfx}{2.22}% [exploratory] audio-s per wall-s
+\newcommand{\ColdNemoFiveSixtySpeed}{2.22}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdNemoFiveSixtyWer}{3.56}% [exploratory] % WER
+\newcommand{\ColdNemoFiveSixtyWerClean}{2.61}% [exploratory] % WER
+\newcommand{\ColdNemoFiveSixtyWerOther}{4.93}% [exploratory] % WER
+\newcommand{\ColdNemoOneSixtyCpu}{0.782}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoOneSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdNemoOneSixtyRss}{1287}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdNemoOneSixtyRtfx}{1.28}% [exploratory] audio-s per wall-s
+\newcommand{\ColdNemoOneSixtySpeed}{1.28}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdNemoOneSixtyWer}{3.94}% [exploratory] % WER
+\newcommand{\ColdNemoOneSixtyWerClean}{2.90}% [exploratory] % WER
+\newcommand{\ColdNemoOneSixtyWerOther}{5.42}% [exploratory] % WER
+\newcommand{\ColdNemoThreeFiveCpu}{1.186}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoThreeFiveModel}{742}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdNemoThreeFiveRss}{1277}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdNemoThreeFiveRtfx}{0.84}% [exploratory] audio-s per wall-s
+\newcommand{\ColdNemoThreeFiveSpeed}{0.84}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdNemoThreeFiveWer}{6.14}% [exploratory] % WER
+\newcommand{\ColdNemoThreeFiveWerClean}{4.14}% [exploratory] % WER
+\newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
+\newcommand{\ColdRowsCount}{8}% [reported] rows
+\newcommand{\ColdRowsEnergy}{0}% [reported] rows
+\newcommand{\ColdRowsLag}{0}% [reported] rows
+\newcommand{\ColdRowsOffFrontier}{0}% [reported] rows
+\newcommand{\ColdRowsStreaming}{8}% [reported] rows
+\newcommand{\ColdRowsUndrawn}{0}% [reported] rows
+\newcommand{\ColdRowsWhole}{0}% [reported] rows
+\newcommand{\ColdZipCpu}{0.117}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdZipModel}{73}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdZipRss}{156}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdZipRtfx}{8.50}% [exploratory] audio-s per wall-s
+\newcommand{\ColdZipSpeed}{8.56}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdZipWer}{5.25}% [exploratory] % WER
+\newcommand{\ColdZipWerClean}{3.03}% [exploratory] % WER
+\newcommand{\ColdZipWerOther}{8.43}% [exploratory] % WER
 \newcommand{\CoresPerCCX}{4}% [reported] cores
 \newcommand{\CostClaimDenseOld}{0.0343}% [exploratory] CPU-s/audio-s
 \newcommand{\CostClaimMR}{0.0254}% [exploratory] CPU-s/audio-s

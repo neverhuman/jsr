@@ -1,23 +1,10 @@
-"""Readers for evidence files: Codex evidence.json, same-harness panel scores, cluster gap, cold-DEV rows."""
+"""Readers for evidence files: Codex evidence.json, same-harness panel scores and the cluster gap."""
 
 from __future__ import annotations
 
 from pathlib import Path
-import json
-import statistics
 
-from .common import (
-    DATA,
-    EVIDENCE_REQUIRED,
-    LABELS,
-    PANEL_DIGEST,
-    PaperDataError,
-    RAW,
-    csv_text,
-    fmt,
-    read_json,
-    thousands,
-)
+from .common import DATA, PANEL_DIGEST, PaperDataError, RAW, fmt, read_json, thousands
 from .records import Records
 
 
@@ -149,54 +136,3 @@ def add_cluster_gap(root: Path, rec: Records) -> None:
         rec.add(rid, fmt(100 * v, 2), raw=100 * v, unit="pp WER", source=f"{src}", **common)
     rec.add("GapReplicates", thousands(str(pd_["replicates"])), raw=pd_["replicates"], unit="resamples",
             source=f"{src}.replicates", **common)
-
-
-def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> None:
-    """Cold-DEV comparator rows for Figure 1. All rows must share one workload digest and scope."""
-    rows = []
-    edir = root / DATA / "evidence"
-    for p in sorted(edir.glob("*.jsonl")) if edir.is_dir() else []:
-        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip():
-                continue
-            r = json.loads(line)
-            miss = [k for k in EVIDENCE_REQUIRED if r.get(k) in (None, "", [])]
-            if miss:
-                raise PaperDataError(f"{p.name}:{n}: evidence row missing {miss}")
-            if r["label"] not in LABELS:
-                raise PaperDataError(f"{p.name}:{n}: bad label {r['label']!r}")
-            med = statistics.median(float(x) for x in r["cpu_reps"])
-            if abs(med - float(r["cpu_s_per_audio_s"])) > 1e-9 * max(1.0, med):
-                raise PaperDataError(f"{p.name}:{n}: cpu_s_per_audio_s is not the median of cpu_reps")
-            rows.append(r)
-    if len({(r["workload_digest"], r["scope"], r["hardware"]) for r in rows}) > 1:
-        raise PaperDataError("evidence rows mix workloads, scopes or hardware; Figure 1 needs one matched set")
-    ids = [r["id"] for r in rows]
-    if len(ids) != len(set(ids)):
-        raise PaperDataError("duplicate evidence ids")
-    rows.sort(key=lambda r: r["id"])
-    # label anchor for Figure 1: right of the point, except near the right edge of the log axis
-    out["cold_dev.csv"] = csv_text(
-        ["id", "system", "role", "cpu", "wer", "label", "anchor"],
-        [[r["id"], r["system"], r["role"], f"{float(r['cpu_s_per_audio_s']):.5f}", f"{float(r['wer_pct']):.2f}", r["label"],
-          "east" if float(r["cpu_s_per_audio_s"]) > 0.3 else "west"] for r in rows])
-    first = rows[0] if rows else None
-    if rows:
-        ours = [r for r in rows if r["role"] == "ours"]
-        sentence = (f"Figure~1 places {len(rows)} systems measured on one matched cold workload"
-                    f"{'' if ours else ' (no R1 row yet)'}.")
-    else:
-        sentence = "The matched cold-boundary rows are still pending, so Figure~1 shows its pending state."
-    rec.add("ColdSummarySentence", sentence, unit="sentence", label="reported",
-            configuration="generated from the number of admitted cold-DEV evidence rows",
-            workload=first["workload"] if first else "pending (no evidence rows yet)",
-            workload_digest=first["workload_digest"] if first else "pending",
-            source="docs/paper/data/evidence/*.jsonl")
-    rec.add("ColdRowsCount", str(len(rows)), raw=len(rows), unit="rows", label="reported",
-            configuration="number of matched cold-DEV evidence rows in Figure 1 (0 = pending)",
-            workload=first["workload"] if first else "pending (no evidence rows yet)",
-            workload_digest=first["workload_digest"] if first else "pending",
-            source="docs/paper/data/evidence/*.jsonl")
-
-
-# ---------------------------------------------------------------- outputs

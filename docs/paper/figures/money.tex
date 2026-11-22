@@ -1,33 +1,65 @@
-% Fig. 1 body (paper-data): cold process-tree CPU cost (log) vs pooled DEV WER, one IEEE column.
-% Rows come only from data/cold_dev.csv (one matched evidence set; see data/README.md). Until rows
-% exist (\ColdRowsCount = 0) this draws the labelled pending state, never placeholder points.
-\input{figures/style.tex}
-\begin{tikzpicture}
-\begin{axis}[ultra/base,
-  width=0.87\columnwidth, height=5.2cm,
-  xmode=log, xmin=0.01, xmax=2, log basis x=10,
-  xtick={0.01,0.03,0.1,0.3,1}, xticklabels={0.01,0.03,0.1,0.3,1},
-  ymin=0, ymax=25,
-  xlabel={Cold CPU-seconds per audio-second (log)},
-  ylabel={Pooled DEV WER (\%)},
-]
+% Fig. 1 body (paper-data): processing speed on ONE pinned core against WER, one IEEE column (<= 243 pt).
+% x: audio-seconds per CPU-second of the whole recognizer process tree, model load included (log scale,
+%    faster to the right). y: pooled WER on the same 730 DEV utterances (lower is better).
+% Filled marks: live streaming systems. Hollow marks: whole-utterance systems. Blue diamonds: ours.
+% Dashed staircase: the streaming systems that no other streaming system beats on both axes.
+% Points: data/cold_dev.csv (group zen2-t1; measured rows only, never a published number).
+% Geometry: data/money_layout.tex and data/money_frontier.csv (label boxes are placed by
+% python/ultra/tools/paper_data/money.py, which fails the build if two of them would collide).
+% Until rows exist (\ColdRowsCount = 0) this draws the labelled pending state, never placeholder points.
+\input{figures/style.tex}%
+\input{\paperdatadir money_layout.tex}%
+\providecommand{\moneylabel}{}\providecommand{\moneyleader}{}%
+\renewcommand{\moneylabel}[4]{\node[moneylabel, money#3] at ([xshift=#1pt, yshift=#2pt] rel axis cs:0,0) {#4};}%
+\renewcommand{\moneyleader}[4]{\draw[okInk!55, line width=0.3pt]
+  ([xshift=#1pt, yshift=#2pt] rel axis cs:0,0) -- ([xshift=#3pt, yshift=#4pt] rel axis cs:0,0);}%
+\begin{tikzpicture}[
+  moneylabel/.style={font=\scriptsize, inner sep=0.6pt, anchor=center, text=black},
+  moneycomparator/.style={}, moneyours/.style={font=\scriptsize\bfseries}]
 \ifnum\ColdRowsCount>0
-  \addplot[only marks, mark=*, mark size=1.8pt, color=okBlue,
-    ultra/keep if={role}{ours},
-    nodes near coords, point meta=explicit symbolic,
-    visualization depends on={value \thisrow{anchor}\as\lblanchor},
-    every node near coord/.style={font=\scriptsize, anchor=\lblanchor, inner sep=2pt, text=okBlue}]
-    table[col sep=comma, x=cpu, y=wer, meta=system]{\paperdatadir cold_dev.csv};
-  \addplot[only marks, mark=square*, mark size=1.6pt, color=okVermillion,
-    ultra/keep if={role}{comparator},
-    nodes near coords, point meta=explicit symbolic,
-    visualization depends on={value \thisrow{anchor}\as\lblanchor},
-    every node near coord/.style={font=\scriptsize, anchor=\lblanchor, inner sep=2pt, text=okVermillion}]
-    table[col sep=comma, x=cpu, y=wer, meta=system]{\paperdatadir cold_dev.csv};
+\begin{axis}[ultra/base, scale only axis, width=\MoneyAxisW, height=\MoneyAxisH,
+  xmode=log, log basis x=2, xmin=\MoneyXmin, xmax=\MoneyXmax, ymin=0, ymax=\MoneyYmax,
+  xtick/.expanded=\MoneyXticks, ytick distance=\MoneyYstep,
+  xticklabel={\pgfmathparse{2^\tick}\pgfmathprintnumber[fixed, precision=1]{\pgfmathresult}$\times$},
+  xlabel={Speed on one CPU core ($\times$ real time, log scale)},
+  ylabel={WER (\%) on 730 DEV utterances},
+  xlabel style={yshift=1pt}, ylabel style={yshift=-3pt},
+  legend columns=-1, legend style={at={(0.5,1.025)}, anchor=south, font=\scriptsize, /tikz/every even column/.append style={column sep=5pt}},
+  legend cell align=left,
+]
+% slower than one live stream per core
+\fill[black!6] (axis cs:\MoneyXmin,0) rectangle (axis cs:1,\MoneyYmax);
+\node[font=\tiny, text=okInk!80, rotate=90, anchor=north east, inner sep=1.5pt]
+  at (rel axis cs:0,1) {slower than real time};
+% frontier of the live streaming systems
+\addplot[okInk!70, densely dashed, line width=0.5pt, mark=none]
+  table[col sep=comma, x=speed, y=wer]{\paperdatadir money_frontier.csv};
+\addlegendentry{streaming frontier}
+\addplot[only marks, mark=*, mark size=2.3pt, color=okInk, ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}]
+  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\addlegendentry{live streaming}
+\ifnum\ColdRowsWhole>0
+\addplot[only marks, mark=*, mark size=2.3pt, color=okInk, line width=0.7pt, mark options={fill=white},
+  ultra/keep if={series}{zen2-t1-comparator-whole}, ultra/keep if={plot}{1}]
+  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\addlegendentry{whole utterance}
+\fi
+\addplot[only marks, mark=diamond*, mark size=3.3pt, color=okBlue, ultra/keep if={series}{zen2-t1-ours-streaming}, ultra/keep if={plot}{1}]
+  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\addlegendentry{ours}
+\MoneyAnnotations
+% direction of improvement (the generator keeps this corner free of labels)
+\draw[-{Stealth[length=3.5pt]}, okInk!80, line width=0.5pt]
+  ([xshift=-15pt, yshift=10.5pt] rel axis cs:1,0) -- ([xshift=-5pt, yshift=4.5pt] rel axis cs:1,0);
+\node[font=\scriptsize\itshape, text=okInk!80, anchor=east, inner sep=1pt]
+  at ([xshift=-16pt, yshift=9pt] rel axis cs:1,0) {better};
+\end{axis}
 \else
+\begin{axis}[ultra/base, width=0.87\columnwidth, height=5.2cm, xmode=log, xmin=0.5, xmax=64, ymin=0, ymax=18,
+  xlabel={Speed on one CPU core ($\times$ real time, log scale)}, ylabel={WER (\%), 730 DEV utterances}]
   \node[align=center, font=\footnotesize, text=okGrey, fill=gray!6, draw=gray!50, inner sep=6pt]
     at (rel axis cs:0.5,0.5) {\textbf{PENDING}\\[2pt]matched cold-DEV receipts\\not yet admitted\\[1pt]
     \scriptsize (730-utt panel, one pinned core, median of 3)};
-\fi
 \end{axis}
+\fi
 \end{tikzpicture}

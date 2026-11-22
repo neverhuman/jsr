@@ -5,7 +5,7 @@ Standard library only. Deterministic: sorted keys, fixed formatting, LF line end
 Inputs (all under the repo root):
     docs/paper/data/raw/**           small raw bench artifacts, sha256-pinned in raw/MANIFEST.txt
     docs/paper/data/curated.json     numbers that live only in docs, each with its exact source
-    docs/paper/data/evidence/*.jsonl matched cold-DEV comparator rows (format: data/README.md)
+    docs/paper/data/evidence/*.jsonl measured comparison rows, schema v2 (format: data/README.md)
     research/curves/index.json, research/curves/<run>/{train,eval}.csv
 
 Outputs (docs/paper/data/ unless --out):
@@ -33,6 +33,7 @@ from .common import (
     LABELS,
     LADDER_RUNS,
     LADDER_WORKLOAD,
+    MACHINES,
     MATCHED_RUNG,
     NAME_RE,
     PANEL_DIGEST,
@@ -50,13 +51,15 @@ from .common import (
     verify_manifest,
     write_manifest,
 )
+from .cold import load_evidence
 from .derive import add_derived
 from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
 from .macros import metrics_tex, records_jsonl, sources_md
+from .money import add_money
 from .records import Records, add_curated
 from .rehearsal import add_rehearsal
-from .sources import add_cluster_gap, add_codex_evidence, add_panel5, load_evidence
+from .sources import add_cluster_gap, add_codex_evidence, add_panel5
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -75,7 +78,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_sweeps(root, rec, out)
     add_tables(cur, out)
     accuracy_table(rec, out)
-    load_evidence(root, rec, out)
+    add_money(load_evidence(root, rec, out), out)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)
     out["records.jsonl"] = records_jsonl(rec)

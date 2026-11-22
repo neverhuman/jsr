@@ -20,7 +20,8 @@ on any record that is missing a required field, and on bare decimal or percent n
 |---|---|
 | `raw/` | Small raw bench artifacts, copied verbatim. `raw/MANIFEST.txt` pins each file's sha256 and origin. The generator refuses a file whose hash differs, and any file not listed. After copying a new file, run `python -m tools.paper_data --write-manifest`. |
 | `curated.json` | Numbers that exist only in docs. Each entry has `raw` + `decimals` (or `text`), `unit`, `label`, `configuration`, `workload`, `workload_digest`, `source` (path), `section`, `line` and `quote`. The test checks that each `quote` still appears in its source file when that file is in the checkout. |
-| `evidence/*.jsonl` | Matched cold-DEV rows for Figure 1 (format below). |
+| `evidence/*.jsonl` | Measured comparison rows, schema v2: one line per (system, runtime, machine, threads), written by the agent that measured it (format below). |
+| `systems.json` | Paper-side presentation of measured variants: table name, plot label, macro stem, citation keys, order, `plot: false` for a stale row. It cannot set a number. |
 | `research/curves/` | Training curves (D2 and D2MR dev-clean WER against audio-hours). |
 
 ## Outputs (generated, do not edit)
@@ -31,7 +32,9 @@ on any record that is missing a required field, and on bare decimal or percent n
 - `records.jsonl`: every record as JSON (`id, value, raw, unit, label, configuration, workload,
   workload_digest, source, line, quote`).
 - `SOURCES.md`: the same as a table.
-- `*.csv`: the figure tables read by `docs/paper/figures/*.tex`.
+- `*.csv`: the figure tables read by `docs/paper/figures/*.tex`. `cold_dev.csv` holds every measured row of every
+  group; only the generator writes it. Its columns are append-only.
+- `money_layout.tex`, `money_frontier.csv`: Figure 1 geometry (axis limits, label boxes, leaders, frontier).
 
 **Labels:**
 - `exploratory`: measured on a shared host or outside a qualifying window. That is every measurement so far.
@@ -48,27 +51,91 @@ on any record that is missing a required field, and on bare decimal or percent n
 - **Best-WER rows** (D2 step 60k, average of the last 3 checkpoints, beam 4) appear only in
   `accuracy_full_dev.csv` and the accuracy macros. They never appear beside a speed.
 - Nemotron is an accuracy reference only.
-- **Figure 1** plots only rows from one matched evidence set: one `workload_digest`, one `scope`, one
-  `hardware`. Until such rows exist, it renders a pending state (`\ColdRowsCount` = 0).
+- **Figure 1** draws one group of measured rows: one pinned Zen 2 core (`machine: zen2`, `threads: 1`). A comparator
+  is drawn only if its `session` also holds a row of ours, so every ratio is same-host and same-session. Until rows
+  exist it renders a pending state (`\ColdRowsCount` = 0).
+- **Published numbers never reach a measured axis.** A row with `label: reported` is refused in `evidence/`.
+  Numbers quoted from other people's publications live in `reported.json` and feed only the "reported elsewhere" table.
 
-## Evidence rows (`evidence/*.jsonl`): cold-DEV comparator format
+## Evidence rows (`evidence/*.jsonl`), schema v2
 
-Each line is one system measured on the common cold process-tree DEV workload. All fields are required.
-A missing field, a mixed workload/scope/hardware set, or a `cpu_s_per_audio_s` that is not the median of
-`cpu_reps` fails the generator.
+One JSON object per line; one row per (system, runtime, machine, threads). Use one file per measuring agent
+(`<machine>-<agent>.jsonl`). `python/ultra/tools/paper_cold_aggregate.py --format manuscript-jsonl` writes this
+format for the cold rotation.
 
 ```json
-{"id": "whisper-small-en-int8", "system": "Whisper small.en INT8", "role": "comparator",
- "configuration": "sherpa-onnx 1.x offline, int8, 1 thread, greedy",
- "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
- "workload_digest": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36",
- "scope": "cold_process_tree_launch_to_exit", "hardware": "H0 AMD TR PRO 3995WX core 46 (SMT sibling 110 idle)",
- "cpu_s_per_audio_s": 0.123, "cpu_reps": [0.121, 0.123, 0.130], "wer_pct": 3.77,
- "label": "exploratory", "source": "/mnt/xbabe3-external/jsr/runs/paper/<run>/receipt.json",
- "receipt_sha256": "<sha256 of the receipt file>"}
+{"id": "moonshine-tiny-zen2-t1", "variant": "moonshine-tiny", "system": "Moonshine Tiny Streaming",
+ "runtime": "Moonshine Voice Linux SDK v0.1.6, native streaming C API", "role": "comparator", "class": "streaming",
+ "configuration": "quantized ONNX; SDK autoregressive default; chunk 20 ms, right context 320 ms",
+ "machine": "zen2", "host": "xbabe3", "hardware": "AMD Ryzen Threadripper PRO 3995WX (xbabe3), core 46",
+ "threads": 1, "parallel": "intra_op", "session": "2026-11-22 xbabe3 rotation 98a8ca0ff49f",
+ "workload": "LibriSpeech DEV panel as staged PCM16 WAV",
+ "workload_digest": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963",
+ "scope": "cold_process_tree_launch_to_exit",
+ "cpu_s_per_audio_s": 0.131, "cpu_reps": [0.132, 0.131, 0.127],
+ "wall_s_per_audio_s": 0.131, "wall_reps": [0.132, 0.131, 0.127],
+ "wer_pct": 9.90, "wer_clean_pct": 6.54, "wer_other_pct": 14.72,
+ "peak_rss_bytes": 203501568, "artifact_bytes": 45383680,
+ "label": "exploratory", "source": "/path/to/round-2/moonshine-tiny/measurement.json",
+ "receipt_sha256": "<sha256 of that receipt>"}
 ```
 
-- `role`: `ours` (an R1 checkpoint) or `comparator`.
-- `id`: unique, lowercase with hyphens. It becomes the point label key in `cold_dev.csv`.
-- `wer_pct`: pooled, Rust-normalized WER on the same workload.
-- Put the receipt files themselves under the data drive. Only the JSONL row is committed.
+**Required**
+
+| Field | Meaning |
+|---|---|
+| `variant` | system + runtime + configuration slug; the same on every machine and thread count |
+| `id` | must equal `<variant>-<machine>-t<threads>` (an anchor row appends `-anchor-<host>`) |
+| `system`, `runtime`, `configuration` | names as measured (`systems.json` may override the printed `system`) |
+| `role` | `ours`, `comparator`, or `ablation` (our weights in another runtime: tables only, never Figure 1) |
+| `class` | `streaming` (emits words while audio arrives, through the system's native streaming interface) or `whole_utterance` (sees the whole clip first: throughput only, a word lag is refused) |
+| `machine` | `zen2` (Threadripper PRO 3995WX), `xeon8358` (Xeon Platinum 8358, AVX-512 VNNI) or `m3ultra` (Apple M3 Ultra); add a key in `common.MACHINES` for a new CPU |
+| `host`, `hardware` | hostname; free text with the pinned CPUs |
+| `threads`, `parallel` | pinned physical cores (1 or 8); `intra_op` = one clip at a time with N threads, `workers` = N single-thread recognisers side by side |
+| `session` | date + host + harness commit: rows measured together share it |
+| `workload`, `workload_digest` | sha256 of the staged `panel/audio.json` (ids, sample counts and content hashes only, so it is the same on every machine) |
+| `scope` | cost boundary; today `cold_process_tree_launch_to_exit` |
+| `cpu_s_per_audio_s`, `cpu_reps` | process-tree user+sys CPU-seconds per audio-second: the median and its repetitions (at least 3) |
+| `wall_s_per_audio_s`, `wall_reps` | the same runs in wall-clock seconds |
+| `wer_pct`, `wer_clean_pct`, `wer_other_pct` | pooled, dev-clean half, dev-other half; scored by `paper_dev_audio.py score` |
+| `peak_rss_bytes`, `artifact_bytes` | bytes; the tables print MB = 10^6 bytes |
+| `label` | `exploratory` or `qualified` (`reported` is refused here) |
+| `source`, `receipt_sha256` | the median repetition's receipt and its sha256 |
+
+**Optional**
+
+- `short` (plot label, at most 22 plain characters) and `macro` (letters only): normally set in `systems.json`.
+- `anchor: true`: a variant re-measured in a second session. Never drawn, never tabulated; only compared with the
+  primary row of that variant (`\ColdAnchorSentence`). A session whose anchor differs by more than 10% in CPU cost
+  stays out of the frontier line.
+- Word lag (streaming only, all five): `lag_p50_ms`, `lag_p95_ms`, `lag_method`, `lag_workload_digest`,
+  `lag_receipt_sha256`.
+- Energy (all three): `joules_per_audio_s` (the watts one live stream costs; `watts_per_stream` may repeat it),
+  `energy_method` (`core_msr_active`, `core_msr_dynamic`, `pkg_rapl_delta` or `wall_meter`), `energy_receipt_sha256`.
+
+**Sidecar lines**, so that several agents never edit one line. They may sit in any file of `evidence/`:
+
+```json
+{"kind": "lag", "row": "<id>", "lag_p50_ms": 310, "lag_p95_ms": 720, "lag_method": "...", "lag_workload_digest": "...", "lag_receipt_sha256": "..."}
+{"kind": "energy", "row": "<id>", "joules_per_audio_s": 0.64, "energy_method": "core_msr_active", "energy_receipt_sha256": "..."}
+{"kind": "energy_headline", "machine": "zen2", "threads": 1, "energy_method": "pkg_rapl_delta", "reason": "repeatable within 10%"}
+```
+
+A row may carry one energy line per method. When a group holds more than one method, one `energy_headline` line names
+the method that the `watts` column, the tables and Figure 1 use.
+
+**Speed.** At one core the paper prints 1 / `cpu_s_per_audio_s` (audio-seconds per CPU-second: the `speed` column,
+Figure 1's x-axis). At eight cores it prints `rtfx` = 1 / `wall_s_per_audio_s`, because CPU-seconds add up over threads.
+
+**Refused:** a missing required field; a `cpu_s_per_audio_s` or `wall_s_per_audio_s` that is not the median of its
+repetitions; fewer than 3 repetitions; rows that mix workload digests; mixed scopes inside one (machine, threads)
+group; two energy methods in a group without a headline line; a lag on a `whole_utterance` row; duplicate ids; a
+sidecar that names an unknown row or repeats a value; `label: reported`.
+
+`cold_dev.csv` columns: `id, variant, short, role, class, machine, threads, series, cpu, speed, rtfx, wer, wer_clean,
+wer_other, rss_mb, model_mb, lag_p50_ms, lag_p95_ms, watts, label, host, plot`. `series` is
+`<machine>-t<threads>-<role>-<streaming|whole>`; `plot` is 1 when the row may be drawn. A figure selects its marks with
+`ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}`. Empty cells mean not measured.
+There is no free-text column except `short`, because pgfplots splits on every comma.
+
+Put the receipt files themselves under the data drive. Only the JSONL row is committed.
