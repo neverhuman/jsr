@@ -27,7 +27,7 @@ what lets us change kernels freely (any change must reproduce the continuity fix
 bit) and what makes every speed measurement a measurement of the same computation.
 
 \para{Two cost boundaries.} We report cost at two boundaries and never mix them. The
-\emph{cold} boundary (\cref{fig:money}) times the whole recognizer process tree on the DEV panel,
+\emph{cold} boundary (\cref{sec:results}) times the whole recognizer process tree on the DEV panel,
 from launch and model load to the flushed final hypothesis and worker exit, one stream on one
 pinned core; it is the boundary on which any recognizer, including external ones that we can
 only run as a child process, can be compared. The \emph{warm} boundary times a running service
@@ -40,16 +40,17 @@ boundary that governs serving cost but admits only systems the harness can host
 \item \textbf{A density result under one harness.} With four single-threaded workers on one Zen~2
   core complex and a p99 lateness bound of 800\,ms, the \ultra multirate model sustains
   \DenMRCCX{} streams (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs) and the dense
-  finalist \DenDenseCCX{} (\DenRatioDense{}$\times$; \DenDenseRangeLo--\DenDenseRangeHi{} across
-  \DenReproRuns{} runs), against \DenRzeroCCX{} for Zipformer int8 (\cref{tab:density,fig:density}).
+  finalist \DenDenseCCX{} in one run (\DenRatioDense{}$\times$; the step-45k dense model reached
+  \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} across two runs), against \DenRzeroCCX{} for Zipformer int8 (\cref{fig:money,tab:density,fig:density}).
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and
   NEON (\cref{sec:engine}). Even in FP32, in one executable on the same weights, the engine uses
   \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX Runtime, with identical transcripts.
 \item \textbf{A multirate streaming encoder} running ten of sixteen blocks at \MidRateHz\,Hz inside
-  160\,ms chunks, which raises density by a further \DenRatioMRvsDense{}$\times$ over the dense
-  model at equal width (\cref{sec:model}).
+  160\,ms chunks, which raised density by a further
+  \DenRatioMRvsDenseLo--\DenRatioMRvsDenseHi{}$\times$ over the dense model at equal width
+  (exploratory; different training runs) (\cref{sec:model}).
 \item \textbf{A pre-registered evaluation protocol} for CPU ASR: a single harness, a fixed density
   ladder that stops at the first failure, counterbalanced timing blocks with Holm correction, a
   speaker-balanced selection panel, and a bootstrap INT8 gate (\cref{sec:protocol}).
