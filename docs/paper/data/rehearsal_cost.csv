@@ -1,0 +1,4 @@
+key,system,cpu_matched,wer_dev400,streams_ccx,cpu_at_claim,cpu_batch16
+rzero,R0 Zipformer INT8,0.08643,2.85,32,0.08643,0.06976
+dense,D2-45k dense INT8,0.04430,8.95,96,0.03691,0.04347
+mr,D2MR-50k MR INT8,0.03541,11.19,144,0.02789,0.03298
