@@ -3,7 +3,8 @@
     open_turn.py PLAN LOG_DIR
 
 Protocol of the timing host (`$PAPER_OPPONENTS_ROOT/TIMING.order`): an entry N may start only
-when every earlier entry is `DONE` or `SKIP` in `TIMING.done`; the host lock is the directory
+when every entry listed before it in TIMING.order (ids such as `4b` included; the file is re-read
+on every poll) is `DONE` or `SKIP` in `TIMING.done`; the host lock is the directory
 `TIMING.lock` (made atomically, with an `owner` file, held for at most 30 minutes, removed when
 the block ends); the agent appends `DONE N <UTC> <agent>` when its entry is finished.
 
@@ -29,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
@@ -66,18 +68,27 @@ def read_plan(text):
 
 
 def finished_entries(text, agent=None):
-    """Entry numbers recorded as DONE or SKIP (by `agent` only, when given)."""
+    """Entry ids (strings such as "5" or "4b") recorded as DONE or SKIP (by `agent` only, when given)."""
     done = set()
     for line in text.splitlines():
         fields = line.split()
-        if len(fields) >= 2 and fields[0] in ("DONE", "SKIP") and fields[1].isdigit():
+        if len(fields) >= 2 and fields[0] in ("DONE", "SKIP") and re.fullmatch(r"[0-9]+[a-z]?", fields[1]):
             if agent is None or fields[-1] == agent:
-                done.add(int(fields[1]))
+                done.add(fields[1])
     return done
 
 
-def turn_has_come(entry, done_text):
-    return set(range(1, entry)) <= finished_entries(done_text)
+def order_ids(text):
+    """Entry ids in the order TIMING.order lists them (`N | agent | ...` lines)."""
+    return [match.group(1) for match in map(re.compile(r"\s*([0-9]+[a-z]?)\s*\|").match, text.splitlines()) if match]
+
+
+def turn_has_come(entry, done_text, order_text=""):
+    """Every entry before `entry` in the order file is finished; without the entry there, every lower number."""
+    finished, order, entry = finished_entries(done_text), order_ids(order_text), str(entry)
+    if entry in order:
+        return set(order[:order.index(entry)]) <= finished
+    return {str(number) for number in range(1, int(entry))} <= finished
 
 
 def fits(job, held_s, ran_in_hold):
@@ -129,14 +140,18 @@ class Host:
     def __init__(self, root):
         self.lock = root / "TIMING.lock"
         self.done = root / "TIMING.done"
+        self.order = root / "TIMING.order"
         self.held = False
 
     def done_text(self):
         return self.done.read_text() if self.done.is_file() else ""
 
+    def order_text(self):
+        return self.order.read_text() if self.order.is_file() else ""
+
     def acquire(self, entry):
         while True:
-            if turn_has_come(entry, self.done_text()):
+            if turn_has_come(entry, self.done_text(), self.order_text()):
                 try:
                     self.lock.mkdir()
                 except FileExistsError:
@@ -221,7 +236,7 @@ def main():
         mine_done = finished_entries(host.done_text(), AGENT)
         for entry in dict.fromkeys(job["entry"] for job in jobs):
             pending = [job for job in jobs if job["entry"] == entry]
-            if entry in mine_done:
+            if str(entry) in mine_done:
                 for job in pending:
                     job["status"] = "skipped-already-done"
                 save()

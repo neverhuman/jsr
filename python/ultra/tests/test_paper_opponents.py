@@ -267,8 +267,13 @@ def test_turn_plan_parsing_and_turn_rules(tmp_path):
         with pytest.raises(ValueError):
             turn.read_plan(bad)
     done = "DONE 1 t energy\nSKIP 2 t runtime-lane\nSKIP 2b t lead (re-queued)\nDONE 3 t bench-open\nnote 4\n"
-    assert turn.finished_entries(done) == {1, 2, 3} and turn.finished_entries(done, "bench-open") == {3}
+    assert turn.finished_entries(done) == {"1", "2", "2b", "3"} and turn.finished_entries(done, "bench-open") == {"3"}
     assert turn.turn_has_come(4, done) and not turn.turn_has_come(5, done) and turn.turn_has_come(1, "")
+    order = "# header\n1  | energy | x\n2  | rt | x\n2b | energy | x\n3  | rt | x\n4  | rt | x\n4b | energy | x\n5  | bo | x\n"
+    assert turn.order_ids(order) == ["1", "2", "2b", "3", "4", "4b", "5"]
+    assert not turn.turn_has_come(5, done + "DONE 4 t rt\n", order)  # 4b, listed before 5, is not done yet
+    assert turn.turn_has_come(5, done + "DONE 4 t rt\nSKIP 4b t energy\n", order)
+    assert turn.turn_has_come(4, done, order) and not turn.turn_has_come(3, "DONE 1 t e\n", order)
     assert turn.fits(jobs[0], 0.0, False) and turn.fits(jobs[0], 5000.0, False)
     assert turn.fits(jobs[2], 1020.0, True) and not turn.fits(jobs[1], 1020.0, True)
     assert turn.cpu_count("4") == 1 and turn.cpu_count("8-15") == 8 and turn.cpu_count("0,2-3") == 3
@@ -308,6 +313,8 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     host = tmp_path / "opponents"
     host.mkdir()
     (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | runtime-lane | b\n3 | bench-open | c\n4 | bench-cross | d\n"
+                                        "4b | energy | e\n5 | bench-open | f\n")
     fake = tmp_path / "fake-run.sh"
     fake.write_text(FAKE_RUN)
     plan = tmp_path / "plan.txt"
@@ -329,6 +336,10 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
             time.sleep(0.05)
         with (host / "TIMING.done").open("a") as out:
             out.write("SKIP 4 t bench-cross\n")
+        time.sleep(0.5)
+        assert "DONE 5" not in (host / "TIMING.done").read_text()  # 4b still blocks entry 5
+        with (host / "TIMING.done").open("a") as out:
+            out.write("DONE 4b t energy\n")
 
     helper = threading.Thread(target=others)
     helper.start()
@@ -345,7 +356,7 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     done = (host / "TIMING.done").read_text().splitlines()
     assert [line.split()[:2] + line.split()[-1:] for line in done] == [
         ["DONE", "1", "energy"], ["DONE", "2", "runtime-lane"], ["DONE", "3", "bench-open"],
-        ["SKIP", "4", "bench-cross"], ["DONE", "5", "bench-open"]]
+        ["SKIP", "4", "bench-cross"], ["DONE", "4b", "energy"], ["DONE", "5", "bench-open"]]
     assert not (host / "TIMING.lock").exists()
     state = json.loads((tmp_path / "logs/turn.json").read_text())
     assert len(state["holds"]) == 7 and all("released_utc" in hold for hold in state["holds"])
@@ -354,7 +365,7 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     assert [job["status"] for job in state["jobs"] if not job.get("anchor")] == [
         "done", "done", "not-alone", "done", "done", "done", "done"]
     restart = subprocess.run(command, env=env, timeout=30)  # a restarted runner skips what it already did
-    assert restart.returncode == 0 and len((host / "TIMING.done").read_text().splitlines()) == 5
+    assert restart.returncode == 0 and len((host / "TIMING.done").read_text().splitlines()) == 6
     assert len((tmp_path / "calls.log").read_text().splitlines()) == 14
 
 
