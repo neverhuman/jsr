@@ -209,7 +209,7 @@
       "command": "just paper",
       "purpose": "the IEEE paper builds with no undefined references, Type-1 fonts, and every number generated from sourced records (tests/test_paper_data.py)"
     },
-    "python/ultra/tools/paper_data.py": {
+    "python/ultra/tools/paper_data/": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py",
       "purpose": "paper numbers regenerate byte-identically from sourced records; pairing rules; no bare numbers in sections"
     },
