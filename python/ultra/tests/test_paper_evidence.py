@@ -177,7 +177,7 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     layout = files["money_layout.tex"]
     assert "{Ours\\,$\\cdot$\\,0.34\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
     assert "\\def\\MoneyWattsOn{0}" in layout  # no axis: one system has no value yet
-    assert "so far for 1 of the 2 systems" in files["metrics.tex"]
+    assert "Watts beside a name: W per always-on stream (core energy registers, same run)." in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, rows + [dict(energy, row="sys-a-zen2-t1", joules_per_audio_s=1.7)]))
     # every system has a value and 0.343 x 25 = 8.6 W and 1.7 x 5 = 8.5 W per busy core agree: a watts axis
@@ -221,6 +221,18 @@ def test_an_energy_headline_without_a_group_names_the_method_of_every_group(tmp_
             {"kind": "energy_headline", "energy_method": "core_msr_active"}]
     files, _ = pd.build(_mini_repo(tmp_path, rows))
     assert "\\ColdSysAWatts}{0.60}" in files["metrics.tex"]
+
+
+def test_quiet_host_rows_need_no_shared_session_and_eight_core_rows_count_their_own_cores(tmp_path):
+    ours = _row(variant="sys-o", role="ours", host="xbabe0", session="entry-2", n_busy_cores_reps=[2, 1, 1])
+    other = _row(host="xbabe0", session="entry-3", n_busy_cores_reps=[2, 2, 2])  # another entry of the same queue
+    eight = _row(threads=8, parallel="workers", host="xbabe0", session="entry-20", n_busy_cores_reps=[9, 9, 10])
+    ours8 = _row(variant="sys-o", role="ours", threads=8, parallel="workers", host="xbabe0", session="entry-20",
+                 n_busy_cores_reps=[8, 8, 9])
+    files, _ = pd.build(_mini_repo(tmp_path, [ours, other, eight, ours8]))
+    plot = {ln.split(",")[0]: ln.split(",")[21] for ln in files["cold_dev.csv"].splitlines()[1:]}
+    assert plot["sys-a-zen2-t1"] == "1"  # drawn: the quiet host's protocol makes its rows comparable
+    assert plot["sys-a-zen2-t8"] == "1" and plot["sys-o-zen2-t8"] == "1"  # 8 busy cores of its own: not loaded
 
 
 def test_eight_cores_used_three_ways_are_three_rows(tmp_path):

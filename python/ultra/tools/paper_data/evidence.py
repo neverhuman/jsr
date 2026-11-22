@@ -92,7 +92,11 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
     for r in members:
         r["interim"] = r in drawable and r not in home  # measured only away from the quiet host so far
         r["faded"] = r["interim"] and bool(home)        # drawn lighter once quiet-host rows share the figure
+    # rows measured under the quiet host's timing protocol (one arm at a time on an otherwise idle machine) are
+    # comparable whatever their session; elsewhere a comparator needs a row of ours from its own session
     ours = {r["session"] for r in members if r["role"] == "ours"}
+    if quiet is not None and any(r["role"] == "ours" and r["host"] == quiet and not r.get("anchor") for r in members):
+        ours |= {r["session"] for r in members if r["host"] == quiet}
     off = set()
     for r in members:
         r["watts"], r["energy_method"] = r.get("energy", {}).get(chosen), chosen
