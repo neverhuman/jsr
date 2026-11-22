@@ -9,7 +9,7 @@ shift 3
 W=$HOME/jsr/.agent/worktrees/trainer/python/ultra
 PY=$DATA/venvs/train/bin/python
 M=$DATA/models/zipformer-en-2023-06-26
-export JSR_DATA=$DATA
+export JSR_DATA=$DATA OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1  # one core per task
 mkdir -p "$OUT/locks" "$OUT/logs"
 tasks=()
 for sp in $SPEEDS; do
