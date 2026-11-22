@@ -72,6 +72,17 @@ Several streams paced at 1× on one core, for our engine and the Zipformer. Watt
 
 xbabe0 is shared with other benchmark agents and background services. Before each window I create `xbabe0:~/jsr-data/opponents/QUIET.lock` (`energy until=<UTC>`, at most 15 minutes ahead), wait for runs in flight, measure, remove it. Cores: 16–23 for workloads (SMT siblings 80–87 idle), CPU 31 for the sampler.
 
+### 2.8 Amendments after V1 (2026-11-22T20:32Z, before any recogniser result was read)
+
+V1 ran 20:14–20:26Z. Four of its five repetitions were disturbed: one by my own smoke test on CPU 17, three by unpinned bursts from other work (the package jumped by 19–43 W for a minute and every one of my eight idle cores gained 0.4–0.7 W). The flags caught all four, but the rules as first written would have let ±1.5 W of package noise through. Changes, all made with only V1 in hand:
+
+1. **Tighter rules.** Other cores' power may move at most **1 W** across idle–run–idle (was 3 W), also between the two idle windows; package idle drift at most **2 W** (was 3 W); CPU seconds at least **98%** of wall for an unpaced worker (was 95%).
+2. **The headline uses only clean repetitions**, per view: a repetition with `sibling_busy`, `idle_drift_core`, `worker_not_on_cpu` or a failed exit is dropped from both views; `foreign_load_changed` and `idle_drift_package` drop it from the package view only. The receipt says how many were clean; if none was, the number is still printed and flagged `no_clean_…_rep`.
+3. **The core view measures only the cores that carry a worker.** V1 and the first ladder measured all eight claimed cores while loading fewer; foreign bursts landed on the idle ones. Ladder fits use the per-core breakdown of the loaded cores.
+4. **Package against core registers by regression over every phase** (`energy_bench.py uplift`). V1's ten phases, with foreign load between 4 W and 36 W of summed core-register power, already lie on one line: package = 54.6 W + 1.40 × (sum of the 64 core registers), R² 0.998, residual 0.65 W. So foreign load is not only noise: it is extra points on the line the lead asked for. Where the foreign load moved during a repetition, the package figure can be corrected with that line; a corrected figure is always labelled as such.
+5. **Idle against idle is also read off every later run**: each repetition has an idle window before and after, so their difference is one more idle-against-idle sample. The noise floor reported in §3 uses all of them, not just V1's.
+6. **Nothing of mine runs on xbabe0 during a measurement** except the sampler and the workload.
+
 ## 3. Results
 
 Pending (filled in after the validation runs).
