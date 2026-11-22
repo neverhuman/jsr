@@ -7,7 +7,7 @@ group) by a duty cycle of SIGCONT/SIGSTOP. Every period it measures the host's G
 and lowers the job's duty when either exceeds its target, raising it again when there is
 headroom.
 
-GPU measurement (2026-11-22): a long-lived `nvidia-smi -lms 2000` stream feeds a rolling 5-minute mean, the same statistic the
+GPU measurement (2026-11-22): a long-lived `nvidia-smi -lms 1130` stream (a period incommensurate with the 4-s run/stop cycle; 2 s aliased with it) feeds a rolling 5-minute mean, the same statistic the
 owner's cap watch uses; paused time is included because sampling never stops. The controller
 steps on that mean (slowly) and on a 30-second mean (fast, only well above target). The old
 per-cycle EMA tracked bursts and read ~10 points below the 5-minute nvidia-smi mean on xbabe2.
@@ -67,7 +67,7 @@ def next_duty_windowed(duty: float, gpu_5min: float | None, gpu_30s: float | Non
 class GpuWindow:
     """Background nvidia-smi stream (one reading per `period`), rolling means over the last N seconds."""
 
-    def __init__(self, index: int, period: float = 2.0, horizon: float = 300.0):
+    def __init__(self, index: int, period: float = 1.13, horizon: float = 300.0):
         import collections
         import threading
 
@@ -165,7 +165,7 @@ def run(args) -> int:
             t_prev, i_prev = t, i
             c_ema = ema(c_ema, cpu, p.alpha)
             g_ema, g_30 = gw.mean(300.0), gw.mean(30.0)
-            if g_ema is not None and len(gw.samples) < 15:  # < 30 s of samples: hold the GPU term
+            if g_ema is not None and len(gw.samples) < 27:  # < 30 s of samples: hold the GPU term
                 g_ema = None
             duty = next_duty_windowed(duty, g_ema, g_30, c_ema, p, args.min_duty)
             now = time.time()

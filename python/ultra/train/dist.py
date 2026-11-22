@@ -98,8 +98,8 @@ class StepThrottle:
     max over ranks, so all ranks pause together. A `UTIL_TARGET` file in `live_dir` overrides
     the target at run time. target <= 0 disables it."""
 
-    def __init__(self, target: float, gpu_index: int, every: int = 25, period_s: float = 2.0,
-                 window: int = 150, live_dir: str | None = None, floor: float = 0.5):
+    def __init__(self, target: float, gpu_index: int, every: int = 25, period_s: float = 1.13,
+                 window: int = 265, live_dir: str | None = None, floor: float = 0.5):
         import collections
         import threading
 
@@ -157,7 +157,7 @@ class StepThrottle:
         if step % self.every == 0:
             self._live_target()
             m = self.util_mean()
-            if m is not None and len(self.samples) >= 15:  # >= 30 s of samples
+            if m is not None and len(self.samples) >= 27:  # >= 30 s of samples
                 if m > self.target:
                     self.duty = max(self.floor, self.duty - 0.02)
                 elif m < self.target - 0.03:

@@ -5,11 +5,11 @@ def test_throttle_uses_time_averaged_util_and_live_target(tmp_path):
     t = StepThrottle(0.0, 0, every=1, live_dir=str(tmp_path))  # target 0: no sampler thread
     assert t.sleep_for(1, 1.0) == 0.0
     t.target = 0.85
-    t.samples.extend([1.0] * 20)  # busy: duty steps down, sleep appears
+    t.samples.extend([1.0] * 30)  # busy: duty steps down, sleep appears
     t.sleep_for(1, 1.0)
     assert t.duty < 1.0 and t.sleep_for(2, 1.0) > 0
     t.samples.clear()
-    t.samples.extend([0.70] * 20)  # well under target: duty recovers to 1 and the sleep vanishes
+    t.samples.extend([0.70] * 30)  # well under target: duty recovers to 1 and the sleep vanishes
     for k in range(3, 40):
         t.sleep_for(k, 1.0)
     assert t.duty == 1.0 and t.sleep_for(41, 1.0) == 0.0
