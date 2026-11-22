@@ -48,3 +48,13 @@ def test_blank_penalty_and_length_norm():
     assert len(ln) == 3 and ln[2] == []
     with pytest.raises(ValueError):
         modified_beam_search(pred, join, enc_p, lens, beam=4, blank_penalty=-1.0)
+
+
+def test_nbest_lists_are_ranked_and_start_with_the_best():
+    pred, join, enc_p, lens = _parts(4)
+    nb = []
+    best = modified_beam_search(pred, join, enc_p, lens, beam=4, nbest=nb)
+    assert len(nb) == 3 and all(1 <= len(c) <= 4 for c in nb)
+    for b, cands in zip(best, nb):
+        assert cands[0][0] == b
+        assert [s for _, s in cands] == sorted((s for _, s in cands), reverse=True)

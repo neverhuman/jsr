@@ -82,3 +82,55 @@ def test_unknown_loss_and_bad_range_refused():
         ASRModel(dataclasses.replace(PRESETS["TINY"], rnnt_loss="fast"))
     with pytest.raises(ValueError):
         ASRModel(dataclasses.replace(PRESETS["TINY"], rnnt_loss="pruned", prune_range=1))
+
+
+def test_prepare_seed_adds_only_simple_heads(tmp_path):
+    from train import checkpoint
+    from train.prepare_seed import make_seed
+
+    exact, _ = _models(prune_range=5)
+    src = str(tmp_path / "src.pt")
+    checkpoint.save_weights(str(tmp_path), 7, {"model": exact.state_dict(),
+                                               "model_config": exact.cfg.to_dict()})
+    src = str(tmp_path / "model-00000007.pt")
+    before = open(src, "rb").read()
+    pl = make_seed(src, str(tmp_path / "seed.pt"), "pruned", 5, 1)
+    assert sorted(pl["seed_from"]["added"]) == ["simple_am.bias", "simple_am.weight",
+                                                "simple_lm.bias", "simple_lm.weight"]
+    assert open(src, "rb").read() == before  # source untouched
+    seed = checkpoint.load(str(tmp_path / "seed.pt"), restore_rng=False)
+    for k, v in exact.state_dict().items():
+        assert torch.equal(seed["model"][k], v), k
+    assert seed["model_config"]["rnnt_loss"] == "pruned"
+
+
+def test_simple_detach_keeps_simple_loss_out_of_the_model():
+    if not HAVE_K2:
+        with pytest.raises(ImportError, match="needs k2"):
+            _models(prune_range=3)[1].losses(*_batch(), simple_detach=True)
+        return
+    _, pruned = _models(prune_range=3, simple_scale=0.5)
+    pruned.train()
+    out = pruned.losses(*_batch(), pruned_scale=0.0, simple_detach=True)
+    pruned.zero_grad()
+    (out["rnnt_simple"]).backward()
+    assert float(pruned.simple_am.weight.grad.abs().sum()) > 0
+    assert pruned.joiner.out.weight.grad is None or float(pruned.joiner.out.weight.grad.abs().sum()) == 0
+    enc_grads = [p.grad for n, p in pruned.named_parameters() if n.startswith("encoder.")]
+    assert all(g is None or float(g.abs().sum()) == 0 for g in enc_grads)
+
+
+def test_linearised_heads_equal_the_joiner_without_tanh():
+    """Linearised simple heads: simple_am(enc) + simple_lm(pred_p) equals the joiner's logits with
+    tanh replaced by identity (exact algebra), so on a trained model the band starts on the path."""
+    from train.prepare_seed import linearise_simple_heads
+
+    _, pruned = _models(prune_range=3)
+    linearise_simple_heads(pruned)
+    j = pruned.joiner
+    enc = torch.randn(2, 5, pruned.cfg.encoder.d_model)
+    pred = torch.randn(2, 5, pruned.cfg.joiner)
+    with torch.no_grad():
+        lin = pruned.simple_am(enc) + pruned.simple_lm(pred)
+        ref = j.out(j.enc_proj(enc) + pred)
+    assert torch.allclose(lin, ref, atol=1e-5)

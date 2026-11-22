@@ -35,6 +35,7 @@ class Example:
     feats: torch.Tensor  # (T, 80)
     rnnt: list[int]
     ctc: list[int]
+    kd: tuple | None = None  # H22 teacher targets (ids, lp, u, ok) from train.kd.TeacherStore
 
     @property
     def seconds(self) -> float:
@@ -51,14 +52,18 @@ class Batch:
     rnnt_lens: torch.Tensor
     ctc: torch.Tensor
     ctc_lens: torch.Tensor
+    kd: tuple | None = None  # (kd_ids, kd_lp, kd_u, kd_mask), padded to the longest teacher track
+    active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
 
     @property
     def audio_seconds(self) -> float:
-        return float(self.feat_lens.sum()) / 100.0
+        return float(self.feat_lens.sum()) / 100.0 if self.active else 0.0
 
     def to(self, device) -> Batch:
         return Batch(self.uids, self.texts, *(t.to(device) for t in (
-            self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)))
+            self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
+            kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
+            active=self.active)
 
 
 @dataclass(frozen=True)
@@ -93,7 +98,28 @@ def collate(exs: list[Example], pad_frames: int = 0, pad_tokens: int = 0) -> Bat
     return Batch([e.uid for e in exs], [e.text for e in exs], feats,
                  torch.tensor([e.feats.shape[0] for e in exs]),
                  pad([e.rnnt for e in exs], torch.long), torch.tensor([len(e.rnnt) for e in exs]),
-                 pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]))
+                 pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]),
+                 kd=_collate_kd(exs))
+
+
+def _collate_kd(exs: list[Example]):
+    if all(e.kd is None for e in exs):
+        return None
+    k = next(e.kd[0].shape[1] for e in exs if e.kd is not None)
+    tt = max((len(e.kd[2]) for e in exs if e.kd is not None), default=0)
+    ids = torch.zeros(len(exs), tt, k, dtype=torch.int16)
+    lp = torch.zeros(len(exs), tt, k, dtype=torch.float16)
+    u = torch.zeros(len(exs), tt, dtype=torch.long)
+    mask = torch.zeros(len(exs), tt, dtype=torch.bool)
+    for i, e in enumerate(exs):
+        if e.kd is None or not e.kd[3]:
+            continue  # no teacher entry, or R0's 1-best differs from the reference
+        n = len(e.kd[2])
+        ids[i, :n] = torch.from_numpy(np.asarray(e.kd[0]))
+        lp[i, :n] = torch.from_numpy(np.asarray(e.kd[1]))
+        u[i, :n] = torch.from_numpy(np.asarray(e.kd[2]))
+        mask[i, :n] = True
+    return ids, lp, u, mask
 
 
 def pack(durations: list[float], budget_s: float, max_batch: int) -> list[list[int]]:
@@ -122,14 +148,53 @@ class Featurizer:
                        self.tok_ctc.encode(text))
 
 
+_WORKER: dict = {}
+
+
+def _worker_init(tok_rnnt: str, tok_ctc: str, jsr_data: str) -> None:
+    if jsr_data:
+        os.environ["JSR_DATA"] = jsr_data
+    torch.set_num_threads(1)
+    from train.tokenizer import Tokenizer
+
+    _WORKER["feat"] = Featurizer(Tokenizer(tok_rnnt), Tokenizer(tok_ctc))
+
+
+def _decode_job(args):
+    """Worker side of ParquetBatches(loader="process"): the thread path's _decode, returning
+    plain arrays (uid, text, feats float32 (T, 80), rnnt ids, ctc ids, speed factor) or None."""
+    uid, text, audio, epoch, seed, speeds, max_seconds = args
+    pcm, sr = sf.read(io.BytesIO(audio), dtype="int16")
+    if sr != 16000 or pcm.ndim != 1:
+        raise DataError(f"{uid}: expected 16 kHz mono, got {sr} {pcm.shape}")
+    f = 1.0
+    if speeds:
+        import hashlib
+
+        h = hashlib.sha256(f"{seed}:{epoch}:{uid}".encode()).digest()
+        f = speeds[h[0] % len(speeds)]
+        if f != 1.0:
+            from fractions import Fraction
+
+            from scipy.signal import resample_poly
+
+            r = Fraction(f).limit_denominator(100)
+            y = resample_poly(pcm.astype(np.float32), r.denominator, r.numerator)
+            pcm = np.clip(np.round(y), -32768, 32767).astype(np.int16)
+    if len(pcm) / 16000.0 > max_seconds:
+        return None
+    ex = _WORKER["feat"].example(uid, text, pcm)
+    return uid, text, ex.feats.numpy(), ex.rnnt, ex.ctc, f
+
+
 class ParquetBatches:
     """Endless, resumable batch stream over one or more LibriSpeech parquet splits."""
 
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
-                 parquet_root: str | None = None, workers: int = 4,
+                 parquet_root: str | None = None, workers: int = 4, teacher=None,
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
-                 pad_tokens: int = 0):
+                 pad_tokens: int = 0, loader: str = "thread"):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -146,10 +211,29 @@ class ParquetBatches:
         self.feat, self.seed = feat, seed
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
+        # (width, epoch): keep an older window width until that epoch ends (resume after a width
+        # change), so a mid-epoch resume never skips or repeats data; set by the trainer.
+        self.carry_width: tuple[int, int] | None = None
+        self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
+        self.ddp_global_batches = False
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
+        self.teacher = teacher
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
-        self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
+        if loader not in ("thread", "process"):
+            raise DataError(f"unknown loader {loader!r}")
+        self.loader = loader
+        if loader == "process" and workers > 1:
+            # Decode, speed perturbation and log-mel run in spawned worker processes (no GIL);
+            # the same functions as the thread path, one torch thread each, so features match.
+            import multiprocessing as mp
+            from concurrent.futures import ProcessPoolExecutor
+
+            self._pool = ProcessPoolExecutor(
+                workers, mp_context=mp.get_context("spawn"), initializer=_worker_init,
+                initargs=(feat.tok_rnnt.path, feat.tok_ctc.path, os.environ.get("JSR_DATA", "")))
+        else:
+            self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
                          for f in self.files]
 
@@ -157,20 +241,50 @@ class ParquetBatches:
     def windows_per_epoch(self) -> int:
         return (len(self.units) + self.window_groups - 1) // self.window_groups
 
+    def _width(self, epoch: int) -> int:
+        if self.carry_width is not None and epoch == self.carry_width[1]:
+            return self.carry_width[0]
+        return self.window_groups
+
+    def _windows(self, epoch: int) -> int:
+        wg = self._width(epoch)
+        return (len(self.units) + wg - 1) // wg
+
     def _window_units(self, epoch: int, window: int):
         perm = np.random.default_rng([self.seed, epoch]).permutation(len(self.units))
-        sel = perm[window * self.window_groups:(window + 1) * self.window_groups]
+        wg = self._width(epoch)
+        sel = perm[window * wg:(window + 1) * wg]
         return [self.units[i] for i in sorted(sel)]
 
     def _decode(self, row: dict, epoch: int = 0) -> Example | None:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
         if sr != 16000 or pcm.ndim != 1:
             raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
-        if self.speed_perturb:
+        f = self._speed(row["id"], epoch) if self.speed_perturb else 1.0
+        if f != 1.0:
             pcm = self._perturb(pcm, row["id"], epoch)
         if len(pcm) / 16000.0 > self.max_seconds:
             return None
-        return self.feat.example(row["id"], row["text"], pcm)
+        ex = self.feat.example(row["id"], row["text"], pcm)
+        if self.teacher is not None:
+            ex.kd = self.teacher.get(row["id"], f)
+        return ex
+
+    def _attach(self, x):
+        """Process-path result -> Example in the main process (teacher lookup lives here)."""
+        if x is None:
+            return None
+        uid, text, feats, rnnt, ctc, f = x
+        ex = Example(uid, text, torch.from_numpy(feats), rnnt, ctc)
+        if self.teacher is not None:
+            ex.kd = self.teacher.get(uid, f)
+        return ex
+
+    def _speed(self, uid: str, epoch: int) -> float:
+        import hashlib
+
+        h = hashlib.sha256(f"{self.seed}:{epoch}:{uid}".encode()).digest()
+        return self.speed_perturb[h[0] % len(self.speed_perturb)]
 
     def _perturb(self, pcm: np.ndarray, uid: str, epoch: int) -> np.ndarray:
         """Speed perturbation (tempo and pitch together, labels unchanged): resample by a
@@ -193,9 +307,16 @@ class ParquetBatches:
         for fi, rg in self._window_units(epoch, window):
             t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
             rows.extend(t.to_pylist())
+        if self.world > 1:
+            return self._load_window_sharded(rows, epoch, window)
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
-        dec = functools.partial(self._decode, epoch=epoch)
-        decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
+        if self.loader == "process" and self._pool is not None:
+            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
+                     self.max_seconds) for r in rows]
+            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+        else:
+            dec = functools.partial(self._decode, epoch=epoch)
+            decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
         del rows
         self.dropped_long += sum(e is None for e in decoded)
         exs: list[Example] = [e for e in decoded if e is not None]
@@ -207,6 +328,65 @@ class ParquetBatches:
         rng.shuffle(groups)
         return [[exs[i] for i in g] for g in groups]
 
+    def _frames_after(self, row: dict, epoch: int) -> int | None:
+        """Log-mel frame count of a row after speed perturbation, from the FLAC header alone
+        (None if the perturbed audio exceeds max_seconds), identical to decoding it."""
+        n = sf.info(io.BytesIO(row["audio"]["bytes"])).frames
+        if self.speed_perturb:
+            f = self._speed(row["id"], epoch)
+            if f != 1.0:
+                from fractions import Fraction
+
+                r = Fraction(f).limit_denominator(100)
+                n = -(-n * r.denominator // r.numerator)  # resample_poly output length
+        if n / 16000.0 > self.max_seconds:
+            return None
+        return self.feat.logmel.num_frames(n)
+
+    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int) -> list[list[Example]]:
+        """Data-parallel window: pack on header-only durations (the same packing and shuffle as
+        the single-process path), keep groups g with g % world == rank (truncated to a multiple
+        of world so every rank has the same number of batches), and decode only those rows."""
+        frames = [self._frames_after(r, epoch) for r in rows]
+        self.dropped_long += sum(f is None for f in frames)
+        keep = [i for i, f in enumerate(frames) if f is not None]
+        rng = np.random.default_rng([self.seed, epoch, window])
+        dur = [frames[i] / 100.0 * (1.0 + 0.05 * rng.random()) for i in keep]
+        if self.pad_frames > 1:
+            dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
+        groups = pack(dur, self.budget_s, self.max_batch)
+        rng.shuffle(groups)
+        if self.ddp_global_batches:
+            # Preserve the same global groups and cursor as the single-rank loader.
+            parts = [g[self.rank::self.world] for g in groups]
+            active = [bool(g) for g in parts]
+            parts = [g or [global_group[0]] for g, global_group in zip(parts, groups, strict=True)]
+        else:
+            n = len(groups)
+            if n % self.world:
+                target = n + self.world - n % self.world  # repeat the first groups up to a multiple
+                groups = (groups * -(-target // max(1, n)))[:target]
+            parts = groups[self.rank::self.world]
+            active = [True] * len(parts)
+        mine = [[rows[keep[i]] for i in g] for g in parts]
+        flat = [r for g in mine for r in g]
+        if self.loader == "process" and self._pool is not None:
+            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
+                     self.max_seconds) for r in flat]
+            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+        else:
+            dec = functools.partial(self._decode, epoch=epoch)
+            decoded = list(self._pool.map(dec, flat)) if self._pool else [dec(r) for r in flat]
+        out, k = [], 0
+        for g in mine:
+            out.append(decoded[k:k + len(g)])
+            k += len(g)
+        if any(e is None for g in out for e in g):
+            raise DataError("header-predicted length disagrees with the decoded audio")
+        if self.ddp_global_batches:
+            return list(zip(out, active, strict=True))
+        return out
+
     def iterate(self, start: Position):
         """Yield (position after this batch, Batch) forever, from `start`; one window prefetched."""
         q: queue.Queue = queue.Queue(maxsize=2)
@@ -214,37 +394,50 @@ class ParquetBatches:
 
         def producer():
             ep, w = start.epoch, start.window
-            try:
+            while not stop.is_set():
+                item = (ep, w, self._load_window(ep, w))
                 while not stop.is_set():
-                    item = (ep, w, self._load_window(ep, w))
-                    while not stop.is_set():
-                        try:
-                            q.put(item, timeout=1.0)
-                            break
-                        except queue.Full:
-                            continue
-                    w += 1
-                    if w >= self.windows_per_epoch:
-                        ep, w = ep + 1, 0
-            except Exception as e:  # surfaced to the consumer, never swallowed
-                q.put(e)
+                    try:
+                        q.put(item, timeout=1.0)
+                        break
+                    except queue.Full:
+                        continue
+                w += 1
+                if w >= self._windows(ep):
+                    ep, w = ep + 1, 0
 
-        th = threading.Thread(target=producer, daemon=True)
-        th.start()
+        # The producer runs as a future: a failure is kept on the future (never swallowed) and
+        # re-raised here as a DataError as soon as the queue runs dry.
+        from concurrent.futures import ThreadPoolExecutor
+
+        runner = ThreadPoolExecutor(1, thread_name_prefix="batch-producer")
+        fut = runner.submit(producer)
         first = True
         try:
             while True:
-                item = q.get()
-                if isinstance(item, Exception):
-                    raise DataError(f"batch producer failed: {item!r}") from item
+                try:
+                    item = q.get(timeout=1.0)
+                except queue.Empty:
+                    if fut.done() and fut.exception() is not None:
+                        err = fut.exception()
+                        raise DataError(f"batch producer failed: {err!r}") from err
+                    continue
                 ep, w, batches = item
                 skip = start.batch if first else 0
                 first = False
                 for bi in range(skip, len(batches)):
                     nxt = Position(ep, w, bi + 1)
-                    yield nxt, collate(batches[bi], self.pad_frames, self.pad_tokens)
+                    group = batches[bi]
+                    if self.ddp_global_batches and self.world > 1:
+                        examples, active = group
+                        batch = collate(examples, self.pad_frames, self.pad_tokens)
+                        batch.active = active
+                    else:
+                        batch = collate(group, self.pad_frames, self.pad_tokens)
+                    yield nxt, batch
         finally:
             stop.set()
+            runner.shutdown(wait=False)
 
 
 class FixedBatches:

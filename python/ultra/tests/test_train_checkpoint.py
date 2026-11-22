@@ -236,3 +236,28 @@ def test_model_heads_follow_configured_tokenizers():
     assert m.joiner.out.out_features == 513 and m.ctc_head.out_features == 513
     with pytest.raises(Exception):
         model_config_for(TrainConfig(preset="S", rnnt_pieces=1))
+
+
+class _Tok:
+    sha256 = None
+
+    def decode(self, ids):
+        return " ".join(str(i) for i in ids)
+
+
+def test_logs_data_wait_pad_pct_and_ema_eval_restores_weights(workdir):
+    import json
+
+    t = _trainer(workdir)
+    t.cfg.ema_decay, t.cfg.eval_every, t.cfg.log_every, t.log_enabled = 0.9, 4, 2, True
+    t.dev, t.tok = _examples(3, seed=5), _Tok()
+    t.run(max_steps=4)
+    before = {k: v.clone() for k, v in t.model.state_dict().items()}
+    ema = t._evaluate_ema()
+    assert set(ema) == {"ema_wer", "ema_sub", "ema_del", "ema_ins"}
+    for k, v in t.model.state_dict().items():
+        assert torch.equal(v, before[k]), k  # live weights restored after the EMA eval
+    recs = [json.loads(line) for line in open(os.path.join(workdir, "train.jsonl"))]
+    train = [r for r in recs if r["kind"] == "train"]
+    assert train and all(0 <= r["data_wait_pct"] <= 100 and 0 <= r["pad_pct"] < 100 for r in train)
+    assert any(r["kind"] == "eval" and "ema_wer" in r for r in recs)

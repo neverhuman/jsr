@@ -142,7 +142,8 @@ class ASRModel(nn.Module):
     def losses(self, feats, feat_lens, rnnt_tgt, rnnt_lens, ctc_tgt, ctc_lens,
                stats: FeasibilityStats | None = None, augment: SpecAugConfig | None = None,
                gen: torch.Generator | None = None, chunk: int | None = None,
-               pruned_scale: float = 1.0) -> dict:
+               pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0,
+               simple_detach: bool = False) -> dict:
         x = self.cmvn(feats)
         if augment is not None and gen is not None:
             x = spec_augment(x, feat_lens, augment, gen)
@@ -157,7 +158,8 @@ class ASRModel(nn.Module):
             enc_p = self.joiner.enc_proj(enc).float()
             pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt)).float()
             if self.cfg.rnnt_loss == "pruned":
-                nll, simple = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens)
+                nll, simple = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens,
+                                                simple_detach)
             else:
                 lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
                 nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
@@ -167,6 +169,13 @@ class ASRModel(nn.Module):
         total = self.cfg.ctc_weight * ctc
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+        if kd is not None and kd_weight > 0:
+            from train.kd import kd_loss
+
+            with torch.autocast(device_type=enc.device.type, enabled=False):
+                kl, n = kd_loss(self.joiner, enc_p, pred_p, enc_lens, rnnt_lens, *kd)
+            total = total + kd_weight * kl
+            out["kd"], out["kd_frames"] = kl, n
         if simple is None:
             total = total + rnnt
         else:
@@ -176,7 +185,7 @@ class ASRModel(nn.Module):
         out["loss"] = total
         return out
 
-    def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens):
+    def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, simple_detach=False):
         """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss) via k2."""
         try:
             import k2
@@ -188,7 +197,8 @@ class ASRModel(nn.Module):
         bd[:, 2], bd[:, 3] = tgt_lens, enc_lens
         symbols = tgt.long()
         simple, (px_grad, py_grad) = k2.rnnt_loss_smoothed(
-            lm=self.simple_lm(pred_p).float(), am=self.simple_am(enc).float(), symbols=symbols,
+            lm=self.simple_lm(pred_p.detach() if simple_detach else pred_p).float(),
+            am=self.simple_am(enc.detach() if simple_detach else enc).float(), symbols=symbols,
             termination_symbol=BLANK, lm_only_scale=c.lm_only_scale, am_only_scale=c.am_only_scale,
             boundary=bd, rnnt_type="regular", reduction="none", return_grad=True)
         ranges = k2.get_rnnt_prune_ranges(px_grad=px_grad, py_grad=py_grad, boundary=bd,

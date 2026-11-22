@@ -71,6 +71,11 @@ class Tokenizer:
         self.path = path
         self.sp = spm.SentencePieceProcessor(model_file=path)
         self.vocab = self.sp.get_piece_size()
+        # Case of the model's pieces: ours are trained on lower-cased text, R0's (icefall) bpe.model
+        # on upper case. Text is folded to the model's case before encoding.
+        letters = "".join(self.sp.id_to_piece(i) for i in range(self.vocab) if not self.sp.is_control(i))
+        upper = sum(c.isupper() for c in letters)
+        self.upper = upper > sum(c.islower() for c in letters)
         with open(path, "rb") as fh:
             self.sha256 = hashlib.sha256(fh.read()).hexdigest()
 
@@ -79,7 +84,7 @@ class Tokenizer:
         return self.vocab + 1
 
     def encode(self, text: str) -> list[int]:
-        return [p + 1 for p in self.sp.encode(text.lower())]
+        return [p + 1 for p in self.sp.encode(text.upper() if self.upper else text.lower())]
 
     def decode(self, ids: list[int]) -> str:
         return self.sp.decode([i - 1 for i in ids if i != BLANK])

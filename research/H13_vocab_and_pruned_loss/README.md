@@ -17,11 +17,12 @@
 - **Reference:** D2 (S, 4096/1024, exact loss), compared at equal audio-hours.
 - **Known differences from D2:** D2 was warm-started from D1d-7800 with warmup 500, SpecAugment from step 0, and no speed perturbation.
 
-### H13 matched 100 h controls (one GPU, run one after another, same host)
+### H13 matched 100 h controls (one GPU, run one after another, same host: xbabe6, NVIDIA A10 24 GB)
 Identical for all arms:
 - preset S from scratch, train-clean-100;
 - `seed=1234 budget_s=300 max_batch=64 lr=1e-3 warmup=2000 total_steps=24000` (about 20 epochs; ~2,000 audio-h of exposure) `clip=5 specaug_start=4000`, no speed perturbation, `ema_decay=0.9995`;
-- dev-clean400 every 2000 steps; the 730-utterance panel (greedy + beam 4) at the end.
+- dev-clean400 and an eval-only snapshot every 2000 steps; at the end, the 730-utterance panel (greedy + beam 4) and the last-3 average.
+- Runner: `train/ops/h13_controls.sh` under fleet_guard at GPU target 0.88. The data was downloaded on xbabe6 from openslr/librispeech_asr and sha256-checked against our manifest. Tokenizers and dev caches were copied from xbabe2 over the network, sha256-identical to H0's.
 
 | Arm | RNN-T loss | RNN-T pieces | CTC pieces |
 |---|---|---:|---:|
@@ -54,3 +55,16 @@ Identical for all arms:
 ## Addendum (Codex, 2026-11-22)
 
 The GPU implementation smoke used dense S with vocabulary size 513 and a BF16 batch of sixteen 10-second inputs. The 0.33 to 0.22 second step change was accompanied by a 4.2 to 3.7 GB reduction in peak memory. The queued equal-exposure experiments carry the accuracy comparison. [Trainer implementation and smoke record](../H12_accuracy_diagnostics/README.md)
+
+## Interim (2026-11-22 ~09:20Z): H13b–d running in parallel, one GPU each
+
+| Arm | Device | Step | dev-clean400 greedy at steps 2,712 / 6,000 / 10,846 |
+|---|---|---:|---|
+| H13b exact-4096 | xbabe5 GPU0, A100 | 3,300 | 55.81 / — / — |
+| H13c pruned-4096 | xbabe5 GPU1, A100 | 11,250 | 88.54 / 42.69 / 27.10 |
+| H13d pruned-512 | xbabe6, A10 | 11,650 | 53.86 / 32.09 / **23.01** |
+
+- **Step time (same device type, A100):** pruned-4096 is 0.196 s/step against 0.74 s for exact-4096, **3.8× faster**.
+- **Co-location makes later step times incomparable:** for ~1 h, teacher-cache processes on xbabe5 throttled H13b/c through the guards' CPU target. They have been removed. Step times measured after that point are not comparable; WER at equal steps is unaffected.
+- **pruned-4096 starts slowly** (88.5% at 2.7k vs ~55% for the other two). The simple joiner that chooses the band trains first, and the pruned-loss weight ramps over 2k steps. By 10.8k it is 4.1 pp behind pruned-512.
+- **Final comparison:** at 24k steps (end of schedule), including the panel with beam 4 and last-3 averaging, per the decision rule above.

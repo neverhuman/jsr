@@ -85,9 +85,28 @@ class TrainConfig:
     # RNN-T loss (ModelConfig.rnnt_loss): "exact" or "pruned" (k2; H13b), band width, and a linear
     # ramp of the pruned-loss weight from 0.1 to 1 over the first prune_warmup steps while the
     # simple joiner that picks the band is still untrained (0 = weight 1 from the start).
+    # H22 distillation from R0: cache dir of train/teacher_cache.py outputs and the KL weight;
+    # tokenizer overrides both heads' SentencePiece model path (R0's bpe.model for H22).
+    # Batch loader: "thread" (decode in a thread pool; GIL-bound) or "process" (spawned worker
+    # processes running the same decode/perturb/log-mel code; bit-identical batches, test).
+    loader: str = "thread"
+    # Row groups sorted together per window before packing (more = less padding per batch).
+    window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
+    # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
+    ddp_util_target: float = 0.0
+    # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
+    ddp_global_batches: bool = False
+    ddp_native: bool = False  # overlap gradient communication with backward
+    kd_dir: str = ""
+    kd_weight: float = 0.0
+    tokenizer: str = ""
     rnnt_loss: str = "exact"
     prune_range: int = 5
     prune_warmup: int = 0
+    # Warm starts into the pruned loss (D2c): for the first prune_hold steps the pruned-loss weight
+    # is 0 and the new simple-joiner heads train on detached encoder/predictor outputs, so an
+    # untrained band cannot push gradients into the pretrained model; the ramp starts after it.
+    prune_hold: int = 0
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
@@ -107,15 +126,30 @@ def lr_lambda(cfg: TrainConfig):
     return f
 
 
+class _ForwardLoss(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, *args, **kwargs):
+        return self.model.losses(*args, **kwargs)
+
+
 class Trainer:
     def __init__(self, run_dir: str, cfg: TrainConfig, source, model_cfg: ModelConfig | None = None,
                  dev: list[Example] | None = None, tokenizer=None, device: str | None = None,
-                 log: bool = True):
+                 log: bool = True, rank: int = 0, world: int = 1, local_rank: int = 0):
         self.run_dir, self.cfg, self.source, self.dev, self.tok = run_dir, cfg, source, dev, tokenizer
+        self.rank, self.world, self.local_rank = rank, world, local_rank
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        if world > 1 and self.device.type == "cuda":
+            self.device = torch.device("cuda", local_rank)
+            torch.cuda.set_device(self.device)
+        log = log and rank == 0  # one log per run
         self.model_cfg = model_cfg or PRESETS[cfg.preset]
         torch.manual_seed(cfg.seed)
         self.model = ASRModel(self.model_cfg).to(self.device)
+        self._ddp_loss = None
         decay = [p for n, p in self.model.named_parameters() if p.ndim >= 2]
         no_decay = [p for n, p in self.model.named_parameters() if p.ndim < 2]
         self.opt = torch.optim.AdamW([{"params": decay, "weight_decay": cfg.weight_decay},
@@ -151,7 +185,10 @@ class Trainer:
                 "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema}
 
     def save(self, wait: bool = False) -> None:
-        """Snapshot now; the write finishes in the background unless `wait`."""
+        """Snapshot now; the write finishes in the background unless `wait`. Under data
+        parallelism one rank per node writes (every node keeps its own copy for resume)."""
+        if self.local_rank != 0:
+            return
         self.saver.save(self.run_dir, self.step, self.payload())
         if wait:
             self.saver.wait()
@@ -173,6 +210,10 @@ class Trainer:
         self.opt.load_state_dict(p["optimizer"])
         self.sched.load_state_dict(p["scheduler"])
         self.pos = Position(**p["position"])
+        old_wg = int((p.get("train_config") or {}).get("window_groups", 4))
+        if old_wg != self.cfg.window_groups and hasattr(self.source, "carry_width"):
+            # the new width starts at the next epoch; this epoch finishes with the old one
+            self.source.carry_width = (old_wg, self.pos.epoch)
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
@@ -193,19 +234,36 @@ class Trainer:
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
+        if self.world > 1 and self.cfg.ddp_native and self._ddp_loss is None:
+            from torch.nn.parallel import DistributedDataParallel
+
+            devices = [self.device.index] if self.device.type == "cuda" else None
+            self._ddp_loss = DistributedDataParallel(_ForwardLoss(self.model), device_ids=devices,
+                                                     broadcast_buffers=False,
+                                                     gradient_as_bucket_view=True)
+        forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
-            out = self.model.losses(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
-                                    stats=self.stats,
+            out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
+                                    stats=self.stats if b.active else None,
                                     augment=self.augment if self.step >= self.cfg.specaug_start
                                     else None, gen=gen,
                                     chunk=self.cfg.chunk or None,
-                                    pruned_scale=self._pruned_scale())
+                                    pruned_scale=self._pruned_scale(),
+                                    kd=b.kd, kd_weight=self.cfg.kd_weight,
+                                    simple_detach=self.step < self.cfg.prune_hold)
         loss = out["loss"]
-        if not torch.isfinite(loss):
+        if self.world > 1:
+            loss, out = self._global_loss(out, active=b.active)
+        # finite-loss agreement: under DDP the all-reduced loss decides for every rank at once
+        if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
         loss.backward()
+        if self.world > 1 and self._ddp_loss is None:
+            from train.dist import all_reduce_grads
+
+            all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
         gnorm = float(torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip))
         if not math.isfinite(gnorm):
             self._pause(batch, out, gnorm, "gradient norm")
@@ -214,11 +272,52 @@ class Trainer:
         self._ema_update()
         self.sched.step()
         self.step += 1
-        return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
-                "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
-                "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
-                "utts": len(batch.uids),
-                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {})}
+        return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
+                "ctc": float(out["ctc"]),
+                "grad_norm": gnorm, "ctc_masked": out["ctc_masked"] if b.active else 0,
+                "lr": self.sched.get_last_lr()[0], "audio_s": self._global_audio(batch.audio_seconds),
+                "utts": len(batch.uids) if b.active else 0,
+                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
+                **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
+
+    def _global_audio(self, seconds: float) -> float:
+        """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
+        if self.world <= 1:
+            return seconds
+        from train.dist import all_reduce_sum
+
+        return all_reduce_sum([seconds], self.device)[0]
+
+    def _global_loss(self, out: dict, active: bool = True):
+        """Rescale each loss component by world * N_rank / N_total (all-reduced token / frame
+        counts) so the averaged gradient equals one process on the concatenated batch; the
+        reported scalars become the global per-token values (identical on every rank)."""
+        from train.dist import all_reduce_sum
+
+        c, w = self.model.cfg, self.world
+        nr, nc, nk = float(out["rnnt_tokens"]), float(out["ctc_tokens"]), float(out.get("kd_frames", 0))
+        tr, tc, tk = all_reduce_sum([nr * active, nc * active, nk * active], self.device)
+        fr = w * active * max(1.0, nr) / max(1.0, tr)
+        fc = w * active * max(1.0, nc) / max(1.0, tc)
+        fk = w * active * nk / max(1.0, tk)
+        if "rnnt_simple" in out:
+            rn = self._pruned_scale() * out["rnnt"] + c.simple_loss_scale * out["rnnt_simple"]
+        else:
+            rn = out["rnnt"]
+        loss = fr * rn + c.ctc_weight * fc * out["ctc"]
+        if "kd" in out:
+            loss = loss + self.cfg.kd_weight * fk * out["kd"]
+        if self.cfg.kd_weight > 0 and "kd" not in out:
+            out["kd"] = out["rnnt"].new_zeros(())
+        keys = ["rnnt", "ctc"]
+        if "rnnt_simple" in out:
+            keys.append("rnnt_simple")
+        if self.cfg.kd_weight > 0:
+            keys.append("kd")
+        scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
+        vals = all_reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], self.device)
+        out = dict(out, **{k: torch.tensor(v) for k, v in zip(keys, vals[:-1], strict=True)})
+        return loss, dict(out, loss_global=vals[-1])
 
     def _diverged(self, detail: str, extra: dict) -> None:
         diag = os.path.join(self.run_dir, "DIVERGED.json")
@@ -230,8 +329,10 @@ class Trainer:
         raise DivergenceError(self.step, detail, diag)
 
     def _pruned_scale(self) -> float:
-        w = self.cfg.prune_warmup
-        return 1.0 if not w else min(1.0, 0.1 + 0.9 * self.step / w)
+        if self.step < self.cfg.prune_hold:
+            return 0.0
+        w, s = self.cfg.prune_warmup, self.step - self.cfg.prune_hold
+        return 1.0 if not w else min(1.0, 0.1 + 0.9 * s / w)
 
     @torch.no_grad()
     def _ema_update(self) -> None:
@@ -342,8 +443,24 @@ class Trainer:
         w["examples"] = [{"ref": r, "hyp": h} for r, h in list(zip(refs, hyps, strict=True))[:3]]
         return w
 
+    @torch.no_grad()
+    def _evaluate_ema(self) -> dict:
+        """Dev WER of the EMA weights (swapped in, then the live weights restored)."""
+        if self.ema is None or not self.dev or self.tok is None:
+            return {}
+        live = {k: v.detach().clone() for k, v in self.model.state_dict().items()}
+        self.model.load_state_dict(self.ema)
+        try:
+            ev = self.evaluate()
+        finally:
+            self.model.load_state_dict(live)
+        return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
+                "ema_ins": ev.get("ins")}
+
     # ---- loop --------------------------------------------------------------------------------
     def log(self, rec: dict) -> None:
+        if self.rank != 0:  # one train.jsonl per data-parallel run
+            return
         rec = dict(rec, time=time.time())
         with open(os.path.join(self.run_dir, "train.jsonl"), "a") as fh:
             fh.write(json.dumps(rec) + "\n")
@@ -355,15 +472,32 @@ class Trainer:
         acc = {"audio_s": 0.0, "loss": 0.0, "rnnt": 0.0, "ctc": 0.0, "n": 0, "masked": 0}
         t0 = time.time()
         steps_here = 0
-        for pos, batch in self.source.iterate(self.pos):
+        t_wait = time.time()
+        throttle = None
+        if self.world > 1 and self.cfg.ddp_util_target > 0 and self.device.type == "cuda":
+            from train.dist import StepThrottle
+
+            throttle = StepThrottle(self.cfg.ddp_util_target, self.device.index or 0)
+        for pos, batch in self._batches():
+            acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
+            t_step = time.time()
+            acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
+            acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
+            if self.world > 1:
+                from train.dist import all_reduce_max
+
+                if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
+                    throttle.pause(all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step),
+                                                  self.device))
+                self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
             steps_here += 1
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -376,19 +510,28 @@ class Trainer:
                           "dropped_long": getattr(self.source, "dropped_long", 0),
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
+                          **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
-                          "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
+                          "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
+                          "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
+                          "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
             if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
-                ev = self.evaluate()
+                ev = self.evaluate() if self.rank == 0 else {}
+                ema = self._evaluate_ema() if self.rank == 0 else {}
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
-                          **ev, **self.stats.summary()})
-                self._watch_wer(ev.get("wer"))
+                          **ev, **ema, **self.stats.summary()})
+                wer = ev.get("wer")
+                if self.world > 1:
+                    from train.dist import broadcast_value
+
+                    wer = broadcast_value(wer, self.device)  # every rank takes the same branch
+                self._watch_wer(wer)
                 t0 = time.time()
-            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0:
+            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0 and self.local_rank == 0:
                 self.saver.save(self.run_dir, self.step,
                                 {"model": self.model.state_dict(),
                                  "model_config": self.model_cfg.to_dict(),
@@ -407,12 +550,38 @@ class Trainer:
                     self.save()
                 self.saver.wait()
                 return
+            t_wait = time.time()
+
+
+def _shard_batches(self):
+    """Batches for this rank: sources that shard natively (ParquetBatches.world) yield only this
+    rank's batches; any other source is sharded by batch index (rank, rank + world, ...)."""
+    it = self.source.iterate(self.pos)
+    if self.world <= 1 or getattr(self.source, "world", 1) == self.world:
+        yield from it
+        return
+    for i, item in enumerate(it):
+        if i % self.world == self.rank:
+            yield item
+
+
+Trainer._batches = _shard_batches
 
 
 def load_dev(split: str, limit: int, feat) -> list[Example]:
     from ultra.libri import load_split
 
     return [feat.example(u.uid, u.text, u.pcm) for u in load_split(split, limit)]
+
+
+def _teacher(cfg: TrainConfig):
+    if not cfg.kd_dir:
+        return None
+    from train.kd import TeacherStore
+
+    store = TeacherStore(cfg.kd_dir)
+    print(json.dumps({"kind": "teacher", "entries": len(store), "topk": store.topk}), flush=True)
+    return store
 
 
 def model_config_for(cfg: TrainConfig) -> ModelConfig:
@@ -451,7 +620,10 @@ def main(argv=None) -> int:
     from train.data import Featurizer, ParquetBatches
     from train.tokenizer import Tokenizer, tokenizer_path
 
-    tok_r, tok_c = Tokenizer(tokenizer_path(cfg.rnnt_pieces)), Tokenizer(tokenizer_path(cfg.ctc_pieces))
+    tok_r = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.rnnt_pieces))
+    tok_c = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.ctc_pieces))
+    if cfg.kd_weight > 0 and not cfg.kd_dir:
+        raise ValueError("kd_weight > 0 needs kd_dir (the R0 teacher cache)")
     model_cfg = model_config_for(cfg)
     if tok_r.num_outputs != model_cfg.vocab_rnnt or tok_c.num_outputs != model_cfg.vocab_ctc:
         raise ShapeError(f"tokenizer sizes {tok_r.num_outputs}/{tok_c.num_outputs} != model heads "
@@ -468,14 +640,25 @@ def main(argv=None) -> int:
                                 cfg.max_seconds, workers=cfg.workers,
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
                                                     if v.strip()),
-                                pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens)
+                                pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
+                                teacher=_teacher(cfg), loader=cfg.loader,
+                                window_groups=cfg.window_groups)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
+    from train.dist import broadcast_state, init_from_env
+
+    dev_type = (a.device or ("cuda" if torch.cuda.is_available() else "cpu")).split(":")[0]
+    rank, world, local_rank = init_from_env(dev_type)
+    if world > 1 and hasattr(source, "world"):
+        source.rank, source.world = rank, world
+        source.ddp_global_batches = cfg.ddp_global_batches
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
-                 model_cfg=model_cfg)
-    with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
+                 model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
+    cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
+    with open(os.path.join(a.run_dir, cfg_name), "w") as fh:
         json.dump({"train": asdict(cfg), "model": tr.model_cfg.to_dict(), "argv": sys.argv,
                    "threads": torch.get_num_threads(), "params": tr.model.num_params(),
-                   "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256}}, fh, indent=1)
+                   "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256},
+                   "world": world}, fh, indent=1)
 
     def on_signal(signum, frame):
         tr.stop_requested = True
@@ -500,6 +683,15 @@ def main(argv=None) -> int:
         tr.init_cmvn()
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
+    if world > 1:
+        from train.dist import all_reduce_max
+
+        # every rank must start from the same checkpoint state: same step, same position
+        key = float(tr.step * 1_000_003 + tr.pos.epoch * 10_007 + tr.pos.window * 101 + tr.pos.batch)
+        if all_reduce_max(key, tr.device) != -all_reduce_max(-key, tr.device):
+            raise CheckpointError("ranks resumed different checkpoints (step/position differ)")
+        broadcast_state(tr.model)  # identical weights (and CMVN) on every rank
+        tr.log({"kind": "ddp", "world": world, "rank0_device": str(tr.device)})
     try:
         tr.run(a.max_steps)
     except DivergenceError as e:
