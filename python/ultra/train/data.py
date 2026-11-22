@@ -212,6 +212,7 @@ class ParquetBatches:
         # (width, epoch): keep an older window width until that epoch ends (resume after a width
         # change), so a mid-epoch resume never skips or repeats data; set by the trainer.
         self.carry_width: tuple[int, int] | None = None
+        self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.teacher = teacher
@@ -303,6 +304,8 @@ class ParquetBatches:
         for fi, rg in self._window_units(epoch, window):
             t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
             rows.extend(t.to_pylist())
+        if self.world > 1:
+            return self._load_window_sharded(rows, epoch, window)
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
@@ -321,6 +324,52 @@ class ParquetBatches:
         groups = pack(dur, self.budget_s, self.max_batch)
         rng.shuffle(groups)
         return [[exs[i] for i in g] for g in groups]
+
+    def _frames_after(self, row: dict, epoch: int) -> int | None:
+        """Log-mel frame count of a row after speed perturbation, from the FLAC header alone
+        (None if the perturbed audio exceeds max_seconds), identical to decoding it."""
+        n = sf.info(io.BytesIO(row["audio"]["bytes"])).frames
+        if self.speed_perturb:
+            f = self._speed(row["id"], epoch)
+            if f != 1.0:
+                from fractions import Fraction
+
+                r = Fraction(f).limit_denominator(100)
+                n = -(-n * r.denominator // r.numerator)  # resample_poly output length
+        if n / 16000.0 > self.max_seconds:
+            return None
+        return self.feat.logmel.num_frames(n)
+
+    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int) -> list[list[Example]]:
+        """Data-parallel window: pack on header-only durations (the same packing and shuffle as
+        the single-process path), keep groups g with g % world == rank (truncated to a multiple
+        of world so every rank has the same number of batches), and decode only those rows."""
+        frames = [self._frames_after(r, epoch) for r in rows]
+        self.dropped_long += sum(f is None for f in frames)
+        keep = [i for i, f in enumerate(frames) if f is not None]
+        rng = np.random.default_rng([self.seed, epoch, window])
+        dur = [frames[i] / 100.0 * (1.0 + 0.05 * rng.random()) for i in keep]
+        if self.pad_frames > 1:
+            dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
+        groups = pack(dur, self.budget_s, self.max_batch)
+        rng.shuffle(groups)
+        groups = groups[: len(groups) // self.world * self.world][self.rank::self.world]
+        mine = [[rows[keep[i]] for i in g] for g in groups]
+        flat = [r for g in mine for r in g]
+        if self.loader == "process" and self._pool is not None:
+            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
+                     self.max_seconds) for r in flat]
+            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+        else:
+            dec = functools.partial(self._decode, epoch=epoch)
+            decoded = list(self._pool.map(dec, flat)) if self._pool else [dec(r) for r in flat]
+        out, k = [], 0
+        for g in mine:
+            out.append(decoded[k:k + len(g)])
+            k += len(g)
+        if any(e is None for g in out for e in g):
+            raise DataError("header-predicted length disagrees with the decoded audio")
+        return out
 
     def iterate(self, start: Position):
         """Yield (position after this batch, Batch) forever, from `start`; one window prefetched."""

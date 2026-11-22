@@ -92,6 +92,8 @@ class TrainConfig:
     loader: str = "thread"
     # Row groups sorted together per window before packing (more = less padding per batch).
     window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
+    # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
+    ddp_util_target: float = 0.0
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -124,9 +126,14 @@ def lr_lambda(cfg: TrainConfig):
 class Trainer:
     def __init__(self, run_dir: str, cfg: TrainConfig, source, model_cfg: ModelConfig | None = None,
                  dev: list[Example] | None = None, tokenizer=None, device: str | None = None,
-                 log: bool = True):
+                 log: bool = True, rank: int = 0, world: int = 1, local_rank: int = 0):
         self.run_dir, self.cfg, self.source, self.dev, self.tok = run_dir, cfg, source, dev, tokenizer
+        self.rank, self.world, self.local_rank = rank, world, local_rank
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        if world > 1 and self.device.type == "cuda":
+            self.device = torch.device("cuda", local_rank)
+            torch.cuda.set_device(self.device)
+        log = log and rank == 0  # one log per run
         self.model_cfg = model_cfg or PRESETS[cfg.preset]
         torch.manual_seed(cfg.seed)
         self.model = ASRModel(self.model_cfg).to(self.device)
@@ -165,7 +172,10 @@ class Trainer:
                 "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema}
 
     def save(self, wait: bool = False) -> None:
-        """Snapshot now; the write finishes in the background unless `wait`."""
+        """Snapshot now; the write finishes in the background unless `wait`. Under data
+        parallelism one rank per node writes (every node keeps its own copy for resume)."""
+        if self.local_rank != 0:
+            return
         self.saver.save(self.run_dir, self.step, self.payload())
         if wait:
             self.saver.wait()
@@ -222,10 +232,16 @@ class Trainer:
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
                                     simple_detach=self.step < self.cfg.prune_hold)
         loss = out["loss"]
+        if self.world > 1:
+            loss, out = self._global_loss(out)
         if not torch.isfinite(loss):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
         loss.backward()
+        if self.world > 1:
+            from train.dist import all_reduce_grads
+
+            all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
         gnorm = float(torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip))
         if not math.isfinite(gnorm):
             self._pause(batch, out, gnorm, "gradient norm")
@@ -234,12 +250,37 @@ class Trainer:
         self._ema_update()
         self.sched.step()
         self.step += 1
-        return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
+        return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
+                "ctc": float(out["ctc"]),
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
                 "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
                 "utts": len(batch.uids),
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
+
+    def _global_loss(self, out: dict):
+        """Rescale each loss component by world * N_rank / N_total (all-reduced token / frame
+        counts) so the averaged gradient equals one process on the concatenated batch; the
+        reported scalars become the global per-token values (identical on every rank)."""
+        from train.dist import all_reduce_sum
+
+        c, w = self.model.cfg, self.world
+        nr, nc, nk = float(out["rnnt_tokens"]), float(out["ctc_tokens"]), float(out.get("kd_frames", 0))
+        tr, tc, tk = all_reduce_sum([nr, nc, nk], self.device)
+        fr, fc = w * nr / max(tr, 1.0), w * nc / max(tc, 1.0)
+        fk = w * nk / max(tk, 1.0)
+        if "rnnt_simple" in out:
+            rn = self._pruned_scale() * out["rnnt"] + c.simple_loss_scale * out["rnnt_simple"]
+        else:
+            rn = out["rnnt"]
+        loss = fr * rn + c.ctc_weight * fc * out["ctc"]
+        if "kd" in out:
+            loss = loss + self.cfg.kd_weight * fk * out["kd"]
+        keys = [k for k in ("rnnt", "ctc", "rnnt_simple", "kd") if k in out]
+        scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
+        vals = all_reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], self.device)
+        out = dict(out, **{k: torch.tensor(v) for k, v in zip(keys, vals[:-1], strict=True)})
+        return loss, dict(out, loss_global=vals[-1])
 
     def _diverged(self, detail: str, extra: dict) -> None:
         diag = os.path.join(self.run_dir, "DIVERGED.json")
@@ -393,11 +434,24 @@ class Trainer:
         t0 = time.time()
         steps_here = 0
         t_wait = time.time()
-        for pos, batch in self.source.iterate(self.pos):
+        throttle = None
+        if self.world > 1 and self.cfg.ddp_util_target > 0 and self.device.type == "cuda":
+            from train.dist import StepThrottle
+
+            throttle = StepThrottle(self.cfg.ddp_util_target, self.device.index or 0)
+        for pos, batch in self._batches():
             acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
+            t_step = time.time()
             acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
             acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
+            if self.world > 1:
+                from train.dist import all_reduce_max
+
+                if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
+                    throttle.pause(all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step),
+                                                  self.device))
+                self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
             steps_here += 1
@@ -426,14 +480,19 @@ class Trainer:
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
             if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
-                ev = self.evaluate()
-                ema = self._evaluate_ema()
+                ev = self.evaluate() if self.rank == 0 else {}
+                ema = self._evaluate_ema() if self.rank == 0 else {}
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
                           **ev, **ema, **self.stats.summary()})
-                self._watch_wer(ev.get("wer"))
+                wer = ev.get("wer")
+                if self.world > 1:
+                    from train.dist import broadcast_value
+
+                    wer = broadcast_value(wer, self.device)  # every rank takes the same branch
+                self._watch_wer(wer)
                 t0 = time.time()
-            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0:
+            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0 and self.local_rank == 0:
                 self.saver.save(self.run_dir, self.step,
                                 {"model": self.model.state_dict(),
                                  "model_config": self.model_cfg.to_dict(),
@@ -453,6 +512,21 @@ class Trainer:
                 self.saver.wait()
                 return
             t_wait = time.time()
+
+
+def _shard_batches(self):
+    """Batches for this rank: sources that shard natively (ParquetBatches.world) yield only this
+    rank's batches; any other source is sharded by batch index (rank, rank + world, ...)."""
+    it = self.source.iterate(self.pos)
+    if self.world <= 1 or getattr(self.source, "world", 1) == self.world:
+        yield from it
+        return
+    for i, item in enumerate(it):
+        if i % self.world == self.rank:
+            yield item
+
+
+Trainer._batches = _shard_batches
 
 
 def load_dev(split: str, limit: int, feat) -> list[Example]:
@@ -531,12 +605,20 @@ def main(argv=None) -> int:
                                 teacher=_teacher(cfg), loader=cfg.loader,
                                 window_groups=cfg.window_groups)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
+    from train.dist import broadcast_state, init_from_env
+
+    dev_type = (a.device or ("cuda" if torch.cuda.is_available() else "cpu")).split(":")[0]
+    rank, world, local_rank = init_from_env(dev_type)
+    if world > 1 and hasattr(source, "world"):
+        source.rank, source.world = rank, world
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
-                 model_cfg=model_cfg)
-    with open(os.path.join(a.run_dir, "config.json"), "w") as fh:
+                 model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
+    cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
+    with open(os.path.join(a.run_dir, cfg_name), "w") as fh:
         json.dump({"train": asdict(cfg), "model": tr.model_cfg.to_dict(), "argv": sys.argv,
                    "threads": torch.get_num_threads(), "params": tr.model.num_params(),
-                   "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256}}, fh, indent=1)
+                   "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256},
+                   "world": world}, fh, indent=1)
 
     def on_signal(signum, frame):
         tr.stop_requested = True
@@ -561,6 +643,9 @@ def main(argv=None) -> int:
         tr.init_cmvn()
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
+    if world > 1:
+        broadcast_state(tr.model)  # identical weights (and CMVN) on every rank
+        tr.log({"kind": "ddp", "world": world, "rank0_device": str(tr.device)})
     try:
         tr.run(a.max_steps)
     except DivergenceError as e:

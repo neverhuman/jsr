@@ -106,3 +106,30 @@ def test_window_width_change_waits_for_the_epoch_boundary(shard):
     assert new._windows(1) == 1 and old._windows(1) == 4
     flat = sorted(u for w in range(new._windows(1)) for u in new._window_units(1, w))
     assert flat == sorted(new.units)  # epoch 1 covers every unit once at the new width
+
+
+@pytest.mark.parametrize("speeds", [(), (0.9, 1.0, 1.1)])
+def test_sharded_windows_partition_the_single_process_batches(shard, speeds):
+    """world=2: rank 0 and rank 1 together get exactly the single-process groups (header-only
+    durations pack identically), alternating, truncated to a multiple of the world size."""
+    root, tok = shard
+    t = Tokenizer(tok)
+
+    def src(rank, world):
+        s = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=7, budget_s=4.0,
+                           max_batch=8, parquet_root=root, workers=1, speed_perturb=speeds,
+                           window_groups=2)
+        s.rank, s.world = rank, world
+        return s
+
+    one, r0, r1 = src(0, 1), src(0, 2), src(1, 2)
+    for w in range(one._windows(0)):
+        full = [[e.uid for e in g] for g in one._load_window(0, w)]
+        a = [[e.uid for e in g] for g in r0._load_window(0, w)]
+        b = [[e.uid for e in g] for g in r1._load_window(0, w)]
+        n = len(full) // 2 * 2
+        assert a == full[:n:2] and b == full[1:n:2] and len(a) == len(b)
+        feats_one = {e.uid: e.feats for g in one._load_window(0, w) for e in g}
+        for g in r0._load_window(0, w):
+            for e in g:
+                assert torch.equal(e.feats, feats_one[e.uid])
