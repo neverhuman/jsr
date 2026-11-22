@@ -76,10 +76,19 @@
       "macro": "DtwoE",
       "order": 5,
       "text": "\\ultra{} D2e",
-      "detail": "the dense model D2e at step 16,457"
+      "detail": "the dense model D2e at step 16,457",
+      "plot": false
+    },
+    "h22ctl-79800-ema-int8": {
+      "system": "ULTRA-S, H22ctl step 79,800 EMA, INT8",
+      "short": "ULTRA-S (ours)",
+      "macro": "Hctl",
+      "order": 4,
+      "text": "\\ultra{}-S",
+      "detail": "H22ctl, step 79,800, EMA weights, INT8"
     }
   },
   "headline": {
-    "ours": "d2e-16457-int8"
+    "ours": "h22ctl-79800-ema-int8"
   }
 }

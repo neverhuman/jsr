@@ -41,7 +41,7 @@ def readme_block(rows: list[dict], host: str, watts: str) -> str:
               "Peak memory (MB) | Host |", "|---|---|---:|---:|---:|---:|---:|---|"]
     for r in sorted(drawn, key=lambda r: -derived(r)["speed"]):
         d = derived(r)
-        name = f"**{r['short']}** (ours)" if r["role"] == "ours" else r["short"]
+        name = (f"**{r['short']}**" + ("" if "ours" in r["short"] else " (ours)")) if r["role"] == "ours" else r["short"]
         where = HOST_NAMES.get(r["host"], r["host"]) + (", interim" if r["interim"] else "")
         lines.append(f"| {name} | {r['class'].replace('_', ' ')} | {speed_text(d['speed'])} | "
                      f"{fmt(d['wer_clean'], 2)} | {fmt(d['wer_other'], 2)} | {fmt(d['wer'], 2)} | "

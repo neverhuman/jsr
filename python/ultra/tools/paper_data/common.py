@@ -56,8 +56,15 @@ MACHINES = {
     "xeon8358": {"name": "Intel Xeon Platinum 8358 (Ice Lake, AVX-512 VNNI)", "macro": "Xeon", "primary_host": None},
     "m3ultra": {"name": "Apple M3 Ultra (ARM NEON)", "macro": "Mthree", "primary_host": None},
 }
-# Hosts as the (double-blind) paper names them; an unknown host prints as itself.
-HOST_NAMES = {"xbabe3": "H0", "xbabe0": "H1", "xbabe6": "X1", "xbabe4": "M1"}
+# Hosts as the (double-blind) paper names them; an unknown host prints as itself. Memory: channels
+# populated and speed grade, because a recogniser that streams its weights is bound by the memory bus.
+HOSTS = {
+    "xbabe3": {"name": "H0", "memory": "2 of 8 memory channels"},
+    "xbabe0": {"name": "H1", "memory": "4 of 8 memory channels, 4 x 32 GB DDR4-2133"},
+    "xbabe6": {"name": "X1", "memory": None},
+    "xbabe4": {"name": "M1", "memory": None},
+}
+HOST_NAMES = {host: info["name"] for host, info in HOSTS.items()}
 
 
 class PaperDataError(RuntimeError):

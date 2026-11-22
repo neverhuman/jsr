@@ -57,11 +57,11 @@
 \newcommand{\CapOneBeamClean}{7.50}% [exploratory] % WER
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
-\newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 28.4$\times$ real time at 5.84\% dev-clean WER; same-host rows of the other systems are being measured.}% [reported] sentence
+\newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 27.8$\times$ real time at 5.20\% dev-clean WER; same-host rows of the other systems are being measured.}% [reported] sentence
 \newcommand{\ColdAccuracyCount}{5}% [reported] rows
-\newcommand{\ColdAccuracySentence}{5 of the 6 other systems are more accurate on dev-clean than \ultra. The most accurate, Nemotron at 560\,ms, scores 2.61\% (4.93\% on dev-other, 3.56\% pooled), 3.23 points below \ultra.}% [reported] sentence
+\newcommand{\ColdAccuracySentence}{5 of the 6 other systems are more accurate on dev-clean than \ultra. The most accurate, Nemotron at 560\,ms, scores 2.61\% (4.93\% on dev-other, 3.56\% pooled), 2.59 points below \ultra.}% [reported] sentence
 \newcommand{\ColdAnchorCount}{1}% [reported] rows
-\newcommand{\ColdAnchorSentence}{1 row was measured a second time (another host or session); its CPU cost is 0.80 times that of the row printed here.}% [reported] sentence
+\newcommand{\ColdAnchorSentence}{No system has a quiet second measurement yet, so there is no host-agreement check.}% [reported] sentence
 \newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
 \newcommand{\ColdComparatorCount}{6}% [reported] rows
 \newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
@@ -97,20 +97,37 @@
 \newcommand{\ColdDtwoEWerClean}{5.84}% [exploratory] % WER
 \newcommand{\ColdDtwoEWerOther}{13.74}% [exploratory] % WER
 \newcommand{\ColdEightSentence}{The eight-core budget has not been measured yet.}% [reported] sentence
-\newcommand{\ColdHeadCpu}{0.035}% [exploratory] CPU-s/audio-s
-\newcommand{\ColdHeadModel}{304}% [exploratory] MB of model files
-\newcommand{\ColdHeadName}{\ultra{} D2e}% [exploratory] name
-\newcommand{\ColdHeadRss}{79}% [exploratory] MB peak resident memory
-\newcommand{\ColdHeadSentence}{\ultra{} (the dense model D2e at step 16,457) costs 0.035 CPU-seconds per audio-second on host H1, which is 28.4$\times$ real time on one core, at 5.84\% WER on dev-clean (13.74\% on dev-other, 9.09\% pooled), and peaks at 79\,MB of memory.}% [reported] sentence
-\newcommand{\ColdHeadSpeed}{28.4}% [exploratory] audio-s per CPU-s (x real time, one core)
-\newcommand{\ColdHeadWer}{9.09}% [exploratory] % WER, pooled
-\newcommand{\ColdHeadWerClean}{5.84}% [exploratory] % WER, dev-clean half
-\newcommand{\ColdHeadWerGapBest}{3.23}% [exploratory] pp WER
-\newcommand{\ColdHeadWerOther}{13.74}% [exploratory] % WER, dev-other half
-\newcommand{\ColdHostSentence}{6 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive; the dashed line joins quiet-host rows only.}% [reported] sentence
-\newcommand{\ColdLagSentence}{Word lag (end to end, with the input paced at real time) is being measured; no value has been admitted yet.}% [reported] sentence
-\newcommand{\ColdLightRssOverHead}{2.0}% [exploratory] x
+\newcommand{\ColdHctlCpu}{0.036}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdHctlLagDesignPfifty}{320}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdHctlLagDesignPninetyFive}{440}% [exploratory] ms word lag with unbounded compute, p95
+\newcommand{\ColdHctlLagPfifty}{350}% [exploratory] ms word lag, input paced at real time, p50
+\newcommand{\ColdHctlLagPninetyFive}{494}% [exploratory] ms word lag, input paced at real time, p95
+\newcommand{\ColdHctlModel}{284}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdHctlRss}{74}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdHctlRtfx}{27.8}% [exploratory] audio-s per wall-s
+\newcommand{\ColdHctlSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdHctlWer}{8.06}% [exploratory] % WER
+\newcommand{\ColdHctlWerClean}{5.20}% [exploratory] % WER
+\newcommand{\ColdHctlWerOther}{12.16}% [exploratory] % WER
+\newcommand{\ColdHeadCpu}{0.036}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdHeadDetail}{H22ctl, step 79,800, EMA weights, INT8}% [exploratory] name
+\newcommand{\ColdHeadModel}{284}% [exploratory] MB of model files
+\newcommand{\ColdHeadName}{\ultra{}-S}% [exploratory] name
+\newcommand{\ColdHeadRss}{74}% [exploratory] MB peak resident memory
+\newcommand{\ColdHeadSentence}{\ultra{} (H22ctl, step 79,800, EMA weights, INT8) costs 0.036 CPU-seconds per audio-second on host H1, which is 27.8$\times$ real time on one core, at 5.20\% WER on dev-clean (12.16\% on dev-other, 8.06\% pooled), and peaks at 74\,MB of memory.}% [reported] sentence
+\newcommand{\ColdHeadSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time, one core)
+\newcommand{\ColdHeadWer}{8.06}% [exploratory] % WER, pooled
+\newcommand{\ColdHeadWerClean}{5.20}% [exploratory] % WER, dev-clean half
+\newcommand{\ColdHeadWerGapBest}{2.59}% [exploratory] pp WER
+\newcommand{\ColdHeadWerOther}{12.16}% [exploratory] % WER, dev-other half
+\newcommand{\ColdHostSentence}{6 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
+\newcommand{\ColdLagSentence}{With the input paced at real time on one core of the shared host H0, the median word lag of \ultra{} is 350\,ms (95th percentile 494\,ms); the other streaming systems measured there range from 564\,ms (Zipformer) to 719\,ms (Moonshine Tiny).}% [reported] sentence
+\newcommand{\ColdLightRssOverHead}{2.1}% [exploratory] x
 \newcommand{\ColdMRCpu}{0.037}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMRLagDesignPfifty}{240}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdMRLagDesignPninetyFive}{380}% [exploratory] ms word lag with unbounded compute, p95
+\newcommand{\ColdMRLagPfifty}{262}% [exploratory] ms word lag, input paced at real time, p50
+\newcommand{\ColdMRLagPninetyFive}{406}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdMRModel}{296}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMRRss}{77}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMRRtfx}{26.6}% [exploratory] audio-s per wall-s
@@ -119,8 +136,10 @@
 \newcommand{\ColdMRWerClean}{11.56}% [exploratory] % WER
 \newcommand{\ColdMRWerOther}{22.19}% [exploratory] % WER
 \newcommand{\ColdMachinesSentence}{Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are being measured; none is reported yet.}% [reported] sentence
-\newcommand{\ColdMemorySentence}{The other systems need between 156\,MB (Zipformer) and 1290\,MB (Nemotron at 560\,ms) of memory, 2.0 to 16.4 times as much as \ultra.}% [reported] sentence
+\newcommand{\ColdMemorySentence}{The other systems need between 156\,MB (Zipformer) and 1290\,MB (Nemotron at 560\,ms) of memory, 2.1 to 17.5 times as much as \ultra.}% [reported] sentence
 \newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonSmallLagDesignPfifty}{540}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdMoonSmallLagDesignPninetyFive}{920}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonSmallRss}{476}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMoonSmallRtfx}{2.02}% [exploratory] audio-s per wall-s
@@ -129,6 +148,10 @@
 \newcommand{\ColdMoonSmallWerClean}{3.98}% [exploratory] % WER
 \newcommand{\ColdMoonSmallWerOther}{8.73}% [exploratory] % WER
 \newcommand{\ColdMoonTinyCpu}{0.131}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonTinyLagDesignPfifty}{530}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdMoonTinyLagDesignPninetyFive}{1010}% [exploratory] ms word lag with unbounded compute, p95
+\newcommand{\ColdMoonTinyLagPfifty}{719}% [exploratory] ms word lag, input paced at real time, p50
+\newcommand{\ColdMoonTinyLagPninetyFive}{1528}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdMoonTinyModel}{45}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonTinyRss}{204}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMoonTinyRtfx}{7.63}% [exploratory] audio-s per wall-s
@@ -137,6 +160,8 @@
 \newcommand{\ColdMoonTinyWerClean}{6.54}% [exploratory] % WER
 \newcommand{\ColdMoonTinyWerOther}{14.72}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyCpu}{0.451}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoFiveSixtyLagDesignPfifty}{410}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdNemoFiveSixtyLagDesignPninetyFive}{790}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdNemoFiveSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtyRss}{1290}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtyRtfx}{2.22}% [exploratory] audio-s per wall-s
@@ -145,6 +170,8 @@
 \newcommand{\ColdNemoFiveSixtyWerClean}{2.61}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyWerOther}{4.93}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyCpu}{0.782}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoOneSixtyLagDesignPfifty}{260}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdNemoOneSixtyLagDesignPninetyFive}{550}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdNemoOneSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoOneSixtyRss}{1287}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoOneSixtyRtfx}{1.28}% [exploratory] audio-s per wall-s
@@ -153,6 +180,8 @@
 \newcommand{\ColdNemoOneSixtyWerClean}{2.90}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyWerOther}{5.42}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveCpu}{1.186}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdNemoThreeFiveLagDesignPfifty}{310}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdNemoThreeFiveLagDesignPninetyFive}{510}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdNemoThreeFiveModel}{742}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveRss}{1277}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveRtfx}{0.84}% [exploratory] audio-s per wall-s
@@ -165,14 +194,20 @@
 \newcommand{\ColdRowsEnergy}{0}% [reported] rows
 \newcommand{\ColdRowsFaded}{6}% [reported] rows
 \newcommand{\ColdRowsInterim}{6}% [reported] rows
-\newcommand{\ColdRowsLag}{0}% [reported] rows
-\newcommand{\ColdRowsOffFrontier}{7}% [reported] rows
+\newcommand{\ColdRowsLag}{3}% [reported] rows
+\newcommand{\ColdRowsOffFrontier}{6}% [reported] rows
 \newcommand{\ColdRowsStreaming}{7}% [reported] rows
+\newcommand{\ColdRowsSubset}{0}% [reported] rows
 \newcommand{\ColdRowsUndrawn}{0}% [reported] rows
 \newcommand{\ColdRowsWhole}{0}% [reported] rows
 \newcommand{\ColdSpeedSentence}{No other system has a row from host H1 yet, so no speed ratio is given: the other points come from a shared host that ran other jobs, where every system is slower.}% [reported] sentence
+\newcommand{\ColdSubsetSentence}{\relax}% [reported] sentence
 \newcommand{\ColdWattsSentence}{Energy per audio-second (the watts one live stream costs) is being measured; no value has been admitted yet.}% [reported] sentence
 \newcommand{\ColdZipCpu}{0.117}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdZipLagDesignPfifty}{510}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdZipLagDesignPninetyFive}{720}% [exploratory] ms word lag with unbounded compute, p95
+\newcommand{\ColdZipLagPfifty}{564}% [exploratory] ms word lag, input paced at real time, p50
+\newcommand{\ColdZipLagPninetyFive}{762}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdZipModel}{73}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdZipRss}{156}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdZipRtfx}{8.50}% [exploratory] audio-s per wall-s
@@ -342,6 +377,7 @@
 \newcommand{\MelNnzSparse}{477}% [reported] nonzeros
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
+\newcommand{\MoneyMarksCaption}{Diamond: ours (\ColdHeadDetail). Filled: live streaming systems.}% [reported] sentence
 \newcommand{\MoneyWattsCaption}{Watts per live stream are not drawn: no energy measurement has been admitted yet.}% [reported] sentence
 \newcommand{\NonGemmGain}{0--5}% [exploratory] %
 \newcommand{\OrtVersion}{1.28.2}% [reported] version
@@ -499,4 +535,4 @@
 \newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per core sustained at p99 lateness of at most \LatenessBoundMs\,ms (top axis: per CCX, \DenWorkers{} single-threaded workers; \LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, measured in the same harness for the same checkpoints. Dense: the latest checkpoint (average of steps 55/60/65k), greedy (circle) and beam~4 (diamond) at the same density. R0 and multirate come from the clean same-session run; in the dense run the loaded host cut R0 to \RzeroLoadedCCX{} streams per CCX, so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.}
 
 \newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps 45/50/55k; the latest dense checkpoint of that harness is in \cref{fig:frontier}) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
-\newcommand{\MoneyCaption}{Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\ColdAudioMinutes{} minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load included; median of three runs. Speed is audio-seconds per CPU-second; WER is on the 400 dev-clean utterances of that panel. \ColdOrderSentence{} Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the whole clip before they emit a word. Diamonds: ours. Dashed: the streaming systems that no other streaming system beats on both axes. \MoneyWattsCaption{} \ColdHostSentence{} Exploratory.}
+\newcommand{\MoneyCaption}{Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\ColdAudioMinutes{} minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load included; median of three runs. Speed is audio-seconds per CPU-second; WER is on the 400 dev-clean utterances of that panel. \ColdOrderSentence{} \MoneyMarksCaption{} \MoneyWattsCaption{} \ColdHostSentence{} \ColdSubsetSentence{} Exploratory.}

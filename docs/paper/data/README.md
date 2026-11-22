@@ -115,15 +115,24 @@ format for the cold rotation.
   tabulated; it is only compared with the primary row of that variant
   (`\ColdAnchorSentence` prints the range of CPU-cost ratios). A session whose anchor differs by more than 10% in CPU
   cost stays out of the frontier line.
-- Word lag (streaming only, all five): `lag_p50_ms`, `lag_p95_ms`, `lag_method`, `lag_workload_digest`,
-  `lag_receipt_sha256`. The lag is end to end with the input paced at real time, at the row's own thread budget.
-  Optional beside it: `lag_design_p50_ms`, `lag_design_p95_ms`, the lag with unbounded compute.
+- Word lag (streaming only): `lag_p50_ms`, `lag_p95_ms` with the three proof fields `lag_method`,
+  `lag_workload_digest`, `lag_receipt_sha256`. The lag is end to end with the input paced at real time, at the
+  row's own thread budget. `lag_design_p50_ms`, `lag_design_p95_ms` are the lag with unbounded compute; they may
+  stand beside the paced lag or alone (for a system whose paced lag has not been measured on a quiet host yet).
 - A `whole_utterance` row has no word lag. It may give `final_latency_p50_ms` and `final_latency_p95_ms` (wait for
   the end of the clip, then infer) with the same three proof fields (`lag_method`, `lag_workload_digest`,
   `lag_receipt_sha256`).
 - `audio_seconds`: the duration of the staged audio (the caption's "87.7 minutes").
+- `timing_panel`: `full` (default: speed and WER from the same 730-utterance runs) or `p73` (a slow system timed on
+  the 73-utterance subset, three repetitions). A `p73` row also gives `timing_workload_digest` (the subset) and
+  `wer_source` (the full-panel pass, on another host of the same CPU model, that its WER comes from).
+- `n_busy_cores_reps` (busy cores on the host in each repetition, the arm's own core included) and `service_mhz`:
+  recorded from the receipts. **A quiet-host row with more than 2 other busy cores in any repetition is not a
+  primary row**: the loader keeps it as a cross-check of its variant and never draws it.
 - Energy (all three): `joules_per_audio_s` (the watts one live stream costs; `watts_per_stream` may repeat it),
-  `energy_method` (`core_msr_active`, `core_msr_dynamic`, `pkg_rapl_delta` or `wall_meter`), `energy_receipt_sha256`.
+  `energy_method` (`core_msr_active`, `core_msr_dynamic`, `pkg_rapl_delta`, `wall_meter`, or `core_msr_contended` for
+  core registers read in a separate run on a shared core: a cross-check that is never the drawn value while a
+  same-run method exists), `energy_receipt_sha256`.
 
 **Sidecar lines**, so that several agents never edit one line. They may sit in any file of `evidence/`:
 
@@ -184,10 +193,18 @@ change by themselves when rows arrive.
 Figure 1's vertical axis is the WER on the panel's 400 dev-clean utterances (`wer_clean`), the number model cards
 lead with; dev-other and pooled WER are in the text, the tables and the README block.
 
+## Hosts
+
+`common.HOSTS` gives each host its name in the paper (H0, H1, X1, M1) and its memory configuration (channels
+populated, speed grade). A recogniser that streams its weights is bound by the memory bus, so single-core rows are
+measured one system at a time on an otherwise idle host, and the hardware table states the memory configuration.
+
 ## Figure 1 labels
 
 `money.py` and `labels.py` place every label box in points inside the fixed plot box. A label first tries the eight
 positions around its marker, then positions reached by a leader line. If the figure is too crowded for a label, it
 becomes a number and its name goes into a key under the plot (`\MoneyKey`). A build never ships overlapping labels:
-the generator refuses instead. A watts axis appears on top once every drawn system has an energy value and one
+the generator refuses instead. The legend lists a mark only when it is on the plot (`\MoneyHasFrontier`,
+`\MoneyHasStream`, `\MoneyHasWhole`, `\MoneyHasFaded`). A system with a same-run energy line gets its watts beside
+its name. A watts axis appears on top once every drawn system has an energy value and one
 power per busy core fits them all within 15% (`\MoneyWattsCaption` says which state applies).

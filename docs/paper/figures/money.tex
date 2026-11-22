@@ -43,18 +43,22 @@
 \node[font=\tiny, text=okInk!80, rotate=90, anchor=north east, inner sep=1.5pt]
   at (rel axis cs:0,1) {slower than real time};
 % The legend is declared by hand and every plot is `forget plot`: a filter that matches no row would
-% otherwise drop its plot and shift the legend entries.
+% otherwise drop its plot and shift the legend entries. An entry appears only when its mark is drawn.
+\ifnum\MoneyHasFrontier>0
 \addlegendimage{okInk!70, densely dashed, line width=0.5pt}
 \addlegendentry{streaming frontier}
-\addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk}
-\addlegendentry{live streaming}
+\fi
 \addlegendimage{only marks, mark=diamond*, mark size=3.3pt, color=okBlue}
 \addlegendentry{ours (live streaming)}
-\ifnum\ColdRowsWhole>0
+\ifnum\MoneyHasStream>0
+\addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk}
+\addlegendentry{live streaming}
+\fi
+\ifnum\MoneyHasWhole>0
 \addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk, line width=0.7pt, mark options={fill=white}}
 \addlegendentry{whole clip first: no live words}
 \fi
-\ifnum\ColdRowsFaded>0
+\ifnum\MoneyHasFaded>0
 \addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk!40}
 \addlegendentry{interim (shared host)}
 \fi

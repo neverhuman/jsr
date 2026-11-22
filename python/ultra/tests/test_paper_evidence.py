@@ -47,9 +47,9 @@ def test_evidence_rows_are_ingested(tmp_path):
     assert files["cold_dev.csv"].splitlines() == [
         ",".join(cold.CSV_HEADER),
         "sys-a-zen2-t1,sys-a,A,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.20000,5.000,4.000,3.00,"
-        "2.00,4.50,150.0,70.0,,,,exploratory,h0,1,,,,,0",
+        "2.00,4.50,150.0,70.0,,,,exploratory,h0,1,,,,,0,full",
         "sys-b-zen2-t1,sys-b,B,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.05000,20.000,4.000,9.00,2.00,4.50,"
-        "150.0,70.0,,,,exploratory,h0,1,,,,,0",
+        "150.0,70.0,,,,exploratory,h0,1,,,,,0,full",
     ]
     for macro in ("\\newcommand{\\ColdRowsCount}{2}", "\\newcommand{\\ColdSysASpeed}{5.00}",
                   "\\newcommand{\\ColdSysBSpeed}{20.0}", "\\newcommand{\\ColdSysAWer}{3.00}",
@@ -70,7 +70,10 @@ def test_evidence_rows_are_ingested(tmp_path):
     ({"class": "whole_utterance", "lag_p50_ms": 300}, "throughput only"),
     ({"final_latency_p50_ms": 5000, "final_latency_p95_ms": 9000}, "whole_utterance rows"),
     ({"class": "whole_utterance", "final_latency_p50_ms": 5000}, "all-or-none"),
-    ({"lag_design_p50_ms": 250, "lag_design_p95_ms": 400}, "all-or-none"),
+    ({"lag_design_p50_ms": 250, "lag_design_p95_ms": 400}, "all-or-none"),  # no proof fields
+    ({"lag_p50_ms": 300, "lag_method": "m", "lag_workload_digest": "d", "lag_receipt_sha256": "r"}, "all-or-none"),
+    ({"timing_panel": "p73"}, "timing_workload_digest"),
+    ({"timing_panel": "half"}, "bad timing_panel"),
     ({"joules_per_audio_s": 0.4}, "all-or-none"),
     ({"short": "a label, with a comma"}, "plain characters"),
     ({"session": None}, "missing"),
@@ -182,6 +185,34 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     assert "Top axis: watts one live stream costs" in files["metrics.tex"]
 
 
+def test_a_row_measured_on_a_busy_quiet_host_is_a_cross_check_not_a_primary_row(tmp_path):
+    def on(host, cpu, **kw):
+        return _row(role="ours", host=host, cpu_s_per_audio_s=cpu, cpu_reps=[cpu] * 3, **kw)
+
+    quiet = on("xbabe0", 0.035, session="quiet", n_busy_cores_reps=[1, 1, 2])
+    busy = on("xbabe0", 0.055, session="busy", id="sys-a-zen2-t1-busy", n_busy_cores_reps=[1, 16, 16])
+    files, _ = pd.build(_mini_repo(tmp_path, [busy, quiet]))
+    plot = {ln.split(",")[0]: ln.split(",")[21] for ln in files["cold_dev.csv"].splitlines()[1:]}
+    assert plot == {"sys-a-zen2-t1": "1", "sys-a-zen2-t1-busy": "0"}
+    assert "\\ColdSysASpeed}{28.6}" in files["metrics.tex"]  # the quiet row's speed, whatever the file order
+    shutil.rmtree(tmp_path / "repo")
+    files, _ = pd.build(_mini_repo(tmp_path, [busy]))  # only a loaded row: it is kept, but nothing is drawn
+    assert "\\ColdRowsCount}{0}" in files["metrics.tex"] and "\\ColdSysASpeed}" not in files["metrics.tex"]
+
+
+def test_a_slow_system_timed_on_the_subset_is_drawn_and_counted(tmp_path):
+    slow = _row(variant="sys-s", timing_panel="p73", timing_workload_digest="p73-digest", wer_source="full panel on h2",
+                cpu_s_per_audio_s=2.5, cpu_reps=[2.5] * 3)
+    design = {"kind": "lag", "row": "sys-s-zen2-t1", "lag_design_p50_ms": 600, "lag_design_p95_ms": 900,
+              "lag_method": "replay", "lag_workload_digest": "d", "lag_receipt_sha256": "r"}  # no paced lag yet
+    files, _ = pd.build(_mini_repo(tmp_path, [_row(role="ours"), slow, design]))
+    line = next(ln for ln in files["cold_dev.csv"].splitlines() if ln.startswith("sys-s-zen2-t1,"))
+    assert line.endswith(",1,600,900,,,0,p73")
+    tex = files["metrics.tex"]
+    assert "\\ColdRowsSubset}{1}" in tex and "\\ColdSysSLagDesignPfifty}{600}" in tex and "ColdSysSLagPfifty" not in tex
+    assert "1 slow system is timed on a 73-utterance subset of the panel (A)" in tex
+
+
 def test_eight_cores_used_three_ways_are_three_rows(tmp_path):
     def eight(parallel, wall, **kw):
         return _row(threads=8, parallel=parallel, id=f"sys-a-zen2-t8-{parallel}", wall_s_per_audio_s=wall,
@@ -212,8 +243,8 @@ def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):
     design = dict(lag, lag_design_p50_ms=250, lag_design_p95_ms=480)
     files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, whole, design, final, core]))
     lines = {ln.split(",")[0]: ln for ln in files["cold_dev.csv"].splitlines()[1:]}
-    assert lines["sys-a-zen2-t1"].endswith(",310,720,0.750,exploratory,h0,1,250,480,,,0")
-    assert lines["sys-w-zen2-t1"].endswith(",,,,exploratory,h0,1,,,5100,9900,0")
+    assert lines["sys-a-zen2-t1"].endswith(",310,720,0.750,exploratory,h0,1,250,480,,,0,full")
+    assert lines["sys-w-zen2-t1"].endswith(",,,,exploratory,h0,1,,,5100,9900,0,full")
     for macro in ("\\ColdSysALagPfifty}{310}", "\\ColdSysALagPninetyFive}{720}", "\\ColdSysAWatts}{0.75}",
                   "\\ColdSysALagDesignPfifty}{250}", "\\ColdSysWFinalLatencyPninetyFive}{9900}",
                   "\\ColdRowsEnergy}{1}", "\\ColdRowsLag}{1}"):
@@ -221,6 +252,10 @@ def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, core, pkg, head]))  # two methods, one named headline
     assert "\\ColdSysAWatts}{1.25}" in files["metrics.tex"]
+    shutil.rmtree(tmp_path / "repo")
+    shared = dict(core, joules_per_audio_s=0.9, energy_method="core_msr_contended")  # a separate run, shared core
+    files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, core, shared, dict(head, energy_method="core_msr_active")]))
+    assert "\\ColdSysAWatts}{0.75}" in files["metrics.tex"]
     for rows, msg in (([_row(), dict(lag, row="nope")], "unknown row"), ([_row(lag_p50_ms=1), lag], "given twice"),
                       ([_row(), core, core], "given twice"), ([_row(), core, pkg], "energy_headline"),
                       ([_row(), dict(core, watts_per_stream=0.5)], "same quantity"),

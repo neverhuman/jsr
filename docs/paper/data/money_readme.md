@@ -4,11 +4,11 @@
 
 ![Speed on one CPU core against dev-clean WER on the 730-utterance LibriSpeech DEV panel, every system measured on our own hardware](docs/paper/money.png)
 
-Figure 1 of [the paper](docs/paper/paper.pdf): 7 recognisers, each decoding the same 730 LibriSpeech DEV utterances as a cold process on one pinned Zen 2 core, model load included; median of three runs. The vertical axis is WER on the panel's 400 dev-clean utterances. Further right is faster, further down is more accurate. Blue diamonds are ours; filled marks are live streaming systems, hollow marks whole-utterance systems (the whole clip first, no live words). 6 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive; the dashed line joins quiet-host rows only. Watts per live stream are not drawn: no energy measurement has been admitted yet.
+Figure 1 of [the paper](docs/paper/paper.pdf): 7 recognisers, each decoding the same 730 LibriSpeech DEV utterances as a cold process on one pinned Zen 2 core, model load included; median of three runs. The vertical axis is WER on the panel's 400 dev-clean utterances. Further right is faster, further down is more accurate. Blue diamonds are ours; filled marks are live streaming systems, hollow marks whole-utterance systems (the whole clip first, no live words). 6 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive. Watts per live stream are not drawn: no energy measurement has been admitted yet.
 
 | System | Class | Speed (× real time) | dev-clean WER (%) | dev-other WER (%) | Pooled WER (%) | Peak memory (MB) | Host |
 |---|---|---:|---:|---:|---:|---:|---|
-| **ULTRA D2e step 16457** (ours) | streaming | 28.4 | 5.84 | 13.74 | 9.09 | 79 | H1 |
+| **ULTRA-S (ours)** | streaming | 27.8 | 5.20 | 12.16 | 8.06 | 74 | H1 |
 | Zipformer (baseline) | streaming | 8.56 | 3.03 | 8.43 | 5.25 | 156 | H0, interim |
 | Moonshine Tiny | streaming | 7.63 | 6.54 | 14.72 | 9.90 | 204 | H0, interim |
 | Nemotron 560 ms | streaming | 2.22 | 2.61 | 4.93 | 3.56 | 1290 | H0, interim |
