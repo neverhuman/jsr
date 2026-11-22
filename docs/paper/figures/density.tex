@@ -1,0 +1,38 @@
+% Fig. 2 body (paper-data): warm single-harness density ladder, exploratory.
+% Worst-worker p99 lateness vs live streams per Zen 2 CCX (4 workers). Hollow marks = failed rung;
+% rings = claimed density (last sustained rung).
+% Data: data/ladder_{rzero,dense,mr}.csv (Job E, ultra ce58952; dense = avg-3 finalist). WER: panel dev-clean
+% (R0, MR: same harness, Job C; dense avg-3: Rust-rescored trainer FP32 until runtime Job F1 lands).
+\input{figures/style.tex}
+\begin{tikzpicture}
+\begin{axis}[ultra/base,
+  width=0.82\columnwidth, height=4.4cm,
+  xlabel={Live streams per CCX (4 single-thread workers)},
+  ylabel={Worst-worker p99 lateness (ms)},
+  xmin=0, xmax=176, xtick={0,32,64,96,128,160},
+  ymode=log, ymin=300, ymax=4000, log basis y=10,
+  ytick={300,500,800,1000,2000,4000}, yticklabels={300,500,800,1000,2000,4000},
+  legend style={at={(0.42,-0.30)}, anchor=north, font=\scriptsize}, legend cell align=left,
+]
+\addplot[okGrey, dashed, thin, mark=none, forget plot] coordinates {(0,\LatenessBoundMs) (176,\LatenessBoundMs)};
+% bound label below the line, in the gap between R0's last (failed) rung and the dense/MR curves
+\node[font=\scriptsize, text=okGrey, anchor=north west, inner sep=1.5pt] at (axis cs:50,\LatenessBoundMs) {\LatenessBoundMs\,ms bound};
+\addplot[ultra/rzero] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_rzero.csv};
+\addlegendentry{R0 Zipformer: \DenRzeroCCX{}/CCX, WER \WerRehearsalRzero\,\%}
+\addplot[ultra/dense] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_dense.csv};
+\addlegendentry{dense avg-3: \DenDenseCCX{}/CCX, WER \WerRehearsalDense\,\%}
+\addplot[ultra/mr] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_mr.csv};
+\addlegendentry{multirate 50k: \DenMRCCX{}/CCX, WER \WerRehearsalMR\,\%}
+% failed rungs drawn hollow on top
+\addplot[ultra/rzero, ultra/failed, only marks, forget plot, ultra/keep if={sustained}{0}]
+  table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_rzero.csv};
+\addplot[ultra/dense, ultra/failed, only marks, forget plot, ultra/keep if={sustained}{0}]
+  table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_dense.csv};
+\addplot[ultra/mr, ultra/failed, only marks, forget plot, ultra/keep if={sustained}{0}]
+  table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_mr.csv};
+% ring the claimed rung of each system
+\addplot[okVermillion, only marks, mark=o, mark size=3.4pt, forget plot] coordinates {(\DenRzeroCCX,\DenPninetyNineRzero)};
+\addplot[okBlue, only marks, mark=o, mark size=3.4pt, forget plot] coordinates {(\DenDenseCCX,\DenPninetyNineDense)};
+\addplot[okGreen, only marks, mark=o, mark size=3.8pt, forget plot] coordinates {(\DenMRCCX,\DenPninetyNineMR)};
+\end{axis}
+\end{tikzpicture}

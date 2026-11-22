@@ -1,0 +1,213 @@
+\section{Results}\label{sec:results}
+
+All rows are \emph{exploratory}: a shared AMD Threadripper PRO 3995WX (Zen~2, AVX2+FMA) and an
+Apple M3 Ultra, before the freeze, DEV data only. Each speed row carries the WER \emph{of the
+checkpoint that was timed}, never a later one.
+
+\begin{table*}[t]
+\centering
+\caption{\textbf{Throughput at a glance.} Warm, in-process, single harness, one Zen~2 CCX (four
+single-threaded workers, observer on another CCX, 320\,ms grid, worst-worker p99 lateness
+$\le$ 800\,ms). \emph{Exploratory: 20\,s rungs, one repeat, no confirmation; each stream cycles the
+first \LadderUtts{} dev-clean utterances; shared host.} WER: the 400 dev-clean utterances of the DEV
+panel, same harness and executable, INT8.}
+\label{tab:density}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrcrrrrrcr@{}}
+\toprule
+ & \multicolumn{5}{c}{Paced density (A1), p99 in ms} & \multicolumn{2}{c}{32 streams/CCX} & Single stream & \\
+\cmidrule(lr){2-6}\cmidrule(lr){7-8}\cmidrule(lr){9-9}
+System & /core (/CCX) & ratio [bracket] & p99 & fail (p99) & demand & \cpus & RTFx & median [95\% CI] & WER \\
+\midrule
+Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRehearsalRzero \\
+dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \DemandDense\% & \CostLadderDense & \RtfxLadderDense & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDense \\
+multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMR \\
+\midrule
+\multicolumn{10}{@{}l}{\textit{Engine facts measured elsewhere (other runs or tools; not comparable with the rows above)}} \\
+\multicolumn{10}{@{}l}{FP32 engine vs.\ ONNX Runtime, same executable, weights and transcripts: \SpeedupEngineFPVsORT{}$\times$ less CPU.} \\
+\multicolumn{10}{@{}l}{Identical PCM-to-token decodes, x86 AVX2 vs.\ ARM NEON: \XisaAgree/\XisaTotal.} \\
+\multicolumn{10}{@{}l}{Portable log-mel front end: \MelSpeedupZen{}$\times$ faster on Zen~2, \MelSpeedupMthree{}$\times$ on M3, 0-ULP identical.} \\
+\multicolumn{10}{@{}l}{M3 Ultra, engine dev tool (multirate): \SingleMthreeMR{} \cpus single stream, \StreamsPerCoreMthreeMR{} streams/core.} \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\parbox{\textwidth}{\footnotesize Bracket: the true density ratio lies between (pass / other's
+fail) and (fail / other's pass), because rungs are 16 streams per CCX apart. Demand: projected CPU demand
+at the passing rung, CPU-seconds used over the four cores' CPU-seconds in the rung, from processed
+audio (not sampled utilisation). RTFx: audio-seconds per CPU-second ($1/$\cpus). WER in \%. $^{a}$Single-stream blocks used the dense step-45k
+checkpoint (\WerRehearsalDenseFortyFive\%), whose density was
+\DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX across two earlier ladder runs.
+Zipformer and multirate densities were identical in all \DenReproRuns{} runs.}
+\end{table*}
+
+\subsection{Serving density}
+
+\Cref{tab:density,fig:money} are the headline. On one CCX, Zipformer passes the \DenRzeroCCX-stream
+rung (\DenRzeroCore{} per core) and fails at \DenFailRzeroCCX; the \ultra multirate model passes
+\DenMRCCX{} (\DenMRCore{} per core) and fails at \DenFailMRCCX: \DenRatioMR{}$\times$ the passing load,
+with the true ratio bracketed by \DenRatioMRBracketLo{} and \DenRatioMRBracketHi{} by the rung
+spacing. The dense finalist passes \DenDenseCCX. At the shared 32-stream rung the multirate model
+costs \CostLadderMR{} \cpus against \CostLadderRzero{} (\CostRatioMR{}$\times$ less), and a fixed
+equal-load probe at \ProbeStreams{} streams for \ProbeSeconds\,s gave worst-worker p99 of
+\ProbePninetyNineMR{} (multirate), \ProbePninetyNineDense{} (dense) and \ProbePninetyNineRzero\,ms
+(Zipformer, over the bound), all drained.
+
+\para{Why density exceeds cost.} The density ratio (\DenRatioMR{}$\times$) is larger than the cost
+ratio (\CostRatioMR{}$\times$). At the first failing load, the two \ultra
+configurations approached the four cores' projected capacity: \DemandFailDense\% (dense) and
+\DemandFailMR\% (multirate) at the first failed rung, against \DemandDense\% and \DemandMR\% at the
+passing rung. It is compute-bound and uses nearly all of the hardware. Zipformer passes at
+\DemandRzero\% and fails at \DemandFailRzero\%, with a fifth of the CPU still unused. That is
+consistent with a scheduling limit under the tested chunk and pacing geometry (rule A1 also counts
+time a packet waits for its chunk to fill, and Zipformer's chunk is 320\,ms against our 160\,ms),
+but the receipts do not isolate chunk size. Batching does not explain our gain (it saves at most
+\BatchLift\% per stream). Every passing rung processed all accepted audio
+(\AudioProcessedMR\,s for multirate), none unfinished.
+
+\para{Single-stream cost.} In the eight counterbalanced blocks the pre-registered median ratio of
+CPU time to Zipformer's was \AbabMedianMR{} for the multirate engine (95\% bootstrap CI
+\AbabMedianMRLo--\AbabMedianMRHi, $p_\text{Holm}=$\,\AbabPholmMR) and \AbabMedianDense{} for the
+dense step-45k engine (\AbabMedianDenseLo--\AbabMedianDenseHi, $p_\text{Holm}=$\,\AbabPholmDense);
+the geometric means are \AbabRatioMR{} and \AbabRatioDense.
+
+\para{What these numbers are, and are not.} Zipformer runs through sherpa-onnx's C API with one
+thread per worker and its batched multi-stream decode, at its released 320\,ms chunk; we did not
+sweep its configuration. The ladder used 20\,s rungs, so ``p99'' is close to the maximum lateness
+of the run. Each stream cycles the first \LadderUtts{} dev-clean utterances; one of the 16 CCX was used,
+and nothing is extrapolated to the machine. The multirate model's fleet memory is higher than
+Zipformer's (\DenRssMR{} vs.\ \DenRssRzero\,GB).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/density.tex}{\input{figures/density.tex}}{%
+  \pendingfig{Density ladder figure pending (figures/density.tex).}}
+\caption{\textbf{Density ladder, warm single harness.} Worst-worker p99 lateness against live
+streams per Zen~2 CCX (four workers). The dashed line is the 800\,ms bound; the reported density
+is the last rung before the first failure. WER of each timed checkpoint (dev-clean half of the DEV panel, same harness) is
+printed in the legend. \emph{Scope: warm, in-process, single harness, exploratory} (20\,s
+rungs, one repeat, shared host).}
+\label{fig:density}
+\end{figure}
+
+\subsection{Accuracy}
+
+\begin{table}[t]
+\centering
+\caption{Accuracy, streaming WER (\%) on LibriSpeech DEV. Full dev sets unless marked.
+Exploratory.}
+\label{tab:acc}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llrr@{}}
+\toprule
+System & Decoding & dev-clean & dev-other \\
+\midrule
+Zipformer int8 (pretrained)$^{a}$ & greedy & \WerRzeroDevClean & -- \\
+Nemotron 600M Q8, 560\,ms$^{a,b}$ & greedy & \WerNemoDevClean & -- \\
+\midrule
+\ultra dense, step \DtwoStep & greedy & \WerDtwoGreedyClean & \WerDtwoGreedyOther \\
+ & beam 4 & \WerDtwoBeamClean & \WerDtwoBeamOther \\
+\ultra dense, avg.\ of 3 & greedy & \WerDtwoAvgGreedyClean & \WerDtwoAvgGreedyOther \\
+ & beam 4 & \textbf{\WerDtwoBestClean} & \textbf{\WerDtwoBestOther} \\
+\ultra multirate, 50k & greedy & \WerDtwoMRClean & \WerDtwoMROther \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\parbox{\columnwidth}{\footnotesize $^{a}$First 400 dev-clean utterances (six speakers); not
+the 400 panel dev-clean utterances (40 speakers) of \cref{tab:density}, on which Zipformer scores
+\WerRehearsalRzero\%.
+$^{b}$Unknown training-data overlap.}
+\end{table}
+
+On the full 730-utterance DEV selection panel, pooled WER is
+\WerRzeroPanel\% for Zipformer INT8, \WerRehearsalDensePooled\% for the
+timed dense average, and \WerRehearsalMRPooled\% for D2MR. The
+D2MR gap against Zipformer is \GapMRvsRzeroPooled{} percentage points
+(descriptive paired speaker-cluster 95\% interval
+\GapMRvsRzeroPooledLo--\GapMRvsRzeroPooledHi). \Cref{tab:acc} also gives
+full-set results for the later dense average, which reaches
+\WerDtwoBestClean\% and \WerDtwoBestOther\% with beam four.
+
+\subsection{Cold boundary}
+
+The cold process-tree comparison of \cref{sec:protocol} has no complete three-repetition rows yet,
+so this draft makes no cold-boundary claim.
+
+\begin{table}[t]
+\centering
+\caption{Cross-ISA identity (x86 AVX2 vs.\ ARM NEON, PCM16 to tokens) and the INT8 gate, on the
+730-utterance panel. $\Delta$: INT8 minus FP32 WER (pp); UB: one-sided 95\% bootstrap upper bound
+(gate: $\Delta\le$ \PreregDeltaPP, UB $\le$ \PreregUpperPP). Exploratory.}
+\label{tab:xisa}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{INT8 identical / 730} & \multicolumn{2}{c}{INT8 gate} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+Checkpoint & libm & portable & $\Delta$ & UB \\
+\midrule
+dense, early & -- & \XisaPostDoneSeventyEight & \GateDeltaDoneSeventyEight & \GateUpperDoneSeventyEight \\
+dense (45k) & \XisaPreDtwoFortyFive & \XisaPostDtwoFortyFive & \GateDenseDelta & \GateDenseUpper \\
+multirate, 100\,h & \XisaPreDoneMR & \XisaPostDoneMR & \GateDeltaDoneMR & \GateUpperDoneMR \\
+multirate, int8 stem & \XisaPreDthreeMRb & \XisaPostDthreeMRb & \GateDeltaDthreeMRb & \GateUpperDthreeMRb \\
+ternary (100\,h) & \XisaRfourPre & \XisaPostRfourT & \GateDeltaRfourT & \GateUpperRfourT \\
+\midrule
+dense, avg.\ of 3 & & & \GateDtwoAvgDelta & \GateDtwoAvgUpper \\
+multirate, final (50k) & & & \GateMRDelta & \GateMRUpper \\
+multirate, beam 4 & & & \GateBeamDelta & \GateBeamUpper \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Decoding and context ablations (WER \%, exploratory). Top: dense step 50k, full dev,
+FP32. Bottom: multirate final, panel pooled, INT8; attention time relative to left context 128.}
+\label{tab:ablate}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Dense, decoding / attention & dev-clean & dev-other \\
+\midrule
+greedy, trained chunk 160\,ms & \AblGreedyClean & \AblGreedyOther \\
+beam 4 & \AblBeamClean & \AblBeamOther \\
+greedy, chunk 320\,ms (untrained) & \AblChunkEightClean & \AblChunkEightOther \\
+greedy, chunk 640\,ms (untrained) & \AblChunkSixteenClean & \AblChunkSixteenOther \\
+greedy, full attention (untrained) & \AblFullClean & \AblFullOther \\
+\midrule
+Multirate, left context & WER & attention \\
+\midrule
+128 frames (5\,s, trained) & \LeftOneTwentyEightWer & 1 \\
+64 frames & \LeftSixtyFourWer & \LeftSixtyFourAttn \\
+32 frames & \LeftThirtyTwoWer & \LeftThirtyTwoAttn \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\para{Engine against a general runtime.} In one earlier same-executable session on the same weights
+(a development bridge, not comparable with \cref{tab:density}), ONNX Runtime FP32 cost \CostORTRunB{}
+\cpus and our fused engine in FP32 \CostEngineFPRunB, with all 400 transcripts identical: writing the
+engine saves \SpeedupEngineFPVsORT{}$\times$ before any quantisation.
+
+\subsection{Bit-exactness across ISAs and INT8 gates}
+
+
+With the platform \texttt{libm}, FP32 decodes already agreed across ISAs, but INT8 decodes did
+not: 1-ULP feature differences moved per-row quantisation ties, so between \XisaRfourPre{} and
+\XisaPreDtwoFortyFive{} of 730 utterances matched. With the portable front end, all
+\XisaAgree{} of \XisaTotal{} decodes are identical (\cref{tab:xisa}), and every INT8 artifact
+passes its gate with the worst upper bound at \GateMaxUpper\pp, well inside the pre-registered
+\PreregUpperPP\pp. Switching the front end changed no FP32 transcript.
+
+\subsection{Ablations}
+
+
+\Cref{tab:ablate} sizes the cheap levers. Search error is large: beam 4 removes
+\BeamGainClean\pp / \BeamGainOther\pp on full dev-clean / dev-other at step \DtwoStep{}
+(\cref{tab:acc}), with a similar gain at step 50k (\cref{tab:ablate}), and the engine's native
+beam takes the multirate model from \LeftOneTwentyEightWer\% to \MRBeamPanelBeamInt\% pooled on the
+panel, both INT8, while passing the INT8 gate. Untrained 640\,ms
+chunks gain \ChunkSixteenGainOther\pp on dev-other, but untrained full attention hurts dev-clean. Halving the multirate model's left context
+costs only \LeftSixtyFourDelta\pp and halves key/value state, a density knob not yet laddered.

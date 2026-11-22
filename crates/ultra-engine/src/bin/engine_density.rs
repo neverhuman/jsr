@@ -32,6 +32,7 @@ struct Args {
     int8_stem_kinds: Vec<String>,
     int8_skip: Vec<String>,
     qualifying: bool,
+    beam: usize,
 }
 
 fn parse() -> Result<Args, String> {
@@ -47,6 +48,7 @@ fn parse() -> Result<Args, String> {
         int8_stem_kinds: Vec::new(),
         int8_skip: Vec::new(),
         qualifying: false,
+        beam: 1,
     };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
@@ -66,6 +68,7 @@ fn parse() -> Result<Args, String> {
                 a.int8_stem = true;
             }
             "--qualifying" => a.qualifying = true,
+            "--beam" => a.beam = v()?.parse().map_err(|e| format!("{e}"))?,
             o => return Err(format!("unknown argument {o}")),
         }
     }
@@ -165,7 +168,8 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     };
     let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
         .map_err(|e| e.to_string())?
-        .with_max_chunks(a.max_chunks);
+        .with_max_chunks(a.max_chunks)
+        .with_beam(a.beam);
     let utts = load_npz_audio_only(&a.npz, 0, Some(400)).map_err(|e| e.to_string())?;
     let grid = a.grid_ms as f64 / 1000.0;
     let mut slots: Vec<Slot> = (0..a.streams)
@@ -273,6 +277,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         int8_fp32_kinds: &fp32_kinds,
         int8_stem_kinds: if a.int8_stem { &a.int8_stem_kinds } else { &[] },
         int8_stem_layers_quantised: stem_quantised,
+        beam: engine.beam,
     };
     let mut out = run_info::identity(&engine.model, &a.weights, &knobs);
     let extra = json!({

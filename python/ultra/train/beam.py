@@ -14,10 +14,17 @@ from train.transducer import BLANK, Joiner, StatelessPredictor
 
 @torch.no_grad()
 def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: torch.Tensor,
-                         lens: torch.Tensor, beam: int = 4) -> list[list[int]]:
-    """enc_p (B, T, J) already projected; returns the best token list per utterance."""
+                         lens: torch.Tensor, beam: int = 4, blank_penalty: float = 0.0,
+                         length_norm: bool = False) -> list[list[int]]:
+    """enc_p (B, T, J) already projected; returns the best token list per utterance.
+
+    blank_penalty is subtracted from the blank log-probability at every frame (> 0 favours
+    emitting tokens, countering deletions). length_norm picks the final hypothesis by score per
+    token instead of total score (as icefall's get_best(length_norm=True))."""
     if beam < 1:
         raise ValueError("beam must be >= 1")
+    if blank_penalty < 0:
+        raise ValueError("blank_penalty must be >= 0")
     out = []
     for b in range(enc_p.shape[0]):
         hyps: dict[tuple[int, ...], float] = {(): 0.0}
@@ -27,6 +34,8 @@ def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: t
                                 for s in seqs], dtype=torch.long, device=enc_p.device)
             logp = torch.log_softmax(
                 joiner.logits(enc_p[b, t].expand(len(seqs), -1), predictor(ctx)).float(), dim=-1)
+            if blank_penalty:
+                logp[:, BLANK] -= blank_penalty
             scores = torch.tensor([hyps[s] for s in seqs], device=enc_p.device)[:, None] + logp
             top = torch.topk(scores.flatten(), min(beam, scores.numel()))
             new: dict[tuple[int, ...], float] = {}
@@ -37,5 +46,9 @@ def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: t
                 new[s] = float(torch.logaddexp(torch.tensor(new[s]), torch.tensor(sc))) \
                     if s in new else sc
             hyps = new
-        out.append(list(max(hyps.items(), key=lambda kv: kv[1])[0]))
+        if length_norm:
+            best = max(hyps.items(), key=lambda kv: kv[1] / max(1, len(kv[0])))
+        else:
+            best = max(hyps.items(), key=lambda kv: kv[1])
+        out.append(list(best[0]))
     return out

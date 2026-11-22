@@ -1,0 +1,23 @@
+\begin{abstract}
+Streaming speech services must bound decode lateness as concurrent audio arrives.
+We measure a streaming transducer with multirate encoding and prepared INT8
+inference. In \DenRungSeconds-second replay rungs on one four-core Zen~2 complex,
+D2MR at step 50,000 passed at \DenMRCCX{} streams versus \DenRzeroCCX{} for
+Zipformer INT8, a \DenRatioMR-fold difference in passing load. Worst-worker p99
+lateness was \DenPninetyNineMR{} and \DenPninetyNineRzero\,ms, respectively,
+under an 800-ms deadline. Both passing configurations drained all accepted
+audio. The dense checkpoint passed at \DenDenseCCX{} streams in the same
+replay. At the common \MatchedRung-stream load, D2MR processed
+\AudioPerCpuMR{} audio seconds per CPU second versus \AudioPerCpuRzero{} for
+Zipformer, corresponding to \CostLadderMR{} and \CostLadderRzero{} CPU seconds
+per audio second. At \ProbeStreams{} streams in a \ProbeSeconds-second probe,
+worst-worker p99 was \ProbePninetyNineMR{} versus \ProbePninetyNineRzero\,ms.
+On the 400-utterance dev-clean selection panel, the same configurations yield
+\WerRehearsalMR\% and \WerRehearsalRzero\% word error rate. These shared-host
+results are exploratory. Matched cold costs, hour-long capacity confirmation,
+and registered test accuracy remain pending.
+\end{abstract}
+
+\begin{IEEEkeywords}
+streaming ASR, stream density, CPU inference, RNN-T, INT8 quantisation, reproducibility
+\end{IEEEkeywords}

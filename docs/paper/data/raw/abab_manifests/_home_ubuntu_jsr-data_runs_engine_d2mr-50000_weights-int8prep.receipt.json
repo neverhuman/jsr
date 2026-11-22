@@ -1,0 +1,42 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "ultra-engine-multirate-int8-06bc1d9f5579",
+  "source_commit": "unknown",
+  "hardware": "xbabe0-zen2-64c",
+  "target": "x86_64",
+  "configured_threads": 1,
+  "observed_threads": 1,
+  "cpu_only_verified": true,
+  "audio_seconds": 232.005,
+  "process_tree_cpu_seconds": 7.651,
+  "peak_rss_bytes": 346497024,
+  "events": 50,
+  "wakeups": 65,
+  "cap_hits": 0,
+  "chunk_ms": {
+    "p50": 106.978,
+    "p95": 117.699,
+    "p99": 118.558
+  },
+  "status_events": [
+    "audio_accepted_s:232.005",
+    "audio_processed_s:232.005",
+    "audio_unfinished_s:0.000",
+    "isa:avx2fma",
+    "int8_source:prepared",
+    "weights_sha256:41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
+    "checkpoint_sha256:f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
+    "max_chunks:2",
+    "weights_int8_sha256:f48035f29fbaf0ffde5b666f9bf2714e34179aa4eba4db858ca05624dfeffdb7"
+  ],
+  "gaps": [],
+  "hashes": {
+    "events": "ea1f3598c9e814e6bd6dceb1d8a6379bef0852e3e45065635f4d85f13ff918b3",
+    "preview": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commit": "d99d06436d214e33dad64c1099267359a9c6cd7eb4fa81b62132cb2c650d4330",
+    "final": "3037b0644eedef21c08e27d555e7b46b0e6941b3ca22e015de20ddcaa0a16f7c"
+  },
+  "label": "in-corpus",
+  "partition": "DEV",
+  "completion_status": "exploratory"
+}

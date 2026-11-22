@@ -1,0 +1,65 @@
+\section{Introduction}\label{sec:intro}
+
+CPU speech services for captioning, meeting transcription and voice interfaces
+must keep up with audio as it arrives across many streams. Stream density counts
+the concurrent paced streams a configuration serves under a lateness budget
+and a bounded backlog. We measure passing and failing loads at a specified CPU
+placement, and pair the result with WER from the same deployed checkpoint.
+Single-stream cost measures the work needed per audio second. A paced replay
+also exposes scheduling delays and backlog as load increases.
+
+Three properties make density hard to improve and harder to measure. First, batching across
+streams is the obvious way to amortise weights, yet on a compute-bound CPU it buys little, and
+common INT8 schemes make a stream's output depend on which other streams share its batch.
+Second, the encoder's frame rate fixes the arithmetic per audio second; most of it is spent on
+blocks that need not run at the full rate. Third, density claims are easy to inflate: different
+harnesses, worker counts and lateness rules can move a ratio by a factor of several, as we learned
+ourselves (\cref{sec:protocol}).
+
+\input{sections/fig1.tex}%
+\para{Our approach.} \ultra co-designs a small streaming transducer and a CPU engine around one
+invariant: \emph{integer exactness}. Every quantised GEMM accumulates exactly in int32; every
+activation row is quantised from its own range; and the log-mel front end is computed in portable
+IEEE arithmetic. The result is an engine whose tokens are a pure function of the input audio and
+the weights, independent of batch composition, kernel tile, and instruction set. Exactness is
+what lets us change kernels freely (any change must reproduce the continuity fixtures bit for
+bit) and what makes every speed measurement a measurement of the same computation.
+
+\para{Units.} We report three distinct quantities and never convert one into another: CPU cost in
+CPU-seconds per audio-second (\cpus, measured work); its reciprocal, audio-seconds per
+CPU-second, which we call RTFx; and density, a paced pass under the lateness and no-growth rules.
+
+\para{Two cost boundaries.} \emph{Warm} cost times a running service after load, inside the one
+harness that also measures paced density; it governs serving cost and is our headline. \emph{Cold}
+cost times a whole recognizer process tree, model load included, so that external recognizers we
+can run only as child processes can be compared (\cref{sec:protocol}).
+
+\para{Contributions.}
+\begin{enumerate}
+\item \textbf{A serving-density result under one harness.} With four single-threaded workers on
+  one Zen~2 core complex and a worst-worker p99 lateness bound of 800\,ms, the \ultra multirate
+  model sustains \DenMRCore{} live streams per core against \DenRzeroCore{} for Zipformer int8
+  (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs), and uses \CostRatioMR{}$\times$ less CPU per
+  audio second at equal load (\cref{fig:money,tab:density}).
+\item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
+  with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
+  batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and
+  NEON (\cref{sec:engine}). Even in FP32, in one executable on the same weights, the engine uses
+  \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX Runtime, with identical transcripts.
+\item \textbf{A multirate streaming encoder} running ten of sixteen blocks at \MidRateHz\,Hz inside
+  160\,ms chunks, which raised density by a further
+  \DenRatioMRvsDenseLo--\DenRatioMRvsDenseHi{}$\times$ over the dense model at equal width
+  (exploratory; different training runs) (\cref{sec:model}).
+\item \textbf{A pre-registered evaluation protocol} for CPU ASR: a single harness, a fixed density
+  ladder that stops at the first failure, counterbalanced timing blocks with Holm correction, a
+  speaker-balanced selection panel, and a bootstrap INT8 gate (\cref{sec:protocol}).
+\item \textbf{Negative results}: ternary weights that fit in L3 are \emph{not} faster at batch on a
+  compute-bound CPU, and an unsigned 7-bit GEMM tile that removes three instructions is slower on
+  Zen~2 (\cref{sec:negative}).
+\end{enumerate}
+
+\para{What we do not claim.} \ultra is less accurate than the systems it outruns. Our best model,
+trained only on LibriSpeech, reaches \WerDtwoBestClean\% WER on dev-clean against
+\WerRzeroDevClean\% for Zipformer. Every density ratio in this paper is printed next to that gap.
+All results here are exploratory; the qualified numbers will replace them through the same macros
+once the protocol is frozen and run on a quiet host.

@@ -1,0 +1,66 @@
+\section{An integer-exact CPU engine}\label{sec:engine}
+
+The engine implements the inference graph in pure Rust, with no ONNX Runtime, BLAS or framework,
+its own kernels (scalar reference, AVX2, NEON), and one single-threaded worker per physical core
+serving many streams. Every optimisation must leave the output \emph{bit-identical}: hashed
+encoder projections and token sequences are the oracle for every kernel change.
+
+\para{Per-row centred INT8.} Weights are quantised per output channel,
+$w_q = \mathrm{round}(w/s_w)$ with $s_w=\max|w|/127$. Activations are quantised per
+\emph{row}, i.e.\ per frame of one stream, centred on that row's range:
+\begin{equation}
+\begin{gathered}
+c = \tfrac{1}{2}(x_{\max}+x_{\min}),\qquad s_a = \tfrac{1}{254}(x_{\max}-x_{\min}),\\
+x_q = \mathrm{rne}\bigl((x-c)/s_a\bigr),
+\end{gathered}
+\end{equation}
+with $|x_q|\le 127$ and round-half-even. The output is recovered exactly as
+\begin{equation}
+y_{rn} = s_a^{(r)} s_w^{(n)} \textstyle\sum_k x_q w_q \;+\; c^{(r)} \bar w_n + b_n,
+\end{equation}
+where $\bar w_n = s_w^{(n)}\sum_k w_{q,nk}$ is precomputed, so centring costs one extra fused
+multiply-add per output. Centring matters: post-SiLU FFN inputs are one-sided, and an uncentred
+symmetric scale wastes half the code range (our first, uncentred attempt cost \IntEightUncentred\pp
+WER; centred, the cost on the same set was nil). Because each row's scale and centre come from
+that row alone, \emph{a stream's numbers never depend on which streams share its batch}. We
+verified this at batch sizes 1, 3, 5, 16 and 32: outputs are bit-identical. This is the property
+that dynamic per-tensor INT8, as commonly exported, lacks; in our earlier ONNX export the same
+utterance decoded differently alone and in a batch of eight.
+
+\para{Exact integer kernels.} On AVX2 the GEMM tile ($4\times16$) uses \texttt{vpmaddubsw} on
+$(|x_q|, \mathrm{sign}(w_q,x_q))$. With both magnitudes at most 127 a pair sums to at most
+$2\cdot127^2 = 32{,}258 < 2^{15}$, so the saturating 16-bit step never saturates and the int32
+result equals the scalar reference exactly. On ARM the same sums come from \texttt{sdot} and
+\texttt{smmla}. Kernel changes that alter a summation order are rejected: an early, faster
+attention kernel flipped \AttnFlipCount{} of 400 INT8 transcripts by reordering a float sum, and
+was reverted.
+
+\para{Prepared artifacts.} Quantisation happens once, offline. A prepared artifact stores the
+packed int8 weights, their scales and column sums, and a manifest with the SHA-256 of the
+source weights; the loader verifies both. In qualifying mode the engine refuses runtime weight
+quantisation, and every measurement row records the engine configuration, binary hash, commit,
+ISA and CPU affinity. Prepared INT8 also lowers peak resident memory for the dense model from
+\RssEngineIntEight\,MB (runtime quantisation) to \RssEngineIntEightPrepared\,MB (measured in a
+separate run).
+
+\para{Portable log-mel and cross-ISA identity.} Bit-identical kernels are not enough if the
+features differ. Our first front end used the platform \texttt{libm} and FMA contraction; the
+resulting 1-ULP differences between glibc on x86 and Apple's libm were enough to flip
+per-row quantisation ties, and a ternary model decoded \XisaRfourPre{} of 730 utterances
+identically across ISAs. We replaced every transcendental with portable, unfused IEEE double
+arithmetic (Cody--Waite range reduction with polynomial $\sin$/$\cos$, a mantissa--exponent
+polynomial logarithm accurate to half an ULP, precomputed FFT twiddles) and fixed the reduction
+order of the AVX2 and scalar paths. Features are now 0-ULP identical across ISAs, and parity with
+the PyTorch trainer's features stays below $10^{-6}$ absolute. End to end, from PCM16 to tokens, AVX2 on a
+Zen~2 server and NEON on an Apple M3 Ultra agree on \XisaAgree{} of \XisaTotal{} decodes:
+\XisaModels{} checkpoints (dense, multirate, int8-stem, ternary) $\times$ FP32 and INT8 $\times$ the
+730-utterance panel (\cref{tab:xisa}).
+Exactness did not cost speed in the front end: a sparse triangular filterbank
+(\MelNnzSparse{} instead of \MelNnzDense{} nonzero weights), precomputed bit reversal and an
+unfused vectorised double-precision FFT (four lanes on AVX2, two on NEON) make log-mel
+\MelSpeedupZen{}$\times$ faster on Zen~2 and \MelSpeedupMthree{}$\times$ on M3 while staying 0-ULP
+identical to the portable reference.
+
+\para{Where the time goes.} At a single stream on Zen~2 the int8 GEMMs take \GemmShare\% of engine
+time at about \GmacPerCore{} GMAC/s per core, and at batch the engine is compute-bound: batching
+sixteen streams per worker lowers CPU per stream by at most \BatchLift\%.
