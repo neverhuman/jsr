@@ -14,8 +14,9 @@ while read -r arm budget round workload trace; do
         continue
     fi
     printf '%s start %s %s %s %s\n' "$(date -u +%FT%TZ)" "$arm" "$budget" "$round" "${workload:-panel730}" >> "$log"
+    status=0
     OPP_WORKLOAD=${workload:-panel730} OPP_TRACE=${trace:-0} \
-        bash "$here/run-opponent.sh" "$arm" "$budget" "$round" >> "$log" 2>&1 < /dev/null
-    printf '%s end %s %s %s status %s\n' "$(date -u +%FT%TZ)" "$arm" "$budget" "$round" "$?" >> "$log"
+        bash "$here/run-opponent.sh" "$arm" "$budget" "$round" >> "$log" 2>&1 < /dev/null || status=$?
+    printf '%s end %s %s %s status %s\n' "$(date -u +%FT%TZ)" "$arm" "$budget" "$round" "$status" >> "$log"
 done
 printf '%s queue %s done\n' "$(date -u +%FT%TZ)" "$name" >> "$log"

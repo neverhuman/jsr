@@ -33,6 +33,9 @@ if [[ ! -x "$CARGO_HOME/bin/cargo" ]]; then
 fi
 jobs=${SETUP_JOBS:-2}
 bins=${SETUP_BINS:-ultra-cold-wav ultra-measure ultra-score}
+# SETUP_SUFFIX names a second build beside the first, e.g. `-trace` for the trace-capable
+# services built from a later commit; its provenance goes to rust-build<suffix>.provenance.
+suffix=${SETUP_SUFFIX:-}
 mkdir -p "$O/bench-cross/bin"
 for bin in $bins; do
     package=(-p ultra-eval)
@@ -44,14 +47,14 @@ for bin in $bins; do
     esac
     ${pin[@]+"${pin[@]}"} "$CARGO_HOME/bin/cargo" build --locked --release -j "$jobs" --target-dir "$target" \
         "${package[@]}" --bin "$bin"
-    cp "$target/release/$bin" "$O/bench-cross/bin/$bin"
+    cp "$target/release/$bin" "$O/bench-cross/bin/$bin$suffix"
 done
 {
     printf 'source_commit %s\n' "$(git rev-parse HEAD)"
     printf 'dirty %s\n' "$(git status --porcelain --untracked-files=no | wc -l | tr -d ' ')"
     "$CARGO_HOME/bin/rustc" --version
     for bin in $bins; do
-        printf '%s  %s\n' "$(sum "$O/bench-cross/bin/$bin")" "$bin"
+        printf '%s  %s\n' "$(sum "$O/bench-cross/bin/$bin$suffix")" "$bin$suffix"
     done
-} > "$O/bench-cross/bin/rust-build.provenance"
-cat "$O/bench-cross/bin/rust-build.provenance"
+} > "$O/bench-cross/bin/rust-build$suffix.provenance"
+cat "$O/bench-cross/bin/rust-build$suffix.provenance"

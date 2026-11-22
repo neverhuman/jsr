@@ -101,6 +101,29 @@ configure() {
             libs=("$O"/zipformer-int8/sherpa/lib/*)
             envs=(ULTRA_SHERPA_LIB="$(printf '%s\n' "$O"/zipformer-int8/sherpa/lib/libsherpa-onnx-c-api.* | head -1)")
             ;;
+        jsr-d2e-int8-trace|zipformer-int8-trace|moonshine-tiny-trace)
+            # Trace runs only (lag100): the same services built from main after PR #38, where
+            # `ultra-cold-wav` and `moonshine-stream` take an optional trace path. Timed rows
+            # use the binaries above.
+            class=streaming single=1
+            case "$1" in
+                jsr-*)
+                    cmd=("$bin/ultra-cold-wav-trace" r1-engine-int8 "$O/jsr-d2e-16457-int8/model" "{wav}" "{out}" "{trace}")
+                    files=("$O/jsr-d2e-16457-int8/model/arch.json" "$O/jsr-d2e-16457-int8/model/weights.int8.safetensors")
+                    ;;
+                zipformer-*)
+                    cmd=("$bin/ultra-cold-wav-trace" zipformer-int8 "$O/zipformer-int8/bundle" "{wav}" "{out}" "{trace}")
+                    files=("$O/zipformer-int8/bundle/manifest.json")
+                    libs=("$O"/zipformer-int8/sherpa/lib/*)
+                    envs=(ULTRA_SHERPA_LIB="$(printf '%s\n' "$O"/zipformer-int8/sherpa/lib/libsherpa-onnx-c-api.* | head -1)")
+                    ;;
+                moonshine-*)
+                    kind=dir
+                    cmd=("$bin/moonshine-stream-trace" tiny "$O/moonshine-tiny/model" "{wav}" "{out}" "{trace}")
+                    files=("$O/moonshine-tiny/model/"*)
+                    ;;
+            esac
+            ;;
         jsr-d2e-int8-enginetool)
             # Same engine and weights through the engine's own tool: the only form of our engine
             # that builds on macOS; also run on Linux to measure the harness difference.

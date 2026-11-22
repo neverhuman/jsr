@@ -74,7 +74,7 @@
       "role": "comparator",
       "configuration": "ternary encoder weights, whole utterance, one utterance at a time",
       "artifact_bytes": 179005408,
-      "hold": "kestrel-kernels ships under a proprietary licence that requires a separate written agreement; owner review pending"
+      "hold": "HOLD (lead, 2026-11-22T20:55Z): kestrel-kernels 0.7.4 ships under a proprietary licence that requires a separate written agreement; no Photon run and no Photon number until the owner rules"
     },
     "parakeet-unified-offline": {
       "variant": "parakeet-unified-en-q8-whole",
@@ -125,6 +125,36 @@
       "role": "comparator",
       "configuration": "the 160 ms buffered loop with sixteen utterances side by side; accuracy pass, never a timed row",
       "artifact_bytes": 2507735040
+    },
+    "jsr-d2e-int8-trace": {
+      "variant": "jsr-d2e-16457-int8-trace",
+      "system": "JSR D2e-16457 INT8",
+      "short": "JSR D2e INT8 trace",
+      "macro": "JsrDtwoeIntTrace",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 58142413
+    },
+    "zipformer-int8-trace": {
+      "variant": "zipformer-en-2023-06-26-int8-trace",
+      "system": "Streaming Zipformer int8",
+      "short": "Zipformer in trace",
+      "macro": "ZipformerIntTrace",
+      "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
+      "artifact_bytes": 72654782
+    },
+    "moonshine-tiny-trace": {
+      "variant": "moonshine-tiny-streaming-trace",
+      "system": "Moonshine Tiny Streaming",
+      "short": "Moonshine Ti trace",
+      "macro": "MoonTinyTrace",
+      "runtime": "Moonshine Voice SDK 0.1.6 (ONNX Runtime, one thread) (trace build, main after PR #38)",
+      "role": "comparator",
+      "configuration": "quantised streaming bundle, 20 ms packets, transcript update every 200 ms",
+      "artifact_bytes": 45398523
     }
   }
 }

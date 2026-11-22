@@ -5,6 +5,7 @@
     python docs/paper/opponents/collect.py table  STAGE PANEL
     python docs/paper/opponents/collect.py export STAGE RAW
     python docs/paper/opponents/collect.py rows   STAGE PANEL RAW
+    python docs/paper/opponents/collect.py origins RAW
 
 STAGE is a local directory (`<machine>/<arm>-<budget>[-<workload>]/round-N/`), PANEL the
 staged panel with `index.json`, SCORER the pinned `ultra-score` executable. `score` writes
@@ -14,8 +15,9 @@ staged panel with `index.json`, SCORER the pinned `ultra-score` executable. `sco
 `export` copies the small receipt files under RAW (`docs/paper/data/raw/opponents`):
 the hypotheses once per arm, their digest in every repetition. `rows` writes the evidence
 rows (schema v2 of agent_paper.md) under RAW/rows: `<machine>-bench-cross.jsonl` for the
-730-utterance arms, `.slow.jsonl` for arms measured on a smaller view (never the money
-plot's group) and `.held.jsonl` for arms whose publication is on hold (arms.json).
+730-utterance arms and `.slow.jsonl` for arms measured on a smaller view (never the money
+plot's group). Arms on hold in arms.json (licence under review) are neither exported nor
+written as rows; their receipts stay on the benchmark machines.
 """
 
 import hashlib
@@ -39,7 +41,7 @@ MACHINES = {
     "xeon8358": "xbabe6:jsr-data/opponents/bench-cross/receipts/xeon8358/",
     "m3ultra": "xbabe4:/Users/agent/jsr-train/data/opponents/bench-cross/receipts/m3ultra/",
 }
-KEEP = ("freq.tsv", "command", "environment", "config.sha256", "runtime-libraries.sha256", "workload.sha256", "host",
+KEEP = ("command", "environment", "config.sha256", "runtime-libraries.sha256", "workload.sha256", "host",
         "host.before", "host.after", "round", "started", "finished", "budget.json", "measurement.json",
         "service.stderr", "score.json", "trace.sha256", "trace.lines", "engine_eval.summary.json")
 
@@ -54,11 +56,12 @@ def runs(stage):
 
 
 def pull(stage):
+    skip = [option for name in sorted(held_arms()) for option in ("--exclude", f"{name}-*")]
     for machine, source in MACHINES.items():
         target = stage / machine
         target.mkdir(parents=True, exist_ok=True)
         subprocess.run(["rsync", "-a", "--exclude", "trace.jsonl", "--exclude", "worker-*", "--exclude",
-                        "*.incomplete.*", source, str(target) + "/"], check=False)
+                        "*.incomplete.*", *skip, source, str(target) + "/"], check=False)
 
 
 def busy_neighbours(run, budget):
@@ -182,9 +185,14 @@ def table(stage, panel_seconds):
     return rows
 
 
+def held_arms():
+    return {name for name, arm in read_json(HERE / "arms.json")["arms"].items() if "hold" in arm}
+
+
 def export(stage, raw):
+    held = held_arms()
     for run in runs(stage):
-        if not (run / "score.json").is_file():
+        if not (run / "score.json").is_file() or read_json(run / "budget.json")["arm"] in held:
             continue
         target = raw / run.relative_to(stage)
         target.mkdir(parents=True, exist_ok=True)
@@ -205,6 +213,8 @@ def evidence(stage, panel_seconds, raw):
     files = {}
     by_id = {}
     for row in table(stage, panel_seconds):
+        if row["arm"] in held_arms():
+            continue
         arm, machine = registry["arms"][row["arm"]], registry["machines"][row["machine"]]
         run = Path(row["source"]) / f"round-{row['median_round']}"
         view_digest = (run / "workload.sha256").read_text().split()[0]
@@ -226,9 +236,7 @@ def evidence(stage, panel_seconds, raw):
             "receipt_sha256": row["receipt_sha256"], "label": "exploratory",
             "session": f"{row['started'][:10]} {machine['host']} bench-cross harness e2ef608",
         }
-        kind = "held" if "hold" in arm else "main" if row["workload"] == "panel730" else "slow"
-        if "hold" in arm:
-            record["hold"] = arm["hold"]
+        kind = "main" if row["workload"] == "panel730" else "slow"
         key = (kind, record["id"], record["workload"])
         other = by_id.get(key)
         if other is not None:
@@ -240,11 +248,31 @@ def evidence(stage, panel_seconds, raw):
             record = better
         by_id[key] = record
     for (kind, _, _), record in sorted(by_id.items()):
-        suffix = {"main": "", "slow": ".slow", "held": ".held"}[kind]
+        suffix = {"main": "", "slow": ".slow"}[kind]
         files.setdefault(raw / "rows" / f"{record['machine']}-bench-cross{suffix}.jsonl", []).append(record)
     (raw / "rows").mkdir(parents=True, exist_ok=True)
     for path, records in files.items():
         path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records), encoding="utf-8")
+
+
+def origins(raw):
+    """Name the origin of every exported file in raw/MANIFEST.txt (rebuilt by paper_data first)."""
+    manifest = raw.parent / "MANIFEST.txt"
+    lines = []
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        digest, _, rest = line.partition("  ")
+        path, _, origin = rest.partition("  ")
+        parts = path.split("/")
+        if parts[0] == raw.name and len(parts) > 2 and parts[1] in MACHINES:
+            source = MACHINES[parts[1]]
+            if parts[-1].startswith("predictions."):
+                origin = f"collect.py export: final hypotheses of {source}{parts[2]}, sorted by id"
+            else:
+                origin = source + "/".join(parts[2:])
+        elif parts[0] == raw.name and len(parts) > 1 and parts[1] == "rows":
+            origin = "collect.py rows: evidence rows derived from the receipts beside this directory"
+        lines.append(f"{digest}  {path}  {origin}" if rest else line)
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def view_seconds(panel):
@@ -264,6 +292,8 @@ def main():
             print(json.dumps(row))
     elif command == "rows":
         evidence(stage, view_seconds(Path(sys.argv[3])), Path(sys.argv[4]))
+    elif command == "origins":
+        origins(stage)
     elif command == "export":
         export(stage, Path(sys.argv[3]))
     else:
