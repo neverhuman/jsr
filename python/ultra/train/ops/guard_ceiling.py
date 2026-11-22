@@ -72,6 +72,17 @@ def mac_device_util(host):
     return sum(vals) / len(vals) / 100.0 if vals else None
 
 
+def live_target(host, run, kind):
+    """--gpu-target of the running guard for this run (None if not found)."""
+    mod = "train.mac_guard" if kind == "mac" else "ultra.fleet_guard"
+    r = ssh(host, f"P=$(cat {run}/PGID); ps -eo args | grep \"[{mod[0]}]{mod[1:]} --pgid $P \" "
+                  f"| grep -o 'gpu-target [0-9.]*' | head -1")
+    try:
+        return float(r.stdout.split()[1])
+    except (IndexError, ValueError):
+        return None
+
+
 def mean_gpu(host, path, window_s=300):
     r = ssh(host, f"tail -400 {path}")
     rows = []
@@ -97,6 +108,9 @@ def main(argv=None):
                     help="step down while the 5-min mean of the monitor metric exceeds this (all hosts)")
     ap.add_argument("--mac-floor", type=float, default=0.60, help="lowest target (all hosts)")
     ap.add_argument("--mac-step", type=float, default=0.03, help="macOS step size (2-min cooldown)")
+    ap.add_argument("--linux-step", type=float, default=0.02, help="Linux step size (2-min cooldown)")
+    ap.add_argument("--linux-ceiling", type=float, default=0.87,
+                    help="Linux: step down while the nvidia-smi 5-min mean exceeds this")
     ap.add_argument("--mac-ioreg-ceiling", type=float, default=0.86,
                     help="macOS: step down while the ioreg 5-min mean exceeds this")
     ap.add_argument("--targets", default="", help='current per-run targets as JSON, e.g. {"H13a": 0.88}')
@@ -108,6 +122,13 @@ def main(argv=None):
     last_change = {k: 0.0 for k in RUNS}
     target = {k: a.start for k in RUNS}
     target.update(json.loads(a.targets) if a.targets else {})
+    for k, v in RUNS.items():  # start from the guards' real targets
+        try:
+            live = live_target(v[0], v[1], v[3])
+        except Exception:
+            live = None
+        if live is not None:
+            target[k] = live
     from concurrent.futures import ThreadPoolExecutor
 
     pool = ThreadPoolExecutor(max_workers=len(RUNS))
@@ -131,10 +152,13 @@ def main(argv=None):
             rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label],
                    "metric": "ioreg_device_util" if kind == "mac" else "nvidia_smi_util"}
             # The Mac's ioreg signal is bursty: bigger, faster steps there.
-            step, cooldown = (a.mac_step, 120) if kind == "mac" else (a.step, 180)
-            if kind == "mac":
-                ceiling = a.mac_ioreg_ceiling
+            step, cooldown = (a.mac_step, 120) if kind == "mac" else (a.linux_step, 120)
+            ceiling = a.mac_ioreg_ceiling if kind == "mac" else a.linux_ceiling
             settled = time.time() - last_change[label] > cooldown
+            if m is not None and m > ceiling and settled:
+                live = live_target(host, run, kind)  # the guard's actual target, not our copy
+                if live is not None:
+                    target[label] = live
             if m is not None and m > ceiling and settled and target[label] - step >= floor:
                 last_change[label] = time.time()
                 target[label] = round(target[label] - step, 3)
