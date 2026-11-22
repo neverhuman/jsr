@@ -16,8 +16,8 @@ How much whole-service CPU, tail latency (`p99`), and per-stream memory state (`
    - Deterministic per-token/per-head INT8 K/V cache (quantized on write, never re-quantized from FP32; tile-dequantized in registers).
    - Directly increases L3 CCX residency at high multi-stream density (`32–144+` streams/CCX).
 3. **H17 Spec-Correction Loose Ends:**
-   - Refuse `ternary + act7` silent arithmetic switch at `M = 8` in `Engine::decode` (`H17 #3`).
-   - Persist `loss_ema`, `best_ema`, `best_wer` across trainer resumes (`trainer.py`).
+   - **DONE (verified on `main`):** `ternary + act7` silent arithmetic switch at `M = 8` is already fixed in `crates/ultra-engine/src/encoder/mod.rs:247` (`!q.act7` bypasses T-LUT2) and locked by `crates/ultra-engine/tests/ternary_act7.rs`.
+   - **DONE (PR #24):** Persist and restore `loss_ema`, `best_ema`, and `best_wer` in `Trainer.payload()` / `Trainer.resume()` (`python/ultra/train/trainer.py`), covered by `python/ultra/tests/test_train_cr_ctc.py`.
    - Audit/fix `data.py` speed-perturbation post-duration-drop bias (`0.9×` slow clips dropped near `max_seconds`).
    - Unify `joiner_logprobs` QAT effective-weight interface before v2 codebook QAT.
 
