@@ -43,7 +43,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h/model-00060000.pt",
       "checkpoint_sha256": "f5a386cabdfead308187ed76156d974a98c1fd525c8cfecf10f61cc173941daf",
       "weights_sha256": "f5a386cabdfead308187ed76156d974a98c1fd525c8cfecf10f61cc173941daf",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -55,7 +57,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h/model-00060000.pt",
       "checkpoint_sha256": "f5a386cabdfead308187ed76156d974a98c1fd525c8cfecf10f61cc173941daf",
       "weights_sha256": "f5a386cabdfead308187ed76156d974a98c1fd525c8cfecf10f61cc173941daf",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "beam 4, no blank penalty or length normalization",
       "runtime": "PyTorch train.evaluate",
@@ -67,7 +71,9 @@
       "checkpoint": "xbabe0:/home/ubuntu/jsr-data/runs/train/D2_S_960h/avg-last3-60000.pt",
       "checkpoint_sha256": "cc7cf27054b516dcd212e29416a765b13fa035f7d26517134b5f80ca89ee3baa",
       "weights_sha256": "cc7cf27054b516dcd212e29416a765b13fa035f7d26517134b5f80ca89ee3baa",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -79,7 +85,9 @@
       "checkpoint": "xbabe0:/home/ubuntu/jsr-data/runs/train/D2_S_960h/avg-last3-60000.pt",
       "checkpoint_sha256": "cc7cf27054b516dcd212e29416a765b13fa035f7d26517134b5f80ca89ee3baa",
       "weights_sha256": "cc7cf27054b516dcd212e29416a765b13fa035f7d26517134b5f80ca89ee3baa",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "beam 4, no blank penalty or length normalization",
       "runtime": "PyTorch train.evaluate",
@@ -91,7 +99,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h/avg-45-55k.pt",
       "checkpoint_sha256": "f44c6881b14f4c0229807ec1eccf9078128c506dba50ac8c1aaae3554da47fa7",
       "weights_sha256": "f44c6881b14f4c0229807ec1eccf9078128c506dba50ac8c1aaae3554da47fa7",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -103,7 +113,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h/model-00055000.pt",
       "checkpoint_sha256": "7d23133cb379e69eca2b5d10af75cd00dd87c6ff06678cb2050e28e09e32cc46",
       "weights_sha256": "7d23133cb379e69eca2b5d10af75cd00dd87c6ff06678cb2050e28e09e32cc46",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -115,7 +127,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/model-00050000.pt",
       "checkpoint_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
       "weights_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -127,7 +141,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/avg-last3.pt",
       "checkpoint_sha256": "19b1aacb25dae171ba433d77504dc8afd2f28cc7ef5c8ad9d28138842683ab75",
       "weights_sha256": "19b1aacb25dae171ba433d77504dc8afd2f28cc7ef5c8ad9d28138842683ab75",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -139,7 +155,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/avg-last5.pt",
       "checkpoint_sha256": "570dad0a4fbf5e8cce760b9c099e9f04a73b6de260c6d7723f14c5d457353665",
       "weights_sha256": "570dad0a4fbf5e8cce760b9c099e9f04a73b6de260c6d7723f14c5d457353665",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
       "runtime": "PyTorch train.evaluate",
@@ -151,7 +169,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/model-00050000.pt",
       "checkpoint_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
       "weights_sha256": "41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "prepared_weights_sha256": null,
       "numeric_mode": "FP32",
       "decoder": "greedy, max 8 symbols per frame",
@@ -167,7 +187,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/model-00050000.pt",
       "checkpoint_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
       "weights_sha256": "41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "prepared_weights_sha256": "f48035f29fbaf0ffde5b666f9bf2714e34179aa4eba4db858ca05624dfeffdb7",
       "numeric_mode": "prepared INT8",
       "decoder": "greedy, max 8 symbols per frame",
@@ -183,7 +205,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/model-00050000.pt",
       "checkpoint_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
       "weights_sha256": "41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "prepared_weights_sha256": null,
       "numeric_mode": "FP32",
       "decoder": "beam 4",
@@ -199,7 +223,9 @@
       "checkpoint": "/mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/model-00050000.pt",
       "checkpoint_sha256": "f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
       "weights_sha256": "41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56",
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      },
       "prepared_weights_sha256": "f48035f29fbaf0ffde5b666f9bf2714e34179aa4eba4db858ca05624dfeffdb7",
       "numeric_mode": "prepared INT8",
       "decoder": "beam 4",
@@ -230,7 +256,9 @@
       "bundle_manifest_sha256": "3359fb0f7e221b527fbf6949c90db40a25947097911cb2fd768072991fd8cad0",
       "chunk_ms": null,
       "checkpoint_sha256": "1ca4e893eff1c3b9af74e4d6e4823426113dbe2baa0fbd3a47a5ded3806523c7",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      }
     },
     "e4-d2-fused-fp32": {
       "label": "D2 5k Rust FP32",
@@ -242,7 +270,9 @@
       "bundle_manifest_sha256": "b86a07a21743830beec5a8edd9ee4feab4f2b613481b6357db8f54a80eaae1ca",
       "chunk_ms": null,
       "checkpoint_sha256": "1ca4e893eff1c3b9af74e4d6e4823426113dbe2baa0fbd3a47a5ded3806523c7",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      }
     },
     "e4-d2-prepared-int8": {
       "label": "D2 5k Rust prepared INT8",
@@ -254,7 +284,9 @@
       "bundle_manifest_sha256": "81eed5b17218e7948371ef0ce25cb7f08dac828ccf00b96ccb0f6fbbaf3b7fcd",
       "chunk_ms": null,
       "checkpoint_sha256": "1ca4e893eff1c3b9af74e4d6e4823426113dbe2baa0fbd3a47a5ded3806523c7",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      }
     },
     "e4-d2-tiled-fp32": {
       "label": "D2 5k Rust tiled FP32",
@@ -266,7 +298,9 @@
       "bundle_manifest_sha256": "b86a07a21743830beec5a8edd9ee4feab4f2b613481b6357db8f54a80eaae1ca",
       "chunk_ms": null,
       "checkpoint_sha256": "1ca4e893eff1c3b9af74e4d6e4823426113dbe2baa0fbd3a47a5ded3806523c7",
-      "tokenizer_sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      "tokenizer": {
+        "sha256": "2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56"
+      }
     }
   },
   "measurements": [

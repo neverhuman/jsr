@@ -104,7 +104,7 @@ b6f643444dba98e87a9048d26d97a6fd8d6d32c1cc39884c9010144c4977ae36  d2mr_decode_sw
 60ebc6d1a5f838aa81de0668e27c3866b631d5c6ff032972f946ecd90f4e9d61  d2mr_decode_sweep/b8_bp1.5_lnon_dev-clean.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep/b8_bp1.5_lnon_dev-clean.json
 1cda9e461f733f2cdc4c72475dbd7ff0e2b2ea0c74ca80a809b8e003d25a5205  d2mr_decode_sweep/b8_bp1.5_lnon_dev-other.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep/b8_bp1.5_lnon_dev-other.json
 f757aee6cafb73089c18bd14906184758c1a5b03ae67b6fe42f7a38cbeedb4da  d2mr_decode_sweep_summary.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep_summary.json (stale: 8/24 cells; cells below are complete)
-8266c7f1f97ed668afea0a438dfcd8a026188d46ab1cf50f8939f9aed99188fe  evidence_codex.json  /home/ubuntu/jsr/docs/paper/evidence.json (Codex Evidence, untracked in main checkout, copied 2026-11-22)
+c628016f68f8e94d5d6ef08b3fd86b60d97df9c9021924e5648f01ebe06d0dc8  evidence_codex.json  /home/ubuntu/jsr/docs/paper/evidence.json (Codex Evidence, untracked in main checkout, copied 2026-11-22)
 b59f4a7e93495a2749c65333623778c192239d9f0b6c80a0dd52cdc0a93d73c8  frontier.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/frontier.json
 7c355dec2266f6ef5f445f8e0cd8dfe312e78acf1a3b640980f14607ffdfe227  frontier_panel.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/frontier.json
 08d38a5ed97ee60517473385a297b1e63514dea69930bface8f914306722e1b5  ladder_a_57fc3c5/density_ladder.json  xbabe0:~/jsr-data/runtime-dryrun/out-ladder-57fc3c5-20261122T010703Z/density_ladder.json (superseded by Job D; kept for provenance)
