@@ -66,6 +66,9 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
     rows_cost, rows_ladder = [], []
     claims, early, fails = {}, {}, {}
     for key, cand, disp, stem in CANDIDATES:
+        # Job E's dense row is the older avg-3 (45/50/55k): its ladder records carry the "DenseOld" stem;
+        # the headline dense row (avg 55/60/65k, Job G) is added by jobg.py. Frontier rows keep "Dense" (45k).
+        lstem = "DenseOld" if key == "dense" else stem
         res = by_cand[cand]
         pts = sorted((p for p in points if p["candidate"] == cand), key=lambda p: p["total_streams"])
         ok = [p for p in pts if p["all_sustained"] and p["drained"]]
@@ -83,41 +86,41 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
         early[key] = before_fail
         wl, dg = LADDER_WORKLOAD, npz_sha
         common = dict(label="exploratory", workload=wl, workload_digest=dg)
-        rec.add(f"Den{stem}CCX", str(claim), raw=claim, unit="streams/CCX",
+        rec.add(f"Den{lstem}CCX", str(claim), raw=claim, unit="streams/CCX",
                 configuration=f"{disp}; highest sustained rung (tool claim); {lconf}",
                 source=f"{lsrc} results[candidate={cand}].claimed_total_streams", **common)
-        rec.add(f"Den{stem}BeforeFailCCX", str(before_fail), raw=before_fail, unit="streams/CCX",
+        rec.add(f"Den{lstem}BeforeFailCCX", str(before_fail), raw=before_fail, unit="streams/CCX",
                 configuration=f"{disp}; last sustained rung before the first failing rung (conservative)",
                 source=f"{psrc} candidate={cand}", **common)
-        rec.add(f"Den{stem}Core", fmt(claim / ladder["workers"], 0), raw=claim / ladder["workers"],
+        rec.add(f"Den{lstem}Core", fmt(claim / ladder["workers"], 0), raw=claim / ladder["workers"],
                 unit="streams/core", configuration=f"{disp}; claimed streams / {ladder['workers']} workers",
                 source=f"{lsrc} results[candidate={cand}]", **common)
-        rec.add(f"DenPninetyNine{stem}", fmt(at_claim["max_worker_p99_ms"], 0), raw=at_claim["max_worker_p99_ms"],
+        rec.add(f"DenPninetyNine{lstem}", fmt(at_claim["max_worker_p99_ms"], 0), raw=at_claim["max_worker_p99_ms"],
                 unit="ms", configuration=f"{disp}; max worker p99 lateness at the claimed rung",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
-        rec.add(f"DenRss{stem}", fmt(at_claim["peak_rss_bytes"] / 1e9, 2), raw=at_claim["peak_rss_bytes"], unit="GB",
+        rec.add(f"DenRss{lstem}", fmt(at_claim["peak_rss_bytes"] / 1e9, 2), raw=at_claim["peak_rss_bytes"], unit="GB",
                 configuration=f"{disp}; peak RSS of the whole 4-worker fleet at the claimed rung",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
         if above:
-            rec.add(f"DenFail{stem}CCX", str(above[0]["total_streams"]), raw=above[0]["total_streams"],
+            rec.add(f"DenFail{lstem}CCX", str(above[0]["total_streams"]), raw=above[0]["total_streams"],
                     unit="streams/CCX", configuration=f"{disp}; first rung above the claim (failed)",
                     source=f"{psrc} candidate={cand} total_streams={above[0]['total_streams']}", **common)
-            rec.add(f"DenFailPninetyNine{stem}", fmt(above[0]["max_worker_p99_ms"], 0), raw=above[0]["max_worker_p99_ms"],
+            rec.add(f"DenFailPninetyNine{lstem}", fmt(above[0]["max_worker_p99_ms"], 0), raw=above[0]["max_worker_p99_ms"],
                     unit="ms", configuration=f"{disp}; max worker p99 lateness at the first failed rung",
                     source=f"{psrc} candidate={cand} total_streams={above[0]['total_streams']}", **common)
         inv = 1.0 / at_match["rtf_service_cpu"]
-        rec.add(f"AudioPerCpu{stem}", fmt(inv, 1), raw=inv, unit="audio-s per CPU-s",
+        rec.add(f"AudioPerCpu{lstem}", fmt(inv, 1), raw=inv, unit="audio-s per CPU-s",
                 configuration=f"{disp}; 1 / whole-service CPU-s per audio-s at the matched {MATCHED_RUNG}-stream rung",
                 source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
-        rec.add(f"RtfxLadder{stem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
-                configuration=f"{disp}; same as RTFxLadder{stem} (paper-writer spelling)",
+        rec.add(f"RtfxLadder{lstem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
+                configuration=f"{disp}; same as RTFxLadder{lstem} (paper-writer spelling)",
                 source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
-        rec.add(f"RTFxLadder{stem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
+        rec.add(f"RTFxLadder{lstem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
                 configuration=f"{disp}; audio-seconds processed per CPU-second at the matched {MATCHED_RUNG}-stream rung "
                               "(1 / CostLadder)",
                 source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
         util = 100.0 * claim * at_claim["rtf_service_cpu"] / ladder["workers"]
-        rec.add(f"UtilClaim{stem}", fmt(util, 0), raw=util, unit="% projected CPU demand of the CCX's 4 cores",
+        rec.add(f"UtilClaim{lstem}", fmt(util, 0), raw=util, unit="% projected CPU demand of the CCX's 4 cores",
                 configuration=(f"{disp}; PROJECTED CPU DEMAND, not sampled utilisation: nominal claimed streams x "
                                f"CPU-s per audio-s at the claimed rung / {ladder['workers']} cores"),
                 source=f"derived: {psrc} candidate={cand} total_streams={claim}", **common)
@@ -126,23 +129,23 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
             if pt is None:
                 continue
             dem = 100.0 * pt["audio_processed_seconds"] * pt["rtf_service_cpu"] / cores_s
-            rec.add(f"Demand{tag}{stem}", fmt(dem, 2), raw=dem, unit="% CPU demand of the CCX's 4 cores",
+            rec.add(f"Demand{tag}{lstem}", fmt(dem, 2), raw=dem, unit="% CPU demand of the CCX's 4 cores",
                     configuration=(f"{disp}; processed-audio CPU demand at the {'first failed' if tag else 'claimed'} rung "
                                    f"({pt['total_streams']} streams): processed audio-s x CPU-s per audio-s / "
                                    f"({ladder['workers']} cores x {ladder['step_seconds']:.0f} s)"),
                     source=f"derived: {psrc} candidate={cand} total_streams={pt['total_streams']}", **common)
-        rec.add(f"AudioProcessed{stem}", fmt(at_claim["audio_processed_seconds"], 2), raw=at_claim["audio_processed_seconds"],
+        rec.add(f"AudioProcessed{lstem}", fmt(at_claim["audio_processed_seconds"], 2), raw=at_claim["audio_processed_seconds"],
                 unit="audio-s", configuration=f"{disp}; audio processed during the {ladder['step_seconds']:.0f} s claimed rung",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
-        rec.add(f"AudioUnfinished{stem}", fmt(at_claim["audio_unfinished_seconds"], 2),
+        rec.add(f"AudioUnfinished{lstem}", fmt(at_claim["audio_unfinished_seconds"], 2),
                 raw=at_claim["audio_unfinished_seconds"], unit="audio-s",
                 configuration=f"{disp}; accepted audio left unprocessed at the claimed rung's cutoff",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
         fails[key] = (claim, above[0]["total_streams"] if above else None)
-        rec.add(f"CostLadder{stem}", fmt(at_match["rtf_service_cpu"], 4), raw=at_match["rtf_service_cpu"],
+        rec.add(f"CostLadder{lstem}", fmt(at_match["rtf_service_cpu"], 4), raw=at_match["rtf_service_cpu"],
                 unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at the matched {MATCHED_RUNG}-stream rung; {lconf}",
                 source=f"{psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
-        rec.add(f"CostClaim{stem}", fmt(at_claim["rtf_service_cpu"], 4), raw=at_claim["rtf_service_cpu"],
+        rec.add(f"CostClaim{lstem}", fmt(at_claim["rtf_service_cpu"], 4), raw=at_claim["rtf_service_cpu"],
                 unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at its claimed rung",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
         fcand = FRONT_DENSE if key == "dense" else cand
@@ -162,7 +165,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                 configuration=f"{fdisp}; same harness and executable as the ladder, Rust scorer, greedy",
                 source=f"{fsel}.wer_pct", **pcommon)
         if key == "dense":
-            wer = rec.raw("WerRehearsalDense")
+            wer = rec.raw("WerRehearsalDenseOld")
         else:
             wer = fr["wer_pct"]
         rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(wer, 3), claim, before_fail,
@@ -176,7 +179,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
 
     base_claim, base_cost = claims["rzero"]
     base_fb = next(r for r in panel["rows"] if r["candidate"] == CANDIDATES[0][1])["batch_rtf_cpu"]
-    for key, stem in (("dense", "Dense"), ("mr", "MR")):
+    for key, stem in (("dense", "DenseOld"), ("mr", "MR")):
         c, cost = claims[key]
         common = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha)
         rec.add(f"DenRatio{stem}", fmt(c / base_claim, 1), raw=c / base_claim, unit="x",
@@ -187,7 +190,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                 configuration=f"R0 over {key} CPU-s/audio-s at the {MATCHED_RUNG}-stream rung", source=f"derived: {psrc}", **common)
         fcand = FRONT_DENSE if key == "dense" else dict((k, c) for k, c, _, _ in CANDIDATES)[key]
         fb = next(r for r in panel["rows"] if r["candidate"] == fcand)["batch_rtf_cpu"]
-        rec.add(f"FrontierRatio{stem}", fmt(base_fb / fb, 2), raw=base_fb / fb, unit="x", label="exploratory",
+        rec.add(f"FrontierRatio{'Dense' if key == 'dense' else stem}", fmt(base_fb / fb, 2), raw=base_fb / fb, unit="x", label="exploratory",
                 configuration=f"R0 over {key} batch-16 CPU-s/audio-s, panel frontier", workload=pwl,
                 workload_digest=PANEL_DIGEST, source=f"derived: {fsrc}")
     (rc, rf), (mc, mf) = fails["rzero"], fails["mr"]
@@ -201,9 +204,9 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
             configuration=f"rung-spacing bracket, high end: (MR first failed rung {mf} - 1) / R0 claim {rc}", **bcommon)
     (dc, df) = fails["dense"]
     lo, hi = dc / (rf - 1), (df - 1) / rc
-    rec.add("DenRatioDenseBracketLo", fmt(lo, 1), raw=lo, unit="x",
+    rec.add("DenRatioDenseOldBracketLo", fmt(lo, 1), raw=lo, unit="x",
             configuration=f"rung-spacing bracket, low end: dense claim {dc} / (R0 first failed rung {rf} - 1)", **bcommon)
-    rec.add("DenRatioDenseBracketHi", fmt(hi, 1), raw=hi, unit="x",
+    rec.add("DenRatioDenseOldBracketHi", fmt(hi, 1), raw=hi, unit="x",
             configuration=f"rung-spacing bracket, high end: (dense first failed rung {df} - 1) / R0 claim {rc}", **bcommon)
     largs = man[("ladder_e_ce58952_avg3", CANDIDATES[0][1])]["cli_args"]
     limits = {tuple(j["cli_args"][j["cli_args"].index("--limit") + 1:j["cli_args"].index("--limit") + 2])

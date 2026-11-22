@@ -31,13 +31,10 @@ zeros. After the fix, batched training equals single-utterance processing for ev
 we tested (with $50\times$ junk padding). Re-scoring the shipped multirate checkpoint, the bug had
 changed at most \MRPadDeltaMax\pp WER, and the checkpoint was kept.
 
-\para{Free decode-time levers.} Two levers need no retraining. Averaging the last three
-snapshots (5k steps apart) and a modified beam search of width four each
-recover a similar share of errors, and they stack: on full dev-clean / dev-other, step-\DtwoStep{}
-D2 improves from \WerDtwoGreedyClean\% / \WerDtwoGreedyOther\% (single snapshot, greedy) to
-\WerDtwoBestClean\% / \WerDtwoBestOther\% (average of three, beam 4). A 48-point panel sweep (beam width, blank
-penalty, length normalisation) found little beyond plain beam 4 (\SweepDtwoBestPooled\% vs.\
-\SweepDtwoBeamFourPooled\% pooled). We also keep an exponential
-moving average of weights~\cite{polyak1992ema} in the newer runs. The beam is implemented in the
-engine and passes the INT8 gate (\cref{sec:results}); speed rows in this draft are greedy.
+\para{Free decode-time levers.} Averaging the last three snapshots and a modified beam search of
+width four need no retraining and stack: on full dev-clean / dev-other, step-\DtwoStep{} D2 improves
+from \WerDtwoGreedyClean\% / \WerDtwoGreedyOther\% (greedy) to \WerDtwoBestClean\% /
+\WerDtwoBestOther\% (average of three, beam 4); a 48-point sweep of beam settings found little more.
+The beam runs in the engine, passes the INT8 gate, and costs no density (\cref{sec:results}). Newer
+runs also keep a weight EMA~\cite{polyak1992ema}.
 

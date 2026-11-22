@@ -9,8 +9,8 @@ checkpoint that was timed}, never a later one.
 \caption{\textbf{Throughput at a glance.} Warm, in-process, single harness, one Zen~2 CCX (four
 single-threaded workers, observer on another CCX, 320\,ms grid, worst-worker p99 lateness
 $\le$ 800\,ms). \emph{Exploratory: 20\,s rungs, one repeat, no confirmation; each stream cycles the
-first \LadderUtts{} dev-clean utterances; shared host.} WER: the 400 dev-clean utterances of the DEV
-panel, same harness and executable, INT8.}
+first \LadderUtts{} dev-clean utterances; shared host.} WER: pooled over the 730-utterance DEV panel
+(400 dev-clean + 330 dev-other), same harness and executable, INT8.}
 \label{tab:density}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -20,9 +20,11 @@ panel, same harness and executable, INT8.}
 \cmidrule(lr){2-6}\cmidrule(lr){7-8}\cmidrule(lr){9-9}
 System & /core (/CCX) & ratio [bracket] & p99 & fail (p99) & demand & \cpus & RTFx & median [95\% CI] & WER \\
 \midrule
-Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRehearsalRzero \\
-dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \DemandDense\% & \CostLadderDense & \RtfxLadderDense & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDense \\
-multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMR \\
+Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRzeroPanel \\
+dense 55/60/65k, greedy & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense$^{b}$ [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & -- & -- & -- & -- & \WerRehearsalDensePooled \\
+dense 55/60/65k, beam 4 & \DenDenseBeamCore{} (\DenDenseBeamCCX) & \DenRatioDense$^{b}$ & \DenPninetyNineDenseBeam & \DenFailDenseBeamCCX{} (\DenFailPninetyNineDenseBeam) & -- & -- & -- & -- & \textbf{\WerRehearsalDenseBeamPooled} \\
+dense 45/50/55k (run E) & \DenDenseOldCore{} (\DenDenseOldCCX) & \DenRatioDenseOld & -- & -- & \DemandDenseOld\% & \CostLadderDenseOld & \RtfxLadderDenseOld & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDenseOldPooled \\
+multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMRPooled \\
 \midrule
 \multicolumn{10}{@{}l}{\textit{Engine facts measured elsewhere (other runs or tools; not comparable with the rows above)}} \\
 \multicolumn{10}{@{}l}{FP32 engine vs.\ ONNX Runtime, same executable, weights and transcripts: \SpeedupEngineFPVsORT{}$\times$ less CPU.} \\
@@ -39,7 +41,11 @@ at the passing rung, CPU-seconds used over the four cores' CPU-seconds in the ru
 audio (not sampled utilisation). RTFx: audio-seconds per CPU-second ($1/$\cpus). WER in \%. $^{a}$Single-stream blocks used the dense step-45k
 checkpoint (\WerRehearsalDenseFortyFive\%), whose density was
 \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX across two earlier ladder runs.
-Zipformer and multirate densities were identical in all \DenReproRuns{} runs.}
+$^{b}$The dense 55/60/65k density comes from a later run (G) on a more heavily loaded host and is
+divided by Zipformer's clean-session density (run E); Zipformer's own run-G result
+(\RzeroLoadedCCX{} streams/CCX) is not used for any ratio, so the dense ratio is conservative. No
+cost is claimed for the new checkpoint (loaded host); cost columns come from the run-E dense row.
+Multirate density was identical in all \DenReproRunsMR{} runs.}
 \end{table*}
 
 \subsection{Serving density}
@@ -48,16 +54,18 @@ Zipformer and multirate densities were identical in all \DenReproRuns{} runs.}
 rung (\DenRzeroCore{} per core) and fails at \DenFailRzeroCCX; the \ultra multirate model passes
 \DenMRCCX{} (\DenMRCore{} per core) and fails at \DenFailMRCCX: \DenRatioMR{}$\times$ the passing load,
 with the true ratio bracketed by \DenRatioMRBracketLo{} and \DenRatioMRBracketHi{} by the rung
-spacing. The dense finalist passes \DenDenseCCX. At the shared 32-stream rung the multirate model
+spacing. The latest dense checkpoint (average of steps 55/60/65k) passes \DenDenseCCX{} with greedy
+decoding \emph{and} with beam 4: beam search, which lowers its pooled WER from
+\WerRehearsalDensePooled\% to \WerRehearsalDenseBeamPooled\%, costs no density. At the shared 32-stream rung the multirate model
 costs \CostLadderMR{} \cpus against \CostLadderRzero{} (\CostRatioMR{}$\times$ less), and a fixed
 equal-load probe at \ProbeStreams{} streams for \ProbeSeconds\,s gave worst-worker p99 of
-\ProbePninetyNineMR{} (multirate), \ProbePninetyNineDense{} (dense) and \ProbePninetyNineRzero\,ms
+\ProbePninetyNineMR{} (multirate), \ProbePninetyNineDenseOld{} (dense, run E) and \ProbePninetyNineRzero\,ms
 (Zipformer, over the bound), all drained.
 
 \para{Why density exceeds cost.} The density ratio (\DenRatioMR{}$\times$) is larger than the cost
 ratio (\CostRatioMR{}$\times$). At the first failing load, the two \ultra
-configurations approached the four cores' projected capacity: \DemandFailDense\% (dense) and
-\DemandFailMR\% (multirate) at the first failed rung, against \DemandDense\% and \DemandMR\% at the
+configurations approached the four cores' projected capacity: \DemandFailDenseOld\% (dense, run E) and
+\DemandFailMR\% (multirate) at the first failed rung, against \DemandDenseOld\% and \DemandMR\% at the
 passing rung. It is compute-bound and uses nearly all of the hardware. Zipformer passes at
 \DemandRzero\% and fails at \DemandFailRzero\%, with a fifth of the CPU still unused. That is
 consistent with a scheduling limit under the tested chunk and pacing geometry (rule A1 also counts
@@ -66,11 +74,9 @@ but the receipts do not isolate chunk size. Batching does not explain our gain (
 \BatchLift\% per stream). Every passing rung processed all accepted audio
 (\AudioProcessedMR\,s for multirate), none unfinished.
 
-\para{Single-stream cost.} In the eight counterbalanced blocks the pre-registered median ratio of
-CPU time to Zipformer's was \AbabMedianMR{} for the multirate engine (95\% bootstrap CI
-\AbabMedianMRLo--\AbabMedianMRHi, $p_\text{Holm}=$\,\AbabPholmMR) and \AbabMedianDense{} for the
-dense step-45k engine (\AbabMedianDenseLo--\AbabMedianDenseHi, $p_\text{Holm}=$\,\AbabPholmDense);
-the geometric means are \AbabRatioMR{} and \AbabRatioDense.
+\para{Single-stream cost.} In eight counterbalanced blocks the pre-registered median CPU ratio to
+Zipformer was \AbabMedianMR{} (multirate, $p_\text{Holm}=$\,\AbabPholmMR) and \AbabMedianDense{}
+(dense step 45k, $p_\text{Holm}=$\,\AbabPholmDense); intervals are in \cref{tab:density}.
 
 \para{What these numbers are, and are not.} Zipformer runs through sherpa-onnx's C API with one
 thread per worker and its batched multi-stream decode, at its released 320\,ms chunk; we did not
@@ -122,8 +128,8 @@ $^{b}$Unknown training-data overlap.}
 \end{table}
 
 On the full 730-utterance DEV selection panel, pooled WER is
-\WerRzeroPanel\% for Zipformer INT8, \WerRehearsalDensePooled\% for the
-timed dense average, and \WerRehearsalMRPooled\% for D2MR. The
+\WerRzeroPanel\% for Zipformer INT8, \WerRehearsalDensePooled\% (greedy) and \WerRehearsalDenseBeamPooled\% (beam 4)
+for the timed dense 55/60/65k average, and \WerRehearsalMRPooled\% for D2MR. The
 D2MR gap against Zipformer is \GapMRvsRzeroPooled{} percentage points
 (descriptive paired speaker-cluster 95\% interval
 \GapMRvsRzeroPooledLo--\GapMRvsRzeroPooledHi). \Cref{tab:acc} also gives

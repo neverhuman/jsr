@@ -97,7 +97,7 @@ Never compare a top row with a bottom row. WER in \%; ``--'' = not measured; par
 System & Params & Stream. & dev-clean & test-clean & test-other & \cpus [A] & \cpus [B] \\
 \midrule
 \ultra multirate, step 50k, INT8 (ours) & \ParamsDtwoMR & \checkmark{} 160\,ms & \WerRehearsalMR$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostLadderMR & -- \\
-\ultra dense, avg.\ of 3, INT8 (ours) & \ParamsDtwo & \checkmark{} 160\,ms & \WerRehearsalDense$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostLadderDense & -- \\
+\ultra dense 45/50/55k, INT8 (ours) & \ParamsDtwo & \checkmark{} 160\,ms & \WerRehearsalDenseOld$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostLadderDenseOld & -- \\
 Zipformer int8, sherpa-onnx (\Rzero)~\cite{icefall,sherpaonnx} & (below) & \checkmark{} 320\,ms & \WerRehearsalRzero$^{a}$ & \WerPfiveRzeroTestClean$^{c}$ & -- & \CostLadderRzero & \CostPfiveRzero \\
 Nemotron 600M Q8\_0, NeMo-Speech.cpp~\cite{nemotron,nemospeechcpp} & (below) & \checkmark{} 160\,ms & -- & \WerNemoTestCleanOneSixty & \WerNemoTestOtherOneSixty & --$^{\dagger}$ & -- \\
 Nemotron 600M Q8\_0, NeMo-Speech.cpp & (below) & \checkmark{} 560\,ms & \WerNemoDevClean$^{b}$ & \WerNemoTestCleanFiveSixty & \WerNemoTestOtherFiveSixty & --$^{\dagger}$ & -- \\

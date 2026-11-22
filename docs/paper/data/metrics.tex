@@ -36,13 +36,13 @@
 \newcommand{\AblGreedyOther}{20.16}% [exploratory] % WER
 \newcommand{\ActSevenGain}{6}% [exploratory] %
 \newcommand{\AttnFlipCount}{33}% [exploratory] of 400 transcripts
-\newcommand{\AudioPerCpuDense}{24.7}% [exploratory] audio-s per CPU-s
+\newcommand{\AudioPerCpuDenseOld}{24.7}% [exploratory] audio-s per CPU-s
 \newcommand{\AudioPerCpuMR}{30.7}% [exploratory] audio-s per CPU-s
 \newcommand{\AudioPerCpuRzero}{13.8}% [exploratory] audio-s per CPU-s
-\newcommand{\AudioProcessedDense}{1877.83}% [exploratory] audio-s
+\newcommand{\AudioProcessedDenseOld}{1877.83}% [exploratory] audio-s
 \newcommand{\AudioProcessedMR}{2818.45}% [exploratory] audio-s
 \newcommand{\AudioProcessedRzero}{622.17}% [exploratory] audio-s
-\newcommand{\AudioUnfinishedDense}{0.00}% [exploratory] audio-s
+\newcommand{\AudioUnfinishedDenseOld}{0.00}% [exploratory] audio-s
 \newcommand{\AudioUnfinishedMR}{0.00}% [exploratory] audio-s
 \newcommand{\AudioUnfinishedRzero}{0.00}% [exploratory] audio-s
 \newcommand{\AvgGainClean}{0.44}% [exploratory] pp WER
@@ -60,13 +60,13 @@
 \newcommand{\ColdRowsCount}{0}% [reported] rows
 \newcommand{\ColdSummarySentence}{The matched cold-boundary rows are still pending, so Figure~1 shows its pending state.}% [reported] sentence
 \newcommand{\CoresPerCCX}{4}% [reported] cores
-\newcommand{\CostClaimDense}{0.0343}% [exploratory] CPU-s/audio-s
+\newcommand{\CostClaimDenseOld}{0.0343}% [exploratory] CPU-s/audio-s
 \newcommand{\CostClaimMR}{0.0254}% [exploratory] CPU-s/audio-s
 \newcommand{\CostClaimRzero}{0.0725}% [exploratory] CPU-s/audio-s
 \newcommand{\CostEngineFP}{0.104}% [exploratory] CPU-s/audio-s
 \newcommand{\CostEngineFPRunB}{0.0947}% [exploratory] CPU-s/audio-s
 \newcommand{\CostEngineIntEight}{0.041}% [exploratory] CPU-s/audio-s
-\newcommand{\CostLadderDense}{0.0404}% [exploratory] CPU-s/audio-s
+\newcommand{\CostLadderDenseOld}{0.0404}% [exploratory] CPU-s/audio-s
 \newcommand{\CostLadderMR}{0.0326}% [exploratory] CPU-s/audio-s
 \newcommand{\CostLadderRzero}{0.0725}% [exploratory] CPU-s/audio-s
 \newcommand{\CostNemo}{0.472}% [exploratory] CPU-s/audio-s
@@ -79,42 +79,55 @@
 \newcommand{\CostPfiveMoonTiny}{0.0454}% [exploratory] CPU-s/audio-s
 \newcommand{\CostPfiveRzero}{0.2019}% [exploratory] CPU-s/audio-s
 \newcommand{\CostPfiveWhisperSmall}{3.68}% [exploratory] CPU-s/audio-s
-\newcommand{\CostRatioDense}{1.79}% [exploratory] x
+\newcommand{\CostRatioDenseOld}{1.79}% [exploratory] x
 \newcommand{\CostRatioMR}{2.22}% [exploratory] x
 \newcommand{\CostRzero}{0.078}% [exploratory] CPU-s/audio-s
 \newcommand{\DecoderShare}{4--5}% [exploratory] % of single stream
-\newcommand{\DemandDense}{80.58}% [exploratory] % CPU demand of the CCX's 4 cores
-\newcommand{\DemandFailDense}{97.93}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandDenseOld}{80.58}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandFailDenseOld}{97.93}% [exploratory] % CPU demand of the CCX's 4 cores
 \newcommand{\DemandFailMR}{102.21}% [exploratory] % CPU demand of the CCX's 4 cores
 \newcommand{\DemandFailRzero}{81.04}% [exploratory] % CPU demand of the CCX's 4 cores
 \newcommand{\DemandMR}{89.42}% [exploratory] % CPU demand of the CCX's 4 cores
 \newcommand{\DemandRzero}{56.35}% [exploratory] % CPU demand of the CCX's 4 cores
-\newcommand{\DenDenseBeforeFailCCX}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseBeamCCX}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseBeamCore}{24}% [exploratory] streams/core
 \newcommand{\DenDenseCCX}{96}% [exploratory] streams/CCX
 \newcommand{\DenDenseCore}{24}% [exploratory] streams/core
 \newcommand{\DenDenseFortyFiveCCX}{112}% [exploratory] streams/CCX
 \newcommand{\DenDenseFortyFiveRangeHi}{112}% [exploratory] streams/CCX
 \newcommand{\DenDenseFortyFiveRangeLo}{96}% [exploratory] streams/CCX
 \newcommand{\DenDenseFortyFiveRuns}{2}% [exploratory] runs
+\newcommand{\DenDenseOldBeforeFailCCX}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseOldCCX}{96}% [exploratory] streams/CCX
+\newcommand{\DenDenseOldCore}{24}% [exploratory] streams/core
+\newcommand{\DenFailDenseBeamCCX}{112}% [exploratory] streams/CCX
 \newcommand{\DenFailDenseCCX}{112}% [exploratory] streams/CCX
+\newcommand{\DenFailDenseOldCCX}{112}% [exploratory] streams/CCX
 \newcommand{\DenFailMRCCX}{160}% [exploratory] streams/CCX
-\newcommand{\DenFailPninetyNineDense}{951}% [exploratory] ms
+\newcommand{\DenFailPninetyNineDense}{938}% [exploratory] ms
+\newcommand{\DenFailPninetyNineDenseBeam}{1990}% [exploratory] ms
+\newcommand{\DenFailPninetyNineDenseOld}{951}% [exploratory] ms
 \newcommand{\DenFailPninetyNineMR}{1701}% [exploratory] ms
 \newcommand{\DenFailPninetyNineRzero}{969}% [exploratory] ms
 \newcommand{\DenFailRzeroCCX}{48}% [exploratory] streams/CCX
 \newcommand{\DenMRBeforeFailCCX}{144}% [exploratory] streams/CCX
 \newcommand{\DenMRCCX}{144}% [exploratory] streams/CCX
 \newcommand{\DenMRCore}{36}% [exploratory] streams/core
-\newcommand{\DenPninetyNineDense}{572}% [exploratory] ms
+\newcommand{\DenPninetyNineDense}{601}% [exploratory] ms
+\newcommand{\DenPninetyNineDenseBeam}{600}% [exploratory] ms
+\newcommand{\DenPninetyNineDenseOld}{572}% [exploratory] ms
 \newcommand{\DenPninetyNineMR}{606}% [exploratory] ms
 \newcommand{\DenPninetyNineRzero}{607}% [exploratory] ms
 \newcommand{\DenRatioDense}{3.0}% [exploratory] x
-\newcommand{\DenRatioDenseBeforeFail}{3.0}% [exploratory] x
 \newcommand{\DenRatioDenseBracketHi}{3.5}% [exploratory] x
 \newcommand{\DenRatioDenseBracketLo}{2.0}% [exploratory] x
 \newcommand{\DenRatioDenseFortyFive}{3.5}% [exploratory] x
 \newcommand{\DenRatioDenseFortyFiveRangeHi}{3.5}% [exploratory] x
 \newcommand{\DenRatioDenseFortyFiveRangeLo}{3.0}% [exploratory] x
+\newcommand{\DenRatioDenseOld}{3.0}% [exploratory] x
+\newcommand{\DenRatioDenseOldBeforeFail}{3.0}% [exploratory] x
+\newcommand{\DenRatioDenseOldBracketHi}{3.5}% [exploratory] x
+\newcommand{\DenRatioDenseOldBracketLo}{2.0}% [exploratory] x
 \newcommand{\DenRatioMR}{4.5}% [exploratory] x
 \newcommand{\DenRatioMRBeforeFail}{4.5}% [exploratory] x
 \newcommand{\DenRatioMRBracketHi}{5.0}% [exploratory] x
@@ -122,7 +135,8 @@
 \newcommand{\DenRatioMRvsDenseHi}{1.5}% [exploratory] x
 \newcommand{\DenRatioMRvsDenseLo}{1.3}% [exploratory] x
 \newcommand{\DenReproRuns}{3}% [exploratory] runs
-\newcommand{\DenRssDense}{1.91}% [exploratory] GB
+\newcommand{\DenReproRunsMR}{4}% [exploratory] runs
+\newcommand{\DenRssDenseOld}{1.91}% [exploratory] GB
 \newcommand{\DenRssMR}{2.15}% [exploratory] GB
 \newcommand{\DenRssRzero}{1.47}% [exploratory] GB
 \newcommand{\DenRungSeconds}{20}% [reported] s
@@ -214,24 +228,24 @@
 \newcommand{\ParamsDtwoMR}{59.2}% [reported] M parameters
 \newcommand{\ParamsRone}{58.7}% [reported] M parameters
 \newcommand{\ParityFP}{\ensuremath{2.4\times10^{-6}}}% [exploratory] abs error
-\newcommand{\ProbeCostDense}{0.0369}% [exploratory] CPU-s/audio-s
+\newcommand{\ProbeCostDenseOld}{0.0369}% [exploratory] CPU-s/audio-s
 \newcommand{\ProbeCostMR}{0.0280}% [exploratory] CPU-s/audio-s
 \newcommand{\ProbeCostRzero}{0.0617}% [exploratory] CPU-s/audio-s
-\newcommand{\ProbeDrainedDense}{yes}% [exploratory] flag
+\newcommand{\ProbeDrainedDenseOld}{yes}% [exploratory] flag
 \newcommand{\ProbeDrainedMR}{yes}% [exploratory] flag
 \newcommand{\ProbeDrainedRzero}{yes}% [exploratory] flag
-\newcommand{\ProbePninetyNineDense}{494}% [exploratory] ms
+\newcommand{\ProbePninetyNineDenseOld}{494}% [exploratory] ms
 \newcommand{\ProbePninetyNineMR}{449}% [exploratory] ms
 \newcommand{\ProbePninetyNineRzero}{928}% [exploratory] ms
 \newcommand{\ProbeSeconds}{30}% [reported] s
 \newcommand{\ProbeStreams}{64}% [reported] streams/CCX
-\newcommand{\ProbeSustainedDense}{yes}% [exploratory] flag
+\newcommand{\ProbeSustainedDenseOld}{yes}% [exploratory] flag
 \newcommand{\ProbeSustainedMR}{yes}% [exploratory] flag
 \newcommand{\ProbeSustainedRzero}{no}% [exploratory] flag
 \newcommand{\QkvCapRatio}{1.5}% [reported] x
 \newcommand{\QkvRunawayFrom}{70}% [exploratory] norm
 \newcommand{\QkvRunawayTo}{684}% [exploratory] norm
-\newcommand{\RTFxLadderDense}{24.7}% [exploratory] x real time per CPU core
+\newcommand{\RTFxLadderDenseOld}{24.7}% [exploratory] x real time per CPU core
 \newcommand{\RTFxLadderMR}{30.7}% [exploratory] x real time per CPU core
 \newcommand{\RTFxLadderRzero}{13.8}% [exploratory] x real time per CPU core
 \newcommand{\RTFxMthreeMR}{81}% [exploratory] x real time per CPU core
@@ -243,9 +257,12 @@
 \newcommand{\RssNemo}{1{,}284}% [exploratory] MB
 \newcommand{\RssORT}{776}% [exploratory] MB
 \newcommand{\RssRzero}{239}% [exploratory] MB
-\newcommand{\RtfxLadderDense}{24.7}% [exploratory] x real time per CPU core
+\newcommand{\RtfxLadderDenseOld}{24.7}% [exploratory] x real time per CPU core
 \newcommand{\RtfxLadderMR}{30.7}% [exploratory] x real time per CPU core
 \newcommand{\RtfxLadderRzero}{13.8}% [exploratory] x real time per CPU core
+\newcommand{\RzeroLoadedCCX}{16}% [exploratory] streams/CCX
+\newcommand{\RzeroLoadedFailCCX}{32}% [exploratory] streams/CCX
+\newcommand{\RzeroLoadedFailPninetyNine}{1576}% [exploratory] ms
 \newcommand{\SherpaVersion}{2.0.2}% [reported] version
 \newcommand{\SingleMthreeDense}{0.0132}% [exploratory] CPU-s/audio-s
 \newcommand{\SingleMthreeMR}{0.0123}% [exploratory] CPU-s/audio-s
@@ -276,7 +293,7 @@
 \newcommand{\UsevenVsActLo}{0.89}% [exploratory] x
 \newcommand{\UsevenVsKzeroHi}{1.01}% [exploratory] x
 \newcommand{\UsevenVsKzeroLo}{0.94}% [exploratory] x
-\newcommand{\UtilClaimDense}{82}% [exploratory] % projected CPU demand of the CCX's 4 cores
+\newcommand{\UtilClaimDenseOld}{82}% [exploratory] % projected CPU demand of the CCX's 4 cores
 \newcommand{\UtilClaimMR}{91}% [exploratory] % projected CPU demand of the CCX's 4 cores
 \newcommand{\UtilClaimRzero}{58}% [exploratory] % projected CPU demand of the CCX's 4 cores
 \newcommand{\WerBridgeFP}{21.88}% [exploratory] % WER
@@ -324,10 +341,16 @@
 \newcommand{\WerPfiveRzeroTestClean}{2.18}% [exploratory] % WER
 \newcommand{\WerPfiveWhisperSmallDevClean}{2.53}% [exploratory] % WER
 \newcommand{\WerPfiveWhisperSmallTestClean}{3.77}% [exploratory] % WER
-\newcommand{\WerRehearsalDense}{7.76}% [exploratory] % WER
+\newcommand{\WerRehearsalDense}{7.44}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseBeam}{6.96}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseBeamOther}{15.90}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseBeamPooled}{10.64}% [exploratory] % WER
 \newcommand{\WerRehearsalDenseFortyFive}{9.56}% [exploratory] % WER
-\newcommand{\WerRehearsalDenseOther}{17.34}% [exploratory] % WER
-\newcommand{\WerRehearsalDensePooled}{11.70}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseOld}{7.76}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseOldOther}{17.34}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseOldPooled}{11.70}% [exploratory] % WER
+\newcommand{\WerRehearsalDenseOther}{16.72}% [exploratory] % WER
+\newcommand{\WerRehearsalDensePooled}{11.26}% [exploratory] % WER
 \newcommand{\WerRehearsalMR}{11.56}% [exploratory] % WER
 \newcommand{\WerRehearsalMROther}{22.19}% [exploratory] % WER
 \newcommand{\WerRehearsalMRPooled}{15.93}% [exploratory] % WER
@@ -351,7 +374,7 @@
 \newcommand{\XisaRfourPre}{636}% [exploratory] of 730
 \newcommand{\XisaTotal}{7{,}300}% [exploratory] utterances
 
-\newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per core sustained at p99 lateness of at most \LatenessBoundMs\,ms (top axis: per CCX, \DenWorkers{} single-threaded workers; \LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, both measured in one \texttt{ultra bench-suite} executable for the same checkpoints. Whiskers run to the first failed rung. Hollow: the earlier dense step-45k checkpoint, \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams per CCX over two runs. Dashed: a later dense checkpoint's WER, not timed.}
+\newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per core sustained at p99 lateness of at most \LatenessBoundMs\,ms (top axis: per CCX, \DenWorkers{} single-threaded workers; \LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, measured in the same harness for the same checkpoints. Dense: the latest checkpoint (average of steps 55/60/65k), greedy (circle) and beam~4 (diamond) at the same density. R0 and multirate come from the clean same-session run; in the dense run the loaded host cut R0 to \RzeroLoadedCCX{} streams per CCX, so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.}
 
-\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense finalist (average of steps 45/50/55k) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
+\newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps 45/50/55k; the latest checkpoint is in Fig.~1) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
 \newcommand{\ColdCaption}{Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).}

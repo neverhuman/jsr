@@ -26,8 +26,8 @@ def metrics_tex(rec: Records) -> str:
         missing = r.get("pending") or any(r.get(k) in (None, "") for k in REQUIRED)
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
-    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense finalist (average of steps "
-             "45/50/55k) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
+    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps "
+             "45/50/55k; the latest checkpoint is in Fig.~1) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
              "executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers "
              "on one CCX, \\DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in "
              "\\DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \\DenDenseFortyFiveRangeLo--"
@@ -40,10 +40,11 @@ def metrics_tex(rec: Records) -> str:
     cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per "
              "core sustained at p99 lateness of at most \\LatenessBoundMs\\,ms (top axis: per CCX, \\DenWorkers{} "
              "single-threaded workers; \\LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, "
-             "both measured in one \\texttt{ultra bench-suite} executable for the same checkpoints. Whiskers run to "
-             "the first failed rung. Hollow: the earlier dense step-45k checkpoint, "
-             "\\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} streams per CCX over two runs. Dashed: a later "
-             "dense checkpoint's WER, not timed.")
+             "measured in the same harness for the same checkpoints. Dense: the latest checkpoint (average of steps "
+             "55/60/65k), greedy (circle) and beam~4 (diamond) at the same density. R0 and multirate come from the "
+             "clean same-session run; in the dense run the loaded host cut R0 to \\RzeroLoadedCCX{} streams per CCX, "
+             "so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, "
+             "\\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.")
     lines += ["", f"\\newcommand{{\\FrontierWarmCaption}}{{{cap_f}}}"]
     lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]
     return "\n".join(lines)
