@@ -16,9 +16,8 @@ import time
 
 RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itself
     "D2": ("local", "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h", "fleet_guard.jsonl", "linux"),
-    "D3MRc": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/D3MRc_S_MR_I8S_960h", "fleet_guard.jsonl", "linux"),
+    "H22t": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/H22t_kd*", "fleet_guard.jsonl", "linux"),
     "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
-    "L1w": ("xbabe8", "/home/ubuntu/jsr-data/runs/train/L1w_S_spm512_warmH13a_960h", "fleet_guard.jsonl", "linux"),
     "L3": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/L3_M_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
     "H22ctl": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H22ctl_S_r0bpe_pruned_960h", "fleet_guard.jsonl", "linux"),
     "H23": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H23_current_gpu0", "fleet_guard.jsonl", "linux"),
@@ -36,8 +35,21 @@ MAC_RESTART = (
 LOCAL_OPS = "/home/ubuntu/jsr/.agent/worktrees/trainer/python/ultra/train/ops"
 
 
+RESTART = ('S=~/jsr/.agent/worktrees/trainer/python/ultra/train/ops/restart_guard.sh; '
+           '[ -x $S ] || S=~/jsr/python/ultra/train/ops/restart_guard.sh; $S {run} {t} 0.85 {gpu}')
+
+
+def resolve(host, run):
+    """A run spec with '*' (a chain of arms) resolves to the arm whose trainer is alive."""
+    if "*" not in run:
+        return run
+    r = ssh(host, f'for d in {run}; do kill -0 $(cat $d/PID 2>/dev/null) 2>/dev/null && echo $d; done | head -1')
+    return r.stdout.strip() or None
+
+
 def ssh(host, cmd, timeout=60):
     if host == "local":
+        cmd = cmd.replace("~/jsr/.agent/worktrees/trainer/python/ultra/train/ops/", LOCAL_OPS + "/")
         cmd = cmd.replace("~/jsr/python/ultra/train/ops/", LOCAL_OPS + "/")
         return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
     return subprocess.run(["ssh", "-n", "-o", "ConnectTimeout=20", host, cmd], capture_output=True,
@@ -71,6 +83,9 @@ def mac_device_util(host):
 
 def live_target(host, run, kind):
     """--gpu-target of the running guard for this run (None if not found)."""
+    run = resolve(host, run)
+    if run is None:
+        return None
     mod = "train.mac_guard" if kind == "mac" else "ultra.fleet_guard"
     r = ssh(host, f"P=$(cat {run}/PGID); ps -eo args | grep \"[{mod[0]}]{mod[1:]} --pgid $P \" "
                   f"| grep -o 'gpu-target [0-9.]*' | head -1")
@@ -161,8 +176,9 @@ def main(argv=None):
                 last_change[label] = time.time()
                 target[label] = round(target[label] - step, 3)
                 if kind == "linux":
-                    ssh(host, f"~/jsr/python/ultra/train/ops/restart_guard.sh {run} {target[label]} 0.85 "
-                              f"{GPU_INDEX.get(label, 0)}", 120)
+                    rd = resolve(host, run)
+                    if rd:
+                        ssh(host, RESTART.format(run=rd, t=target[label], gpu=GPU_INDEX.get(label, 0)), 120)
                 else:
                     ssh(host, MAC_RESTART.format(r=run, t=target[label]), 120)
                 rec["action"] = f"target -> {target[label]}"

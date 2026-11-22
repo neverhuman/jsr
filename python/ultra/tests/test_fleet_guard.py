@@ -5,7 +5,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from ultra.fleet_guard import MAX_DUTY, MIN_DUTY, Policy, ema, next_duty  # noqa: E402
+from ultra.fleet_guard import MAX_DUTY, MIN_DUTY, GpuWindow, Policy, ema, next_duty, next_duty_windowed  # noqa: E402
 
 
 def test_duty_falls_when_host_is_over_target_and_rises_with_headroom():
@@ -55,3 +55,16 @@ def test_zero_floor_lets_the_job_yield_completely():
     for _ in range(3):
         d = next_duty(d, 0.95, 0.2, p, min_duty=0.0)
     assert d == 0.0
+
+
+def test_windowed_control_tracks_the_5min_mean_and_includes_paused_time():
+    w = GpuWindow(-1)  # no sampler thread; feed a duty-cycled trace: 4 s busy, 1 s paused
+    for k in range(150):
+        w.add(2.0 * k, 1.0 if k % 5 else 0.0)
+    assert abs(w.mean(300.0, now=300.0) - 0.8) < 0.02  # paused samples count
+    p = Policy(gpu_target=0.85)
+    assert next_duty_windowed(0.8, 0.88, 0.88, 0.2, p) < 0.8        # 5-min mean over: slow step down
+    assert next_duty_windowed(0.8, 0.84, 0.99, 0.2, p) <= 0.8 - p.step_down + 1e-9  # burst far over: fast
+    assert next_duty_windowed(0.8, 0.84, 0.84, 0.2, p) == 0.8        # inside the deadband: hold
+    assert next_duty_windowed(0.8, 0.70, 0.70, 0.2, p) > 0.8         # headroom: slow step up
+    assert next_duty_windowed(0.8, None, None, 0.95, p) < 0.8        # CPU over

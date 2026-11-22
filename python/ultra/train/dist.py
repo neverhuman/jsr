@@ -16,6 +16,7 @@ Design (H23/D2c DDP):
 from __future__ import annotations
 
 import os
+import random
 import subprocess
 import time
 
@@ -124,7 +125,7 @@ class StepThrottle:
             u = self._util()
             if u is not None:
                 self.samples.append(u)
-            time.sleep(self._period)
+            time.sleep(self._period * (0.75 + 0.5 * random.random()))  # jitter: no phase lock to steps
 
     def util_mean(self) -> float | None:
         s = list(self.samples)

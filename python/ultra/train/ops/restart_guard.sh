@@ -11,8 +11,9 @@ for g in $(pgrep -f "ultra.fleet_guard --pgid $PG "); do kill -TERM "$g"; done
 for _ in $(seq 1 15); do pgrep -f "ultra.fleet_guard --pgid $PG " > /dev/null || break; sleep 1; done
 pgrep -f "ultra.fleet_guard --pgid $PG " > /dev/null && { echo "old guard still alive"; exit 1; }
 case "$(ps -o stat= -p "$P")" in T*) kill -CONT -- "-$PG"; echo "trainer was stopped; SIGCONT sent";; esac
-cd "$HOME/jsr/python/ultra" || exit 1
-setsid nice -n 5 "$HOME/jsr/.venv/bin/python" -m ultra.fleet_guard --pgid "$PG" --gpu "$GI" \
+# this script's own checkout (so a lane's fleet_guard fix applies); the guard is stdlib-only
+cd "$(dirname "${BASH_SOURCE[0]}")/../../" || exit 1
+setsid nice -n 5 "${GUARD_PY:-python3}" -m ultra.fleet_guard --pgid "$PG" --gpu "$GI" \
   --gpu-target "$GT" --cpu-target "$CT" --min-duty 0.0 --log "$R/fleet_guard.jsonl" \
   >> "$R/guard.log" 2>&1 < /dev/null &
 sleep 2
