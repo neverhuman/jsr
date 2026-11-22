@@ -104,6 +104,10 @@ pub struct EncState {
     chunk: usize,
     /// Multirate only: the 12.5 Hz middle blocks.
     pub gmid: Option<GroupCache>,
+    /// Cached last stem layer-1 output row (`[f1][stem_ch]`) for overlap reuse across
+    /// consecutive chunks (`c1_prev_t == Some(t)` skips recomputing row `r = 0`, 0-ULP exact).
+    pub(super) c1_prev: Vec<f32>,
+    pub(super) c1_prev_t: Option<usize>,
 }
 
 impl EncState {
@@ -122,6 +126,8 @@ impl EncState {
             chunk: g.chunk,
             gmid: (a.mid > 0)
                 .then(|| GroupCache::new(m, a.mid, a.left / 2, a.chunk / 2, max_chunks)),
+            c1_prev: vec![0.0; a.f1 * a.stem_ch],
+            c1_prev_t: None,
         }
     }
 
@@ -130,13 +136,13 @@ impl EncState {
         (self.ring - self.left) / self.chunk * self.chunk
     }
 
-    /// Bytes held by every cache buffer (both rate groups).
+    /// Bytes held by every cache buffer (both rate groups + stem overlap row).
     pub fn retained_bytes(&self) -> usize {
         let g = self
             .gmid
             .as_ref()
             .map_or(0, |g| g.k.capacity() + g.v.capacity() + g.conv.capacity());
-        4 * (self.k.capacity() + self.v.capacity() + self.conv.capacity() + g)
+        4 * (self.k.capacity() + self.v.capacity() + self.conv.capacity() + self.c1_prev.capacity() + g)
     }
 
     fn view25(&mut self, n: usize) -> View<'_> {
