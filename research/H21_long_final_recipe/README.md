@@ -19,8 +19,19 @@ A dense S and a multirate S_MR trained this way should both improve markedly on 
 |---|---|---|---|
 | L1 | xbabe8 (A100 40 GB) | S (dense) | |
 | L2 | xbabe9 (A100 40 GB) | S_MR (multirate, fixed pad-before-pair, H12) | the throughput-headline model |
+| L3 | xbabe7 GPU1 (A100 40 GB) | M_MR (d_model 512, multirate) | the capacity test (D4M on the Mac is too slow) |
 
-**Shared pinned settings:**
+**Batch, lr and schedule as launched.** Batches are sized to fill ~85% of the 40 GB; lr is scaled by √(batch / H13a's 600 s) from H13a's 1e-3 (M_MR uses D4M's lr 5e-4 at 300 s, scaled the same way); total steps = 30 × 960 h / budget.
+
+| Run | budget_s / max_batch | lr | total_steps | GPU memory at start | Notes |
+|---|---|---:|---:|---|---|
+| L1 | 1500 / 320 | 1.58e-3 | 69,120 | 38.6 GB (94%) | Close to the limit; watched for OOM |
+| L2 | 2000 / 400 | 1.83e-3 | 51,840 | 33.7 GB (82%) | |
+| L3 | 1200 / 256 | 1.0e-3 | 86,400 | — | |
+
+A first launch at 1200 s / lr 1.4e-3 / workers 8 (dirs `*_probe1200`) ran ~300 steps. It served as the memory probe and showed the loader bottleneck (GPU util 23–47%). The runs were restarted from scratch with the batches above and 24 loader workers.
+
+**Shared pinned settings** (the per-run batch, lr and step count are in the table above; the bullet values below are the original plan):
 - **Data and tokenizer:** 960 h (train-clean-100/360, train-other-500), downloaded on each node from openslr/librispeech_asr and sha256-checked against our manifest. `rnnt_pieces=512 ctc_pieces=512` (SentencePiece-512, sha256 `4e213d44…`).
 - **Loss:** `rnnt_loss=pruned prune_range=5 prune_warmup=2000`. Validated exact-equivalent at full band (tests/test_train_pruned.py); the simple-joiner scale is 0.5.
 - **Optimisation:**

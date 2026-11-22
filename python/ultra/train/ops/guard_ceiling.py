@@ -23,6 +23,8 @@ RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itse
     "H13c": ("xbabe5", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu1", "fleet_guard.jsonl", "linux"),
     "L1": ("xbabe8", "/home/ubuntu/jsr-data/runs/train/L1_S_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
     "L2": ("xbabe9", "/home/ubuntu/jsr-data/runs/train/L2_S_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
+    "L3": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/L3_M_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
+    "H22ctl": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H22ctl_S_r0bpe_pruned_960h", "fleet_guard.jsonl", "linux"),
     "D4M": ("xbabe4", "/Users/agent/jsr-train/data/runs/train/D4M_M_MR_960h", "mac_guard.jsonl", "mac"),
 }
 MAC_RESTART = (
@@ -53,7 +55,7 @@ NVSMI = ('for i in $(seq 1 20); do nvidia-smi --query-gpu=utilization.gpu --form
          '-i {gpu}; sleep 1; done')
 
 
-GPU_INDEX = {"H13c": 1}  # every other run uses GPU 0 of its host
+GPU_INDEX = {"H13c": 1, "L3": 1}  # every other run uses GPU 0 of its host
 
 
 def linux_gpu_util(host, gpu=0):

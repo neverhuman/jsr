@@ -32,11 +32,11 @@ At equal exposure and with an identical recipe, does frame-level distillation fr
   - It applies only to utterances whose R0 1-best equals the normalised reference, so that (t, u_t) lies on the ground-truth lattice. Frames beyond either encoder's length are skipped.
 - **Weight tuning:** `kd_weight` ∈ {0.1, 0.3, 1.0}, tuned on a short run (3k steps, 100 h). The pick is the lowest dev-clean400 WER, DEV only.
 
-## Matched runs (xbabe5, both A100s, after H13b/c)
+## Matched runs (H22-ctl on xbabe7 GPU0; H22-kd on the first A100 freed, xbabe5 after H13b/c)
 
 | Run | KD | Everything else |
 |---|---|---|
-| H22-ctl | no | L1 recipe (H21) with R0's tokenizer: dense S, pruned loss, EMA, speed perturbation, qkv cap/guards, budget 1200 s, lr 1.4e-3, seed 1234 |
+| H22-ctl | no | L1 recipe (H21) with R0's tokenizer: dense S, pruned loss, EMA, speed perturbation, qkv cap/guards, budget 1300 s / max batch 288 (~85% of 40 GB), lr 1.47e-3, seed 1234, 79,800 steps (30 epochs). xbabe7 GPU0, started before the cache is complete; KD is not needed for the control. |
 | H22-kd | yes (`kd_weight` from tuning) | identical |
 
 - **Decision point:** at 10 epochs of 960 h (28.8k steps), compare full dev and the panel with last-3 averaging and beam 4.
