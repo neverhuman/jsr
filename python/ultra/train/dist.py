@@ -16,7 +16,6 @@ Design (H23/D2c DDP):
 from __future__ import annotations
 
 import os
-import random
 import subprocess
 import time
 
@@ -121,11 +120,23 @@ class StepThrottle:
             return None
 
     def _sample_loop(self) -> None:
+        """One long-lived `nvidia-smi -lms` streams readings on its own clock. (Sampling from a
+        thread inside the trainer was GIL-phased: wake-ups clustered in GPU-idle stretches and
+        the 5-min mean read ~10 points under the host's nvidia-smi mean on D2d.)"""
+        cmd = ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits",
+               "-i", str(self.gpu), "-lms", str(int(self._period * 1000))]
         while True:
-            u = self._util()
-            if u is not None:
-                self.samples.append(u)
-            time.sleep(self._period * (0.75 + 0.5 * random.random()))  # jitter: no phase lock to steps
+            try:
+                with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                      text=True) as proc:
+                    for line in proc.stdout:
+                        try:
+                            self.samples.append(float(line.split()[0]) / 100.0)
+                        except (IndexError, ValueError):
+                            continue
+            except OSError:
+                pass
+            time.sleep(5.0)  # nvidia-smi exited or is missing: retry
 
     def util_mean(self) -> float | None:
         s = list(self.samples)
