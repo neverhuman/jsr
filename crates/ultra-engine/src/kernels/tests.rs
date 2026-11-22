@@ -420,3 +420,49 @@ fn attend_head_simd_matches_scalar() {
         }
     }
 }
+
+#[test]
+fn gemm_i8_u7_equals_act7_and_scalar_including_extremes() {
+    use crate::quant::PackedI8;
+    let mut rng = Rng::new(15);
+    for &(rows, n, k) in &[(1, 16, 4), (5, 33, 30), (9, 320, 384), (6, 17, 1536)] {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 1.0);
+        let mut p = PackedI8::quantize(&w, n, k, Some(&b));
+        if n == 17 {
+            // Extremes: every weight +-127, every activation +-63 (u = 1 or 127).
+            for (i, v) in p.data.iter_mut().enumerate() {
+                *v = if i % 2 == 0 { 127 } else { -127 };
+            }
+            p.rebuild_mm();
+        }
+        let mut a = vec![0i8; rows * p.kp];
+        for (i, v) in a.iter_mut().enumerate() {
+            *v = if n == 17 {
+                if i % 2 == 0 {
+                    63
+                } else {
+                    -63
+                }
+            } else {
+                (rng.next_u32() % 127) as i8 - 63
+            };
+        }
+        for r in 0..rows {
+            a[r * p.kp + k..(r + 1) * p.kp].fill(0);
+        }
+        let u: Vec<u8> = a.iter().map(|&v| (i16::from(v) + 64) as u8).collect();
+        let cs = colsum_i32(&p);
+        let sa = rng.vec(rows, 0.1);
+        let ca = rng.vec(rows, 1.0);
+        let mut want = vec![0.0; rows * n];
+        scalar::gemm_i8(&p, &a, &sa, &ca, rows, &mut want);
+        let isa = Isa::detect();
+        let mut a7 = vec![0.0; rows * n];
+        gemm_i8_a7(isa, &p, &a, &sa, &ca, rows, &mut a7);
+        let mut got = vec![0.0; rows * n];
+        gemm_i8_u7(isa, &p, &cs, &u, &sa, &ca, rows, &mut got);
+        assert_eq!(got, a7, "u7 vs act7 ({rows}x{n}x{k}, {isa:?})");
+        assert_eq!(got, want, "u7 vs scalar ({rows}x{n}x{k}, {isa:?})");
+    }
+}
