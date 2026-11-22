@@ -18,6 +18,7 @@ At a fixed audio exposure, does any of these beat our AdamW + warm-up/cosine rec
 - **Schedule and exposure:**
   - `seed=1234 budget_s=300 max_batch=64 total_steps=24000` (about 20 epochs, ~2,000 audio-h);
   - `clip=5 specaug_start=4000`, no speed perturbation, `ema_decay=0.9995`, `diverge_after=5000`;
+  - `window_groups=4` (the H13 value; pinned because trainer-lane is raising it on other runs);
   - `loader=process`: bit-identical batches to the thread loader (trainer-lane test), so every arm sees the same batches in the same order, and the same as H13d.
 - **Evaluation:**
   - dev-clean400 greedy (chunk-masked) plus an eval-only snapshot every 2000 steps;

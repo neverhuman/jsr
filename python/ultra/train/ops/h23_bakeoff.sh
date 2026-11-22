@@ -12,7 +12,7 @@ want=" $* "
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 export JSR_DATA=$DATA PY=$DATA/venvs/train/bin/python GPU_TARGET=0.88 CPU_TARGET=0.85 MIN_DUTY=0.0
 COMMON="--preset S --splits train-clean-100 --device cuda --threads 8"
-SETS="seed=1234 budget_s=300.0 max_batch=64 workers=6 loader=process total_steps=24000 clip=5.0 specaug_start=4000 ema_decay=0.9995 eval_every=2000 dev_limit=400 ckpt_every_steps=2000 weights_every=2000 log_every=50 diverge_after=5000 rnnt_loss=pruned prune_range=5 prune_warmup=2000 rnnt_pieces=512 ctc_pieces=512"
+SETS="seed=1234 budget_s=300.0 max_batch=64 workers=6 loader=process window_groups=4 total_steps=24000 clip=5.0 specaug_start=4000 ema_decay=0.9995 eval_every=2000 dev_limit=400 ckpt_every_steps=2000 weights_every=2000 log_every=50 diverge_after=5000 rnnt_loss=pruned prune_range=5 prune_warmup=2000 rnnt_pieces=512 ctc_pieces=512"
 for arm in "H23a_adamw optimizer=adamw lr=0.001 warmup=2000" \
            "H23b_scaledadam optimizer=scaled_adam lr=0.045 warmup=500 eden_lr_batches=7500 eden_lr_epochs=3.5 eden_steps_per_epoch=1200 grad_clip_mode=adaptive clip_k=2.0" \
            "H23c_schedfree optimizer=schedulefree_adamw lr=0.002 warmup=2000 sf_beta2=0.98" \
