@@ -38,6 +38,17 @@ def ssh(host, cmd, timeout=60):
                           text=True, timeout=timeout)
 
 
+IOREG = ('for i in $(seq 1 20); do ioreg -r -d 1 -w 0 -c IOAccelerator '
+         '| grep -o \'"Device Utilization %"=[0-9]*\' | head -1 | cut -d= -f2; sleep 1; done')
+
+
+def mac_device_util(host):
+    """Mean of 20 one-second ioreg "Device Utilization %" samples (the fleet monitor's metric)."""
+    r = ssh(host, IOREG, 60)
+    vals = [int(v) for v in r.stdout.split() if v.isdigit()]
+    return sum(vals) / len(vals) / 100.0 if vals else None
+
+
 def mean_gpu(host, path, window_s=300):
     r = ssh(host, f"tail -400 {path}")
     rows = []
@@ -59,20 +70,37 @@ def main(argv=None):
     ap.add_argument("--step", type=float, default=0.01)
     ap.add_argument("--floor", type=float, default=0.80)
     ap.add_argument("--start", type=float, default=0.89)
+    ap.add_argument("--mac-ceiling", type=float, default=0.88,
+                    help="macOS: step down while the 5-min mean of ioreg Device Utilization exceeds this")
+    ap.add_argument("--mac-floor", type=float, default=0.60)
     ap.add_argument("--targets", default="", help='current per-run targets as JSON, e.g. {"H13a": 0.88}')
     a = ap.parse_args(argv)
     if not 0 < a.floor <= a.start <= a.ceiling <= 1 or a.step <= 0:
         ap.error("need 0 < floor <= start <= ceiling <= 1 and step > 0")
+    ap_mac = {"ceiling": a.mac_ceiling, "floor": a.mac_floor}
+    mac_hist = {k: [] for k, v in RUNS.items() if v[3] == "mac"}
+    last_change = {k: 0.0 for k in RUNS}
     target = {k: a.start for k in RUNS}
     target.update(json.loads(a.targets) if a.targets else {})
     while True:
         for label, (host, run, log, kind) in RUNS.items():
+            ceiling, floor = a.ceiling, a.floor
             try:
-                m = mean_gpu(host, f"{run}/{log}")
+                if kind == "mac":  # the fleet monitor reads ioreg on the Mac; mac_guard reads lower
+                    u = mac_device_util(host)
+                    if u is not None:
+                        mac_hist[label] = (mac_hist[label] + [u])[-5:]
+                    m = sum(mac_hist[label]) / len(mac_hist[label]) if mac_hist[label] else None
+                    ceiling, floor = ap_mac["ceiling"], ap_mac["floor"]
+                else:
+                    m = mean_gpu(host, f"{run}/{log}")
             except subprocess.TimeoutExpired:
                 m = None
-            rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label]}
-            if m is not None and m > a.ceiling and target[label] - a.step >= a.floor:
+            rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label],
+                   "metric": "ioreg_device_util" if kind == "mac" else "guard_gpu_ema"}
+            settled = time.time() - last_change[label] > 180
+            if m is not None and m > ceiling and settled and target[label] - a.step >= floor:
+                last_change[label] = time.time()
                 target[label] = round(target[label] - a.step, 3)
                 if kind == "linux":
                     ssh(host, f"~/jsr/python/ultra/train/ops/restart_guard.sh {run} {target[label]}", 120)
