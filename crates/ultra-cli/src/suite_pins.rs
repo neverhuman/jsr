@@ -28,6 +28,8 @@ pub enum CandidateKind {
     Engine {
         precision: String,
         prepared_int8: bool,
+        /// Resolved encoder family from `arch.json` (`"dense"` vs `"multirate"`).
+        family: String,
     },
     OrtR1 {
         precision: String,
@@ -61,6 +63,20 @@ fn base_name(p: &Path, fallback: &str) -> String {
         .and_then(|s| s.to_str())
         .unwrap_or(fallback)
         .to_owned()
+}
+
+fn peek_engine_family(arch_path: &Path) -> String {
+    let Ok(bytes) = std::fs::read(arch_path) else {
+        return "unknown".into();
+    };
+    let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return "unknown".into();
+    };
+    v.pointer("/model/family")
+        .or_else(|| v.pointer("/model/encoder/family"))
+        .and_then(|s| s.as_str())
+        .unwrap_or("unknown")
+        .to_ascii_lowercase()
 }
 
 /// Resolve a CLI candidate string into its canonical loaded-artifact identity (`S6` / `B4`).
@@ -112,10 +128,11 @@ pub fn resolve_candidate_identity(
             )
         };
         let w_sha = sha256_file(&w_path)?;
+        let family = peek_engine_family(&arch_path);
         return Ok(ResolvedCandidate {
             raw_arg: raw_cand.to_owned(),
             canonical_id: format!(
-                "engine:{}:arch={}:weights={}",
+                "engine:{}:{family}:arch={}:weights={}",
                 prec.as_str(),
                 &arch_sha[..16],
                 &w_sha[..16]
@@ -123,6 +140,7 @@ pub fn resolve_candidate_identity(
             kind: CandidateKind::Engine {
                 precision: prec.as_str().to_owned(),
                 prepared_int8,
+                family,
             },
             artifacts: vec![
                 ("arch.json".into(), arch_path, arch_sha),
@@ -150,22 +168,24 @@ pub fn resolve_candidate_identity(
 
     if let Some(z_res) = resolve_bundle_or_zipformer(raw_cand, precision_override, threads, 0.8) {
         let (_bundle_id, zcfg) = z_res?;
-        let suffix = if zcfg.precision == "fp32" {
+        let sfx = if zcfg.precision == "fp32" {
             "onnx"
         } else {
             "int8.onnx"
         };
-        let enc_name = format!("encoder-epoch-99-avg-1-chunk-16-left-128.{suffix}");
-        let dec_name = format!("decoder-epoch-99-avg-1-chunk-16-left-128.{suffix}");
-        let join_name = format!("joiner-epoch-99-avg-1-chunk-16-left-128.{suffix}");
-        let tok_name = "tokens.txt".to_owned();
+        let names = [
+            format!("encoder-epoch-99-avg-1-chunk-16-left-128.{sfx}"),
+            format!("decoder-epoch-99-avg-1-chunk-16-left-128.{sfx}"),
+            format!("joiner-epoch-99-avg-1-chunk-16-left-128.{sfx}"),
+            "tokens.txt".to_owned(),
+        ];
         let mut artifacts = Vec::with_capacity(4);
-        for name in [&enc_name, &dec_name, &join_name, &tok_name] {
-            let p = zcfg.model_dir.join(name);
+        for name in names {
+            let p = zcfg.model_dir.join(&name);
             let sha = sha256_file(&p)?;
-            artifacts.push((name.clone(), p, sha));
+            artifacts.push((name, p, sha));
         }
-        let canonical_id = format!(
+        let cid = format!(
             "sherpa-zipformer:{}:enc={}:dec={}:join={}:tok={}",
             zcfg.precision,
             &artifacts[0].2[..12],
@@ -175,7 +195,7 @@ pub fn resolve_candidate_identity(
         );
         return Ok(ResolvedCandidate {
             raw_arg: raw_cand.to_owned(),
-            canonical_id,
+            canonical_id: cid,
             kind: CandidateKind::Zipformer {
                 precision: zcfg.precision,
             },
@@ -183,48 +203,40 @@ pub fn resolve_candidate_identity(
         });
     }
 
-    let models_root = PathBuf::from(jsr_data_root()).join("models");
-    let off = resolve_offline_config(raw_cand, &models_root, threads)?;
+    let off = resolve_offline_config(
+        raw_cand,
+        &PathBuf::from(jsr_data_root()).join("models"),
+        threads,
+    )?;
     let paths: Vec<PathBuf> = match &off.kind {
         OfflineModelKind::MoonshineV2 {
-            encoder,
-            merged_decoder,
-            tokens,
+            encoder: a,
+            merged_decoder: b,
+            tokens: c,
+        }
+        | OfflineModelKind::Whisper {
+            encoder: a,
+            decoder: b,
+            tokens: c,
         } => {
-            vec![encoder.clone(), merged_decoder.clone(), tokens.clone()]
+            vec![a.clone(), b.clone(), c.clone()]
         }
         OfflineModelKind::MoonshineV1 {
-            preprocessor,
-            encoder,
-            uncached_decoder,
-            cached_decoder,
-            tokens,
-        } => vec![
-            preprocessor.clone(),
-            encoder.clone(),
-            uncached_decoder.clone(),
-            cached_decoder.clone(),
-            tokens.clone(),
-        ],
-        OfflineModelKind::Whisper {
-            encoder,
-            decoder,
-            tokens,
+            preprocessor: p,
+            encoder: e,
+            uncached_decoder: u,
+            cached_decoder: c,
+            tokens: t,
         } => {
-            vec![encoder.clone(), decoder.clone(), tokens.clone()]
+            vec![p.clone(), e.clone(), u.clone(), c.clone(), t.clone()]
         }
     };
     let mut artifacts = Vec::with_capacity(paths.len());
     for p in paths {
-        let name = p
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("artifact")
-            .to_owned();
         let sha = sha256_file(&p)?;
-        artifacts.push((name, p, sha));
+        artifacts.push((base_name(&p, "artifact"), p, sha));
     }
-    let canonical_id = format!(
+    let cid = format!(
         "sherpa-offline:{}:a0={}:a1={}:tok={}",
         off.candidate_id,
         &artifacts[0].2[..12],
@@ -233,7 +245,7 @@ pub fn resolve_candidate_identity(
     );
     Ok(ResolvedCandidate {
         raw_arg: raw_cand.to_owned(),
-        canonical_id,
+        canonical_id: cid,
         kind: CandidateKind::Offline {
             candidate_id: off.candidate_id,
         },
@@ -348,14 +360,14 @@ fn parse_manifest_yaml_hashes(raw: &str) -> Vec<BTreeMap<String, String>> {
             match key {
                 "artifact" => cur_artifact = Some(val.to_owned()),
                 "artifact_sha256" => {
-                    if let Some(name) = cur_artifact.as_ref() {
-                        map.insert(name.clone(), val.to_owned());
+                    if let Some(n) = cur_artifact.as_ref() {
+                        map.insert(n.clone(), val.to_owned());
                     }
                 }
                 "tokenizer" => cur_tokenizer = Some(val.to_owned()),
                 "tokenizer_sha256" => {
-                    if let Some(name) = cur_tokenizer.as_ref() {
-                        map.insert(name.clone(), val.to_owned());
+                    if let Some(n) = cur_tokenizer.as_ref() {
+                        map.insert(n.clone(), val.to_owned());
                     }
                 }
                 "manifest_sha256" if val.len() == 64 => {
@@ -393,9 +405,8 @@ fn build_pinned_hash_sets(
             lock_path.display()
         ))
     })?;
-    let entries = parse_candidates_lock(&raw);
     let mut out = Vec::new();
-    for entry in entries {
+    for entry in parse_candidates_lock(&raw) {
         if !entry_status_allowed_for_qualified(&entry.status) {
             continue;
         }
@@ -426,10 +437,8 @@ fn build_pinned_hash_sets(
             }
         } else {
             let mut map = entry.inline_hashes.clone();
-            if let Some(ref ms) = entry.manifest_sha256 {
-                if ms.len() == 64 {
-                    map.insert("manifest.json".into(), ms.clone());
-                }
+            if let Some(ref ms) = entry.manifest_sha256.filter(|s| s.len() == 64) {
+                map.insert("manifest.json".into(), ms.clone());
             }
             if !map.is_empty() {
                 out.push((entry.candidate_id.clone(), map));
@@ -461,6 +470,7 @@ pub fn verify_loaded_candidates_against_lock(
         if let CandidateKind::Engine {
             precision,
             prepared_int8,
+            ..
         } = &cand.kind
         {
             if precision == "int8" && !prepared_int8 {
