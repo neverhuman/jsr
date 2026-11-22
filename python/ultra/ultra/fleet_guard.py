@@ -9,7 +9,8 @@ headroom.
 
 GPU measurement (2026-11-22): a long-lived `nvidia-smi -lms 1130` stream (a period incommensurate with the 4-s run/stop cycle; 2 s aliased with it) feeds a rolling 5-minute mean, the same statistic the
 owner's cap watch uses; paused time is included because sampling never stops. The controller
-steps on that mean (slowly) and on a 30-second mean (fast, only well above target). The old
+steps on the last ~60 s (slowly), on a 30-second mean (fast, only well above target), and never
+raises the duty while the 5-minute mean is over target. The old
 per-cycle EMA tracked bursts and read ~10 points below the 5-minute nvidia-smi mean on xbabe2.
 `--gpu` is the nvidia-smi (physical, PCI-order) index; nvidia-smi ignores CUDA_VISIBLE_DEVICES. On exit it always resumes the job, so a crash of the guard never leaves training
 frozen. CUDA kernels already queued complete during a stop; only the host side pauses.
@@ -51,15 +52,19 @@ def next_duty(duty: float, gpu_ema: float | None, cpu_ema: float, p: Policy, min
     return min(MAX_DUTY, max(min_duty, duty))
 
 
-def next_duty_windowed(duty: float, gpu_5min: float | None, gpu_30s: float | None, cpu_ema: float,
-                       p: Policy, min_duty: float = MIN_DUTY) -> float:
-    """GPU control on the 5-minute mean (small steps, deadband 0.03), plus a fast step down when
-    the 30-second mean is far over target; CPU as before."""
+def next_duty_windowed(duty: float, gpu_5min: float | None, gpu_60s: float | None,
+                       gpu_30s: float | None, cpu_ema: float, p: Policy,
+                       min_duty: float = MIN_DUTY) -> float:
+    """GPU control on the last ~60 s (small steps, deadband 0.03), a fast step down when the
+    30-second mean is far over target, and the 5-minute mean as the ceiling term: while it is
+    over target the duty may fall or hold but never rise. (Stepping on the 5-minute mean itself
+    lags: the duty fell ~0.15 in a minute before that mean responded.) CPU as before."""
     if cpu_ema > p.cpu_target or (gpu_30s is not None and gpu_30s > p.gpu_target + 0.10):
         duty -= p.step_down
-    elif gpu_5min is not None and gpu_5min > p.gpu_target:
+    elif gpu_60s is not None and gpu_60s > p.gpu_target:
         duty -= 0.01
-    elif cpu_ema < p.cpu_target - p.margin and (gpu_5min is None or gpu_5min < p.gpu_target - 0.03):
+    elif (cpu_ema < p.cpu_target - p.margin and (gpu_60s is None or gpu_60s < p.gpu_target - 0.03)
+          and (gpu_5min is None or gpu_5min <= p.gpu_target)):
         duty += 0.005
     return min(MAX_DUTY, max(min_duty, duty))
 
@@ -164,15 +169,16 @@ def run(args) -> int:
             cpu = 1 - (i - i_prev) / max(1, t - t_prev)
             t_prev, i_prev = t, i
             c_ema = ema(c_ema, cpu, p.alpha)
-            g_ema, g_30 = gw.mean(300.0), gw.mean(30.0)
-            if g_ema is not None and len(gw.samples) < 27:  # < 30 s of samples: hold the GPU term
-                g_ema = None
-            duty = next_duty_windowed(duty, g_ema, g_30, c_ema, p, args.min_duty)
+            g_ema, g_60, g_30 = gw.mean(300.0), gw.mean(60.0), gw.mean(30.0)
+            if len(gw.samples) < 27:  # < 30 s of samples: hold the slow GPU terms
+                g_ema = g_60 = None
+            duty = next_duty_windowed(duty, g_ema, g_60, g_30, c_ema, p, args.min_duty)
             now = time.time()
             if log and now - last_log >= args.log_every:
                 log.write(json.dumps({"t": round(now, 1), "host": os.uname().nodename, "pgid": args.pgid,
                                       "duty": round(duty, 3), "gpu_ema": None if g_ema is None else round(g_ema, 3),
                                       "gpu_5min": None if g_ema is None else round(g_ema, 3),
+                                      "gpu_60s": None if g_60 is None else round(g_60, 3),
                                       "gpu_30s": None if g_30 is None else round(g_30, 3),
                                       "cpu_ema": round(c_ema, 3)}) + "\n")
                 log.flush()
