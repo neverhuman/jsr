@@ -42,6 +42,7 @@ pub(crate) fn run_one_density_point(
                 decode: DecodeMode::Batch,
                 max_batch: 1024,
                 max_chunks: ctx.max_chunks,
+                beam: ctx.beam,
                 packet_ms: 20,
                 grid_ms: ctx.grid_ms,
                 lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,

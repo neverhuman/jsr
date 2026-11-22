@@ -51,6 +51,7 @@ from .common import (
     write_manifest,
 )
 from .derive import add_derived
+from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
 from .macros import metrics_tex, records_jsonl, sources_md
 from .records import Records, add_curated
@@ -69,6 +70,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_cluster_gap(root, rec)
     add_derived(rec)
     add_rehearsal(root, rec, out)
+    add_job_g(root, rec, out)
     add_curves(root, rec, out)
     add_sweeps(root, rec, out)
     add_tables(cur, out)

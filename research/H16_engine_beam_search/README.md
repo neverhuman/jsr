@@ -81,3 +81,33 @@
 - xbabe0 `~/jsr-engine-data/runs/`:
   - `x0-a-4523c2f-004145` (D2 average gate, left-context sweep);
   - `x0-b6-a985f2a-004757` (beam CPU).
+
+## Addendum (2026-11-22 04:30Z): SIMD log-sum-exp in the beam, and finalist gates
+
+**Change** (c56c6e7). The beam's per-row log-sum-exp now uses `kernels::sum_exp_shifted`.
+
+- It is a fixed-order sum of the engine's exp. Element `i` goes to lane `i % 8`, and the lanes reduce in one fixed tree.
+- Scalar, AVX2 and NEON produce bit-identical sums. The test `kernels::tests::sum_exp_shifted_is_bit_identical_across_isas` covers lengths 1 to 4097, tails included.
+- Candidates whose score is below the current k-th best are skipped before insertion. Ties still go through the deterministic order, so selection is unchanged.
+
+**Identity.**
+
+- Panel, D2MR-final, beam 4: tokens are 730/730 identical to a985f2a in FP32 (WER 14.431) and INT8 (14.438).
+- Decoder-only replay against `train/beam.py`: still 50/50.
+- The engine's beam is now one arithmetic on every ISA. Given the portable log-mel frontend (G4), x86 and ARM beam transcripts are expected to agree PCM to tokens. A merged-main cross-ISA panel run is still to come.
+
+**Finalist gates** (panel, INT8 prepared in qualifying mode vs the FP32 control). All pass.
+
+| Model | Search | Host | FP32 | INT8 | Delta / upper 95% |
+|---|---|---|---|---|---|
+| D2 avg 55/60/65k | greedy | x86 | 11.344 | 11.261 | −0.083 / +0.033 |
+| D2 avg 55/60/65k | greedy | ARM | 11.344 | 11.261 | −0.083 / +0.033 |
+| D2 avg 55/60/65k | beam 4 | x86 | 10.673 | 10.638 | −0.035 / +0.056 |
+| D2 avg 45/50/55k | beam 4 | x86 | 10.860 | 10.901 | +0.042 / +0.145 |
+| D2MR-final left 64 | beam 4 | x86 | 14.590 | 14.646 | +0.055 / +0.189 |
+| D2MR-final left 96 | greedy | x86 | 15.885 | 15.933 | +0.048 / +0.171 |
+| D2 avg 45/50/55k left 64 | greedy | x86 | 11.953 | 11.932 | −0.021 / +0.083 |
+
+**Artifact.** The D2 avg 55/60/65k prepared INT8 artifact (source checkpoint sha `24d7106d…`, `weights.int8.safetensors` sha `8170357b…`) is on xbabe0 and on H0 for runtime-lane's ladder.
+
+**Still open.** The beam's CPU cost on a clean host remains unmeasured. Every timing in this wave was taken while other lanes' unpinned jobs were running.

@@ -1,0 +1,47 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "ultra-engine-multirate-int8-06bc1d9f5579",
+  "source_commit": "43f31a1086fc",
+  "hardware": "xbabe0-zen2-64c",
+  "target": "x86_64",
+  "configured_threads": 4,
+  "observed_threads": 6,
+  "cpu_only_verified": true,
+  "audio_seconds": 1875.565,
+  "process_tree_cpu_seconds": 52.319,
+  "peak_rss_bytes": 2144542720,
+  "events": 283,
+  "wakeups": 376,
+  "cap_hits": 0,
+  "chunk_ms": {
+    "p50": 137.094,
+    "p95": 142.28,
+    "p99": 143.985
+  },
+  "status_events": [
+    "isa:avx2fma",
+    "int8_source:prepared",
+    "weights_sha256:41e0fa7758848f85e8b055c692e8d3fe51d8871826c47ed25a102b2e1f54b8c1",
+    "checkpoint_sha256:f245ac54d75960748c0ca8377c69cba669c6d742a7b2321b69338d9b4f7d1232",
+    "max_chunks:2",
+    "beam:1",
+    "weights_int8_sha256:f48035f29fbaf0ffde5b666f9bf2714e34179aa4eba4db858ca05624dfeffdb7",
+    "observer_cpu_seconds:15.133233",
+    "process_cpu_seconds:67.451735",
+    "effective_observer_cpus:[100, 101, 102, 103]",
+    "effective_worker_cpus:[[96], [97], [98], [99]]",
+    "audio_accepted_s:1875.565",
+    "audio_processed_s:1875.565",
+    "audio_unfinished_s:0.000"
+  ],
+  "gaps": [],
+  "hashes": {
+    "events": "84fa87b532c9feaf448fc19bffc511506fac0a6e7ee0d4063744220e9a5615e6",
+    "preview": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commit": "c6eab29a8545c243354c4caef352185074bc3b47d094866c1a3766d25438f45b",
+    "final": "6f5d27e8a03ea1fe81131eb59b8a1a3224163fbde4b234b9182ed5ee31a1fe89"
+  },
+  "label": "in-corpus",
+  "partition": "DEV",
+  "completion_status": "exploratory"
+}

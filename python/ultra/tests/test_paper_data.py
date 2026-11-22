@@ -79,8 +79,14 @@ def test_pairing_rule_rehearsal_rows_use_rehearsal_checkpoints():
         assert cand in recs[f"WerRehearsal{stem}"]["source"]
         assert "frontier_panel.json" in recs[f"WerRehearsal{stem}"]["source"]
     # the ladder's dense row is the avg-3 (45/50/55k) finalist, so its WER must be that checkpoint's
+    # Job E's dense row is the older avg-3 (45/50/55k): its WER must be that checkpoint's (F1, same harness)
     assert "d2-avg3-45-50-55" in pd.CANDIDATES[1][1]
-    assert "dense_avg3_dev-clean.json" in recs["WerRehearsalDense"]["source"]  # same-harness INT8 (F1)
+    assert "dense_avg3_dev-clean.json" in recs["WerRehearsalDenseOld"]["source"]
+    # the headline dense row is avg 55/60/65k (Job G): density and WER must both be that checkpoint's
+    assert "d2-avg3-55-60-65" in recs["DenDenseCCX"]["source"] and "job_g" in recs["DenDenseCCX"]["source"]
+    assert "dense_avg3new_clean-greedy.json" in recs["WerRehearsalDense"]["source"]
+    assert "dense_avg3new_clean-beam4.json" in recs["WerRehearsalDenseBeam"]["source"]
+    assert "Job G's own R0" in recs["DenRatioDense"]["configuration"]
     assert "d2-45000" in recs["FrontierDense"]["source"]
 
 

@@ -228,6 +228,7 @@ fn run_single_warm_block(
             decode: DecodeMode::Single,
             max_batch: 1,
             max_chunks: ctx.max_chunks,
+            beam: ctx.beam,
             packet_ms: 20,
             grid_ms: ctx.grid_ms,
             lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,

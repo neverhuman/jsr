@@ -41,6 +41,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut batch_streams = 16usize;
     let mut grid_ms = 320u32;
     let mut max_chunks = 2usize;
+    let mut beam = 1usize;
     let mut density_workers = 4usize;
     let mut density_workers_explicit = false;
     let mut full_machine_requested = false;
@@ -80,6 +81,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--batch-streams" => batch_streams = parse_next(args, &mut i, "--batch-streams")?,
             "--grid-ms" => grid_ms = parse_next(args, &mut i, "--grid-ms")?,
             "--max-chunks" => max_chunks = parse_next(args, &mut i, "--max-chunks")?,
+            "--beam" => beam = parse_next(args, &mut i, "--beam")?,
             "--density-workers" => {
                 density_workers = parse_next(args, &mut i, "--density-workers")?;
                 density_workers_explicit = true;
@@ -185,6 +187,11 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
         None
     };
 
+    if !(1..=16).contains(&beam) {
+        return Err(CliError::Config(format!(
+            "--beam must be in 1..=16 (got {beam})"
+        )));
+    }
     if !density_seconds.is_finite() || density_seconds < 0.0 {
         return Err(CliError::Config(format!(
             "--density-seconds must be finite and >= 0 (got {density_seconds})"
@@ -382,6 +389,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             batch_streams,
             grid_ms,
             max_chunks: max_chunks.clamp(1, 16),
+            beam,
             density_workers,
             density_streams,
             density_seconds,

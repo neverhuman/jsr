@@ -189,22 +189,27 @@ impl BenchLease {
     }
 }
 
+fn resolve_short_commit(git_stdout: Option<&str>, build_commit: Option<&str>) -> String {
+    if let Some(s) = git_stdout.map(str::trim).filter(|s| !s.is_empty()) {
+        return s.to_owned();
+    }
+    if let Some(b) = build_commit
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && *s != "unknown")
+    {
+        return b.chars().take(12).collect();
+    }
+    String::from("unknown")
+}
+
 pub fn git_short_commit() -> String {
-    let Ok(out) = Command::new("git")
+    let git_out = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
-    else {
-        return String::from("unknown");
-    };
-    if !out.status.success() {
-        return String::from("unknown");
-    }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_owned();
-    if s.is_empty() {
-        String::from("unknown")
-    } else {
-        s
-    }
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
+    resolve_short_commit(git_out.as_deref(), option_env!("ULTRA_BUILD_GIT_COMMIT"))
 }
 
 pub fn jsr_data_root() -> String {
@@ -320,5 +325,22 @@ mod tests {
         write_score_records_jsonl(&cand_j, &rows).expect("write b");
         let v = compare_score_files(&base_j, &cand_j, 0.05, Some(5_000), 0.10).expect("compare");
         assert_eq!(v.verdict, "PASS");
+    }
+
+    #[test]
+    fn resolve_short_commit_falls_back_to_build_commit_outside_git_repo() {
+        assert_eq!(
+            resolve_short_commit(Some("abc1234\n"), Some("deadbeefcafebabe0000")),
+            "abc1234"
+        );
+        assert_eq!(
+            resolve_short_commit(None, Some("deadbeefcafebabe0000")),
+            "deadbeefcafe"
+        );
+        assert_eq!(
+            resolve_short_commit(Some("   "), Some("unknown")),
+            "unknown"
+        );
+        assert_eq!(resolve_short_commit(None, None), "unknown");
     }
 }

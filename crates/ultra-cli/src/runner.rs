@@ -159,13 +159,22 @@ pub fn instantiate_backend_with_precision(
     precision_override: Option<&str>,
     threads: i32,
 ) -> Result<Box<dyn Backend>, CliError> {
+    instantiate_backend_with_beam(candidate_id, precision_override, threads, 1)
+}
+
+pub fn instantiate_backend_with_beam(
+    candidate_id: &str,
+    precision_override: Option<&str>,
+    threads: i32,
+    beam: usize,
+) -> Result<Box<dyn Backend>, CliError> {
     if matches!(candidate_id, "fake" | "deterministic-fake-v1") {
         return Ok(Box::new(FakeBackend::new(FakeBackendConfig::default())));
     }
     if let Some(res) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, precision_override)
     {
         let (wdir, prec) = res?;
-        let eng = NativeEngineBackend::load(&wdir, prec, threads, true)?;
+        let eng = NativeEngineBackend::load_with_options(&wdir, prec, threads, true, 1, beam)?;
         return Ok(Box::new(eng));
     }
     if let Some(res) = resolve_r1_bundle(candidate_id, precision_override) {
