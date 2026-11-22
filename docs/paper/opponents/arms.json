@@ -88,7 +88,8 @@
       "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
       "role": "comparator",
       "configuration": "Q8_0, greedy RNN-T, whole utterance, full attention",
-      "artifact_bytes": 731357568
+      "artifact_bytes": 731357568,
+      "wer_pass_arm": "parakeet-unified-offline"
     },
     "parakeet-unified-stream160": {
       "variant": "parakeet-unified-en-q8-stream160",
@@ -98,7 +99,8 @@
       "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
       "role": "comparator",
       "configuration": "Q8_0, greedy RNN-T, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, left context re-encoded every chunk",
-      "artifact_bytes": 731357568
+      "artifact_bytes": 731357568,
+      "wer_pass_arm": "parakeet-unified-stream160"
     },
     "nemotron-labs-unified-offline": {
       "variant": "nemotron-labs-unified-fp32-whole",
@@ -108,7 +110,8 @@
       "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
       "role": "comparator",
       "configuration": "FP32, greedy label-looping RNN-T, language prompt en, whole utterance, one utterance per batch",
-      "artifact_bytes": 2507735040
+      "artifact_bytes": 2507735040,
+      "wer_pass_arm": "nemotron-labs-unified-offline"
     },
     "nemotron-labs-unified-stream160": {
       "variant": "nemotron-labs-unified-fp32-stream160",
@@ -118,7 +121,8 @@
       "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
       "role": "comparator",
       "configuration": "FP32, greedy label-looping RNN-T, language prompt en, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, full buffer re-encoded every chunk",
-      "artifact_bytes": 2507735040
+      "artifact_bytes": 2507735040,
+      "wer_pass_arm": "nemotron-labs-unified-stream160-batch16"
     },
     "nemotron-labs-unified-stream160-batch16": {
       "variant": "nemotron-labs-unified-fp32-stream160-batch16",
@@ -196,7 +200,7 @@
     },
     "jsr-h22ctl-int8-shared8": {
       "variant": "h22ctl-79800-ema-int8",
-      "system": "JSR H22ctl-79800 EMA INT8",
+      "system": "JSR H22ctl-79800 EMA INT8, one process, shared weights (8 workers, not batched)",
       "short": "ULTRA-S (ours)",
       "macro": "Hctl",
       "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",
@@ -207,7 +211,7 @@
     },
     "jsr-d2e-int8-shared8": {
       "variant": "d2e-16457-int8",
-      "system": "JSR D2e-16457 INT8",
+      "system": "JSR D2e-16457 INT8, one process, shared weights (8 workers, not batched)",
       "short": "ULTRA D2e",
       "macro": "DtwoE",
       "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",

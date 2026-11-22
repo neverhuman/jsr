@@ -212,6 +212,41 @@ def export(stage, raw):
             shared.write_text(text, encoding="utf-8")
 
 
+def wer_pass(stage, arm):
+    """The Mac's untimed full-panel accuracy pass of an arm (round `wer`), if it exists."""
+    for run in sorted(stage.glob(f"m3ultra/{arm}-*/round-wer")) + sorted(stage.glob(f"m3ultra/{arm}/round-wer")):
+        if (run / "score.json").is_file() and (run / "scores.jsonl").is_file():
+            return run
+    return None
+
+
+def hyps_by_uid(scores):
+    return {row["id"]: row["hyp"] for row in map(json.loads, scores.read_text().splitlines())}
+
+
+def attach_wer_pass(record, stage, arm, row):
+    """Give a slow-view row the 730-utterance WER of the Mac accuracy pass, and check word for word that
+    the pass and the timed row agree on the utterances they share."""
+    name = arm.get("wer_pass_arm")
+    run = wer_pass(stage, name) if name else None
+    if run is None:
+        return
+    report = read_json(run / "score.json")["system_a"]
+    sets = report["datasets"]
+    timed = hyps_by_uid(Path(row["source"]) / f"round-{row['median_round']}" / "scores.jsonl")
+    full = hyps_by_uid(run / "scores.jsonl")
+    differ = sorted(uid for uid in timed if full.get(uid) != timed[uid])
+    record.update({
+        "wer_full_panel_pct": 100 * report["pooled_wer"],
+        "wer_full_panel_clean_pct": 100 * sets["dev-clean"]["wer"],
+        "wer_full_panel_other_pct": 100 * sets["dev-other"]["wer"],
+        "wer_full_panel_utterances": report["utterances"],
+        "wer_full_panel_source": "untimed accuracy pass on the M3 Ultra (xbabe4), same runtime commit and model file: "
+                                 + str(Path("docs/paper/data/raw/opponents") / run.relative_to(stage) / "score.json"),
+        "wer_full_panel_check": f"{len(timed) - len(differ)} of {len(timed)} shared utterances identical word for word",
+    })
+
+
 def evidence(stage, panel_seconds, raw):
     registry = read_json(HERE / "arms.json")
     files = {}
@@ -246,6 +281,8 @@ def evidence(stage, panel_seconds, raw):
             "session": f"{row['started'][:10]} {machine['host']} bench-cross harness e2ef608",
         }
         kind = "main" if record["workload_view"] == "panel730" else "slow"
+        if kind == "slow":
+            attach_wer_pass(record, stage, arm, row)
         if row["repetitions"] < 3:
             kind = "partial"  # the evidence schema wants three repetitions; kept for the record
         if row["machine"] == "zen2":
