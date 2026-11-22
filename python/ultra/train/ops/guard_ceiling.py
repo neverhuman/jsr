@@ -1,10 +1,12 @@
-"""H0 watchdog for the owner's GPU ceiling (5-min mean <= 90%): every minute, read each guarded
-run's guard log over the last 5 minutes; if the mean measured GPU utilisation exceeds the ceiling (default 0.89, one point under the
-owner's 90% cap, since the fleet monitor's window reads slightly higher than the guard log),
-restart that run's guard with the target lowered by `step` (Linux: restart_guard.sh; macOS:
-the mac_guard relaunch). Logs every decision as JSON lines.
+"""H0 watchdog for the owner's GPU ceiling (5-min mean <= 90%). Every minute it samples each
+guarded run's GPU with the fleet monitor's own metric: nvidia-smi utilization.gpu on Linux,
+ioreg "Device Utilization %" on the Mac (twenty 1-second samples, all hosts in parallel). It keeps
+a rolling 5-minute mean per run. While that mean exceeds the ceiling (default 0.88), it restarts
+the run's guard with the target lowered by `step` (Linux: restart_guard.sh; macOS: a mac_guard
+relaunch), at most once per 3 minutes and never below the floor (0.60). The guards' own
+estimates read lower than the monitor, hence a separate check. Logs JSON lines.
 
-  python guard_ceiling.py [--ceiling 0.90] [--step 0.01] [--floor 0.80]
+  python guard_ceiling.py [--mac-ceiling 0.88] [--step 0.01] [--mac-floor 0.60] [--targets JSON]
 """
 import argparse
 import json
@@ -42,6 +44,17 @@ IOREG = ('for i in $(seq 1 20); do ioreg -r -d 1 -w 0 -c IOAccelerator '
          '| grep -o \'"Device Utilization %"=[0-9]*\' | head -1 | cut -d= -f2; sleep 1; done')
 
 
+NVSMI = ('for i in $(seq 1 20); do nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits '
+         '-i 0; sleep 1; done')
+
+
+def linux_gpu_util(host):
+    """Mean of 20 one-second nvidia-smi utilization.gpu samples (the fleet monitor's metric)."""
+    r = ssh(host, NVSMI, 60)
+    vals = [int(v) for v in r.stdout.split() if v.isdigit()]
+    return sum(vals) / len(vals) / 100.0 if vals else None
+
+
 def mac_device_util(host):
     """Mean of 20 one-second ioreg "Device Utilization %" samples (the fleet monitor's metric)."""
     r = ssh(host, IOREG, 60)
@@ -71,33 +84,38 @@ def main(argv=None):
     ap.add_argument("--floor", type=float, default=0.80)
     ap.add_argument("--start", type=float, default=0.89)
     ap.add_argument("--mac-ceiling", type=float, default=0.88,
-                    help="macOS: step down while the 5-min mean of ioreg Device Utilization exceeds this")
-    ap.add_argument("--mac-floor", type=float, default=0.60)
+                    help="step down while the 5-min mean of the monitor metric exceeds this (all hosts)")
+    ap.add_argument("--mac-floor", type=float, default=0.60, help="lowest target (all hosts)")
     ap.add_argument("--targets", default="", help='current per-run targets as JSON, e.g. {"H13a": 0.88}')
     a = ap.parse_args(argv)
     if not 0 < a.floor <= a.start <= a.ceiling <= 1 or a.step <= 0:
         ap.error("need 0 < floor <= start <= ceiling <= 1 and step > 0")
     ap_mac = {"ceiling": a.mac_ceiling, "floor": a.mac_floor}
-    mac_hist = {k: [] for k, v in RUNS.items() if v[3] == "mac"}
+    mac_hist = {k: [] for k in RUNS}
     last_change = {k: 0.0 for k in RUNS}
     target = {k: a.start for k in RUNS}
     target.update(json.loads(a.targets) if a.targets else {})
+    from concurrent.futures import ThreadPoolExecutor
+
+    pool = ThreadPoolExecutor(max_workers=len(RUNS))
     while True:
+        t0 = time.time()
+        futs = {k: pool.submit(mac_device_util if v[3] == "mac" else linux_gpu_util, v[0])
+                for k, v in RUNS.items()}
         for label, (host, run, log, kind) in RUNS.items():
             ceiling, floor = a.ceiling, a.floor
             try:
-                if kind == "mac":  # the fleet monitor reads ioreg on the Mac; mac_guard reads lower
-                    u = mac_device_util(host)
-                    if u is not None:
-                        mac_hist[label] = (mac_hist[label] + [u])[-5:]
-                    m = sum(mac_hist[label]) / len(mac_hist[label]) if mac_hist[label] else None
-                    ceiling, floor = ap_mac["ceiling"], ap_mac["floor"]
-                else:
-                    m = mean_gpu(host, f"{run}/{log}")
-            except subprocess.TimeoutExpired:
+                # The fleet monitor's metrics: ioreg Device Utilization on the Mac, nvidia-smi
+                # utilization.gpu on Linux. The guards' own estimates read lower than both.
+                u = futs[label].result(timeout=90)
+                if u is not None:
+                    mac_hist[label] = (mac_hist[label] + [u])[-5:]
+                m = sum(mac_hist[label]) / len(mac_hist[label]) if mac_hist[label] else None
+                ceiling, floor = ap_mac["ceiling"], ap_mac["floor"]
+            except Exception:  # an unreachable host must not stop the watchdog
                 m = None
             rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label],
-                   "metric": "ioreg_device_util" if kind == "mac" else "guard_gpu_ema"}
+                   "metric": "ioreg_device_util" if kind == "mac" else "nvidia_smi_util"}
             settled = time.time() - last_change[label] > 180
             if m is not None and m > ceiling and settled and target[label] - a.step >= floor:
                 last_change[label] = time.time()
@@ -108,7 +126,7 @@ def main(argv=None):
                     ssh(host, MAC_RESTART.format(r=run, t=target[label]), 120)
                 rec["action"] = f"target -> {target[label]}"
             print(json.dumps(rec), flush=True)
-        time.sleep(60)
+        time.sleep(max(1.0, 60 - (time.time() - t0)))
 
 
 if __name__ == "__main__":
