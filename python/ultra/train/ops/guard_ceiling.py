@@ -14,15 +14,13 @@ import subprocess
 import sys
 import time
 
-RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itself
-    "D2": ("local", "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h", "fleet_guard.jsonl", "linux"),
-    "H22t": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/H22t_kd*", "fleet_guard.jsonl", "linux"),
-    "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
+RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itself; "*" = the live arm
+    "H41chunk": ("local", "/mnt/xbabe3-external/jsr/runs/train/H41_chunk", "fleet_guard.jsonl", "linux"),
+    "H41ctl": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/H41_*", "fleet_guard.jsonl", "linux"),
+    "H41aa": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H41_*", "fleet_guard.jsonl", "linux"),
+    "H41muon": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H41_*", "fleet_guard.jsonl", "linux"),
+    "F1": ("xbabe8", "/home/ubuntu/jsr-data/runs/train/F1_S_MR_r0bpe_960h", "fleet_guard.jsonl", "linux"),
     "L3": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/L3_M_MR_spm512_pruned_960h", "fleet_guard.jsonl", "linux"),
-    "H22ctl": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H22ctl_S_r0bpe_pruned_960h", "fleet_guard.jsonl", "linux"),
-    "H22kd": ("xbabe8", "/home/ubuntu/jsr-data/runs/train/H22kd_S_r0bpe_pruned_960h", "fleet_guard.jsonl", "linux"),
-    "H23": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H23_current_gpu0", "fleet_guard.jsonl", "linux"),
-    "D4M": ("xbabe4", "/Users/agent/jsr-train/data/runs/train/D4M_M_MR_960h", "mac_guard.jsonl", "mac"),
 }
 MAC_RESTART = (
     'R={r}; PG=$(cat $R/PGID); PY=~/jsr-train/venv/bin/python; '

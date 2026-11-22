@@ -49,7 +49,9 @@ while True:
             if f"eval:{r['step']}" in posted:
                 continue
             t = max((x for x in trains if x["step"] <= r["step"]), key=lambda x: x["step"], default={})
-            lines.append(f"- step {r['step']}, epoch {r.get('epoch')}: **WER {r['wer']}%** (sub {r['sub']} del {r['del']} "
+            extra = "".join(f", {k.replace('ema_wer', 'EMA').replace('wer_c', 'chunk-').replace('_c', ' chunk-')} "
+                            f"{r[k]}%" for k in sorted(r) if k.startswith(("ema_wer", "wer_c")) and r[k] is not None)
+            lines.append(f"- step {r['step']}: **WER {r['wer']}%**{extra} (sub {r['sub']} del {r['del']} "
                          f"ins {r['ins']}), train RNNT {t.get('rnnt', 0):.3f} CTC {t.get('ctc', 0):.3f}/token, "
                          f"{t.get('audio_h_per_h', 0):.0f} audio-h/h\n")
         if lines:  # one post per pass and run, however many evals landed since the last sync

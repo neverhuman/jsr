@@ -14,6 +14,6 @@
 
 ## F1: fast trunk
 - **Model:** S_MR, R0 BPE-500, from scratch, H22ctl's recipe: AdamW, lr 1e-3, 2,000 warmup steps, pruned loss from step 2,000, SpecAugment from step 4,000, speed perturbation, EMA.
-- **Batch and length:** single A100 (xbabe8), 2,000 s / 400 (L2's S_MR batch on a 40 GB A100), 54,000 steps, about 30k audio-h.
+- **Batch and length:** single A100 (xbabe8), 1,800 s / 360, 60,000 steps, about 30k audio-h. A first start at 2,000 s / 400 (L2's batch) reserved 88% of GPU memory after 50 steps, so it was restarted smaller within two minutes.
 - **qkv cap from step 100, ratio 6.0.** The cap is relative to the step-100 row norms, which are near their initial value (about 20). Ratio 6.0 puts the cap at about 120–135, where healthy runs plateau (H22ctl 118, L3 114–117) and below L2's runaway (189). The usual ratio 1.5 would pin the norms at about 33.
 - **Launcher:** `python/ultra/train/ops/f1_launch.sh`.

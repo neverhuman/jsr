@@ -3,9 +3,11 @@
 # weights, seeds/A1_seed_ema.pt), AdamW, 1,000 warmup steps to 1e-3, one cosine; per-rank 1,300 s / 288 (H22ctl's
 # batch), window_groups 96, chunk sampling {4,8,16}, dev eval at chunk 4 and 8, hottest-rank throttle 0.83.
 # 4-rank DDP: node0 xbabe5 GPU0, node1 xbabe5 GPU1 (own dir), node2 xbabe7 GPU0, node3 xbabe9.
-#   a1_ddp.sh <node_rank> <gpu> <cpus> <run_dir_name>      env: NNODES (4), BUDGET, MAXB, TOTAL
+#   a1_ddp.sh <node_rank> <gpu> <cpus> <run_dir_name> [key=value ...]   env: NNODES (4), BUDGET, MAXB, TOTAL
+# Trailing key=value pairs override the settings below (e.g. total_steps re-derived from the measured rate).
 set -uo pipefail
 NR=$1 GPU=$2 CPUS=$3 NAME=$4
+shift 4
 D=$HOME/jsr-data; R=$D/runs/train/$NAME
 export JSR_DATA=$D PY=$D/venvs/train/bin/python NNODES=${NNODES:-4} NODE_RANK=$NR MASTER_ADDR=172.27.124.200 MASTER_PORT=${MASTER_PORT:-29710} NCCL_SOCKET_IFNAME=eno1
 bash $HOME/jsr/.agent/worktrees/trainer/python/ultra/train/ops/launch_ddp.sh "$R" "$CPUS" "$GPU" -- --preset S \
@@ -16,4 +18,4 @@ bash $HOME/jsr/.agent/worktrees/trainer/python/ultra/train/ops/launch_ddp.sh "$R
   qkv_cap_from=100 qkv_cap_ratio=1.5 qkv_guard_ratio=2.0 diverge_after=8000 diverge_wer_points=15.0 \
   eval_every=2500 eval_each_epoch=false dev_limit=400 ckpt_every_steps=2500 weights_every=2500 log_every=50 \
   loader=process workers=16 window_groups=96 chunk_modes=4,8,16 eval_chunks=8 \
-  ddp_util_target=0.83 ddp_global_batches=true ddp_native=true ddp_bf16_comm=true
+  ddp_util_target=0.83 ddp_global_batches=true ddp_native=true ddp_bf16_comm=true "$@"
