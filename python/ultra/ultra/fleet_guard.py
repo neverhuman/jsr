@@ -7,8 +7,7 @@ group) by a duty cycle of SIGCONT/SIGSTOP. Every period it measures the host's G
 and lowers the job's duty when either exceeds its target, raising it again when there is
 headroom.
 
-GPU measurement (2026-11-22): a daemon thread samples nvidia-smi every ~2 s (jittered, so it
-cannot phase-lock to the run/stop cycle) into a rolling 5-minute mean, the same statistic the
+GPU measurement (2026-11-22): a long-lived `nvidia-smi -lms 2000` stream feeds a rolling 5-minute mean, the same statistic the
 owner's cap watch uses; paused time is included because sampling never stops. The controller
 steps on that mean (slowly) and on a 30-second mean (fast, only well above target). The old
 per-cycle EMA tracked bursts and read ~10 points below the 5-minute nvidia-smi mean on xbabe2.
@@ -66,17 +65,14 @@ def next_duty_windowed(duty: float, gpu_5min: float | None, gpu_30s: float | Non
 
 
 class GpuWindow:
-    """Background nvidia-smi sampler: jittered ~2 s period, rolling means over the last N seconds."""
+    """Background nvidia-smi stream (one reading per `period`), rolling means over the last N seconds."""
 
-    def __init__(self, index: int, period: float = 2.0, horizon: float = 300.0, util=None):
+    def __init__(self, index: int, period: float = 2.0, horizon: float = 300.0):
         import collections
-        import random
         import threading
 
         self.index, self.period, self.horizon = index, period, horizon
         self.samples: collections.deque = collections.deque()
-        self._util = util or gpu_util
-        self._rand = random.Random(index)
         self._lock = threading.Lock()
         if index >= 0:
             threading.Thread(target=self._loop, name="gpu-window", daemon=True).start()
@@ -94,11 +90,23 @@ class GpuWindow:
         return sum(xs) / len(xs) if xs else None
 
     def _loop(self) -> None:
+        """One long-lived `nvidia-smi -lms` stream: readings arrive on nvidia-smi's own clock,
+        independent of this process's scheduling and of the run/stop cycle. Note that a stopped
+        job's already-queued kernels keep the GPU busy, which the stream reports as busy."""
+        cmd = ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits",
+               "-i", str(self.index), "-lms", str(int(self.period * 1000))]
         while True:
-            u = self._util(self.index)
-            if u is not None:
-                self.add(time.monotonic(), u)
-            time.sleep(self.period * (0.75 + 0.5 * self._rand.random()))
+            try:
+                with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                      text=True) as proc:
+                    for line in proc.stdout:
+                        try:
+                            self.add(time.monotonic(), float(line.split()[0]) / 100.0)
+                        except (IndexError, ValueError):
+                            continue
+            except OSError:
+                pass
+            time.sleep(5.0)  # nvidia-smi exited or is missing: retry
 
 
 def ema(prev: float | None, x: float, alpha: float) -> float:
