@@ -253,10 +253,18 @@ class Trainer:
         return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
                 "ctc": float(out["ctc"]),
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
-                "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
+                "lr": self.sched.get_last_lr()[0], "audio_s": self._global_audio(batch.audio_seconds),
                 "utts": len(batch.uids),
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
+
+    def _global_audio(self, seconds: float) -> float:
+        """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
+        if self.world <= 1:
+            return seconds
+        from train.dist import all_reduce_sum
+
+        return all_reduce_sum([seconds], self.device)[0]
 
     def _global_loss(self, out: dict):
         """Rescale each loss component by world * N_rank / N_total (all-reduced token / frame
