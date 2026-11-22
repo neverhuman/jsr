@@ -50,3 +50,18 @@ A first launch at 1200 s / lr 1.4e-3 / workers 8 (dirs `*_probe1200`) ran ~300 s
 
 ## Links
 - H13 (vocab and pruned-loss controls), H12 (decode point, MR padding fix), H9 (qkv cap).
+
+## Loader change (2026-11-22, all of L1/L2/L3 and H22-ctl)
+- **Before:** the thread-pool loader was GIL-bound. The A100s ran at 35–50% GPU util and ~1,050–1,250 audio-h/h with 4–7 CPU cores busy.
+- **Change:** `loader=process` (commit bb64d08). Spawned worker processes run the same decode, speed-perturb and log-mel code. tests/test_train_loader.py shows the batches are bit-identical to the thread path (same order, `torch.equal` features and token ids), with and without speed perturbation.
+- **No restart from scratch:** because the batches are identical, each run was checkpointed with SIGTERM (`ops/relaunch_with.sh`) and resumed with `loader=process`, so the data stream and the training are unchanged.
+
+| Run | Resumed at step | Workers | audio-h/h before → after | GPU util after |
+|---|---:|---:|---:|---:|
+| L1 | 1,132 | 20 | 1,176 → **2,484** | 98% (guard gpu_ema 0.82) |
+| L2 | 1,193 | 20 | 1,229 → **3,151** | 89% |
+| L3 | 780 | 18 | 1,042 → **2,715** | 81% |
+| H22-ctl | 755 | 18 | 1,044 → **2,652** | 82% |
+
+- **Host CPU stays below the guard's 0.85:** cpu_ema 0.40–0.44 on xbabe8/9 and 0.15 on xbabe7.
+- **Pre-computed log-mel shards: not built.** With the process loader the GPUs are at the guard target, so shards (~165 GB for 3 speeds) would add no throughput.
