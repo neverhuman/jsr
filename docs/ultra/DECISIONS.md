@@ -46,3 +46,13 @@ BENCH_PLAN §0a held R1-MR to an add-on block after the D2 window. R1-MR (S_MR) 
 
 ## 2026-11-21 — owner: the qualifying host is xbabe2 (deviation from H0)
 No Zen 2 host was quiet: H0, xbabe0 and xbabe2 all carry other projects' unpinned jobs. The owner chose **xbabe2** (same SKU: TR PRO 3995WX) as the qualifying host. The owner pauses the other projects' jobs there for the window, and JSR pauses its own xbabe2 GPU job (R4T-960 or any successor) during the window as well. Rows from that window carry host=xbabe2. HARDWARE.json gets an xbabe2 entry, verified from the window's own host snapshot.
+
+## 2026-11-22: owner approves R0 Zipformer as a distillation teacher
+The owner approved using R0 (the pretrained icefall streaming Zipformer, trained on LibriSpeech 960 h only) as a teacher for knowledge distillation of R1. No new data enters training: the teacher sees only LibriSpeech training audio. The teacher's outputs are cached as training targets.
+
+**Rules:**
+- The teacher runs only on LibriSpeech **train** splits, never on dev or test.
+- Every R1 checkpoint trained with distillation is labelled "distilled from R0" in the paper and in research waves.
+- Accuracy is still selected on the DEV panel only.
+
+Tracked as research wave H22.
