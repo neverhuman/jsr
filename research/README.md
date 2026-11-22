@@ -25,7 +25,7 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H3](H3_r1_first_training/README.md) | First R1 training (100 h): collapse → fix | FAILED → fixed | Post-norm collapse; SpecAugment plateau; delayed SpecAugment → 29.8% |
 | [H4](H4_int8_batch_invariance/README.md) | INT8 export and batch invariance | resolved | Dynamic INT8 output depends on co-batched streams; static encoder-only INT8 +0.066 |
 | [H5](H5_whole_service_cpu_benchmark/README.md) | Whole-service CPU benchmark and measurement hygiene | EXPLORATORY | Observer placement inflated CPU; A/A replay ±25% on a shared host |
-| [H6](H6_pure_rust_engine/README.md) | Pure-Rust inference engine (x86 + ARM) | EXPLORATORY | Engine INT8 0.041 vs ORT FP32 0.175 CPU-s/s, same transcripts; bit-identical across ISAs |
+| [H6](H6_pure_rust_engine/README.md) | Pure-Rust inference engine (x86 + ARM) | EXPLORATORY | Same-weight FP32 control: Rust 0.0947 vs ORT 0.1747 CPU-s/audio-s, 400/400 identical hypotheses. Prepared INT8 used 0.0413 in a separate run. |
 | [H7](H7_multirate_S_MR/README.md) | Multirate encoder (S_MR) vs dense | EXPLORATORY | Same or better WER (18.0% vs 29.8% at 100 h); about 25% less CPU per stream |
 | [H8](H8_ternary_R4/README.md) | Ternary (R4) QAT pilot | EXPLORATORY | −0.6 WER cost, 14 MiB weights; no faster than INT8 at batch (compute-bound) |
 | [H9](H9_960h_training_and_divergence/README.md) | 960 h training, divergence and the qkv cap | ongoing | D2 dense 9.99% dev-clean; D3 runs diverged (qkv runaway) → cap + guards |
@@ -38,5 +38,6 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H17](H17_spec_corrections/README.md) | Spec claims our data contradicts; 3 qualification bugs (grok-lane) | note | Double fleet offset, grid error spin (runtime), ternary+act7 width switch (engine); trainer resume/CMVN facts |
 | [H18](H18_ieee_paper_draft/README.md) | IEEE paper draft (docs/paper), every number sourced and generated | draft | Abstract leads with the WER gap; pairing errors in repo docs caught and fixed |
 | [H19](H19_single_harness_rehearsal/README.md) | Single-harness rehearsal: R0 vs dense vs MR, per-CCX ladder + 8-block ABAB | EXPLORATORY | Density 32 / 96–112 / 144 per CCX (MR 4.5×, reproduced 3×); single-stream CPU 1.50× / 1.59× lower (p<1e-5); WER gap stated |
+| [H20](H20_matched_cpu_frontier/README.md) | Common-boundary streaming ASR CPU and DEV WER | EXPLORATORY, ongoing | The first 730-utterance repetition has verified timing and retained hypotheses. Three-repeat rotation underway. |
 
-Reserved: H14 dual-mode / chunk-size sampling. Next free: **H20**.
+Reserved: H14 dual-mode / chunk-size sampling. Next free: **H21**.
