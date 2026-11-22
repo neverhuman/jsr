@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>JSR Training Dashboard</title>
+<style>
+  :root {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #edf3fc;
+    background: #10141d;
+    color-scheme: dark;
+    --panel: #171e2a;
+    --panel-raised: #1c2533;
+    --line: #303b4c;
+    --text: #edf3fc;
+    --muted: #aab8cb;
+    --accent: #65e0b5;
+    --violet: #bda9f7;
+    --amber: #f8bb76;
+    --danger: #ffa29b;
+    --numbers: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 280px; }
+  button, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, select:focus-visible, canvas:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+  }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: clamp(1.35rem, 2.6vw, 2rem); line-height: 1.2; letter-spacing: -.04em; }
+  h2 { font-size: 1.12rem; letter-spacing: -.02em; }
+  h3 { font-size: .94rem; font-weight: 650; }
+  .muted { color: var(--muted); }
+  .secondary { color: var(--muted); font-size: .8125rem; line-height: 1.5; }
+  .numeric { font-family: var(--numbers); font-variant-numeric: tabular-nums; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+  [hidden] { display: none !important; }
+
+  .header {
+    border-bottom: 1px solid var(--line);
+    background: #131a25;
+  }
+  .header-inner, main { max-width: 94rem; margin-inline: auto; padding-inline: clamp(1rem, 3vw, 2.75rem); }
+  .header-inner {
+    min-height: 5.1rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .brand { display: flex; align-items: center; gap: .875rem; }
+  .brandmark {
+    display: grid; place-items: center; inline-size: 2.625rem; block-size: 2.625rem;
+    flex: none; border: 1px solid #407064; border-radius: .65rem;
+    background: #1d3b35; color: var(--accent); font: 700 .9375rem var(--numbers);
+  }
+  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .625rem; justify-content: flex-end; }
+  .pill, .action, .choice {
+    display: inline-flex; align-items: center; gap: .425rem;
+    padding: .5rem .75rem; border: 1px solid var(--line); border-radius: .55rem;
+    background: #151c27; color: var(--muted); font-size: .875rem; white-space: nowrap;
+  }
+  .action:hover, .choice:hover, .host-button:hover { background: #263245; color: var(--text); }
+  .pill[data-status="live"], .status[data-state="live"] { color: var(--accent); }
+  .pill[data-status="offline"], .status[data-state="offline"] { color: var(--danger); }
+  .pill[data-status="paused"], .status[data-state="stale"] { color: var(--amber); }
+  .dot { inline-size: .45rem; block-size: .45rem; border-radius: 50%; background: currentColor; flex: none; }
+
+  main { padding-block: 1.55rem 2.75rem; }
+  .section-title { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-bottom: .7rem; }
+  .section-title + .section-title { margin-top: 1rem; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+  .card {
+    min-width: 0; border: 1px solid var(--line); border-radius: .75rem;
+    background: var(--panel); padding: 1rem 1.1rem;
+  }
+  .stat { min-height: 6.4rem; display: grid; align-content: center; gap: .225rem; }
+  .stat-label { color: var(--muted); font-size: .9rem; }
+  .stat-value { font: 650 clamp(1.25rem, 3.3vw, 2.05rem)/1.25 var(--numbers); letter-spacing: -.065em; }
+  .stat-value.throughput { color: var(--accent); }
+  .stat-value.loss { color: var(--violet); }
+
+  .overview, .run-charts { display: grid; grid-template-columns: minmax(0, 1.72fr) minmax(0, 1fr); gap: .85rem; margin-top: .85rem; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap; margin-bottom: .5rem; }
+  .segmented { display: flex; flex-wrap: wrap; gap: .3rem; padding: .2rem; background: #111824; border-radius: .65rem; }
+  .choice { padding: .37rem .575rem; background: transparent; border-color: transparent; }
+  .choice[aria-pressed="true"] { border-color: #45566c; color: var(--text); background: #263245; }
+  .chart { position: relative; height: 13.1rem; min-width: 0; }
+  .chart canvas { display: block; inline-size: 100%; block-size: 100%; border-radius: .35rem; }
+  .chart-note {
+    position: absolute; inset: 1rem 0 2rem; display: grid; place-items: center;
+    color: var(--muted); font-size: .875rem; text-align: center; pointer-events: none;
+  }
+  .chart-cursor { position: absolute; border-left: 1px solid #7d90ab; pointer-events: none; }
+  .tooltip {
+    position: absolute; z-index: 1; max-width: min(16rem, 90%);
+    max-height: calc(100% - 8px); overflow: hidden;
+    padding: .55rem .65rem; background: #0d131e; border: 1px solid #506580;
+    border-radius: .5rem; color: var(--text); font-size: .8125rem;
+    line-height: 1.45; box-shadow: 0 6px 20px #0508107a; pointer-events: none;
+  }
+  .tooltip b, .tooltip span { display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: .3rem .8rem; min-height: 1.4rem; align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .8125rem; }
+  .legend i { width: .55rem; height: .55rem; border-radius: .2rem; background: var(--series); }
+
+  .evaluations { margin: 0; padding: 0; list-style: none; }
+  #fleet-wer { max-height: 15rem; overflow: auto; scrollbar-color: #4e6075 transparent; }
+  .evaluation { padding-block: .7rem; display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; border-bottom: 1px solid var(--line); }
+  .evaluation:last-child { border-bottom: 0; }
+  .evaluation > div { min-width: 0; overflow-wrap: anywhere; }
+  .evaluation b { color: var(--amber); font: 620 1.075rem var(--numbers); white-space: nowrap; }
+  .empty { color: var(--muted); line-height: 1.5; padding-block: 1.2rem; }
+
+  .nodes { margin-top: 1.8rem; }
+  .node-layout { display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr); gap: .85rem; align-items: start; }
+  .host-list { display: grid; gap: .35rem; padding: .55rem; }
+  .host-button {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .4rem;
+    background: transparent; border: 1px solid transparent; padding: .65rem .7rem;
+    text-align: start; border-radius: .5rem; min-width: 0; color: var(--text);
+  }
+  .host-button[aria-pressed="true"] { background: #24403e; border-color: #426b63; }
+  .host-name { font-weight: 650; overflow-wrap: anywhere; }
+  .host-button .secondary { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .host-speed { text-align: end; }
+  .status { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .8125rem; }
+  .detail-title { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+  .detail-head { align-items: flex-start; }
+  .detail-head h2 { font-size: 1.25rem; }
+  .run-choice { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+  select {
+    border-radius: .5rem; background: #111824; border: 1px solid var(--line);
+    padding: .46rem .6rem; max-width: min(21rem, 82vw); font-size: .875rem;
+  }
+  .facts {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem;
+    margin: .85rem 0 0;
+  }
+  .fact { border: 1px solid var(--line); border-radius: .5rem; padding: .55rem .65rem; min-width: 0; }
+  .fact dt { color: var(--muted); font-size: .8125rem; }
+  .fact dd { margin: .2rem 0 0; color: var(--text); font: 600 .9rem var(--numbers); overflow-wrap: anywhere; }
+  .hardware { margin-top: .9rem; }
+  .gpu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: .45rem; margin-top: .45rem; }
+  .gpu { padding: .55rem .65rem; border-radius: .55rem; background: #111824; overflow-wrap: anywhere; min-width: 0; }
+  .gpu p:first-child { font-size: .875rem; font-weight: 600; }
+  .gpu-meter { height: .25rem; border-radius: .2rem; margin: .35rem 0; background: #344252; overflow: hidden; }
+  .gpu-meter span { display: block; height: 100%; background: var(--accent); }
+  .run-charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .run-charts .chart { height: 12.5rem; }
+  .block-summary { border-top: 1px solid var(--line); margin-top: .6rem; padding-top: .65rem; }
+  .block-summary p { margin-top: .3rem; }
+
+  @media (max-width: 900px) {
+    .node-layout { grid-template-columns: minmax(0, 1fr); }
+    .host-list { grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr)); }
+    .host-button { padding: .5rem; }
+  }
+  @media (max-width: 630px) {
+    .header-inner { align-items: flex-start; flex-direction: column; gap: .55rem; padding-block: .85rem; }
+    .toolbar { justify-content: flex-start; }
+    .stats, .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .overview, .run-charts { grid-template-columns: minmax(0, 1fr); }
+    .host-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card { padding: .8rem; }
+  }
+  @media (max-width: 335px) {
+    .stats, .host-list { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brandmark" aria-hidden="true">JSR</span>
+      <h1>Training dashboard</h1>
+    </div>
+    <div class="toolbar">
+      <span class="pill" id="connection" data-status="connecting" role="status">
+        <span class="dot" aria-hidden="true"></span><span id="connection-text">Connecting</span>
+      </span>
+      <button class="action" id="pause" type="button" aria-pressed="false">Pause updates</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section aria-labelledby="fleet-title">
+    <div class="section-title">
+      <h2 id="fleet-title">Fleet overview</h2>
+      <p class="secondary" id="freshness">Waiting for a snapshot</p>
+    </div>
+    <div class="stats">
+      <article class="card stat">
+        <p class="stat-label">Training throughput</p>
+        <p class="stat-value throughput" id="fleet-audio">—</p>
+        <p class="secondary">Audio seconds per wall second</p>
+      </article>
+      <article class="card stat">
+        <p class="stat-label">Active runs</p>
+        <p class="stat-value" id="fleet-runs">—</p>
+        <p class="secondary">Across connected nodes</p>
+      </article>
+      <article class="card stat">
+        <p class="stat-label">Median loss</p>
+        <p class="stat-value loss" id="fleet-loss">—</p>
+        <p class="secondary">Fresh training blocks</p>
+      </article>
+      <article class="card stat">
+        <p class="stat-label">Live nodes</p>
+        <p class="stat-value" id="fleet-nodes">—</p>
+        <p class="secondary" id="fleet-node-note">Waiting for host status</p>
+      </article>
+    </div>
+    <div class="overview">
+      <article class="card">
+        <div class="card-header">
+          <h3>Fleet history</h3>
+          <div class="segmented" role="group" aria-label="Fleet history metric" id="fleet-tabs">
+            <button class="choice" type="button" aria-pressed="true" data-metric="audio_per_second">Audio/s</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="median_loss">Loss</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="active_runs">Runs</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="wer">WER</button>
+          </div>
+        </div>
+        <div class="chart" id="fleet-chart">
+          <canvas tabindex="0" role="img" aria-label="Fleet throughput chart. Use arrow keys to inspect reported values."></canvas>
+          <p class="chart-note">Waiting for fleet history</p>
+          <div class="tooltip" aria-hidden="true" hidden></div>
+        </div>
+        <div class="legend"></div>
+      </article>
+      <article class="card">
+        <div class="card-header"><h3>Best reported DEV WER</h3></div>
+        <ul class="evaluations" id="fleet-wer"></ul>
+        <p class="empty" id="fleet-wer-empty">No evaluation results received.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="nodes" aria-labelledby="nodes-title">
+    <div class="section-title">
+      <h2 id="nodes-title">Training nodes</h2>
+      <p class="secondary" id="nodes-summary"></p>
+    </div>
+    <div class="node-layout">
+      <div class="card host-list" id="host-list" role="group" aria-label="Select a training node">
+        <p class="empty" id="hosts-empty">Waiting for node status.</p>
+      </div>
+      <div id="node-view" hidden>
+        <article class="card">
+          <div class="card-header detail-head">
+            <div>
+              <div class="detail-title">
+                <h2 id="node-name"></h2>
+                <span class="status" id="node-status"></span>
+              </div>
+              <p class="secondary" id="node-detail"></p>
+            </div>
+            <div class="run-choice">
+              <label class="secondary" for="run-select">Run</label>
+              <select id="run-select"></select>
+            </div>
+          </div>
+          <dl class="facts">
+            <div class="fact"><dt>Audio/s</dt><dd id="node-audio">—</dd></div>
+            <div class="fact"><dt>Run step</dt><dd id="node-step">—</dd></div>
+            <div class="fact"><dt>Run loss</dt><dd id="node-loss">—</dd></div>
+            <div class="fact" id="node-cpu-fact"><dt id="node-cpu-label">Host CPU</dt><dd id="node-cpu">—</dd></div>
+            <div class="fact"><dt>Disk free</dt><dd id="node-disk">—</dd></div>
+          </dl>
+          <div class="hardware">
+            <h3>GPUs</h3>
+            <div class="gpu-grid" id="node-gpus"></div>
+          </div>
+        </article>
+        <div class="run-charts" id="run-charts">
+          <article class="card">
+            <div class="card-header">
+              <h3>Training by step</h3>
+              <div class="segmented" role="group" aria-label="Run training metric" id="run-tabs">
+                <button class="choice" type="button" data-metric="loss" aria-pressed="true">Loss</button>
+                <button class="choice" type="button" data-metric="audio_per_second" aria-pressed="false">Audio/s</button>
+              </div>
+            </div>
+            <div class="chart" id="run-train-chart">
+              <canvas tabindex="0" role="img" aria-label="Run training chart. Use arrow keys to inspect reported values."></canvas>
+              <p class="chart-note">No training data received</p>
+              <div class="tooltip" aria-hidden="true" hidden></div>
+            </div>
+            <div class="legend"></div>
+            <div class="block-summary" id="block-summary" hidden>
+              <h3>Latest training block</h3>
+              <p class="secondary" id="block-metrics"></p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-header"><h3>Evaluation WER by step</h3></div>
+            <div class="chart" id="run-wer-chart">
+              <canvas tabindex="0" role="img" aria-label="Run evaluation chart. Use arrow keys to inspect reported values."></canvas>
+              <p class="chart-note">No evaluations reported</p>
+              <div class="tooltip" aria-hidden="true" hidden></div>
+            </div>
+            <div class="legend"></div>
+            <ul class="evaluations" id="run-wer"></ul>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<p class="sr-only" id="chart-announcement" aria-live="polite"></p>
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const list = (value) => Array.isArray(value) ? value : [];
+const finite = Number.isFinite;
+const integer = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+const rounded = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+const precise = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
+const timeAxis = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+const shortTime = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const dateAxis = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const clock = new Intl.DateTimeFormat(undefined, {
+  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
+});
+const hostStates = { live: "Live", idle: "Idle", stale: "Stale", offline: "Offline", connecting: "Connecting" };
+const colors = ["#65e0b5", "#bda9f7", "#f8bb76", "#88c6fd", "#efa1cf", "#dbe48b"];
+const format = (value, formatter = precise) => finite(value) ? formatter.format(value) : "—";
+const stepText = (step) => finite(step) ? `Step ${integer.format(step)}` : "";
+const werText = (wer) => finite(wer) ? `${precise.format(wer)}%` : "—";
+const humanTime = (seconds, formatter = clock) => finite(seconds) ? formatter.format(seconds * 1000) : "—";
+const timelineTick = (seconds, span) => humanTime(seconds, span < 300 ? shortTime : span < 86400 ? timeAxis : dateAxis);
+
+function element(tag, className, content) {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (content !== undefined) node.textContent = content;
+  return node;
+}
+
+function relativeTime(seconds, now = Date.now() / 1000) {
+  if (!finite(seconds)) return "Update time unavailable";
+  const elapsed = Math.max(0, now - seconds);
+  if (elapsed < 5) return "Just now";
+  if (elapsed < 60) return `${Math.floor(elapsed)}s ago`;
+  if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ago`;
+  if (elapsed < 86400) return `${Math.floor(elapsed / 3600)}h ago`;
+  return humanTime(seconds);
+}
+
+function storage(bytes) {
+  if (!finite(bytes)) return "—";
+  const gib = bytes / 1024 ** 3;
+  return gib >= 1024 ? `${rounded.format(gib / 1024)} TiB` : `${rounded.format(gib)} GiB`;
+}
+
+function statusText(node, state) {
+  const name = Object.hasOwn(hostStates, state) ? state : "connecting";
+  node.dataset.state = name;
+  node.replaceChildren(element("span", "dot"), document.createTextNode(hostStates[name]));
+}
+
+function series(label, color, rows, xKey, yKey, scatter = false) {
+  const ordered = rows.filter((row) => finite(row[xKey])).sort((a, b) => a[xKey] - b[xKey]);
+  const points = [];
+  let breakBefore = false;
+  for (const row of ordered) {
+    if (!finite(row[yKey])) {
+      breakBefore = true;
+      continue;
+    }
+    points.push({ x: row[xKey], y: row[yKey], row, breakBefore });
+    breakBefore = false;
+  }
+  return { label, color, scatter, points };
+}
+
+function groups(rows, xKey, scatter = false) {
+  const byLabel = new Map();
+  for (const row of rows) {
+    if (!finite(row[xKey]) || !finite(row.wer)) continue;
+    const label = [row.split || "Unknown split", row.decoder, row.scope].filter(Boolean).join(" · ");
+    if (!byLabel.has(label)) byLabel.set(label, []);
+    byLabel.get(label).push(row);
+  }
+  return [...byLabel].sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, points], index) => series(label, colors[(index + 2) % colors.length], points, xKey, "wer", scatter));
+}
+
+function evaluationDetails(row) {
+  return [
+    row.host, row.run, stepText(row.step), row.decoder, row.scope,
+    finite(row.ref_words) ? `${integer.format(row.ref_words)} reference words` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function evaluationList(id, rows) {
+  const items = rows.map((row) => {
+    const item = element("li", "evaluation");
+    const text = element("div", "");
+    text.append(element("h3", "", row.split || "Unknown split"));
+    const details = evaluationDetails(row);
+    if (details) text.append(element("p", "secondary", details));
+    item.append(text, element("b", "", werText(row.wer)));
+    return item;
+  });
+  $(id).replaceChildren(...items);
+}
+
+function latestEvaluations(rows) {
+  const latest = new Map();
+  for (const row of rows) {
+    if (!finite(row.wer)) continue;
+    const group = JSON.stringify([row.split, row.decoder, row.scope]);
+    const previous = latest.get(group);
+    if (!previous || (row.time ?? row.step ?? 0) >= (previous.time ?? previous.step ?? 0)) latest.set(group, row);
+  }
+  return [...latest.values()].sort((a, b) => String(a.split ?? "").localeCompare(String(b.split ?? "")));
+}
+
+function addEvalScope(row, run) {
+  const scope = row.scope || (run.dev_limit ? `First ${integer.format(run.dev_limit)} utterances` : run.eval_scope);
+  return { ...row, scope };
+}
+
+const pointX = (point) => point.x;
+const identity = (value) => value;
+
+function lowerBound(points, x, getX = pointX) {
+  let lo = 0;
+  let hi = points.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (getX(points[mid]) < x) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function gridTicks(minimum, maximum, whole) {
+  const requested = (maximum - minimum) / 4;
+  const power = 10 ** Math.floor(Math.log10(requested));
+  const factor = [1, 2, 2.5, 5, 10].find((value) => value * power >= requested) ?? 10;
+  const step = whole ? Math.max(1, Math.ceil(power * factor)) : power * factor;
+  const first = Math.floor(minimum / step);
+  const last = Math.ceil(maximum / step);
+  return Array.from({ length: last - first + 1 }, (_, index) => (first + index) * step);
+}
+
+class Chart {
+  constructor(id) {
+    const root = $(id);
+    this.canvas = root.querySelector("canvas");
+    this.context = this.canvas.getContext("2d");
+    this.note = root.querySelector(".chart-note");
+    this.tip = root.querySelector(".tooltip");
+    this.cursor = element("span", "chart-cursor");
+    this.cursor.setAttribute("aria-hidden", "true");
+    this.cursor.hidden = true;
+    root.insertBefore(this.cursor, this.tip);
+    this.legend = root.nextElementSibling;
+    this.data = [];
+    this.positions = [];
+    this.selected = null;
+    this.canvas.addEventListener("pointermove", (event) => this.hover(event));
+    this.canvas.addEventListener("pointerleave", () => this.inspect(null));
+    this.canvas.addEventListener("blur", () => this.inspect(null));
+    this.canvas.addEventListener("keydown", (event) => this.key(event));
+    new ResizeObserver(() => this.refresh()).observe(root);
+  }
+
+  set(data, options) {
+    this.data = data.filter((row) => row.points.length > 0);
+    this.options = options;
+    this.positions = [...new Set(this.data.flatMap((row) => row.points.map((point) => point.x)))].sort((a, b) => a - b);
+    this.canvas.setAttribute("aria-label", `${options.title}. ${this.positions.length ? "Use arrow keys to inspect reported values." : "No data received."}`);
+    this.note.hidden = this.positions.length > 0;
+    this.note.textContent = options.empty;
+    const labels = this.data.map((row) => {
+      const label = element("span", "");
+      const swatch = element("i", "");
+      swatch.style.setProperty("--series", row.color);
+      label.append(swatch, document.createTextNode(row.label));
+      return label;
+    });
+    this.legend.replaceChildren(...labels);
+    this.refresh();
+  }
+
+  refresh() {
+    if (this.frame) return;
+    this.frame = requestAnimationFrame(() => {
+      this.frame = 0;
+      this.draw();
+      if (this.selected !== null) this.inspect(this.selected);
+    });
+  }
+
+  draw() {
+    const { canvas, context, data, positions } = this;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (!context || width < 30 || height < 30) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+    }
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+    if (!positions.length) { this.bounds = null; return; }
+
+    const minX = positions[0];
+    const maxX = positions.at(-1);
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const row of data) {
+      for (const point of row.points) {
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      }
+    }
+    const { xTick, yTick } = this.options;
+    const padding = (maxY - minY || Math.max(1, Math.abs(maxY))) * .09;
+    minY = minY >= 0 ? Math.max(0, minY - padding) : minY - padding;
+    maxY += padding;
+    const yTicks = gridTicks(minY, maxY, this.options.integerY);
+    minY = yTicks[0];
+    maxY = yTicks.at(-1);
+    context.font = "12px system-ui";
+    const left = Math.max(context.measureText(yTick(minY)).width, context.measureText(yTick(maxY)).width) + 12;
+    const frame = { left, right: width - 10, top: 11, bottom: height - 25 };
+    const xOf = (x) => minX === maxX ? (frame.left + frame.right) / 2
+      : frame.left + (x - minX) / (maxX - minX) * (frame.right - frame.left);
+    const yOf = (y) => frame.bottom - (y - minY) / (maxY - minY) * (frame.bottom - frame.top);
+    this.bounds = { ...frame, minX, maxX, xOf };
+    context.strokeStyle = "#303b4c";
+    context.fillStyle = "#aab8cb";
+    context.textAlign = "right";
+    context.textBaseline = "middle";
+    context.lineWidth = 1;
+    for (const value of yTicks) {
+      const y = yOf(value);
+      context.beginPath();
+      context.moveTo(frame.left, y);
+      context.lineTo(frame.right, y);
+      context.stroke();
+      context.fillText(yTick(value), frame.left - 7, y);
+    }
+    context.textAlign = "center";
+    const ticks = minX === maxX ? 1 : width < 380 ? 3 : 5;
+    for (let index = 0; index < ticks; index += 1) {
+      const value = minX + (maxX - minX) * index / Math.max(ticks - 1, 1);
+      const label = xTick(value, maxX - minX);
+      const half = context.measureText(label).width / 2;
+      const x = Math.max(half + 2, Math.min(width - half - 2, xOf(value)));
+      context.fillText(label, x, frame.bottom + 15);
+    }
+
+    for (const row of data) {
+      context.strokeStyle = row.color;
+      context.fillStyle = row.color;
+      context.lineWidth = 1.7;
+      if (!row.scatter && row.points.length > 1) {
+        context.beginPath();
+        for (const [i, point] of row.points.entries()) {
+          if (i && !point.breakBefore) context.lineTo(xOf(point.x), yOf(point.y));
+          else context.moveTo(xOf(point.x), yOf(point.y));
+        }
+        context.stroke();
+      }
+      if (row.scatter || row.points.length < 10) {
+        for (const point of row.points) {
+          context.beginPath();
+          context.arc(xOf(point.x), yOf(point.y), 2.7, 0, 2 * Math.PI);
+          context.fill();
+        }
+      }
+    }
+  }
+
+  hover(event) {
+    const bounds = this.bounds;
+    if (!bounds) return;
+    const localX = event.clientX - this.canvas.getBoundingClientRect().left;
+    const ratio = Math.max(0, Math.min(1, (localX - bounds.left) / (bounds.right - bounds.left)));
+    const x = bounds.minX + ratio * (bounds.maxX - bounds.minX);
+    const index = lowerBound(this.positions, x, identity);
+    const previous = this.positions[index - 1] ?? x - Infinity;
+    const next = this.positions[index] ?? x + Infinity;
+    this.inspect(x - previous <= next - x ? previous : next);
+  }
+
+  key(event) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End", "Escape"].includes(event.key)) return;
+    if (event.key === "Escape") { this.inspect(null); return; }
+    if (!this.positions.length) return;
+    event.preventDefault();
+    const last = this.positions.length - 1;
+    const current = this.selected === null ? last : this.positions.indexOf(this.selected);
+    let index = Math.max(0, Math.min(last, current + (event.key === "ArrowLeft" ? -1 : 1)));
+    if (event.key === "Home") index = 0;
+    if (event.key === "End") index = last;
+    this.inspect(this.positions[index], true);
+  }
+
+  inspect(x, announce = false) {
+    this.selected = x;
+    const bounds = this.bounds;
+    const points = x === null ? [] : this.data.flatMap((row) => {
+      const start = lowerBound(row.points, x);
+      const matches = [];
+      for (let index = start; row.points[index]?.x === x; index += 1) {
+        const point = row.points[index];
+        const extra = this.options.describe?.(point.row);
+        matches.push([row.label, this.options.value(point.y), extra].filter(Boolean).join(" · "));
+      }
+      return matches;
+    });
+    this.tip.hidden = !bounds || !points.length;
+    this.cursor.hidden = this.tip.hidden;
+    if (this.tip.hidden) return;
+    const title = this.options.tooltipX(x);
+    const preview = points.slice(0, 4);
+    if (points.length > preview.length) preview.push(`${points.length - preview.length} more points at this position`);
+    this.tip.replaceChildren(element("b", "", title), ...preview.map((line) => element("span", "", line)));
+    const offset = bounds.xOf(x);
+    this.cursor.style.left = `${offset}px`;
+    this.cursor.style.top = `${bounds.top}px`;
+    this.cursor.style.height = `${bounds.bottom - bounds.top}px`;
+    this.tip.style.left = `${Math.max(0, Math.min(this.canvas.clientWidth - this.tip.offsetWidth, offset + 8))}px`;
+    this.tip.style.top = "4px";
+    if (announce) $("chart-announcement").textContent = [title, ...preview].join(". ");
+  }
+}
+
+const fleetChart = new Chart("fleet-chart");
+const runTrainChart = new Chart("run-train-chart");
+const runWerChart = new Chart("run-wer-chart");
+const wireHosts = new Map();
+const hostButtons = new Map();
+let hosts = new Map();
+let wireFleet = null;
+let fleet = null;
+let fleetMetric = "audio_per_second";
+let runMetric = "loss";
+let selectedHost = null;
+let selectedRun = null;
+let paused = false;
+let scheduled = 0;
+let lastMessage = null;
+let lastPainted = null;
+let connection = "connecting";
+let connectionMessage = "Connecting";
+let lastFleetPaint = null;
+let lastFleetChart = null;
+let lastNodePaint = null;
+let runChoices = "";
+let wireHostRevision = 0;
+let hostRevision = 0;
+const hostStateText = Object.keys(hostStates);
+
+function setConnection(state, text) {
+  connection = state;
+  connectionMessage = text;
+  $("connection").dataset.status = paused ? "paused" : state;
+  $("connection-text").textContent = paused ? "Display paused" : text;
+}
+
+function renderAges() {
+  const message = paused ? lastPainted : lastMessage;
+  if (finite(message)) {
+    const label = connection === "live" && !paused ? "Feed" : "Last snapshot";
+    $("freshness").textContent = `${label} · ${relativeTime(message)}`;
+    $("freshness").title = humanTime(message);
+  }
+  for (const [name, button] of hostButtons) {
+    const updated = hosts.get(name)?.updated_at;
+    button.parts.age.textContent = relativeTime(updated);
+    button.parts.age.title = humanTime(updated);
+  }
+}
+
+function makeHostButton(name) {
+  const button = element("button", "host-button");
+  button.type = "button";
+  const host = element("span", "host-name", name);
+  const status = element("span", "status");
+  const age = element("span", "secondary");
+  const speed = element("span", "numeric secondary host-speed");
+  button.append(host, status, age, speed);
+  button.parts = { status, age, speed, state: null };
+  button.addEventListener("click", () => {
+    selectedHost = name;
+    selectedRun = null;
+    runChoices = "";
+    render(true);
+  });
+  return button;
+}
+
+function renderHosts() {
+  const listElement = $("host-list");
+  if (!hosts.has(selectedHost)) {
+    selectedHost = [...hosts.values()].find((host) => host.state === "live")?.host ?? hosts.keys().next().value ?? null;
+    selectedRun = null;
+    runChoices = "";
+  }
+  for (const [name, button] of hostButtons) {
+    if (!hosts.has(name)) {
+      button.remove();
+      hostButtons.delete(name);
+    }
+  }
+  const ordered = [...hosts.values()].sort((a, b) => a.host.localeCompare(b.host, undefined, { numeric: true }));
+  for (const host of ordered) {
+    let button = hostButtons.get(host.host);
+    if (!button) {
+      button = makeHostButton(host.host);
+      hostButtons.set(host.host, button);
+      listElement.append(button);
+    }
+    button.setAttribute("aria-pressed", String(host.host === selectedHost));
+    if (button.parts.state !== host.state) {
+      statusText(button.parts.status, host.state);
+      button.parts.state = host.state;
+    }
+    button.parts.speed.textContent = finite(host.audio_per_second) ? `${rounded.format(host.audio_per_second)} audio/s` : "—";
+  }
+  $("hosts-empty").hidden = hosts.size > 0;
+  $("nodes-summary").textContent = hosts.size ? `${integer.format(hosts.size)} monitored` : "";
+}
+
+function renderFleet(force) {
+  const history = list(fleet?.history);
+  if (!force && lastFleetPaint?.fleet === fleet && lastFleetPaint?.metric === fleetMetric && fleetMetric !== "wer") return;
+  lastFleetPaint = { fleet, metric: fleetMetric };
+  $("fleet-audio").textContent = format(fleet?.audio_per_second, rounded);
+  $("fleet-runs").textContent = format(fleet?.active_runs, integer);
+  $("fleet-loss").textContent = format(fleet?.median_loss);
+  const live = fleet?.nodes_live;
+  const total = fleet?.nodes_total;
+  $("fleet-nodes").textContent = finite(live) && finite(total) ? `${integer.format(live)} / ${integer.format(total)}` : format(live, integer);
+  const states = hostStateText.filter((state) => state !== "live").flatMap((state) => {
+    const count = [...hosts.values()].filter((host) => host.state === state).length;
+    return count ? [`${count} ${state}`] : [];
+  });
+  $("fleet-node-note").textContent = states.join(" · ") || (hosts.size ? "Reporting node status" : "Waiting for host status");
+  const rows = list(fleet?.wer_by_split);
+  evaluationList("fleet-wer", rows);
+  $("fleet-wer-empty").hidden = rows.length > 0;
+
+  const timeOptions = { xTick: timelineTick, tooltipX: humanTime, empty: "No history reported" };
+  const chartSource = fleetMetric === "wer" ? hostRevision : fleet?.history;
+  if (!force && lastFleetChart?.source === chartSource && lastFleetChart?.metric === fleetMetric) return;
+  lastFleetChart = { source: chartSource, metric: fleetMetric };
+  if (fleetMetric === "wer") {
+    const evaluations = [];
+    for (const host of hosts.values()) {
+      for (const run of list(host.runs)) {
+        if (run.overfit || run.eval_scope === "overfit") continue;
+        for (const row of list(run.eval)) {
+          if (!["dev-clean", "dev-other"].includes(row.split) || !row.ref_words) continue;
+          evaluations.push({ ...addEvalScope(row, run), host: host.host, run: run.name ?? run.id });
+        }
+      }
+    }
+    fleetChart.set(groups(evaluations, "time", true), {
+      ...timeOptions, title: "Fleet evaluation events by split and decoder", yTick: werText,
+      value: werText, describe: evaluationDetails, empty: "No timestamped evaluations reported",
+    });
+    return;
+  }
+  const metric = {
+    audio_per_second: ["Audio seconds per wall second", colors[0], (value) => format(value, rounded)],
+    median_loss: ["Median training loss", colors[1], (value) => format(value)],
+    active_runs: ["Active runs", colors[3], (value) => format(value, integer)],
+  }[fleetMetric];
+  fleetChart.set([series(metric[0], metric[1], history, "time", fleetMetric)], {
+    ...timeOptions, title: metric[0], yTick: metric[2], value: metric[2], integerY: fleetMetric === "active_runs",
+  });
+}
+
+function renderGpus(host) {
+  const devices = list(host.gpus).filter(Boolean);
+  if (!devices.length && host.gpu) devices.push(host.gpu);
+  const items = devices.map((gpu) => {
+    const item = element("div", "gpu");
+    item.append(element("p", "", gpu.name || "GPU"));
+    const util = gpu.util_pct;
+    const memory = finite(gpu.memory_used_mib) && finite(gpu.memory_total_mib)
+      ? `${integer.format(gpu.memory_used_mib)} / ${integer.format(gpu.memory_total_mib)} MiB` : "";
+    const watts = finite(gpu.power_w) ? `${rounded.format(gpu.power_w)} W` : "";
+    const detail = [finite(util) ? `${rounded.format(util)}% utilization` : "", memory, watts].filter(Boolean);
+    if (finite(util)) {
+      const gauge = element("div", "gpu-meter");
+      const fill = element("span", "");
+      fill.style.width = `${Math.max(0, Math.min(100, util))}%`;
+      gauge.append(fill);
+      gauge.setAttribute("aria-hidden", "true");
+      item.append(gauge);
+    }
+    item.append(element("p", "secondary", detail.join(" · ") || "Telemetry unavailable"));
+    return item;
+  });
+  if (!items.length) items.push(element("p", "secondary", "GPU telemetry unavailable"));
+  $("node-gpus").replaceChildren(...items);
+}
+
+function renderNode(force) {
+  const host = hosts.get(selectedHost);
+  $("node-view").hidden = !host;
+  if (!host) { lastNodePaint = null; return; }
+  const runs = list(host.runs);
+  const run = runs.find((item) => item.id === selectedRun) ?? runs.find((item) => item.active) ?? runs[0];
+  selectedRun = run?.id ?? null;
+  if (!force && lastNodePaint?.host === host && lastNodePaint?.run === run && lastNodePaint?.metric === runMetric) return;
+  lastNodePaint = { host, run, metric: runMetric };
+  $("node-name").textContent = host.host;
+  statusText($("node-status"), host.state);
+  const runLabel = run ? [
+    run.active === true ? "Active run" : run.active === false ? "Inactive run" : "",
+    run.active && run.fresh === false ? "Training log overdue" : "",
+    finite(run.pid) ? `PID ${run.pid}` : "",
+  ].filter(Boolean).join(" · ") : "";
+  $("node-detail").textContent = [host.detail, runLabel].filter(Boolean).join(" · ");
+  $("node-audio").textContent = format(host.audio_per_second, rounded);
+  const utilization = finite(host.cpu_pct);
+  const load = finite(host.cpu_load);
+  $("node-cpu-fact").hidden = !utilization && !load;
+  $("node-cpu-label").textContent = utilization ? "Host CPU" : "CPU load (1 min)";
+  $("node-cpu").textContent = utilization ? `${rounded.format(host.cpu_pct)}%` : format(host.cpu_load, rounded);
+  $("node-disk").textContent = storage(host.disk_free_bytes);
+  renderGpus(host);
+
+  const choices = JSON.stringify(runs.map((item) => [item.id, item.name, item.active]));
+  if (choices !== runChoices) {
+    const options = runs.map((item) => new Option(`${item.name ?? item.id}${item.active ? " · active" : ""}`, item.id));
+    $("run-select").replaceChildren(...(options.length ? options : [new Option("No runs reported", "")]));
+    runChoices = choices;
+  }
+  $("run-select").disabled = runs.length === 0;
+  if (run) $("run-select").value = run.id;
+  const training = list(run?.train);
+  const last = training.at(-1);
+  const step = format(last?.step, integer);
+  $("node-step").textContent = finite(run?.total_steps) && finite(last?.step) ? `${step} / ${integer.format(run.total_steps)}` : step;
+  $("node-loss").textContent = format(last?.loss);
+  $("run-charts").hidden = !run;
+  const blockMetrics = [
+    finite(last?.time) ? humanTime(last.time) : "",
+    finite(last?.epoch) ? `Epoch ${rounded.format(last.epoch)}` : "",
+    finite(last?.audio_per_second) ? `${rounded.format(last.audio_per_second)} audio/s` : "",
+    finite(last?.audio_s) ? `${rounded.format(last.audio_s)} audio seconds` : "",
+    finite(last?.wall_s) ? `${rounded.format(last.wall_s)} wall seconds` : "",
+  ].filter(Boolean);
+  $("block-summary").hidden = !blockMetrics.length;
+  $("block-metrics").textContent = blockMetrics.join(" · ");
+
+  const stepOptions = { xTick: (x) => format(x, integer), tooltipX: stepText };
+  const trainingSeries = runMetric === "loss" ? [
+    series("Total loss", colors[1], training, "step", "loss"),
+    series("RNN-T", colors[3], training, "step", "rnnt"),
+    series("CTC", colors[2], training, "step", "ctc"),
+  ] : [series("Audio seconds per wall second", colors[0], training, "step", "audio_per_second")];
+  runTrainChart.set(trainingSeries, {
+    ...stepOptions, title: runMetric === "loss" ? "Run loss by step" : "Run throughput by step",
+    yTick: format, value: format, empty: "No training data reported for this metric",
+  });
+  const evaluations = list(run?.eval).map((row) => addEvalScope(row, run));
+  runWerChart.set(groups(evaluations, "step"), {
+    ...stepOptions, title: "Run word error rate by step", yTick: werText, value: werText,
+    describe: evaluationDetails, empty: "No evaluations reported",
+  });
+  evaluationList("run-wer", latestEvaluations(evaluations));
+}
+
+function render(force = false) {
+  if (paused && !force) return;
+  if (!paused) {
+    if (hostRevision !== wireHostRevision) hosts = new Map(wireHosts);
+    hostRevision = wireHostRevision;
+    fleet = wireFleet;
+    lastPainted = lastMessage;
+  }
+  renderHosts();
+  renderFleet(force);
+  renderNode(force);
+  renderAges();
+}
+
+function requestRender() {
+  if (scheduled || paused) return;
+  scheduled = requestAnimationFrame(() => {
+    scheduled = 0;
+    render();
+  });
+}
+
+function tabs(id, select) {
+  $(id).addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-metric]");
+    if (!button) return;
+    for (const choice of $(id).querySelectorAll("button")) {
+      choice.setAttribute("aria-pressed", String(choice === button));
+    }
+    select(button.dataset.metric);
+    render(true);
+  });
+}
+tabs("fleet-tabs", (metric) => { fleetMetric = metric; fleetChart.inspect(null); });
+tabs("run-tabs", (metric) => { runMetric = metric; runTrainChart.inspect(null); });
+$("run-select").addEventListener("change", (event) => {
+  selectedRun = event.target.value;
+  runTrainChart.inspect(null);
+  runWerChart.inspect(null);
+  render(true);
+});
+$("pause").addEventListener("click", () => {
+  paused = !paused;
+  $("pause").setAttribute("aria-pressed", String(paused));
+  $("pause").textContent = paused ? "Resume updates" : "Pause updates";
+  setConnection(connection, connectionMessage);
+  if (!paused) render(true);
+});
+setInterval(() => { if (!paused) renderAges(); }, 1000);
+
+function applyMessage(message) {
+  if (message.type === "snapshot") {
+    wireHosts.clear();
+    for (const host of list(message.hosts)) {
+      if (typeof host?.host === "string") wireHosts.set(host.host, host);
+    }
+    wireHostRevision += 1;
+    wireFleet = null;
+  } else if (message.type === "update" && typeof message.host?.host === "string") {
+    wireHosts.set(message.host.host, message.host);
+    wireHostRevision += 1;
+  } else if (message.type !== "tick") {
+    return;
+  }
+  if (message.fleet && typeof message.fleet === "object") wireFleet = { ...wireFleet, ...message.fleet };
+  lastMessage = finite(message.at) ? message.at : Date.now() / 1000;
+  requestRender();
+}
+
+function websocketUrl() {
+  const override = new URLSearchParams(location.search).get("ws");
+  if (override) {
+    const address = new URL(override);
+    if (address.protocol === "ws:" || address.protocol === "wss:") return address;
+    throw new Error("The ws parameter requires a WebSocket URL.");
+  }
+  if (!["https:", "http:"].includes(location.protocol)) {
+    throw new Error("Open from the dashboard server or set the ws URL parameter.");
+  }
+  return new URL(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`);
+}
+
+function connect(address, attempt = 0) {
+  setConnection("connecting", attempt ? "Reconnecting" : "Connecting");
+  let socket;
+  try {
+    socket = new WebSocket(address);
+  } catch {
+    setConnection("offline", "WebSocket unavailable");
+    return;
+  }
+  socket.addEventListener("open", () => {
+    attempt = 0;
+    setConnection("live", "Live feed");
+  });
+  socket.addEventListener("message", (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message && typeof message === "object") applyMessage(message);
+    } catch {
+      // A malformed update leaves the last complete reading visible.
+    }
+  });
+  socket.addEventListener("close", () => {
+    setConnection("offline", "Feed disconnected");
+    setTimeout(() => connect(address, attempt + 1), Math.min(15000, 500 * 2 ** attempt));
+  });
+}
+
+try {
+  connect(websocketUrl());
+} catch (error) {
+  setConnection("offline", "WebSocket unavailable");
+  $("freshness").textContent = error.message;
+}
+</script>
+</body>
+</html>

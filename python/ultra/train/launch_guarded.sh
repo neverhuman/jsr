@@ -18,11 +18,19 @@ shift 4
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 py="${PY:-$repo/.venv/bin/python}"
 mkdir -p "$run_dir"
+run_dir=$(cd "$run_dir" && pwd)
+gpu_lease=()
+if [[ $gpu =~ ^[0-9]+$ ]]; then
+  gpu=$((10#$gpu))
+  export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=$gpu
+  lease_dir=${JSR_DATA:-$repo/target}/gpu-leases
+  mkdir -p "$lease_dir"
+  lease_dir=$(cd "$lease_dir" && pwd)
+  gpu_lease=(flock --nonblock --no-fork "$lease_dir/gpu-$gpu.lock")
+fi
 cd "$repo/python/ultra"
 
-# The trainer sees only its guarded GPU (multi-GPU hosts), unless the caller already chose one.
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-$gpu}"
-setsid nohup taskset -c "$cpus" nice -n 10 "$py" -m train.trainer --run-dir "$run_dir" "$@" \
+setsid nohup "${gpu_lease[@]}" taskset -c "$cpus" nice -n 10 "$py" -m train.trainer --run-dir "$run_dir" "$@" \
   >>"$run_dir/stdout.log" 2>&1 < /dev/null &
 pid=$!
 sleep 2
