@@ -51,14 +51,30 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: neverhuman/jankurai-action@4a45526ac904315f96e6bbebda4e088268023afa
-        id: quality
-        with:
-          release-tag: v1.7.6
-          fail-under: "85"
+      - name: Install signed Jankurai 1.7.6
+        shell: bash
+        run: |
+          installer="$RUNNER_TEMP/jankurai-installer.sh"
+          curl --fail --silent --show-error --location \
+            --proto "=https" --proto-redir "=https" --connect-timeout 15 --max-time 60 \
+            --output "$installer" \
+            https://github.com/neverhuman/jankurai-audit/releases/download/v1.7.6/jankurai-installer.sh
+          printf "828e513628080823a9afaa19eeaeee4ce2e54174483a11cdde00073dbafb895f  %s\n" "$installer" | sha256sum --check --strict -
+          bash "$installer" --repo neverhuman/jankurai-audit --tag v1.7.6 \
+            --product jankurai --install-dir "$RUNNER_TEMP/jankurai-bin"
+      - name: Run full audit and enforce score floor
+        shell: bash
+        run: |
+          report="$RUNNER_TEMP/jankurai-report"
+          mkdir -p "$report"
+          "$RUNNER_TEMP/jankurai-bin/jankurai" audit . --full --mode standard \
+            --fail-under 85 --no-badge --no-score-history \
+            --json "$report/repo-score.json" --md "$report/repo-score.md" \
+            --sarif "$report/jankurai.sarif" --github-step-summary "$GITHUB_STEP_SUMMARY" \
+            --repair-queue-jsonl "$report/repair-queue.jsonl"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: jankurai-report
           if-no-files-found: ignore
-          path: ${{ steps.quality.outputs.report-directory }}
+          path: ${{ runner.temp }}/jankurai-report/
