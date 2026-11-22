@@ -1,0 +1,3 @@
+{"arm": "parakeet-unified-offline", "budget": "t8", "class": "whole_utterance", "machine": "m3ultra", "threads": 8,
+ "parallel": "intra_op", "service_cpus": "", "observer_cpu": "", "workload": "panel73",
+ "trace": 0}

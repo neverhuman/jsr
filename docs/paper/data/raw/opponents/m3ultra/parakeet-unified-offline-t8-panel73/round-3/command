@@ -1,0 +1,1 @@
+/Users/agent/jsr-train/data/opponents/bench-cross/bin/transcribe-cold offline /Users/agent/jsr-train/data/opponents/parakeet-unified/model-gguf/parakeet-unified-en-0.6b-Q8_0.gguf /Users/agent/jsr-train/data/opponents/bench-cross/workloads/panel73/wav /Users/agent/jsr-train/data/opponents/bench-cross/receipts/m3ultra/parakeet-unified-offline-t8-panel73/round-3/predictions.jsonl 8 

@@ -1,0 +1,4 @@
+ULTRA_SHERPA_LIB=/home/ubuntu/jsr-data/opponents/zipformer-int8/sherpa/lib/libsherpa-onnx-c-api.so
+OMP_NUM_THREADS=1
+OMP_THREAD_LIMIT=1
+MKL_NUM_THREADS=1

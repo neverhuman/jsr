@@ -56,6 +56,7 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H34](H34_delay_penalty/README.md) | **Streaming first-preview latency:** pruned RNN-T `delay_penalty` λ ∈ {0.0015, 0.004} vs λ=0, 3k-step fine-tunes from D2c final | **NEGATIVE** | No WER cost, but first-preview packets identical across λ (0 ms); the floor is the 160 ms chunk |
 | [H37](H37_trunks_a1_f1/README.md) | **Production trunks:** A1 (dense S, R0 BPE-500, high-LR restart from H22ctl, chunk sampling {4,8,16}, 4-rank DDP) and F1 (S_MR, R0 BPE-500, from scratch) | RUNNING | A1 expected below 4.95% dev-clean400 late in its cosine |
 | [H41](H41_replay_gates/README.md) | **Replay gates:** fork H22ctl step 60,000, replay 8k steps; control, A/A, Muon, chunk sampling | PRE-REGISTERED (running) | Adopt only above 2× the A/A spread on full dev-clean + dev-other |
+| [H39](H39_energy/README.md) | Energy per live stream: independent check of the per-core method, core register against the package counter, paced against unpaced | EXPLORATORY, ongoing | Protocol fixed before measuring; results in the wave README |
 | [H42](H42_ngram_lm/README.md) | **n-gram LM for the streaming transducer (ruling O17, "+LM" rows):** word 4-gram N-best rescoring; token n-gram shallow fusion in the beam with LODR; size classes under 50 / 200 MB | EXPLORATORY (pre-registered) | Rescoring −0.37 pp pooled; token 5-gram fusion + LODR about −1.4 pp pooled (−16%), held-out weights |
 
 H14 is the chunk-2 fine-tune; dual-mode / 3-mask tier training is executed in H27. Next free: **H43**.

@@ -1,30 +1,7 @@
-% Related work (owner: paper-related, lane/paper).
+% Related work.
 % Rule: no literal result numbers of ours in this file. Our measured values come from
-% data/metrics.tex; every literal number below is a published value with its citation in the
-% same table row. Fallbacks: any metric that paper-data has not defined yet prints a red ??.
-\providecommand{\PH}[1]{\textbf{??}}
-\providecommand{\WerBridgeIntEight}{\PH{WerBridgeIntEight}}
-\providecommand{\BridgeStep}{\PH{BridgeStep}}
-\providecommand{\WerRzeroDevClean}{\PH{WerRzeroDevClean}}
-\providecommand{\WerNemoDevClean}{\PH{WerNemoDevClean}}
-\providecommand{\CostEngineIntEight}{\PH{CostEngineIntEight}}
-\providecommand{\CostRzero}{\PH{CostRzero}}
-\providecommand{\CostNemo}{\PH{CostNemo}}
-\providecommand{\ParamsRone}{\PH{ParamsRone}}
-\providecommand{\CostPfiveRzero}{\PH{CostPfiveRzero}}
-\providecommand{\CostPfiveMoonBase}{\PH{CostPfiveMoonBase}}
-\providecommand{\CostPfiveMoonTiny}{\PH{CostPfiveMoonTiny}}
-\providecommand{\CostPfiveWhisperSmall}{\PH{CostPfiveWhisperSmall}}
-\providecommand{\WerPfiveRzeroTestClean}{\PH{WerPfiveRzeroTestClean}}
-\providecommand{\WerPfiveMoonBaseTestClean}{\PH{WerPfiveMoonBaseTestClean}}
-\providecommand{\WerPfiveMoonTinyTestClean}{\PH{WerPfiveMoonTinyTestClean}}
-\providecommand{\WerPfiveWhisperSmallTestClean}{\PH{WerPfiveWhisperSmallTestClean}}
-\providecommand{\WerPfiveMoonBaseDevClean}{\PH{WerPfiveMoonBaseDevClean}}
-\providecommand{\WerPfiveMoonTinyDevClean}{\PH{WerPfiveMoonTinyDevClean}}
-\providecommand{\WerPfiveWhisperSmallDevClean}{\PH{WerPfiveWhisperSmallDevClean}}
-\providecommand{\WerNemoTestCleanOneSixty}{\PH{WerNemoTestCleanOneSixty}}
-\providecommand{\WerNemoTestOtherOneSixty}{\PH{WerNemoTestOtherOneSixty}}
-
+% data/metrics.tex. Numbers published by others are \Rep... macros generated from data/reported.json,
+% or literals on a line that carries their \cite. Nothing reported is drawn on a measured axis.
 \section{Related Work}\label{sec:related}
 
 \para{Streaming transducers and chunked attention.} The RNN transducer~\cite{graves2012rnnt}
@@ -42,19 +19,25 @@ encoder applies Zipformer's insight that not every block needs the full frame ra
 fixed 160\,ms streaming chunks. We claim the measurement of multirate as a lever on CPU
 stream density, not the idea of multirate itself.
 
-\para{Efficient and light ASR.} Whisper~\cite{radford2023whisper} spans five sizes, from tiny
-to large. Its encoder always processes a padded 30\,s window, so a short utterance costs as much
-as a long one; Distil-Whisper~\cite{gandhi2023distilwhisper} shrinks the decoder by distillation.
-Moonshine~\cite{moonshine} scales encoder compute with input length, and Moonshine
-v2~\cite{kudlur2026moonshinev2} adds a sliding-window streaming encoder. NVIDIA's
-FastConformer~\cite{rekesh2023fastconformer} uses 8\x subsampling. It underlies the
-Parakeet-TDT~\cite{xu2023tdt,parakeettdt} and Nemotron streaming~\cite{nemotron} models. These
-models reach low WER at several hundred million parameters. Self-supervised encoders such as
-wav2vec~2.0~\cite{baevski2020wav2vec} are larger still. Kaldi~\cite{povey2011kaldi} and the Vosk toolkit built on it~\cite{vosk} remain the usual
-light offline baseline. All of these works report WER together with parameters, FLOPs or a
-single-stream speed figure. None, to our knowledge, reports how many concurrent live streams
-a stated CPU sustains under a lateness bound. \Cref{tab:related} collects the light and
-streaming systems, and keeps the numbers we measured apart from the published ones.
+\para{The systems we measure.} Whisper~\cite{radford2023whisper} spans five sizes. Its encoder
+always processes a padded 30\,s window, so a short utterance costs as much as a long one;
+whisper.cpp~\cite{whispercpp} runs it on CPUs, and its streaming mode re-runs the model on
+successive windows. Moonshine~\cite{moonshine} scales encoder compute with input length, and
+Moonshine v2~\cite{kudlur2026moonshinev2} adds a sliding-window streaming encoder in three sizes.
+NVIDIA's FastConformer~\cite{rekesh2023fastconformer} uses 8\x subsampling. It underlies
+Parakeet-TDT~\cite{xu2023tdt,parakeettdt,nvidia2025parakeettdtv3}, a whole-utterance model, and the
+cache-aware Nemotron streaming models~\cite{nemotron,nvidia2026nemotron35}, which
+NeMo-Speech.cpp~\cite{nemospeechcpp} runs on CPUs. Parakeet Redux~\cite{moondream2026parakeetredux}
+is a version of Parakeet TDT v3 with ternary encoder weights and its own runtime, whose x86 fast
+path needs AVX-512 VNNI. Zipformer~\cite{yao2024zipformer} streaming models are deployed through
+sherpa-onnx~\cite{sherpaonnx,icefall}, and Kaldi~\cite{povey2011kaldi} models through
+Vosk~\cite{vosk}. Picovoice Cheetah is a commercial streaming engine whose terms of use set conditions on publishing benchmarks of it;
+it appears here only with its vendor's own numbers~\cite{picovoice2026benchmark}. Parakeet Redux's
+runtime is licensed separately, so it too appears only with its vendor's numbers. Self-supervised encoders
+such as wav2vec~2.0~\cite{baevski2020wav2vec} are larger still. These works report WER together
+with parameters, FLOPs or a speed figure on the authors' own machine. \Cref{tab:reported} collects
+what they and their benchmarks publish, and \cref{tab:measured} what we measure for the same
+systems on one machine.
 
 \para{CPU inference and quantisation.} Integer-arithmetic-only inference~\cite{jacob2018quantization}
 and its extensions to Transformers~\cite{kim2021ibert} established INT8 with int32 accumulation.
@@ -73,69 +56,93 @@ either property.
 
 \para{Benchmarking practice.} MLPerf Inference~\cite{reddi2020mlperf} judges servers by the throughput
 they hold under a tail-latency bound, not by a single query's speed. Stream density is the
-streaming-ASR form of that rule. ESB~\cite{gandhi2022esb} standardises WER across domains. Cross-paper speed comparisons, by contrast, mix hosts, thread counts, batch
-shapes and harnesses. We retracted one of our own density ratios for exactly this reason
-(\cref{sec:protocol}). We therefore measure every system we compare against in one harness, on one
-host, and report WER beside each cost. Timing contrasts use Holm correction~\cite{holm1979simple}, and accuracy gates use bootstrap
+streaming-ASR form of that rule. ESB~\cite{gandhi2022esb} standardises WER across domains. Speed is
+not standardised at all. The comparisons that practitioners consult are a vendor's
+benchmark~\cite{picovoice2026benchmark}, a runtime's own benchmark page~\cite{nvidia2026nemospeechbench},
+a model family's documentation~\cite{moonshine2026docs} and a model
+card~\cite{moondream2026parakeetredux}; each uses a different host, thread count, audio set and text
+normaliser (\cref{tab:reported}), and two of them differ by more than a factor of two on the same model
+(\cref{sec:compare}). We retracted one of our own density ratios for exactly this kind of mismatch
+(\cref{sec:protocol}). We therefore measure every system we compare against under one protocol, on
+one host, and report WER beside each cost. Timing contrasts use Holm
+correction~\cite{holm1979simple}, and accuracy gates use bootstrap
 intervals~\cite{bisani2004bootstrap,efron1994bootstrap}.
 
-% ------------------------------------------------------------------ comparison table
+% ------------------------------------------------------------------ reported elsewhere
+% Every number in this table was published by someone else. The \Rep... macros are generated from
+% data/reported.json (source URL, revision, the quoted line). Literal numbers appear only on lines
+% that carry their \cite. Nothing in this table is drawn on a measured axis.
 \begin{table*}[t]
 \centering
-\caption{Light and streaming ASR systems. \textbf{Top:} measured by us on host H0 (AMD Zen~2,
-one thread), all exploratory. The two cost columns are separate harnesses. \textbf{[A]} is the
-warm single-harness 32-stream rung of \cref{tab:density}, and \textbf{[B]} is the P05 single-thread bench on dev-clean.
-Compare costs within a column, never across. \textbf{Bottom:} published values, cited per row.
-Never compare a top row with a bottom row. WER in \%; ``--'' = not measured; params in M.}
-\label{tab:related}
+\caption{\textbf{Reported elsewhere.} Numbers published by others, each on its publisher's own
+hardware, audio and text normaliser, with its citation. None was measured by us and none appears
+on a measured axis; \cref{tab:measured} holds our measurements of the same systems. WER in \%.
+The column headings change with the source and are given in each block.}
+\label{tab:reported}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}l r c l l l r r@{}}
+\begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-\multicolumn{8}{@{}l}{\textit{Measured by us (same host H0, Zen~2; exploratory, shared host)}}\\
+\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Picovoice speech-to-text benchmark~\cite{picovoice2026benchmark},
+streaming engines. Average WER over LibriSpeech test-clean, test-other, TED-LIUM and Common Voice;
+word emission latency on 100 LibriSpeech test-clean files; core-hours to process 100 hours of
+audio and peak memory on a Ryzen~9 5900X, ten cores at once.}}\\
 \midrule
-System & Params & Stream. & dev-clean & test-clean & test-other & \cpus [A] & \cpus [B] \\
+Engine & avg.\ WER & test-clean & test-other & latency (ms) & core-hours & peak MB \\
 \midrule
-\ultra multirate, step 50k, INT8 (ours) & \ParamsDtwoMR & \checkmark{} 160\,ms & \WerRehearsalMR$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostLadderMR & -- \\
-\ultra dense 45/50/55k, INT8 (ours) & \ParamsDtwo & \checkmark{} 160\,ms & \WerRehearsalDenseOld$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostLadderDenseOld & -- \\
-Zipformer int8, sherpa-onnx (\Rzero)~\cite{icefall,sherpaonnx} & (below) & \checkmark{} 320\,ms & \WerRehearsalRzero$^{a}$ & \WerPfiveRzeroTestClean$^{c}$ & -- & \CostLadderRzero & \CostPfiveRzero \\
-Nemotron 600M Q8\_0, NeMo-Speech.cpp~\cite{nemotron,nemospeechcpp} & (below) & \checkmark{} 160\,ms & -- & \WerNemoTestCleanOneSixty & \WerNemoTestOtherOneSixty & --$^{\dagger}$ & -- \\
-Nemotron 600M Q8\_0, NeMo-Speech.cpp & (below) & \checkmark{} 560\,ms & \WerNemoDevClean$^{b}$ & \WerNemoTestCleanFiveSixty & \WerNemoTestOtherFiveSixty & --$^{\dagger}$ & -- \\
-Moonshine base int8 (sherpa ``v2'' export)~\cite{sherpaonnx} & -- & offline & \WerPfiveMoonBaseDevClean$^{c}$ & \WerPfiveMoonBaseTestClean$^{c}$ & -- & -- & \CostPfiveMoonBase \\
-Moonshine tiny int8 (sherpa ``v2'' export)~\cite{sherpaonnx} & -- & offline & \WerPfiveMoonTinyDevClean$^{c}$ & \WerPfiveMoonTinyTestClean$^{c}$ & -- & -- & \CostPfiveMoonTiny \\
-Whisper small.en int8, sherpa-onnx~\cite{radford2023whisper,sherpaonnx} & (below) & offline & \WerPfiveWhisperSmallDevClean$^{d}$ & \WerPfiveWhisperSmallTestClean$^{d}$ & -- & -- & \CostPfiveWhisperSmall \\
+Picovoice Cheetah & \RepPvCheetahWerAvg & \RepPvCheetahWerClean & \RepPvCheetahWerOther & \RepPvCheetahLag & \RepPvCheetahCoreHours & \RepPvCheetahMem \\
+\NemotronThreeFive{} & \RepPvNemoThreeFiveWerAvg & \RepPvNemoThreeFiveWerClean & \RepPvNemoThreeFiveWerOther & \RepPvNemoThreeFiveLag & \RepPvNemoThreeFiveCoreHours & \RepPvNemoThreeFiveMem \\
+Moonshine Medium & \RepPvMoonMediumWerAvg & \RepPvMoonMediumWerClean & \RepPvMoonMediumWerOther & \RepPvMoonMediumLag & \RepPvMoonMediumCoreHours & \RepPvMoonMediumMem \\
+Vosk Large & \RepPvVoskLargeWerAvg & \RepPvVoskLargeWerClean & \RepPvVoskLargeWerOther & \RepPvVoskLargeLag & \RepPvVoskLargeCoreHours & \RepPvVoskLargeMem \\
+Moonshine Small & \RepPvMoonSmallWerAvg & \RepPvMoonSmallWerClean & \RepPvMoonSmallWerOther & \RepPvMoonSmallLag & \RepPvMoonSmallCoreHours & \RepPvMoonSmallMem \\
+Vosk Small & \RepPvVoskSmallWerAvg & \RepPvVoskSmallWerClean & \RepPvVoskSmallWerOther & \RepPvVoskSmallLag & \RepPvVoskSmallCoreHours & \RepPvVoskSmallMem \\
+Whisper.cpp Streaming Base & \RepPvWhisperBaseWerAvg & \RepPvWhisperBaseWerClean & \RepPvWhisperBaseWerOther & \RepPvWhisperBaseLag & \RepPvWhisperBaseCoreHours & \RepPvWhisperBaseMem \\
+Whisper.cpp Streaming Tiny & \RepPvWhisperTinyWerAvg & \RepPvWhisperTinyWerClean & \RepPvWhisperTinyWerOther & \RepPvWhisperTinyLag & \RepPvWhisperTinyCoreHours & \RepPvWhisperTinyMem \\
+Moonshine Tiny & \RepPvMoonTinyWerAvg & \RepPvMoonTinyWerClean & \RepPvMoonTinyWerOther & \RepPvMoonTinyLag & \RepPvMoonTinyCoreHours & \RepPvMoonTinyMem \\
 \midrule
-\multicolumn{8}{@{}l}{\textit{Reported in the original papers (published values; not re-measured)}}\\
+\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{NVIDIA NeMo-Speech.cpp benchmark~\cite{nvidia2026nemospeechbench}:
+\NemotronEN, Q8\_0 weights, eight threads of a Core i7-11700K, 100 LibriSpeech
+test-clean utterances, Whisper English normaliser; ``chunk'' is the average compute time per chunk.}}\\
 \midrule
-System & Params & Stream. & \multicolumn{2}{l}{test-clean / test-other} & \multicolumn{3}{l}{Source} \\
+Chunk & WER & $\times$ real time & & chunk (ms) & p99 (ms) & \\
 \midrule
-Streaming Zipformer (icefall, \Rzero's source) & 66.1 & \checkmark{} 320\,ms & \multicolumn{2}{l}{3.06 / 7.79} & \multicolumn{3}{l}{\cite{icefall}, streaming table, greedy, chunk-wise} \\
-Zipformer-S, pruned transducer & 23.3 & offline & \multicolumn{2}{l}{2.42 / 5.73} & \multicolumn{3}{l}{\cite{yao2024zipformer}, Tab.~2} \\
-Nemotron Speech Streaming 0.6B & 600 & \checkmark{} 160\,ms & \multicolumn{2}{l}{2.56 / 5.57} & \multicolumn{3}{l}{\cite{nemotron}, model card} \\
-Nemotron Speech Streaming 0.6B & 600 & \checkmark{} 1.12\,s & \multicolumn{2}{l}{2.32 / 4.84} & \multicolumn{3}{l}{\cite{nemotron}, model card} \\
-Parakeet-TDT 0.6B v2 & 600 & offline & \multicolumn{2}{l}{1.69 / 3.19} & \multicolumn{3}{l}{\cite{parakeettdt}, model card} \\
-Moonshine Tiny (v1) & 27.1 & offline & \multicolumn{2}{l}{4.52 / 11.71} & \multicolumn{3}{l}{\cite{moonshine}, Tabs.~1, 3} \\
-Moonshine Base (v1) & 61.5 & offline & \multicolumn{2}{l}{3.23 / 8.18} & \multicolumn{3}{l}{\cite{moonshine}, Tabs.~1, 2} \\
-Moonshine v2 Tiny & 33.6 & \checkmark{} enc.$^{f}$ & \multicolumn{2}{l}{4.49 / 12.09} & \multicolumn{3}{l}{\cite{kudlur2026moonshinev2}, Tabs.~1, 3} \\
-Moonshine v2 Small & 123.4 & \checkmark{} enc.$^{f}$ & \multicolumn{2}{l}{2.49 / 6.78} & \multicolumn{3}{l}{\cite{kudlur2026moonshinev2}, Tabs.~1, 3} \\
-Whisper tiny.en & 39 & offline & \multicolumn{2}{l}{5.6 / 14.6} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
-Whisper base.en & 74 & offline & \multicolumn{2}{l}{4.2 / 10.2} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
-Whisper small.en & 244 & offline & \multicolumn{2}{l}{3.1 / 7.4} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
+160\,ms & \RepNvNemoOneSixtyWer & \RepNvNemoOneSixtyRtfx & & \RepNvNemoOneSixtyChunkMs & \RepNvNemoOneSixtyChunkPninetyNine & \\
+1120\,ms & \RepNvNemoLongWer & \RepNvNemoLongRtfx & & \RepNvNemoLongChunkMs & \RepNvNemoLongChunkPninetyNine & \\
+\midrule
+\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Moonshine documentation~\cite{moonshine2026docs}: WER on LibriSpeech
+test-clean with whole-utterance transcription (shipped 8-bit model; floating-point model of the
+paper~\cite{kudlur2026moonshinev2}); Open ASR Leaderboard average; response latency from the end
+of speech to the final transcript, on the two machines named.}}\\
+\midrule
+Model & shipped INT8 & paper FP32 & Open ASR & Linux x86 (ms) & MacBook (ms) & params (M) \\
+\midrule
+Moonshine Tiny Streaming & \RepMsTinyWerShipped & \RepMsTinyWerPaper & \RepMsTinyWerOpenAsr & \RepMsTinyLatencyLinux & \RepMsTinyLatencyMac & \RepMsTinyParams \\
+Moonshine Small Streaming & \RepMsSmallWerShipped & \RepMsSmallWerPaper & \RepMsSmallWerOpenAsr & \RepMsSmallLatencyLinux & \RepMsSmallLatencyMac & \RepMsSmallParams \\
+Moonshine Medium Streaming & \RepMsMediumWerShipped & \RepMsMediumWerPaper & \RepMsMediumWerOpenAsr & \RepMsMediumLatencyLinux & \RepMsMediumLatencyMac & \RepMsMediumParams \\
+\midrule
+\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Parakeet Redux model card~\cite{moondream2026parakeetredux}:
+whole-utterance transcription of LibriSpeech test-clean, one utterance at a time, eight cores of
+an EPYC 9575F.}}\\
+\midrule
+Runtime (weights) & WER & $\times$ real time & & & & \\
+\midrule
+Photon, Parakeet Redux (ternary) & \RepRxPhotonWer & \RepRxPhotonRtfx & & & & \\
+parakeet.cpp, Parakeet TDT v3 (Q8) & \RepRxParakeetCppWer & \RepRxParakeetCppRtfx & & & & \\
+sherpa-onnx, Parakeet TDT v3 (INT8) & \RepRxSherpaWer & \RepRxSherpaRtfx & & & & \\
+onnx-asr, Parakeet TDT v3 (INT8) & \RepRxOnnxAsrWer & \RepRxOnnxAsrRtfx & & & & \\
+\midrule
+\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Original papers and model cards: LibriSpeech test-clean and
+test-other. Parakeet-TDT and Whisper transcribe whole utterances.}}\\
+\midrule
+System & test-clean & test-other & & & & params (M) \\
+\midrule
+Streaming Zipformer, 320\,ms~\cite{icefall} & 3.06 & 7.79 & & & & 66.1 \\
+Nemotron Streaming 0.6B, 160\,ms~\cite{nemotron} & 2.56 & 5.57 & & & & 600 \\
+Parakeet-TDT 0.6B v2~\cite{parakeettdt} & 1.69 & 3.19 & & & & 600 \\
+Moonshine v2 Tiny~\cite{kudlur2026moonshinev2} & 4.49 & 12.09 & & & & 33.6 \\
+Moonshine v2 Small~\cite{kudlur2026moonshinev2} & 2.49 & 6.78 & & & & 123.4 \\
+Whisper tiny.en~\cite{radford2023whisper} & 5.6 & 14.6 & & & & 39 \\
+Whisper base.en~\cite{radford2023whisper} & 4.2 & 10.2 & & & & 74 \\
 \bottomrule
 \end{tabular}
-
-\vspace{2pt}
-\begin{minipage}{\textwidth}\scriptsize
-$^{a}$The 400 dev-clean utterances of the DEV panel, same harness, the checkpoints timed in [A].
-Later, more accurate checkpoints are in \cref{tab:acc} and have no cost row. $^{b}$First 400
-dev-clean utterances (DEV400). $^{c}$First 100 utterances only (small sample).
-$^{d}$50 utterances only (small sample). $^{e}$R1 is selected on DEV only; the LibriSpeech test sets
-stay sealed until the qualifying run. Comparator test-set numbers are historical reads, disclosed
-in \cref{sec:protocol}. $^{\dagger}$Nemotron runs only as a cold child process (model load included), a scope
-comparable with neither column: \CostNemoOneSixty{} (160\,ms) and \CostNemoFiveSixty{} (560\,ms)
-\cpus on a quiet core (test-clean subset), and \CostNemoFiveSixtyCold{} at 560\,ms on DEV400. $^{f}$Streaming encoder with an autoregressive
-decoder. Our ``Moonshine'' rows are sherpa-onnx exports that sherpa files under v2. The v2 paper
-defines no Base size, so no published row matches them. Nemotron's card scores with a
-different text normaliser than ours. ``(below)'': see the published row for the parameter count.
-\end{minipage}
 \end{table*}

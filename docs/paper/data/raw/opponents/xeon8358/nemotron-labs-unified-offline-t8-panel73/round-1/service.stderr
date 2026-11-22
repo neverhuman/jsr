@@ -1,0 +1,58 @@
+[NeMo I 2026-11-22 22:03:12 mixins:197] Tokenizer SentencePieceTokenizer initialized with 4095 tokens
+[NeMo W 2026-11-22 22:03:14 modelPT:309] You tried to register an artifact under config key=tokenizer.model_path but an artifact for it has already been registered.
+[NeMo W 2026-11-22 22:03:14 modelPT:309] You tried to register an artifact under config key=tokenizer.vocab_path but an artifact for it has already been registered.
+[NeMo W 2026-11-22 22:03:14 modelPT:309] You tried to register an artifact under config key=tokenizer.spe_tokenizer_vocab but an artifact for it has already been registered.
+[NeMo I 2026-11-22 22:03:14 mixins:197] Tokenizer SentencePieceTokenizer initialized with 4095 tokens
+[NeMo W 2026-11-22 22:03:15 modelPT:192] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
+    Train config : 
+    use_lhotse: true
+    skip_missing_manifest_entries: true
+    input_cfg: null
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 16
+    shuffle: true
+    num_workers: 2
+    pin_memory: true
+    max_duration: 40.0
+    min_duration: 0.1
+    text_field: answer
+    batch_duration: null
+    lang_field: source_lang
+    use_bucketing: true
+    max_tps: null
+    bucket_duration_bins: null
+    bucket_batch_size: null
+    num_buckets: null
+    bucket_buffer_size: null
+    shuffle_buffer_size: null
+    tarred_audio_filepaths: null
+    augmentor: null
+    
+[NeMo W 2026-11-22 22:03:15 modelPT:199] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s). 
+    Validation config : 
+    use_lhotse: true
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 4
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    text_field: answer
+    lang_field: source_lang
+    tarred_audio_filepaths: null
+    
+[NeMo I 2026-11-22 22:03:19 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:03:19 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:03:19 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:03:19 rnnt_bpe_models_prompt:163] Model with prompt feature has been initialized (RNNT-only)
+[NeMo I 2026-11-22 22:03:21 save_restore_connector:309] Model EncDecRNNTBPEModelWithPrompt was successfully restored from /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/model-nemo/nemotron-labs-unified-asr-0.6b.nemo.
+{"runtime": "nemo", "nemo_toolkit": "3.1.0+c02239ab4", "torch": "2.15.0+cpu", "threads": 8, "mode": "offline", "model_class": "EncDecRNNTBPEModelWithPrompt"}
+[NeMo W 2026-11-22 22:03:21 dataloader:1308] The following configuration keys are ignored by Lhotse dataloader: subsampling_factor,default_lang,trim_silence,initialize_prompt_feature,target_lang,default_prompt_mode,window_stride,num_prompts,prompt_dictionary,labels
+[NeMo W 2026-11-22 22:03:21 dataloader:883] You are using a non-tarred dataset and requested tokenization during data sampling (pretokenize=True). This will cause the tokenization to happen in the main (GPU) process,possibly impacting the training speed if your tokenizer is very large.If the impact is noticable, set pretokenize=False in dataloader config.(note: that will disable token-per-second filtering and 2D bucketing features)
+[NeMo W 2026-11-22 22:03:21 nemo_logging:365] /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/runtime/venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:759: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
+      super().__init__(loader)
+    

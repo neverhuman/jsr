@@ -31,6 +31,7 @@ pub struct Hyp {
     pub score: f32,
     dec: Arc<Vec<f32>>,
     dec_ok: bool,
+    lm_ctx: Option<crate::lm::LmCtx>,
 }
 
 /// Per-stream beam state.
@@ -47,6 +48,7 @@ impl BeamState {
                 score: 0.0,
                 dec: Arc::new(vec![0.0; m.arch.joiner]),
                 dec_ok: false,
+                lm_ctx: None,
             }],
         }
     }
@@ -200,9 +202,61 @@ pub fn beam_chunk_with_opts(
     enc: &[f32],
     ws: &mut DecWorkspace,
 ) -> Result<(), EngineError> {
+    beam_chunk_with_lm(
+        m,
+        isa,
+        prec,
+        beam,
+        max_symbols,
+        beam_margin,
+        None,
+        states,
+        ns,
+        enc,
+        ws,
+    )
+}
+
+/// Insert candidate `c` into sorted top-`beam` `cands` using deterministic tie-breaking.
+#[inline]
+fn push_cand(cands: &mut Vec<Cand>, beam: usize, c: Cand) {
+    if cands.len() < beam {
+        cands.push(c);
+        let mut i = cands.len() - 1;
+        while i > 0 && better(&cands[i], &cands[i - 1]) {
+            cands.swap(i, i - 1);
+            i -= 1;
+        }
+    } else if better(&c, &cands[beam - 1]) {
+        cands[beam - 1] = c;
+        let mut i = beam - 1;
+        while i > 0 && better(&cands[i], &cands[i - 1]) {
+            cands.swap(i, i - 1);
+            i -= 1;
+        }
+    }
+}
+
+/// Beam search over one chunk with optional pure-Rust token n-gram shallow fusion + LODR
+/// (`crate::lm::NgramLm`) and exact branch-and-bound pruning.
+#[allow(clippy::too_many_arguments)]
+pub fn beam_chunk_with_lm(
+    m: &Model,
+    isa: Isa,
+    prec: Precision,
+    beam: usize,
+    max_symbols: usize,
+    beam_margin: f32,
+    lm: Option<(&crate::lm::NgramLm, crate::lm::LmConfig)>,
+    states: &mut [&mut BeamState],
+    ns: &[usize],
+    enc: &[f32],
+    ws: &mut DecWorkspace,
+) -> Result<(), EngineError> {
     let (jn, v, blank) = (m.arch.joiner, m.arch.vocab, m.arch.blank);
     let max_sym = max_symbols.max(1);
     let use_margin = beam_margin.is_finite() && beam_margin > 0.0;
+    let blank_pen = lm.map_or(0.0, |(_, c)| c.blank_penalty);
     ws.beam_offs.clear();
     let mut acc = 0usize;
     for &n in ns {
@@ -235,6 +289,16 @@ pub fn beam_chunk_with_opts(
         for round in 0..max_sym {
             if ws.beam_active.is_empty() {
                 break;
+            }
+            // Refresh cached LM contexts for any hypothesis that emitted a token.
+            if let Some((ngram, _)) = lm {
+                for &s in &ws.beam_active {
+                    for hy in &mut states[s].hyps {
+                        if hy.lm_ctx.is_none() {
+                            hy.lm_ctx = Some(ngram.ctx_state(&hy.tokens));
+                        }
+                    }
+                }
             }
             // Entropy-Gated Micro-Beam-4: on round 0, if hyps[0] dominates runner-up by > beam_margin,
             // evaluate ONLY hyps[0] first; if blank dominates non-blank by > beam_margin, collapse to 1.
@@ -296,11 +360,24 @@ pub fn beam_chunk_with_opts(
             for (idx, (&s, &g)) in ws.beam_active.iter().zip(&gated_only).enumerate() {
                 if g {
                     let row = &ws.logits[r0 * v..(r0 + 1) * v];
-                    let zb = row[blank];
+                    let zb = row[blank] - blank_pen;
                     let mut best_nb = f32::NEG_INFINITY;
-                    for (k, &x) in row.iter().enumerate() {
-                        if k != blank && x > best_nb {
-                            best_nb = x;
+                    if let Some((ngram, cfg)) = lm {
+                        let ctx0 = states[s].hyps[0].lm_ctx.expect("lm_ctx refreshed");
+                        let lm_ub = cfg.lm_weight * ctx0.max_logp_ub;
+                        for (k, &x) in row.iter().enumerate() {
+                            if k != blank {
+                                let eff = x - cfg.lodr_weight * ngram.lodr_logp(&ctx0, k) + lm_ub;
+                                if eff > best_nb {
+                                    best_nb = eff;
+                                }
+                            }
+                        }
+                    } else {
+                        for (k, &x) in row.iter().enumerate() {
+                            if k != blank && x > best_nb {
+                                best_nb = x;
+                            }
                         }
                     }
                     if !(zb.is_finite() && best_nb.is_finite() && (zb - best_nb) > beam_margin) {
@@ -372,7 +449,7 @@ pub fn beam_chunk_with_opts(
                     // Confident blank: collapse to width-1 Micro-Beam with exact log-softmax score.
                     let row = &ws.logits[r0 * v..(r0 + 1) * v];
                     let lse = logsumexp(isa, row)?;
-                    let score = st.hyps[0].score + (row[blank] - lse);
+                    let score = st.hyps[0].score + (row[blank] - lse) - blank_pen;
                     st.hyps.truncate(1);
                     st.hyps[0].score = score;
                     if max_sym > 1 {
@@ -404,26 +481,53 @@ pub fn beam_chunk_with_opts(
                     };
                     let lse = logsumexp(isa, row)?;
                     let base = st.hyps[h].score;
-                    for (k, &x) in row.iter().enumerate() {
-                        let score = base + (x - lse);
-                        if cands.len() == beam && score < cands[beam - 1].score {
-                            continue;
+                    if let Some((ngram, cfg)) = lm {
+                        // 1. Score blank first (no LM/LODR term) to seed tight beam cutoff.
+                        let b_score = base + (row[blank] - lse) - cfg.blank_penalty;
+                        if cands.len() < beam || b_score >= cands[beam - 1].score {
+                            push_cand(
+                                &mut cands,
+                                beam,
+                                Cand {
+                                    score: b_score,
+                                    h,
+                                    k: blank,
+                                },
+                            );
                         }
-                        let c = Cand { score, h, k };
-                        if cands.len() < beam {
-                            cands.push(c);
-                            let mut i = cands.len() - 1;
-                            while i > 0 && better(&cands[i], &cands[i - 1]) {
-                                cands.swap(i, i - 1);
-                                i -= 1;
+                        // 2. Non-blank tokens with exact branch-and-bound pruning before 5-gram lookup.
+                        let ctx = st.hyps[h].lm_ctx.expect("lm_ctx refreshed");
+                        let lm_w = cfg.lm_weight;
+                        let lodr_w = cfg.lodr_weight;
+                        let lm_ub_term = lm_w * ctx.max_logp_ub;
+                        for (k, &x) in row.iter().enumerate() {
+                            if k == blank {
+                                continue;
                             }
-                        } else if better(&c, &cands[beam - 1]) {
-                            cands[beam - 1] = c;
-                            let mut i = beam - 1;
-                            while i > 0 && better(&cands[i], &cands[i - 1]) {
-                                cands.swap(i, i - 1);
-                                i -= 1;
+                            let mut ub = base + (x - lse);
+                            if lodr_w > 0.0 {
+                                ub -= lodr_w * ngram.lodr_logp(&ctx, k);
                             }
+                            if cands.len() == beam && (ub + lm_ub_term) < cands[beam - 1].score {
+                                continue;
+                            }
+                            let score = if lm_w > 0.0 {
+                                ub + lm_w * ngram.lm_logp(&ctx, k)
+                            } else {
+                                ub
+                            };
+                            if cands.len() == beam && score < cands[beam - 1].score {
+                                continue;
+                            }
+                            push_cand(&mut cands, beam, Cand { score, h, k });
+                        }
+                    } else {
+                        for (k, &x) in row.iter().enumerate() {
+                            let score = base + (x - lse);
+                            if cands.len() == beam && score < cands[beam - 1].score {
+                                continue;
+                            }
+                            push_cand(&mut cands, beam, Cand { score, h, k });
                         }
                     }
                 }
@@ -446,12 +550,12 @@ pub fn beam_chunk_with_opts(
                     let mut next: Vec<Hyp> = Vec::with_capacity(beam);
                     for c in &cands {
                         let parent = &st.hyps[c.h];
-                        let (tokens, dec_ok) = if c.k == blank {
-                            (parent.tokens.clone(), parent.dec_ok)
+                        let (tokens, dec_ok, lm_ctx) = if c.k == blank {
+                            (parent.tokens.clone(), parent.dec_ok, parent.lm_ctx)
                         } else {
                             let mut tk = parent.tokens.clone();
                             tk.push(c.k as u32);
-                            (tk, false)
+                            (tk, false, None)
                         };
                         merge_hyp(
                             &mut next,
@@ -460,6 +564,7 @@ pub fn beam_chunk_with_opts(
                                 score: c.score,
                                 dec: Arc::clone(&parent.dec),
                                 dec_ok,
+                                lm_ctx,
                             },
                         );
                     }
@@ -477,6 +582,7 @@ pub fn beam_chunk_with_opts(
                                     score: c.score,
                                     dec: Arc::clone(&parent.dec),
                                     dec_ok: parent.dec_ok,
+                                    lm_ctx: parent.lm_ctx,
                                 },
                             );
                         } else {
@@ -489,6 +595,7 @@ pub fn beam_chunk_with_opts(
                                     score: c.score,
                                     dec: Arc::clone(&parent.dec),
                                     dec_ok: false,
+                                    lm_ctx: None,
                                 },
                             );
                         }

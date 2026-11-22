@@ -1,27 +1,13 @@
 \begin{abstract}
-On one four-core Zen~2 core complex, the \ultra multirate streaming transducer sustains
-\DenMRCore{} live streams per physical core (\DenMRCCX{} per complex) with worst-worker p99
-lateness under 800\,ms, against \DenRzeroCore{} per core for a pretrained Zipformer INT8 in the
-same harness: \DenRatioMR{}$\times$ the passing load (bracket
-\DenRatioMRBracketLo--\DenRatioMRBracketHi{} given the rung spacing), identical in all
-\DenReproRuns{} rehearsal runs, with all accepted audio drained. At an equal load of
-\MatchedRung{} streams it processes \AudioPerCpuMR{} audio-seconds per CPU-second against
-\AudioPerCpuRzero{} (\CostRatioMR{}$\times$ less CPU), and at \ProbeStreams{} streams its worst-worker
-p99 is \ProbePninetyNineMR{} against \ProbePninetyNineRzero\,ms. Accuracy lags, and training
-continues: \WerRehearsalMRPooled\% against \WerRzeroPanel\% pooled WER on the same 730-utterance
-DEV panel. The latest dense checkpoint sustains \DenDenseCore{} streams per core with greedy decoding and
-with beam 4 alike, so beam search, which lowers its pooled WER to \WerRehearsalDenseBeamPooled\%,
-costs no density.
-The engine behind this is pure Rust and integer-exact: per-row centred INT8 makes each stream's
-output independent of its batch, within \GateMaxDelta\pp WER of FP32, and with a portable log-mel
-front end the tokens decoded from raw PCM are bit-identical on x86 AVX2 and ARM NEON
-(\XisaAgree/\XisaTotal{} decodes). Measured cold on one pinned core, model load included, the dense
-model decodes at \ColdDenseSpeed{}$\times$ real time (\ColdDenseWer\% pooled WER) against
-\ColdZipSpeed{}$\times$ for Zipformer (\ColdZipWer\%); that comparison is interim, from a shared host.
-All results are exploratory (\DenRungSeconds\,s ladder rungs, shared host); hour-long confirmation
-and registered test accuracy are pending.
+\ColdAlwaysOnSentence{} Published CPU speed figures come from different machines and audio and
+cannot share an axis, so we measured \ultra, a small streaming transducer with an integer-exact
+Rust engine, and \ColdComparatorCount{} published recognisers under one protocol: the same 730
+LibriSpeech DEV utterances, one cold process on one pinned core, one scorer. \ColdAbstractSentence{}
+\ColdAbstractAccuracy{} All results are exploratory. \ColdHostAbstract{}
 \end{abstract}
 
 \begin{IEEEkeywords}
-streaming ASR, stream density, CPU inference, RNN-T, INT8 quantisation, reproducibility
+always-on ASR, streaming ASR, CPU inference, energy, benchmarking, RNN-T, INT8 quantisation
 \end{IEEEkeywords}
+
+\input{sections/fig1.tex}%

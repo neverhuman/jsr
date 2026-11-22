@@ -1,0 +1,230 @@
+{
+  "note": "Identity of every opponent arm for the evidence rows (schema v2 in agent_paper.md). artifact_bytes counts the model files the runtime opens.",
+  "machines": {
+    "zen2": {
+      "host": "xbabe0",
+      "hardware": "AMD Ryzen Threadripper PRO 3995WX (xbabe0), pinned physical cores, arm alone on its CCX, SMT siblings idle"
+    },
+    "xeon8358": {
+      "host": "xbabe6",
+      "hardware": "Intel Xeon Platinum 8358, AVX-512 VNNI (xbabe6, 30-vCPU cloud VM; pinned vCPUs 20-28, topology hidden by the hypervisor)"
+    },
+    "m3ultra": {
+      "host": "xbabe4",
+      "hardware": "Apple M3 Ultra (xbabe4, macOS 26.5; no CPU affinity, thread count only)"
+    }
+  },
+  "arms": {
+    "jsr-d2e-int8": {
+      "variant": "d2e-16457-int8",
+      "system": "JSR D2e-16457 INT8",
+      "short": "ULTRA D2e",
+      "macro": "DtwoE",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 58142413,
+      "variant_w8": "d2e-16457-int8-separate-processes",
+      "system_w8": "JSR D2e-16457 INT8, 8 separate processes (weights not shared)"
+    },
+    "jsr-d2e-int8-enginetool": {
+      "variant": "d2e-16457-int8-enginetool",
+      "system": "JSR D2e-16457 INT8 (engine tool)",
+      "short": "ULTRA D2e (tool)",
+      "macro": "DtwoETool",
+      "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
+      "artifact_bytes": 58142413,
+      "variant_w8": "d2e-16457-int8-enginetool-separate-processes",
+      "system_w8": "JSR D2e-16457 INT8 (engine tool), 8 separate processes (weights not shared)"
+    },
+    "zipformer-int8": {
+      "variant": "r0-int8",
+      "system": "Streaming Zipformer int8",
+      "short": "Zipformer (baseline)",
+      "macro": "Zip",
+      "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
+      "artifact_bytes": 72654782
+    },
+    "zipformer-int8-sherpapy": {
+      "variant": "r0-int8-sherpapy",
+      "system": "Streaming Zipformer int8 (Python binding)",
+      "short": "Zipformer (sherpa py)",
+      "macro": "ZipPy",
+      "runtime": "sherpa-onnx 2.0.2 Python binding (sherpa_zipformer.py)",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding; same library and bundle as the Rust service",
+      "artifact_bytes": 72654782
+    },
+    "moonshine-tiny": {
+      "variant": "moonshine-tiny",
+      "system": "Moonshine Tiny Streaming",
+      "short": "Moonshine Tiny",
+      "macro": "MoonTiny",
+      "runtime": "Moonshine Voice SDK 0.1.6 (ONNX Runtime, one thread)",
+      "role": "comparator",
+      "configuration": "quantised streaming bundle, 20 ms packets, transcript update every 200 ms",
+      "artifact_bytes": 45398523
+    },
+    "parakeet-redux": {
+      "variant": "parakeet-redux-photon",
+      "system": "Parakeet Redux (Photon)",
+      "short": "Redux/Photon",
+      "macro": "ReduxPhoton",
+      "runtime": "Photon: moondream 2.6.1, kestrel 0.9.1, kestrel-kernels 0.7.4",
+      "role": "comparator",
+      "configuration": "ternary encoder weights, whole utterance, one utterance at a time",
+      "artifact_bytes": 179005408,
+      "hold": "HOLD (lead, 2026-11-22T20:55Z): kestrel-kernels 0.7.4 ships under a proprietary licence that requires a separate written agreement; no Photon run and no Photon number until the owner rules"
+    },
+    "parakeet-unified-offline": {
+      "variant": "parakeet-unified-en-q8-whole",
+      "system": "Parakeet Unified EN 0.6B (whole utterance)",
+      "short": "PK Unified whole",
+      "macro": "PkUnifiedWhole",
+      "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
+      "role": "comparator",
+      "configuration": "Q8_0, greedy RNN-T, whole utterance, full attention",
+      "artifact_bytes": 731357568,
+      "wer_pass_arm": "parakeet-unified-offline"
+    },
+    "parakeet-unified-stream160": {
+      "variant": "parakeet-unified-en-q8-stream160",
+      "system": "Parakeet Unified EN 0.6B (160 ms mode)",
+      "short": "PK Unified 160ms",
+      "macro": "PkUnifiedStream",
+      "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
+      "role": "comparator",
+      "configuration": "Q8_0, greedy RNN-T, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, left context re-encoded every chunk",
+      "artifact_bytes": 731357568,
+      "wer_pass_arm": "parakeet-unified-stream160"
+    },
+    "nemotron-labs-unified-offline": {
+      "variant": "nemotron-labs-unified-fp32-whole",
+      "system": "Nemotron Labs Unified ASR 0.6B (whole utterance)",
+      "short": "NL Unified whole",
+      "macro": "NlUnifiedWhole",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "FP32, greedy label-looping RNN-T, language prompt en, whole utterance, one utterance per batch",
+      "artifact_bytes": 2507735040,
+      "wer_pass_arm": "nemotron-labs-unified-offline"
+    },
+    "nemotron-labs-unified-stream160": {
+      "variant": "nemotron-labs-unified-fp32-stream160",
+      "system": "Nemotron Labs Unified ASR 0.6B (160 ms mode)",
+      "short": "NL Unified 160ms",
+      "macro": "NlUnifiedStream",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "FP32, greedy label-looping RNN-T, language prompt en, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, full buffer re-encoded every chunk",
+      "artifact_bytes": 2507735040,
+      "wer_pass_arm": "nemotron-labs-unified-stream160-batch16"
+    },
+    "nemotron-labs-unified-stream160-batch16": {
+      "variant": "nemotron-labs-unified-fp32-stream160-batch16",
+      "system": "Nemotron Labs Unified ASR 0.6B (160 ms mode, accuracy pass)",
+      "short": "NL Unified 160 b16",
+      "macro": "NlUnifiedStreamBatch",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "the 160 ms buffered loop with sixteen utterances side by side; accuracy pass, never a timed row",
+      "artifact_bytes": 2507735040
+    },
+    "jsr-d2e-int8-trace": {
+      "variant": "d2e-16457-int8-trace",
+      "system": "JSR D2e-16457 INT8",
+      "short": "ULTRA D2e trace",
+      "macro": "DtwoETrace",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 58142413
+    },
+    "zipformer-int8-trace": {
+      "variant": "r0-int8-trace",
+      "system": "Streaming Zipformer int8",
+      "short": "Zipformer trace",
+      "macro": "ZipTrace",
+      "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
+      "artifact_bytes": 72654782
+    },
+    "moonshine-tiny-trace": {
+      "variant": "moonshine-tiny-trace",
+      "system": "Moonshine Tiny Streaming",
+      "short": "Moonshine Tiny trace",
+      "macro": "MoonTinyTrace",
+      "runtime": "Moonshine Voice SDK 0.1.6 (ONNX Runtime, one thread) (trace build, main after PR #38)",
+      "role": "comparator",
+      "configuration": "quantised streaming bundle, 20 ms packets, transcript update every 200 ms",
+      "artifact_bytes": 45398523
+    },
+    "jsr-h22ctl-int8": {
+      "variant": "h22ctl-79800-ema-int8",
+      "system": "JSR H22ctl-79800 EMA INT8",
+      "short": "ULTRA-S (ours)",
+      "macro": "Hctl",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 56855247,
+      "variant_w8": "h22ctl-79800-ema-int8-separate-processes",
+      "system_w8": "JSR H22ctl-79800 EMA INT8, 8 separate processes (weights not shared)"
+    },
+    "jsr-h22ctl-int8-enginetool": {
+      "variant": "h22ctl-79800-ema-int8-enginetool",
+      "system": "JSR H22ctl-79800 EMA INT8 (engine tool)",
+      "short": "ULTRA-S (tool)",
+      "macro": "HctlTool",
+      "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
+      "artifact_bytes": 56855247,
+      "variant_w8": "h22ctl-79800-ema-int8-enginetool-separate-processes",
+      "system_w8": "JSR H22ctl-79800 EMA INT8 (engine tool), 8 separate processes (weights not shared)"
+    },
+    "jsr-h22ctl-int8-trace": {
+      "variant": "h22ctl-79800-ema-int8-trace",
+      "system": "JSR H22ctl-79800 EMA INT8",
+      "short": "ULTRA-S trace",
+      "macro": "HctlTrace",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 56855247
+    },
+    "jsr-h22ctl-int8-shared8": {
+      "variant": "h22ctl-79800-ema-int8",
+      "system": "JSR H22ctl-79800 EMA INT8, one process, shared weights (8 workers, not batched)",
+      "short": "ULTRA-S (ours)",
+      "macro": "Hctl",
+      "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, 20 ms packets; one process, shared weights, 8 worker threads on disjoint shards, not batched",
+      "artifact_bytes": 56855247,
+      "parallel_override": "workers"
+    },
+    "jsr-d2e-int8-shared8": {
+      "variant": "d2e-16457-int8",
+      "system": "JSR D2e-16457 INT8, one process, shared weights (8 workers, not batched)",
+      "short": "ULTRA D2e",
+      "macro": "DtwoE",
+      "runtime": "ultra-engine (main 9ec239a) / ultra-cold-wav --workers 8",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, 20 ms packets; one process, shared weights, 8 worker threads on disjoint shards, not batched",
+      "artifact_bytes": 58142413,
+      "parallel_override": "workers"
+    }
+  },
+  "workloads": {
+    "panel730": "LibriSpeech DEV panel as staged PCM16 WAV",
+    "panel73": "LibriSpeech DEV panel73: every tenth staged file, one utterance per speaker",
+    "panel10": "LibriSpeech DEV panel10: five dev-clean and five dev-other staged files",
+    "lag100": "LibriSpeech dev-clean, first 100 staged files"
+  }
+}

@@ -1,8 +1,71 @@
 \section{Results}\label{sec:results}
 
-All rows are \emph{exploratory}: a shared AMD Threadripper PRO 3995WX (Zen~2, AVX2+FMA) and an
-Apple M3 Ultra, before the freeze, DEV data only. Each speed row carries the WER \emph{of the
-checkpoint that was timed}, never a later one.
+All rows are \emph{exploratory}: before the freeze, DEV data only. Each speed sits beside the WER
+of the same checkpoint, harness and run, and never beside a later one.
+
+\subsection{Measured comparison on one core}\label{sec:compare}
+
+\Cref{fig:money,tab:measured} hold every system measured so far under the cold protocol of
+\cref{sec:protocol}: \ColdRowsCount{} systems are drawn, each decoding the same 730 DEV utterances
+on one pinned core, model load included, median of three runs. The figure's vertical axis is the
+WER on the panel's 400 dev-clean utterances, the number that model cards lead with; the table adds
+dev-other and pooled WER. \ColdOrderSentence{} \ColdHostSentence{} \ColdAnchorSentence{}
+\ColdSubsetSentence{}
+
+\para{Speed.} \ColdHeadSentence{} \ColdSpeedSentence{}
+
+\para{Accuracy.} \ColdAccuracySentence{} \ultra and the Zipformer baseline are trained on the 960
+hours of LibriSpeech alone; the other systems are trained on other data, and we do not know how
+much of it overlaps LibriSpeech.
+
+\para{Memory.} \ColdMemorySentence{}
+
+\para{Live streaming against whole utterance.} A whole-utterance system has no word lag to
+report, so \cref{tab:measured} gives its throughput, and at most the time from the end of a clip
+to its transcript; \cref{fig:money} draws it hollow.
+
+\para{The cost of always listening.} \Cref{tab:alwayson} restates the quiet-host rows as the cost of
+keeping one stream listening without a pause. \ColdWattsSentence{} \ColdLagSentence{} Two tests that an
+always-on recogniser must pass are under way, and their results are not admitted to this draft yet: an
+endless stream, over which memory, CPU time, word lag and WER must stay flat for \EndlessStreamHours{}
+hours of continuous audio, and the number of words emitted per hour of audio that contains no speech.
+
+\begin{table}[t]
+\centering
+\caption{\textbf{Cost of always listening}, one always-on stream per row, quiet host only. Core:
+share of one CPU core (CPU-seconds per audio-second). W: watts per stream from the core energy
+registers in the same run. \ColdPackageSentence{} kWh: per stream-year (W times the hours in a year). RSS: peak memory in MB. Lag: word
+lag p50 / p95 in ms with the input paced at real time ($^{*}$measured on the shared host H0). 1-core:
+keeps up on one core. Seg.: needs a separate voice-activity segmenter to cut an endless stream (from
+each system's documentation; ours: the endless-stream test is pending). Exploratory.}
+\label{tab:alwayson}
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}p{0.23\columnwidth}rrrrcll@{}}
+\toprule
+System & Core (\%) & W & kWh & RSS & Lag (ms) & 1-core & Seg. \\
+\midrule
+\rawinput{data/table_always_on.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\para{Eight cores, other machines.} \ColdEightSentence{} \ColdMachinesSentence{}
+
+\para{The engine against a general runtime, on the same weights.} The last block of
+\cref{tab:measured} runs one set of dense weights three ways on the same host. \ColdAblationSentence{}
+
+\para{Published against measured.} \Cref{tab:reported} lists what others published for these
+systems. Those numbers are not ours and are not comparable with \cref{tab:measured}: the
+hardware, the audio, the thread counts and the normalisers all differ. They also differ from each
+other. For Moonshine Small on LibriSpeech test-clean, one source reports
+\RepPvMoonSmallWerClean\%~\cite{picovoice2026benchmark} and the model's own documentation
+\RepMsSmallWerShipped\% for whole-utterance transcription~\cite{moonshine2026docs}; we measure
+\ColdMoonSmallWerClean\% on dev-clean in streaming mode. For Moonshine Tiny the first source
+reports \RepPvMoonTinyCoreHours{} core-hours per hundred hours of audio, about
+\RepPvMoonTinyCpuEquivalent{} CPU-seconds per audio-second, where we measure
+\ColdMoonTinyCpu{}. Differences of this size between sources are the reason for measuring every
+system under one protocol.
 
 \begin{table*}[t]
 \centering
@@ -48,9 +111,20 @@ cost is claimed for the new checkpoint (loaded host); cost columns come from the
 Multirate density was identical in all \DenReproRunsMR{} runs.}
 \end{table*}
 
-\subsection{Serving density}
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/frontier_warm.tex}{\input{figures/frontier_warm.tex}}{%
+  \pendingfig{Warm frontier figure pending (figures/frontier_warm.tex).}}
+\caption{\textbf{Serving density against accuracy, warm harness.} \FrontierWarmCaption}
+\label{fig:frontier}
+\end{figure}
 
-\Cref{tab:density,fig:frontier} hold the serving-density result. On one CCX, Zipformer passes the \DenRzeroCCX-stream
+\subsection{Serving density}\label{sec:density}
+
+The cold comparison above times one stream at a time. A service runs many, so we also measure
+paced density in the warm harness of \cref{sec:protocol}, for \ultra and Zipformer only and for
+earlier checkpoints than the one in \cref{fig:money}; each row carries its own checkpoint's WER
+(\cref{tab:density,fig:frontier}). On one CCX, Zipformer passes the \DenRzeroCCX-stream
 rung (\DenRzeroCore{} per core) and fails at \DenFailRzeroCCX; the \ultra multirate model passes
 \DenMRCCX{} (\DenMRCore{} per core) and fails at \DenFailMRCCX: \DenRatioMR{}$\times$ the passing load,
 with the true ratio bracketed by \DenRatioMRBracketLo{} and \DenRatioMRBracketHi{} by the rung
@@ -136,26 +210,6 @@ D2MR gap against Zipformer is \GapMRvsRzeroPooled{} percentage points
 full-set results for the later dense average, which reaches
 \WerDtwoBestClean\% and \WerDtwoBestOther\% with beam four.
 
-\subsection{Cold boundary: speed against accuracy on one core}
-
-\Cref{fig:money} holds the cold process-tree comparison of \cref{sec:protocol}: \ColdRowsCount{}
-systems, each decoding the same 730 DEV utterances on one pinned core, model load included, median
-of three runs. The dense model costs \ColdDenseCpu{} \cpus (\ColdDenseSpeed{}$\times$ real time) at
-\ColdDenseWer\% pooled WER and peaks at \ColdDenseRss\,MB of memory; the multirate model
-\ColdMRCpu{} \cpus at \ColdMRWer\%. Zipformer INT8 costs \ColdZipCpu{} \cpus at \ColdZipWer\% in
-\ColdZipRss\,MB, and Nemotron at 560\,ms \ColdNemoFiveSixtyCpu{} \cpus at \ColdNemoFiveSixtyWer\% in
-\ColdNemoFiveSixtyRss\,MB. \ultra is faster and less accurate than both. \ColdHostSentence{} \ColdAnchorSentence{} \MoneyWattsCaption{} Word lag, the
-eight-core budget and the remaining published recognisers are being measured under the same
-protocol.
-
-\begin{figure}[t]
-\centering
-\IfFileExists{figures/frontier_warm.tex}{\input{figures/frontier_warm.tex}}{%
-  \pendingfig{Warm frontier figure pending (figures/frontier_warm.tex).}}
-\caption{\textbf{Serving density against accuracy, warm harness.} \FrontierWarmCaption}
-\label{fig:frontier}
-\end{figure}
-
 \begin{table}[t]
 \centering
 \caption{Cross-ISA identity (x86 AVX2 vs.\ ARM NEON, PCM16 to tokens) and the INT8 gate, on the
@@ -206,11 +260,6 @@ Multirate, left context & WER & attention \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\para{Engine against a general runtime.} In one earlier same-executable session on the same weights
-(a development bridge, not comparable with \cref{tab:density}), ONNX Runtime FP32 cost \CostORTRunB{}
-\cpus and our fused engine in FP32 \CostEngineFPRunB, with all 400 transcripts identical: writing the
-engine saves \SpeedupEngineFPVsORT{}$\times$ before any quantisation.
 
 \subsection{Bit-exactness across ISAs and INT8 gates}
 

@@ -6,6 +6,8 @@ Inputs (all under the repo root):
     docs/paper/data/raw/**           small raw bench artifacts, sha256-pinned in raw/MANIFEST.txt
     docs/paper/data/curated.json     numbers that live only in docs, each with its exact source
     docs/paper/data/evidence/*.jsonl measured comparison rows, schema v2 (format: data/README.md)
+    docs/paper/data/systems.json     names and order of the measured variants; the headline row of ours
+    docs/paper/data/reported.json    numbers published by others, each with its quoted source line
     research/curves/index.json, research/curves/<run>/{train,eval}.csv
 
 Outputs (docs/paper/data/ unless --out):
@@ -52,14 +54,19 @@ from .common import (
     write_manifest,
 )
 from .cold import load_evidence
+from .compare import add_comparison
 from .derive import add_derived
+from .evidence import presentation
 from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
 from .macros import metrics_tex, records_jsonl, sources_md
 from .money import add_money
+from .publish import publish_figure, readme_block
 from .records import Records, add_curated
+from .reported import add_reported
 from .rehearsal import add_rehearsal
 from .sources import add_cluster_gap, add_codex_evidence, add_panel5
+from .tables import always_on_table, hardware_table, measured_table
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -78,7 +85,14 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_sweeps(root, rec, out)
     add_tables(cur, out)
     accuracy_table(rec, out)
-    add_money(load_evidence(root, rec, out), out, rec)
+    rows = load_evidence(root, rec, out)
+    watts = add_money(rows, out, rec)
+    add_comparison(rows, presentation(root).get("headline", {}), rec)
+    out["money_readme.md"] = readme_block(rows, rec.rows["ColdHostSentence"]["value"], watts)
+    out["table_measured.tex"] = measured_table(rows)
+    out["table_hardware.tex"] = hardware_table(rows)
+    out["table_always_on.tex"] = always_on_table(rows)
+    add_reported(root, rec)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)
     out["records.jsonl"] = records_jsonl(rec)

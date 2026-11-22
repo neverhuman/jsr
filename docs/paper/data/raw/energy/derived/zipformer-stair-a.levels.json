@@ -1,0 +1,60 @@
+{
+ "series": "zipformer-stair-a.json",
+ "run_seconds": 751.199,
+ "idle_package_watts": 111.408,
+ "idle_core_register_watts": 0.534206,
+ "levels": [
+  {
+   "plateau": "8 (4+4) with 16 other busy cores",
+   "workers": 8,
+   "seconds": 74,
+   "core_register_watts": 37.0342,
+   "package_watts": 247.016,
+   "package_watts_p25": 241.041
+  },
+  {
+   "plateau": "8 (4+4) others stopping",
+   "workers": 8,
+   "seconds": 164,
+   "core_register_watts": 43.2307,
+   "package_watts": 162.293,
+   "package_watts_p25": 158.091
+  },
+  {
+   "plateau": "8 (4+4) host quiet",
+   "workers": 8,
+   "seconds": 189,
+   "core_register_watts": 50.1865,
+   "package_watts": 138.31,
+   "package_watts_p25": 135.776
+  },
+  {
+   "plateau": "7 (3+4) host quiet",
+   "workers": 7,
+   "seconds": 22,
+   "core_register_watts": 47.2828,
+   "package_watts": 136.689,
+   "package_watts_p25": 131.97
+  },
+  {
+   "plateau": "6 (2+4) host quiet",
+   "workers": 6,
+   "seconds": 23,
+   "core_register_watts": 40.7639,
+   "package_watts": 161.103,
+   "package_watts_p25": 158.044
+  },
+  {
+   "plateau": "4 in group B host quiet",
+   "workers": 4,
+   "seconds": 20,
+   "core_register_watts": 31.0251,
+   "package_watts": 143.139,
+   "package_watts_p25": 116.518
+  }
+ ],
+ "package_floor_watts_when_busy": 256.595,
+ "package_watts_per_core_register_watt": -2.2083,
+ "line_r2": 0.13505,
+ "line_residual_stdev_watts": 43.4745
+}

@@ -1,0 +1,6 @@
+dbeb7dffb66792496df04598dc9f97e429f22210e7905a01894285e588921d57  /home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-measure
+e74c565bbccaaf3c2ec6527962890418ab6fe740c19129b02ae1b7effc322230  /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/runtime/venv/bin/python
+1718cc1b44fb8597b2356328d706a8d89f31c389ca6f2256c2e3f743c0246936  /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/model-nemo/nemotron-labs-unified-asr-0.6b.nemo
+b8d3afc2bf33a189f5148508cd0b80acd9d0145de911cb2d2949bb17f6c858ac  /home/ubuntu/jsr-data/opponents/bench-cross/scripts.v3/nemo_unified.py
+6f3c669bdb795e11e823fa16a8c531e2b05d8f13d2159c8ab387a894e3587039  /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/runtime/venv.freeze.txt
+878bc86b0b6fe857d8e89d5ae34c964ca617a32501abce5ff16be935a203abef  /home/ubuntu/jsr-data/opponents/bench-cross/scripts.v3/run-opponent.sh

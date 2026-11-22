@@ -63,6 +63,10 @@ struct Args {
     beam: usize,
     beam_max_symbols: usize,
     beam_margin: f32,
+    lm_path: Option<PathBuf>,
+    lm_weight: f32,
+    lodr_weight: f32,
+    blank_penalty: f32,
     kv_int8: bool,
     fold_prenorm: bool,
     repo: Option<PathBuf>,
@@ -98,6 +102,10 @@ fn parse() -> Result<Args, String> {
         beam: 1,
         beam_max_symbols: 1,
         beam_margin: 0.0,
+        lm_path: None,
+        lm_weight: 0.0,
+        lodr_weight: 0.0,
+        blank_penalty: 0.0,
         kv_int8: false,
         fold_prenorm: false,
         repo: None,
@@ -136,6 +144,14 @@ fn parse() -> Result<Args, String> {
             }
             "--beam-margin" => {
                 a.beam_margin = v()?.parse().map_err(|e| format!("--beam-margin: {e}"))?
+            }
+            "--lm" => a.lm_path = Some(v()?.into()),
+            "--lm-weight" => a.lm_weight = v()?.parse().map_err(|e| format!("--lm-weight: {e}"))?,
+            "--lodr-weight" => {
+                a.lodr_weight = v()?.parse().map_err(|e| format!("--lodr-weight: {e}"))?
+            }
+            "--blank-penalty" => {
+                a.blank_penalty = v()?.parse().map_err(|e| format!("--blank-penalty: {e}"))?
             }
             "--kv-int8" => a.kv_int8 = true,
             "--fold-prenorm" => a.fold_prenorm = true,
@@ -284,6 +300,15 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .with_kv_int8(a.kv_int8);
     if let Some(c) = a.chunk {
         engine = engine.with_chunk(c).map_err(|e| e.to_string())?;
+    }
+    if let Some(lm_path) = &a.lm_path {
+        let lm = Arc::new(ultra_engine::NgramLm::load(lm_path).map_err(|e| e.to_string())?);
+        let cfg = ultra_engine::LmConfig {
+            lm_weight: a.lm_weight,
+            lodr_weight: a.lodr_weight,
+            blank_penalty: a.blank_penalty,
+        };
+        engine = engine.with_lm(lm, cfg).map_err(|e| e.to_string())?;
     }
     // Sealed PUBLIC-TEST guard (test-* splits), decided and logged before any audio is read.
     let panel = a.panel.as_ref().map(|p| Panel::read(p)).transpose()?;
@@ -472,6 +497,8 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         "mean_streams_per_batch": batch_rows as f64 / batches.max(1) as f64,
         "substitutions": subs, "deletions": dels, "insertions": ins,
         "peak_rss_mib": run_info::peak_rss_mib(),
+        "lm": a.lm_path, "lm_weight": a.lm_weight, "lodr_weight": a.lodr_weight,
+        "blank_penalty": a.blank_penalty,
         "sealed_reads": looks_read,
     });
     if let (Some(m), Some(x)) = (summary.as_object_mut(), extra.as_object()) {

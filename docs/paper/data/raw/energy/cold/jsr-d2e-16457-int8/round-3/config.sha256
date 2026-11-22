@@ -1,0 +1,5 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/energy/bin/ultra-measure
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /home/ubuntu/jsr-data/opponents/energy/bin/ultra-cold-wav
+89916a6b6089566691310804c11a28749a0aeb06b15bb2b328802e4056fafd89  /home/ubuntu/jsr-data/opponents/energy/models/d2e-16457-int8/arch.json
+5633a93e1979a70a313a3c68490f6b57ef6ab1027d88d9b28d65e874f76fbd7c  /home/ubuntu/jsr-data/opponents/energy/models/d2e-16457-int8/weights.int8.safetensors
+14a7c3e8bc375f4c8f7d2a45d21e1b39566bb72dc5684fcb37e462ebbb4fc7be  /home/ubuntu/jsr-data/opponents/energy/models/d2e-16457-int8/weights.safetensors

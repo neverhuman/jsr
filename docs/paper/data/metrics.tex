@@ -57,10 +57,19 @@
 \newcommand{\CapOneBeamClean}{7.50}% [exploratory] % WER
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
-\newcommand{\ColdAnchorCount}{0}% [reported] rows
-\newcommand{\ColdAnchorSentence}{No system has been measured in a second session yet, so there is no host-agreement check.}% [reported] sentence
+\newcommand{\ColdAblationSentence}{In FP32, ONNX Runtime costs 0.159 CPU-seconds per audio-second and our engine 0.108, with the same WER (11.43\% pooled): the engine needs 1.47$\times$ less CPU and 1.86$\times$ less memory before any quantisation. Prepared INT8 then cuts the cost a further 2.81$\times$, to 0.039, and changes the pooled WER by -0.10 points.}% [reported] sentence
+\newcommand{\ColdAbstractAccuracy}{5 of the 6 other systems are more accurate; the best, Nemotron at 560\,ms, scores 2.61\%.}% [reported] sentence
+\newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 27.8$\times$ real time at 5.20\% dev-clean WER, against 14.5$\times$ and 3.03\% for Zipformer, the fastest other streaming system on the same host.}% [reported] sentence
+\newcommand{\ColdAccuracyCount}{5}% [reported] rows
+\newcommand{\ColdAccuracySentence}{5 of the 6 other systems are more accurate on dev-clean than \ultra. The most accurate, Nemotron at 560\,ms, scores 2.61\% (4.93\% on dev-other, 3.56\% pooled), 2.59 points below \ultra.}% [reported] sentence
+\newcommand{\ColdAlwaysOnSentence}{\ultra transcribes an always-on audio stream at 3.6\% of one CPU core and 0.33\,W per stream, and its words appear 350\,ms (median) after they are spoken (lag measured on a shared host).}% [reported] sentence
+\newcommand{\ColdAnchorCount}{2}% [reported] rows
+\newcommand{\ColdAnchorSentence}{2 systems, measured on both hosts, cost 1.07 to 1.69 times as much CPU on the shared host H0 as on the quiet host H1.}% [reported] sentence
 \newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
+\newcommand{\ColdComparatorCount}{6}% [reported] rows
+\newcommand{\ColdDenseCorePct}{3.9}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdDenseFPCorePct}{10.8}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdDenseFPCpu}{0.108}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdDenseFPModel}{235}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdDenseFPRss}{247}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
@@ -70,6 +79,7 @@
 \newcommand{\ColdDenseFPWerClean}{7.64}% [exploratory] % WER
 \newcommand{\ColdDenseFPWerOther}{16.84}% [exploratory] % WER
 \newcommand{\ColdDenseModel}{293}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdDenseOrtCorePct}{15.9}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdDenseOrtCpu}{0.159}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdDenseOrtModel}{234}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdDenseOrtRss}{460}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
@@ -84,7 +94,53 @@
 \newcommand{\ColdDenseWer}{11.33}% [exploratory] % WER
 \newcommand{\ColdDenseWerClean}{7.54}% [exploratory] % WER
 \newcommand{\ColdDenseWerOther}{16.75}% [exploratory] % WER
-\newcommand{\ColdHostSentence}{Interim: every point was measured on host H0, a shared host that ran other jobs; rows from the quiet host H1 replace them as they arrive.}% [reported] sentence
+\newcommand{\ColdDtwoECorePct}{3.5}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdDtwoECpu}{0.035}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdDtwoEKwhYear}{3.0}% [exploratory] kWh per stream-year (W x 8766 h)
+\newcommand{\ColdDtwoEModel}{304}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdDtwoERss}{79}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdDtwoERtfx}{28.4}% [exploratory] audio-s per wall-s
+\newcommand{\ColdDtwoESpeed}{28.4}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdDtwoEWatts}{0.34}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdDtwoEWer}{9.09}% [exploratory] % WER
+\newcommand{\ColdDtwoEWerClean}{5.84}% [exploratory] % WER
+\newcommand{\ColdDtwoEWerOther}{13.74}% [exploratory] % WER
+\newcommand{\ColdEightSentence}{The eight-core budget has not been measured yet.}% [reported] sentence
+\newcommand{\ColdHctlCorePct}{3.6}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdHctlCpu}{0.036}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdHctlKwhYear}{2.9}% [exploratory] kWh per stream-year (W x 8766 h)
+\newcommand{\ColdHctlLagDesignPfifty}{320}% [exploratory] ms word lag with unbounded compute, p50
+\newcommand{\ColdHctlLagDesignPninetyFive}{440}% [exploratory] ms word lag with unbounded compute, p95
+\newcommand{\ColdHctlLagPfifty}{350}% [exploratory] ms word lag, input paced at real time, p50
+\newcommand{\ColdHctlLagPninetyFive}{494}% [exploratory] ms word lag, input paced at real time, p95
+\newcommand{\ColdHctlModel}{284}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdHctlRss}{74}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdHctlRtfx}{27.8}% [exploratory] audio-s per wall-s
+\newcommand{\ColdHctlSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdHctlWatts}{0.33}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdHctlWer}{8.06}% [exploratory] % WER
+\newcommand{\ColdHctlWerClean}{5.20}% [exploratory] % WER
+\newcommand{\ColdHctlWerOther}{12.16}% [exploratory] % WER
+\newcommand{\ColdHeadCorePct}{3.6}% [exploratory] % of one core
+\newcommand{\ColdHeadCpu}{0.036}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdHeadDetail}{H22ctl, step 79,800, EMA weights, INT8}% [exploratory] name
+\newcommand{\ColdHeadModel}{284}% [exploratory] MB of model files
+\newcommand{\ColdHeadName}{\ultra{}-S}% [exploratory] name
+\newcommand{\ColdHeadRss}{74}% [exploratory] MB peak resident memory
+\newcommand{\ColdHeadSentence}{\ultra{} (H22ctl, step 79,800, EMA weights, INT8) costs 0.036 CPU-seconds per audio-second on host H1, which is 27.8$\times$ real time on one core, at 5.20\% WER on dev-clean (12.16\% on dev-other, 8.06\% pooled), and peaks at 74\,MB of memory.}% [reported] sentence
+\newcommand{\ColdHeadSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time, one core)
+\newcommand{\ColdHeadSpeedOverFast}{1.9}% [exploratory] x
+\newcommand{\ColdHeadWatts}{0.33}% [exploratory] W per always-on stream
+\newcommand{\ColdHeadWer}{8.06}% [exploratory] % WER, pooled
+\newcommand{\ColdHeadWerClean}{5.20}% [exploratory] % WER, dev-clean half
+\newcommand{\ColdHeadWerGapBest}{2.59}% [exploratory] pp WER
+\newcommand{\ColdHeadWerOther}{12.16}% [exploratory] % WER, dev-other half
+\newcommand{\ColdHostAbstract}{4 of the 7 systems are still measured on a shared host; quiet-host rows replace them as they arrive.}% [reported] sentence
+\newcommand{\ColdHostSentence}{4 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
+\newcommand{\ColdHostShort}{Lighter marks (4 of 7 points): interim, measured on the shared host H0 until their quiet-host (H1) rows arrive.}% [reported] sentence
+\newcommand{\ColdLagSentence}{With the input paced at real time on one core of the shared host H0, the median word lag of \ultra{} is 350\,ms (95th percentile 494\,ms); the other streaming systems measured there range from 564\,ms (Zipformer) to 719\,ms (Moonshine Tiny).}% [reported] sentence
+\newcommand{\ColdLightRssOverHead}{2.1}% [exploratory] x
+\newcommand{\ColdMRCorePct}{3.7}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdMRCpu}{0.037}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMRLagDesignPfifty}{240}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdMRLagDesignPninetyFive}{380}% [exploratory] ms word lag with unbounded compute, p95
@@ -94,67 +150,63 @@
 \newcommand{\ColdMRRss}{77}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMRRtfx}{26.6}% [exploratory] audio-s per wall-s
 \newcommand{\ColdMRSpeed}{27.3}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdMRWatts}{0.31}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdMRWer}{15.93}% [exploratory] % WER
 \newcommand{\ColdMRWerClean}{11.56}% [exploratory] % WER
 \newcommand{\ColdMRWerOther}{22.19}% [exploratory] % WER
+\newcommand{\ColdMachinesSentence}{Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are being measured; none is reported yet.}% [reported] sentence
+\newcommand{\ColdMemorySentence}{The other systems need between 153\,MB (Zipformer) and 1290\,MB (Nemotron at 560\,ms) of memory, 2.1 to 17.5 times as much as \ultra.}% [reported] sentence
+\newcommand{\ColdMoonSmallCorePct}{49.5}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMoonSmallLagDesignPfifty}{540}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdMoonSmallLagDesignPninetyFive}{920}% [exploratory] ms word lag with unbounded compute, p95
-\newcommand{\ColdMoonSmallLagPfifty}{1103}% [exploratory] ms word lag, input paced at real time, p50
-\newcommand{\ColdMoonSmallLagPninetyFive}{5055}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonSmallRss}{476}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMoonSmallRtfx}{2.02}% [exploratory] audio-s per wall-s
 \newcommand{\ColdMoonSmallSpeed}{2.02}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdMoonSmallWatts}{4.08}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdMoonSmallWer}{5.93}% [exploratory] % WER
 \newcommand{\ColdMoonSmallWerClean}{3.98}% [exploratory] % WER
 \newcommand{\ColdMoonSmallWerOther}{8.73}% [exploratory] % WER
-\newcommand{\ColdMoonTinyCpu}{0.131}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonTinyCorePct}{12.2}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdMoonTinyCpu}{0.122}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdMoonTinyKwhYear}{9.4}% [exploratory] kWh per stream-year (W x 8766 h)
 \newcommand{\ColdMoonTinyLagDesignPfifty}{530}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdMoonTinyLagDesignPninetyFive}{1010}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdMoonTinyLagPfifty}{719}% [exploratory] ms word lag, input paced at real time, p50
 \newcommand{\ColdMoonTinyLagPninetyFive}{1528}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdMoonTinyModel}{45}% [exploratory] MB of model files (10^6 bytes)
-\newcommand{\ColdMoonTinyRss}{204}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
-\newcommand{\ColdMoonTinyRtfx}{7.63}% [exploratory] audio-s per wall-s
-\newcommand{\ColdMoonTinySpeed}{7.63}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdMoonTinyWatts}{1.12}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdMoonTinyRss}{201}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdMoonTinyRtfx}{8.19}% [exploratory] audio-s per wall-s
+\newcommand{\ColdMoonTinySpeed}{8.20}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdMoonTinyWatts}{1.08}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdMoonTinyWer}{9.90}% [exploratory] % WER
 \newcommand{\ColdMoonTinyWerClean}{6.54}% [exploratory] % WER
 \newcommand{\ColdMoonTinyWerOther}{14.72}% [exploratory] % WER
+\newcommand{\ColdNemoFiveSixtyCorePct}{45.1}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdNemoFiveSixtyCpu}{0.451}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdNemoFiveSixtyLagDesignPfifty}{410}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdNemoFiveSixtyLagDesignPninetyFive}{790}% [exploratory] ms word lag with unbounded compute, p95
-\newcommand{\ColdNemoFiveSixtyLagPfifty}{773}% [exploratory] ms word lag, input paced at real time, p50
-\newcommand{\ColdNemoFiveSixtyLagPninetyFive}{1232}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdNemoFiveSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtyRss}{1290}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtyRtfx}{2.22}% [exploratory] audio-s per wall-s
 \newcommand{\ColdNemoFiveSixtySpeed}{2.22}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdNemoFiveSixtyWatts}{4.09}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdNemoFiveSixtyWer}{3.56}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyWerClean}{2.61}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyWerOther}{4.93}% [exploratory] % WER
+\newcommand{\ColdNemoOneSixtyCorePct}{78.2}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdNemoOneSixtyCpu}{0.782}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdNemoOneSixtyLagDesignPfifty}{260}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdNemoOneSixtyLagDesignPninetyFive}{550}% [exploratory] ms word lag with unbounded compute, p95
-\newcommand{\ColdNemoOneSixtyLagPfifty}{1816}% [exploratory] ms word lag, input paced at real time, p50
-\newcommand{\ColdNemoOneSixtyLagPninetyFive}{10634}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdNemoOneSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoOneSixtyRss}{1287}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoOneSixtyRtfx}{1.28}% [exploratory] audio-s per wall-s
 \newcommand{\ColdNemoOneSixtySpeed}{1.28}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdNemoOneSixtyWatts}{5.25}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdNemoOneSixtyWer}{3.94}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyWerClean}{2.90}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyWerOther}{5.42}% [exploratory] % WER
+\newcommand{\ColdNemoThreeFiveCorePct}{118.6}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdNemoThreeFiveCpu}{1.186}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdNemoThreeFiveLagDesignPfifty}{310}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdNemoThreeFiveLagDesignPninetyFive}{510}% [exploratory] ms word lag with unbounded compute, p95
-\newcommand{\ColdNemoThreeFiveLagPfifty}{2978}% [exploratory] ms word lag, input paced at real time, p50
-\newcommand{\ColdNemoThreeFiveLagPninetyFive}{9540}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdNemoThreeFiveModel}{742}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveRss}{1277}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveRtfx}{0.84}% [exploratory] audio-s per wall-s
@@ -162,25 +214,34 @@
 \newcommand{\ColdNemoThreeFiveWer}{6.14}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveWerClean}{4.14}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
-\newcommand{\ColdRowsCount}{8}% [reported] rows
-\newcommand{\ColdRowsEnergy}{6}% [reported] rows
-\newcommand{\ColdRowsFaded}{0}% [reported] rows
-\newcommand{\ColdRowsInterim}{8}% [reported] rows
-\newcommand{\ColdRowsLag}{7}% [reported] rows
-\newcommand{\ColdRowsOffFrontier}{0}% [reported] rows
-\newcommand{\ColdRowsStreaming}{8}% [reported] rows
+\newcommand{\ColdOrderSentence}{The dev-other half ranks the systems in the same order.}% [reported] sentence
+\newcommand{\ColdPackageSentence}{At the package, which adds the uncore and memory controller, one stream costs 0.42\,W for \ultra{}-S, 0.65--0.74\,W for Zipformer (core-register watts times the package's marginal watts per core-register watt, measured separately).}% [reported] sentence
+\newcommand{\ColdRowsCount}{7}% [reported] rows
+\newcommand{\ColdRowsEnergy}{3}% [reported] rows
+\newcommand{\ColdRowsFaded}{4}% [reported] rows
+\newcommand{\ColdRowsInterim}{4}% [reported] rows
+\newcommand{\ColdRowsLag}{3}% [reported] rows
+\newcommand{\ColdRowsOffFrontier}{4}% [reported] rows
+\newcommand{\ColdRowsStreaming}{7}% [reported] rows
+\newcommand{\ColdRowsSubset}{0}% [reported] rows
 \newcommand{\ColdRowsUndrawn}{0}% [reported] rows
 \newcommand{\ColdRowsWhole}{0}% [reported] rows
-\newcommand{\ColdZipCpu}{0.117}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdSpeedSentence}{On the same host the fastest other streaming system, Zipformer, runs at 14.5$\times$ real time: \ultra is 1.9$\times$ faster. 2 other systems have a row from that host, and \ultra is the fastest of them.}% [reported] sentence
+\newcommand{\ColdSubsetSentence}{\relax}% [reported] sentence
+\newcommand{\ColdSubtitle}{Always-on transcription at 3.6\% of one CPU core and 0.33\,W per stream, with live words in 350\,ms}% [reported] sentence
+\newcommand{\ColdWattsSentence}{One always-on stream of \ultra{} costs 0.33\,W, against 0.59\,W for Zipformer and 1.08\,W for Moonshine Tiny (core energy registers, same host).}% [reported] sentence
+\newcommand{\ColdZipCorePct}{6.9}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdZipCpu}{0.069}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdZipKwhYear}{5.2}% [exploratory] kWh per stream-year (W x 8766 h)
 \newcommand{\ColdZipLagDesignPfifty}{510}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdZipLagDesignPninetyFive}{720}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdZipLagPfifty}{564}% [exploratory] ms word lag, input paced at real time, p50
 \newcommand{\ColdZipLagPninetyFive}{762}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdZipModel}{73}% [exploratory] MB of model files (10^6 bytes)
-\newcommand{\ColdZipRss}{156}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
-\newcommand{\ColdZipRtfx}{8.50}% [exploratory] audio-s per wall-s
-\newcommand{\ColdZipSpeed}{8.56}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdZipWatts}{0.64}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdZipRss}{153}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdZipRtfx}{14.4}% [exploratory] audio-s per wall-s
+\newcommand{\ColdZipSpeed}{14.5}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdZipWatts}{0.59}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdZipWer}{5.25}% [exploratory] % WER
 \newcommand{\ColdZipWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdZipWerOther}{8.43}% [exploratory] % WER
@@ -346,7 +407,8 @@
 \newcommand{\MelNnzSparse}{477}% [reported] nonzeros
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
-\newcommand{\MoneyWattsCaption}{Watts per live stream are measured for 6 of the 8 systems (\cref{tab:measured}); a watts axis is drawn once every system has a value and one power per busy core fits them all.}% [reported] sentence
+\newcommand{\MoneyMarksCaption}{Diamond: ours (\ColdHeadDetail). Dashed: no other streaming system is better on both axes.}% [reported] sentence
+\newcommand{\MoneyWattsCaption}{Watts beside a name: W per always-on stream (core energy registers, same run).}% [reported] sentence
 \newcommand{\NonGemmGain}{0--5}% [exploratory] %
 \newcommand{\OrtVersion}{1.28.2}% [reported] version
 \newcommand{\PanelSpeakers}{73}% [reported] speakers
@@ -375,6 +437,104 @@
 \newcommand{\RTFxLadderMR}{30.7}% [exploratory] x real time per CPU core
 \newcommand{\RTFxLadderRzero}{13.8}% [exploratory] x real time per CPU core
 \newcommand{\RTFxMthreeMR}{81}% [exploratory] x real time per CPU core
+\newcommand{\RepMsMediumLatencyLinux}{269}% [reported] ms response latency
+\newcommand{\RepMsMediumLatencyMac}{59}% [reported] ms response latency
+\newcommand{\RepMsMediumParams}{245}% [reported] million parameters
+\newcommand{\RepMsMediumWerOpenAsr}{6.65}% [reported] % WER
+\newcommand{\RepMsMediumWerPaper}{2.08}% [reported] % WER
+\newcommand{\RepMsMediumWerShipped}{2.17}% [reported] % WER
+\newcommand{\RepMsSmallLatencyLinux}{165}% [reported] ms response latency
+\newcommand{\RepMsSmallLatencyMac}{38}% [reported] ms response latency
+\newcommand{\RepMsSmallParams}{123}% [reported] million parameters
+\newcommand{\RepMsSmallWerOpenAsr}{7.84}% [reported] % WER
+\newcommand{\RepMsSmallWerPaper}{2.49}% [reported] % WER
+\newcommand{\RepMsSmallWerShipped}{2.61}% [reported] % WER
+\newcommand{\RepMsTinyLatencyLinux}{69}% [reported] ms response latency
+\newcommand{\RepMsTinyLatencyMac}{18}% [reported] ms response latency
+\newcommand{\RepMsTinyParams}{34}% [reported] million parameters
+\newcommand{\RepMsTinyWerOpenAsr}{12.00}% [reported] % WER
+\newcommand{\RepMsTinyWerPaper}{4.49}% [reported] % WER
+\newcommand{\RepMsTinyWerShipped}{4.83}% [reported] % WER
+\newcommand{\RepNvNemoLongChunkMs}{42.7}% [reported] ms compute per chunk, average
+\newcommand{\RepNvNemoLongChunkPninetyNine}{56.4}% [reported] ms compute per chunk, p99
+\newcommand{\RepNvNemoLongRtfx}{19.2}% [reported] x real time (audio duration over wall time)
+\newcommand{\RepNvNemoLongWer}{3.10}% [reported] % WER
+\newcommand{\RepNvNemoOneSixtyChunkMs}{27.0}% [reported] ms compute per chunk, average
+\newcommand{\RepNvNemoOneSixtyChunkPninetyNine}{28.9}% [reported] ms compute per chunk, p99
+\newcommand{\RepNvNemoOneSixtyRtfx}{5.6}% [reported] x real time (audio duration over wall time)
+\newcommand{\RepNvNemoOneSixtyWer}{3.00}% [reported] % WER
+\newcommand{\RepPvCheetahCoreHours}{8.7}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvCheetahLag}{560}% [reported] ms word emission latency
+\newcommand{\RepPvCheetahMem}{260}% [reported] MB peak memory
+\newcommand{\RepPvCheetahSize}{34}% [reported] MB model size
+\newcommand{\RepPvCheetahWerAvg}{7.7}% [reported] % WER
+\newcommand{\RepPvCheetahWerClean}{3.3}% [reported] % WER
+\newcommand{\RepPvCheetahWerOther}{7.9}% [reported] % WER
+\newcommand{\RepPvMoonMediumCoreHours}{336.0}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvMoonMediumLag}{640}% [reported] ms word emission latency
+\newcommand{\RepPvMoonMediumMem}{1085}% [reported] MB peak memory
+\newcommand{\RepPvMoonMediumSize}{290}% [reported] MB model size
+\newcommand{\RepPvMoonMediumWerAvg}{10.6}% [reported] % WER
+\newcommand{\RepPvMoonMediumWerClean}{5.9}% [reported] % WER
+\newcommand{\RepPvMoonMediumWerOther}{11.4}% [reported] % WER
+\newcommand{\RepPvMoonSmallCoreHours}{222.0}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvMoonSmallLag}{650}% [reported] ms word emission latency
+\newcommand{\RepPvMoonSmallMem}{640}% [reported] MB peak memory
+\newcommand{\RepPvMoonSmallSize}{158}% [reported] MB model size
+\newcommand{\RepPvMoonSmallWerAvg}{13.4}% [reported] % WER
+\newcommand{\RepPvMoonSmallWerClean}{7.0}% [reported] % WER
+\newcommand{\RepPvMoonSmallWerOther}{15.0}% [reported] % WER
+\newcommand{\RepPvMoonTinyCoreHours}{103.0}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvMoonTinyCpuEquivalent}{1.03}% [reported] CPU-s per audio-s
+\newcommand{\RepPvMoonTinyLag}{780}% [reported] ms word emission latency
+\newcommand{\RepPvMoonTinyMem}{295}% [reported] MB peak memory
+\newcommand{\RepPvMoonTinySize}{49}% [reported] MB model size
+\newcommand{\RepPvMoonTinyWerAvg}{23.9}% [reported] % WER
+\newcommand{\RepPvMoonTinyWerClean}{11.8}% [reported] % WER
+\newcommand{\RepPvMoonTinyWerOther}{28.7}% [reported] % WER
+\newcommand{\RepPvNemoThreeFiveCoreHours}{243.0}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvNemoThreeFiveLag}{450}% [reported] ms word emission latency
+\newcommand{\RepPvNemoThreeFiveMem}{5060}% [reported] MB peak memory
+\newcommand{\RepPvNemoThreeFiveSize}{2210}% [reported] MB model size
+\newcommand{\RepPvNemoThreeFiveWerAvg}{7.8}% [reported] % WER
+\newcommand{\RepPvNemoThreeFiveWerClean}{3.4}% [reported] % WER
+\newcommand{\RepPvNemoThreeFiveWerOther}{7.8}% [reported] % WER
+\newcommand{\RepPvVoskLargeCoreHours}{33.6}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvVoskLargeLag}{2000}% [reported] ms word emission latency
+\newcommand{\RepPvVoskLargeMem}{7200}% [reported] MB peak memory
+\newcommand{\RepPvVoskLargeSize}{2733}% [reported] MB model size
+\newcommand{\RepPvVoskLargeWerAvg}{11.5}% [reported] % WER
+\newcommand{\RepPvVoskLargeWerClean}{5.4}% [reported] % WER
+\newcommand{\RepPvVoskLargeWerOther}{12.7}% [reported] % WER
+\newcommand{\RepPvVoskSmallCoreHours}{11.7}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvVoskSmallLag}{920}% [reported] ms word emission latency
+\newcommand{\RepPvVoskSmallMem}{165}% [reported] MB peak memory
+\newcommand{\RepPvVoskSmallSize}{68}% [reported] MB model size
+\newcommand{\RepPvVoskSmallWerAvg}{18.4}% [reported] % WER
+\newcommand{\RepPvVoskSmallWerClean}{9.9}% [reported] % WER
+\newcommand{\RepPvVoskSmallWerOther}{21.0}% [reported] % WER
+\newcommand{\RepPvWhisperBaseCoreHours}{166.8}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvWhisperBaseLag}{1240}% [reported] ms word emission latency
+\newcommand{\RepPvWhisperBaseMem}{240}% [reported] MB peak memory
+\newcommand{\RepPvWhisperBaseSize}{139}% [reported] MB model size
+\newcommand{\RepPvWhisperBaseWerAvg}{19.8}% [reported] % WER
+\newcommand{\RepPvWhisperBaseWerClean}{11.9}% [reported] % WER
+\newcommand{\RepPvWhisperBaseWerOther}{19.9}% [reported] % WER
+\newcommand{\RepPvWhisperTinyCoreHours}{76.7}% [reported] core-hours per 100 h of audio
+\newcommand{\RepPvWhisperTinyLag}{1240}% [reported] ms word emission latency
+\newcommand{\RepPvWhisperTinyMem}{150}% [reported] MB peak memory
+\newcommand{\RepPvWhisperTinySize}{73}% [reported] MB model size
+\newcommand{\RepPvWhisperTinyWerAvg}{22.4}% [reported] % WER
+\newcommand{\RepPvWhisperTinyWerClean}{12.7}% [reported] % WER
+\newcommand{\RepPvWhisperTinyWerOther}{23.3}% [reported] % WER
+\newcommand{\RepRxOnnxAsrRtfx}{28}% [reported] x real time (audio seconds per wall-clock second)
+\newcommand{\RepRxOnnxAsrWer}{1.93}% [reported] % WER
+\newcommand{\RepRxParakeetCppRtfx}{45}% [reported] x real time (audio seconds per wall-clock second)
+\newcommand{\RepRxParakeetCppWer}{1.51}% [reported] % WER
+\newcommand{\RepRxPhotonRtfx}{113}% [reported] x real time (audio seconds per wall-clock second)
+\newcommand{\RepRxPhotonWer}{1.94}% [reported] % WER
+\newcommand{\RepRxSherpaRtfx}{42}% [reported] x real time (audio seconds per wall-clock second)
+\newcommand{\RepRxSherpaWer}{1.97}% [reported] % WER
 \newcommand{\RetractedPerCore}{2.8}% [exploratory] x
 \newcommand{\RetractedRatio}{11}% [exploratory] x
 \newcommand{\RssEngineFP}{478}% [exploratory] MB
@@ -503,4 +663,4 @@
 \newcommand{\FrontierWarmCaption}{Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per core sustained at p99 lateness of at most \LatenessBoundMs\,ms (top axis: per CCX, \DenWorkers{} single-threaded workers; \LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, measured in the same harness for the same checkpoints. Dense: the latest checkpoint (average of steps 55/60/65k), greedy (circle) and beam~4 (diamond) at the same density. R0 and multirate come from the clean same-session run; in the dense run the loaded host cut R0 to \RzeroLoadedCCX{} streams per CCX, so that R0 is not used. Whiskers run to the first failed rung. Hollow: the earlier step-45k checkpoint, \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} streams per CCX over two runs.}
 
 \newcommand{\RehearsalCaption}{Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the earlier dense average (steps 45/50/55k; the latest dense checkpoint of that harness is in \cref{fig:frontier}) and the multirate model at step 50k, all prepared INT8, in one \texttt{ultra bench-suite} executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \DenWorkers{} single-threaded workers on one CCX, \DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in \DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the matched \MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same harness and executable. Right: highest sustained streams per CCX, with each checkpoint's WER.}
-\newcommand{\MoneyCaption}{Each point is one recogniser decoding the same 730 LibriSpeech DEV utterances (\ColdAudioMinutes{} minutes) as a cold process on one pinned core of an AMD Threadripper PRO 3995WX (Zen~2), model load included; median of three runs. Speed is audio-seconds per CPU-second; WER is pooled over the 730 utterances. Filled marks: live streaming systems. Hollow marks: whole-utterance systems, which see the whole clip before they emit a word. Diamonds: ours. Dashed: the streaming systems that no other streaming system beats on both axes. \MoneyWattsCaption{} \ColdHostSentence{} Exploratory.}
+\newcommand{\MoneyCaption}{One cold process per recogniser on one pinned Zen~2 core: the same 730 DEV utterances, model load included, median of three runs. Vertical axis: dev-clean WER. \MoneyMarksCaption{} \MoneyWattsCaption{} \ColdHostShort{} \ColdSubsetSentence{} Exploratory.}

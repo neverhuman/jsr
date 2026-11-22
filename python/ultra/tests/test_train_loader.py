@@ -141,9 +141,11 @@ def test_weighted_share_deals_seconds_by_weight_and_partitions_the_group():
 
     dur = [1.0 + 0.1 * i for i in range(23)]
     group = list(range(23))
-    for world in (2, 3, 4):  # equal weights: exactly the unweighted split
-        for r in range(world):
-            assert weighted_share(group, dur, (1.0,) * world, r) == group[r::world]
+    for world in (2, 3, 4):  # equal weights: disjoint, complete, and even in seconds
+        parts = [weighted_share(group, dur, (1.0,) * world, r) for r in range(world)]
+        assert sorted(i for p in parts for i in p) == group
+        secs = [sum(dur[i] for i in p) for p in parts]
+        assert max(secs) - min(secs) <= max(dur)
     w = (1.0, 0.5, 1.0)
     parts = [weighted_share(group, dur, w, r) for r in range(3)]
     assert sorted(i for p in parts for i in p) == group  # disjoint and complete

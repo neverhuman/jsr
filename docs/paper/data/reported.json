@@ -1,0 +1,735 @@
+{
+ "_comment": "Numbers published by other people, quoted with their source. They feed only the 'reported elsewhere' table and never a measured axis (docs/paper/data/README.md). Each value is the text printed in the quoted line of the source; sha256 is the hash of the fetched source file.",
+ "sources": {
+  "picovoice": {
+   "cite": "picovoice2026benchmark",
+   "title": "Picovoice, Speech-to-Text Benchmark, README.md",
+   "url": "https://github.com/Picovoice/speech-to-text-benchmark/blob/ace2db4cc04b53379a90a5468ab26abe7f49043c/README.md",
+   "revision": "ace2db4cc04b53379a90a5468ab26abe7f49043c (2026-11-05)",
+   "sha256": "fb16c5c98f47f8e8cde68b6bdd865d99459bed6e365406ae7daa56c1d05a67d7",
+   "retrieved": "2026-11-22"
+  },
+  "nvidia": {
+   "cite": "nvidia2026nemospeechbench",
+   "title": "NVIDIA, NeMo-Speech.cpp, BENCHMARK.md",
+   "url": "https://github.com/NVIDIA/NeMo-Speech.cpp/blob/a5f19be31c7e7dda40cd3bbcee17083b2b88ba85/BENCHMARK.md",
+   "revision": "a5f19be31c7e7dda40cd3bbcee17083b2b88ba85 (2026-10-01)",
+   "sha256": "c34a41a2c7feaebcad6525668a6062ab8fd246b8abd7ed33a4f4ff99fd2e13cb",
+   "retrieved": "2026-11-22"
+  },
+  "moonshine-accuracy": {
+   "cite": "moonshine2026docs",
+   "title": "Moonshine Voice documentation, Accuracy (Word Error Rate)",
+   "url": "https://github.com/moonshine-ai/moonshine/blob/76817fe31b9255f15fd6006be714acda1851de53/docs/models/accuracy.md",
+   "revision": "76817fe31b9255f15fd6006be714acda1851de53 (2026-08-24)",
+   "sha256": "b1f73052c143a5a2ef1cb0119b2f7d51fed21bffcb146a14880f16ef5960b064",
+   "retrieved": "2026-11-22"
+  },
+  "moonshine-latency": {
+   "cite": "moonshine2026docs",
+   "title": "Moonshine Voice documentation, When should you choose Moonshine over Whisper?",
+   "url": "https://github.com/moonshine-ai/moonshine/blob/02cb1a3679fe5c0668c96d55c9650381366bcd48/docs/moonshine-vs-whisper.md",
+   "revision": "02cb1a3679fe5c0668c96d55c9650381366bcd48 (2026-08-27)",
+   "sha256": "487cd22cc9076ae7ec1110f87f7ca70689ac7f26653970e586ae8982d6a4751f",
+   "retrieved": "2026-11-22"
+  },
+  "redux": {
+   "cite": "moondream2026parakeetredux",
+   "title": "Moondream, Parakeet Redux model card",
+   "url": "https://huggingface.co/moondream/parakeet-redux/blob/2bf128600aac4b16946f7ed8372e56117fe5e23b/README.md",
+   "revision": "2bf128600aac4b16946f7ed8372e56117fe5e23b (2026-09-23)",
+   "sha256": "930055e6bac7d75114e719850ffaffc8d327e73b4295518c38c81399acd63e46",
+   "retrieved": "2026-11-22"
+  }
+ },
+ "values": {
+  "RepMsMediumLatencyLinux": {
+   "source": "moonshine-latency",
+   "text": "269",
+   "unit": "ms response latency",
+   "what": "Moonshine Medium Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; Linux x86",
+   "quote": "| Moonshine Medium Streaming | 6.65%  | 245 million  | 59ms        | 269ms     | 802ms     | 420ms     | 174ms      |"
+  },
+  "RepMsMediumLatencyMac": {
+   "source": "moonshine-latency",
+   "text": "59",
+   "unit": "ms response latency",
+   "what": "Moonshine Medium Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; MacBook Pro",
+   "quote": "| Moonshine Medium Streaming | 6.65%  | 245 million  | 59ms        | 269ms     | 802ms     | 420ms     | 174ms      |"
+  },
+  "RepMsMediumParams": {
+   "source": "moonshine-latency",
+   "text": "245",
+   "unit": "million parameters",
+   "what": "Moonshine Medium Streaming",
+   "quote": "| Moonshine Medium Streaming | 6.65%  | 245 million  | 59ms        | 269ms     | 802ms     | 420ms     | 174ms      |"
+  },
+  "RepMsMediumWerOpenAsr": {
+   "source": "moonshine-latency",
+   "text": "6.65",
+   "unit": "% WER",
+   "what": "Moonshine Medium Streaming; Open ASR Leaderboard average across eight datasets",
+   "quote": "| Moonshine Medium Streaming | 6.65%  | 245 million  | 59ms        | 269ms     | 802ms     | 420ms     | 174ms      |"
+  },
+  "RepMsMediumWerPaper": {
+   "source": "moonshine-accuracy",
+   "text": "2.08",
+   "unit": "% WER",
+   "what": "Moonshine Medium Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; floating-point model as in the Moonshine v2 paper",
+   "quote": "| Medium Streaming | 2.08%         | 2.16%                              | 2.17%                                  |"
+  },
+  "RepMsMediumWerShipped": {
+   "source": "moonshine-accuracy",
+   "text": "2.17",
+   "unit": "% WER",
+   "what": "Moonshine Medium Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; shipped 8-bit quantized model",
+   "quote": "| Medium Streaming | 2.08%         | 2.16%                              | 2.17%                                  |"
+  },
+  "RepMsSmallLatencyLinux": {
+   "source": "moonshine-latency",
+   "text": "165",
+   "unit": "ms response latency",
+   "what": "Moonshine Small Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; Linux x86",
+   "quote": "| Moonshine Small Streaming  | 7.84%  | 123 million  | 38ms        | 165ms     | 527ms     | 234ms     | 95ms       |"
+  },
+  "RepMsSmallLatencyMac": {
+   "source": "moonshine-latency",
+   "text": "38",
+   "unit": "ms response latency",
+   "what": "Moonshine Small Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; MacBook Pro",
+   "quote": "| Moonshine Small Streaming  | 7.84%  | 123 million  | 38ms        | 165ms     | 527ms     | 234ms     | 95ms       |"
+  },
+  "RepMsSmallParams": {
+   "source": "moonshine-latency",
+   "text": "123",
+   "unit": "million parameters",
+   "what": "Moonshine Small Streaming",
+   "quote": "| Moonshine Small Streaming  | 7.84%  | 123 million  | 38ms        | 165ms     | 527ms     | 234ms     | 95ms       |"
+  },
+  "RepMsSmallWerOpenAsr": {
+   "source": "moonshine-latency",
+   "text": "7.84",
+   "unit": "% WER",
+   "what": "Moonshine Small Streaming; Open ASR Leaderboard average across eight datasets",
+   "quote": "| Moonshine Small Streaming  | 7.84%  | 123 million  | 38ms        | 165ms     | 527ms     | 234ms     | 95ms       |"
+  },
+  "RepMsSmallWerPaper": {
+   "source": "moonshine-accuracy",
+   "text": "2.49",
+   "unit": "% WER",
+   "what": "Moonshine Small Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; floating-point model as in the Moonshine v2 paper",
+   "quote": "| Small Streaming  | 2.49%         | 2.55%                              | 2.61%                                  |"
+  },
+  "RepMsSmallWerShipped": {
+   "source": "moonshine-accuracy",
+   "text": "2.61",
+   "unit": "% WER",
+   "what": "Moonshine Small Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; shipped 8-bit quantized model",
+   "quote": "| Small Streaming  | 2.49%         | 2.55%                              | 2.61%                                  |"
+  },
+  "RepMsTinyLatencyLinux": {
+   "source": "moonshine-latency",
+   "text": "69",
+   "unit": "ms response latency",
+   "what": "Moonshine Tiny Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; Linux x86",
+   "quote": "| Moonshine Tiny Streaming   | 12.00% | 34 million   | 18ms        | 69ms      | 237ms     | 92ms      | 37ms       |"
+  },
+  "RepMsTinyLatencyMac": {
+   "source": "moonshine-latency",
+   "text": "18",
+   "unit": "ms response latency",
+   "what": "Moonshine Tiny Streaming; average time between the library deciding the user stopped talking and delivery of the final transcript; MacBook Pro",
+   "quote": "| Moonshine Tiny Streaming   | 12.00% | 34 million   | 18ms        | 69ms      | 237ms     | 92ms      | 37ms       |"
+  },
+  "RepMsTinyParams": {
+   "source": "moonshine-latency",
+   "text": "34",
+   "unit": "million parameters",
+   "what": "Moonshine Tiny Streaming",
+   "quote": "| Moonshine Tiny Streaming   | 12.00% | 34 million   | 18ms        | 69ms      | 237ms     | 92ms      | 37ms       |"
+  },
+  "RepMsTinyWerOpenAsr": {
+   "source": "moonshine-latency",
+   "text": "12.00",
+   "unit": "% WER",
+   "what": "Moonshine Tiny Streaming; Open ASR Leaderboard average across eight datasets",
+   "quote": "| Moonshine Tiny Streaming   | 12.00% | 34 million   | 18ms        | 69ms      | 237ms     | 92ms      | 37ms       |"
+  },
+  "RepMsTinyWerPaper": {
+   "source": "moonshine-accuracy",
+   "text": "4.49",
+   "unit": "% WER",
+   "what": "Moonshine Tiny Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; floating-point model as in the Moonshine v2 paper",
+   "quote": "| Tiny Streaming   | 4.49%         | 4.52%                              | 4.83%                                  |"
+  },
+  "RepMsTinyWerShipped": {
+   "source": "moonshine-accuracy",
+   "text": "4.83",
+   "unit": "% WER",
+   "what": "Moonshine Tiny Streaming; LibriSpeech test-clean; whole-utterance (non-streaming) transcription with the VAD disabled; shipped 8-bit quantized model",
+   "quote": "| Tiny Streaming   | 4.49%         | 4.52%                              | 4.83%                                  |"
+  },
+  "RepNvNemoLongChunkMs": {
+   "source": "nvidia",
+   "text": "42.7",
+   "unit": "ms compute per chunk, average",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 1.12 s chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 1.12 s | **42.7** · 56.4 | **19.2×** | 3.10% |"
+  },
+  "RepNvNemoLongChunkPninetyNine": {
+   "source": "nvidia",
+   "text": "56.4",
+   "unit": "ms compute per chunk, p99",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 1.12 s chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 1.12 s | **42.7** · 56.4 | **19.2×** | 3.10% |"
+  },
+  "RepNvNemoLongRtfx": {
+   "source": "nvidia",
+   "text": "19.2",
+   "unit": "x real time (audio duration over wall time)",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 1.12 s chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 1.12 s | **42.7** · 56.4 | **19.2×** | 3.10% |"
+  },
+  "RepNvNemoLongWer": {
+   "source": "nvidia",
+   "text": "3.10",
+   "unit": "% WER",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 1.12 s chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 1.12 s | **42.7** · 56.4 | **19.2×** | 3.10% |"
+  },
+  "RepNvNemoOneSixtyChunkMs": {
+   "source": "nvidia",
+   "text": "27.0",
+   "unit": "ms compute per chunk, average",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 160 ms chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 160 ms | **27.0** · 28.9 | **5.6×** | 3.00% |"
+  },
+  "RepNvNemoOneSixtyChunkPninetyNine": {
+   "source": "nvidia",
+   "text": "28.9",
+   "unit": "ms compute per chunk, p99",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 160 ms chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 160 ms | **27.0** · 28.9 | **5.6×** | 3.00% |"
+  },
+  "RepNvNemoOneSixtyRtfx": {
+   "source": "nvidia",
+   "text": "5.6",
+   "unit": "x real time (audio duration over wall time)",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 160 ms chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 160 ms | **27.0** · 28.9 | **5.6×** | 3.00% |"
+  },
+  "RepNvNemoOneSixtyWer": {
+   "source": "nvidia",
+   "text": "3.00",
+   "unit": "% WER",
+   "what": "Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0; Intel Core i7-11700K, 8 threads; 100-utterance subset of LibriSpeech test-clean (13.3 min); WER with the Whisper English normalizer; 160 ms chunks",
+   "quote": "| NeMo-Speech.cpp (Q8_0) | 160 ms | **27.0** · 28.9 | **5.6×** | 3.00% |"
+  },
+  "RepPvCheetahCoreHours": {
+   "source": "picovoice",
+   "text": "8.7",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Picovoice Cheetah; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|      Picovoice Cheetah        |   8.7      |       34        |"
+  },
+  "RepPvCheetahLag": {
+   "source": "picovoice",
+   "text": "560",
+   "unit": "ms word emission latency",
+   "what": "Picovoice Cheetah; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|       Picovoice Cheetah         |     560      |"
+  },
+  "RepPvCheetahMem": {
+   "source": "picovoice",
+   "text": "260",
+   "unit": "MB peak memory",
+   "what": "Picovoice Cheetah; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|       Picovoice Cheetah         |          260           |"
+  },
+  "RepPvCheetahSize": {
+   "source": "picovoice",
+   "text": "34",
+   "unit": "MB model size",
+   "what": "Picovoice Cheetah; aggregate size of models",
+   "quote": "|      Picovoice Cheetah        |   8.7      |       34        |"
+  },
+  "RepPvCheetahWerAvg": {
+   "source": "picovoice",
+   "text": "7.7",
+   "unit": "% WER",
+   "what": "Picovoice Cheetah; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|       Picovoice Cheetah        |          3.3%          |          7.9%          |   5.1%   |    14.4%    |  7.7%   |"
+  },
+  "RepPvCheetahWerClean": {
+   "source": "picovoice",
+   "text": "3.3",
+   "unit": "% WER",
+   "what": "Picovoice Cheetah; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|       Picovoice Cheetah        |          3.3%          |          7.9%          |   5.1%   |    14.4%    |  7.7%   |"
+  },
+  "RepPvCheetahWerOther": {
+   "source": "picovoice",
+   "text": "7.9",
+   "unit": "% WER",
+   "what": "Picovoice Cheetah; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|       Picovoice Cheetah        |          3.3%          |          7.9%          |   5.1%   |    14.4%    |  7.7%   |"
+  },
+  "RepPvMoonMediumCoreHours": {
+   "source": "picovoice",
+   "text": "336.0",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Moonshine Streaming Medium; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|  Moonshine Streaming Medium   |   336.0    |       290       |"
+  },
+  "RepPvMoonMediumLag": {
+   "source": "picovoice",
+   "text": "640",
+   "unit": "ms word emission latency",
+   "what": "Moonshine Medium; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|       Moonshine Medium          |     640      |"
+  },
+  "RepPvMoonMediumMem": {
+   "source": "picovoice",
+   "text": "1085",
+   "unit": "MB peak memory",
+   "what": "Moonshine Medium; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|       Moonshine Medium          |          1085          |"
+  },
+  "RepPvMoonMediumSize": {
+   "source": "picovoice",
+   "text": "290",
+   "unit": "MB model size",
+   "what": "Moonshine Streaming Medium; aggregate size of models",
+   "quote": "|  Moonshine Streaming Medium   |   336.0    |       290       |"
+  },
+  "RepPvMoonMediumWerAvg": {
+   "source": "picovoice",
+   "text": "10.6",
+   "unit": "% WER",
+   "what": "Moonshine Medium; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|       Moonshine Medium         |          5.9%          |         11.4%          |   6.5%   |    18.7%    |  10.6%  |"
+  },
+  "RepPvMoonMediumWerClean": {
+   "source": "picovoice",
+   "text": "5.9",
+   "unit": "% WER",
+   "what": "Moonshine Medium; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|       Moonshine Medium         |          5.9%          |         11.4%          |   6.5%   |    18.7%    |  10.6%  |"
+  },
+  "RepPvMoonMediumWerOther": {
+   "source": "picovoice",
+   "text": "11.4",
+   "unit": "% WER",
+   "what": "Moonshine Medium; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|       Moonshine Medium         |          5.9%          |         11.4%          |   6.5%   |    18.7%    |  10.6%  |"
+  },
+  "RepPvMoonSmallCoreHours": {
+   "source": "picovoice",
+   "text": "222.0",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Moonshine Streaming Small; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|  Moonshine Streaming Small    |   222.0    |       158       |"
+  },
+  "RepPvMoonSmallLag": {
+   "source": "picovoice",
+   "text": "650",
+   "unit": "ms word emission latency",
+   "what": "Moonshine Small; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|        Moonshine Small          |     650      |"
+  },
+  "RepPvMoonSmallMem": {
+   "source": "picovoice",
+   "text": "640",
+   "unit": "MB peak memory",
+   "what": "Moonshine Small; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|        Moonshine Small          |          640           |"
+  },
+  "RepPvMoonSmallSize": {
+   "source": "picovoice",
+   "text": "158",
+   "unit": "MB model size",
+   "what": "Moonshine Streaming Small; aggregate size of models",
+   "quote": "|  Moonshine Streaming Small    |   222.0    |       158       |"
+  },
+  "RepPvMoonSmallWerAvg": {
+   "source": "picovoice",
+   "text": "13.4",
+   "unit": "% WER",
+   "what": "Moonshine Small; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|        Moonshine Small         |          7.0%          |         15.0%          |   6.9%   |    24.8%    |  13.4%  |"
+  },
+  "RepPvMoonSmallWerClean": {
+   "source": "picovoice",
+   "text": "7.0",
+   "unit": "% WER",
+   "what": "Moonshine Small; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|        Moonshine Small         |          7.0%          |         15.0%          |   6.9%   |    24.8%    |  13.4%  |"
+  },
+  "RepPvMoonSmallWerOther": {
+   "source": "picovoice",
+   "text": "15.0",
+   "unit": "% WER",
+   "what": "Moonshine Small; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|        Moonshine Small         |          7.0%          |         15.0%          |   6.9%   |    24.8%    |  13.4%  |"
+  },
+  "RepPvMoonTinyCoreHours": {
+   "source": "picovoice",
+   "text": "103.0",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Moonshine Streaming Tiny; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|   Moonshine Streaming Tiny    |   103.0    |       49        |"
+  },
+  "RepPvMoonTinyLag": {
+   "source": "picovoice",
+   "text": "780",
+   "unit": "ms word emission latency",
+   "what": "Moonshine Tiny; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|        Moonshine Tiny           |     780      |"
+  },
+  "RepPvMoonTinyMem": {
+   "source": "picovoice",
+   "text": "295",
+   "unit": "MB peak memory",
+   "what": "Moonshine Tiny; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|        Moonshine Tiny           |          295           |"
+  },
+  "RepPvMoonTinySize": {
+   "source": "picovoice",
+   "text": "49",
+   "unit": "MB model size",
+   "what": "Moonshine Streaming Tiny; aggregate size of models",
+   "quote": "|   Moonshine Streaming Tiny    |   103.0    |       49        |"
+  },
+  "RepPvMoonTinyWerAvg": {
+   "source": "picovoice",
+   "text": "23.9",
+   "unit": "% WER",
+   "what": "Moonshine Tiny; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|        Moonshine Tiny          |         11.8%          |         28.7%          |  12.5%   |    42.4%    |  23.9%  |"
+  },
+  "RepPvMoonTinyWerClean": {
+   "source": "picovoice",
+   "text": "11.8",
+   "unit": "% WER",
+   "what": "Moonshine Tiny; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|        Moonshine Tiny          |         11.8%          |         28.7%          |  12.5%   |    42.4%    |  23.9%  |"
+  },
+  "RepPvMoonTinyWerOther": {
+   "source": "picovoice",
+   "text": "28.7",
+   "unit": "% WER",
+   "what": "Moonshine Tiny; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|        Moonshine Tiny          |         11.8%          |         28.7%          |  12.5%   |    42.4%    |  23.9%  |"
+  },
+  "RepPvNemoThreeFiveCoreHours": {
+   "source": "picovoice",
+   "text": "243.0",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Nemotron 3.5 ASR Streaming; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|  Nemotron 3.5 ASR Streaming   |   243.0    |      2210       |"
+  },
+  "RepPvNemoThreeFiveLag": {
+   "source": "picovoice",
+   "text": "450",
+   "unit": "ms word emission latency",
+   "what": "Nemotron 3.5 ASR Streaming; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|    Nemotron 3.5 ASR Streaming   |     450      |"
+  },
+  "RepPvNemoThreeFiveMem": {
+   "source": "picovoice",
+   "text": "5060",
+   "unit": "MB peak memory",
+   "what": "Nemotron 3.5 ASR Streaming; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|    Nemotron 3.5 ASR Streaming   |          5060          |"
+  },
+  "RepPvNemoThreeFiveSize": {
+   "source": "picovoice",
+   "text": "2210",
+   "unit": "MB model size",
+   "what": "Nemotron 3.5 ASR Streaming; aggregate size of models",
+   "quote": "|  Nemotron 3.5 ASR Streaming   |   243.0    |      2210       |"
+  },
+  "RepPvNemoThreeFiveWerAvg": {
+   "source": "picovoice",
+   "text": "7.8",
+   "unit": "% WER",
+   "what": "Nemotron 3.5 ASR Streaming; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|   Nemotron 3.5 ASR Streaming   |          3.4%          |          7.8%          |   4.9%   |    15.0%    |  7.8%   |"
+  },
+  "RepPvNemoThreeFiveWerClean": {
+   "source": "picovoice",
+   "text": "3.4",
+   "unit": "% WER",
+   "what": "Nemotron 3.5 ASR Streaming; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|   Nemotron 3.5 ASR Streaming   |          3.4%          |          7.8%          |   4.9%   |    15.0%    |  7.8%   |"
+  },
+  "RepPvNemoThreeFiveWerOther": {
+   "source": "picovoice",
+   "text": "7.8",
+   "unit": "% WER",
+   "what": "Nemotron 3.5 ASR Streaming; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|   Nemotron 3.5 ASR Streaming   |          3.4%          |          7.8%          |   4.9%   |    15.0%    |  7.8%   |"
+  },
+  "RepPvVoskLargeCoreHours": {
+   "source": "picovoice",
+   "text": "33.6",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Vosk Large; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|          Vosk Large           |   33.6     |      2733       |"
+  },
+  "RepPvVoskLargeLag": {
+   "source": "picovoice",
+   "text": "2000",
+   "unit": "ms word emission latency",
+   "what": "Vosk Large; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|          Vosk Large             |    2000      |"
+  },
+  "RepPvVoskLargeMem": {
+   "source": "picovoice",
+   "text": "7200",
+   "unit": "MB peak memory",
+   "what": "Vosk Large; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|          Vosk Large             |          7200          |"
+  },
+  "RepPvVoskLargeSize": {
+   "source": "picovoice",
+   "text": "2733",
+   "unit": "MB model size",
+   "what": "Vosk Large; aggregate size of models",
+   "quote": "|          Vosk Large           |   33.6     |      2733       |"
+  },
+  "RepPvVoskLargeWerAvg": {
+   "source": "picovoice",
+   "text": "11.5",
+   "unit": "% WER",
+   "what": "Vosk Large; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|          Vosk Large            |          5.4%          |         12.7%          |   6.6%   |    21.4%    |  11.5%  |"
+  },
+  "RepPvVoskLargeWerClean": {
+   "source": "picovoice",
+   "text": "5.4",
+   "unit": "% WER",
+   "what": "Vosk Large; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|          Vosk Large            |          5.4%          |         12.7%          |   6.6%   |    21.4%    |  11.5%  |"
+  },
+  "RepPvVoskLargeWerOther": {
+   "source": "picovoice",
+   "text": "12.7",
+   "unit": "% WER",
+   "what": "Vosk Large; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|          Vosk Large            |          5.4%          |         12.7%          |   6.6%   |    21.4%    |  11.5%  |"
+  },
+  "RepPvVoskSmallCoreHours": {
+   "source": "picovoice",
+   "text": "11.7",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Vosk Small; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|          Vosk Small           |   11.7     |       68        |"
+  },
+  "RepPvVoskSmallLag": {
+   "source": "picovoice",
+   "text": "920",
+   "unit": "ms word emission latency",
+   "what": "Vosk Small; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|          Vosk Small             |     920      |"
+  },
+  "RepPvVoskSmallMem": {
+   "source": "picovoice",
+   "text": "165",
+   "unit": "MB peak memory",
+   "what": "Vosk Small; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|          Vosk Small             |          165           |"
+  },
+  "RepPvVoskSmallSize": {
+   "source": "picovoice",
+   "text": "68",
+   "unit": "MB model size",
+   "what": "Vosk Small; aggregate size of models",
+   "quote": "|          Vosk Small           |   11.7     |       68        |"
+  },
+  "RepPvVoskSmallWerAvg": {
+   "source": "picovoice",
+   "text": "18.4",
+   "unit": "% WER",
+   "what": "Vosk Small; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|          Vosk Small            |          9.9%          |         21.0%          |  10.7%   |    32.1%    |  18.4%  |"
+  },
+  "RepPvVoskSmallWerClean": {
+   "source": "picovoice",
+   "text": "9.9",
+   "unit": "% WER",
+   "what": "Vosk Small; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|          Vosk Small            |          9.9%          |         21.0%          |  10.7%   |    32.1%    |  18.4%  |"
+  },
+  "RepPvVoskSmallWerOther": {
+   "source": "picovoice",
+   "text": "21.0",
+   "unit": "% WER",
+   "what": "Vosk Small; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|          Vosk Small            |          9.9%          |         21.0%          |  10.7%   |    32.1%    |  18.4%  |"
+  },
+  "RepPvWhisperBaseCoreHours": {
+   "source": "picovoice",
+   "text": "166.8",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Whisper.cpp Streaming Base; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|   Whisper.cpp Streaming Base  |   166.8    |       139       |"
+  },
+  "RepPvWhisperBaseLag": {
+   "source": "picovoice",
+   "text": "1240",
+   "unit": "ms word emission latency",
+   "what": "Whisper.cpp Streaming Base; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|    Whisper.cpp Streaming Base   |    1240      |"
+  },
+  "RepPvWhisperBaseMem": {
+   "source": "picovoice",
+   "text": "240",
+   "unit": "MB peak memory",
+   "what": "Whisper.cpp Streaming Base; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|    Whisper.cpp Streaming Base   |          240           |"
+  },
+  "RepPvWhisperBaseSize": {
+   "source": "picovoice",
+   "text": "139",
+   "unit": "MB model size",
+   "what": "Whisper.cpp Streaming Base; aggregate size of models",
+   "quote": "|   Whisper.cpp Streaming Base  |   166.8    |       139       |"
+  },
+  "RepPvWhisperBaseWerAvg": {
+   "source": "picovoice",
+   "text": "19.8",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Base; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|    Whisper.cpp Streaming Base  |         11.9%          |         19.9%          |  14.2%   |    33.2%    |  19.8%  |"
+  },
+  "RepPvWhisperBaseWerClean": {
+   "source": "picovoice",
+   "text": "11.9",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Base; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|    Whisper.cpp Streaming Base  |         11.9%          |         19.9%          |  14.2%   |    33.2%    |  19.8%  |"
+  },
+  "RepPvWhisperBaseWerOther": {
+   "source": "picovoice",
+   "text": "19.9",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Base; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|    Whisper.cpp Streaming Base  |         11.9%          |         19.9%          |  14.2%   |    33.2%    |  19.8%  |"
+  },
+  "RepPvWhisperTinyCoreHours": {
+   "source": "picovoice",
+   "text": "76.7",
+   "unit": "core-hours per 100 h of audio",
+   "what": "Whisper.cpp Streaming Tiny; CPU hours to process 100 hours of audio; LibriSpeech test-clean; AMD Ryzen 9 5900X, 10 cores used simultaneously",
+   "quote": "|   Whisper.cpp Streaming Tiny  |   76.7     |       73        |"
+  },
+  "RepPvWhisperTinyLag": {
+   "source": "picovoice",
+   "text": "1240",
+   "unit": "ms word emission latency",
+   "what": "Whisper.cpp Streaming Tiny; average delay from the end of a word to its emission; 100 randomly selected LibriSpeech test-clean files",
+   "quote": "|    Whisper.cpp Streaming Tiny   |    1240      |"
+  },
+  "RepPvWhisperTinyMem": {
+   "source": "picovoice",
+   "text": "150",
+   "unit": "MB peak memory",
+   "what": "Whisper.cpp Streaming Tiny; peak memory usage; AMD Ryzen 9 5900X",
+   "quote": "|    Whisper.cpp Streaming Tiny   |          150           |"
+  },
+  "RepPvWhisperTinySize": {
+   "source": "picovoice",
+   "text": "73",
+   "unit": "MB model size",
+   "what": "Whisper.cpp Streaming Tiny; aggregate size of models",
+   "quote": "|   Whisper.cpp Streaming Tiny  |   76.7     |       73        |"
+  },
+  "RepPvWhisperTinyWerAvg": {
+   "source": "picovoice",
+   "text": "22.4",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Tiny; streaming engines word error rate; average of LibriSpeech test-clean, test-other, TED-LIUM and CommonVoice",
+   "quote": "|    Whisper.cpp Streaming Tiny  |         12.7%          |         23.3%          |  16.0%   |    37.5%    |  22.4%  |"
+  },
+  "RepPvWhisperTinyWerClean": {
+   "source": "picovoice",
+   "text": "12.7",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Tiny; streaming engines word error rate; LibriSpeech test-clean",
+   "quote": "|    Whisper.cpp Streaming Tiny  |         12.7%          |         23.3%          |  16.0%   |    37.5%    |  22.4%  |"
+  },
+  "RepPvWhisperTinyWerOther": {
+   "source": "picovoice",
+   "text": "23.3",
+   "unit": "% WER",
+   "what": "Whisper.cpp Streaming Tiny; streaming engines word error rate; LibriSpeech test-other",
+   "quote": "|    Whisper.cpp Streaming Tiny  |         12.7%          |         23.3%          |  16.0%   |    37.5%    |  22.4%  |"
+  },
+  "RepRxOnnxAsrRtfx": {
+   "source": "redux",
+   "text": "28",
+   "unit": "x real time (audio seconds per wall-clock second)",
+   "what": "onnx-asr (ONNX Runtime), weights int8, 0.67 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| onnx-asr (ONNX Runtime) | int8, 0.67 GB | 28× | 1.93 |"
+  },
+  "RepRxOnnxAsrWer": {
+   "source": "redux",
+   "text": "1.93",
+   "unit": "% WER",
+   "what": "onnx-asr (ONNX Runtime), weights int8, 0.67 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| onnx-asr (ONNX Runtime) | int8, 0.67 GB | 28× | 1.93 |"
+  },
+  "RepRxParakeetCppRtfx": {
+   "source": "redux",
+   "text": "45",
+   "unit": "x real time (audio seconds per wall-clock second)",
+   "what": "parakeet.cpp (ggml), weights q8_0, 0.94 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| parakeet.cpp (ggml) | q8_0, 0.94 GB | 45× | 1.51 |"
+  },
+  "RepRxParakeetCppWer": {
+   "source": "redux",
+   "text": "1.51",
+   "unit": "% WER",
+   "what": "parakeet.cpp (ggml), weights q8_0, 0.94 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| parakeet.cpp (ggml) | q8_0, 0.94 GB | 45× | 1.51 |"
+  },
+  "RepRxPhotonRtfx": {
+   "source": "redux",
+   "text": "113",
+   "unit": "x real time (audio seconds per wall-clock second)",
+   "what": "Photon, this model, weights ternary, 178 MB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| **Photon, this model** | ternary, 178 MB | **113×** | 1.94 |"
+  },
+  "RepRxPhotonWer": {
+   "source": "redux",
+   "text": "1.94",
+   "unit": "% WER",
+   "what": "Photon, this model, weights ternary, 178 MB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| **Photon, this model** | ternary, 178 MB | **113×** | 1.94 |"
+  },
+  "RepRxSherpaRtfx": {
+   "source": "redux",
+   "text": "42",
+   "unit": "x real time (audio seconds per wall-clock second)",
+   "what": "sherpa-onnx (ONNX Runtime), weights int8, 0.67 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| sherpa-onnx (ONNX Runtime) | int8, 0.67 GB | 42× | 1.97 |"
+  },
+  "RepRxSherpaWer": {
+   "source": "redux",
+   "text": "1.97",
+   "unit": "% WER",
+   "what": "sherpa-onnx (ONNX Runtime), weights int8, 0.67 GB; LibriSpeech test-clean (2,620 utterances), one utterance at a time; AMD EPYC 9575F, 8 physical cores",
+   "quote": "| sherpa-onnx (ONNX Runtime) | int8, 0.67 GB | 42× | 1.97 |"
+  }
+ },
+ "derived": {
+  "RepPvMoonTinyCpuEquivalent": {
+   "from": "RepPvMoonTinyCoreHours",
+   "factor": 0.01,
+   "decimals": 2,
+   "unit": "CPU-s per audio-s",
+   "what": "core-hours per 100 hours of audio divided by 100"
+  }
+ }
+}

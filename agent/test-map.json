@@ -213,8 +213,20 @@
       "command": "just paper",
       "purpose": "the IEEE paper builds with no undefined references, Type-1 fonts, and every number generated from sourced records (tests/test_paper_data.py)"
     },
+    "docs/paper/opponents/": {
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py",
+      "purpose": "opponent benchmark runners: panel views and balanced shards, side-by-side workers, plan phases, the macOS meter parser and the receipt table (every repetition and the median)"
+    },
+    "docs/paper/data/raw/opponents/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py",
+      "purpose": "opponent receipts are pinned by sha256 in raw/MANIFEST.txt; the generator refuses unlisted or changed files"
+    },
+    "python/ultra/tests/test_opponents_tools.py": {
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py",
+      "purpose": "proof for docs/paper/opponents"
+    },
     "python/ultra/tools/paper_data/": {
-      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py",
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py tests/test_paper_claims.py",
       "purpose": "paper numbers regenerate byte-identically from sourced records; pairing rules; no bare numbers in sections"
     },
     "python/ultra/tools/export_curves.py": {
@@ -249,6 +261,30 @@
       "command": "shellcheck -x -S warning python/ultra/train/ops/launch_ddp_ranks.sh",
       "purpose": "validate the fixed-rank launcher script"
     },
+    "python/ultra/tools/energy_bench.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "energy meter arithmetic: counter wrap-around, unit conversion, idle subtraction, repetition statistics, distrust flags, and an end-to-end run against a stand-in counter helper"
+    },
+    "python/ultra/tests/test_energy_bench.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "the energy meter's own tests run"
+    },
+    "research/H39_energy/": {
+      "command": "just score",
+      "purpose": "the H39 energy wave (protocol note, validation, results) stays visible to the audit"
+    },
+    "docs/paper/data/raw/energy/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "every committed energy receipt has the receipt schema and headline numbers that equal the median of its repetitions"
+    },
+    "python/ultra/tools/energy_report.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "ladder fits, the package-against-core regression, the evidence lines and the table are computed correctly from receipts"
+    },
+    "docs/paper/run-energy.sh": {
+      "command": "shellcheck -x -S warning docs/paper/run-energy.sh",
+      "purpose": "validate the energy driver (quiet lock handling and one case per arm)"
+    },
     "python/ultra/train/lm_fusion.py": {
       "command": "just pytest",
       "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
@@ -280,6 +316,14 @@
     "python/ultra/train/ops/lm_sweep.sh": {
       "command": "shellcheck -x -S warning python/ultra/train/ops/lm_sweep.sh",
       "purpose": "validate the fusion sweep driver (grid, decode, tune, edge rule)"
+    },
+    "python/ultra/train/ops/lm_reference.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_reference.sh",
+      "purpose": "validate the reference re-decode of the chosen configs"
+    },
+    "python/ultra/train/ops/lm_engine_parity.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_engine_parity.sh",
+      "purpose": "validate the engine-side fusion parity runs"
     },
     "research/H42_ngram_lm/": {
       "command": "just score",

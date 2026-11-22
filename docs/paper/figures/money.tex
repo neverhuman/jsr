@@ -1,6 +1,7 @@
 % Fig. 1 body (paper-data): processing speed on ONE pinned core against WER, one IEEE column (<= 243 pt).
 % x: audio-seconds per CPU-second of the whole recognizer process tree, model load included (log scale,
-%    faster to the right). y: pooled WER on the same 730 DEV utterances (lower is better).
+%    faster to the right). y: WER on the 400 dev-clean utterances of the same 730-utterance DEV panel
+%    (lower is better); dev-other and pooled WER are in the text and tables.
 % Filled marks: live streaming systems. Hollow marks: whole-utterance systems. Blue diamonds: ours.
 % Lighter marks: interim points from the shared host, while quiet-host rows share the figure.
 % Dashed staircase: the streaming systems that no other streaming system beats on both axes.
@@ -30,9 +31,9 @@
   xmode=log, log basis x=2, xmin=\MoneyXmin, xmax=\MoneyXmax, ymin=0, ymax=\MoneyYmax,
   xtick/.expanded=\MoneyXticks, ytick distance=\MoneyYstep, xtick pos=bottom,
   xticklabel={\pgfmathparse{2^\tick}\pgfmathprintnumber[fixed, precision=2]{\pgfmathresult}$\times$},
-  xlabel={Speed on one CPU core ($\times$ real time, log scale)},
-  ylabel={Pooled WER (\%), 730 dev utterances},
-  xlabel style={yshift=1pt}, ylabel style={yshift=-3pt},
+  xlabel={Always-on streams per CPU core\\($\times$ real time on one core, log scale)},
+  ylabel={dev-clean WER (\%), 400 utterances},
+  xlabel style={yshift=1pt, align=center}, ylabel style={yshift=-3pt},
   legend columns=2, legend cell align=left,
   legend style={at={(0.5,-0.235)}, anchor=north, font=\scriptsize, /tikz/every even column/.append style={column sep=8pt}},
   money/watts,
@@ -41,37 +42,48 @@
 \fill[black!6] (axis cs:\MoneyXmin,0) rectangle (axis cs:1,\MoneyYmax);
 \node[font=\tiny, text=okInk!80, rotate=90, anchor=north east, inner sep=1.5pt]
   at (rel axis cs:0,1) {slower than real time};
-% frontier of the live streaming systems
-\addplot[okInk!70, densely dashed, line width=0.5pt, mark=none]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir money_frontier.csv};
+% The legend is declared by hand and every plot is `forget plot`: a filter that matches no row would
+% otherwise drop its plot and shift the legend entries. An entry appears only when its mark is drawn.
+\ifnum\MoneyHasFrontier>0
+\addlegendimage{okInk!70, densely dashed, line width=0.5pt}
 \addlegendentry{streaming frontier}
-\addplot[only marks, mark=*, mark size=2.3pt, color=okInk,
-  ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
-\addlegendentry{live streaming}
-\addplot[only marks, mark=diamond*, mark size=3.3pt, color=okBlue,
-  ultra/keep if={series}{zen2-t1-ours-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\fi
+\addlegendimage{only marks, mark=diamond*, mark size=3.3pt, color=okBlue}
 \addlegendentry{ours (live streaming)}
-\ifnum\ColdRowsWhole>0
-\addplot[only marks, mark=*, mark size=2.3pt, color=okInk, line width=0.7pt, mark options={fill=white},
-  ultra/keep if={series}{zen2-t1-comparator-whole}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\ifnum\MoneyHasStream>0
+\addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk}
+\addlegendentry{live streaming}
+\fi
+\ifnum\MoneyHasWhole>0
+\addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk, line width=0.7pt, mark options={fill=white}}
 \addlegendentry{whole clip first: no live words}
 \fi
-\ifnum\ColdRowsFaded>0
-% interim points: measured on the shared host until their quiet-host rows arrive
-\addplot[only marks, mark=*, mark size=2.3pt, color=okInk!40,
-  ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{1}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\ifnum\MoneyHasFaded>0
+\addlegendimage{only marks, mark=*, mark size=2.3pt, color=okInk!40}
 \addlegendentry{interim (shared host)}
-\addplot[only marks, mark=diamond*, mark size=3.3pt, color=okBlue!40, forget plot,
-  ultra/keep if={series}{zen2-t1-ours-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{1}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
+\fi
+% frontier of the live streaming systems
+\addplot[okInk!70, densely dashed, line width=0.5pt, mark=none, forget plot]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir money_frontier.csv};
+% interim points first (lighter), so that quiet-host points are drawn on top
+\addplot[only marks, mark=*, mark size=2.3pt, color=okInk!40, forget plot,
+  ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{1}]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
 \addplot[only marks, mark=*, mark size=2.3pt, color=okInk!40, line width=0.7pt, mark options={fill=white}, forget plot,
   ultra/keep if={series}{zen2-t1-comparator-whole}, ultra/keep if={plot}{1}, ultra/keep if={faded}{1}]
-  table[col sep=comma, x=speed, y=wer]{\paperdatadir cold_dev.csv};
-\fi
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
+\addplot[only marks, mark=diamond*, mark size=3.3pt, color=okBlue!40, forget plot,
+  ultra/keep if={series}{zen2-t1-ours-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{1}]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
+\addplot[only marks, mark=*, mark size=2.3pt, color=okInk, forget plot,
+  ultra/keep if={series}{zen2-t1-comparator-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
+\addplot[only marks, mark=*, mark size=2.3pt, color=okInk, line width=0.7pt, mark options={fill=white}, forget plot,
+  ultra/keep if={series}{zen2-t1-comparator-whole}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
+\addplot[only marks, mark=diamond*, mark size=3.3pt, color=okBlue, forget plot,
+  ultra/keep if={series}{zen2-t1-ours-streaming}, ultra/keep if={plot}{1}, ultra/keep if={faded}{0}]
+  table[col sep=comma, x=speed, y=wer_clean]{\paperdatadir cold_dev.csv};
 \MoneyAnnotations
 % direction of improvement (the generator keeps this corner free of labels)
 \draw[-{Stealth[length=3.5pt]}, okInk!80, line width=0.5pt]
@@ -88,7 +100,7 @@
 \end{axis}
 \else
 \begin{axis}[ultra/base, width=0.87\columnwidth, height=5.2cm, xmode=log, xmin=0.5, xmax=64, ymin=0, ymax=18,
-  xlabel={Speed on one CPU core ($\times$ real time, log scale)}, ylabel={Pooled WER (\%), 730 dev utterances}]
+  xlabel={Speed on one CPU core ($\times$ real time, log scale)}, ylabel={dev-clean WER (\%), 400 utterances}]
   \node[align=center, font=\footnotesize, text=okGrey, fill=gray!6, draw=gray!50, inner sep=6pt]
     at (rel axis cs:0.5,0.5) {\textbf{PENDING}\\[2pt]matched cold-DEV receipts\\not yet admitted\\[1pt]
     \scriptsize (730-utt panel, one pinned core, median of 3)};

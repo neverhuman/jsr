@@ -15,7 +15,8 @@ has its own measured figure and table.
 ## Build
 
 ```bash
-just paper     # from the repository root
+just paper          # from the repository root
+just paper-refresh  # the same, plus docs/paper/money.png, the README block and the paper tests
 ```
 
 The recipe:
@@ -39,10 +40,14 @@ poppler-utils (`pdffonts`, `pdftotext`, `pdfinfo`). siunitx is not used.
 | `data/metrics.tex`, `data/SOURCES.md` | paper-data (generated) | one macro per number, with provenance |
 | `figures/*.tex` | paper-data | pgfplots bodies: `money.tex` (Fig. 1: speed on one core against WER, every system measured here), `frontier_warm.tex` (streams per core), `density.tex` (warm ladder) |
 | `data/evidence/*.jsonl` | the agent that measured the row | measured comparison rows (schema: `data/README.md`) |
+| `sections/tab_measured.tex`, `data/table_measured.tex` | paper-writer; paper-data (generated body) | the "measured here" table |
+| `data/systems.json`, `data/reported.json` | paper-writer | names of the measured variants and the headline row; numbers published by others, each with its quoted source line |
 | `refs.bib` | paper-related | bibliography |
 
 ## Rules
 
+- **Measured and reported never mix.** A number someone else published is a `\Rep...` macro from
+  `data/reported.json`; it appears only in the "reported elsewhere" table and in prose beside its citation.
 - **No literal result numbers in `sections/`.** Use a macro from `data/metrics.tex`. A test rejects
   bare decimals in sections; design constants (12.5 Hz, gate margins) live in `paper.tex`.
 - A macro that `metrics.tex` does not define yet prints a red **??** (`\PH`). After adding a macro

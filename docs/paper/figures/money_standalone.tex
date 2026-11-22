@@ -1,0 +1,14 @@
+% Fig. 1 alone, cropped to its bounding box: the source of docs/paper/money.png, the image README.md shows.
+% Built by `just paper-refresh` (run from docs/paper). Same body, fonts and data as Fig. 1 of the paper.
+\documentclass[border=6pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usetikzlibrary{calc,arrows.meta}
+\input{data/metrics.tex}
+\begin{document}
+\input{figures/money.tex}
+\end{document}

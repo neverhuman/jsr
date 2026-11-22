@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/energy/bin/ultra-cold-wav zipformer-int8 /home/ubuntu/jsr-data/opponents/energy/models/r0-zipformer-int8 /home/ubuntu/jsr-data/opponents/panel/wav /home/ubuntu/jsr-data/opponents/energy/cold/round-3/zipformer-int8/predictions.jsonl 

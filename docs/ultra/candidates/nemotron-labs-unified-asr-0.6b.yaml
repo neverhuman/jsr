@@ -1,0 +1,89 @@
+# Nemotron Labs Unified ASR 0.6B, FP32 checkpoint, NeMo (PyTorch) on CPU (H40, bench-cross).
+# Schema: spec v1.0-B §11.2 (ultra.candidate.v1). One document per operating point.
+# Approval: owner ruling O16 (the wider comparison set): internal evaluation, DEV audio only, hash-locked, exploratory.
+# Measured by bench-cross on xbabe0 (Zen 2); receipts under docs/paper/data/raw/opponents/zen2/.
+---
+schema: ultra.candidate.v1
+candidate_id: nemotron_labs_unified_fp32_whole_utterance
+model:
+  repository: nvidia/nemotron-labs-unified-asr-0.6b
+  revision: 023ce907267a09a308a5cb69239447cb3d0c1597
+  artifact: nemotron-labs-unified-asr-0.6b.nemo
+  artifact_bytes: 2507735040
+  artifact_sha256: 1718cc1b44fb8597b2356328d706a8d89f31c389ca6f2256c2e3f743c0246936  # equals the HF LFS oid
+  parameters: 600M (Unified FastConformer encoder, 24 layers, RNN-T decoder, language-ID prompt; 25 European languages)
+  training_data: >-
+    Model card: about 670k h: 10k h human-transcribed NeMo ASR Set 3.0 (LibriSpeech 960 h, Fisher, NSC, VCTK,
+    Common Voice, AMI) and 660k h pseudo-labelled Granary (YTC, MOSEL, YODAS).
+  honesty_label: unknown overlap  # LibriSpeech train is in-corpus; overlap of the other corpora with LibriSpeech dev/test is unverified
+  host_copy: xbabe0:~/jsr-data/opponents/nemotron-labs-unified/model-nemo (sha256 verified there; no local_path on the audit host)
+runtime:
+  repository: https://github.com/NVIDIA-NeMo/Speech
+  commit: c02239ab43822ea837b21fb5c0c29e45fbd063fd
+  version: nemo_toolkit 3.1.0+c02239ab4 (the line the model card names), torch 2.15.0+cpu, Python 3.12; venv.freeze.txt sha256 6f3c669bdb795e11e823fa16a8c531e2b05d8f13d2159c8ab387a894e3587039
+  why_this_runtime: >-
+    No GGUF or other native port exists for this model and neither NeMo-Speech.cpp 0.3.0 nor transcribe.cpp lists it,
+    so it runs in NeMo (PyTorch) on the CPU through docs/paper/opponents/nemo_unified.py.
+  backend: cpu
+  effective_backend_reported: map_location cpu; torch thread count printed by the adapter to service.stderr
+  quantization: FP32
+  runtime_options: '{"backend":"cpu","batch_size":1,"decoder":"greedy_batch_label_looping","mode":"offline","target_lang":"en","threads":1}'
+  runtime_options_sha256: 3a62ced96b5f450113d95dfa3bc548170175adbfa197475ef192fac1706863eb  # sha256 of the runtime_options string above, no trailing newline
+stream:
+  requested_chunk_ms: 0  # whole utterance: no chunking
+  actual_right_context_ms: whole utterance (full-context attention, non-causal convolutions)
+  left_context_policy: whole utterance in one encoder pass (asr_model.transcribe, one utterance per batch)
+  revision_policy: single_final
+  endpoint_policy_id: none.single_final_at_eos
+  output_text: cased and punctuated (model native), language prompt en; scored with ultra-en-wer-norm/v1
+resources:
+  intra_op_threads: 1  # 8 in the eight-core budget (torch.set_num_threads)
+  inter_op_threads: 1
+  affinity: xbabe0, one physical core per process (taskset through ultra-measure), the arm alone on its CCX, SMT siblings idle; the 8-core budget pins eight cores of two CCXs; cores recorded per repetition
+licenses:
+  code_id: Apache-2.0
+  weights_id: OpenMDW-1.1
+  distribution_status: internal_evaluation_only_until_resolved
+---
+schema: ultra.candidate.v1
+candidate_id: nemotron_labs_unified_fp32_stream_160
+model:
+  repository: nvidia/nemotron-labs-unified-asr-0.6b
+  revision: 023ce907267a09a308a5cb69239447cb3d0c1597
+  artifact: nemotron-labs-unified-asr-0.6b.nemo
+  artifact_bytes: 2507735040
+  artifact_sha256: 1718cc1b44fb8597b2356328d706a8d89f31c389ca6f2256c2e3f743c0246936  # equals the HF LFS oid
+  parameters: 600M (Unified FastConformer encoder, 24 layers, RNN-T decoder, language-ID prompt; 25 European languages)
+  training_data: >-
+    Model card: about 670k h: 10k h human-transcribed NeMo ASR Set 3.0 (LibriSpeech 960 h, Fisher, NSC, VCTK,
+    Common Voice, AMI) and 660k h pseudo-labelled Granary (YTC, MOSEL, YODAS).
+  honesty_label: unknown overlap  # LibriSpeech train is in-corpus; overlap of the other corpora with LibriSpeech dev/test is unverified
+  host_copy: xbabe0:~/jsr-data/opponents/nemotron-labs-unified/model-nemo (sha256 verified there; no local_path on the audit host)
+runtime:
+  repository: https://github.com/NVIDIA-NeMo/Speech
+  commit: c02239ab43822ea837b21fb5c0c29e45fbd063fd
+  version: nemo_toolkit 3.1.0+c02239ab4 (the line the model card names), torch 2.15.0+cpu, Python 3.12; venv.freeze.txt sha256 6f3c669bdb795e11e823fa16a8c531e2b05d8f13d2159c8ab387a894e3587039
+  why_this_runtime: >-
+    No GGUF or other native port exists for this model and neither NeMo-Speech.cpp 0.3.0 nor transcribe.cpp lists it,
+    so it runs in NeMo (PyTorch) on the CPU through docs/paper/opponents/nemo_unified.py.
+  backend: cpu
+  effective_backend_reported: map_location cpu; torch thread count printed by the adapter to service.stderr
+  quantization: FP32
+  runtime_options: '{"att_context_size_as_chunk":true,"backend":"cpu","batch_size":1,"chunk_s":0.08,"decoder":"greedy_batch_label_looping","left_s":5.6,"mode":"stream","right_s":0.08,"target_lang":"en","threads":1}'
+  runtime_options_sha256: 63ff56129ddc2e8847d3d4b0c9905c0337bb02dc50bc64f757bfb8474a0b82a3  # sha256 of the runtime_options string above, no trailing newline
+stream:
+  requested_chunk_ms: 80
+  runtime_reported_geometry: context_frames [70, 1, 1] of 80 ms, att_context_style chunked_limited_with_rc
+  actual_right_context_ms: 80  # latency as the card defines it = chunk + right = 160 ms
+  left_context_policy: buffered, not cache-aware; NeMo's reference loop re-encodes the full 5.76 s buffer for every 80 ms chunk
+  revision_policy: append_only  # RNN-T state carried across chunks; emitted tokens are not revised
+  endpoint_policy_id: none.single_final_at_eos
+  output_text: cased and punctuated (model native), language prompt en; scored with ultra-en-wer-norm/v1
+resources:
+  intra_op_threads: 1  # 8 in the eight-core budget
+  inter_op_threads: 1
+  affinity: xbabe0, one physical core per process (taskset through ultra-measure), the arm alone on its CCX, SMT siblings idle; the 8-core budget pins eight cores of two CCXs; cores recorded per repetition
+licenses:
+  code_id: Apache-2.0
+  weights_id: OpenMDW-1.1
+  distribution_status: internal_evaluation_only_until_resolved
