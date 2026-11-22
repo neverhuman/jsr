@@ -1,6 +1,6 @@
 % Fallbacks: every metric macro the sections use. data/metrics.tex (paper-data) defines the
 % real values first; anything it does not define yet prints a red ?? via \PH.
-% The list is scanned from sections/*.tex; keep it in sync when sections change.
+% The list is scanned from sections/*.tex; tests/test_paper_claims.py fails when it is out of sync.
 \providecommand{\AASpread}{\PH{AASpread}}
 \providecommand{\AbabMedianDense}{\PH{AbabMedianDense}}
 \providecommand{\AbabMedianDenseHi}{\PH{AbabMedianDenseHi}}
@@ -30,23 +30,19 @@
 \providecommand{\BeamGainOther}{\PH{BeamGainOther}}
 \providecommand{\BridgeStep}{\PH{BridgeStep}}
 \providecommand{\ChunkSixteenGainOther}{\PH{ChunkSixteenGainOther}}
+\providecommand{\ColdAbstractSentence}{\PH{ColdAbstractSentence}}
+\providecommand{\ColdAccuracySentence}{\PH{ColdAccuracySentence}}
 \providecommand{\ColdAnchorSentence}{\PH{ColdAnchorSentence}}
-\providecommand{\ColdDenseCpu}{\PH{ColdDenseCpu}}
-\providecommand{\ColdDenseRss}{\PH{ColdDenseRss}}
-\providecommand{\ColdDenseSpeed}{\PH{ColdDenseSpeed}}
-\providecommand{\ColdDenseWer}{\PH{ColdDenseWer}}
+\providecommand{\ColdEightSentence}{\PH{ColdEightSentence}}
+\providecommand{\ColdHeadSentence}{\PH{ColdHeadSentence}}
 \providecommand{\ColdHostSentence}{\PH{ColdHostSentence}}
-\providecommand{\ColdMRCpu}{\PH{ColdMRCpu}}
-\providecommand{\ColdMRWer}{\PH{ColdMRWer}}
-\providecommand{\ColdNemoFiveSixtyCpu}{\PH{ColdNemoFiveSixtyCpu}}
-\providecommand{\ColdNemoFiveSixtyRss}{\PH{ColdNemoFiveSixtyRss}}
-\providecommand{\ColdNemoFiveSixtySpeed}{\PH{ColdNemoFiveSixtySpeed}}
-\providecommand{\ColdNemoFiveSixtyWer}{\PH{ColdNemoFiveSixtyWer}}
+\providecommand{\ColdLagSentence}{\PH{ColdLagSentence}}
+\providecommand{\ColdMachinesSentence}{\PH{ColdMachinesSentence}}
+\providecommand{\ColdMemorySentence}{\PH{ColdMemorySentence}}
+\providecommand{\ColdOrderSentence}{\PH{ColdOrderSentence}}
 \providecommand{\ColdRowsCount}{\PH{ColdRowsCount}}
-\providecommand{\ColdZipCpu}{\PH{ColdZipCpu}}
-\providecommand{\ColdZipRss}{\PH{ColdZipRss}}
-\providecommand{\ColdZipSpeed}{\PH{ColdZipSpeed}}
-\providecommand{\ColdZipWer}{\PH{ColdZipWer}}
+\providecommand{\ColdSpeedSentence}{\PH{ColdSpeedSentence}}
+\providecommand{\ColdWattsSentence}{\PH{ColdWattsSentence}}
 \providecommand{\CostEngineFPRunB}{\PH{CostEngineFPRunB}}
 \providecommand{\CostEngineIntEight}{\PH{CostEngineIntEight}}
 \providecommand{\CostLadderDenseOld}{\PH{CostLadderDenseOld}}
@@ -150,7 +146,6 @@
 \providecommand{\MelSpeedupMthree}{\PH{MelSpeedupMthree}}
 \providecommand{\MelSpeedupZen}{\PH{MelSpeedupZen}}
 \providecommand{\MoneyCaption}{\PH{MoneyCaption}}
-\providecommand{\MoneyWattsCaption}{\PH{MoneyWattsCaption}}
 \providecommand{\NonGemmGain}{\PH{NonGemmGain}}
 \providecommand{\OrtVersion}{\PH{OrtVersion}}
 \providecommand{\ParamsDtwo}{\PH{ParamsDtwo}}

@@ -14,7 +14,18 @@ from .records import Records
 CSV_HEADER = ["id", "variant", "short", "role", "class", "machine", "threads", "series", "cpu", "speed", "rtfx",
               "wer", "wer_clean", "wer_other", "rss_mb", "model_mb", "lag_p50_ms", "lag_p95_ms", "watts", "label",
               "host", "plot", "lag_design_p50_ms", "lag_design_p95_ms", "final_latency_p50_ms", "final_latency_p95_ms",
-              "faded"]
+              "faded", "timing_panel"]
+
+
+PARALLEL_TAG = {"intra_op": "", "workers": "Workers", "processes": "Procs"}
+ENERGY_WORDS = {"core_msr_active": "core energy registers", "core_msr_dynamic": "core energy registers above idle",
+                "pkg_rapl_delta": "package energy above idle", "wall_meter": "wall power meter"}
+
+
+def macro_suffix(r: dict) -> str:
+    """Xeon / Mthree for the machine, Eight for eight cores, and how they are used (Workers, Procs)."""
+    cores = "" if r["threads"] == 1 else spell(str(r["threads"])) + PARALLEL_TAG[r["parallel"]]
+    return MACHINES[r["machine"]]["macro"] + cores
 
 
 def speed_text(x: float) -> str:
@@ -32,12 +43,12 @@ def _csv_row(r: dict) -> list:
             num("cpu", 5), num("speed", 3), num("rtfx", 3), num("wer", 2), num("wer_clean", 2), num("wer_other", 2),
             num("rss_mb", 1), num("model_mb", 1), num("lag_p50_ms", 0), num("lag_p95_ms", 0), num("watts", 3),
             r["label"], r["host"], int(r["plot"]), num("lag_design_p50_ms", 0), num("lag_design_p95_ms", 0),
-            num("final_latency_p50_ms", 0), num("final_latency_p95_ms", 0), int(r["faded"])]
+            num("final_latency_p50_ms", 0), num("final_latency_p95_ms", 0), int(r["faded"]), r["timing_panel"]]
 
 
 def _add_row_records(rec: Records, r: dict) -> None:
     d = derived(r)
-    suffix = MACHINES[r["machine"]]["macro"] + ("" if r["threads"] == 1 else spell(str(r["threads"])))
+    suffix = macro_suffix(r)
     conf = (f"{r['system']}; {r['runtime']}; {r['configuration']}; class {r['class']}; {r['threads']} thread(s) "
             f"({r['parallel']}) on {r['hardware']} (host {r['host']}, session {r['session']}); scope {r['scope']}; "
             f"median of {len(r['cpu_reps'])} repetitions")
@@ -86,25 +97,28 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     common = dict(label="reported", workload=first["workload"] if first else "pending (no evidence rows yet)",
                   workload_digest=first["workload_digest"] if first else "pending",
                   source="docs/paper/data/evidence/*.jsonl")
-    ratios = sorted(r["anchor_ratio"] for r in anchors)
+    # a host-agreement check needs a quiet second measurement: a row measured on a busy host says nothing about it
+    ratios = sorted(r["anchor_ratio"] for r in anchors if r["anchor_ratio"] is not None and not r["loaded"])
     interim = [r for r in drawn if r["interim"]]
     quiet = HOST_NAMES.get(MACHINES[HEADLINE[0]]["primary_host"], MACHINES[HEADLINE[0]]["primary_host"])
     other = HOST_NAMES.get(interim[0]["host"], interim[0]["host"]) if interim else ""
-    if not anchors:
-        sentence = "No system has been measured in a second session yet, so there is no host-agreement check."
+    if not ratios:
+        sentence = "No system has a quiet second measurement yet, so there is no host-agreement check."
     else:
-        sentence = (f"{len(anchors)} rows were measured a second time (another host or session); their CPU cost is "
-                    f"{fmt(ratios[0], 2)} to {fmt(ratios[-1], 2)} times that of the row printed here.")
+        many = len(ratios) != 1
+        span = fmt(ratios[0], 2) + (f" to {fmt(ratios[-1], 2)}" if fmt(ratios[0], 2) != fmt(ratios[-1], 2) else "")
+        sentence = (f"{len(ratios)} row{'s were' if many else ' was'} measured a second time (another host or "
+                    f"session); {'their' if many else 'its'} CPU cost is {span} times that of the row printed here.")
     if interim and len(interim) == len(drawn):
         host = (f"Interim: every point was measured on host {other}, a shared host that ran other jobs; rows from the "
                 f"quiet host {quiet} replace them as they arrive.")
     elif interim:
         host = (f"{len(interim)} of the {len(drawn)} points {'is' if len(interim) == 1 else 'are'} still interim "
-                f"(lighter marks): measured on host "
-                f"{other}, a shared host that ran other jobs, until their rows from the quiet host {quiet} arrive; the "
-                f"dashed line joins quiet-host rows only.")
+                f"(lighter marks): measured on host {other}, a shared host that ran other jobs and makes every "
+                f"system slower, until their rows from the quiet host {quiet} arrive.")
     else:
-        host = f"Every point was measured on the quiet host {quiet}." if drawn else "No measured rows yet."
+        host = (f"Every point was measured on host {quiet}, one system at a time on the otherwise idle machine."
+                if drawn else "No measured rows yet.")
     minutes = {round(r["audio_seconds"] / 60.0, 1) for r in rows if r.get("audio_seconds")}
     if len(minutes) == 1:
         rec.add("ColdAudioMinutes", fmt(minutes.pop(), 1), unit="minutes of audio", configuration="duration of the "
@@ -124,6 +138,8 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
         ("ColdAnchorCount", len(anchors), "cross-check rows (a variant measured on a second host or session)"),
         ("ColdRowsInterim", len(interim), "systems drawn in Figure 1 from a row measured away from the quiet host"),
         ("ColdRowsFaded", sum(r["faded"] for r in drawn), "interim systems drawn lighter beside quiet-host rows"),
+        ("ColdRowsSubset", sum(r["timing_panel"] != "full" for r in drawn),
+         "systems drawn in Figure 1 that are timed on the 73-utterance subset of the panel"),
     ):
         rec.add(rid, str(value), raw=value, unit="rows", configuration=f"number of {what}", **common)
     rec.add("ColdAnchorSentence", sentence, unit="sentence", configuration="generated from the cross-check rows", **common)

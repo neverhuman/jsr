@@ -1,4 +1,4 @@
-"""CLI: python -m tools.paper_data [--check] [--write-manifest] [--out DIR]."""
+"""CLI: python -m tools.paper_data [--check] [--write-manifest] [--publish] [--out DIR]."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __doc__ as PACKAGE_DOC
-from . import build
+from . import build, publish_figure
 from .common import DATA, REPO, write_manifest
 
 
@@ -17,9 +17,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=REPO / DATA, help="output directory")
     ap.add_argument("--check", action="store_true", help="compare against --out instead of writing")
     ap.add_argument("--write-manifest", action="store_true", help="rebuild raw/MANIFEST.txt from disk")
+    ap.add_argument("--publish", action="store_true",
+                    help="copy the Figure 1 block into README.md and stamp docs/paper/money.png (after exporting it)")
     args = ap.parse_args(argv)
     if args.write_manifest:
         write_manifest(REPO)
+    if args.publish:
+        publish_figure(REPO)
+        return 0
     files, missing = build(REPO)
     if args.check:
         bad = [n for n, t in files.items() if not (args.out / n).is_file() or (args.out / n).read_text(encoding="utf-8") != t]

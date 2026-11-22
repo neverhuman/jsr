@@ -146,11 +146,13 @@ def test_sections_contain_no_bare_result_numbers():
     assert not bad, f"use metrics.tex macros instead of bare numbers: {bad}"
 
 
-FIGURES = ("money", "frontier_warm", "density", "rehearsal", "curve", "sweep", "leftctx")
+FIGURES = ("money", "frontier_warm", "density", "rehearsal", "curve", "sweep", "leftctx", "energy_bar")
+WIDE_FIGURES = ("opponents_bar",)  # figure* bodies: the IEEE text width is 516 pt
 _HARNESS = r"""\documentclass[conference]{IEEEtran}
 \usepackage[T1]{fontenc}\usepackage{lmodern}
-\usepackage[table]{xcolor}\usepackage{tikz}\usepackage{pgfplots}\pgfplotsset{compat=1.17}
-\usetikzlibrary{calc,arrows.meta}\usepgfplotslibrary{groupplots}
+\usepackage[table]{xcolor}\usepackage{tikz}\usepackage{pgfplots}\usepackage{pgfplotstable}\pgfplotsset{compat=1.17}
+\usetikzlibrary{calc,arrows.meta,patterns}\usepgfplotslibrary{groupplots}
+\newcommand{\ultra}{\textsc{Ultra}}
 \input{data/metrics.tex}
 \newsavebox\fbx
 \newcommand{\measure}[1]{\sbox\fbx{\input{figures/#1.tex}}\typeout{FIGWIDTH #1 \the\wd\fbx}}
@@ -166,7 +168,7 @@ def test_figures_compile_standalone_within_column(tmp_path):
 
     assert shutil.which("pdflatex"), "pdflatex is required for the paper figures (texlive-latex-extra, texlive-pictures)"
     paper = pd.REPO / "docs" / "paper"
-    body = " ".join(f"\\measure{{{f}}}" for f in FIGURES)
+    body = " ".join(f"\\measure{{{f}}}" for f in FIGURES + WIDE_FIGURES)
     tex = tmp_path / "figs.tex"
     tex.write_text(_HARNESS.replace("FIGURES", body))
     proc = subprocess.run(["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "-output-directory", str(tmp_path),
@@ -174,8 +176,10 @@ def test_figures_compile_standalone_within_column(tmp_path):
     log = (tmp_path / "figs.log").read_text(errors="replace")
     assert proc.returncode == 0, log[-3000:]
     widths = dict(re.findall(r"FIGWIDTH (\w+) ([\d.]+)pt", log))
-    assert set(widths) == set(FIGURES)
-    for name, w in widths.items():
-        assert float(w) <= 252.0, f"{name} is {w}pt wide; the IEEE column is 252pt"
+    assert set(widths) == set(FIGURES + WIDE_FIGURES)
+    for name in FIGURES:
+        assert float(widths[name]) <= 252.0, f"{name} is {widths[name]}pt wide; the IEEE column is 252pt"
+    for name in WIDE_FIGURES:
+        assert float(widths[name]) <= 516.0, f"{name} is {widths[name]}pt wide; the IEEE text width is 516pt"
     for fig1 in ("money", "frontier_warm"):
         assert float(widths[fig1]) <= 243.0, f"Figure 1 candidate {fig1} must fit 243pt"

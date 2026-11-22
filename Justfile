@@ -85,6 +85,22 @@ paper:
     [ "$fail" = 0 ] || exit 1
     echo "paper: docs/paper/paper.pdf ($(pdfinfo paper.pdf | awk '/^Pages/ {print $2}') pages)"
 
+# One command to refresh the paper from docs/paper/data/evidence/*.jsonl: regenerate the data and
+# Fig. 1, rebuild the PDF (just paper), export Fig. 1 as docs/paper/money.png, copy its block into
+# README.md, stamp the PNG with the hash of its inputs, and run the paper tests.
+paper-refresh: paper
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="$PWD"
+    pybin="$root/{{py}}"; [ -x "$pybin" ] || pybin="$(git rev-parse --git-common-dir)/../{{py}}"
+    out="$root/target/paper-figure"; mkdir -p "$out"
+    (cd docs/paper && pdflatex -interaction=nonstopmode -halt-on-error -output-directory "$out" figures/money_standalone.tex > /dev/null) \
+        || { tail -30 "$out/money_standalone.log"; exit 1; }
+    pdftoppm -r 220 -png -singlefile "$out/money_standalone.pdf" docs/paper/money
+    (cd python/ultra && "$pybin" -m tools.paper_data --publish)
+    (cd python/ultra && "$pybin" -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py tests/test_paper_claims.py)
+    echo "paper-refresh: docs/paper/paper.pdf, docs/paper/money.png and the README block are current"
+
 # Real-time fleet dashboard (loss / WER / throughput per run, GPU + CPU per node) on 127.0.0.1:8765.
 # View remotely: ssh -L 8765:127.0.0.1:8765 <this host>, then open http://localhost:8765
 dashboard:

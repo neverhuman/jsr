@@ -140,13 +140,15 @@ full-set results for the later dense average, which reaches
 
 \Cref{fig:money} holds the cold process-tree comparison of \cref{sec:protocol}: \ColdRowsCount{}
 systems, each decoding the same 730 DEV utterances on one pinned core, model load included, median
-of three runs. The dense model costs \ColdDenseCpu{} \cpus (\ColdDenseSpeed{}$\times$ real time) at
-\ColdDenseWer\% pooled WER and peaks at \ColdDenseRss\,MB of memory; the multirate model
-\ColdMRCpu{} \cpus at \ColdMRWer\%. Zipformer INT8 costs \ColdZipCpu{} \cpus at \ColdZipWer\% in
-\ColdZipRss\,MB, and Nemotron at 560\,ms \ColdNemoFiveSixtyCpu{} \cpus at \ColdNemoFiveSixtyWer\% in
-\ColdNemoFiveSixtyRss\,MB. \ultra is faster and less accurate than both. \ColdHostSentence{} \ColdAnchorSentence{} \MoneyWattsCaption{} Word lag, the
-eight-core budget and the remaining published recognisers are being measured under the same
-protocol.
+of three runs. The figure's vertical axis is the WER on the panel's 400 dev-clean utterances.
+\ColdOrderSentence{} \ColdHostSentence{} \ColdAnchorSentence{}
+
+\para{Where \ultra wins and where it loses.} \ColdHeadSentence{} \ColdSpeedSentence{}
+\ColdAccuracySentence{} \ColdMemorySentence{}
+
+\para{Still being measured.} \ColdWattsSentence{} \ColdLagSentence{} \ColdEightSentence{}
+\ColdMachinesSentence{} The remaining published recognisers are measured under the same protocol
+and join the figure as their rows arrive.
 
 \begin{figure}[t]
 \centering

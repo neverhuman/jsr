@@ -21,10 +21,8 @@ ourselves (\cref{sec:protocol}).
 machines, thread counts and audio, so they cannot share an axis. \Cref{fig:money} therefore places
 every recogniser we have measured so far on one: speed on one pinned core against WER on the same
 730 DEV utterances, each system a cold process with model load included (\cref{sec:protocol}).
-Our dense model decodes at \ColdDenseSpeed{}$\times$ real time with \ColdDenseWer\% pooled WER;
-the pretrained Zipformer at \ColdZipSpeed{}$\times$ with \ColdZipWer\%; and the most accurate
-system, Nemotron at 560\,ms, at \ColdNemoFiveSixtySpeed{}$\times$ with \ColdNemoFiveSixtyWer\%. \ultra
-is faster and less accurate than both. \ColdHostSentence{}
+\ColdHeadSentence{} \ColdSpeedSentence{} \ColdAccuracySentence{}
+\ColdHostSentence{}
 
 \para{Our approach.} \ultra co-designs a small streaming transducer and a CPU engine around one
 invariant: \emph{integer exactness}. Every quantised GEMM accumulates exactly in int32; every

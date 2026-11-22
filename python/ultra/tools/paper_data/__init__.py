@@ -52,11 +52,14 @@ from .common import (
     write_manifest,
 )
 from .cold import load_evidence
+from .compare import add_comparison
 from .derive import add_derived
+from .evidence import presentation
 from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
 from .macros import metrics_tex, records_jsonl, sources_md
 from .money import add_money
+from .publish import publish_figure, readme_block
 from .records import Records, add_curated
 from .rehearsal import add_rehearsal
 from .sources import add_cluster_gap, add_codex_evidence, add_panel5
@@ -78,7 +81,10 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_sweeps(root, rec, out)
     add_tables(cur, out)
     accuracy_table(rec, out)
-    add_money(load_evidence(root, rec, out), out, rec)
+    rows = load_evidence(root, rec, out)
+    watts = add_money(rows, out, rec)
+    add_comparison(rows, presentation(root).get("headline", {}), rec)
+    out["money_readme.md"] = readme_block(rows, rec.rows["ColdHostSentence"]["value"], watts)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)
     out["records.jsonl"] = records_jsonl(rec)
