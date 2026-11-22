@@ -49,12 +49,15 @@ EVIDENCE_REQUIRED = (
     "wall_s_per_audio_s", "wall_reps", "wer_pct", "wer_clean_pct", "wer_other_pct", "peak_rss_bytes",
     "artifact_bytes", "label", "source", "receipt_sha256",
 )
-# Machines whose rows may share an axis: key -> printed name and the macro suffix of its rows.
+# Machines whose rows may share an axis: key -> printed name, the macro suffix of its rows, and the quiet
+# host whose rows are the ones drawn and tabulated (rows from another host of that CPU are a cross-check).
 MACHINES = {
-    "zen2": {"name": "AMD Threadripper PRO 3995WX (Zen 2, AVX2)", "macro": ""},
-    "xeon8358": {"name": "Intel Xeon Platinum 8358 (Ice Lake, AVX-512 VNNI)", "macro": "Xeon"},
-    "m3ultra": {"name": "Apple M3 Ultra (ARM NEON)", "macro": "Mthree"},
+    "zen2": {"name": "AMD Threadripper PRO 3995WX (Zen 2, AVX2)", "macro": "", "primary_host": "xbabe0"},
+    "xeon8358": {"name": "Intel Xeon Platinum 8358 (Ice Lake, AVX-512 VNNI)", "macro": "Xeon", "primary_host": None},
+    "m3ultra": {"name": "Apple M3 Ultra (ARM NEON)", "macro": "Mthree", "primary_host": None},
 }
+# Hosts as the (double-blind) paper names them; an unknown host prints as itself.
+HOST_NAMES = {"xbabe3": "H0", "xbabe0": "H1", "xbabe6": "X1", "xbabe4": "M1"}
 
 
 class PaperDataError(RuntimeError):

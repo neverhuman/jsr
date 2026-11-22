@@ -116,11 +116,36 @@ def test_a_comparator_is_drawn_only_beside_a_row_of_ours_from_its_session(tmp_pa
                     "ours-a-zen2-t1-anchor-h2": "0"}
     tex = files["metrics.tex"]
     for macro in ("\\ColdRowsCount}{3}", "\\ColdRowsUndrawn}{1}", "\\ColdRowsOffFrontier}{1}",
-                  "\\ColdAnchorCount}{1}", "by at most 30.0\\% in CPU cost; sessions beyond 10"):
+                  "\\ColdAnchorCount}{1}", "their CPU cost is 1.30 to 1.30 times that of the row printed here"):
         assert macro in tex, macro
     # the off-axis session's row is drawn, but the frontier line ignores it (at 2.0% sys-c would be on it)
     assert "ours-a-zen2-t1-anchor" not in files["money_layout.tex"] and "sys-c-zen2-t1" in files["money_layout.tex"]
     assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["3.000"]
+
+
+def test_rows_from_the_quiet_host_replace_the_interim_ones(tmp_path):
+    def loaded(variant, cpu, **kw):  # the shared host: slower, one session
+        return _row(variant=variant, host="xbabe3", session="s-loaded", id=f"{variant}-zen2-t1-xbabe3",
+                    cpu_s_per_audio_s=cpu, cpu_reps=[cpu, cpu, cpu], **kw)
+
+    def quiet(variant, cpu, **kw):
+        return _row(variant=variant, host="xbabe0", session="s-quiet", cpu_s_per_audio_s=cpu, cpu_reps=[cpu] * 3, **kw)
+
+    interim = [loaded("ours-a", 0.06, role="ours"), loaded("sys-a", 0.14), loaded("sys-b", 0.3)]
+    files, _ = pd.build(_mini_repo(tmp_path, interim))
+    assert "\\ColdRowsCount}{3}" in files["metrics.tex"] and "\\ColdRowsInterim}{3}" in files["metrics.tex"]
+    assert "Interim: every row was measured on host H0" in files["metrics.tex"]
+    shutil.rmtree(tmp_path / "repo")
+    files, _ = pd.build(_mini_repo(tmp_path, interim + [quiet("ours-a", 0.03, role="ours"), quiet("sys-a", 0.08)]))
+    plot = {line.split(",")[0]: line.split(",")[-1] for line in files["cold_dev.csv"].splitlines()[1:]}
+    # only quiet-host rows are drawn; the loaded-host rows of the same variants become cross-checks
+    assert plot == {"ours-a-zen2-t1": "1", "sys-a-zen2-t1": "1", "ours-a-zen2-t1-xbabe3": "0",
+                    "sys-a-zen2-t1-xbabe3": "0", "sys-b-zen2-t1-xbabe3": "0"}
+    tex = files["metrics.tex"]
+    for text in ("\\ColdRowsCount}{2}", "\\ColdAnchorCount}{2}", "\\ColdRowsInterim}{1}", "\\ColdOursASpeed}{33.3}",
+                 "their CPU cost is 1.75 to 2.00 times that of the row printed here",
+                 "Rows are measured on the quiet host H1; 1 system so far measured only on host H0 is not drawn."):
+        assert text in tex, text
 
 
 def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):

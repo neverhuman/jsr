@@ -51,8 +51,9 @@ on any record that is missing a required field, and on bare decimal or percent n
 - **Best-WER rows** (D2 step 60k, average of the last 3 checkpoints, beam 4) appear only in
   `accuracy_full_dev.csv` and the accuracy macros. They never appear beside a speed.
 - Nemotron is an accuracy reference only.
-- **Figure 1** draws one group of measured rows: one pinned Zen 2 core (`machine: zen2`, `threads: 1`). A comparator
-  is drawn only if its `session` also holds a row of ours, so every ratio is same-host and same-session. Until rows
+- **Figure 1** draws one group of measured rows: one pinned Zen 2 core (`machine: zen2`, `threads: 1`), rows from the
+  quiet host only. A comparator is drawn only if its `session` also holds a row of ours, so every ratio is same-host
+  and same-session. Until rows
   exist it renders a pending state (`\ColdRowsCount` = 0).
 - **Published numbers never reach a measured axis.** A row with `label: reported` is refused in `evidence/`.
   Numbers quoted from other people's publications live in `reported.json` and feed only the "reported elsewhere" table.
@@ -85,12 +86,12 @@ format for the cold rotation.
 | Field | Meaning |
 |---|---|
 | `variant` | system + runtime + configuration slug; the same on every machine and thread count |
-| `id` | must equal `<variant>-<machine>-t<threads>` (an anchor row appends `-anchor-<host>`) |
+| `id` | `<variant>-<machine>-t<threads>`, optionally followed by `-<host>` or `-anchor-<host>`; unique |
 | `system`, `runtime`, `configuration` | names as measured (`systems.json` may override the printed `system`) |
 | `role` | `ours`, `comparator`, or `ablation` (our weights in another runtime: tables only, never Figure 1) |
 | `class` | `streaming` (emits words while audio arrives, through the system's native streaming interface) or `whole_utterance` (sees the whole clip first: throughput only, a word lag is refused) |
 | `machine` | `zen2` (Threadripper PRO 3995WX), `xeon8358` (Xeon Platinum 8358, AVX-512 VNNI) or `m3ultra` (Apple M3 Ultra); add a key in `common.MACHINES` for a new CPU |
-| `host`, `hardware` | hostname; free text with the pinned CPUs |
+| `host`, `hardware` | hostname; free text with the pinned CPUs. A machine may name a quiet host (`common.MACHINES`: `zen2` → xbabe0). Its rows are the ones drawn and tabulated. A row of the same variant from another host of that CPU becomes a cross-check automatically; until quiet-host rows exist, the other host's rows stand in and the caption says so |
 | `threads`, `parallel` | pinned physical cores (1 or 8); `intra_op` = one clip at a time with N threads, `workers` = N single-thread recognisers side by side |
 | `session` | date + host + harness commit: rows measured together share it |
 | `workload`, `workload_digest` | sha256 of the staged `panel/audio.json` (ids, sample counts and content hashes only, so it is the same on every machine) |
@@ -105,9 +106,10 @@ format for the cold rotation.
 **Optional**
 
 - `short` (plot label, at most 22 plain characters) and `macro` (letters only): normally set in `systems.json`.
-- `anchor: true`: a variant re-measured in a second session. Never drawn, never tabulated; only compared with the
-  primary row of that variant (`\ColdAnchorSentence`). A session whose anchor differs by more than 10% in CPU cost
-  stays out of the frontier line.
+- `anchor: true`: a variant re-measured in a second session on the same host (for example our engine inside another
+  agent's session). Never drawn, never tabulated; only compared with the primary row of that variant
+  (`\ColdAnchorSentence` prints the range of CPU-cost ratios). A session whose anchor differs by more than 10% in CPU
+  cost stays out of the frontier line.
 - Word lag (streaming only, all five): `lag_p50_ms`, `lag_p95_ms`, `lag_method`, `lag_workload_digest`,
   `lag_receipt_sha256`.
 - Energy (all three): `joules_per_audio_s` (the watts one live stream costs; `watts_per_stream` may repeat it),

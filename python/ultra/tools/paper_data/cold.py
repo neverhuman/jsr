@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .common import MACHINES, csv_text, fmt
-from .evidence import ANCHOR_LIMIT_PCT, HEADLINE, derived, read_rows, spell
+from .common import HOST_NAMES, MACHINES, csv_text, fmt
+from .evidence import HEADLINE, derived, read_rows, spell
 from .records import Records
 
 # cold_dev.csv is read by pgfplots, which splits on every comma: no free-text column except `short`.
@@ -77,13 +77,24 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     common = dict(label="reported", workload=first["workload"] if first else "pending (no evidence rows yet)",
                   workload_digest=first["workload_digest"] if first else "pending",
                   source="docs/paper/data/evidence/*.jsonl")
-    worst = max((r["anchor_pct"] for r in anchors), default=0.0)
+    ratios = sorted(r["anchor_ratio"] for r in anchors)
+    interim = [r for r in group if r["interim"]]
+    quiet = HOST_NAMES.get(MACHINES[HEADLINE[0]]["primary_host"], MACHINES[HEADLINE[0]]["primary_host"])
+    other = HOST_NAMES.get(interim[0]["host"], interim[0]["host"]) if interim else ""
     if not anchors:
-        sentence = "No system has been re-measured in a second session yet, so there is no host-agreement check."
+        sentence = "No system has been measured in a second session yet, so there is no host-agreement check."
     else:
-        sentence = (f"{len(anchors)} anchor rows re-measured in a second session differ from their primary rows by at "
-                    f"most {fmt(worst, 1)}\\% in CPU cost"
-                    + ("." if worst <= ANCHOR_LIMIT_PCT else "; sessions beyond 10\\% stay out of the frontier line."))
+        sentence = (f"{len(anchors)} rows were measured a second time (another host or session); their CPU cost is "
+                    f"{fmt(ratios[0], 2)} to {fmt(ratios[-1], 2)} times that of the row printed here.")
+    if interim and len(interim) == len(group):
+        host = (f"Interim: every row was measured on host {other}, a shared host that ran other jobs; rows from the "
+                f"quiet host {quiet} replace them.")
+    elif interim:
+        many = len(interim) != 1
+        host = (f"Rows are measured on the quiet host {quiet}; {len(interim)} system{'s' if many else ''} so far "
+                f"measured only on host {other} {'are' if many else 'is'} not drawn.")
+    else:
+        host = f"Every row was measured on the quiet host {quiet}." if group else "No measured rows yet."
     for rid, value, what in (
         ("ColdRowsCount", len(drawn), "systems drawn in Figure 1 (one pinned Zen 2 core; 0 = pending)"),
         ("ColdRowsStreaming", sum(r["class"] == "streaming" for r in drawn), "live streaming systems in Figure 1"),
@@ -96,8 +107,10 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
          "one-core Zen 2 comparator rows not drawn because their session holds no row of ours"),
         ("ColdRowsOffFrontier", sum(r["plot"] and not r["frontier"] for r in group),
          "drawn rows kept out of the frontier line because their session's anchor is more than 10% off"),
-        ("ColdAnchorCount", len(anchors), "anchor rows (a variant re-measured in a second session)"),
+        ("ColdAnchorCount", len(anchors), "cross-check rows (a variant measured on a second host or session)"),
+        ("ColdRowsInterim", len(interim), "one-core Zen 2 rows measured only away from the quiet host"),
     ):
         rec.add(rid, str(value), raw=value, unit="rows", configuration=f"number of {what}", **common)
-    rec.add("ColdAnchorSentence", sentence, unit="sentence", configuration="generated from the anchor rows", **common)
+    rec.add("ColdAnchorSentence", sentence, unit="sentence", configuration="generated from the cross-check rows", **common)
+    rec.add("ColdHostSentence", host, unit="sentence", configuration="generated from the hosts of the rows", **common)
     return rows

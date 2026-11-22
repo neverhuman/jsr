@@ -1,11 +1,11 @@
 id,variant,short,role,class,machine,threads,series,cpu,speed,rtfx,wer,wer_clean,wer_other,rss_mb,model_mb,lag_p50_ms,lag_p95_ms,watts,label,host,plot
-dense-r1-int8-zen2-t1,dense-r1-int8,ULTRA dense,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03857,25.927,25.906,11.33,7.54,16.75,78.4,292.8,,,,exploratory,xbabe3,1
-mr-r1-int8-zen2-t1,mr-r1-int8,ULTRA multirate,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03668,27.265,26.587,15.93,11.56,22.19,76.8,295.8,,,,exploratory,xbabe3,1
-dense-r1-fp32-zen2-t1,dense-r1-fp32,ULTRA dense FP32,ablation,streaming,zen2,1,zen2-t1-ablation-streaming,0.10848,9.218,9.214,11.43,7.64,16.84,247.0,235.1,,,,exploratory,xbabe3,0
-ort-r1-fp32-zen2-t1,ort-r1-fp32,ULTRA dense ORT,ablation,streaming,zen2,1,zen2-t1-ablation-streaming,0.15934,6.276,6.273,11.43,7.64,16.84,460.2,233.9,,,,exploratory,xbabe3,0
-r0-int8-zen2-t1,r0-int8,Zipformer,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.11682,8.560,8.505,5.25,3.03,8.43,155.9,72.7,,,,exploratory,xbabe3,1
-moonshine-tiny-zen2-t1,moonshine-tiny,Moonshine Tiny,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.13106,7.630,7.627,9.90,6.54,14.72,203.5,45.4,,,,exploratory,xbabe3,1
-moonshine-small-zen2-t1,moonshine-small,Moonshine Small,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.49545,2.018,2.018,5.93,3.98,8.73,476.4,142.5,,,,exploratory,xbabe3,1
-nemotron-en-560-zen2-t1,nemotron-en-560,Nemotron 560 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.45103,2.217,2.217,3.56,2.61,4.93,1290.4,699.9,,,,exploratory,xbabe3,1
-nemotron-en-160-zen2-t1,nemotron-en-160,Nemotron 160 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.78168,1.279,1.278,3.94,2.90,5.42,1286.7,699.9,,,,exploratory,xbabe3,1
-nemotron-35-zen2-t1,nemotron-35,Nemotron 3.5,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,1.18629,0.843,0.843,6.14,4.14,9.00,1277.2,742.1,,,,exploratory,xbabe3,1
+dense-r1-int8-zen2-t1-xbabe3,dense-r1-int8,ULTRA dense,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03857,25.927,25.906,11.33,7.54,16.75,78.4,292.8,,,,exploratory,xbabe3,1
+mr-r1-int8-zen2-t1-xbabe3,mr-r1-int8,ULTRA multirate,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03668,27.265,26.587,15.93,11.56,22.19,76.8,295.8,,,,exploratory,xbabe3,1
+dense-r1-fp32-zen2-t1-xbabe3,dense-r1-fp32,ULTRA dense FP32,ablation,streaming,zen2,1,zen2-t1-ablation-streaming,0.10848,9.218,9.214,11.43,7.64,16.84,247.0,235.1,,,,exploratory,xbabe3,0
+ort-r1-fp32-zen2-t1-xbabe3,ort-r1-fp32,ULTRA dense ORT,ablation,streaming,zen2,1,zen2-t1-ablation-streaming,0.15934,6.276,6.273,11.43,7.64,16.84,460.2,233.9,,,,exploratory,xbabe3,0
+r0-int8-zen2-t1-xbabe3,r0-int8,Zipformer,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.11682,8.560,8.505,5.25,3.03,8.43,155.9,72.7,,,,exploratory,xbabe3,1
+moonshine-tiny-zen2-t1-xbabe3,moonshine-tiny,Moonshine Tiny,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.13106,7.630,7.627,9.90,6.54,14.72,203.5,45.4,,,,exploratory,xbabe3,1
+moonshine-small-zen2-t1-xbabe3,moonshine-small,Moonshine Small,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.49545,2.018,2.018,5.93,3.98,8.73,476.4,142.5,,,,exploratory,xbabe3,1
+nemotron-en-560-zen2-t1-xbabe3,nemotron-en-560,Nemotron 560 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.45103,2.217,2.217,3.56,2.61,4.93,1290.4,699.9,,,,exploratory,xbabe3,1
+nemotron-en-160-zen2-t1-xbabe3,nemotron-en-160,Nemotron 160 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.78168,1.279,1.278,3.94,2.90,5.42,1286.7,699.9,,,,exploratory,xbabe3,1
+nemotron-35-zen2-t1-xbabe3,nemotron-35,Nemotron 3.5,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,1.18629,0.843,0.843,6.14,4.14,9.00,1277.2,742.1,,,,exploratory,xbabe3,1

@@ -52,9 +52,9 @@ def _check_row(r: dict, where: str) -> None:
     if not isinstance(r["threads"], int) or r["threads"] < 1:
         raise PaperDataError(f"{where}: threads must be a positive integer")
     base = f"{r['variant']}-{r['machine']}-t{r['threads']}"
-    if r["id"] != base and not (r.get("anchor") and r["id"].startswith(base + "-anchor")):
-        raise PaperDataError(f"{where}: id must be <variant>-<machine>-t<threads> (an anchor row appends "
-                             f"-anchor-<host>), got {r['id']!r}")
+    if r["id"] != base and not r["id"].startswith(base + "-"):
+        raise PaperDataError(f"{where}: id must be <variant>-<machine>-t<threads>, optionally followed by "
+                             f"-<host> or -anchor-<host>, got {r['id']!r}")
     for value, reps in (("cpu_s_per_audio_s", "cpu_reps"), ("wall_s_per_audio_s", "wall_reps")):
         if len(r[reps]) < MIN_REPS:
             raise PaperDataError(f"{where}: {reps} needs at least {MIN_REPS} repetitions")
@@ -136,31 +136,39 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
 
 
 def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
-    """One (machine, threads) group: energy headline, anchors against their primaries, what is drawn."""
+    """One (machine, threads) group: energy headline, cross-checks against primary rows, what is drawn."""
     if len({r["scope"] for r in members}) > 1:
         raise PaperDataError(f"evidence rows mix scopes inside group {group}; a group shares one axis")
     methods = sorted({m for r in members for m in r.get("energy", {})})
     if len(methods) > 1 and chosen is None:
         raise PaperDataError(f"group {group} has energy by {methods}; add an energy_headline line naming one")
     chosen = chosen or (methods[0] if methods else None)
-    primary = {r["variant"]: r for r in members if not r.get("anchor")}
-    if len(primary) != sum(not r.get("anchor") for r in members):
+    quiet = MACHINES[group[0]]["primary_host"]
+    plain = [r for r in members if not r.get("anchor")]
+    home = [r for r in plain if quiet in (None, r["host"])]
+    away = [r for r in plain if quiet not in (None, r["host"])]
+    drawable = home or away  # until rows from the quiet host exist, the rows from the other host stand in
+    primary = {r["variant"]: r for r in drawable}
+    if len(primary) != len(drawable):
         raise PaperDataError(f"group {group} has two primary rows for one variant; mark the re-measurement as anchor")
-    ours = {r["session"] for r in members if r["role"] == "ours"}
+    for r in members:
+        r["interim"] = r in away and (not home or r["variant"] not in primary)  # no quiet-host row of it yet
+        if home and r in away and r["variant"] in primary:
+            r["anchor"] = True  # the same variant exists on the quiet host: this row is its cross-check
+    ours = {r["session"] for r in members if r["role"] == "ours" and (r in drawable or r.get("anchor"))}
     off = set()
     for r in members:
         r["watts"], r["energy_method"] = r.get("energy", {}).get(chosen), chosen
         if r.get("anchor"):
             if r["variant"] not in primary:
                 raise PaperDataError(f"{r['_where']}: anchor row has no primary row of {r['variant']} in {group}")
-            base = float(primary[r["variant"]]["cpu_s_per_audio_s"])
-            r["anchor_pct"] = 100.0 * abs(float(r["cpu_s_per_audio_s"]) - base) / base
-            if r["anchor_pct"] > ANCHOR_LIMIT_PCT:
+            r["anchor_ratio"] = float(r["cpu_s_per_audio_s"]) / float(primary[r["variant"]]["cpu_s_per_audio_s"])
+            if abs(r["anchor_ratio"] - 1.0) > ANCHOR_LIMIT_PCT / 100.0:
                 off.add(r["session"])
     stems: dict[str, str] = {}
     for r in members:
         # drawn only beside a row of ours from the same session; never an anchor or an ablation
-        r["plot"] = bool(not r.get("anchor") and r["role"] != "ablation" and r.get("plot", True)
+        r["plot"] = bool(r in drawable and r["role"] != "ablation" and r.get("plot", True)
                          and (r["role"] == "ours" or r["session"] in ours))
         r["frontier"] = r["plot"] and r["session"] not in off
         if not r.get("anchor") and stems.setdefault(r["macro"], r["id"]) != r["id"]:
@@ -168,7 +176,8 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
 
 
 def read_rows(root: Path) -> list[dict]:
-    """Validated rows, sidecars merged, sorted by group; adds `watts`, `plot`, `frontier`, `anchor_pct`."""
+    """Validated rows, sidecars merged, sorted by group; adds `watts`, `plot`, `frontier`, `interim`,
+    and `anchor_ratio` on cross-check rows."""
     rows, sidecars, headline = _read(root)
     _merge(rows, sidecars)
     names = root / DATA / "systems.json"

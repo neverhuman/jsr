@@ -160,7 +160,7 @@ def manuscript_rows(data):
         variant = config.get("variant", name.removeprefix("cold-"))
         walls = [rep["wall_seconds"] / workload["audio_seconds"] for rep in row["repetitions"]]
         yield {
-            "id": f"{variant}-{MACHINE}-t1",
+            "id": f"{variant}-{MACHINE}-t1-{HOST}",  # the plain id belongs to the quiet-host row of the variant
             "variant": variant,
             "system": config["label"],
             "short": config.get("figure_label", config["label"]),
