@@ -1,0 +1,6 @@
+e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /dev/shm/bench-open/vosk/venv/bin/python
+7e9d09cc99b837a261073c248c24c10bb71b1311aa88ad077d70b5d4daaba673  /dev/shm/bench-open/vosk/models/vosk-model-en-us-0.22.SHA256SUMS
+85c4654de3acdeb99abab86eeb2a6e603927d37089597c0fcc33d8638dc2ccaf  /dev/shm/bench-open/vosk/venv/lib/python3.12/site-packages/vosk/libvosk.so
+74029d02563bfc23fd07b14e70694c7ff7d1ff6aed8a5de0d3cefda776d8fbd3  /dev/shm/bench-open/vosk/venv.freeze.txt
+d396b297d04001424fdc0b334bd8135e14ab3a3ec4903017b184c66ac75ba4a3  /home/ubuntu/jsr/.agent/worktrees/optim/docs/paper/opponents/vosk_stream.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  /home/ubuntu/jsr/.agent/worktrees/optim/docs/paper/opponents/open_common.py
