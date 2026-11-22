@@ -19,7 +19,10 @@ Entries run in file order; an entry this agent already marked DONE is skipped, s
 can be restarted. Inside an entry the repetitions run one after another; a new hold starts when
 the next repetition's estimate no longer fits in the current one. Once an arm has run, its
 measured duration (plus 5%) replaces the plan's estimate. A repetition that was not alone on
-the host (exit 3) is repeated once at the end of its entry. State: LOG_DIR/turn.json.
+the host (exit 3) is repeated once at the end of its entry. If OPEN_AFTER_HOLD is set, that
+shell command runs at the end of every hold, after its last repetition and before the lock is
+released (for example, to copy the receipts off the host without loading anyone else's
+measurement); a failure is logged and ignored. State: LOG_DIR/turn.json.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -35,6 +38,7 @@ AGENT = os.environ.get("OPEN_AGENT", "bench-open")
 HOLD_S = float(os.environ.get("OPEN_HOLD_S", 30 * 60))
 MARGIN_S = float(os.environ.get("OPEN_HOLD_MARGIN_S", 60))
 POLL_S = float(os.environ.get("OPEN_POLL_S", 10))
+AFTER_HOLD = os.environ.get("OPEN_AFTER_HOLD")
 
 
 def utc(moment=None):
@@ -250,6 +254,14 @@ def main():
                         repeated.add(id(again))
                         jobs.append(again)
                         pending.append(again)
+                if AFTER_HOLD:
+                    with open(log_dir / "after-hold.log", "ab") as log:
+                        try:
+                            hold["after_hold_exit"] = subprocess.run(
+                                ["bash", "-c", AFTER_HOLD], stdin=subprocess.DEVNULL, stdout=log,
+                                stderr=subprocess.STDOUT, timeout=300).returncode
+                        except subprocess.TimeoutExpired:
+                            hold["after_hold_exit"] = "timeout"
                 hold["released_utc"] = host.release()
                 hold["held_s"] = round(time.monotonic() - began, 1)
                 save()

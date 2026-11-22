@@ -315,7 +315,8 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
                     "5 p73 b 1 8-15 3 0.004\n5 p73 c 1 8-15 3 0.004\n5 p73 b|c 2 8-15 3 0.004\n")
     env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
            "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.1", "OPEN_HOLD_S": "0.6", "OPEN_HOLD_MARGIN_S": "0.1",
-           "FAKE_LOG": str(tmp_path / "calls.log"), "OPEN_AGENT": "bench-open"}
+           "FAKE_LOG": str(tmp_path / "calls.log"), "OPEN_AGENT": "bench-open",
+           "OPEN_AFTER_HOLD": f'cut -d" " -f1-2 "{host}/TIMING.lock/owner" >> "{tmp_path}/after.log"'}
     command = [sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")]
     runner = subprocess.Popen(command, env=env)
     time.sleep(1.0)
@@ -348,6 +349,8 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     assert not (host / "TIMING.lock").exists()
     state = json.loads((tmp_path / "logs/turn.json").read_text())
     assert len(state["holds"]) == 7 and all("released_utc" in hold for hold in state["holds"])
+    assert (tmp_path / "after.log").read_text().splitlines() == ["bench-open 3"] * 4 + ["bench-open 5"] * 3
+    assert all(hold["after_hold_exit"] == 0 for hold in state["holds"])
     assert [job["status"] for job in state["jobs"] if not job.get("anchor")] == [
         "done", "done", "not-alone", "done", "done", "done", "done"]
     restart = subprocess.run(command, env=env, timeout=30)  # a restarted runner skips what it already did
