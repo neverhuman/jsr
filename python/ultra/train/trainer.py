@@ -811,6 +811,7 @@ def main(argv=None) -> int:
         tr.log({"kind": "resume", "step": tr.step, "pos": tr.pos.to_dict()})
         if a.swap_weights:
             tr.log({"kind": "swap_weights", "step": tr.step, **swap_weights(tr.model, a.swap_weights)})
+            tr.ema = None  # the EMA restarts from the swapped weights (no carry-over of the old line)
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
         import dataclasses
