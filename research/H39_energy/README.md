@@ -83,6 +83,131 @@ V1 ran 20:14–20:26Z. Four of its five repetitions were disturbed: one by my ow
 5. **Idle against idle is also read off every later run**: each repetition has an idle window before and after, so their difference is one more idle-against-idle sample. The noise floor reported in §3 uses all of them, not just V1's.
 6. **Nothing of mine runs on xbabe0 during a measurement** except the sampler and the workload.
 
-## 3. Results
+## 3. Results (2026-11-22, xbabe0 unless stated; every number is CPU-reported, not wall power)
 
-Pending (filled in after the validation runs).
+### 3.1 The answer in one table
+
+Core registers, full 730-utterance panel, one pinned core alone on its 4-core L3 group, three quiet repetitions each (the same runs that produced the timing rows):
+
+| System | CPU-s per audio-s | W per busy core | **J per audio-s = W per live stream** (core registers) | Ratio to ours | Package, densely loaded host (W per stream above the busy floor) |
+|---|---:|---:|---:|---:|---:|
+| ULTRA dense S INT8, H22ctl step 79,800 EMA (ours, the plotted model; runtime-lane's timing entry 2, joined with the power log) | 0.0360 | 9.3 | **0.334** (0.345 / 0.331 / 0.334) | 1.00 | 0.42 (factor 1.245) |
+| ULTRA dense S INT8, D2e step 16,457 (ours, previous point) | 0.0352 | 9.7 | **0.343** (0.344 / 0.341 / 0.343) | 1.03 | 0.43 (factor 1.245, measured) |
+| Zipformer INT8 (sherpa-onnx) | 0.0692 | 8.5 | **0.591** (0.597 / 0.586 / 0.591) | 1.77 | 0.65–0.74 (factor 1.10–1.26, one plateau) |
+
+- "W per live stream" is energy per audio-second: a stream at 1× consumes one audio-second per second.
+- One stream alone on an otherwise idle machine raises the package by about 34 W (H22ctl: 97.7 W median while running against 63.3 W in the 13 idle minutes after entry 2), i.e. 1.2 J per audio-second; almost all of that is the step every busy core causes (§3.5), paid once per machine.
+- The package column multiplies the core figure by the measured package watts per core-register watt (§3.5). On top of it the package draws about 16 W more as soon as any core is busy, once per machine.
+- Rows for the other recognisers come from the continuous power log joined with each agent's timed runs (§3.9); they are appended to `docs/paper/data/raw/energy/evidence/` as the serial timing queue produces them.
+
+### 3.2 Instruments agree
+
+- turbostat's `CorWatt` (runtime-lane's source) and this tool read the same register: on one core at the same time (H0 CPU 20, busy loop, 14 s) turbostat's mean over busy samples was 9.821 W and this tool's exact energy over the run 9.792 W (ratio 1.003).
+- The powercap package file and the package MSR agree to 0.005% (ratio 0.999948: the kernel rounds the energy unit to 15,258 pJ).
+- The powercap "core" file is core 0 only (§2.1).
+
+### 3.3 V1, idle against idle: the core registers pass, the package counter does not
+
+Fifteen pairs of consecutive 60 s idle windows (V1 and the V2 ladder, 20:14–20:46Z, benchmark agents locked out; `derived/idle-against-idle.json`):
+
+| View | median difference | 90th percentile | largest |
+|---|---:|---:|---:|
+| Pinned cores, per core | 0.20 W | 0.40 W | 0.56 W |
+| Package | **15.5 W** | 37.4 W | 39.3 W |
+
+- A busy core reads 8–11 W, so the core view's noise is 2–5% for one repetition and under 1% for a three-repetition median (the cold rounds below repeat within 0.9%).
+- The package moves by tens of watts from minute to minute: other tenants' services, file transfers and builds run in bursts of 20–40 W that the lock cannot stop. Per second the idle package ranges from 43 W to over 110 W. **Package-above-idle for one busy core (about 25 W) is not repeatable within 10% on this host**, which is the condition the lead set for making it the headline.
+- V1's own five repetitions: one clean (core +0.05 W per core, package +1.4 W), one spoiled by my own smoke test, three by foreign bursts. The flags caught all four.
+
+### 3.4 V2, busy loop on 1, 2, 4, 8 cores
+
+| Busy cores | core registers, loaded cores (W) | per core | clock | package, median second while running (W) |
+|---:|---:|---:|---:|---:|
+| 1 | 11.41 | 11.4 | 4.29 GHz | 86.3 |
+| 2 | 22.25 | 11.1 | | 102.6 |
+| 4 | 44.68 | 11.2 | | 125.9 |
+| 8 | 84.96 | 10.6 | 4.08 GHz | 168.1 |
+
+- **Core view: PASS.** Line 1.44 + 10.50 W per busy core, R² 0.9993, worst point 4.5% off (`derived/v2-spin-fit.json`). Watts per core fall 7% from one to eight busy cores because the clock falls.
+- **Package view by the rule as written (run minus idle, clean repetitions only): cannot pass.** Not one of the ten repetitions was clean for the package; the flagged numbers give R² 0.96 and a worst point 26% off.
+- **Package view inside the runs** (median second, which bursts cannot raise): 77.8 + 11.45 W per busy core, R² 0.995, so **1.09 package watts per core-register watt** for a workload that touches no memory.
+
+### 3.5 V4, core registers against the package (what a per-core figure leaves out)
+
+Our engine, 1 to 8 single-thread processes started in steps inside one run, each decoding the whole panel (`derived/engine-stair-a.levels.json`, median second of each plateau):
+
+| Processes (per L3 group) | core registers of the 8 cores (W) | per busy core | package (W) |
+|---|---:|---:|---:|
+| idle | 0.3 | – | 66.1 |
+| 1 | 11.4 | 9.9 | 95.2 |
+| 2 (same group) | 20.7 | 9.7 | 109.4 |
+| 4 (one full group) | 28.4 | 6.9 | 118.3 |
+| 4 (the other group) | 28.3 | 6.9 | 117.8 |
+| 6 (2 + 4) | 33.7 | 5.5 | 121.0 |
+| 8 (4 + 4) | 38.1 | 4.8 | 130.7 |
+
+- **package = 82.1 W + 1.245 × core-register watts**, R² 0.979, residual 1.9 W. So above the busy floor the package draws **1.245 W per watt the core registers report** for our engine: a per-core figure leaves out about 20% of the marginal package watts.
+- **The busy floor is 16 W above idle** (82.1 against 66.1). It appears when the first core becomes busy and is paid once per machine. One stream alone on an idle 64-core part therefore "costs" 25–30 W at the package, almost all of it this step.
+- In the quiet cold rounds a second arm on another L3 group added 15–18 W of package for 8.3–9.6 W of core register (factor 1.8–1.9), so on a sparsely loaded host the share a per-core figure leaves out is nearer 45%.
+- **Zipformer:** its staircase ran while the other agents were stopping their arms, the package fell 110 W under it and no line can be drawn (`derived/zipformer-stair-a.levels.json`, R² 0.14). One quiet plateau survives: eight workers, 50.2 W in the registers, 138.3 W package. With the busy floor of our engine (82 W) or of the busy loop (74–78 W) that is a factor of 1.10–1.26.
+- DRAM, voltage regulators, power supply and fans are in neither counter.
+
+### 3.6 V3, our engine on 1, 2, 4, 8 workers: FAILS as written, and the reason is the workload, not the meter
+
+- The rule was "core-view joules per audio-second within 10% across worker counts". One process alone: 0.343 J per audio-second. The staircase run, dominated by eight processes: **0.488** (+42%), at 0.0958 CPU-s per audio-second instead of 0.0352 (+172%).
+- Eight separate `ultra-cold-wav` processes each carry their own copy of the weights (58 MB INT8) and evict each other from the two 16 MB L3 caches: each took 440–530 s for the panel against 185 s alone. A core that waits on memory reads less in its register (4.8 W against 9.9 W), but not proportionally less.
+- The meter is linear on a workload that scales (V2). So the check as I wrote it tested the engine's multi-process scaling, which is poor, and not the meter. The plain ladder (2, 4, 8 processes with idle windows) was cancelled when xbabe0 became serial; the staircase stands in for it.
+- The serving path is one process with shared weights (24 streams per core in the ladder of H19), not N processes; "8 processes side by side" rows of our engine must be labelled as such.
+
+### 3.7 Cross-check of runtime-lane's rows (`power_bench.py`, xbabe3 core 44, one run, 100 dev-clean utterances)
+
+| | runtime-lane, xbabe3 | this wave, xbabe0, full panel, 3 quiet rounds | difference |
+|---|---:|---:|---:|
+| ours D2e: W per busy core | 5.84 | 9.69 | −40% |
+| ours D2e: seconds per audio-second | 0.0607 | 0.0352 | +72% |
+| **ours D2e: J per audio-second (active)** | **0.3546** | **0.3426** | **+3.5%** |
+| Zipformer: W per busy core | 5.15 | 8.48 | −39% |
+| Zipformer: seconds per audio-second | 0.1245 | 0.0692 | +80% |
+| **Zipformer: J per audio-second (active)** | **0.6416** | **0.591** | **+8.6%** |
+
+- **The method reproduces for joules per audio-second (within 10%), and only for that.** On xbabe3 the measured core shared its L3 with a busy neighbour and the host was loaded; the core drew less and took longer, and the two nearly cancel.
+- **Watts and seconds must come from the same run.** Carrying 5.84 W over to the quiet-host speed gives 0.205 J per audio-second, 40% too low.
+- The same holds under bus contention on xbabe0: the Zipformer alone on its L3 group read 8.26 W at 0.0722 s per audio-second on a quiet host and 6.37 W at 0.0942 with 16 other busy cores: **0.597 / 0.600 / 0.597 J per audio-second**.
+- What `power_bench.py` does not give: repetitions and a spread, a check that the SMT sibling and the L3 group were idle, a package figure that survives a shared host (its 8-core protocol subtracts 4 s idle windows), and a correct name for its time base (`cpu_s_per_audio_s` is wall seconds). Its docstring says the package counter includes DRAM; on AMD it does not.
+
+### 3.8 Live-paced check
+
+- **Pending: TIMING entry 23 on xbabe0** (N = 1, 4, 8, 16 paced streams of ours on CPU 16 and N = 1, 2, 4, 8 of the Zipformer on CPU 20, `ultra stream --pace 1.0`, one process per stream, 128 s of audio, 12 s cut at both ends). The result is compared with the unpaced figures above, on the same host and model.
+- A first attempt on H0 (xbabe3, 21:31–22:15Z) is discarded: every repetition was flagged (SMT siblings busy with other agents' work, foreign load changing by tens of watts, idle drift), net core watts came out negative, and the engine ran 4–7× slower than on xbabe0 because of memory-bus load. Receipts kept in `/mnt/xbabe3-external/jsr/runs/energy-h39/runs/` as an example of what the flags are for.
+
+### 3.9 Watts for every other row: the power log join
+
+- From 21:28:48Z one sampler logs all 64 core registers and the package once a second with UTC timestamps (`xbabe0:~/jsr-data/opponents/energy/powerlog/power-YYYYMMDD.jsonl`, format in `energy_bench.py sample`).
+- `energy_report.py join` turns a timed repetition (service CPUs, start, end, audio seconds) into joules per audio-second from the same run, lists how many other cores were busy and gives the package level during it. Nobody else has to read counters.
+- From 21:27Z xbabe0 times one arm at a time (the lead's protocol v3, after the finding of §4.2), so every joined row is a quiet-host row.
+
+## 4. What went wrong or surprised us
+
+1. **The quiet lock did not make the package quiet.** It stopped benchmark agents, not other tenants. Four of V1's five repetitions were disturbed. Consequence: tighter flags, clean-repetition headlines, median-second levels and staircases (§2.8).
+2. **Speed on xbabe0 depends on what the rest of the host does, even for a core alone on its L3 group.** With 16 busy benchmark cores the Zipformer cost 30% more CPU (0.0942 against 0.0722) at a clock only 3% lower; bench-cross saw 1.2–1.75× for our engine with 16–24 busy cores. The shared resource is the memory bus. The lead replaced the load rules with "one timed arm on the whole host at a time" at 21:27Z.
+3. **Watts per busy core is not a property of a recogniser.** Ours reads 9.7 W alone, 6.9 W with four processes in one L3 group, 4.8 W with eight, 5.8 W on a contended xbabe3 core. Joules per audio-second is the stable quantity.
+4. **I first reported 11.4 W for our engine alone.** That was the sum of all eight sampled cores; seven idle neighbours add 0.2 W each. Corrected within the hour (9.8 W). The fix in the tool: the core view covers only cores that carry a worker.
+5. **My own smoke test ran inside my first measurement window**, and a helper I started 20 s too early would have collided with two cold rounds had they not just finished. Both are reasons for §2.8 rule 6.
+6. **The first staircase line I posted (1.33, 14 W) used the end points**; least squares over the six plateaus gives 1.245 and 16 W.
+7. **The INT8 engine needs the FP32 weights file to load** (`strace`: it opens `weights.safetensors`; without it: "No such file or directory"), so the shipped artifact is 304 MB, not 58 MB, until the loader changes.
+8. **H0 was unusable for the paced check at high stream counts**: the memory bus there is so loaded that the same engine binary runs 4–7× slower.
+
+## 5. Decision / consequence
+
+- **Headline energy method for the Zen 2 one-core group: `core_msr_active`** (core register while running, joules per audio-second of the same run). It repeats within 1% and does not move with host load. The caption must say it leaves out the shared part of the CPU: about 20% of the marginal package watts for our engine, plus a one-off 16 W whenever any core is busy.
+- **`power_bench.py` (runtime-lane, on main since PR #38) is sound for that quantity** and is not replaced. This wave adds what it lacks as a second, independent tool (own sampler, no turbostat): repetitions, idle windows, distrust flags, the package view, paced streams, the power-log join. Both write the same evidence line (`energy_report.py sidecar`, with `--power-bench` for its summaries). Whether to fold the two into one is the lead's call; my suggestion is to keep `power_bench.py`'s arm list and let it call this meter.
+- **Rules for the paper's loader:** joules per audio-second from one run only; a joule figure may be attached to a cost row of another session on the same CPU, a "watts per busy core" may not; package figures only from inside one run (staircase), never run-minus-idle on a shared host.
+- **Not done here:** wall power (no meter, no BMC sensor), DRAM power, the Mac (needs sudo for `powermetrics`), the cloud VMs (no counters), boost off (owner decision, not made).
+
+## 6. Pointers
+
+- Tool and tests: `python/ultra/tools/energy_bench.py` (meter), `python/ultra/tools/energy_report.py` (fits, staircase levels, join, evidence lines), `python/ultra/tests/test_energy_bench.py`; driver `docs/paper/run-energy.sh`.
+- Receipts (small, in git, pinned in `raw/MANIFEST.txt`): `docs/paper/data/raw/energy/` — `v1-idle-vs-idle.json`, `v2-spin-{1,2,4,8}.json`, `engine-stair-a.json`, `zipformer-stair-a.json` (receipts); `series/` (per-second series of the two staircases); `cold/<arm>/round-N/` (cold-contract receipts of the anchor rounds) and `cold/sampler-cpus-16-20.jsonl` (the counter log under them); `derived/` (fits, levels, idle pairs, cold-round energies); `evidence/xbabe0-energy.jsonl` (schema-v2 rows and energy lines for the paper loader).
+- On the hosts: `xbabe0:~/jsr-data/opponents/energy/` (binaries, models, audio sets, every run directory, the power log); `/mnt/xbabe3-external/jsr/runs/energy-h39/` (the paced runs on H0).
+- Hashes: `ultra-cold-wav` 457a4db7… and `ultra` f4c1c751… (clean e2ef608 builds), runtime-lane's `ultra-cold-wav` aa596637… (byte-identical hypotheses), D2e-16457 INT8 export 5633a93e…, Zipformer bundle manifest 2f98a3f2…, sherpa-onnx c72c8b56… with ONNX Runtime 4b3607ae…, `ultra-measure` 98a8ca0f…, `ultra-score` d784f8ca…, panel digest 010aa985….
+- Method background: R. Schöne et al., "Energy Efficiency Aspects of the AMD Zen 2 Architecture", IEEE CLUSTER 2021 (arXiv:2108.00808).

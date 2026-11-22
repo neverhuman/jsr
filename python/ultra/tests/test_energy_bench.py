@@ -357,7 +357,10 @@ def test_committed_receipt_is_consistent(path):
     assert receipt["machine"] and receipt["energy_method"] and receipt["sha256"]
     head = eb.headline(receipt["reps"], receipt["thresholds"])
     for field in ("joules_per_audio_s", "joules_per_audio_s_package", "watts_per_busy_core", "idle_watts"):
-        assert receipt[field] == pytest.approx(head[field], rel=1e-5), field
+        if head[field] is None:  # an arm without audio (idle, busy loop) has no joules per audio-second
+            assert receipt[field] is None, field
+        else:
+            assert receipt[field] == pytest.approx(head[field], rel=1e-5), field
     for field in ("clean_repetitions", "flags", "repetitions"):
         assert receipt[field] == head[field], field
     assert receipt["host"]["kernel"] and receipt["host"]["boost"] is not None and receipt["host"]["governor"]
@@ -368,3 +371,128 @@ def test_committed_receipt_is_consistent(path):
             net = rep[view]["run_watts"] - rep[view]["idle_watts"]
             assert rep[view]["net_watts"] == pytest.approx(net, rel=1e-3, abs=2e-3)
     assert receipt["watts_per_stream"] == receipt["joules_per_audio_s"]
+
+
+def test_power_bench_rows_become_the_same_evidence_lines(capsys, tmp_path):
+    # One row as power_bench.py writes it (turbostat CorWatt on a pinned core, one run).
+    summary = {"schema": "jsr.power-bench/v1", "timestamps_sha256": "e" * 64, "core_power": [
+        {"system": "jsr-d2e-16457-int8", "cpu_s_per_audio_s": 0.06071, "idle_core_w": 0.755, "active_core_w": 5.841,
+         "dynamic_core_w": 5.086, "mw_per_live_stream": 354.6, "dynamic_mw_per_live_stream": 308.8},
+        {"system": "moonshine-tiny", "cpu_s_per_audio_s": 0.20369, "idle_core_w": 0.8, "active_core_w": 5.507,
+         "dynamic_core_w": 4.707, "mw_per_live_stream": 1121.6, "dynamic_mw_per_live_stream": 958.7},
+    ]}
+    lines = er.power_bench_lines(summary, {"jsr-d2e-16457-int8": "d2e-16457-int8-zen2-t1-xbabe3"}, "a" * 64, "xbabe3")
+    assert [(line["row"], line["energy_method"]) for line in lines] == [
+        ("d2e-16457-int8-zen2-t1-xbabe3", "core_msr_active"), ("d2e-16457-int8-zen2-t1-xbabe3", "core_msr_dynamic")]
+    active, dynamic = lines
+    assert active["joules_per_audio_s"] == pytest.approx(0.3546) == active["watts_per_stream"]
+    assert active["joules_per_audio_s"] == pytest.approx(5.841 * 0.06071, rel=1e-3)   # watts x seconds of one run
+    assert dynamic["joules_per_audio_s"] == pytest.approx(0.3088)
+    assert active["energy_tool"] == "jsr.power-bench/v1" and active["energy_flags"] == ["single_run"]
+    path = tmp_path / "power_summary.json"
+    path.write_text(json.dumps(summary))
+    assert er.main(["sidecar", "--power-bench", "moonshine-tiny=moonshine-tiny-zen2-t1-xbabe3", "--host", "xbabe3",
+                    str(path)]) == 0
+    printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [line["energy_method"] for line in printed] == ["core_msr_active", "core_msr_dynamic"]
+    assert printed[0]["joules_per_audio_s"] == pytest.approx(1.1216)
+    with pytest.raises(SystemExit):
+        er.power_bench_lines({"schema": "other"}, {}, "a" * 64, "xbabe3")
+
+
+def write_power_log(path, seconds, watts_of, start_wall=1_795_000_000.0, restart_at=None):
+    """A continuous log as the sampler writes it: cores 0-3, counters starting just below the wrap."""
+    unit = UNIT_J
+    lines = [json.dumps({"type": "header", "energy_unit_j": unit, "cpus": [0, 1, 2, 3]})]
+    counts = {c: eb.COUNTER_MODULUS - 5000 for c in range(4)}
+    package = eb.COUNTER_MODULUS - 9000
+    for second in range(seconds + 1):
+        if restart_at is not None and second == restart_at:
+            lines.append(json.dumps({"type": "header", "energy_unit_j": unit, "cpus": [0, 1, 2, 3]}))
+        lines.append(json.dumps({"t": 100.0 + second, "label": None, "pkg": package % eb.COUNTER_MODULUS,
+                                 "core": {str(c): v % eb.COUNTER_MODULUS for c, v in counts.items()},
+                                 "wall": start_wall + second + (40.0 if restart_at is not None and second >= restart_at else 0.0)}))
+        for c in counts:
+            counts[c] += round(watts_of(c, second) / unit)
+        package += round((60.0 + 1.3 * sum(watts_of(c, second) for c in counts)) / unit)
+    path.write_text("\n".join(lines) + "\n")
+    return start_wall
+
+
+def test_join_gives_another_agents_run_its_joules_per_audio_second(tmp_path):
+    # Core 2 runs an arm from second 100 to 300 at 8 W over a 0.25 W idle floor; core 0 is busy all along.
+    def watts_of(core, second):
+        if core == 0:
+            return 9.0
+        return 8.0 if core == 2 and 100 <= second < 300 else 0.25
+    path = tmp_path / "power-20261122.jsonl"
+    origin = write_power_log(path, 400, watts_of)
+    log = er.PowerLog([path])
+    # The other agent's receipt names service CPU 6: in this four-core toy machine that is the SMT sibling of
+    # core 2 and shares its register (on the real host thread 80 is the sibling of core 16).
+    row = er.join_run(log, [6], origin + 100, origin + 300, 2000.0)
+    assert row["covered"] and row["cores"] == [2]
+    assert row["core_watts"] == pytest.approx((8.0 * 200 + 0.25 * 3) / 200, rel=1e-3)
+    assert row["joules_per_audio_s_active"] == pytest.approx((8.0 * 200 + 0.25 * 3) / 2000, rel=1e-3)
+    assert row["joules_per_audio_s_dynamic"] == pytest.approx((8.0 - 0.25) * 200 / 2000, rel=1e-3)
+    assert row["idle_core_watts"] == pytest.approx(0.25, rel=1e-3) and row["idle_is_trustworthy"]
+    assert row["other_busy_cores"] == 1                                   # core 0
+    assert row["package_watts_median"] == pytest.approx(60 + 1.3 * (9.0 + 8.0 + 0.5), rel=1e-3)
+    assert er.join_run(log, [2], origin + 350, origin + 450, 100.0) == {"covered": False}   # runs past the log
+    lines = er.join_lines([row, dict(row, joules_per_audio_s_active=0.81)], "sys-zen2-t1", "c" * 64, "xbabe0", "d" * 64)
+    assert [line["energy_method"] for line in lines] == ["core_msr_active", "core_msr_dynamic"]
+    assert lines[0]["row"] == "sys-zen2-t1" and lines[0]["host"] == "xbabe0"
+    assert lines[0]["joules_per_audio_s"] == pytest.approx((row["joules_per_audio_s_active"] + 0.81) / 2)
+    assert lines[0]["energy_reps"] == [row["joules_per_audio_s_active"], 0.81]
+    busy_neighbour = dict(row, idle_is_trustworthy=False)                # the core ran another arm just before
+    assert [line["energy_method"] for line in er.join_lines([busy_neighbour], "r", "c" * 64, "xbabe0")] == ["core_msr_active"]
+
+
+def test_join_refuses_an_interval_that_spans_a_restart_of_the_log(tmp_path):
+    path = tmp_path / "power-20261123.jsonl"
+    origin = write_power_log(path, 300, lambda core, second: 5.0, restart_at=150)
+    log = er.PowerLog([path])
+    assert log.gaps == [(origin + 149, origin + 150 + 40)]
+    assert er.join_run(log, [1], origin + 100, origin + 220, 100.0) == {"covered": False}
+    assert er.join_run(log, [1], origin + 20, origin + 120, 100.0)["covered"]
+
+
+def test_stair_levels_read_each_plateau_and_the_package_line():
+    # Idle 60 s, then 1, 2 and 4 busy workers for 30 s each, idle 60 s. Package = 80 + 1.3 x core watts when
+    # busy, 66 W when idle, with a 40 W burst from other work in one second of the middle plateau.
+    times, cores, package, labels = [0.0], [0.0], [0.0], {"idle1_start": 0}
+    def run(seconds, core_watts, package_watts, burst_at=None):
+        for second in range(seconds):
+            times.append(times[-1] + 1.0)
+            cores.append(cores[-1] + core_watts)
+            package.append(package[-1] + package_watts + (40.0 if burst_at == second else 0.0))
+    run(60, 0.3, 66.0)
+    labels["run1_start"] = len(times) - 1
+    run(30, 10.0, 80 + 1.3 * 10.0)
+    run(30, 19.0, 80 + 1.3 * 19.0, burst_at=12)
+    run(30, 28.0, 80 + 1.3 * 28.0)
+    labels["run1_end"] = len(times) - 1
+    labels["idle2_start"] = len(times) - 1
+    run(60, 0.3, 66.0)
+    labels["idle2_end"] = len(times) - 1
+    series = {"t": times, "labels": labels, "core_joules": cores, "package_joules": package}
+    result = er.stair_levels(series, [("one", 1, 0, 30), ("two", 2, 30, 60), ("four", 4, 60, 90)])
+    assert [level["core_register_watts"] for level in result["levels"]] == pytest.approx([10.0, 19.0, 28.0])
+    assert [level["package_watts"] for level in result["levels"]] == pytest.approx([93.0, 104.7, 116.4])  # burst ignored
+    assert result["package_watts_per_core_register_watt"] == pytest.approx(1.3)
+    assert result["package_floor_watts_when_busy"] == pytest.approx(80.0)
+    assert result["idle_package_watts"] == pytest.approx(66.0)
+    assert result["package_floor_watts_when_busy"] - result["idle_package_watts"] == pytest.approx(14.0)
+
+
+def test_idle_pairs_report_the_noise_floor_of_run_minus_idle():
+    def rep(core_before, core_after, package_before, package_after):
+        return {"core": {"idle_before_watts": core_before, "idle_after_watts": core_after},
+                "package": {"idle_before_watts": package_before, "idle_after_watts": package_after}}
+    receipts = [{"measured_cores": [16, 17], "reps": [rep(0.6, 1.0, 60.0, 75.0), rep(1.0, 0.8, 75.0, 61.0)]},
+                {"measured_cores": [16], "reps": [rep(0.3, 0.2, 61.0, 99.0)]}]
+    result = er.idle_pairs(receipts)
+    assert result["core_per_pinned_core"]["pairs"] == 3
+    assert result["core_per_pinned_core"]["median_abs_watts"] == pytest.approx(0.1)   # 0.2, 0.1 and 0.1 W per core
+    assert result["package"]["median_abs_watts"] == pytest.approx(15.0)
+    assert result["package"]["max_abs_watts"] == pytest.approx(38.0)

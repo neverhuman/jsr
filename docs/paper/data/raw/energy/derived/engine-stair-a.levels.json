@@ -1,0 +1,60 @@
+{
+ "series": "engine-stair-a.json",
+ "run_seconds": 620.64,
+ "idle_package_watts": 66.0865,
+ "idle_core_register_watts": 0.259965,
+ "levels": [
+  {
+   "plateau": "1 alone in group A",
+   "workers": 1,
+   "seconds": 24,
+   "core_register_watts": 11.3606,
+   "package_watts": 95.1907,
+   "package_watts_p25": 94.0373
+  },
+  {
+   "plateau": "2 in group A",
+   "workers": 2,
+   "seconds": 24,
+   "core_register_watts": 20.7003,
+   "package_watts": 109.433,
+   "package_watts_p25": 107.478
+  },
+  {
+   "plateau": "4 in group A",
+   "workers": 4,
+   "seconds": 24,
+   "core_register_watts": 28.3743,
+   "package_watts": 118.32,
+   "package_watts_p25": 116.987
+  },
+  {
+   "plateau": "8 (4+4) later part",
+   "workers": 8,
+   "seconds": 232,
+   "core_register_watts": 38.145,
+   "package_watts": 130.691,
+   "package_watts_p25": 128.963
+  },
+  {
+   "plateau": "6 (2+4)",
+   "workers": 6,
+   "seconds": 40,
+   "core_register_watts": 33.6851,
+   "package_watts": 120.972,
+   "package_watts_p25": 119.364
+  },
+  {
+   "plateau": "4 in group B",
+   "workers": 4,
+   "seconds": 52,
+   "core_register_watts": 28.3043,
+   "package_watts": 117.76,
+   "package_watts_p25": 115.11
+  }
+ ],
+ "package_floor_watts_when_busy": 82.0673,
+ "package_watts_per_core_register_watt": 1.24533,
+ "line_r2": 0.979079,
+ "line_residual_stdev_watts": 1.94459
+}

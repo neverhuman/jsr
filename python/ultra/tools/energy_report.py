@@ -4,12 +4,17 @@
     energy_report.py uplift RECEIPT...               (package watts per core-register watt)
     energy_report.py table --ours ARM RECEIPT...     (one Markdown table)
     energy_report.py sidecar --row ID RECEIPT        (energy lines for the paper evidence file)
+    energy_report.py sidecar --power-bench SYSTEM=ID --host H SUMMARY   (the same lines from power_bench.py rows)
     energy_report.py resummarise RECEIPT             (re-apply the distrust rules to stored repetitions)
+    energy_report.py join --log LOG --run NAME=CPUS:START:END:AUDIO_S   (watts for a run someone else timed)
+    energy_report.py stair SERIES --plateau LABEL:WORKERS:START:END ...  (levels inside one staircase run)
+    energy_report.py idle RECEIPT...                 (idle against idle: the noise floor of run minus idle)
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -291,6 +296,7 @@ def sidecar_lines(receipt, row, receipt_sha256, session=None):
         lines.append({
             "kind": "energy",
             "row": row,
+            "host": receipt["machine"],
             "energy_method": method,
             "joules_per_audio_s": value,
             "watts_per_stream": value,
@@ -309,10 +315,326 @@ def sidecar_lines(receipt, row, receipt_sha256, session=None):
     return lines
 
 
+def idle_pairs(receipts):
+    """Idle against idle from every repetition: the idle window after a run minus the one before it.
+
+    Core view per pinned core, package view as measured. The absolute differences are the noise floor
+    of a run-minus-idle figure on this host.
+    """
+    core, package = [], []
+    for receipt in receipts:
+        pinned = len(receipt["measured_cores"])
+        for rep in receipt["reps"]:
+            if "core" in rep:
+                core.append((rep["core"]["idle_after_watts"] - rep["core"]["idle_before_watts"]) / pinned)
+            if "package" in rep:
+                package.append(rep["package"]["idle_after_watts"] - rep["package"]["idle_before_watts"])
+
+    def spread(values):
+        ordered = sorted(abs(v) for v in values)
+        if not ordered:
+            return None
+        return {"pairs": len(ordered), "median_abs_watts": statistics.median(ordered),
+                "p90_abs_watts": ordered[int(0.9 * (len(ordered) - 1))], "max_abs_watts": ordered[-1],
+                "mean_watts": statistics.fmean(values)}
+
+    return {"core_per_pinned_core": spread(core), "package": spread(package)}
+
+
+def idle_main(args):
+    result = dict(arms=[Path(p).stem for p in args.receipts], **idle_pairs(load_receipts(args.receipts)))
+    text = json.dumps(rounded(result), indent=1)
+    if args.out:
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+def stair_levels(series, plateaus, repetition=1, edge=3.0):
+    """Median-second levels of each plateau of a staircase run, and the line through them.
+
+    `series` is a `--series-out` file; `plateaus` are (label, busy workers, start, end) in seconds from
+    the start of the run. The first and last `edge` seconds of each plateau are left out. Returns the
+    levels (pinned cores' register watts and package watts), the idle levels around the run and the
+    least-squares line package = floor + slope x core-register watts.
+    """
+    times, labels = series["t"], series["labels"]
+    first, last = labels[f"run{repetition}_start"], labels[f"run{repetition}_end"]
+    origin = times[first]
+
+    def seconds(key, a, b):
+        values = series[key]
+        return [((times[i] + times[i + 1]) / 2 - origin, (values[i + 1] - values[i]) / (times[i + 1] - times[i]))
+                for i in range(a, b) if times[i + 1] - times[i] >= 0.3]
+
+    package, cores = seconds("package_joules", first, last), seconds("core_joules", first, last)
+    idle_a = labels[f"idle{repetition}_start"]
+    after = f"idle{repetition + 1}_start"
+    after_end = f"idle{repetition + 1}_end" if f"idle{repetition + 1}_end" in labels else f"run{repetition + 1}_start"
+    idle_package = ([w for _, w in seconds("package_joules", idle_a, first)]
+                    + [w for _, w in seconds("package_joules", labels[after], labels[after_end])])
+    idle_cores = ([w for _, w in seconds("core_joules", idle_a, first)]
+                  + [w for _, w in seconds("core_joules", labels[after], labels[after_end])])
+    levels = []
+    for label, workers, start, end in plateaus:
+        inside_package = [w for t, w in package if start + edge <= t < end - edge]
+        inside_cores = [w for t, w in cores if start + edge <= t < end - edge]
+        if len(inside_package) < 5:
+            continue
+        levels.append({
+            "plateau": label, "workers": workers, "seconds": len(inside_package),
+            "core_register_watts": statistics.median(inside_cores),
+            "package_watts": statistics.median(inside_package),
+            "package_watts_p25": statistics.quantiles(inside_package, n=4)[0],
+        })
+    line = least_squares([[level["core_register_watts"]] for level in levels],
+                         [level["package_watts"] for level in levels]) if len(levels) >= 3 else None
+    return {
+        "run_seconds": times[last] - origin,
+        "idle_package_watts": statistics.median(idle_package),
+        "idle_core_register_watts": statistics.median(idle_cores),
+        "levels": levels,
+        "package_floor_watts_when_busy": line["intercept"] if line else None,
+        "package_watts_per_core_register_watt": line["coefficients"][0] if line else None,
+        "line_r2": line["r2"] if line else None,
+        "line_residual_stdev_watts": line["residual_stdev"] if line else None,
+    }
+
+
+def stair_main(args):
+    series = json.loads(Path(args.series).read_text(encoding="utf-8"))
+    plateaus = []
+    for spec in args.plateau:
+        label, workers, start, end = spec.split(":")
+        plateaus.append((label, int(workers), float(start), float(end)))
+    result = dict(series=Path(args.series).name, **stair_levels(series, plateaus, args.repetition))
+    text = json.dumps(rounded(result), indent=1)
+    if args.out:
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+class PowerLog:
+    """The continuous 1 Hz log (`energy_bench.py sample` lines with `wall`): cumulative joules by UTC time.
+
+    A gap longer than `max_gap` seconds between two samples (a restart) is remembered; an interval that
+    spans one cannot be trusted, because a counter may have wrapped unseen.
+    """
+
+    def __init__(self, paths, max_gap=30.0):
+        unit, previous = None, None
+        self.wall, self.package, self.gaps = [], [], []
+        self.cores = {}
+        self.listed = []
+        totals, package_total = {}, 0
+        for path in sorted(str(p) for p in paths):
+            with open(path, encoding="utf-8") as source:
+                for line in source:
+                    if not line.strip():
+                        continue
+                    record = json.loads(line)
+                    if record.get("type") == "header":
+                        unit = record["energy_unit_j"]
+                        self.listed = [int(c) for c in record.get("cpus", [])]
+                        continue
+                    if "wall" not in record or unit is None:
+                        continue
+                    if previous is not None:
+                        if record["wall"] <= previous["wall"]:
+                            continue
+                        if record["wall"] - previous["wall"] > max_gap:
+                            self.gaps.append((previous["wall"], record["wall"]))
+                        package_total += bench.wrap_delta(previous["pkg"], record["pkg"], bench.COUNTER_MODULUS)
+                        for cpu, value in record["core"].items():
+                            totals[cpu] = totals.get(cpu, 0) + bench.wrap_delta(
+                                previous["core"].get(cpu, value), value, bench.COUNTER_MODULUS)
+                    self.wall.append(record["wall"])
+                    self.package.append(package_total * unit)
+                    for cpu in record["core"]:
+                        self.cores.setdefault(cpu, []).append(totals.get(cpu, 0) * unit)
+                    previous = record
+        if len(self.wall) < 2:
+            raise SystemExit("energy_report: the power log holds fewer than two samples")
+
+    def core_of(self, cpu):
+        """The logged core whose register a hardware thread shares.
+
+        The log lists one thread per physical core. When it lists 0..N-1, thread N+k is the SMT sibling
+        of core k (the numbering on these hosts); any other thread must be listed itself.
+        """
+        if str(cpu) in self.cores:
+            return str(cpu)
+        count = len(self.listed)
+        if self.listed == list(range(count)) and count <= int(cpu) < 2 * count:
+            return str(int(cpu) - count)
+        raise SystemExit(f"energy_report: CPU {cpu} is not in the power log")
+
+    def covers(self, start, end):
+        return (self.wall[0] <= start and end <= self.wall[-1]
+                and not any(a < end and start < b for a, b in self.gaps))
+
+    def joules(self, series, start, end):
+        """Energy between two UTC times, interpolated inside the one-second samples at both ends."""
+        def at(moment):
+            low, high = 0, len(self.wall) - 1
+            while high - low > 1:
+                middle = (low + high) // 2
+                if self.wall[middle] <= moment:
+                    low = middle
+                else:
+                    high = middle
+            share = (moment - self.wall[low]) / (self.wall[high] - self.wall[low])
+            return series[low] + share * (series[high] - series[low])
+        return at(end) - at(start)
+
+    def per_second(self, series, start, end):
+        return [(series[i + 1] - series[i]) / (self.wall[i + 1] - self.wall[i])
+                for i in range(len(self.wall) - 1) if start <= self.wall[i] and self.wall[i + 1] <= end]
+
+
+def join_run(log, cpus, start, end, audio_seconds, margin=1.5, busy_watts=2.0):
+    """Energy of one repetition measured by somebody else, from the continuous log.
+
+    `cpus` are the service CPUs (hardware threads; an SMT sibling shares its core's register), `start`
+    and `end` UTC epoch seconds. The window is widened by `margin` seconds on both sides because other
+    receipts time to the second; the extra idle seconds add a fraction of a joule.
+    """
+    cores = sorted({log.core_of(c) for c in cpus}, key=int)
+    if not log.covers(start, end):
+        return {"covered": False}
+    duration = end - start
+    # The widened window may reach past the first or last sample of the log by less than the margin.
+    low, high = max(start - margin, log.wall[0]), min(end + margin, log.wall[-1])
+    joules = sum(log.joules(log.cores[c], low, high) for c in cores)
+    idle = []
+    for c in cores:
+        around = (log.per_second(log.cores[c], start - 60 - margin, start - margin - 2)
+                  + log.per_second(log.cores[c], end + margin + 5, end + margin + 65))
+        idle.append(statistics.median(around) if around else 0.0)
+    idle_watts = sum(idle)
+    busy = [c for c, series in log.cores.items()
+            if log.joules(series, start, end) / duration >= busy_watts and c not in cores]
+    package = log.per_second(log.package, start, end)
+    return {
+        "covered": True,
+        "cores": [int(c) for c in cores],
+        "seconds": duration,
+        "core_watts": joules / duration,
+        "idle_core_watts": idle_watts,
+        "idle_is_trustworthy": idle_watts < 1.0 * len(cores),
+        "joules_per_audio_s_active": joules / audio_seconds,
+        "joules_per_audio_s_dynamic": (joules - idle_watts * (high - low)) / audio_seconds,
+        "package_watts_mean": statistics.fmean(package) if package else None,
+        "package_watts_median": statistics.median(package) if package else None,
+        "other_busy_cores": len(busy),
+    }
+
+
+def join_lines(joined, row, receipt_sha256, host, workload_digest=None, session=None):
+    """Evidence lines for a cost row from its joined repetitions (the same runs that were timed).
+
+    `core_msr_active` always; `core_msr_dynamic` only when every repetition had a believable idle level
+    (a core that ran another arm right before or after has none).
+    """
+    usable = [r for r in joined if r.get("covered")]
+    if not usable:
+        return []
+    methods = [("core_msr_active", "joules_per_audio_s_active")]
+    if all(r["idle_is_trustworthy"] for r in usable):
+        methods.append(("core_msr_dynamic", "joules_per_audio_s_dynamic"))
+    lines = []
+    for method, key in methods:
+        reps = [r[key] for r in usable]
+        value = statistics.median(reps)
+        lines.append({
+            "kind": "energy", "row": row, "host": host, "energy_method": method,
+            "joules_per_audio_s": value, "watts_per_stream": value, "energy_reps": reps,
+            "energy_active_w": statistics.median(r["core_watts"] for r in usable),
+            "energy_idle_w": statistics.median(r["idle_core_watts"] for r in usable),
+            "energy_package_w": statistics.median(r["package_watts_median"] for r in usable),
+            "energy_other_busy_cores": [r["other_busy_cores"] for r in usable],
+            "energy_workload_digest": workload_digest, "energy_receipt_sha256": receipt_sha256,
+            "energy_host": host, "energy_tool": "jsr.energy-bench/v1 power-log join",
+            "energy_flags": [] if len(usable) == len(joined) else ["repetition_outside_power_log"],
+            "session": session,
+        })
+    return lines
+
+
+def join_main(args):
+    """Join the continuous power log with repetitions: NAME=CPUS:START:END:AUDIO_SECONDS (UTC epoch seconds)."""
+    log = PowerLog(args.log)
+    out = []
+    for spec in args.run:
+        name, _, rest = spec.partition("=")
+        cpus, start, end, audio = rest.split(":")
+        row = join_run(log, bench.parse_cpu_list(cpus), float(start), float(end), float(audio), margin=args.margin)
+        out.append(dict(name=name, **row))
+        print(json.dumps(rounded(out[-1])))
+    text = "".join(json.dumps(rounded(row)) + "\n" for row in out)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+    if args.row:
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        for line in join_lines(out, args.row, digest, args.host, args.workload_digest, args.session):
+            print(json.dumps(rounded(line), separators=(", ", ": ")))
+    return 0
+
+
+POWER_BENCH_SCHEMA = "jsr.power-bench/v1"
+
+
+def power_bench_lines(summary, rows, receipt_sha256, host, session=None):
+    """The same evidence lines from a power_bench.py summary (turbostat CorWatt, one run per arm).
+
+    `rows` maps a power_bench system name to the id of its cost row. power_bench multiplies core watts
+    by wall seconds per audio-second of the same run, which is the `core_msr_active` definition here;
+    its `cpu_s_per_audio_s` is that wall figure and is passed on under its true name.
+    """
+    if summary.get("schema") != POWER_BENCH_SCHEMA:
+        raise SystemExit(f"energy_report: not a {POWER_BENCH_SCHEMA} summary")
+    lines = []
+    for row in summary["core_power"]:
+        if row["system"] not in rows:
+            continue
+        for method, joules, watts in (
+            ("core_msr_active", row["mw_per_live_stream"] / 1000.0, row["active_core_w"]),
+            ("core_msr_dynamic", row["dynamic_mw_per_live_stream"] / 1000.0, row["dynamic_core_w"]),
+        ):
+            lines.append({
+                "kind": "energy",
+                "row": rows[row["system"]],
+                "host": host,
+                "energy_method": method,
+                "joules_per_audio_s": joules,
+                "watts_per_stream": joules,
+                "energy_reps": [joules],
+                "energy_idle_w": row["idle_core_w"],
+                "energy_active_w": row["active_core_w"],
+                "watts_per_busy_core": watts,
+                "energy_wall_s_per_audio_s": row["cpu_s_per_audio_s"],
+                "energy_workload_digest": summary.get("timestamps_sha256"),
+                "energy_receipt_sha256": receipt_sha256,
+                "energy_host": host,
+                "energy_tool": POWER_BENCH_SCHEMA,
+                "energy_flags": ["single_run"],
+                "session": session,
+            })
+    return lines
+
+
 def sidecar_main(args):
     path = Path(args.receipt)
-    receipt = load_receipts([path])[0]
-    for line in sidecar_lines(receipt, args.row, sha256_file(path), args.session):
+    if args.power_bench:
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        rows = dict(item.split("=", 1) for item in args.power_bench)
+        lines = power_bench_lines(summary, rows, sha256_file(path), args.host, args.session)
+    else:
+        if not args.row:
+            raise SystemExit("energy_report sidecar: --row is required for an energy_bench receipt")
+        lines = sidecar_lines(load_receipts([path])[0], args.row, sha256_file(path), args.session)
+    for line in lines:
         print(json.dumps(rounded(line), separators=(", ", ": ")))
     return 0
 
@@ -343,9 +665,38 @@ def build_parser():
 
     sidecar = sub.add_parser("sidecar", help="energy lines for docs/paper/data/evidence, one per method")
     sidecar.add_argument("receipt")
-    sidecar.add_argument("--row", required=True, help="id of the cost row these lines belong to")
+    sidecar.add_argument("--row", default=None, help="id of the cost row these lines belong to")
+    sidecar.add_argument("--power-bench", action="append", metavar="SYSTEM=ROW_ID",
+                         help="the file is a power_bench.py summary; map each of its systems to a row id")
+    sidecar.add_argument("--host", default=None, help="host of a power_bench summary (it does not record one)")
     sidecar.add_argument("--session", default=None)
     sidecar.set_defaults(handler=sidecar_main)
+
+    idle = sub.add_parser("idle", help="idle against idle over every repetition of the given receipts")
+    idle.add_argument("receipts", nargs="+")
+    idle.add_argument("--out", default=None)
+    idle.set_defaults(handler=idle_main)
+
+    stair = sub.add_parser("stair", help="plateau levels of a staircase run and the package-against-core line")
+    stair.add_argument("series", help="the --series-out file of the staircase run")
+    stair.add_argument("--plateau", action="append", required=True, metavar="LABEL:WORKERS:START:END",
+                       help="seconds from the start of the run (repeatable)")
+    stair.add_argument("--repetition", type=int, default=1)
+    stair.add_argument("--out", default=None)
+    stair.set_defaults(handler=stair_main)
+
+    join = sub.add_parser("join", help="energy of other agents' repetitions from the continuous power log")
+    join.add_argument("--log", action="append", required=True, help="power-YYYYMMDD.jsonl (repeatable)")
+    join.add_argument("--run", action="append", required=True, metavar="NAME=CPUS:START:END:AUDIO_S",
+                      help="service CPUs, UTC epoch start and end, audio seconds decoded")
+    join.add_argument("--margin", type=float, default=1.5,
+                      help="seconds added on both sides for receipts timed to the second (0 for exact times)")
+    join.add_argument("--out", default=None)
+    join.add_argument("--row", default=None, help="also print the evidence lines for this cost row id")
+    join.add_argument("--host", default=None)
+    join.add_argument("--workload-digest", default=None)
+    join.add_argument("--session", default=None)
+    join.set_defaults(handler=join_main)
 
     table = sub.add_parser("table", help="one Markdown table over several receipts")
     table.add_argument("receipts", nargs="+")
