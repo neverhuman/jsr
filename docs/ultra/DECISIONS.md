@@ -56,3 +56,25 @@ The owner approved using R0 (the pretrained icefall streaming Zipformer, trained
 - Accuracy is still selected on the DEV panel only.
 
 Tracked as research wave H22.
+
+## 2026-11-22: owner widens the comparison set and asks for watts (paper v2)
+The owner asked for every recogniser in a published CPU comparison to be measured on our own hardware, for the paper's first-page figure to become processing speed against WER, and for inference power to be measured against the others. Rulings O16–O18 record the approvals.
+
+**Rules:**
+- One protocol for every system: the frozen 730-utterance DEV panel, `docs/paper/run-cold.sh`, one pinned core and eight pinned cores, three repetitions. No test-set audio.
+- Live streaming systems and whole-utterance systems are reported as separate classes. Vendor-published numbers stay in a "reported" group and never share an axis with measured ones.
+- Each system is also measured on a machine where its fast path exists (AVX-512 VNNI for Photon; Apple silicon), with our engine beside it on the same cores.
+- Watts come from CPU energy counters, as joules per audio-second, with the method and its noise stated.
+
+Tracked as research waves H39 (energy) and H40 (external benchmark and paper v2).
+
+## 2026-11-22: production moves to the 500-token line; tests move to replay gates
+- **Evidence:** the 4,096-token D2 line reached 5.29% on the 400-utterance dev-clean screen after about 40k audio-hours. H22ctl (dense S, the Zipformer's 500-token BPE, one A100) reached 4.95% after 25k, and L3 (M_MR) 4.88% after 21.5k.
+- **Decision:** the D2 line ends with D2f. Two trunks replace it: A1 (dense S, 500 tokens, restarted from H22ctl at a high learning rate, chunks sampled from 160/320/640 ms) and F1 (multi-rate S_MR, 500 tokens, from scratch). The M_MR line stops after L3, and D4M is stopped.
+- **Why a high learning rate:** the D2 restarts summed to a learning-rate total of about 8, against about 60 for H22ctl's single run; they could not move the model.
+- **Tests:** a change is tested by replaying the tail of H22ctl from its step-60,000 weights with a control and a repeated control, scored on the full dev sets with a paired bootstrap. It is adopted only above twice the spread between the two controls. Two identical 100 h runs differed by 0.57 points, so 100 h runs from scratch no longer decide optimiser changes.
+- **Multi-GPU:** five A100s in step-synchronised training delivered 3.9–4.2k audio-hours per hour, against 2.7k for one unshared A100, because shared GPUs make every rank wait and sleep. Trunks start on the unshared GPUs; shard sizes will follow each GPU's speed.
+- **Sharing:** another project runs small jobs on four A100s and the A10. We share and never touch its processes; our throttles hold the combined load under the cap.
+
+Tracked as research waves H36 (multi-node efficiency), H37 (trunks) and H41 (replay gates).
+
