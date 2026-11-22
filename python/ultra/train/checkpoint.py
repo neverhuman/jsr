@@ -169,3 +169,14 @@ class AsyncSaver:
         self._thread = threading.Thread(target=work, daemon=False)
         self._thread.start()
 
+
+def swap_weights(model, path: str) -> dict:
+    """Load a checkpoint's model weights into a resumed model (optimizer and schedule untouched).
+    Only training-only simple-joiner heads may be absent from the file; they keep their values."""
+    p = load(path, restore_rng=False)
+    missing, unexpected = model.load_state_dict(p["model"], strict=False)
+    allowed = {"simple_am.weight", "simple_am.bias", "simple_lm.weight", "simple_lm.bias"}
+    if unexpected or not set(missing) <= allowed:
+        raise CheckpointError(f"--swap-weights state mismatch: missing={missing} unexpected={unexpected}")
+    with open(path[:-3] + ".sha256") as fh:
+        return {"swap_from": os.path.abspath(path), "sha256": fh.read().strip(), "kept": sorted(missing)}
