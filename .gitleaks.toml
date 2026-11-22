@@ -3,7 +3,10 @@
 useDefault = true
 
 [allowlist]
-description = "lane worktrees/build output; SHA-256 pins (a *sha256 key holding exactly 64 hex chars)"
+description = "lane worktrees/build output; SHA-256 pins (a *sha256 key holding exactly 64 hex chars, YAML or JSON form)"
 paths = ['''^\.agent/''', '''(^|/)target/''']
 regexTarget = "line"
-regexes = ['''^\s*[a-z_]*sha256:\s*[0-9a-f]{64}\s*$''']
+regexes = [
+  '''^\s*[a-z_]*sha256:\s*[0-9a-f]{64}\s*$''',
+  '''^\s*"[a-z_]*sha256"\s*:\s*"[0-9a-f]{64}",?\s*$''',
+]
