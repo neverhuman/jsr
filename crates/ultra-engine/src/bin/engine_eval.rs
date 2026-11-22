@@ -73,6 +73,7 @@ struct Args {
     streams: usize,
     packet_ms: usize,
     precision: Precision,
+    chunk: Option<usize>,
     max_chunks: usize,
     int8_stem: bool,
     act7: bool,
@@ -107,6 +108,7 @@ fn parse() -> Result<Args, String> {
         streams: 16,
         packet_ms: 20,
         precision: Precision::F32,
+        chunk: None,
         max_chunks: 1,
         int8_stem: false,
         act7: false,
@@ -147,6 +149,9 @@ fn parse() -> Result<Args, String> {
             "--act7" => a.act7 = true,
             "--gemm-threads" => {
                 a.gemm_threads = v()?.parse().map_err(|e| format!("--gemm-threads: {e}"))?
+            }
+            "--chunk" => {
+                a.chunk = Some(v()?.parse().map_err(|e| format!("--chunk: {e}"))?);
             }
             "--max-chunks" => {
                 a.max_chunks = v()?.parse().map_err(|e| format!("--max-chunks: {e}"))?
@@ -268,7 +273,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         model.fold_prenorm();
     }
     let load_s = t_load.elapsed().as_secs_f64();
-    let engine = Engine::new(Arc::new(model), a.isa, a.precision)
+    let mut engine = Engine::new(Arc::new(model), a.isa, a.precision)
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks)
         .with_act7(a.act7)
@@ -277,6 +282,9 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .with_beam_max_symbols(a.beam_max_symbols)
         .with_beam_margin(a.beam_margin)
         .with_kv_int8(a.kv_int8);
+    if let Some(c) = a.chunk {
+        engine = engine.with_chunk(c).map_err(|e| e.to_string())?;
+    }
     // Sealed PUBLIC-TEST guard (test-* splits), decided and logged before any audio is read.
     let panel = a.panel.as_ref().map(|p| Panel::read(p)).transpose()?;
     let splits: Vec<String> = match &panel {

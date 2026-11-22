@@ -162,8 +162,20 @@ impl EncState {
 
     /// Caches for steps of up to `max_chunks` chunks with optional int8 K/V compression.
     pub fn new_with_kv(m: &Model, max_chunks: usize, kv_int8: bool) -> Self {
+        Self::new_with_kv_and_chunk(m, max_chunks, kv_int8, m.arch.chunk)
+    }
+
+    /// Caches for steps of up to `max_chunks` chunks with optional int8 K/V compression and
+    /// an explicit start-up chunk length (`chunk` 25 Hz frames; `chunk / 2` at 12.5 Hz for
+    /// multirate models).
+    pub fn new_with_kv_and_chunk(
+        m: &Model,
+        max_chunks: usize,
+        kv_int8: bool,
+        chunk: usize,
+    ) -> Self {
         let a = &m.arch;
-        let g = GroupCache::new(m, a.lower + a.fin, a.left, a.chunk, max_chunks, kv_int8);
+        let g = GroupCache::new(m, a.lower + a.fin, a.left, chunk, max_chunks, kv_int8);
         Self {
             t: 0,
             kv_len: 0,
@@ -179,7 +191,7 @@ impl EncState {
             left: g.left,
             chunk: g.chunk,
             gmid: (a.mid > 0)
-                .then(|| GroupCache::new(m, a.mid, a.left / 2, a.chunk / 2, max_chunks, kv_int8)),
+                .then(|| GroupCache::new(m, a.mid, a.left / 2, chunk / 2, max_chunks, kv_int8)),
             c1_prev: vec![0.0; a.f1 * a.stem_ch],
             c1_prev_t: None,
         }
