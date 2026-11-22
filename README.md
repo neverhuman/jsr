@@ -29,7 +29,7 @@ The tables below are the earlier speed and accuracy record (2026-11-21). They ar
 
 ### Accuracy: D2
 - **D2:** dense S (d_model 384, 16 Conformer blocks, streaming, 160 ms chunks), trained on LibriSpeech 960 h.
-- **Latest full-DEV checkpoint:** step 70,000. Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
+- **Latest full-DEV checkpoint:** step 70,000. Training continues to 102k steps. The paper draft cites the earlier step 60,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Full curves: [`research/curves/`](research/curves/README.md).
 
 | Full dev sets (2,703 / 2,864 utterances), streaming, step 70k | dev-clean | dev-other |
 |---|---:|---:|
