@@ -188,9 +188,17 @@ class ASRModel(nn.Module):
                pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0,
                simple_detach: bool = False, zloss_weight: float = 0.0,
                cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0,
-               inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0) -> dict:
+               inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0,
+               view: torch.Tensor | None = None, cr_target: torch.Tensor | None = None) -> dict:
+        """`view` / `cr_target` serve the full-form CR-CTC step (trainer.cr_ctc_full), which runs one
+        view per call: `view` is that view's normalised, already augmented input (no augmentation
+        here), `cr_target` the other view's detached CTC log-posteriors; the result then carries
+        this view's own `ctc_lp`. Both None: the usual single call, unchanged."""
         x_norm = self.cmvn(feats)
-        x = spec_augment(x_norm, feat_lens, augment, gen) if (augment is not None and gen is not None) else x_norm
+        if view is not None:
+            x = view
+        else:
+            x = spec_augment(x_norm, feat_lens, augment, gen) if (augment is not None and gen is not None) else x_norm
         need_aux = (self.cfg.inter_ctc and inter_ctc_weight > 0) or (balancer_weight > 0)
         if need_aux:
             enc, enc_lens, aux = self.encoder(x, feat_lens, chunk, return_aux=True)
@@ -238,7 +246,16 @@ class ASRModel(nn.Module):
             bal = aux["balancer"]
             total = total + balancer_weight * bal
             out["balancer"] = bal
-        if cr_ctc_weight > 0 and augment is not None and gen is not None:
+        if view is not None:
+            out["ctc_lp"] = ctc_lp.detach()
+            if cr_target is not None and cr_ctc_weight > 0:  # KL(other view || this view), valid frames
+                with torch.autocast(device_type=enc.device.type, enabled=False):
+                    kl = (cr_target.exp() * (cr_target - ctc_lp)).sum(-1)
+                    valid = torch.arange(ctc_lp.shape[1], device=enc.device)[None] < enc_lens[:, None]
+                    cr_ctc = (kl * valid).sum() / valid.sum().clamp(min=1)
+                total = total + cr_ctc_weight * cr_ctc
+                out["cr_ctc"] = cr_ctc
+        elif cr_ctc_weight > 0 and augment is not None and gen is not None:
             # H26 CR-CTC (Yao et al. 2024): supervise BOTH augmented views + symmetric stop-grad KL.
             x2 = spec_augment(x_norm, feat_lens, augment, gen)
             enc2, _ = self.encoder(x2, feat_lens, chunk)

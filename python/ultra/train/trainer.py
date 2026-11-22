@@ -60,6 +60,9 @@ class TrainConfig:
     dev_split: str = "dev-clean"
     dev_limit: int = 200
     chunk: int = 0  # 0 = model default
+    # Batches behind the initial CMVN statistics of a from-scratch run. 8 keeps new runs comparable
+    # with every earlier one (PR #32 raised the default to 32; set 32 here to opt in).
+    cmvn_batches: int = 8
     # Per-step attention chunk drawn from this comma list (e.g. "4,8,16" = 160/320/640 ms), the same
     # on every rank; "" = off (bit-exact). After runtime-lane's chunk_modes (PR #30), with its own
     # RNG stream so SpecAugment masks stay those of the fixed-chunk run (paired replay gates).
@@ -142,6 +145,10 @@ class TrainConfig:
     zloss: float = 0.0
     # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
     cr_ctc_weight: float = 0.0
+    # H41 full-form CR-CTC (needs cr_ctc_weight > 0): two SpecAugment views per step, CTC and
+    # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
+    # so memory stays at one view's graph and a step costs about 2.3x. False = unchanged path.
+    cr_ctc_full: bool = False
     # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
     delay_penalty: float = 0.0
     # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
@@ -237,7 +244,8 @@ class Trainer:
                c.prune_range, c.budget_s, c.max_batch, self.model_cfg.ctc_weight]
         # options added later are appended only when set, so a checkpoint written before they
         # existed still matches and a resumed run keeps its divergence baselines
-        sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight)) if v]
+        sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
+                                    ("cr_ctc_full", c.cr_ctc_full)) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
@@ -291,8 +299,9 @@ class Trainer:
                     if p.get("ema") is not None else None)
         return True
 
-    def init_cmvn(self, n_batches: int = 32) -> None:
-        """Compute initial CMVN over up to `n_batches` batches (32 = low-variance fresh-run stats)."""
+    def init_cmvn(self, n_batches: int = 8) -> None:
+        """Initial CMVN statistics of a from-scratch run, over up to `n_batches` batches
+        (TrainConfig.cmvn_batches; 8 is what every run before 2026-11-22 used)."""
         feats = []
         for i, (_, b) in enumerate(self.source.iterate(Position())):
             feats.extend(b.feats[j, :b.feat_lens[j]] for j in range(len(b.uids)))
@@ -323,6 +332,8 @@ class Trainer:
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
+        if self.cfg.cr_ctc_full and self.cfg.cr_ctc_weight > 0:
+            return self._two_view_step(batch, b, gen)
         if self.world > 1 and self.cfg.ddp_native and self._ddp_loss is None:
             from torch.nn.parallel import DistributedDataParallel
 
@@ -401,6 +412,72 @@ class Trainer:
                 **({"cr_ctc": float(out["cr_ctc"].detach())} if "cr_ctc" in out else {}),
                 **({"inter_ctc": float(out["inter_ctc"].detach())} if "inter_ctc" in out else {}),
                 **({"balancer": float(out["balancer"].detach())} if "balancer" in out else {})}
+
+    def _two_view_step(self, batch: Batch, b: Batch, gen: torch.Generator) -> dict:
+        """One optimiser step of full-form CR-CTC (H41): two SpecAugment views of the batch, CTC and
+        transducer loss on both, and the symmetric consistency KL between their CTC posteriors.
+        The KL's targets are detached, so the loss is one term per view: the views run one after the
+        other and their gradients accumulate, which keeps memory at one view's graph (a 650 s batch
+        with both graphs alive does not fit 24 GB). View A's masks are those of the single-view
+        step. View B's dropout draws are replayed, so its target pass and its training pass see
+        the same network."""
+        from train.asr import spec_augment
+
+        c, m = self.cfg, self.model
+        if self.world > 1 or c.kd_weight > 0 or c.zloss:
+            raise ValueError("cr_ctc_full runs single-process, without KD or z-loss")
+        aug = self._step_augment()
+        with torch.no_grad():
+            x_norm = m.cmvn(b.feats)
+            xa = spec_augment(x_norm, b.feat_lens, aug, gen) if aug is not None else x_norm
+            xb = spec_augment(x_norm, b.feat_lens, aug, gen) if aug is not None else x_norm
+        args = (b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens)
+        kw = {"chunk": self._step_chunk(), "pruned_scale": self._pruned_scale(),
+              "simple_detach": self.step < c.prune_hold, "cr_ctc_weight": c.cr_ctc_weight,
+              **({"delay_penalty": c.delay_penalty} if c.delay_penalty else {})}
+        cuda = self.device.type == "cuda"
+        ac = {"device_type": self.device.type, "dtype": torch.bfloat16, "enabled": cuda}
+
+        def rng(state=None):
+            if state is None:
+                return torch.cuda.get_rng_state(self.device) if cuda else torch.get_rng_state()
+            return torch.cuda.set_rng_state(state, self.device) if cuda else torch.set_rng_state(state)
+
+        s0 = rng()
+        with torch.no_grad(), torch.autocast(**ac):
+            lp_b = m.losses(*args, view=xb, **kw)["ctc_lp"]  # view B's posteriors: view A's target
+        self.opt.zero_grad(set_to_none=True)
+        with torch.autocast(**ac):
+            out_a = m.losses(*args, view=xa, cr_target=lp_b, stats=self.stats, **kw)
+        (0.5 * out_a["loss"]).backward()
+        s2 = rng()
+        rng(s0)  # replay view B's dropout draws
+        with torch.autocast(**ac):
+            out_b = m.losses(*args, view=xb, cr_target=out_a["ctc_lp"], **kw)
+        (0.5 * out_b["loss"]).backward()
+        rng(s2)  # continue the stream after everything drawn in this step
+
+        def mean(k):
+            return 0.5 * (out_a[k].detach() + out_b[k].detach())
+
+        loss = mean("loss")
+        out = {"rnnt": mean("rnnt"), "ctc": mean("ctc"), "cr_ctc": mean("cr_ctc"), "nll": out_a["nll"],
+               "ctc_masked": out_a["ctc_masked"],
+               **({"rnnt_simple": mean("rnnt_simple")} if "rnnt_simple" in out_a else {})}
+        if not math.isfinite(float(loss)):
+            self._pause(batch, out, float("nan"), "loss")
+        gnorm = self.clipper(self.model)
+        if not math.isfinite(gnorm):
+            self._pause(batch, out, gnorm, "gradient norm")
+        self.opt.step()
+        self._qkv_constraint()
+        self._ema_update()
+        self.sched.step()
+        self.step += 1
+        return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
+                "grad_norm": gnorm, "ctc_masked": out["ctc_masked"], "lr": self.sched.get_last_lr()[0],
+                "audio_s": batch.audio_seconds, "utts": len(batch.uids), "cr_ctc": float(out["cr_ctc"]),
+                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {})}
 
     def _ddp_interval_stats(self, acc: dict) -> dict:
         """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
@@ -951,7 +1028,7 @@ def main(argv=None) -> int:
                 "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     else:
-        tr.init_cmvn()
+        tr.init_cmvn(cfg.cmvn_batches)
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     if world > 1:

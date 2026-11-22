@@ -46,3 +46,24 @@ Written before either new arm started. At this time no arm had finished and no f
 - **Adoption rule, unchanged in form:** a change is adopted only if it beats control (seed 1234, the run with identical batches) by more than twice that spread.
 - Everything else in the protocol is unchanged.
 
+## Amendment 2 (2026-11-22, posted in AGENT_CHAT at 20:46Z): arm 7 (CR-CTC, full form) and arm 8 (minimum-WER fine-tune)
+Written and posted in the chat before either arm started; committed here afterwards because a gate was running in the worktree. At this time control and A/A had finished (their weights were with eval-lane, no full-DEV score posted), and the clipping, A/A-2, Muon and chunk arms were running.
+
+### Arm 7: CR-CTC, full form (xbabe1, after the clipping arm)
+- **Change from control:** `cr_ctc_weight=0.2 cr_ctc_full=true`. Same fork point, schedule, batch and seed as control.
+- **What it does:** two SpecAugment views of every batch. Each view gets the CTC loss and the transducer loss, and a consistency term pulls the two views' CTC posteriors together (KL in both directions, targets detached). View A's masks are control's masks; SpecAugment settings are unchanged.
+- **How it runs:** the two views run one after the other and their gradients accumulate, because both graphs at a 650 s batch do not fit 24 GB. A unit test checks that this equals the one-graph gradient.
+- **Cost:** about 2.3× control's compute per step (three forward passes, two backward passes).
+- **Two readings, both reported:**
+  - **Per step:** the arm's step-8,000 weights against control's step-8,000 weights. This is the pre-registered decision metric, with the same rule as every arm.
+  - **Per GPU-hour:** the arm's step-4,000 snapshot (about 1.15× control's whole GPU time) against control's final weights. The arm is mid-cosine there, so a loss on this reading is confounded by the unfinished schedule; a win would be strong evidence.
+- **Earlier evidence:** the H26 runs used a form with only one supervised view and were level with their control within noise (see `../H26_kd_audit_smbr_and_cr_ctc/README.md`).
+
+### Arm 8: minimum-WER fine-tune (xbabe2, after A/A-2) and its own control (xbabe6, after Muon)
+- **Code:** runtime-lane's `train/mwer.py` from PR #35 (head c3c8846), unmodified. It is a separate short training loop, not the trainer: AdamW at a constant LR, exact transducer loss, no CTC term, no SpecAugment, no speed perturbation, no EMA.
+- **Fork point:** H22ctl's FINAL raw weights (step 79,800, sha256 prefix `2626b96c22dfcca5`), not step 60,000.
+- **Settings:** 2,000 steps, lr 2e-5, budget 120 s / max batch 16, 960 h, seed 1234, beam 4, `tau` 1.0. Loss `(1 - lam) × transducer + lam × expected word errors over the model's own beam-4 hypotheses`.
+- **Arms:** `lam=0.5` (minimum-WER) and `lam=0` (its control: the same loop, data order and optimiser without the term).
+- **Decision:** the minimum-WER arm against its own control on full DEV with the paired bootstrap. It is adopted if it beats that control by more than twice the spread of the three control-like H41 runs. That spread comes from a different protocol, so it is a yardstick here, not this arm's measured run-to-run spread.
+- **Step-time contingency, fixed now:** if the measured step time puts 2,000 steps beyond 3 hours, both the arm and its control are cut to the same smaller step count that fits 3 hours, decided before any eval of either.
+- **Launcher:** `python/ultra/train/ops/h41_mwer.sh`.

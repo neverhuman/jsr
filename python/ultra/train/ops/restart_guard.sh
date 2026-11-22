@@ -6,7 +6,7 @@
 set -uo pipefail
 R=$1 GT=$2 CT=${3:-0.85} GI=${4:-0}
 PG=$(cat "$R/PGID") P=$(cat "$R/PID")
-ps -p "$P" -o args= | grep -q train.trainer || { echo "no trainer at $P"; exit 1; }
+ps -p "$P" -o args= | grep -Eq "train\.(trainer|mwer)" || { echo "no trainer at $P"; exit 1; }
 guards() {  # python processes running this run's guard; never a shell whose command line quotes it
   local p
   for p in $(pgrep -x 'python[0-9.]*'); do
