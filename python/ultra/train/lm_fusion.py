@@ -112,12 +112,14 @@ class NgramFusion:
         self.n = max(lm.order, self.lodr.order if self.lodr else 1) - 1
         self.max_rows = max_rows
         self.rows: dict = {}  # context -> weighted row as a float32 NumPy array
+        self.contexts = 0  # distinct contexts scored since `rows` was last cleared (engine cost)
 
     def row(self, seq):
         """(vocab,) float32 NumPy array: the additive scores of every token after `seq`."""
         key = context(seq, self.n)
         got = self.rows.get(key)
         if got is None:
+            self.contexts += 1
             got = self.lm.row(narrow(key, self.lm.order - 1)).numpy() * self.lm_weight
             if self.lodr is not None:
                 got -= self.lodr.row(narrow(key, self.lodr.order - 1)).numpy() * self.lodr_weight

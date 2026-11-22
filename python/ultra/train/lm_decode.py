@@ -259,9 +259,13 @@ def beam(a) -> None:
                        "score": nb[0][0][1], "sec": round(time.perf_counter() - t0, 4)}
                 if cfg.get("nbest"):
                     row["nbest"] = [[t, round(sc, 4), tok.decode(t)] for t, sc in nb[0]]
-                fh.write(json.dumps(row) + "\n")
                 if fusion is not None:
+                    # distinct LM contexts this utterance needed: each is one row of vocab-1
+                    # n-gram lookups in an engine without a cross-utterance cache
+                    row["lm_contexts"] = fusion.contexts
                     fusion.rows.clear()  # weighted rows are per utterance; raw LM rows stay cached
+                    fusion.contexts = 0
+                fh.write(json.dumps(row) + "\n")
             if n % (50 * nshard) == shard:
                 for *_, fh in todo:
                     fh.flush()  # progress is visible while a shard runs

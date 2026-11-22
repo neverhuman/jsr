@@ -95,3 +95,23 @@ All numbers are **exploratory**. Scorer `ultra.wer` (54,402 / 50,948 reference w
 - **Chosen weights:** fold A chose w = 0.30, b = 1.0 (scored on fold B); fold B chose w = 0.35, b = 1.5 (scored on fold A). Tuned on all utterances: w = 0.35, b = 1.5.
 - **Verdict by the pre-registered rule:** pooled held-out WER is lower and the paired interval excludes zero (utterance and speaker level): **the word 4-gram rescoring row is a gain**, 4.3% relative, inside the 4–8% expected. The oracle is 25.5% below the list's 1-best (expected 25–35%); rescoring recovers about one sixth of that.
 - Error counts (S / D / I): baseline 7,466 / 862 / 894; rescored 7,112 / 852 / 865. The gain is almost entirely fewer substitutions.
+
+### Phase 1, continued: list size, smaller word LMs, and the no-LM control (2026-11-22, 21:19–21:27Z)
+Same protocol (held-out speaker folds, beam-4 baseline 4.803 / 12.972 / 8.754). Size = KenLM trie as queried. "w/b" = LM weight / word bonus chosen on fold A (scored on B), then on fold B (scored on A).
+
+| rescoring arm | LM MB | mean list | dev-clean | dev-other | pooled | Δ pooled [95%, utterances] | oracle pooled | w/b chosen |
+|---|---:|---:|---:|---:|---:|---|---:|---|
+| word 3-gram pruned 3e-7, beam-8 list | 21.6 | 7.26 | 4.884 | 12.948 | 8.784 | +0.030 [-0.029, +0.092] | 6.514 | 0.15/1.0, 0.1/-0.5 |
+| word 3-gram pruned 1e-7, beam-8 list | 45.3 | 7.26 | 4.816 | 12.803 | 8.679 | -0.075 [-0.140, -0.008] | 6.514 | 0.2/1.0, 0.15/-0.5 |
+| word 4-gram (official), beam-8 list | 1,556 | 7.26 | 4.652 | 12.362 | 8.381 | -0.373 [-0.452, -0.291] | 6.514 | 0.3/1.0, 0.35/1.5 |
+| word 4-gram, beam-16 list (post hoc) | 1,556 | 14.48 | 4.586 | 12.240 | 8.288 | -0.466 [-0.549, -0.382] | 5.766 | 0.25/0.5, 0.25/0.5 |
+| word 4-gram, beam-32 list (post hoc) | 1,556 | 28.9 | 4.610 | 12.136 | 8.250 | -0.504 [-0.596, -0.410] | 5.158 | 0.25/0.5, 0.3/1.0 |
+
+- **Lists:** beam-16 and beam-32 lists were decoded with `FastBeam` (identical to `train.beam` without an LM; the beam-8 lists of both matched on 5,567 / 5,567). Doubling the list gains 0.09 pp, then 0.04 pp, while the oracle keeps falling (6.51 → 5.77 → 5.16): the 4-gram cannot tell most of the better candidates apart.
+- **Small word LMs** buy almost nothing in rescoring: the 45 MB pruned 3-gram gives −0.075 pp (interval just excludes zero), the 22 MB one nothing.
+
+| control | dev-clean | dev-other | pooled | Δ pooled [95%] | chosen |
+|---|---:|---:|---:|---|---|
+| beam 4, no LM, blank penalty chosen by the same folds (control) | 4.796 | 12.948 | 8.738 | -0.015 [-0.057, +0.027] | penalty 0.25 on both folds |
+
+- The blank penalty alone does not lower WER, so a fusion gain is not a penalty effect.

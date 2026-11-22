@@ -67,6 +67,7 @@ def test_fusion_combines_lm_and_lodr_rows_and_caches_by_context():
     n = len(lm.calls)
     f(seqs)
     assert len(lm.calls) == n  # second pass is served from the cache
+    assert f.contexts == 3  # (), (3,) and the shared (3, 4) context
     plain = lm_fusion.NgramFusion(lm, 0.5)
     assert plain.lodr is None and plain.n == 2
     with pytest.raises(ValueError):
