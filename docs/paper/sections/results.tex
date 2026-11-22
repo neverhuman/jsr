@@ -39,10 +39,17 @@ $^{b}$Unknown training-data overlap.}
 System & Prec. & clean & pooled & ratio & 95\% CI & \cpus & streams/CCX & ratio \\
 \midrule
 Zipformer (sherpa-onnx) & int8 & \WerRehearsalRzero & \WerRzeroPanel & 1 & -- & \FrontierRzero & \DenRzeroCCX & 1 \\
-\ultra dense (step 45k) & INT8 & \WerRehearsalDense & \WerLadderDensePanel & \AbabRatioDense & \AbabRatioDenseLo--\AbabRatioDenseHi & \FrontierDense & \DenDenseCCX & \textbf{\DenRatioDense} \\
+\ultra dense (step 45k) & INT8 & \WerRehearsalDenseFortyFive & \WerLadderDensePanel & \AbabRatioDense & \AbabRatioDenseLo--\AbabRatioDenseHi & \FrontierDense & \DenDenseFortyFiveCCX$^{a}$ & \DenRatioDenseFortyFive \\
+\ultra dense (avg.\ of 3)$^{b}$ & INT8 & \WerRehearsalDense & \WerDtwoAvgOldGreedyPanelPooled & -- & -- & -- & \DenDenseCCX & \textbf{\DenRatioDense} \\
 \ultra multirate (step 50k) & INT8 & \WerRehearsalMR & \WerLadderMRPanel & \AbabRatioMR & \AbabRatioMRLo--\AbabRatioMRHi & \FrontierMR & \textbf{\DenMRCCX} & \textbf{\DenRatioMR} \\
 \bottomrule
 \end{tabular}
+
+\vspace{2pt}
+\parbox{\textwidth}{\footnotesize $^{a}$Ladder run D. $^{b}$Dense finalist (average of steps 45/50/55k):
+main ladder run E, WER from a Rust-rescored FP32 decode, not in the paired blocks. Across
+\DenReproRuns{} runs dense ranged \DenDenseRangeLo--\DenDenseRangeHi{} streams/CCX; Zipformer and
+multirate were identical.}
 \end{table*}
 
 
@@ -94,8 +101,8 @@ not measure serving under load, which the warm harness below does.
 \subsection{Warm cost and stream density}
 
 \emph{Scope: warm, in-process, single harness, exploratory.} \Cref{tab:density,fig:density}
-report the single-harness rehearsal: Zipformer, the dense model at step 45k and the multirate
-model at step 50k on the same host, grid, lateness rule, workers and placement, each with the WER
+report the single-harness rehearsal: Zipformer, the dense model (step 45k and the averaged
+finalist) and the multirate model at step 50k on the same host, grid, lateness rule, workers and placement, each with the WER
 of the checkpoint that was timed. These are not the checkpoints of \cref{tab:acc}; later
 checkpoints are more accurate at the same cost per frame, but we do not pair their WER with these
 timings.
@@ -113,11 +120,11 @@ rungs, one repeat, shared host).}
 \end{figure}
 
 \para{Density.} On one CCX with four workers, Zipformer passes \DenRzeroCCX{} streams
-(p99 \DenPninetyNineRzero\,ms) and fails the next rung; the \ultra dense model passes
-\DenDenseCCX{} (p99 \DenPninetyNineDense\,ms) and the multirate model \DenMRCCX{} (p99
+(p99 \DenPninetyNineRzero\,ms) and fails the next rung; the \ultra dense finalist passes
+\DenDenseCCX{} (\DenDenseRangeLo--\DenDenseRangeHi{} across \DenReproRuns{} runs; p99 \DenPninetyNineDense\,ms) and the multirate model \DenMRCCX{} (p99
 \DenPninetyNineMR\,ms): \DenRatioDense{}$\times$ and \DenRatioMR{}$\times$ Zipformer's density, or
 \DenMRCore{} live streams per physical core for the multirate model. The multirate encoder
-alone contributes \DenRatioMRvsDense{}$\times$ over dense at equal width and weight bytes.
+adds \DenRatioMRvsDense{}$\times$ over dense at equal width.
 
 \para{Single-stream cost.} In the eight counterbalanced blocks, the dense engine used
 \AbabRatioDense{}$\times$ Zipformer's CPU time (95\% CI \AbabRatioDenseLo--\AbabRatioDenseHi,

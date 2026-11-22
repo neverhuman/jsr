@@ -9,11 +9,9 @@ from a 100\,h checkpoint~\cite{ma2024bitnet}, with activations fake-quantised ex
 engine quantises them. The ternary model costs \TernaryWerCost\pp WER and stores its encoder in
 \TernaryMiB\,MiB, which fits a Zen~2 CCX's 16\,MiB L3. The engine's ternary lookup kernel wins at a
 single stream, where weight traffic dominates. At batch it loses: \TernaryDenCCX{} streams per CCX
-against \IntEightMRDenCCX{} for INT8 multirate on x86, and \TernaryDenMac{} against
-\IntEightDenMac{} on six Apple workers. Once sixteen or more streams share each weight traversal
+against \IntEightMRDenCCX{} for INT8 multirate on x86. Once sixteen or more streams share each weight traversal
 the engine is compute-bound, weight bytes stop mattering, and the int8 dot-product units do more
-useful work per cycle than table lookups. A 960\,h ternary fine-tune, started before the qkv cap
-existed, diverged with a gradient-norm spike and was not relaunched.
+useful work per cycle than table lookups.
 
 \para{Removing instructions does not remove time.} On AVX2 the signed int8 GEMM spends three of
 ten instructions per 64 multiply-accumulates on taking absolute values and transferring signs. An
