@@ -149,19 +149,28 @@ pub(super) fn block(
         let mut r0 = 0;
         for j in views.iter_mut() {
             let hist = &mut j.conv[li * km1 * d..(li + 1) * km1 * d];
-            let win = grow(&mut ws.win, (km1 + j.n) * d);
-            win[..km1 * d].copy_from_slice(hist);
-            win[km1 * d..].copy_from_slice(&g[r0 * d..(r0 + j.n) * d]);
+            let cur = &g[r0 * d..(r0 + j.n) * d];
+            // Zero-copy direct tap indexing across `hist` and `cur` (eliminates ws.win copy, 0-ULP exact).
             for i in 0..j.n {
                 let o = &mut y[(r0 + i) * d..(r0 + i + 1) * d];
                 o.copy_from_slice(&b.dw_b);
                 for t in 0..a.kernel {
-                    let src = &win[(i + t) * d..(i + t + 1) * d];
+                    let pos = i + t;
+                    let src = if pos < km1 {
+                        &hist[pos * d..(pos + 1) * d]
+                    } else {
+                        &cur[(pos - km1) * d..(pos - km1 + 1) * d]
+                    };
                     let w = &b.dw_w[t * d..(t + 1) * d];
                     kernels::mul_add_exact(isa, o, src, w);
                 }
             }
-            hist.copy_from_slice(&win[j.n * d..]);
+            if j.n >= km1 {
+                hist.copy_from_slice(&cur[(j.n - km1) * d..j.n * d]);
+            } else if j.n > 0 {
+                hist.copy_within(j.n * d..km1 * d, 0);
+                hist[(km1 - j.n) * d..km1 * d].copy_from_slice(cur);
+            }
             r0 += j.n;
         }
         ws.q.prof.stop(Phase::Conv, t_conv);

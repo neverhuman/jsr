@@ -20,6 +20,33 @@ use crate::kernels::{Isa, PackedF32, NR};
 mod ternary;
 pub use ternary::{linear_t, PackedT};
 
+#[cfg(target_os = "linux")]
+fn advise_hugepage<T>(buf: &[T]) {
+    let bytes = std::mem::size_of_val(buf);
+    if bytes < 256 * 1024 {
+        return;
+    }
+    const MADV_HUGEPAGE: core::ffi::c_int = 14;
+    const PAGE: usize = 4096;
+    extern "C" {
+        fn madvise(
+            addr: *mut core::ffi::c_void,
+            len: usize,
+            advice: core::ffi::c_int,
+        ) -> core::ffi::c_int;
+    }
+    let start = buf.as_ptr() as usize;
+    let aligned = start & !(PAGE - 1);
+    let len = bytes + (start - aligned);
+    // SAFETY: `madvise(MADV_HUGEPAGE)` is a read-only kernel page-table hint on live memory.
+    unsafe {
+        let _ = madvise(aligned as *mut core::ffi::c_void, len, MADV_HUGEPAGE);
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn advise_hugepage<T>(_buf: &[T]) {}
+
 /// Largest K whose worst-case int32 sum cannot overflow, even for public callers passing
 /// activation code -128 to `gemm_i8` (|a| <= 128, |w| <= 127).
 pub const MAX_K: usize = (i32::MAX as usize) / (128 * 127) / KG * KG;
@@ -212,6 +239,8 @@ impl PackedI8 {
             }
             self.mm = mm;
         }
+        advise_hugepage(&self.data);
+        advise_hugepage(&self.mm);
         self
     }
 
