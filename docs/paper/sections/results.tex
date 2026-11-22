@@ -9,8 +9,8 @@ checkpoint that was timed}, never a later one.
 \caption{\textbf{Throughput at a glance.} Warm, in-process, single harness, one Zen~2 CCX (four
 single-threaded workers, observer on another CCX, 320\,ms grid, worst-worker p99 lateness
 $\le$ 800\,ms). \emph{Exploratory: 20\,s rungs, one repeat, no confirmation; each stream cycles the
-first \LadderUtts{} dev-clean utterances; shared host.} WER: the 400 dev-clean utterances of the DEV
-panel, same harness and executable, INT8.}
+first \LadderUtts{} dev-clean utterances; shared host.} WER: pooled over the 730-utterance DEV panel
+(400 dev-clean + 330 dev-other), same harness and executable, INT8.}
 \label{tab:density}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -20,9 +20,9 @@ panel, same harness and executable, INT8.}
 \cmidrule(lr){2-6}\cmidrule(lr){7-8}\cmidrule(lr){9-9}
 System & /core (/CCX) & ratio [bracket] & p99 & fail (p99) & demand & \cpus & RTFx & median [95\% CI] & WER \\
 \midrule
-Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRehearsalRzero \\
-dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \DemandDense\% & \CostLadderDense & \RtfxLadderDense & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDense \\
-multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMR \\
+Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRzeroPanel \\
+dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \DemandDense\% & \CostLadderDense & \RtfxLadderDense & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDensePooled \\
+multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMRPooled \\
 \midrule
 \multicolumn{10}{@{}l}{\textit{Engine facts measured elsewhere (other runs or tools; not comparable with the rows above)}} \\
 \multicolumn{10}{@{}l}{FP32 engine vs.\ ONNX Runtime, same executable, weights and transcripts: \SpeedupEngineFPVsORT{}$\times$ less CPU.} \\
