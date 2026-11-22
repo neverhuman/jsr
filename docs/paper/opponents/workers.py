@@ -5,7 +5,8 @@
 CPUS is a comma list with one CPU per worker (Linux: each worker is pinned to its own CPU
 before exec) or `none:N` for N unpinned workers (macOS has no affinity call). SHARDS is a
 `shards-N` directory from workload.py. In COMMAND, `{wav}` becomes the worker's shard
-directory, `{out}` its own output path (`RUN/worker-K.out`) and `{trace}` its trace path.
+directory, `{out}` its own output path (`RUN/worker-K.out`), `{trace}` its trace path and
+`{engine}` the shard's npz view for ultra-engine-eval.
 Each worker's stderr goes to `RUN/worker-K.stderr`. The launcher only waits; the caller
 meters the whole tree, so N model loads are inside the cost, as they are for N services.
 With `--time-l` every worker runs under `/usr/bin/time -l` so that a host without procfs
@@ -36,7 +37,8 @@ def main():
     children = []
     for index, (cpu, part) in enumerate(zip(slots, parts)):
         fill = {"wav": str(part), "out": str(run / f"worker-{index}.out"),
-                "trace": str(run / f"worker-{index}.trace.jsonl")}
+                "trace": str(run / f"worker-{index}.trace.jsonl"),
+                "engine": str(shards.parent / f"engine-{shards.name}" / part.name)}
         argv = [token.format(**fill) for token in command]
         if time_l:
             argv = ["/usr/bin/time", "-l", *argv]

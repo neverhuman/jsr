@@ -2,6 +2,8 @@
 # Build the cold-benchmark Rust binaries in this lane with an isolated toolchain.
 # usage: setup-rust.sh OPPONENTS_ROOT TARGET_DIR [CPU_LIST]
 # Run from the lane checkout. Nothing is written outside OPPONENTS_ROOT and TARGET_DIR.
+# SETUP_BINS selects the binaries (default: ultra-cold-wav ultra-measure ultra-score); a host
+# that reuses the pinned meter from docs/paper/evidence.json builds ultra-cold-wav only.
 set -euo pipefail
 O=$1; target=$2; cpus=${3:-}
 tool="$O/bench-cross/toolchain"
@@ -29,19 +31,22 @@ if [[ ! -x "$CARGO_HOME/bin/cargo" ]]; then
     "$dl/rustup-init" -y --no-modify-path --profile minimal --default-toolchain "$channel" >/dev/null
 fi
 jobs=${SETUP_JOBS:-2}
-"${pin[@]}" "$CARGO_HOME/bin/cargo" build --locked --release -j "$jobs" --target-dir "$target" \
-    -p ultra-bridge --bin ultra-cold-wav
-"${pin[@]}" "$CARGO_HOME/bin/cargo" build --locked --release -j "$jobs" --target-dir "$target" \
-    -p ultra-eval --bin ultra-measure --bin ultra-score
+bins=${SETUP_BINS:-ultra-cold-wav ultra-measure ultra-score}
 mkdir -p "$O/bench-cross/bin"
-for bin in ultra-cold-wav ultra-measure ultra-score; do
+for bin in $bins; do
+    package=ultra-eval
+    if [[ $bin == ultra-cold-wav ]]; then
+        package=ultra-bridge
+    fi
+    ${pin[@]+"${pin[@]}"} "$CARGO_HOME/bin/cargo" build --locked --release -j "$jobs" --target-dir "$target" \
+        -p "$package" --bin "$bin"
     cp "$target/release/$bin" "$O/bench-cross/bin/$bin"
 done
 {
     printf 'source_commit %s\n' "$(git rev-parse HEAD)"
     printf 'dirty %s\n' "$(git status --porcelain --untracked-files=no | wc -l | tr -d ' ')"
     "$CARGO_HOME/bin/rustc" --version
-    for bin in ultra-cold-wav ultra-measure ultra-score; do
+    for bin in $bins; do
         printf '%s  %s\n' "$(sum "$O/bench-cross/bin/$bin")" "$bin"
     done
 } > "$O/bench-cross/bin/rust-build.provenance"

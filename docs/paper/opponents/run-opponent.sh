@@ -47,7 +47,9 @@ sum() {
     if [[ $os == Darwin ]]; then shasum -a 256 "$@"; else sha256sum "$@"; fi
 }
 
-# Sets cmd (tokens {wav} {out} {trace} {threads}), files, libs, envs, kind, single, class.
+# Sets cmd, files, libs, envs, kind, single, class. Tokens in cmd: {wav} staged WAV directory,
+# {out} output path, {trace} trace path, {threads} thread count, {engine} npz view of the same
+# audio for ultra-engine-eval (engine_cache.py).
 configure() {
     local gguf nemo venv
     libs=() envs=() kind=jsonl single=0 class=whole_utterance
@@ -93,6 +95,24 @@ configure() {
             files=("$O/zipformer-int8/bundle/manifest.json")
             libs=("$O"/zipformer-int8/sherpa/lib/*)
             envs=(ULTRA_SHERPA_LIB="$(printf '%s\n' "$O"/zipformer-int8/sherpa/lib/libsherpa-onnx-c-api.* | head -1)")
+            ;;
+        jsr-d2e-int8-enginetool)
+            # Same engine and weights through the engine's own tool: the only form of our engine
+            # that builds on macOS; also run on Linux to measure the harness difference.
+            class=streaming single=1 kind=engine
+            cmd=("$bin/ultra-engine-eval" --weights "$O/jsr-d2e-16457-int8/model" --panel "{engine}/panel.json"
+                --cache-dir "{engine}" --precision int8 --streams 1 --packet-ms 20 --qualifying --out "{out}")
+            files=("$O/jsr-d2e-16457-int8/model/arch.json" "$O/jsr-d2e-16457-int8/model/weights.int8.safetensors")
+            ;;
+        zipformer-int8-sherpapy)
+            # Same sherpa-onnx library and bundle through its Python binding (see sherpa_zipformer.py).
+            class=streaming single=1
+            venv="$O/zipformer-int8/sherpa-venv"
+            cmd=("$venv/bin/python" "$here/sherpa_zipformer.py" "$O/zipformer-int8/bundle" "{wav}" "{out}"
+                --trace "{trace}")
+            files=("$O/zipformer-int8/bundle/manifest.json" "$here/sherpa_zipformer.py"
+                "$O/zipformer-int8/sherpa-venv.freeze.txt")
+            libs=("$venv"/lib/python3.*/site-packages/sherpa_onnx/lib/*)
             ;;
         moonshine-tiny)
             class=streaming single=1 kind=dir
@@ -152,25 +172,28 @@ trace=""
 if [[ $class == streaming && ${OPP_TRACE:-0} == 1 && " ${cmd[*]} " == *" {trace} "* ]]; then
     trace=1
 fi
-out="$run/predictions.jsonl"
-if [[ $kind == dir ]]; then
-    out="$run/outputs"
-fi
+case "$kind" in
+    dir) out="$run/outputs" ;;
+    engine) out="$run/engine-eval" ;;
+    *) out="$run/predictions.jsonl" ;;
+esac
 argv=()
 for token in "${cmd[@]}"; do
-    case "$token" in
-        "{threads}") argv+=("$threads") ;;
-        "{trace}")
-            if [[ -n $trace ]]; then
-                if [[ $parallel == workers ]]; then argv+=("{trace}"); else argv+=("$run/trace.jsonl"); fi
-            elif [[ ${argv[${#argv[@]}-1]} == --trace ]]; then
-                unset "argv[${#argv[@]}-1]"
-            fi
-            ;;
-        "{wav}") if [[ $parallel == workers ]]; then argv+=("{wav}"); else argv+=("$work/wav"); fi ;;
-        "{out}") if [[ $parallel == workers ]]; then argv+=("{out}"); else argv+=("$out"); fi ;;
-        *) argv+=("$token") ;;
-    esac
+    if [[ $token == "{trace}" && -z $trace ]]; then
+        # No trace requested: drop the token, and a `--trace` flag in front of it.
+        if [[ ${argv[${#argv[@]}-1]} == --trace ]]; then
+            unset "argv[${#argv[@]}-1]"
+        fi
+        continue
+    fi
+    token=${token//\{threads\}/$threads}
+    if [[ $parallel != workers ]]; then
+        token=${token//\{wav\}/$work/wav}
+        token=${token//\{out\}/$out}
+        token=${token//\{trace\}/$run/trace.jsonl}
+        token=${token//\{engine\}/$work/engine}
+    fi
+    argv+=("$token")
 done
 if [[ $parallel == workers ]]; then
     if [[ $os == Linux ]]; then
@@ -197,10 +220,10 @@ if [[ $os == Linux ]]; then
 else
     meter="$here/bsd_time_measure.py"
     otool -L "${cmd[0]}" | awk 'NR > 1 && $1 ~ /^\// {print $1}' | sort -u \
-        | while read -r lib; do [[ -f $lib ]] && sum "$lib"; done > "$run/runtime-libraries.sha256"
+        | while read -r lib; do if [[ -f $lib ]]; then sum "$lib"; fi; done > "$run/runtime-libraries.sha256"
     { sysctl -n vm.loadavg; pmset -g therm | grep -i -E 'cpu_speed_limit|scheduler_limit' || true; } > "$run/host.before"
 fi
-sum "$meter" "${cmd[0]}" "${files[@]}" > "$run/config.sha256"
+sum "$meter" "${cmd[0]}" "${files[@]}" "$here/run-opponent.sh" > "$run/config.sha256"
 if (( ${#libs[@]} )); then
     sum "${libs[@]}" >> "$run/runtime-libraries.sha256"
 fi
@@ -233,7 +256,9 @@ if [[ $status != 0 ]]; then
     printf 'arm %s %s round %s failed with status %s\n' "$arm" "$budget" "$round" "$status" >&2
     exit "$status"
 fi
-if [[ $parallel == workers ]]; then
+if [[ $kind == engine ]]; then
+    "$python" "$here/engine_cache.py" --rows "$O/panel" "$run"
+elif [[ $parallel == workers ]]; then
     if [[ $kind == dir ]]; then
         mkdir "$run/outputs"
         for part in "$run"/worker-*.out; do
@@ -244,6 +269,8 @@ if [[ $parallel == workers ]]; then
         cat "$run"/worker-*.out > "$run/predictions.jsonl"
         rm "$run"/worker-*.out
     fi
+fi
+if [[ $parallel == workers ]]; then
     if [[ -n $trace ]]; then
         cat "$run"/worker-*.trace.jsonl > "$run/trace.jsonl"
         rm "$run"/worker-*.trace.jsonl

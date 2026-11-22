@@ -1,0 +1,13 @@
+--- a/crates/ultra-kernels/src/pqscan.rs
++++ b/crates/ultra-kernels/src/pqscan.rs
+@@ -285,10 +285,6 @@
+                 crate::pqscan_avx2::scan(self, tables, sparse, out);
+             }
+             #[cfg(target_arch = "aarch64")]
+-            Backend::Neon => {
+-                crate::pqscan_neon::scan(self, tables, sparse, out);
+-            }
+-            #[cfg(target_arch = "aarch64")]
+             Backend::Scalar => {
+                 // Scalar oracle explicitly requested; keep portable path for bit-exact testing.
+                 scan_scalar(self, tables, sparse, out);
