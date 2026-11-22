@@ -12,6 +12,7 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 from tools.fleet_dashboard.parse import RunState, global_summary, parse_line, parse_nvidia
+from tools.fleet_dashboard.remote_tail import tail_remote_node
 
 RUN_ROOT = Path(os.environ.get("FLEET_RUN_ROOT", "/mnt/xbabe3-external/jsr/runs/train"))
 STATIC = Path(__file__).parent / "static"
@@ -24,8 +25,9 @@ ACTIVE_DAYS = float(os.environ.get("FLEET_ACTIVE_DAYS", "1"))
 
 # Run name -> node (override with FLEET_HOST_MAP='{"RUN": "xbabeN"}').
 HOST_RULES = [
-    (r"^D2_", "xbabe3"), (r"^D3MR", "xbabe1"), (r"^H13a", "xbabe2"), (r"^D4M", "xbabe4"),
-    (r"^H13[bc]", "xbabe5"), (r"^H13d", "xbabe6"), (r"^L1", "xbabe8"), (r"^L2", "xbabe9"),
+    (r"^D2c", "xbabe5"), (r"^D2_", "xbabe3"), (r"^D3MR", "xbabe1"), (r"^H13a", "xbabe2"),
+    (r"^D4M", "xbabe4"), (r"^H13[bc]", "xbabe5"), (r"^H13d", "xbabe6"), (r"^H23", "xbabe6"),
+    (r"^L1w", "xbabe8"), (r"^L1", "xbabe8"), (r"^L2", "xbabe9"),
     (r"^L3", "xbabe7"), (r"^H22", "xbabe7"), (r"^R4T960", "xbabe2"), (r"^D2MR", "xbabe2"),
 ]
 HOST_OVERRIDE = json.loads(os.environ.get("FLEET_HOST_MAP", "{}"))
@@ -163,15 +165,46 @@ class Fleet:
         self.nodes[node] = info
         self.dirty = True
 
+    def _ingest_lines(self, name: str, host: str, total: int | None, lines: list[str]) -> None:
+        if name not in self.runs:
+            self.runs[name] = RunState(name=name, host=host, total_steps=int(total) if total else None)
+        rs = self.runs[name]
+        if host != "?":
+            rs.host = host
+        if total and not rs.total_steps:
+            rs.total_steps = int(total)
+        pend = self.pending.setdefault(name, {"train": [], "evals": []})
+        for raw in lines:
+            r = parse_line(raw)
+            if not r:
+                continue
+            bt, be = len(rs.train), len(rs.evals)
+            rs.add(r)
+            if len(rs.train) > bt:
+                pend["train"].append(rs.train[-1])
+            if len(rs.evals) > be:
+                pend["evals"].append(rs.evals[-1])
+        self.dirty = True
+
     async def node_loop(self, node: str) -> None:
         while True:
             await self.probe(node)
+            if node != LOCAL_NODE and self.nodes.get(node, {}).get("up"):
+                for item in await tail_remote_node(node, SSH_OPTS, self.offsets):
+                    key = f"{node}:{item['path']}"
+                    self.offsets[key] = int(item["off"])
+                    if item["lines"]:
+                        self._ingest_lines(item["run"], node, item.get("total"), item["lines"])
             await asyncio.sleep(NODE_PERIOD)
 
     # ---------- websocket ----------
     def summaries(self) -> list[dict]:
         now = time.time()
-        return sorted((r.summary(now) for r in self.runs.values()), key=lambda s: (s["status"] != "running", s["name"]))
+        rank = {"prod": 0, "scratch": 1, "ablation": 2}
+        return sorted(
+            (r.summary(now) for r in self.runs.values()),
+            key=lambda s: (s["status"] != "running", rank.get(s.get("cohort", "scratch"), 1), s["name"]),
+        )
 
     def snapshot(self) -> dict:
         sums = self.summaries()
@@ -235,10 +268,15 @@ async def stop_background(app: web.Application) -> None:
         t.cancel()
 
 
+async def api_snapshot(req: web.Request) -> web.Response:
+    return web.json_response(req.app["fleet"].snapshot())
+
+
 def make_app() -> web.Application:
     app = web.Application()
     app["fleet"] = Fleet()
     app.router.add_get("/", index)
+    app.router.add_get("/api/snapshot", api_snapshot)
     app.router.add_get("/ws", ws_handler)
     app.on_startup.append(start_background)
     app.on_cleanup.append(stop_background)
