@@ -21,7 +21,7 @@ PROBE = Path(__file__).with_name("training_dashboard_probe.py")
 DEFAULT_HOSTS = tuple(f"xbabe{i}" for i in range(10))
 SSH = ("ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
        "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2")
-FRAME_LIMIT = 1 << 20
+FRAME_LIMIT = 4 << 20
 
 
 def wire(message):
@@ -33,7 +33,7 @@ class Fleet:
         self.readings = {host: (None, None, "") for host in hosts}
         self.hosts = {}
         self.revisions = dict.fromkeys(hosts, 0)
-        self.history = deque(maxlen=240)
+        self.history = deque(maxlen=1440)
         self.waiters = set()
         self.clients = set()
         self.pulse()

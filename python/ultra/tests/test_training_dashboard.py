@@ -147,3 +147,85 @@ def test_websocket_snapshot_delta_reconnect_and_origin():
                 assert (await ws.receive(timeout=2)).data == 1008
 
     asyncio.run(check())
+
+
+def test_probe_reads_full_run_from_step_zero_and_attaches_train_to_eval(tmp_path):
+    import json
+    from tools.training_dashboard_probe import History
+
+    log = tmp_path / "train.jsonl"
+    lines = [json.dumps({"kind": "start", "step": 0, "time": 100.0})]
+    for step in range(1, 1501):
+        lines.append(json.dumps({
+            "kind": "train", "step": step, "time": 100.0 + step,
+            "loss": round(5.0 / (1.0 + step / 100.0), 4),
+            "rnnt": round(3.0 / (1.0 + step / 100.0), 4),
+            "ctc": round(2.0 / (1.0 + step / 100.0), 4),
+            "audio_s": 100.0, "wall_s": 1.0, "epoch": step // 500,
+        }))
+        if step in (100, 500, 1000, 1500):
+            lines.append(json.dumps({
+                "kind": "eval", "step": step, "time": 100.5 + step,
+                "split": "dev-clean", "decoder": "greedy",
+                "wer": 25.0 - step / 100.0, "ema_wer": 24.5 - step / 100.0,
+                "ref_words": 4000,
+            }))
+    log.write_text("\n".join(lines) + "\n")
+    history = History()
+    assert history.read_log(log)
+    global_rows = history.global_train_rows()
+    assert global_rows[0]["step"] == 1
+    assert global_rows[-1]["step"] == 1500
+    assert len(global_rows) <= 401
+    assert [row["step"] for row in global_rows] == sorted(row["step"] for row in global_rows)
+    assert len(history.train) == 160
+    eval_rows = sorted(history.evals.values(), key=lambda r: r["step"])
+    assert len(eval_rows) == 4
+    assert eval_rows[-1]["ema_wer"] == pytest.approx(9.5)
+    assert eval_rows[-1]["train_loss"] is not None
+
+
+def test_overfit_summary_detects_improving_vs_overfitting():
+    now = 2000.0
+    improving = {
+        "updated_at": now,
+        "runs": [{
+            "id": "imp", "name": "Improving", "active": True,
+            "train_global": [
+                {"step": 100, "time": now - 30, "loss": 2.0, "audio_s": 100, "wall_s": 1},
+                {"step": 200, "time": now - 20, "loss": 1.5, "audio_s": 100, "wall_s": 1},
+                {"step": 300, "time": now - 10, "loss": 1.1, "audio_s": 100, "wall_s": 1},
+            ],
+            "train": [{"step": 300, "time": now - 10, "loss": 1.1, "audio_s": 100, "wall_s": 1}],
+            "eval": [
+                {"step": 100, "split": "dev-clean", "decoder": "greedy", "wer": 12.0, "ref_words": 4000},
+                {"step": 200, "split": "dev-clean", "decoder": "greedy", "wer": 9.5, "ref_words": 4000},
+                {"step": 300, "split": "dev-clean", "decoder": "greedy", "wer": 7.8, "ref_words": 4000},
+            ],
+        }],
+    }
+    imp_run = probe_view(improving)["runs"][0]
+    assert imp_run["overfit_check"]["status"] == "improving"
+    assert imp_run["overfit_check"]["best_wer"] == 7.8
+
+    overfitting = {
+        "updated_at": now,
+        "runs": [{
+            "id": "ovf", "name": "Overfit", "active": True,
+            "train_global": [
+                {"step": 100, "time": now - 30, "loss": 1.0, "audio_s": 100, "wall_s": 1},
+                {"step": 200, "time": now - 20, "loss": 0.7, "audio_s": 100, "wall_s": 1},
+                {"step": 300, "time": now - 10, "loss": 0.4, "audio_s": 100, "wall_s": 1},
+            ],
+            "train": [{"step": 300, "time": now - 10, "loss": 0.4, "audio_s": 100, "wall_s": 1}],
+            "eval": [
+                {"step": 100, "split": "dev-clean", "decoder": "greedy", "wer": 6.0, "ref_words": 4000},
+                {"step": 200, "split": "dev-clean", "decoder": "greedy", "wer": 6.5, "ref_words": 4000},
+                {"step": 300, "split": "dev-clean", "decoder": "greedy", "wer": 7.1, "ref_words": 4000},
+            ],
+        }],
+    }
+    ovf_run = probe_view(overfitting)["runs"][0]
+    assert ovf_run["overfit_check"]["status"] == "overfitting"
+    assert ovf_run["overfit_check"]["delta_pp"] == pytest.approx(1.1)
+    assert ovf_run["overfit_check"]["train_loss_ratio"] == pytest.approx(0.4)

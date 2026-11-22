@@ -5,7 +5,8 @@ from math import isfinite
 from statistics import median
 
 TRAIN_FIELDS = ("step", "time", "loss", "rnnt", "ctc", "audio_s", "wall_s", "epoch", "lr", "grad_norm")
-EVAL_FIELDS = ("step", "time", "wer", "ref_words", "sub", "del", "ins")
+EVAL_FIELDS = ("step", "time", "wer", "ema_wer", "ref_words", "sub", "del", "ins",
+               "train_loss", "train_rnnt", "train_ctc")
 GPU_FIELDS = ("index", "util_pct", "memory_used_mib", "memory_total_mib", "power_w", "temperature_c")
 
 
@@ -39,9 +40,9 @@ def ddp_view(value):
     return {"group": group, "rank": rank, "world_size": world_size, "started_at": number(value.get("started_at"))}
 
 
-def run_view(run, index):
+def _normalize_train(rows, limit):
     train = []
-    for row in records(run.get("train"), 240):
+    for row in records(rows, limit):
         point = fields(row, TRAIN_FIELDS)
         if point["step"] is None:
             continue
@@ -57,25 +58,102 @@ def run_view(run, index):
         if number(point["audio_per_second"]) is None:
             point["audio_per_second"] = None
         train.append(point)
+    return train
+
+
+def _nearest_train_loss(train_rows, step):
+    best = None
+    for row in train_rows:
+        if row["step"] <= step and row["loss"] is not None:
+            best = row["loss"]
+        elif row["step"] > step:
+            break
+    return best
+
+
+def overfit_summary(train_global, evaluations, is_overfit_run):
+    if is_overfit_run or not evaluations:
+        return None
+    primary = None
+    for split in ("dev-clean", "dev-other"):
+        for decoder in ("greedy", "beam-4", "beam", "ctc"):
+            matches = [row for row in evaluations if row["split"] == split and row["decoder"] == decoder]
+            if len(matches) >= 1:
+                primary = (split, decoder, sorted(matches, key=lambda r: r["step"]))
+                break
+        if primary:
+            break
+    if primary is None:
+        return None
+    split, decoder, series = primary
+    best = min(series, key=lambda row: (row["wer"], row["step"]))
+    latest = series[-1]
+    delta_pp = round(latest["wer"] - best["wer"], 3)
+    best_train = best["train_loss"] if best["train_loss"] is not None else _nearest_train_loss(train_global, best["step"])
+    latest_train = latest["train_loss"] if latest["train_loss"] is not None else _nearest_train_loss(train_global, latest["step"])
+    train_ratio = round(latest_train / best_train, 4) if best_train and latest_train is not None else None
+    worse_streak = 0
+    for row in reversed(series):
+        if row["step"] > best["step"] and row["wer"] >= best["wer"] + 0.25:
+            worse_streak += 1
+        else:
+            break
+    if len(series) < 2:
+        status = "insufficient"
+    elif delta_pp >= 0.30 and worse_streak >= 2 and (train_ratio is None or train_ratio <= 0.95):
+        status = "overfitting"
+    elif delta_pp >= 0.25 and (train_ratio is None or train_ratio <= 0.98):
+        status = "watch"
+    elif len(series) >= 3 and max(r["wer"] for r in series[-3:]) - best["wer"] <= 0.15 and latest["step"] > best["step"]:
+        status = "plateau"
+    else:
+        status = "improving"
+    return {
+        "status": status,
+        "split": split,
+        "decoder": decoder,
+        "eval_count": len(series),
+        "best_step": best["step"],
+        "best_wer": best["wer"],
+        "latest_step": latest["step"],
+        "latest_wer": latest["wer"],
+        "latest_ema_wer": latest.get("ema_wer"),
+        "delta_pp": delta_pp,
+        "best_train_loss": best_train,
+        "latest_train_loss": latest_train,
+        "train_loss_ratio": train_ratio,
+        "worse_streak": worse_streak,
+    }
+
+
+def run_view(run, index):
+    train = _normalize_train(run.get("train"), 240)
+    raw_global = run.get("train_global")
+    train_global = _normalize_train(raw_global, 450) if isinstance(raw_global, list) and raw_global else train
     evaluations = []
-    for row in records(run.get("eval"), 100):
+    for row in records(run.get("eval"), 400):
         point = fields(row, EVAL_FIELDS)
         point["split"] = label(row.get("split"), "unknown")
         point["decoder"] = label(row.get("decoder"), "unknown")
         if point["step"] is not None and point["wer"] is not None:
+            if point["train_loss"] is None and train_global:
+                point["train_loss"] = _nearest_train_loss(train_global, point["step"])
             evaluations.append(point)
     ddp = ddp_view(run.get("ddp"))
     follower = ddp is not None and ddp["rank"] > 0
+    is_overfit = run.get("overfit") is True
     return {
         "id": label(run.get("id"), str(index)),
         "name": label(run.get("name"), "Training run"),
         "active": run.get("active") is True,
-        "overfit": run.get("overfit") is True,
+        "overfit": is_overfit,
         "eval_scope": label(run.get("eval_scope"), "unknown"),
         **fields(run, ("pid", "gpu_index", "total_steps", "dev_limit")),
         "ddp": ddp,
         "train": [] if follower else train,
+        "train_global": [] if follower else train_global,
         "eval": [] if follower else evaluations,
+        "overfit_check": None if follower else overfit_summary(train_global, evaluations, is_overfit),
     }
 
 

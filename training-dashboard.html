@@ -153,6 +153,22 @@
   .gpu-meter span { display: block; height: 100%; background: var(--accent); }
   .run-charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .run-charts .chart { height: 12.5rem; }
+  .overfit-card { grid-column: 1 / -1; }
+  .overfit-card .chart { height: 14.2rem; }
+  .overfit-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .55rem .9rem;
+    margin: .1rem 0 .55rem; padding: .5rem .7rem; border-radius: .55rem;
+    background: #111824; border: 1px solid var(--line); font-size: .83rem;
+  }
+  .overfit-badge {
+    display: inline-flex; align-items: center; gap: .35rem; font-weight: 650;
+    padding: .18rem .52rem; border-radius: .4rem; border: 1px solid var(--line);
+  }
+  .overfit-badge[data-status="improving"] { color: var(--accent); border-color: #36695b; background: #17332d; }
+  .overfit-badge[data-status="plateau"] { color: var(--violet); border-color: #4f4470; background: #221d33; }
+  .overfit-badge[data-status="watch"] { color: var(--amber); border-color: #6b532f; background: #302414; }
+  .overfit-badge[data-status="overfitting"] { color: var(--danger); border-color: #7c3c39; background: #371a1a; }
+  .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
   .block-summary { border-top: 1px solid var(--line); margin-top: .6rem; padding-top: .65rem; }
   .block-summary p { margin-top: .3rem; }
 
@@ -223,10 +239,12 @@
         <div class="card-header">
           <h3>Fleet history</h3>
           <div class="segmented" role="group" aria-label="Fleet history metric" id="fleet-tabs">
-            <button class="choice" type="button" aria-pressed="true" data-metric="audio_per_second">Audio/s</button>
-            <button class="choice" type="button" aria-pressed="false" data-metric="median_loss">Loss</button>
+            <button class="choice" type="button" aria-pressed="true" data-metric="global_loss">Global loss</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="global_wer">Global Val WER</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="audio_per_second">Audio/s</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="median_loss">Median loss</button>
             <button class="choice" type="button" aria-pressed="false" data-metric="active_runs">Runs</button>
-            <button class="choice" type="button" aria-pressed="false" data-metric="wer">WER</button>
+            <button class="choice" type="button" aria-pressed="false" data-metric="wer">WER (time)</button>
           </div>
         </div>
         <div class="chart" id="fleet-chart">
@@ -281,12 +299,38 @@
           </div>
         </article>
         <div class="run-charts" id="run-charts">
+          <article class="card overfit-card" id="run-overfit-card">
+            <div class="card-header">
+              <h3>Train vs. Validation (full run · overfitting check)</h3>
+              <div class="segmented" role="group" aria-label="Train metric for validation comparison" id="overfit-tabs">
+                <button class="choice" type="button" data-metric="loss" aria-pressed="true">Total loss</button>
+                <button class="choice" type="button" data-metric="rnnt" aria-pressed="false">RNN-T</button>
+                <button class="choice" type="button" data-metric="ctc" aria-pressed="false">CTC</button>
+              </div>
+            </div>
+            <div class="overfit-bar" id="overfit-bar" hidden>
+              <span class="overfit-badge" id="overfit-badge" data-status="improving">—</span>
+              <span class="secondary numeric" id="overfit-summary"></span>
+            </div>
+            <div class="chart" id="run-overfit-chart">
+              <canvas tabindex="0" role="img" aria-label="Train loss versus validation WER full-run chart. Use arrow keys to inspect reported values."></canvas>
+              <p class="chart-note">Waiting for training and validation points</p>
+              <div class="tooltip" aria-hidden="true" hidden></div>
+            </div>
+            <div class="legend"></div>
+          </article>
           <article class="card">
             <div class="card-header">
               <h3>Training by step</h3>
-              <div class="segmented" role="group" aria-label="Run training metric" id="run-tabs">
-                <button class="choice" type="button" data-metric="loss" aria-pressed="true">Loss</button>
-                <button class="choice" type="button" data-metric="audio_per_second" aria-pressed="false">Audio/s</button>
+              <div class="control-row">
+                <div class="segmented" role="group" aria-label="Run training span" id="run-scope-tabs">
+                  <button class="choice" type="button" data-metric="global" aria-pressed="true">Full run</button>
+                  <button class="choice" type="button" data-metric="recent" aria-pressed="false">Recent</button>
+                </div>
+                <div class="segmented" role="group" aria-label="Run training metric" id="run-tabs">
+                  <button class="choice" type="button" data-metric="loss" aria-pressed="true">Loss</button>
+                  <button class="choice" type="button" data-metric="audio_per_second" aria-pressed="false">Audio/s</button>
+                </div>
               </div>
             </div>
             <div class="chart" id="run-train-chart">
@@ -368,7 +412,7 @@ function statusText(node, state) {
   node.replaceChildren(element("span", "dot"), document.createTextNode(hostStates[name]));
 }
 
-function series(label, color, rows, xKey, yKey, scatter = false) {
+function series(label, color, rows, xKey, yKey, scatter = false, axis = "left", dashed = false) {
   const ordered = rows.filter((row) => finite(row[xKey])).sort((a, b) => a[xKey] - b[xKey]);
   const points = [];
   let breakBefore = false;
@@ -380,7 +424,7 @@ function series(label, color, rows, xKey, yKey, scatter = false) {
     points.push({ x: row[xKey], y: row[yKey], row, breakBefore });
     breakBefore = false;
   }
-  return { label, color, scatter, points };
+  return { label, color, scatter, axis, dashed, points };
 }
 
 function groups(rows, xKey, scatter = false) {
@@ -520,40 +564,63 @@ class Chart {
 
     const minX = positions[0];
     const maxX = positions.at(-1);
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const row of data) {
-      for (const point of row.points) {
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
+    const { xTick, yTick, rightYTick } = this.options;
+    const leftData = data.filter((row) => row.axis !== "right");
+    const rightData = data.filter((row) => row.axis === "right");
+    const hasRight = rightData.length > 0 && typeof rightYTick === "function";
+    const scaleFor = (rows, integerAxis) => {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const row of rows) {
+        for (const point of row.points) {
+          lo = Math.min(lo, point.y);
+          hi = Math.max(hi, point.y);
+        }
       }
-    }
-    const { xTick, yTick } = this.options;
-    const padding = (maxY - minY || Math.max(1, Math.abs(maxY))) * .09;
-    minY = minY >= 0 ? Math.max(0, minY - padding) : minY - padding;
-    maxY += padding;
-    const yTicks = gridTicks(minY, maxY, this.options.integerY);
-    minY = yTicks[0];
-    maxY = yTicks.at(-1);
+      if (!finite(lo) || !finite(hi)) return null;
+      const pad = (hi - lo || Math.max(1, Math.abs(hi))) * .09;
+      lo = lo >= 0 ? Math.max(0, lo - pad) : lo - pad;
+      hi += pad;
+      const yTicks = gridTicks(lo, hi, integerAxis);
+      return { minY: yTicks[0], maxY: yTicks.at(-1), ticks: yTicks };
+    };
+    const leftScale = scaleFor(leftData.length ? leftData : data, this.options.integerY);
+    const rightScale = hasRight ? scaleFor(rightData, false) : null;
+    if (!leftScale) { this.bounds = null; return; }
     context.font = "12px system-ui";
-    const left = Math.max(context.measureText(yTick(minY)).width, context.measureText(yTick(maxY)).width) + 12;
-    const frame = { left, right: width - 10, top: 11, bottom: height - 25 };
+    const left = Math.max(context.measureText(yTick(leftScale.minY)).width, context.measureText(yTick(leftScale.maxY)).width) + 12;
+    const rightPad = rightScale
+      ? Math.max(context.measureText(rightYTick(rightScale.minY)).width, context.measureText(rightYTick(rightScale.maxY)).width) + 14
+      : 10;
+    const frame = { left, right: width - rightPad, top: 11, bottom: height - 25 };
     const xOf = (x) => minX === maxX ? (frame.left + frame.right) / 2
       : frame.left + (x - minX) / (maxX - minX) * (frame.right - frame.left);
-    const yOf = (y) => frame.bottom - (y - minY) / (maxY - minY) * (frame.bottom - frame.top);
+    const yOfLeft = (y) => frame.bottom - (y - leftScale.minY) / (leftScale.maxY - leftScale.minY) * (frame.bottom - frame.top);
+    const yOfRight = rightScale
+      ? (y) => frame.bottom - (y - rightScale.minY) / (rightScale.maxY - rightScale.minY) * (frame.bottom - frame.top)
+      : yOfLeft;
     this.bounds = { ...frame, minX, maxX, xOf };
     context.strokeStyle = "#303b4c";
     context.fillStyle = "#aab8cb";
     context.textAlign = "right";
     context.textBaseline = "middle";
     context.lineWidth = 1;
-    for (const value of yTicks) {
-      const y = yOf(value);
+    for (const value of leftScale.ticks) {
+      const y = yOfLeft(value);
       context.beginPath();
       context.moveTo(frame.left, y);
       context.lineTo(frame.right, y);
       context.stroke();
       context.fillText(yTick(value), frame.left - 7, y);
+    }
+    if (rightScale) {
+      context.textAlign = "left";
+      context.fillStyle = "#f8bb76";
+      for (const value of rightScale.ticks) {
+        const y = yOfRight(value);
+        context.fillText(rightYTick(value), frame.right + 7, y);
+      }
+      context.fillStyle = "#aab8cb";
     }
     context.textAlign = "center";
     const ticks = minX === maxX ? 1 : width < 380 ? 3 : 5;
@@ -566,9 +633,11 @@ class Chart {
     }
 
     for (const row of data) {
+      const yOf = row.axis === "right" ? yOfRight : yOfLeft;
       context.strokeStyle = row.color;
       context.fillStyle = row.color;
-      context.lineWidth = 1.7;
+      context.lineWidth = row.axis === "right" ? 2.1 : 1.7;
+      context.setLineDash(row.dashed ? [5, 4] : []);
       if (!row.scatter && row.points.length > 1) {
         context.beginPath();
         for (const [i, point] of row.points.entries()) {
@@ -577,10 +646,11 @@ class Chart {
         }
         context.stroke();
       }
-      if (row.scatter || row.points.length < 10) {
+      context.setLineDash([]);
+      if (row.scatter || row.axis === "right" || row.points.length < 10) {
         for (const point of row.points) {
           context.beginPath();
-          context.arc(xOf(point.x), yOf(point.y), 2.7, 0, 2 * Math.PI);
+          context.arc(xOf(point.x), yOf(point.y), row.axis === "right" ? 3.0 : 2.7, 0, 2 * Math.PI);
           context.fill();
         }
       }
@@ -621,7 +691,8 @@ class Chart {
       for (let index = start; row.points[index]?.x === x; index += 1) {
         const point = row.points[index];
         const extra = this.options.describe?.(point.row);
-        matches.push([row.label, this.options.value(point.y), extra].filter(Boolean).join(" · "));
+        const formatter = row.axis === "right" && this.options.rightValue ? this.options.rightValue : this.options.value;
+        matches.push([row.label, formatter(point.y), extra].filter(Boolean).join(" · "));
       }
       return matches;
     });
@@ -629,7 +700,7 @@ class Chart {
     this.cursor.hidden = this.tip.hidden;
     if (this.tip.hidden) return;
     const title = this.options.tooltipX(x);
-    const preview = points.slice(0, 4);
+    const preview = points.slice(0, 6);
     if (points.length > preview.length) preview.push(`${points.length - preview.length} more points at this position`);
     this.tip.replaceChildren(element("b", "", title), ...preview.map((line) => element("span", "", line)));
     const offset = bounds.xOf(x);
@@ -643,6 +714,7 @@ class Chart {
 }
 
 const fleetChart = new Chart("fleet-chart");
+const runOverfitChart = new Chart("run-overfit-chart");
 const runTrainChart = new Chart("run-train-chart");
 const runWerChart = new Chart("run-wer-chart");
 const wireHosts = new Map();
@@ -650,8 +722,10 @@ const hostButtons = new Map();
 let hosts = new Map();
 let wireFleet = null;
 let fleet = null;
-let fleetMetric = "audio_per_second";
+let fleetMetric = "global_loss";
 let runMetric = "loss";
+let runScope = "global";
+let overfitMetric = "loss";
 let selectedHost = null;
 let selectedRun = null;
 let paused = false;
@@ -744,7 +818,7 @@ function renderHosts() {
 
 function renderFleet(force) {
   const history = list(fleet?.history);
-  if (!force && lastFleetPaint?.fleet === fleet && lastFleetPaint?.metric === fleetMetric && fleetMetric !== "wer") return;
+  if (!force && lastFleetPaint?.fleet === fleet && lastFleetPaint?.metric === fleetMetric && !["wer", "global_loss", "global_wer"].includes(fleetMetric)) return;
   lastFleetPaint = { fleet, metric: fleetMetric };
   $("fleet-audio").textContent = format(fleet?.audio_per_second, rounded);
   $("fleet-runs").textContent = format(fleet?.active_runs, integer);
@@ -762,9 +836,56 @@ function renderFleet(force) {
   $("fleet-wer-empty").hidden = rows.length > 0;
 
   const timeOptions = { xTick: timelineTick, tooltipX: humanTime, empty: "No history reported" };
-  const chartSource = fleetMetric === "wer" ? hostRevision : fleet?.history;
+  const stepOptions = { xTick: (x) => format(x, integer), tooltipX: stepText };
+  const usesHosts = ["wer", "global_loss", "global_wer"].includes(fleetMetric);
+  const chartSource = usesHosts ? hostRevision : fleet?.history;
   if (!force && lastFleetChart?.source === chartSource && lastFleetChart?.metric === fleetMetric) return;
   lastFleetChart = { source: chartSource, metric: fleetMetric };
+  if (fleetMetric === "global_loss") {
+    const globalSeries = [];
+    let colorIdx = 0;
+    for (const host of hosts.values()) {
+      for (const run of list(host.runs)) {
+        if (run.shared_from || (run.ddp && run.ddp.rank > 0)) continue;
+        const rows = list(run.train_global).length ? list(run.train_global) : list(run.train);
+        if (!rows.length) continue;
+        const label = `${run.name ?? run.id} (${host.host})`;
+        globalSeries.push(series(label, colors[colorIdx % colors.length], rows, "step", "loss"));
+        colorIdx += 1;
+      }
+    }
+    fleetChart.set(globalSeries, {
+      ...stepOptions, title: "Global training loss across entire run (step 0 to latest)",
+      yTick: format, value: format, empty: "Waiting for full-run training logs",
+    });
+    return;
+  }
+  if (fleetMetric === "global_wer") {
+    const werSeries = [];
+    let colorIdx = 0;
+    for (const host of hosts.values()) {
+      for (const run of list(host.runs)) {
+        if (run.shared_from || (run.ddp && run.ddp.rank > 0) || run.overfit || run.eval_scope === "overfit") continue;
+        const evals = list(run.eval).filter((row) => ["dev-clean", "dev-other"].includes(row.split));
+        const bySplit = new Map();
+        for (const row of evals) {
+          const key = `${row.split} · ${row.decoder}`;
+          if (!bySplit.has(key)) bySplit.set(key, []);
+          bySplit.get(key).push({ ...addEvalScope(row, run), host: host.host, run: run.name ?? run.id });
+        }
+        for (const [key, points] of bySplit) {
+          const label = `${run.name ?? run.id} · ${key}`;
+          werSeries.push(series(label, colors[colorIdx % colors.length], points, "step", "wer"));
+          colorIdx += 1;
+        }
+      }
+    }
+    fleetChart.set(werSeries, {
+      ...stepOptions, title: "Global validation WER across entire run (step 0 to latest)",
+      yTick: werText, value: werText, describe: evaluationDetails, empty: "No validation evaluations reported",
+    });
+    return;
+  }
   if (fleetMetric === "wer") {
     const evaluations = [];
     for (const host of hosts.values()) {
@@ -828,8 +949,10 @@ function renderNode(force) {
   const leader = shared ? list(hosts.get(shared.host)?.runs).find((item) => item.id === shared.id) : null;
   const measured = leader ?? run;
   selectedRun = run?.id ?? null;
-  if (!force && lastNodePaint?.host === host && lastNodePaint?.run === run && lastNodePaint?.measured === measured && lastNodePaint?.metric === runMetric) return;
-  lastNodePaint = { host, run, measured, metric: runMetric };
+  if (!force && lastNodePaint?.host === host && lastNodePaint?.run === run && lastNodePaint?.measured === measured
+      && lastNodePaint?.metric === runMetric && lastNodePaint?.scope === runScope
+      && lastNodePaint?.overfitMetric === overfitMetric) return;
+  lastNodePaint = { host, run, measured, metric: runMetric, scope: runScope, overfitMetric };
   $("node-name").textContent = host.host;
   statusText($("node-status"), host.state);
   const runLabel = run ? [
@@ -858,8 +981,10 @@ function renderNode(force) {
   }
   $("run-select").disabled = runs.length === 0;
   if (run) $("run-select").value = run.id;
-  const training = list(measured?.train);
-  const last = training.at(-1);
+  const recentTraining = list(measured?.train);
+  const globalTraining = list(measured?.train_global).length ? list(measured?.train_global) : recentTraining;
+  const training = runScope === "global" ? globalTraining : recentTraining;
+  const last = recentTraining.at(-1) ?? globalTraining.at(-1);
   const step = format(last?.step, integer);
   $("node-step").textContent = finite(measured?.total_steps) && finite(last?.step) ? `${step} / ${integer.format(measured.total_steps)}` : step;
   $("node-loss").textContent = format(last?.loss);
@@ -881,7 +1006,8 @@ function renderNode(force) {
     series("CTC", colors[2], training, "step", "ctc"),
   ] : [series("Audio seconds per wall second", colors[0], training, "step", "audio_per_second")];
   runTrainChart.set(trainingSeries, {
-    ...stepOptions, title: runMetric === "loss" ? "Run loss by step" : "Run throughput by step",
+    ...stepOptions,
+    title: `${runScope === "global" ? "Full-run" : "Recent"} ${runMetric === "loss" ? "loss" : "throughput"} by step`,
     yTick: format, value: format, empty: "No training data reported for this metric",
   });
   const evaluations = list(measured?.eval).map((row) => addEvalScope(row, measured));
@@ -890,6 +1016,49 @@ function renderNode(force) {
     describe: evaluationDetails, empty: "No evaluations reported",
   });
   evaluationList("run-wer", latestEvaluations(evaluations));
+
+  const overfitLabels = { loss: "Train total loss", rnnt: "Train RNN-T loss", ctc: "Train CTC loss" };
+  const overfitSeries = [
+    series(overfitLabels[overfitMetric] ?? "Train loss", colors[1], globalTraining, "step", overfitMetric, false, "left"),
+  ];
+  const valGroups = groups(evaluations, "step");
+  valGroups.forEach((group, idx) => {
+    overfitSeries.push({ ...group, color: colors[(idx + 2) % colors.length], axis: "right" });
+  });
+  const emaRows = evaluations.filter((row) => finite(row.ema_wer));
+  if (emaRows.length) {
+    overfitSeries.push(series("Val EMA WER", colors[0], emaRows, "step", "ema_wer", false, "right", true));
+  }
+  runOverfitChart.set(overfitSeries, {
+    ...stepOptions, title: "Full-run train loss (left) vs validation WER (right)",
+    yTick: format, value: format, rightYTick: werText, rightValue: werText,
+    describe: (row) => row.split ? evaluationDetails(row) : (finite(row.epoch) ? `Epoch ${rounded.format(row.epoch)}` : ""),
+    empty: "Waiting for training and validation points",
+  });
+  const check = measured?.overfit_check;
+  $("overfit-bar").hidden = !check;
+  if (check) {
+    const badgeLabels = {
+      improving: "Healthy · Improving",
+      plateau: "Plateau",
+      watch: "Watch · Val ticking up",
+      overfitting: "Overfitting signal",
+      insufficient: "Tracking (<2 evals)",
+    };
+    const badge = $("overfit-badge");
+    badge.dataset.status = check.status;
+    badge.textContent = badgeLabels[check.status] ?? check.status;
+    const parts = [
+      `${check.split} (${check.decoder})`,
+      `Best ${werText(check.best_wer)} @ step ${integer.format(check.best_step)}`,
+      `Latest ${werText(check.latest_wer)} (${check.delta_pp >= 0 ? "+" : ""}${precise.format(check.delta_pp)} pp)`,
+      finite(check.latest_ema_wer) ? `EMA ${werText(check.latest_ema_wer)}` : "",
+      finite(check.best_train_loss) && finite(check.latest_train_loss)
+        ? `Train loss ${precise.format(check.best_train_loss)} → ${precise.format(check.latest_train_loss)}`
+        : "",
+    ].filter(Boolean);
+    $("overfit-summary").textContent = parts.join(" · ");
+  }
 }
 
 function render(force = false) {
@@ -927,8 +1096,11 @@ function tabs(id, select) {
 }
 tabs("fleet-tabs", (metric) => { fleetMetric = metric; fleetChart.inspect(null); });
 tabs("run-tabs", (metric) => { runMetric = metric; runTrainChart.inspect(null); });
+tabs("run-scope-tabs", (scope) => { runScope = scope; runTrainChart.inspect(null); });
+tabs("overfit-tabs", (metric) => { overfitMetric = metric; runOverfitChart.inspect(null); });
 $("run-select").addEventListener("change", (event) => {
   selectedRun = event.target.value;
+  runOverfitChart.inspect(null);
   runTrainChart.inspect(null);
   runWerChart.inspect(null);
   render(true);
