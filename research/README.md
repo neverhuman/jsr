@@ -41,5 +41,6 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H20](H20_matched_cpu_frontier/README.md) | Common-boundary streaming ASR CPU and DEV WER | EXPLORATORY, ongoing | The first 730-utterance repetition has verified timing and retained hypotheses. Three-repeat rotation underway. |
 | [H21](H21_long_final_recipe/README.md) | Long final-recipe runs, ~30 epochs of 960 h (L1 dense S, L2 S_MR, L3 M_MR) | ONGOING (pre-registered) | SPM-512, pruned loss, EMA, speed perturbation, qkv cap; process loader (bit-identical batches) lifted A100 runs to 2.5–3.2k audio-h/h |
 | [H22](H22_r0_distillation/README.md) | Distillation from R0 (owner-approved; TRAIN only; labelled "distilled from R0") | PRE-REGISTERED | R0 teacher cache (top-8 joiner log-probs per frame, 3 speeds) building on xbabe0; H22-ctl running; H22-kd after the cache |
+| [H23](H23_optimizer_bakeoff/README.md) | Optimiser bake-off at matched 100 h exposure (AdamW vs ScaledAdam+Eden vs Schedule-Free AdamW vs Muon; AdamW + adaptive clipping side arm) | PRE-REGISTERED | Code in train/optim (defaults bit-for-bit); decision: ≥ 5% rel. WER or same WER in ≥ 25% less wall time |
 
-Reserved: H14 dual-mode / chunk-size sampling. Next free: **H23**.
+Reserved: H14 dual-mode / chunk-size sampling. Next free: **H24**.

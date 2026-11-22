@@ -143,7 +143,7 @@ class ASRModel(nn.Module):
                stats: FeasibilityStats | None = None, augment: SpecAugConfig | None = None,
                gen: torch.Generator | None = None, chunk: int | None = None,
                pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0,
-               simple_detach: bool = False) -> dict:
+               simple_detach: bool = False, zloss_weight: float = 0.0) -> dict:
         x = self.cmvn(feats)
         if augment is not None and gen is not None:
             x = spec_augment(x, feat_lens, augment, gen)
@@ -157,12 +157,18 @@ class ASRModel(nn.Module):
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
             pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt)).float()
+            zl = None
             if self.cfg.rnnt_loss == "pruned":
-                nll, simple = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens,
-                                                simple_detach)
+                nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
+                                                    rnnt_lens, simple_detach,
+                                                    zloss=zloss_weight > 0)
             else:
                 lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
                 nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
+                if zloss_weight > 0:  # H23: train/optim/zloss.py
+                    from train.optim.zloss import diagonal_zloss
+
+                    zl = diagonal_zloss(self.joiner, enc_p, pred_p, enc_lens, rnnt_lens)
         rnnt_tokens = int(rnnt_lens.sum())
         rnnt = nll.sum() / max(1, rnnt_tokens)
         ctc = ctc_sum / max(1, ctc_tokens)
@@ -182,11 +188,16 @@ class ASRModel(nn.Module):
             rnnt_simple = simple.sum() / max(1, rnnt_tokens)
             total = total + pruned_scale * rnnt + self.cfg.simple_loss_scale * rnnt_simple
             out["rnnt_simple"] = rnnt_simple
+        if zl is not None:
+            total = total + zloss_weight * zl
+            out["zloss"] = zl  # live: the DDP path rebuilds the loss from these parts
         out["loss"] = total
         return out
 
-    def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, simple_detach=False):
-        """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss) via k2."""
+    def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, simple_detach=False,
+                     zloss: bool = False):
+        """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss, band z-loss or
+        None) via k2."""
         try:
             import k2
         except ImportError as e:  # the exact loss needs no extra package
@@ -208,7 +219,11 @@ class ASRModel(nn.Module):
         nll = k2.rnnt_loss_pruned(logits=logits, symbols=symbols, ranges=ranges,
                                   termination_symbol=BLANK, boundary=bd, rnnt_type="regular",
                                   reduction="none")
-        return nll, simple
+        if not zloss:
+            return nll, simple, None
+        from train.optim.zloss import band_zloss
+
+        return nll, simple, band_zloss(logits, enc_lens)
 
     @torch.no_grad()
     def greedy(self, feats, feat_lens, chunk=None, max_symbols: int = 8):
