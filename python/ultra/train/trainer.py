@@ -150,6 +150,9 @@ class TrainConfig:
     # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
     # so memory stays at one view's graph and a step costs about 2.3x. False = unchanged path.
     cr_ctc_full: bool = False
+    # H41 half-form CR-CTC (the PR #32 form, run one view at a time): as cr_ctc_full, but the
+    # transducer loss is on view A only; view B gets the CTC loss and the consistency KL.
+    cr_ctc_half: bool = False
     # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
     delay_penalty: float = 0.0
     # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
@@ -246,7 +249,7 @@ class Trainer:
         # options added later are appended only when set, so a checkpoint written before they
         # existed still matches and a resumed run keeps its divergence baselines
         sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
-                                    ("cr_ctc_full", c.cr_ctc_full)) if v]
+                                    ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half)) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
@@ -333,7 +336,7 @@ class Trainer:
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
-        if self.cfg.cr_ctc_full and self.cfg.cr_ctc_weight > 0:
+        if (self.cfg.cr_ctc_full or self.cfg.cr_ctc_half) and self.cfg.cr_ctc_weight > 0:
             from train.two_view import two_view_step
 
             return two_view_step(self, batch, b, gen)

@@ -67,3 +67,20 @@ Written and posted in the chat before either arm started; committed here afterwa
 - **Decision:** the minimum-WER arm against its own control on full DEV with the paired bootstrap. It is adopted if it beats that control by more than twice the spread of the three control-like H41 runs. That spread comes from a different protocol, so it is a yardstick here, not this arm's measured run-to-run spread.
 - **Step-time contingency, fixed now:** if the measured step time puts 2,000 steps beyond 3 hours, both the arm and its control are cut to the same smaller step count that fits 3 hours, decided before any eval of either.
 - **Launcher:** `python/ultra/train/ops/h41_mwer.sh`.
+
+## Amendment 3 (2026-11-22, posted in AGENT_CHAT at 22:14Z): arm 9 (CR-CTC, half form)
+Written and posted in the chat before arm 9 started (22:15Z); committed here afterwards.
+
+- **Arm 9:** CR-CTC, half form (the PR #32 form), on xbabe2 beside arm 8. `cr_ctc_weight=0.2 cr_ctc_half=true`; same fork point (H22ctl step 60,000), schedule, batch (650 s / 144) and seed 1234 as control and as arm 7.
+- **What it does:** two SpecAugment views of every batch. Both views get the CTC loss, and the consistency KL (both directions, targets detached) pulls their CTC posteriors together at weight 0.2. **The transducer loss is on view A only.** View A's masks are control's masks.
+- **How it runs:** like arm 7, one view at a time with gradients accumulated; view B runs only the encoder and the CTC head. A unit test checks the accumulated gradient against the same loss in one graph.
+- **Cost:** about 1.8× control's compute per step (arm 7 is about 2.3×).
+- **Two readings, both reported:**
+  - **Per step (the decision metric):** step-8,000 weights against control's step-8,000 weights, full dev, paired bootstrap, adopted only above 2× the spread of the three control-like runs.
+  - **Per GPU-hour:** its step-4,500 snapshot against control's final weights, confounded by the unfinished cosine (as for arm 7).
+- **The question arms 7 and 9 answer together:**
+  - arm 7 passes and arm 9 does not: the gain needs the second transducer view;
+  - both pass: the cheaper half form suffices;
+  - neither passes: CR-CTC is not adopted at this operating point.
+- **Placement:** xbabe2, its own guard at 0.87, CPUs 76-99. Arm 9 yields if the card's 5-minute mean passes the guard's target; arm 8's guard is CPU-only so arm 9's load does not pause it. Arm 9 shares the card with arm 8, so its wall time differs from control's, but its steps and batches do not; the per-GPU-hour reading uses its own measured step time.
+
