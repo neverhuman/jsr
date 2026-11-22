@@ -1,0 +1,83 @@
+{
+  "schema": "ultra.frontier-suite/v1",
+  "split": "dev-clean",
+  "grid_ms": 320,
+  "max_chunks": 2,
+  "source_commit": "43f31a1086fc",
+  "hardware_id": "xbabe0-zen2-64c",
+  "completion_status": "exploratory",
+  "density_ladder_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-g2-d2avg556065-beam4-43f31a1-20261122T041016Z/density_ladder.json",
+  "rows": [
+    {
+      "candidate": "/home/ubuntu/jsr-engine-data/runs/d2-avg3-55-60-65/weights-int8prep",
+      "loaded_identity": "ultra-engine-dense-int8-6a3d8447f54f-beam4",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 10,
+      "audio_seconds": 52.065,
+      "wer_pct": 5.814,
+      "single_rtf_cpu": 0.21953,
+      "single_streams_per_core": 4.56,
+      "batch_rtf_cpu": 0.05803,
+      "batch_streams_per_core": 17.23,
+      "chunk_ms": {
+        "p50": 90.158,
+        "p95": 105.523,
+        "p99": 106.232
+      },
+      "peak_rss_bytes": 1893822464,
+      "cap_hits": 0,
+      "evidence_complete": false,
+      "density": {
+        "workers": 4,
+        "streams_per_worker": 12,
+        "total_streams": 48,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 461.2,
+        "peak_rss_bytes": 1893822464
+      },
+      "latency": null,
+      "sustained_probe": {
+        "workers": 4,
+        "streams_per_worker": 16,
+        "total_streams": 64,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 509.52,
+        "peak_rss_bytes": 1893822464
+      },
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 0,
+          "audio_seconds": 0.0,
+          "ref_words": 0,
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "wer_pct": null
+        },
+        "fast_speech": {
+          "utterances": 4,
+          "audio_seconds": 21.415,
+          "ref_words": 82,
+          "errors": 3,
+          "substitutions": 2,
+          "deletions": 1,
+          "insertions": 0,
+          "wer_pct": 3.659
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-g2-d2avg556065-beam4-43f31a1-20261122T041016Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-g2-d2avg556065-beam4-43f31a1-20261122T041016Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-g2-d2avg556065-beam4-43f31a1-20261122T041016Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.receipt.json"
+    }
+  ]
+}
