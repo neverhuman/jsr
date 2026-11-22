@@ -1,0 +1,102 @@
+\section{Evaluation protocol}\label{sec:protocol}
+
+Speed claims for ASR are easy to make and hard to check. We therefore fixed the protocol, the
+claims and the statistical tests in a frozen document \emph{before} the qualifying run, and we
+report here the exploratory rehearsal of that protocol. This section describes the rules; the
+lesson that produced them comes first.
+
+\para{A retraction.} An earlier version of our density claim compared numbers from three
+different tools: the engine's development harness (four workers per core complex), a Python
+harness for Zipformer (one worker per complex), and a third lateness implementation in the bench
+suite, each with its own grid and lateness rule. An independent reviewer who read the code, not
+our summaries, found that the headline ratio of about \RetractedRatio{}$\times$ compared four workers with one;
+per core it was about \RetractedPerCore{}$\times$, and the three lateness rules disagreed. The reviewer raised seven blocking findings, including density quoted
+without the WER gap and claims that were not pre-registered. We retracted the claim and rewrote
+the protocol. A second pass found that several items we had marked as fixed were not
+implemented; a third pass closed most of the rest. The lesson we draw is procedural: \emph{have
+an outsider read the code behind each claim before the claim is frozen}.
+
+\para{One harness.} Every density, cost and latency row comes from one tool, which runs
+Zipformer (through sherpa-onnx's C API~\cite{sherpaonnx}), ONNX Runtime~\cite{onnxruntime} and the
+\ultra engine through the same scheduler, the same lateness code, the same grid, the same cost
+scope and the same placement. Development harnesses are never compared with it.
+
+\para{Equal hardware.} The density unit is one Zen~2 core complex (CCX: four physical cores
+sharing 16\,MiB of L3) with four single-threaded workers pinned to its cores; the harness verifies
+that the four share one L3 domain and fails closed otherwise. The observer process runs on a
+different CCX. Machine-wide results use 15 CCX, with the sixteenth reserved for the observer;
+nothing is extrapolated from one CCX to the machine.
+
+\para{Lateness rule A1.} Audio arrives in 20\,ms packets; models consume 160\,ms chunks; the
+scheduler ticks on a 320\,ms grid with at most two chunks per step, for every system. At each tick
+the lateness of a stream is the age of its oldest undecoded packet relative to its capture
+deadline, which never under-reports a chunk's lateness. A configuration passes if, for every
+worker, p99 lateness is at most 800\,ms; the mean lateness of the last third of the run exceeds
+that of the first third by at most 200\,ms (no growth); and the run drains at cutoff, with
+accepted, processed and unfinished audio accounted. CPU time is divided by processed audio only.
+
+\para{Density ladder.} Streams per worker climb 2, 4, \dots, 16, then 20, \dots, 48, three repeats
+per rung, alternating systems, 120\,s per rung. The ladder stops at the first rung where any
+repeat fails, and the reported density is the last rung before it; a later pass never counts after
+an earlier failure. The reported rung must then pass three 300\,s confirmation runs, and a pass at
+the top is reported as ``$\ge 48$''. In qualifying mode these settings cannot be overridden.
+
+\para{Cold boundary.} For the common comparison (\cref{fig:money}) every recognizer decodes the
+same staged panel audio, one stream at a time, with one inference thread on one pinned physical
+core, in three repetitions with rotated system order. Timing starts at recognizer launch and
+covers every process in its tree through the flushed final hypothesis and worker exit: model
+loading, features, inference, search, output and drain. Reference preparation, scoring and the
+observer are outside the boundary. The statistic is the median of user plus system CPU-seconds
+per audio-second over the three runs; peak resident memory of the tree and artifact sizes are
+recorded beside it. Each system uses its native streaming interface; an external recognizer that
+only offers a child process is measured exactly like ours.
+
+\para{Warm cost.} Warm cost is whole-service CPU-seconds per audio-second, warm (model load excluded and
+reported separately), measured as process rusage after load. The CPU governor and boost state are
+recorded. Nemotron~\cite{nemotron}, which we can only run as a child process, has no comparable
+warm measurement; it is excluded from cost and density claims and appears only as context with
+its own scope label.
+
+\para{Counterbalanced timing.} The cost claim (C-cost) compares each \ultra finalist with Zipformer
+in eight blocks. Each block runs every arm once on the same 50 utterances, in the order
+Zipformer, dense, multirate in odd blocks and the reverse in even blocks, giving eight paired
+$\log$ CPU ratios per comparison. The test is a one-sided paired $t$-test ($df=7$), Holm-corrected
+across the two comparisons~\cite{holm1979simple} at $\alpha=\HolmAlpha$; we report the geometric
+mean ratio with its 95\% interval and both orders' per-block values, so an order effect would be
+visible.
+
+\para{Selection and quality.} Checkpoints are selected only on a DEV panel of 730 utterances that
+covers every LibriSpeech dev speaker (400 utterances from 40 dev-clean speakers, 330 from 33
+dev-other speakers), on single checkpoints and checkpoint averages, ties going to the cheaper
+model. Test sets and two sealed out-of-domain sets (VoxPopuli~\cite{wang2021voxpopuli} and AMI
+IHM~\cite{carletta2005ami}) are read once each, after the freeze tag, logged in an append-only
+ledger whose guards refuse a second read. We disclose that LibriSpeech test-clean and test-other
+were read several times before the freeze; no selection used them. WER pools errors and reference words over the utterance population $U$,
+\begin{equation}
+\mathrm{WER}(U)=100\,\frac{\sum_{i\in U}(S_i+D_i+I_i)}{\sum_{i\in U}N_i},
+\end{equation}
+so a pooled panel WER is not the mean of the two split WERs. The quality claim (C-quality) is
+the test WER gap to Zipformer with a paired speaker-cluster bootstrap~\cite{bisani2004bootstrap}
+interval; a parity claim would require the interval's upper bound within \PreregUpperPP\pp, which we
+do not expect.
+
+\para{INT8 gate.} A prepared INT8 artifact is admitted only if, on the panel, its WER exceeds FP32
+of the same checkpoint by at most \PreregDeltaPP\pp and the one-sided 95\% bootstrap upper bound of
+the difference is at most \PreregUpperPP\pp. The gate tool exits non-zero on failure (an earlier
+version exited zero; a reviewer caught it).
+
+\para{Rehearsal catches.} Rehearsing the protocol end to end found defects that a review of the
+documents could not. Placement verification read the CPU mask from \texttt{/proc/self/status},
+which on Linux reports the main thread's mask, so a worker thread pinned to a different core
+could pass the check; it now queries the calling thread's affinity, with a regression test. Two
+routes to the sealed out-of-domain sets logged reads under different ledger keys, so one set could
+in principle have been read twice; both now share one key per set, and a second read through either
+route is refused. In qualifying mode the harness refuses, fail-closed, a wrong worker count, a
+wrong grid, a wrong block order, test audio before the freeze tag, an external recognizer on the
+panel route, and an observer sharing L3 with the workers.
+
+\para{Pre-registered claims.} Density is descriptive: measured ladder results per CCX and on the
+full machine, always printed beside each system's WER, and the headline sentence must state the
+WER gap. Cost and quality are tested as above. Every number in this draft is from shared hosts
+(a same-day A/A replay varied by up to \AASpread\%) and is labelled exploratory; the qualified run
+uses a quiet host of the same CPU model with other jobs paused.

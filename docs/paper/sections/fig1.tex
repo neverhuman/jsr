@@ -1,0 +1,14 @@
+% Fig. 1 (page 1, single column): the common cold process-tree DEV boundary.
+% Plot body: figures/money.tex (paper-data, from Codex Evidence receipts). This file owns the float.
+\begin{figure}[!t]
+\centering
+\IfFileExists{figures/money.tex}{\input{figures/money.tex}}{%
+  \pendingfig{Cold process-tree DEV comparison: rows pending (Codex Evidence receipts).}}
+\caption{\textbf{Accuracy against CPU cost, cold boundary.} Pooled WER on the 730-utterance,
+speaker-balanced LibriSpeech DEV panel against single-stream CPU-seconds per audio-second (log
+scale). Each point is the median of three rotating single-thread runs on one pinned physical core;
+timing covers the whole recognizer process tree from launch, including model load, through the
+flushed final hypothesis and worker exit. Scoring runs afterwards in Rust. Points down and to the
+left are better on both axes. \emph{Exploratory.}}
+\label{fig:money}
+\end{figure}

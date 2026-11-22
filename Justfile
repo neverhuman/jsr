@@ -61,3 +61,26 @@ check:
     bash ops/ci/quality-gates.sh
 
 required: check
+
+# Build the IEEE paper: regenerate metrics/figures (paper_data), then pdflatex + bibtex + pdflatex x2.
+# Output docs/paper/paper.pdf (committed). Fails on undefined references or citations, any overfull
+# hbox, non-Type-1 fonts, or a missing "Fig. 1." on page 1. SOURCE_DATE_EPOCH pins PDF dates.
+paper:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="$PWD"
+    if [ -f python/ultra/tools/paper_data.py ]; then
+        pybin="$root/{{py}}"; [ -x "$pybin" ] || pybin="$(git rev-parse --git-common-dir)/../{{py}}"
+        (cd python/ultra && "$pybin" -m tools.paper_data)
+    fi
+    export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}" FORCE_SOURCE_DATE=1
+    cd docs/paper
+    run() { pdflatex -interaction=nonstopmode -halt-on-error paper > /dev/null || { tail -40 paper.log; exit 1; }; }
+    run; bibtex paper > /dev/null || { cat paper.blg; exit 1; }; run; run
+    fail=0
+    if grep -nE "undefined references|Citation .* undefined|Reference .* undefined" paper.log; then echo "paper: undefined references or citations"; fail=1; fi
+    if grep -n "Overfull \\\\hbox" paper.log; then echo "paper: overfull hbox"; fail=1; fi
+    if pdffonts paper.pdf | tail -n +3 | grep -v "Type 1" | grep .; then echo "paper: non-Type-1 font"; fail=1; fi
+    p1="$(pdftotext -f 1 -l 1 paper.pdf -)"; if ! grep -q "Fig. 1\." <<< "$p1"; then echo "paper: Fig. 1. not on page 1"; fail=1; fi
+    [ "$fail" = 0 ] || exit 1
+    echo "paper: docs/paper/paper.pdf ($(pdfinfo paper.pdf | awk '/^Pages/ {print $2}') pages)"
