@@ -56,6 +56,15 @@
     "python/ultra/tools/paper_data/": "lead",
     "python/ultra/tools/export_curves.py": "lead",
     "python/ultra/tools/fleet_dashboard/": "lead",
-    "training-dashboard.html": "training"
+    "training-dashboard.html": "training",
+    "python/ultra/train/lm_fusion.py": "training",
+    "python/ultra/train/lm_decode.py": "training",
+    "python/ultra/train/lm_tune.py": "training",
+    "python/ultra/tests/test_train_lm.py": "training",
+    "python/ultra/train/ops/lm_build_kenlm.sh": "training",
+    "python/ultra/train/ops/lm_build_token_lm.sh": "training",
+    "python/ultra/train/ops/lm_beam_grid.sh": "training",
+    "python/ultra/train/ops/lm_sweep.sh": "training",
+    "research/H42_ngram_lm/": "lead"
   }
 }

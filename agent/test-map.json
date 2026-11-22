@@ -248,6 +248,42 @@
     "python/ultra/train/ops/launch_ddp_ranks.sh": {
       "command": "shellcheck -x -S warning python/ultra/train/ops/launch_ddp_ranks.sh",
       "purpose": "validate the fixed-rank launcher script"
+    },
+    "python/ultra/train/lm_fusion.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/train/lm_decode.py": {
+      "command": "just pytest",
+      "purpose": "verify encoder-cache parts, shard sets and the LM-text tokeniser"
+    },
+    "python/ultra/train/lm_tune.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/tests/test_train_lm.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/train/ops/lm_build_kenlm.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_build_kenlm.sh",
+      "purpose": "validate the user-space KenLM build"
+    },
+    "python/ultra/train/ops/lm_build_token_lm.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_build_token_lm.sh",
+      "purpose": "validate the token n-gram LM build"
+    },
+    "python/ultra/train/ops/lm_beam_grid.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_beam_grid.sh",
+      "purpose": "validate the pinned shard launcher of beam decodes"
+    },
+    "python/ultra/train/ops/lm_sweep.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_sweep.sh",
+      "purpose": "validate the fusion sweep driver (grid, decode, tune, edge rule)"
+    },
+    "research/H42_ngram_lm/": {
+      "command": "just score",
+      "purpose": "H42 n-gram LM wave (summary only) stays visible to the audit"
     }
   }
 }

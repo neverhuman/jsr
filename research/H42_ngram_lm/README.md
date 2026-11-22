@@ -1,6 +1,6 @@
 # H42: n-gram language model for the streaming transducer ("+LM" rows)
 
-**Status:** PRE-REGISTERED on 2026-11-22 at about 20:40Z, before any scored run of this wave. At that time the only numbers that existed for the acoustic model were the trainer's dev-clean400 greedy screens (4.95% EMA). No N-best list, no rescoring and no fusion decode had been run. Results are appended below the line "Results" later; amendments are dated and written before the runs they affect.
+**Status:** PRE-REGISTERED on 2026-11-22, committed at 20:34:04Z (commit 2c48b91; after the rebase onto main it is 4f60479, same author date), before any scored run of this wave. At that time the only numbers that existed for the acoustic model were the trainer's dev-clean400 greedy screens (4.95% EMA). No N-best list, no rescoring and no fusion decode had been run. Results are appended below the line "Results" later; amendments are dated and written before the runs they affect.
 
 Authority: owner ruling **O17** (`docs/ultra/RULINGS.md`): the LibriSpeech language-model text (OpenSLR 11) may be used for a decoding language model; results that use it are reported in separate "+LM" rows. Every number of this wave is **exploratory**.
 
