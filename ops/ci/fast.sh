@@ -9,5 +9,10 @@ ci_step "cargo fmt --check"
 cargo fmt --all -- --check
 ci_step "cargo clippy -D warnings"
 cargo clippy --workspace --all-targets -- -D warnings
+ci_step "aarch64 cross-check"
+if ! rustup target list --installed | grep -qx "aarch64-unknown-linux-gnu"; then
+  rustup target add aarch64-unknown-linux-gnu
+fi
+cargo check --target aarch64-unknown-linux-gnu -p ultra-kernels -p ultra-engine
 ci_step "cargo test"
 cargo test --workspace -q

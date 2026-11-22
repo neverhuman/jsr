@@ -55,16 +55,25 @@ pub enum Backend {
     /// x86 AVX-512 F/BW/VBMI/VNNI port of Appendix A (`vpdpbusd`). UNTESTED: no host with
     /// these features has run it; T-LUT2 under this backend uses the AVX2 kernel.
     Avx512Vnni,
+    /// ARM64 NEON (`vqtbl1q_u8` / baseline ASIMD on `aarch64`).
+    Neon,
 }
 
 impl Backend {
     /// Every backend, in preference order (best first).
-    pub const ALL: [Backend; 3] = [Backend::Avx512Vnni, Backend::Avx2, Backend::Scalar];
+    pub const ALL: [Backend; 4] = [
+        Backend::Avx512Vnni,
+        Backend::Avx2,
+        Backend::Neon,
+        Backend::Scalar,
+    ];
 
     /// Whether this CPU can run the backend.
     pub fn is_available(self) -> bool {
         match self {
             Backend::Scalar => true,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => true,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => std::arch::is_x86_feature_detected!("avx2"),
             #[cfg(target_arch = "x86_64")]
@@ -75,7 +84,6 @@ impl Backend {
                     && std::arch::is_x86_feature_detected!("avx512vbmi")
                     && std::arch::is_x86_feature_detected!("avx512vnni")
             }
-            #[cfg(not(target_arch = "x86_64"))]
             _ => false,
         }
     }
@@ -102,6 +110,7 @@ impl Backend {
             Backend::Scalar => "scalar",
             Backend::Avx2 => "avx2",
             Backend::Avx512Vnni => "avx512vnni",
+            Backend::Neon => "neon",
         }
     }
 
