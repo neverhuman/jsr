@@ -10,7 +10,9 @@ shift 4
 slots=("$@")
 mkdir -p "$OUT"
 cd "$W" || exit 1
-mapfile -t lines < <(grep -v '^\s*$' "$JOBS")
+lines=()
+while IFS= read -r l; do [ -n "${l// }" ] && lines+=("$l"); done < "$JOBS"
+TS=""; command -v taskset > /dev/null && TS=taskset  # macOS has no taskset: slots are then only a parallelism bound
 run_slot() {
   local cores=$1; shift
   local line tag run ck rest
@@ -19,7 +21,7 @@ run_slot() {
     [ -s "$OUT/$tag.json" ] && continue
     mkdir "$OUT/$tag.lock" 2>/dev/null || continue
     # shellcheck disable=SC2086
-    CUDA_VISIBLE_DEVICES="" taskset -c "$cores" nice -n 10 "$PY" -m train.evaluate --run-dir "$run" \
+    CUDA_VISIBLE_DEVICES="" ${TS:+$TS -c "$cores"} nice -n 10 "$PY" -m train.evaluate --run-dir "$run" \
       --checkpoint "$ck" --threads 4 --dump "$OUT/$tag.jsonl" $rest 2>"$OUT/$tag.err" \
       | grep '^{' > "$OUT/$tag.json"
     [ -s "$OUT/$tag.json" ] || rmdir "$OUT/$tag.lock"  # failed: let a later round retry

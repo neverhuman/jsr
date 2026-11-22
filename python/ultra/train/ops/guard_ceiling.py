@@ -1,5 +1,6 @@
 """H0 watchdog for the owner's GPU ceiling (5-min mean <= 90%): every minute, read each guarded
-run's guard log over the last 5 minutes; if the mean measured GPU utilisation exceeds the ceiling,
+run's guard log over the last 5 minutes; if the mean measured GPU utilisation exceeds the ceiling (default 0.89, one point under the
+owner's 90% cap, since the fleet monitor's window reads slightly higher than the guard log),
 restart that run's guard with the target lowered by `step` (Linux: restart_guard.sh; macOS:
 the mac_guard relaunch). Logs every decision as JSON lines.
 
@@ -11,7 +12,8 @@ import subprocess
 import sys
 import time
 
-RUNS = {  # label: (host, run_dir, guard log name, kind)
+RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itself
+    "D2": ("local", "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h", "fleet_guard.jsonl", "linux"),
     "D3MRc": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/D3MRc_S_MR_I8S_960h", "fleet_guard.jsonl", "linux"),
     "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
     "D4M": ("xbabe4", "/Users/agent/jsr-train/data/runs/train/D4M_M_MR_960h", "mac_guard.jsonl", "mac"),
@@ -25,7 +27,13 @@ MAC_RESTART = (
     'pgrep -f "train.mac_guard --pgid $PG " | head -1 > $R/GUARD_PID')
 
 
+LOCAL_OPS = "/home/ubuntu/jsr/.agent/worktrees/trainer/python/ultra/train/ops"
+
+
 def ssh(host, cmd, timeout=60):
+    if host == "local":
+        cmd = cmd.replace("~/jsr/python/ultra/train/ops/", LOCAL_OPS + "/")
+        return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
     return subprocess.run(["ssh", "-n", "-o", "ConnectTimeout=20", host, cmd], capture_output=True,
                           text=True, timeout=timeout)
 
@@ -47,14 +55,16 @@ def mean_gpu(host, path, window_s=300):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--ceiling", type=float, default=0.90)
+    ap.add_argument("--ceiling", type=float, default=0.89)
     ap.add_argument("--step", type=float, default=0.01)
     ap.add_argument("--floor", type=float, default=0.80)
     ap.add_argument("--start", type=float, default=0.89)
+    ap.add_argument("--targets", default="", help='current per-run targets as JSON, e.g. {"H13a": 0.88}')
     a = ap.parse_args(argv)
     if not 0 < a.floor <= a.start <= a.ceiling <= 1 or a.step <= 0:
         ap.error("need 0 < floor <= start <= ceiling <= 1 and step > 0")
     target = {k: a.start for k in RUNS}
+    target.update(json.loads(a.targets) if a.targets else {})
     while True:
         for label, (host, run, log, kind) in RUNS.items():
             try:

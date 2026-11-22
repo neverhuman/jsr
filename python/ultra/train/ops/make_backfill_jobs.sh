@@ -8,8 +8,7 @@
 set -uo pipefail
 PY=$1 W=$2 R=$3 LABEL=$4
 cd "$W" || exit 1
-mapfile -t steps < <(ls "$R" | sed -n 's/^model-0*\([0-9]\+\)\.pt$/\1/p' | sort -n)
-for s in "${steps[@]}"; do
+for s in $(find "$R" -maxdepth 1 -name 'model-*.pt' | sed -E -n 's|.*/model-0*([0-9]+)\.pt$|\1|p' | sort -n); do
   f=$(printf '%s/model-%08d' "$R" "$s")
   [ -f "$f.sha256" ] || continue
   for split in dev-clean dev-other; do
