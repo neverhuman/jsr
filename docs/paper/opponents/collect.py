@@ -4,6 +4,7 @@
     python docs/paper/opponents/collect.py score  STAGE PANEL SCORER
     python docs/paper/opponents/collect.py table  STAGE PANEL
     python docs/paper/opponents/collect.py export STAGE RAW
+    python docs/paper/opponents/collect.py rows   STAGE PANEL RAW
 
 STAGE is a local directory (`<machine>/<arm>-<budget>[-<workload>]/round-N/`), PANEL the
 staged panel with `index.json`, SCORER the pinned `ultra-score` executable. `score` writes
@@ -11,7 +12,10 @@ staged panel with `index.json`, SCORER the pinned `ultra-score` executable. `sco
 `paper_dev_audio.py score` does, for the utterances of that repetition's workload view.
 `table` prints one JSON object per arm and budget (every repetition and the median).
 `export` copies the small receipt files under RAW (`docs/paper/data/raw/opponents`):
-the hypotheses once per arm, their digest in every repetition.
+the hypotheses once per arm, their digest in every repetition. `rows` writes the evidence
+rows (schema v2 of agent_paper.md) under RAW/rows: `<machine>-bench-cross.jsonl` for the
+730-utterance arms, `.slow.jsonl` for arms measured on a smaller view (never the money
+plot's group) and `.held.jsonl` for arms whose publication is on hold (arms.json).
 """
 
 import hashlib
@@ -196,6 +200,59 @@ def export(stage, raw):
             shared.write_text(text, encoding="utf-8")
 
 
+def evidence(stage, panel_seconds, raw):
+    registry = read_json(HERE / "arms.json")
+    files = {}
+    by_id = {}
+    for row in table(stage, panel_seconds):
+        arm, machine = registry["arms"][row["arm"]], registry["machines"][row["machine"]]
+        run = Path(row["source"]) / f"round-{row['median_round']}"
+        view_digest = (run / "workload.sha256").read_text().split()[0]
+        record = {
+            "id": f"{arm['variant']}-{row['machine']}-t{row['threads']}",
+            "variant": arm["variant"], "system": arm["system"], "short": arm["short"], "macro": arm["macro"],
+            "runtime": arm["runtime"], "role": arm["role"], "configuration": arm["configuration"],
+            "class": row["class"], "machine": row["machine"], "host": machine["host"],
+            "hardware": machine["hardware"], "threads": row["threads"], "parallel": row["parallel"],
+            "workload": row["workload"], "workload_digest": view_digest,
+            "scope": "cold_process_tree_launch_to_exit",
+            "cpu_s_per_audio_s": row["cpu_s_per_audio_s"], "cpu_reps": row["cpu_reps"],
+            "wall_s_per_audio_s": row["wall_s_per_audio_s"], "wall_reps": row["wall_reps"],
+            "wer_pct": row["wer_pct"], "wer_clean_pct": row["wer_clean_pct"], "wer_other_pct": row["wer_other_pct"],
+            "peak_rss_bytes": row["peak_rss_bytes"], "artifact_bytes": arm["artifact_bytes"],
+            "n_busy_cores": row["n_busy_cores"], "service_mhz": row["service_mhz"],
+            "service_cpus": row["service_cpus"], "repeated_hypotheses_identical": row["identical_hypotheses"],
+            "source": str(Path("docs/paper/data/raw/opponents") / run.relative_to(stage) / "measurement.json"),
+            "receipt_sha256": row["receipt_sha256"], "label": "exploratory",
+            "session": f"{row['started'][:10]} {machine['host']} bench-cross harness e2ef608",
+        }
+        kind = "held" if "hold" in arm else "main" if row["workload"] == "panel730" else "slow"
+        if "hold" in arm:
+            record["hold"] = arm["hold"]
+        key = (kind, record["id"], record["workload"])
+        other = by_id.get(key)
+        if other is not None:
+            # Eight cores measured both ways: keep the faster as the row, name the other inside it.
+            better, worse = sorted((other, record), key=lambda item: item["wall_s_per_audio_s"])
+            better["other_parallel"] = {name: worse[name] for name in (
+                "parallel", "cpu_s_per_audio_s", "cpu_reps", "wall_s_per_audio_s", "wall_reps", "peak_rss_bytes",
+                "source", "receipt_sha256")}
+            record = better
+        by_id[key] = record
+    for (kind, _, _), record in sorted(by_id.items()):
+        suffix = {"main": "", "slow": ".slow", "held": ".held"}[kind]
+        files.setdefault(raw / "rows" / f"{record['machine']}-bench-cross{suffix}.jsonl", []).append(record)
+    (raw / "rows").mkdir(parents=True, exist_ok=True)
+    for path, records in files.items():
+        path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records), encoding="utf-8")
+
+
+def view_seconds(panel):
+    audio = read_json(panel / "audio.json")
+    return {name: sum(audio[position]["samples"] for position in view(len(audio))) / 16000
+            for name, view in VIEWS.items()}
+
+
 def main():
     command, stage = sys.argv[1], Path(sys.argv[2])
     if command == "pull":
@@ -203,12 +260,10 @@ def main():
     elif command == "score":
         score(stage, Path(sys.argv[3]), sys.argv[4])
     elif command == "table":
-        seconds = {}
-        audio = read_json(Path(sys.argv[3]) / "audio.json")
-        for name, view in VIEWS.items():
-            seconds[name] = sum(audio[position]["samples"] for position in view(len(audio))) / 16000
-        for row in table(stage, seconds):
+        for row in table(stage, view_seconds(Path(sys.argv[3]))):
             print(json.dumps(row))
+    elif command == "rows":
+        evidence(stage, view_seconds(Path(sys.argv[3])), Path(sys.argv[4]))
     elif command == "export":
         export(stage, Path(sys.argv[3]))
     else:

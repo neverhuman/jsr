@@ -1,0 +1,130 @@
+{
+  "note": "Identity of every opponent arm for the evidence rows (schema v2 in agent_paper.md). artifact_bytes counts the model files the runtime opens.",
+  "machines": {
+    "zen2": {
+      "host": "xbabe0",
+      "hardware": "AMD Ryzen Threadripper PRO 3995WX (xbabe0), pinned physical cores, arm alone on its CCX, SMT siblings idle"
+    },
+    "xeon8358": {
+      "host": "xbabe6",
+      "hardware": "Intel Xeon Platinum 8358, AVX-512 VNNI (xbabe6, 30-vCPU cloud VM; pinned vCPUs 20-28, topology hidden by the hypervisor)"
+    },
+    "m3ultra": {
+      "host": "xbabe4",
+      "hardware": "Apple M3 Ultra (xbabe4, macOS 26.5; no CPU affinity, thread count only)"
+    }
+  },
+  "arms": {
+    "jsr-d2e-int8": {
+      "variant": "jsr-d2e-16457-int8",
+      "system": "JSR D2e-16457 INT8",
+      "short": "JSR D2e INT8",
+      "macro": "JsrDtwoeInt",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 58142413
+    },
+    "jsr-d2e-int8-enginetool": {
+      "variant": "jsr-d2e-16457-int8-enginetool",
+      "system": "JSR D2e-16457 INT8 (engine tool)",
+      "short": "JSR D2e (tool)",
+      "macro": "JsrDtwoeTool",
+      "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
+      "role": "ours",
+      "configuration": "prepared INT8, greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
+      "artifact_bytes": 58142413
+    },
+    "zipformer-int8": {
+      "variant": "zipformer-en-2023-06-26-int8",
+      "system": "Streaming Zipformer int8",
+      "short": "Zipformer int8",
+      "macro": "ZipformerInt",
+      "runtime": "sherpa-onnx 2.0.2 / ultra-cold-wav",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding",
+      "artifact_bytes": 72654782
+    },
+    "zipformer-int8-sherpapy": {
+      "variant": "zipformer-en-2023-06-26-int8-sherpapy",
+      "system": "Streaming Zipformer int8 (Python binding)",
+      "short": "Zipformer int8 py",
+      "macro": "ZipformerIntPy",
+      "runtime": "sherpa-onnx 2.0.2 Python binding (sherpa_zipformer.py)",
+      "role": "comparator",
+      "configuration": "int8, greedy, 320 ms chunks, 20 ms packets, 0.8 s tail padding; same library and bundle as the Rust service",
+      "artifact_bytes": 72654782
+    },
+    "moonshine-tiny": {
+      "variant": "moonshine-tiny-streaming",
+      "system": "Moonshine Tiny Streaming",
+      "short": "Moonshine Tiny",
+      "macro": "MoonTiny",
+      "runtime": "Moonshine Voice SDK 0.1.6 (ONNX Runtime, one thread)",
+      "role": "comparator",
+      "configuration": "quantised streaming bundle, 20 ms packets, transcript update every 200 ms",
+      "artifact_bytes": 45398523
+    },
+    "parakeet-redux": {
+      "variant": "parakeet-redux-photon",
+      "system": "Parakeet Redux (Photon)",
+      "short": "Redux/Photon",
+      "macro": "ReduxPhoton",
+      "runtime": "Photon: moondream 2.6.1, kestrel 0.9.1, kestrel-kernels 0.7.4",
+      "role": "comparator",
+      "configuration": "ternary encoder weights, whole utterance, one utterance at a time",
+      "artifact_bytes": 179005408,
+      "hold": "kestrel-kernels ships under a proprietary licence that requires a separate written agreement; owner review pending"
+    },
+    "parakeet-unified-offline": {
+      "variant": "parakeet-unified-en-q8-whole",
+      "system": "Parakeet Unified EN 0.6B (whole utterance)",
+      "short": "PK Unified whole",
+      "macro": "PkUnifiedWhole",
+      "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
+      "role": "comparator",
+      "configuration": "Q8_0, greedy RNN-T, whole utterance, full attention",
+      "artifact_bytes": 731357568
+    },
+    "parakeet-unified-stream160": {
+      "variant": "parakeet-unified-en-q8-stream160",
+      "system": "Parakeet Unified EN 0.6B (160 ms mode)",
+      "short": "PK Unified 160ms",
+      "macro": "PkUnifiedStream",
+      "runtime": "transcribe.cpp cfa237c (ggml), Q8_0 GGUF",
+      "role": "comparator",
+      "configuration": "Q8_0, greedy RNN-T, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, left context re-encoded every chunk",
+      "artifact_bytes": 731357568
+    },
+    "nemotron-labs-unified-offline": {
+      "variant": "nemotron-labs-unified-fp32-whole",
+      "system": "Nemotron Labs Unified ASR 0.6B (whole utterance)",
+      "short": "NL Unified whole",
+      "macro": "NlUnifiedWhole",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "FP32, greedy label-looping RNN-T, language prompt en, whole utterance, one utterance per batch",
+      "artifact_bytes": 2507735040
+    },
+    "nemotron-labs-unified-stream160": {
+      "variant": "nemotron-labs-unified-fp32-stream160",
+      "system": "Nemotron Labs Unified ASR 0.6B (160 ms mode)",
+      "short": "NL Unified 160ms",
+      "macro": "NlUnifiedStream",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "FP32, greedy label-looping RNN-T, language prompt en, buffered streaming: left 5.6 s / chunk 80 ms / right 80 ms, full buffer re-encoded every chunk",
+      "artifact_bytes": 2507735040
+    },
+    "nemotron-labs-unified-stream160-batch16": {
+      "variant": "nemotron-labs-unified-fp32-stream160-batch16",
+      "system": "Nemotron Labs Unified ASR 0.6B (160 ms mode, accuracy pass)",
+      "short": "NL Unified 160 b16",
+      "macro": "NlUnifiedStreamBatch",
+      "runtime": "NeMo c02239a (PyTorch 2.15 CPU), FP32",
+      "role": "comparator",
+      "configuration": "the 160 ms buffered loop with sixteen utterances side by side; accuracy pass, never a timed row",
+      "artifact_bytes": 2507735040
+    }
+  }
+}

@@ -1,6 +1,6 @@
 """Cold service around NeMo (PyTorch, CPU) for the unified offline/streaming RNN-T models.
 
-    python nemo_unified.py MODE MODEL.nemo WAV_DIR PREDICTIONS.jsonl THREADS [--lang en] [--trace T.jsonl]
+    python nemo_unified.py MODE MODEL.nemo WAV_DIR PREDICTIONS.jsonl THREADS [--lang en] [--trace T.jsonl] [--batch N]
 
 MODE is `offline` (the model card's `asr_model.transcribe`, one utterance per batch) or
 `stream:LEFT_S:CHUNK_S:RIGHT_S` (buffered streaming: the encoder is re-run over
@@ -8,7 +8,9 @@ MODE is `offline` (the model card's `asr_model.transcribe`, one utterance per ba
 (examples/asr/asr_chunked_inference/rnnt/speech_to_text_streaming_infer_rnnt.py at the pinned
 commit) with batch size 1, `att_context_size_as_chunk=true`, greedy label-looping decoding
 carried across chunks. One model load per process, the staged u%05d.wav files in name order,
-one final hypothesis per file as `{"id", "hyp"}`.
+one final hypothesis per file as `{"id", "hyp"}`. `--batch N` (streaming only, no trace) runs
+N utterances side by side through the same loop, longest first: an accuracy pass for the
+full panel, never a timed row.
 
 The trace has one line per changed partial and one final line with bench-open's v1 keys:
 audio_ms is the audio the step had to wait for (the right edge of its chunk plus right
@@ -65,7 +67,7 @@ def offline(model, wavs, lang, out):
         out.write("\n")
 
 
-def streaming(torch, model, wavs, context_secs, lang, out, trace):
+def streaming(torch, model, wavs, context_secs, lang, out, trace, batch):
     from omegaconf import OmegaConf, open_dict
 
     from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
@@ -90,23 +92,26 @@ def streaming(torch, model, wavs, context_secs, lang, out, trace):
     samples = ContextSize(*(count * frame_samples for count in (frames.left, frames.chunk, frames.right)))
     if model.cfg.encoder.att_context_style == "chunked_limited_with_rc":
         model.encoder.set_default_att_context_size(att_context_size=[frames.left, frames.chunk, frames.right])
-    prompt = None
-    if getattr(model, "concat", False):
-        prompt = torch.tensor([model.resolve_prompt_language(lang)], dtype=torch.long)
+    prompted = getattr(model, "concat", False)
+    language = model.resolve_prompt_language(lang) if prompted else None
     print(json.dumps({"context_frames": [frames.left, frames.chunk, frames.right],
                       "context_samples": [samples.left, samples.chunk, samples.right],
                       "att_context_style": str(model.cfg.encoder.att_context_style),
-                      "prompt_language": lang if prompt is not None else None}), file=sys.stderr)
-
-    def text_of(hyps):
-        return model.tokenizer.ids_to_text(batched_hyps_to_hypotheses(hyps, batch_size=1)[0].y_sequence.tolist())
-
-    for path in wavs:
-        audio = torch.from_numpy(read_pcm(path)).unsqueeze(0)
-        total = audio.shape[1]
-        rest = torch.tensor([total])
+                      "prompt_language": lang if prompted else None, "batch": batch}), file=sys.stderr)
+    audios = {path: torch.from_numpy(read_pcm(path)) for path in wavs}
+    order = sorted(wavs, key=lambda path: -len(audios[path])) if batch > 1 else list(wavs)
+    texts = {}
+    for first in range(0, len(order), batch):
+        group = order[first:first + batch]
+        size = len(group)
+        total = max(len(audios[path]) for path in group)
+        audio = torch.zeros(size, total)
+        for row, path in enumerate(group):
+            audio[row, :len(audios[path])] = audios[path]
+        rest = torch.tensor([len(audios[path]) for path in group])
+        prompt = torch.full((size,), language, dtype=torch.long) if prompted else None
         begin = time.perf_counter()
-        buffer = StreamingBatchedAudioBuffer(batch_size=1, context_samples=samples, dtype=audio.dtype,
+        buffer = StreamingBatchedAudioBuffer(batch_size=size, context_samples=samples, dtype=audio.dtype,
                                              device=audio.device)
         hyps, state, left, right = None, None, 0, min(samples.chunk + samples.right, total)
         paced_ms, last = 0.0, None
@@ -138,10 +143,11 @@ def streaming(torch, model, wavs, context_secs, lang, out, trace):
             paced_ms = max(paced_ms, audio_ms) + compute_ms
             final = right >= total
             if trace is not None:
-                text = text_of(hyps)
+                text = model.tokenizer.ids_to_text(
+                    batched_hyps_to_hypotheses(hyps, batch_size=1)[0].y_sequence.tolist())
                 if final or text != last:
                     wall_ms = (finish - begin) * 1000.0
-                    json.dump({"id": path.stem, "audio_ms": round(audio_ms, 3), "wall_ms": round(wall_ms, 3),
+                    json.dump({"id": group[0].stem, "audio_ms": round(audio_ms, 3), "wall_ms": round(wall_ms, 3),
                                "paced_ms": round(paced_ms, 3), "compute_ms": round(compute_ms, 3), "text": text,
                                "final": final, "audio_s": round(audio_ms / 1000.0, 4),
                                "chunk_wall_ms": round(compute_ms, 3), "cum_wall_ms": round(wall_ms, 3)},
@@ -151,7 +157,10 @@ def streaming(torch, model, wavs, context_secs, lang, out, trace):
             rest = rest - lengths
             left = right
             right = min(right + samples.chunk, total)
-        json.dump({"id": path.stem, "hyp": text_of(hyps)}, out, ensure_ascii=False)
+        for path, hyp in zip(group, batched_hyps_to_hypotheses(hyps, batch_size=size), strict=True):
+            texts[path] = model.tokenizer.ids_to_text(hyp.y_sequence.tolist())
+    for path in wavs:
+        json.dump({"id": path.stem, "hyp": texts[path]}, out, ensure_ascii=False)
         out.write("\n")
 
 
@@ -164,6 +173,7 @@ def main():
     parser.add_argument("threads", type=int)
     parser.add_argument("--lang", default="en")
     parser.add_argument("--trace", type=Path)
+    parser.add_argument("--batch", type=int, default=1)
     args = parser.parse_args()
     wavs = staged(args.wav_dir)
     context = None
@@ -173,6 +183,8 @@ def main():
             raise ValueError(f"invalid streaming mode {args.mode}")
     elif args.mode != "offline" or args.trace is not None:
         raise ValueError("MODE is offline or stream:LEFT_S:CHUNK_S:RIGHT_S; a trace needs a streaming mode")
+    if args.batch < 1 or (args.batch > 1 and (context is None or args.trace is not None)):
+        raise ValueError("--batch is for streaming without a trace")
     torch, model = load(args.model, args.threads)
     from importlib.metadata import version
 
@@ -183,10 +195,10 @@ def main():
         if context is None:
             offline(model, wavs, args.lang, out)
         elif args.trace is None:
-            streaming(torch, model, wavs, context, args.lang, out, None)
+            streaming(torch, model, wavs, context, args.lang, out, None, args.batch)
         else:
             with args.trace.open("x", encoding="utf-8") as trace:
-                streaming(torch, model, wavs, context, args.lang, out, trace)
+                streaming(torch, model, wavs, context, args.lang, out, trace, 1)
 
 
 if __name__ == "__main__":

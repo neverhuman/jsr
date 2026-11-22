@@ -63,7 +63,7 @@ configure() {
             fi
             files=("$gguf")
             ;;
-        nemotron-labs-unified-offline|nemotron-labs-unified-stream160)
+        nemotron-labs-unified-offline|nemotron-labs-unified-stream160|nemotron-labs-unified-stream160-batch16)
             nemo="$O/nemotron-labs-unified/model-nemo/nemotron-labs-unified-asr-0.6b.nemo"
             venv="$O/nemotron-labs-unified/runtime/venv"
             cmd=("$venv/bin/python" "$here/nemo_unified.py" offline "$nemo" "{wav}" "{out}" "{threads}" --lang en)
@@ -71,6 +71,11 @@ configure() {
                 class=streaming
                 cmd=("$venv/bin/python" "$here/nemo_unified.py" stream:5.6:0.08:0.08 "$nemo" "{wav}" "{out}"
                     "{threads}" --lang en --trace "{trace}")
+            elif [[ $1 == *batch16 ]]; then
+                # Accuracy pass only: sixteen utterances side by side through the same loop.
+                class=streaming
+                cmd=("$venv/bin/python" "$here/nemo_unified.py" stream:5.6:0.08:0.08 "$nemo" "{wav}" "{out}"
+                    "{threads}" --lang en --batch 16)
             fi
             files=("$nemo" "$here/nemo_unified.py" "$O/nemotron-labs-unified/runtime/venv.freeze.txt")
             libs=("$venv"/lib/python3.*/site-packages/torch/lib/libtorch_cpu.*)
