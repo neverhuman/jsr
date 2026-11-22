@@ -16,6 +16,7 @@ for arm in "H13b_exact4096 rnnt_loss=exact rnnt_pieces=4096 ctc_pieces=1024" \
   read -r name extra <<< "$arm"
   R=$DATA/runs/train/$name
   [ -f "$R/DONE" ] && continue
+  ln -sfn "$R" "$DATA/runs/train/H13_current"  # guard_ceiling follows the running arm
   # shellcheck disable=SC2086
   "$REPO/python/ultra/train/launch_guarded.sh" "$R" "$CPUS" 0 -- $COMMON --set $SETS $extra || exit 1
   while kill -0 "$(cat "$R/PID")" 2>/dev/null; do sleep 60; done
