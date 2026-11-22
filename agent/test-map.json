@@ -137,6 +137,10 @@
       "command": "just score",
       "purpose": "verify the root README keeps routing to the workspace layout"
     },
+    "CONTRIBUTING.md": {
+      "command": "just score",
+      "purpose": "verify the contributor guide keeps routing to the rules, data and workstreams"
+    },
     "CHANGELOG.md": {
       "command": "just score",
       "purpose": "release notes stay visible to the audit; release entries are checked by the release process in docs/release.md"
