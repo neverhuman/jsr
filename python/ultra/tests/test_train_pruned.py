@@ -82,3 +82,23 @@ def test_unknown_loss_and_bad_range_refused():
         ASRModel(dataclasses.replace(PRESETS["TINY"], rnnt_loss="fast"))
     with pytest.raises(ValueError):
         ASRModel(dataclasses.replace(PRESETS["TINY"], rnnt_loss="pruned", prune_range=1))
+
+
+def test_prepare_seed_adds_only_simple_heads(tmp_path):
+    from train import checkpoint
+    from train.prepare_seed import make_seed
+
+    exact, _ = _models(prune_range=5)
+    src = str(tmp_path / "src.pt")
+    checkpoint.save_weights(str(tmp_path), 7, {"model": exact.state_dict(),
+                                               "model_config": exact.cfg.to_dict()})
+    src = str(tmp_path / "model-00000007.pt")
+    before = open(src, "rb").read()
+    pl = make_seed(src, str(tmp_path / "seed.pt"), "pruned", 5, 1)
+    assert sorted(pl["seed_from"]["added"]) == ["simple_am.bias", "simple_am.weight",
+                                                "simple_lm.bias", "simple_lm.weight"]
+    assert open(src, "rb").read() == before  # source untouched
+    seed = checkpoint.load(str(tmp_path / "seed.pt"), restore_rng=False)
+    for k, v in exact.state_dict().items():
+        assert torch.equal(seed["model"][k], v), k
+    assert seed["model_config"]["rnnt_loss"] == "pruned"

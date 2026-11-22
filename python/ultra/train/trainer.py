@@ -90,6 +90,8 @@ class TrainConfig:
     # Batch loader: "thread" (decode in a thread pool; GIL-bound) or "process" (spawned worker
     # processes running the same decode/perturb/log-mel code; bit-identical batches, test).
     loader: str = "thread"
+    # Row groups sorted together per window before packing (more = less padding per batch).
+    window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -181,6 +183,10 @@ class Trainer:
         self.opt.load_state_dict(p["optimizer"])
         self.sched.load_state_dict(p["scheduler"])
         self.pos = Position(**p["position"])
+        old_wg = int((p.get("train_config") or {}).get("window_groups", 4))
+        if old_wg != self.cfg.window_groups and hasattr(self.source, "carry_width"):
+            # the new width starts at the next epoch; this epoch finishes with the old one
+            self.source.carry_width = (old_wg, self.pos.epoch)
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
@@ -515,7 +521,8 @@ def main(argv=None) -> int:
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
-                                teacher=_teacher(cfg), loader=cfg.loader)
+                                teacher=_teacher(cfg), loader=cfg.loader,
+                                window_groups=cfg.window_groups)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg)

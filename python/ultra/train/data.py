@@ -209,6 +209,9 @@ class ParquetBatches:
         self.feat, self.seed = feat, seed
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
+        # (width, epoch): keep an older window width until that epoch ends (resume after a width
+        # change), so a mid-epoch resume never skips or repeats data; set by the trainer.
+        self.carry_width: tuple[int, int] | None = None
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.teacher = teacher
@@ -234,9 +237,19 @@ class ParquetBatches:
     def windows_per_epoch(self) -> int:
         return (len(self.units) + self.window_groups - 1) // self.window_groups
 
+    def _width(self, epoch: int) -> int:
+        if self.carry_width is not None and epoch == self.carry_width[1]:
+            return self.carry_width[0]
+        return self.window_groups
+
+    def _windows(self, epoch: int) -> int:
+        wg = self._width(epoch)
+        return (len(self.units) + wg - 1) // wg
+
     def _window_units(self, epoch: int, window: int):
         perm = np.random.default_rng([self.seed, epoch]).permutation(len(self.units))
-        sel = perm[window * self.window_groups:(window + 1) * self.window_groups]
+        wg = self._width(epoch)
+        sel = perm[window * wg:(window + 1) * wg]
         return [self.units[i] for i in sorted(sel)]
 
     def _decode(self, row: dict, epoch: int = 0) -> Example | None:
@@ -325,7 +338,7 @@ class ParquetBatches:
                     except queue.Full:
                         continue
                 w += 1
-                if w >= self.windows_per_epoch:
+                if w >= self._windows(ep):
                     ep, w = ep + 1, 0
 
         # The producer runs as a future: a failure is kept on the future (never swallowed) and

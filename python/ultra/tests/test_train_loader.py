@@ -88,3 +88,21 @@ def test_producer_failure_surfaces_as_data_error(shard, monkeypatch):
     monkeypatch.setattr(src, "_load_window", boom)
     with pytest.raises(DataError, match="disk went away"):
         next(iter(src.iterate(Position())))
+
+
+def test_window_width_change_waits_for_the_epoch_boundary(shard):
+    """A resume with a new window width keeps the old width until the epoch ends: the units of
+    the current epoch are exactly those of an uninterrupted run, and the next epoch uses the new
+    width."""
+    root, tok = shard
+    t = Tokenizer(tok)
+    old = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=3, parquet_root=root,
+                         window_groups=1, workers=1)
+    new = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=3, parquet_root=root,
+                         window_groups=4, workers=1)
+    new.carry_width = (1, 0)
+    assert [new._window_units(0, w) for w in range(new._windows(0))] == \
+        [old._window_units(0, w) for w in range(old._windows(0))]
+    assert new._windows(1) == 1 and old._windows(1) == 4
+    flat = sorted(u for w in range(new._windows(1)) for u in new._window_units(1, w))
+    assert flat == sorted(new.units)  # epoch 1 covers every unit once at the new width
