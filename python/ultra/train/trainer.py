@@ -82,6 +82,12 @@ class TrainConfig:
     # sizes follow (pieces + 1). H13 shares one 512-piece model between both heads.
     rnnt_pieces: int = 4096
     ctc_pieces: int = 1024
+    # RNN-T loss (ModelConfig.rnnt_loss): "exact" or "pruned" (k2; H13b), band width, and a linear
+    # ramp of the pruned-loss weight from 0.1 to 1 over the first prune_warmup steps while the
+    # simple joiner that picks the band is still untrained (0 = weight 1 from the start).
+    rnnt_loss: str = "exact"
+    prune_range: int = 5
+    prune_warmup: int = 0
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
@@ -193,7 +199,8 @@ class Trainer:
                                     stats=self.stats,
                                     augment=self.augment if self.step >= self.cfg.specaug_start
                                     else None, gen=gen,
-                                    chunk=self.cfg.chunk or None)
+                                    chunk=self.cfg.chunk or None,
+                                    pruned_scale=self._pruned_scale())
         loss = out["loss"]
         if not torch.isfinite(loss):
             self._pause(batch, out, float("nan"), "loss")
@@ -210,7 +217,8 @@ class Trainer:
         return {"loss": float(loss), "rnnt": float(out["rnnt"]), "ctc": float(out["ctc"]),
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
                 "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
-                "utts": len(batch.uids)}
+                "utts": len(batch.uids),
+                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {})}
 
     def _diverged(self, detail: str, extra: dict) -> None:
         diag = os.path.join(self.run_dir, "DIVERGED.json")
@@ -220,6 +228,10 @@ class Trainer:
                        "position": self.pos.to_dict(), **extra}, fh, indent=1)
         self.save(wait=True)  # keep the state at the stop for inspection
         raise DivergenceError(self.step, detail, diag)
+
+    def _pruned_scale(self) -> float:
+        w = self.cfg.prune_warmup
+        return 1.0 if not w else min(1.0, 0.1 + 0.9 * self.step / w)
 
     @torch.no_grad()
     def _ema_update(self) -> None:
@@ -351,8 +363,9 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc"):
-                acc[k] += r[k]
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple"):
+                if k in r:
+                    acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
             if self.step % self.cfg.log_every == 0:
                 dt = time.time() - t0
@@ -361,6 +374,8 @@ class Trainer:
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
                           "dropped_long": getattr(self.source, "dropped_long", 0),
+                          **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
+                             else {}),
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
@@ -407,7 +422,8 @@ def model_config_for(cfg: TrainConfig) -> ModelConfig:
     if cfg.rnnt_pieces < 2 or cfg.ctc_pieces < 2:
         raise ShapeError("rnnt_pieces and ctc_pieces must be >= 2")
     return dataclasses.replace(PRESETS[cfg.preset], vocab_rnnt=cfg.rnnt_pieces + 1,
-                               vocab_ctc=cfg.ctc_pieces + 1)
+                               vocab_ctc=cfg.ctc_pieces + 1, rnnt_loss=cfg.rnnt_loss,
+                               prune_range=cfg.prune_range)
 
 
 def main(argv=None) -> int:

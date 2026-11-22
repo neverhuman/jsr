@@ -15,7 +15,8 @@ from torch import nn
 from train.ctc import FeasibilityStats, ctc_loss
 from train.features import GlobalCMVN
 from train.model import Encoder, EncoderConfig
-from train.transducer import Joiner, StatelessPredictor, greedy_decode, joiner_logprobs, rnnt_nll
+from train.transducer import (BLANK, Joiner, StatelessPredictor, greedy_decode, joiner_logprobs,
+                              rnnt_nll)
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,15 @@ class ModelConfig:
     ctc_weight: float = 0.3
     qat: str = "none"  # "ternary": train.qat ternary weights + per-row int8 inputs
     qat_stem: str = "none"  # "int8": stem conv 2 + projection trained as the engine's int8 GEMMs
+    # RNN-T training loss: "exact" (full lattice, train.transducer) or "pruned" (k2, H13b): a
+    # training-only simple joiner (linear heads on the encoder and predictor outputs) gives a cheap
+    # smoothed loss whose occupation gradients choose, per frame, a band of `prune_range` label
+    # positions; the real joiner is evaluated only inside that band. Inference is unchanged.
+    rnnt_loss: str = "exact"
+    prune_range: int = 5
+    simple_loss_scale: float = 0.5
+    lm_only_scale: float = 0.25
+    am_only_scale: float = 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -106,6 +116,13 @@ class ASRModel(nn.Module):
         self.ctc_head = nn.Linear(cfg.encoder.d_model, cfg.vocab_ctc)
         self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner)
         self.joiner = Joiner(cfg.encoder.d_model, cfg.joiner, cfg.vocab_rnnt, cfg.joiner_act)
+        if cfg.rnnt_loss == "pruned":
+            if cfg.prune_range < 2:
+                raise ValueError("prune_range must be >= 2")
+            self.simple_am = nn.Linear(cfg.encoder.d_model, cfg.vocab_rnnt)
+            self.simple_lm = nn.Linear(cfg.joiner, cfg.vocab_rnnt)
+        elif cfg.rnnt_loss != "exact":
+            raise ValueError(f"unknown rnnt_loss {cfg.rnnt_loss}")
         if cfg.qat == "ternary":
             from train.qat import apply_ternary
 
@@ -124,7 +141,8 @@ class ASRModel(nn.Module):
 
     def losses(self, feats, feat_lens, rnnt_tgt, rnnt_lens, ctc_tgt, ctc_lens,
                stats: FeasibilityStats | None = None, augment: SpecAugConfig | None = None,
-               gen: torch.Generator | None = None, chunk: int | None = None) -> dict:
+               gen: torch.Generator | None = None, chunk: int | None = None,
+               pruned_scale: float = 1.0) -> dict:
         x = self.cmvn(feats)
         if augment is not None and gen is not None:
             x = spec_augment(x, feat_lens, augment, gen)
@@ -138,14 +156,49 @@ class ASRModel(nn.Module):
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
             pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt)).float()
-            lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
-            nll = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens)
+            if self.cfg.rnnt_loss == "pruned":
+                nll, simple = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens)
+            else:
+                lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
+                nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
         rnnt_tokens = int(rnnt_lens.sum())
         rnnt = nll.sum() / max(1, rnnt_tokens)
         ctc = ctc_sum / max(1, ctc_tokens)
-        total = rnnt + self.cfg.ctc_weight * ctc
-        return {"loss": total, "rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
-                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+        total = self.cfg.ctc_weight * ctc
+        out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
+               "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+        if simple is None:
+            total = total + rnnt
+        else:
+            rnnt_simple = simple.sum() / max(1, rnnt_tokens)
+            total = total + pruned_scale * rnnt + self.cfg.simple_loss_scale * rnnt_simple
+            out["rnnt_simple"] = rnnt_simple
+        out["loss"] = total
+        return out
+
+    def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens):
+        """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss) via k2."""
+        try:
+            import k2
+        except ImportError as e:  # the exact loss needs no extra package
+            raise ImportError("rnnt_loss='pruned' needs k2 (a build matching this torch); "
+                              "see research/H12_accuracy_diagnostics") from e
+        c = self.cfg
+        bd = torch.zeros(tgt.shape[0], 4, dtype=torch.int64, device=enc.device)
+        bd[:, 2], bd[:, 3] = tgt_lens, enc_lens
+        symbols = tgt.long()
+        simple, (px_grad, py_grad) = k2.rnnt_loss_smoothed(
+            lm=self.simple_lm(pred_p).float(), am=self.simple_am(enc).float(), symbols=symbols,
+            termination_symbol=BLANK, lm_only_scale=c.lm_only_scale, am_only_scale=c.am_only_scale,
+            boundary=bd, rnnt_type="regular", reduction="none", return_grad=True)
+        ranges = k2.get_rnnt_prune_ranges(px_grad=px_grad, py_grad=py_grad, boundary=bd,
+                                          s_range=min(c.prune_range, symbols.shape[1] + 1))
+        am, lm = k2.do_rnnt_pruning(am=enc_p, lm=pred_p, ranges=ranges)
+        logits = self.joiner.logits(am, lm).float()
+        nll = k2.rnnt_loss_pruned(logits=logits, symbols=symbols, ranges=ranges,
+                                  termination_symbol=BLANK, boundary=bd, rnnt_type="regular",
+                                  reduction="none")
+        return nll, simple
 
     @torch.no_grad()
     def greedy(self, feats, feat_lens, chunk=None, max_symbols: int = 8):
