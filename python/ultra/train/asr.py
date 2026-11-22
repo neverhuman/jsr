@@ -144,7 +144,7 @@ class ASRModel(nn.Module):
                gen: torch.Generator | None = None, chunk: int | None = None,
                pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0,
                simple_detach: bool = False, zloss_weight: float = 0.0,
-               cr_ctc_weight: float = 0.0) -> dict:
+               cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0) -> dict:
         x_norm = self.cmvn(feats)
         x = spec_augment(x_norm, feat_lens, augment, gen) if (augment is not None and gen is not None) else x_norm
         enc, enc_lens = self.encoder(x, feat_lens, chunk)
@@ -161,8 +161,11 @@ class ASRModel(nn.Module):
             if self.cfg.rnnt_loss == "pruned":
                 nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
                                                     rnnt_lens, simple_detach,
-                                                    zloss=zloss_weight > 0)
+                                                    zloss=zloss_weight > 0,
+                                                    delay_penalty=delay_penalty)
             else:
+                if delay_penalty:
+                    raise ValueError("delay_penalty needs rnnt_loss='pruned' (k2)")
                 lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
                 nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
                 if zloss_weight > 0:  # H23: train/optim/zloss.py
@@ -208,9 +211,11 @@ class ASRModel(nn.Module):
         return out
 
     def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, simple_detach=False,
-                     zloss: bool = False):
+                     zloss: bool = False, delay_penalty: float = 0.0):
         """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss, band z-loss or
-        None) via k2."""
+        None) via k2. delay_penalty > 0 (H34) applies k2's emission-delay regulariser to both
+        the smoothed and the pruned loss (as icefall does); 0 leaves the calls unchanged."""
+        dp = {"delay_penalty": delay_penalty} if delay_penalty else {}
         try:
             import k2
         except ImportError as e:  # the exact loss needs no extra package
@@ -224,14 +229,14 @@ class ASRModel(nn.Module):
             lm=self.simple_lm(pred_p.detach() if simple_detach else pred_p).float(),
             am=self.simple_am(enc.detach() if simple_detach else enc).float(), symbols=symbols,
             termination_symbol=BLANK, lm_only_scale=c.lm_only_scale, am_only_scale=c.am_only_scale,
-            boundary=bd, rnnt_type="regular", reduction="none", return_grad=True)
+            boundary=bd, rnnt_type="regular", reduction="none", return_grad=True, **dp)
         ranges = k2.get_rnnt_prune_ranges(px_grad=px_grad, py_grad=py_grad, boundary=bd,
                                           s_range=min(c.prune_range, symbols.shape[1] + 1))
         am, lm = k2.do_rnnt_pruning(am=enc_p, lm=pred_p, ranges=ranges)
         logits = self.joiner.logits(am, lm).float()
         nll = k2.rnnt_loss_pruned(logits=logits, symbols=symbols, ranges=ranges,
                                   termination_symbol=BLANK, boundary=bd, rnnt_type="regular",
-                                  reduction="none")
+                                  reduction="none", **dp)
         if not zloss:
             return nll, simple, None
         from train.optim.zloss import band_zloss

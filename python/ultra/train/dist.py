@@ -138,8 +138,8 @@ class StepThrottle:
                 pass
             time.sleep(5.0)  # nvidia-smi exited or is missing: retry
 
-    def util_mean(self) -> float | None:
-        s = list(self.samples)
+    def util_mean(self, last: int | None = None) -> float | None:
+        s = list(self.samples)[-last:] if last else list(self.samples)
         return sum(s) / len(s) if s else None
 
     def _live_target(self) -> None:
@@ -156,12 +156,15 @@ class StepThrottle:
         self.step_s = 0.9 * self.step_s + 0.1 * step_seconds if self.step_s else step_seconds
         if step % self.every == 0:
             self._live_target()
-            m = self.util_mean()
+            # control on the last ~60 s (53 samples): the 5-min mean lags the duty by minutes, and
+            # stepping on it wound the duty down to its floor before the mean could respond (D2e).
+            # The 5-min mean is still what the cap watch sees; the 60-s loop keeps it at target.
+            m = self.util_mean(53)
             if m is not None and len(self.samples) >= 27:  # >= 30 s of samples
                 if m > self.target:
-                    self.duty = max(self.floor, self.duty - 0.02)
+                    self.duty = max(self.floor, self.duty - 0.01)
                 elif m < self.target - 0.03:
-                    self.duty = min(1.0, self.duty + 0.02)
+                    self.duty = min(1.0, self.duty + 0.01)
         return self.step_s * (1.0 / self.duty - 1.0)
 
     def pause(self, seconds: float) -> None:

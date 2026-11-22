@@ -52,5 +52,6 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | H31 | **JSR v2 Biasing & Personalization:** L1 Double-Array Contextual Trie (`<32 KB`, `<8 ns`/step) + opt-in causal LHUC/codebook adaptation (`1.4 MB`) | PLANNED | Gate: `≥ +15 pp` entity recall (`<+0.1 pp` false ins); `≥ 5%` rel speaker WER drop, `0` speakers `>+0.5 pp` worse |
 | H32 | **JSR v2 Expanded Data Track (Owner-Gated):** Libri-Light `unlab-60k` MVQ-KD + GigaSpeech multi-domain + long-form sessions (separate from Controlled 960 h) | PLANNED | Target `≤ 1.9% / 4.2%` DEV clean/other + strong OOD |
 | H33 | **JSR v2 Qualifying Freeze & Paper v2:** quiet-host `FREEZE.md` across `CCX Density` (`V2-S`), `SU-Live` (`V2-M/L`), and `SU-File` (`≥ 1,500×` RT) | PLANNED | Full SHA-256 receipts, cross-ISA 100% bit-exact, `jankurai ≥ 85` |
+| [H34](H34_delay_penalty/README.md) | **Streaming first-preview latency:** pruned RNN-T `delay_penalty` λ ∈ {0.0015, 0.004} vs λ=0, 3k-step fine-tunes from D2c final | PRE-REGISTERED (running) | Gate: first-preview horizon `≥ 150 ms` earlier at `≤ +0.3 pp` dev-clean400 vs control |
 
 Reserved: H14 dual-mode / 3-mask tier training (executed in H27). Next free: **H34**.
