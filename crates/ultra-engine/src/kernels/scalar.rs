@@ -37,6 +37,21 @@ pub fn exp_approx(x: f32) -> f32 {
     y * f32::from_bits(e)
 }
 
+/// `sum_i exp_approx(x[i] - shift)` in a fixed order shared by every ISA: element `i` goes
+/// to lane `i % 8`, then lanes reduce as `((l0 + l4) + (l2 + l6)) + ((l1 + l5) + (l3 + l7))`.
+pub fn sum_exp_shifted(x: &[f32], shift: f32) -> f32 {
+    let mut acc = [0.0f32; 8];
+    for (i, &v) in x.iter().enumerate() {
+        acc[i % 8] += exp_approx(v - shift);
+    }
+    reduce8(&acc)
+}
+
+/// The fixed lane reduction of [`sum_exp_shifted`].
+pub fn reduce8(a: &[f32; 8]) -> f32 {
+    ((a[0] + a[4]) + (a[2] + a[6])) + ((a[1] + a[5]) + (a[3] + a[7]))
+}
+
 #[inline]
 pub fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + exp_approx(-x))

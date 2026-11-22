@@ -99,3 +99,20 @@ Raw outputs:
 ## Addendum (Codex, 2026-11-22)
 
 Runtime commit `809a72c`, merged in `4efa7f2`, skips zero coefficients in the triangular mel bank, precomputes the FFT bit-reversal order, and uses unfused SIMD butterflies. Sparse and dense frontend outputs agreed at 0 ULP. The isolated frontend benchmark measured 1.126 to 0.317 CPU-ms per audio second on Zen 2 and 0.546 to 0.193 on Apple M3 Ultra. [Portable log-mel evidence](../H11_cross_isa_portable_logmel/README.md)
+
+## Addendum (runtime-lane, 2026-11-22): B1 Frontend Implementation & Table
+
+**Status:** `EXPLORATORY` (merged onto `main` @ `4efa7f2` from `lane/runtime-h15-mel @ 809a72c`).
+
+- **Implementation:** `crates/ultra-frontend/src/{portable_math,trainer_mel,trainer_mel_avx2}.rs`, `crates/ultra-frontend/tests/sparse_mel_parity.rs`:
+  1. Precomputed sparse triangular mel filterbank (`477` nonzeros vs `20,560` dense = **43× fewer MACs**, ~`5 KiB` L1d-resident vs `82 KiB`, automatic dense fallback on non-finite inputs).
+  2. Precomputed 512-point FFT bit-reversal table.
+  3. Unfused 4-wide AVX2 (`vmulpd`/`vaddpd`/`vsubpd` on `x86_64`) and 2-wide NEON (`vmulq_f64`/`vaddq_f64`/`vsubq_f64` on `aarch64`) FFT butterflies with zero FMA contraction.
+- **Verified results (`cargo test --locked --release -p ultra-frontend --test sparse_mel_parity -- --nocapture`, 10,000 frames = 100 audio-s):**
+
+| Host / ISA | Dense portable (CPU-ms/s) | Sparse + SIMD FFT (CPU-ms/s) | Speedup | ULP diff vs dense |
+|---|---:|---:|---:|---:|
+| H0 AMD Zen 2 (`x86_64` AVX2) | 1.126 | **0.317** | **3.55×** | **0 ULP** |
+| `xbabe4` Apple M3 Ultra (`aarch64` NEON, verified by lead) | 0.546 | **0.193** | **2.83×** | **0 ULP** |
+
+- **Continuity:** `ultra-engine --test output_continuity`, `batch_invariance`, and `prepared_int8` pass unchanged on both x86_64 and ARM64 (0 fixture updates).

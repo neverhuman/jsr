@@ -35,13 +35,10 @@ result equals the scalar reference exactly. On ARM the same sums come from \text
 attention kernel flipped \AttnFlipCount{} of 400 INT8 transcripts by reordering a float sum, and
 was reverted.
 
-\para{Prepared artifacts.} Quantisation happens once, offline. A prepared artifact stores the
-packed int8 weights, their scales and column sums, and a manifest with the SHA-256 of the
-source weights; the loader verifies both. In qualifying mode the engine refuses runtime weight
-quantisation, and every measurement row records the engine configuration, binary hash, commit,
-ISA and CPU affinity. Prepared INT8 also lowers peak resident memory for the dense model from
-\RssEngineIntEight\,MB (runtime quantisation) to \RssEngineIntEightPrepared\,MB (measured in a
-separate run).
+\para{Prepared artifacts.} Quantisation happens once, offline; the loader verifies the packed
+weights against the source-weight SHA-256, qualifying mode refuses runtime quantisation, and every
+row records configuration, binary hash, commit, ISA and affinity. Prepared INT8 also lowers the
+dense model's peak memory from \RssEngineIntEight{} to \RssEngineIntEightPrepared\,MB (separate runs).
 
 \para{Portable log-mel and cross-ISA identity.} Bit-identical kernels are not enough if the
 features differ. Our first front end used the platform \texttt{libm} and FMA contraction; the

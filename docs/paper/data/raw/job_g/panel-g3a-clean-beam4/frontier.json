@@ -1,0 +1,106 @@
+{
+  "schema": "ultra.frontier-suite/v1",
+  "split": "dev-clean",
+  "panel_manifest_sha256": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36",
+  "grid_ms": 320,
+  "max_chunks": 2,
+  "source_commit": "43f31a1086fc",
+  "hardware_id": "xbabe0-zen2-64c",
+  "completion_status": "exploratory",
+  "rows": [
+    {
+      "candidate": "/home/ubuntu/jsr-engine-data/runs/d2-avg3-55-60-65/weights-int8prep",
+      "loaded_identity": "ultra-engine-dense-int8-6a3d8447f54f-beam4",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 400,
+      "audio_seconds": 3052.165,
+      "wer_pct": 6.962,
+      "single_rtf_cpu": 0.19911,
+      "single_streams_per_core": 5.02,
+      "batch_rtf_cpu": 0.09754,
+      "batch_streams_per_core": 10.25,
+      "chunk_ms": {
+        "p50": 398.058,
+        "p95": 621.795,
+        "p99": 683.601
+      },
+      "peak_rss_bytes": 1311612928,
+      "cap_hits": 0,
+      "evidence_complete": false,
+      "density": null,
+      "latency": {
+        "loaded_identity": "ultra-engine-dense-int8-6a3d8447f54f-beam4",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 5,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 5,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002",
+          "2277-149896-0003",
+          "2277-149896-0004"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.8404355200000001,
+        "delay": null,
+        "finalization": {
+          "episodes": 5,
+          "finalized": 5,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.031173899000000116,
+          "conditional_p95_s": 0.1478172260000008,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 5
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 5
+            }
+          ]
+        }
+      },
+      "sustained_probe": null,
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 14,
+          "audio_seconds": 343.835,
+          "ref_words": 900,
+          "errors": 73,
+          "substitutions": 51,
+          "deletions": 11,
+          "insertions": 11,
+          "wer_pct": 8.111
+        },
+        "fast_speech": {
+          "utterances": 31,
+          "audio_seconds": 187.165,
+          "ref_words": 718,
+          "errors": 29,
+          "substitutions": 26,
+          "deletions": 1,
+          "insertions": 2,
+          "wer_pct": 4.039
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-g3a-clean-beam4-43f31a1-20261122T041024Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-g3a-clean-beam4-43f31a1-20261122T041024Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-g3a-clean-beam4-43f31a1-20261122T041024Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-55-60-65_weights-int8prep.receipt.json"
+    }
+  ]
+}

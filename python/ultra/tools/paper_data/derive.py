@@ -63,6 +63,7 @@ def add_equal_load_probe(root: Path, rec: Records, npz_sha: str, ldir: Path, lad
     fsrc = f"docs/paper/data/{ldir.relative_to(DATA)}/frontier.json"
     probes = {}
     for key, cand, disp, stem in CANDIDATES:
+        stem = "DenseOld" if key == "dense" else stem
         row = next(r for r in front["rows"] if r["candidate"] == cand)
         pr = row["sustained_probe"]
         man = json.loads((root / ldir / f"{cand.replace('/', '_')}.job_manifest.json").read_text())

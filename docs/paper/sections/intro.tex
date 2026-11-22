@@ -39,8 +39,11 @@ can run only as child processes can be compared (\cref{sec:protocol}).
 \item \textbf{A serving-density result under one harness.} With four single-threaded workers on
   one Zen~2 core complex and a worst-worker p99 lateness bound of 800\,ms, the \ultra multirate
   model sustains \DenMRCore{} live streams per core against \DenRzeroCore{} for Zipformer int8
-  (\DenRatioMR{}$\times$, identical across \DenReproRuns{} runs), and uses \CostRatioMR{}$\times$ less CPU per
-  audio second at equal load (\cref{fig:money,tab:density}).
+  (\DenRatioMR{}$\times$, reproduced in \DenReproRunsMR{} runs) and uses \CostRatioMR{}$\times$ less CPU per
+  audio second at equal load; the latest dense checkpoint sustains \DenDenseCore{} per core with
+  beam 4 at no density cost, its accuracy-improving operating point (\WerRehearsalDenseBeamPooled\%
+  pooled WER; \cref{fig:money,tab:density}). Ratios use Zipformer's clean-session run; a later
+  loaded-host run is not used for ratios.
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and

@@ -466,3 +466,17 @@ fn gemm_i8_u7_equals_act7_and_scalar_including_extremes() {
         assert_eq!(got, want, "u7 vs scalar ({rows}x{n}x{k}, {isa:?})");
     }
 }
+
+#[test]
+fn sum_exp_shifted_is_bit_identical_across_isas() {
+    let mut rng = Rng::new(21);
+    for &n in &[1usize, 7, 8, 9, 63, 4097] {
+        let x = rng.vec(n, 20.0);
+        let mx = x.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let want = scalar::sum_exp_shifted(&x, mx);
+        let got = sum_exp_shifted(Isa::detect(), &x, mx);
+        assert_eq!(got.to_bits(), want.to_bits(), "n = {n}");
+        let exact: f64 = x.iter().map(|&v| f64::from(v - mx).exp()).sum();
+        assert!((f64::from(want) - exact).abs() <= 1e-5 * exact, "n = {n}");
+    }
+}
