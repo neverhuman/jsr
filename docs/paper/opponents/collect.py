@@ -15,8 +15,9 @@ staged panel with `index.json`, SCORER the pinned `ultra-score` executable. `sco
 `export` copies the small receipt files under RAW (`docs/paper/data/raw/opponents`):
 the hypotheses once per arm, their digest in every repetition. `rows` writes the evidence
 rows (schema v2 of agent_paper.md) under RAW/rows: `<machine>-bench-cross.jsonl` for the
-730-utterance arms and `.slow.jsonl` for arms measured on a smaller view (never the money
-plot's group). Arms on hold in arms.json (licence under review) are neither exported nor
+730-utterance arms, `.slow.jsonl` for arms measured on a smaller view (never the money
+plot's group) and `.loaded.jsonl` for xbabe0 repetitions taken outside the host's timing lock
+(cross-checks only). Arms on hold in arms.json (licence under review) are neither exported nor
 written as rows; their receipts stay on the benchmark machines.
 """
 
@@ -41,7 +42,7 @@ MACHINES = {
     "xeon8358": "xbabe6:jsr-data/opponents/bench-cross/receipts/xeon8358/",
     "m3ultra": "xbabe4:/Users/agent/jsr-train/data/opponents/bench-cross/receipts/m3ultra/",
 }
-KEEP = ("command", "environment", "config.sha256", "runtime-libraries.sha256", "workload.sha256", "host",
+KEEP = ("timing.lock", "command", "environment", "config.sha256", "runtime-libraries.sha256", "workload.sha256", "host",
         "host.before", "host.after", "round", "started", "finished", "budget.json", "measurement.json",
         "service.stderr", "score.json", "trace.sha256", "trace.lines", "engine_eval.summary.json")
 
@@ -237,6 +238,14 @@ def evidence(stage, panel_seconds, raw):
             "session": f"{row['started'][:10]} {machine['host']} bench-cross harness e2ef608",
         }
         kind = "main" if row["workload"] == "panel730" else "slow"
+        if row["machine"] == "zen2":
+            # xbabe0 is shared by four benchmark lanes: only repetitions taken under the host's
+            # timing lock (one arm on the whole host) are primary; the rest are loaded cross-checks.
+            locked = all((Path(row["source"]) / f"round-{number}" / "timing.lock").is_file()
+                         for number in range(1, row["repetitions"] + 1))
+            record["host_condition"] = "quiet: one arm on the host (TIMING.lock)" if locked else "loaded: other lanes running"
+            if not locked:
+                kind = "loaded"
         key = (kind, record["id"], record["workload"])
         other = by_id.get(key)
         if other is not None:
@@ -248,7 +257,7 @@ def evidence(stage, panel_seconds, raw):
             record = better
         by_id[key] = record
     for (kind, _, _), record in sorted(by_id.items()):
-        suffix = {"main": "", "slow": ".slow"}[kind]
+        suffix = {"main": "", "slow": ".slow", "loaded": ".loaded"}[kind]
         files.setdefault(raw / "rows" / f"{record['machine']}-bench-cross{suffix}.jsonl", []).append(record)
     (raw / "rows").mkdir(parents=True, exist_ok=True)
     for path, records in files.items():

@@ -51,8 +51,13 @@ sum() {
 # {out} output path, {trace} trace path, {threads} thread count, {engine} npz view of the same
 # audio for ultra-engine-eval (engine_cache.py).
 configure() {
-    local gguf nemo venv
+    local gguf nemo venv ours
     libs=() envs=() kind=jsonl single=0 class=whole_utterance
+    # Our checkpoints: D2e-16457 and H22ctl-79800 EMA, both prepared INT8 exports.
+    ours="$O/jsr-d2e-16457-int8/model"
+    if [[ $1 == jsr-h22ctl-* ]]; then
+        ours="$O/jsr-h22ctl-79800-ema-int8/model"
+    fi
     case "$1" in
         parakeet-unified-offline|parakeet-unified-stream160)
             gguf="$O/parakeet-unified/model-gguf/parakeet-unified-en-0.6b-Q8_0.gguf"
@@ -89,10 +94,10 @@ configure() {
                 "$venv"/lib/python3.*/site-packages/torch/lib/libtorch_cpu.*)
             envs=(HF_HOME="$O/parakeet-redux/hf-home" HF_HUB_OFFLINE=1)
             ;;
-        jsr-d2e-int8)
+        jsr-d2e-int8|jsr-h22ctl-int8)
             class=streaming single=1
-            cmd=("$bin/ultra-cold-wav" r1-engine-int8 "$O/jsr-d2e-16457-int8/model" "{wav}" "{out}")
-            files=("$O/jsr-d2e-16457-int8/model/arch.json" "$O/jsr-d2e-16457-int8/model/weights.int8.safetensors")
+            cmd=("$bin/ultra-cold-wav" r1-engine-int8 "$ours" "{wav}" "{out}")
+            files=("$ours/arch.json" "$ours/weights.int8.safetensors")
             ;;
         zipformer-int8)
             class=streaming single=1
@@ -101,15 +106,15 @@ configure() {
             libs=("$O"/zipformer-int8/sherpa/lib/*)
             envs=(ULTRA_SHERPA_LIB="$(printf '%s\n' "$O"/zipformer-int8/sherpa/lib/libsherpa-onnx-c-api.* | head -1)")
             ;;
-        jsr-d2e-int8-trace|zipformer-int8-trace|moonshine-tiny-trace)
+        jsr-d2e-int8-trace|jsr-h22ctl-int8-trace|zipformer-int8-trace|moonshine-tiny-trace)
             # Trace runs only (lag100): the same services built from main after PR #38, where
             # `ultra-cold-wav` and `moonshine-stream` take an optional trace path. Timed rows
             # use the binaries above.
             class=streaming single=1
             case "$1" in
                 jsr-*)
-                    cmd=("$bin/ultra-cold-wav-trace" r1-engine-int8 "$O/jsr-d2e-16457-int8/model" "{wav}" "{out}" "{trace}")
-                    files=("$O/jsr-d2e-16457-int8/model/arch.json" "$O/jsr-d2e-16457-int8/model/weights.int8.safetensors")
+                    cmd=("$bin/ultra-cold-wav-trace" r1-engine-int8 "$ours" "{wav}" "{out}" "{trace}")
+                    files=("$ours/arch.json" "$ours/weights.int8.safetensors")
                     ;;
                 zipformer-*)
                     cmd=("$bin/ultra-cold-wav-trace" zipformer-int8 "$O/zipformer-int8/bundle" "{wav}" "{out}" "{trace}")
@@ -124,13 +129,13 @@ configure() {
                     ;;
             esac
             ;;
-        jsr-d2e-int8-enginetool)
+        jsr-d2e-int8-enginetool|jsr-h22ctl-int8-enginetool)
             # Same engine and weights through the engine's own tool: the only form of our engine
             # that builds on macOS; also run on Linux to measure the harness difference.
             class=streaming single=1 kind=engine
-            cmd=("$bin/ultra-engine-eval" --weights "$O/jsr-d2e-16457-int8/model" --panel "{engine}/panel.json"
+            cmd=("$bin/ultra-engine-eval" --weights "$ours" --panel "{engine}/panel.json"
                 --cache-dir "{engine}" --precision int8 --streams 1 --packet-ms 20 --qualifying --out "{out}")
-            files=("$O/jsr-d2e-16457-int8/model/arch.json" "$O/jsr-d2e-16457-int8/model/weights.int8.safetensors")
+            files=("$ours/arch.json" "$ours/weights.int8.safetensors")
             ;;
         zipformer-int8-sherpapy)
             # Same sherpa-onnx library and bundle through its Python binding (see sherpa_zipformer.py).

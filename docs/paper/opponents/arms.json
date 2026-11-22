@@ -129,7 +129,7 @@
     "jsr-d2e-int8-trace": {
       "variant": "jsr-d2e-16457-int8-trace",
       "system": "JSR D2e-16457 INT8",
-      "short": "JSR D2e INT8 trace",
+      "short": "JSR D2e trace",
       "macro": "JsrDtwoeIntTrace",
       "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
       "role": "ours",
@@ -155,6 +155,36 @@
       "role": "comparator",
       "configuration": "quantised streaming bundle, 20 ms packets, transcript update every 200 ms",
       "artifact_bytes": 45398523
+    },
+    "jsr-h22ctl-int8": {
+      "variant": "jsr-h22ctl-79800-ema-int8",
+      "system": "JSR H22ctl-79800 EMA INT8",
+      "short": "JSR H22ctl INT8",
+      "macro": "JsrHctlInt",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 56855247
+    },
+    "jsr-h22ctl-int8-enginetool": {
+      "variant": "jsr-h22ctl-79800-ema-int8-enginetool",
+      "system": "JSR H22ctl-79800 EMA INT8 (engine tool)",
+      "short": "JSR H22ctl (tool)",
+      "macro": "JsrHctlTool",
+      "runtime": "ultra-engine e2ef608 / ultra-engine-eval --streams 1 --packet-ms 20",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets; the engine's own tool (the only form that builds on macOS)",
+      "artifact_bytes": 56855247
+    },
+    "jsr-h22ctl-int8-trace": {
+      "variant": "jsr-h22ctl-79800-ema-int8-trace",
+      "system": "JSR H22ctl-79800 EMA INT8",
+      "short": "JSR H22ctl trace",
+      "macro": "JsrHctlIntTrace",
+      "runtime": "ultra-engine e2ef608 / ultra-cold-wav (trace build, main after PR #38)",
+      "role": "ours",
+      "configuration": "prepared INT8 (R0 BPE-500 vocabulary), greedy, 160 ms chunks, no lookahead, 20 ms packets",
+      "artifact_bytes": 56855247
     }
   }
 }
