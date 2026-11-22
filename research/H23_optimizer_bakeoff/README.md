@@ -64,3 +64,7 @@ Filled in as runs launch: host, GPU, start time, commit.
 
 | Arm | Host / GPU | Start (UTC) | Commit | Status |
 |---|---|---|---|---|
+| H23a | xbabe6, NVIDIA A10 24 GB (GPU0, CPUs 0-27) | 2026-11-22T08:02:18Z | 3bb1c78 | running (pid 79327, fleet_guard 0.88) |
+| H23b–e | xbabe6, same GPU, chained back to back (`~/jsr-data/h23_chain.sh`) | after the previous arm | 3bb1c78 | queued |
+
+GPU smoke before launch (40 steps each, guarded, on the A10): muon, scaled_adam and schedulefree_adamw all trained with finite, falling loss. Peak memory was 6.2 / 6.4 / 6.6 GB. Schedule order a → b → c → d → e. All arms share the A10, so wall times are directly comparable.
