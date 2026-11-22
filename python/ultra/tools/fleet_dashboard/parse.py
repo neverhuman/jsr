@@ -26,7 +26,7 @@ def parse_live_runs(text: str) -> set[str]:
 
 def classify_cohort(name: str) -> str:
     """Separate production/warm runs from 960h scratch and 100h ablations."""
-    if re.search(r"^(D2_S_|D2c|L1w)", name) or "warm" in name.lower():
+    if re.search(r"^(D2_S_|D2[c-z]_|L1w)", name) or "warm" in name.lower():
         return "prod"
     if re.search(r"^(H13[bcd]|H23|ABL_|D0_|D1)", name):
         return "ablation"
@@ -91,6 +91,7 @@ class RunState:
     stride: int = 1
     total_steps: int | None = None
     live_hosts: set = field(default_factory=set)  # nodes with a live trainer process for this run (DDP: several)
+    live_since: float = 0.0  # when a live process was first seen after none (restart / new launch)
     _n: int = 0
     _recent: list = field(default_factory=list)  # [(step, time)] for the rate / ETA
 
@@ -124,7 +125,16 @@ class RunState:
         rows = [e for e in self.evals if e[1] == split and len(e) > 4 and e[4] is not None]
         return min(rows, key=lambda e: e[4]) if rows else None
 
-    def summary(self, now: float) -> dict:
+    def set_live(self, node: str, live: bool, now: float) -> None:
+        if live:
+            if not self.live_hosts:
+                self.live_since = now
+            self.live_hosts.add(node)
+        else:
+            self.live_hosts.discard(node)
+
+    def summary(self, now: float, inventory_complete: bool = False) -> dict:
+        """inventory_complete: every node answered its latest probe, so 'no live process' is authoritative."""
         lt = self.last.get("time") or 0
         best = self.best_wer()
         best_ema = self.best_ema_wer()
@@ -134,9 +144,15 @@ class RunState:
         age = (now - lt) if lt else None
         if self.status in ("diverged", "done"):
             status = self.status
-        elif self.live_hosts:  # a process is alive: silent log = stalled
-            status = "stalled" if (age is None or age > STALL_SECONDS) else "running"
-        else:  # no live process seen anywhere
+        elif self.live_hosts:  # a process is alive
+            fresh_start = not lt or self.live_since > lt  # no train record since this launch yet
+            if fresh_start and now - self.live_since <= STALL_SECONDS:
+                status = "starting"
+            else:  # silent log = stalled
+                status = "stalled" if (age is None or age > STALL_SECONDS) else "running"
+        elif inventory_complete:  # every node reported and none runs it
+            status = "stopped"
+        else:  # some node unreachable: trust a fresh log
             status = "running" if (age is not None and age <= STALE_SECONDS) else "stopped"
         rate = None
         if len(self._recent) >= 2:

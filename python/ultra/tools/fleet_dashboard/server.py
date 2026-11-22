@@ -69,6 +69,7 @@ class Fleet:
         self.pending: dict[str, dict] = {}
         self.nodes: dict[str, dict] = {n: {"name": n, "up": False} for n in LINUX_NODES + MAC_NODES}
         self.clients: set[web.WebSocketResponse] = set()
+        self.probed: set[str] = set()
         self.dirty = True
 
     # ---------- training logs ----------
@@ -166,11 +167,10 @@ class Fleet:
         info["gpus"] = parse_nvidia(gpu_txt)
         live = parse_live_runs(head)
         for name, rs in self.runs.items():  # where each run's processes actually are (DDP spans nodes)
-            if name in live:
-                rs.live_hosts.add(node)
-            else:
-                rs.live_hosts.discard(node)
+            # on a node's first probe, a live run was not *seen* starting: leave live_since unknown (0)
+            rs.set_live(node, name in live, time.time() if node in self.probed else 0.0)
         info["runs"] = sorted(live)
+        self.probed.add(node)
         info["t"] = time.time()
         self.nodes[node] = info
         self.dirty = True
@@ -211,8 +211,9 @@ class Fleet:
     def summaries(self) -> list[dict]:
         now = time.time()
         rank = {"prod": 0, "scratch": 1, "ablation": 2}
-        sums = [r.summary(now) for r in self.runs.values()]
-        sums = [s for s in sums if s["status"] in ("running", "stalled") or (s["age"] or 1e12) < HIDE_AFTER_S]
+        complete = all(n.get("up") for n in self.nodes.values())
+        sums = [r.summary(now, inventory_complete=complete) for r in self.runs.values()]
+        sums = [s for s in sums if s["status"] in ("running", "starting", "stalled") or (s["age"] or 1e12) < HIDE_AFTER_S]
         return sorted(
             sums,
             key=lambda s: (s["status"] != "running", rank.get(s.get("cohort", "scratch"), 1), s["name"]),
