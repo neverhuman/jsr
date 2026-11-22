@@ -134,6 +134,8 @@ class TrainConfig:
     cr_ctc_weight: float = 0.0
     # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
     delay_penalty: float = 0.0
+    # H14/H27 dual-mode chunk sampling (e.g. "2,4,8" or "4,8,16,0"; "" = fixed cfg.chunk).
+    chunk_modes: str = ""
     eden_lr_batches: float = 7500.0
     eden_lr_epochs: float = 3.5
     eden_steps_per_epoch: float = 0.0
@@ -291,13 +293,18 @@ class Trainer:
 
                 self._ddp_loss.register_comm_hook(None, default_hooks.bf16_compress_hook)
         forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
+        step_chunk = self.cfg.chunk or None
+        if self.cfg.chunk_modes:
+            modes = [int(v) for v in self.cfg.chunk_modes.split(",") if v.strip()]
+            if modes:
+                step_chunk = modes[int(torch.randint(0, len(modes), (1,), generator=gen))]
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
             out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
                                     stats=self.stats if b.active else None,
                                     augment=self.augment if self.step >= self.cfg.specaug_start
                                     else None, gen=gen,
-                                    chunk=self.cfg.chunk or None,
+                                    chunk=step_chunk,
                                     pruned_scale=self._pruned_scale(),
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
                                     simple_detach=self.step < self.cfg.prune_hold,

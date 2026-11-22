@@ -42,11 +42,16 @@ class EncoderConfig:
     # "dense": n_blocks at 25 Hz. "multirate" (spec v1.0-B §17.2-17.4): lower_blocks at 25 Hz,
     # a trained projection of each pair of 25 Hz positions to one 12.5 Hz position, middle_blocks
     # at 12.5 Hz (chunk/2, left_context/2), a trained restoration to two 25 Hz positions plus the
-    # lower-block skip, then final_blocks at 25 Hz. n_blocks is ignored for multirate.
+    # lower-block skip, then final_blocks at 25 Hz. "unet3" (JSR v2 Wave H28): 0-lookahead 3-scale
+    # U-Net (25 -> 12.5 -> 6.25 -> 12.5 -> 25 Hz) with lower/middle/deep/up/final blocks.
     family: str = "dense"
     lower_blocks: int = 4
     middle_blocks: int = 10
     final_blocks: int = 2
+    deep_blocks: int = 8  # unet3 6.25 Hz bottleneck blocks (ignored for dense/multirate)
+    up_blocks: int = 2  # unet3 12.5 Hz upsample blocks (ignored for dense/multirate)
+    kv_heads: int = 0  # 0 = standard MHA (kv_heads == n_heads); >0 = GQA (n_heads % kv_heads == 0)
+    ffn_act: str = "silu"  # "silu" (v1 default) | "relu2" (v2 squared ReLU for sparse pqscan)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -86,7 +91,9 @@ class CausalStem(nn.Module):
 
 
 def chunk_mask(t: int, chunk: int, left: int, device=None) -> torch.Tensor:
-    """Boolean (t, t) mask, True where query i may attend key j."""
+    """Boolean (t, t) mask, True where query i may attend key j. chunk <= 0 means full utterance."""
+    if chunk <= 0:
+        return torch.ones((t, t), dtype=torch.bool, device=device)
     i = torch.arange(t, device=device)[:, None]
     j = torch.arange(t, device=device)[None, :]
     c_start = (i // chunk) * chunk
@@ -105,33 +112,53 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
 
 class FeedForward(nn.Module):
-    def __init__(self, d: int, mult: int, p: float):
+    def __init__(self, d: int, mult: int, p: float, act: str = "silu"):
         super().__init__()
+        if act not in ("silu", "relu2"):
+            raise ShapeError(f"unknown ffn_act {act}")
+        self.act = act
         self.norm = nn.LayerNorm(d)
         self.w1 = nn.Linear(d, d * mult)
         self.w2 = nn.Linear(d * mult, d)
         self.drop = nn.Dropout(p)
 
     def forward(self, x):
-        return self.drop(self.w2(self.drop(F.silu(self.w1(self.norm(x))))))
+        h = self.w1(self.norm(x))
+        h = F.silu(h) if self.act == "silu" else F.relu(h).square()
+        return self.drop(self.w2(self.drop(h)))
 
 
 class ChunkAttention(nn.Module):
-    def __init__(self, d: int, heads: int, p: float):
+    def __init__(self, d: int, heads: int, p: float, kv_heads: int = 0):
         super().__init__()
         if d % heads:
             raise ShapeError(f"d_model {d} not divisible by heads {heads}")
-        self.h, self.dh = heads, d // heads
+        kvh = heads if kv_heads <= 0 else kv_heads
+        if heads % kvh:
+            raise ShapeError(f"n_heads {heads} not divisible by kv_heads {kvh}")
+        self.h, self.kvh, self.dh = heads, kvh, d // heads
         self.norm = nn.LayerNorm(d)
-        self.qkv = nn.Linear(d, 3 * d)
+        self.qkv = nn.Linear(d, (heads + 2 * kvh) * self.dh)
         self.out = nn.Linear(d, d)
         self.p = p
         self.drop = nn.Dropout(p)
 
     def forward(self, x, mask, cos, sin):
         b, t, d = x.shape
-        q, k, v = self.qkv(self.norm(x)).view(b, t, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
+        proj = self.qkv(self.norm(x))
+        if self.kvh == self.h:
+            q, k, v = proj.view(b, t, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
+        else:
+            q_dim, kv_dim = self.h * self.dh, self.kvh * self.dh
+            q, k, v = proj.split((q_dim, kv_dim, kv_dim), dim=-1)
+            q = q.view(b, t, self.h, self.dh).transpose(1, 2)
+            k = k.view(b, t, self.kvh, self.dh).transpose(1, 2)
+            v = v.view(b, t, self.kvh, self.dh).transpose(1, 2)
         q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
+        if self.kvh != self.h:
+            rep = self.h // self.kvh
+            k = k.repeat_interleave(rep, dim=1)
+            v = v.repeat_interleave(rep, dim=1)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask,
                                            dropout_p=self.p if self.training else 0.0)
         return self.drop(self.out(y.transpose(1, 2).reshape(b, t, d)))
@@ -158,10 +185,10 @@ class CausalConvModule(nn.Module):
 class ConformerBlock(nn.Module):
     def __init__(self, c: EncoderConfig):
         super().__init__()
-        self.ff1 = FeedForward(c.d_model, c.ffn_mult, c.dropout)
-        self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout)
+        self.ff1 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act)
+        self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout, c.kv_heads)
         self.conv = CausalConvModule(c.d_model, c.conv_kernel, c.dropout)
-        self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout)
+        self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act)
         self.norm = nn.LayerNorm(c.d_model) if c.post_block_norm else nn.Identity()
 
     def forward(self, x, mask, pad, cos, sin):
@@ -187,6 +214,18 @@ class Encoder(nn.Module):
             self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
             self.restore = nn.Linear(c.d_model, 2 * c.d_model)
             self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
+        elif c.family == "unet3":
+            if c.chunk % 4 or c.left_context % 4:
+                raise ShapeError("unet3 needs chunk and left_context divisible by 4 (e.g. 4 / 128)")
+            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
+            self.pair = nn.Linear(2 * c.d_model, c.d_model)
+            self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
+            self.pair2 = nn.Linear(2 * c.d_model, c.d_model)
+            self.deep_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.deep_blocks))
+            self.restore2 = nn.Linear(c.d_model, 2 * c.d_model)
+            self.up_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.up_blocks))
+            self.restore = nn.Linear(c.d_model, 2 * c.d_model)
+            self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
         else:
             raise ShapeError(f"unknown encoder family {c.family}")
         self.final_norm = nn.Identity() if c.post_block_norm else nn.LayerNorm(c.d_model)
@@ -199,30 +238,45 @@ class Encoder(nn.Module):
         cos, sin = rope_tables(t, self.cfg.d_model // self.cfg.n_heads, device, dtype)
         return mask[:, None], pad, cos, sin
 
+    def _downsample2(self, x: torch.Tensor, pad: torch.Tensor, lens: torch.Tensor,
+                     proj: nn.Linear) -> tuple[torch.Tensor, torch.Tensor]:
+        b, t, d = x.shape
+        x = x.masked_fill(pad[..., None], 0.0)
+        if t % 2:
+            x = F.pad(x, (0, 0, 0, 1))
+        m = proj(x.reshape(b, -1, 2 * d))
+        m_lens = torch.div(lens + 1, 2, rounding_mode="floor")
+        return m, m_lens
+
     def forward(self, feats: torch.Tensor, feat_lens: torch.Tensor, chunk: int | None = None):
         """feats (B, T, 80) normalised log-mel; returns (states (B, T', d), lens (B,))."""
         c = self.cfg
-        chunk = chunk or c.chunk
+        chunk = c.chunk if chunk is None else chunk
         x = self.stem(feats)
         lens = stem_out_len(feat_lens)
         b, t, d = x.shape
         mask, pad, cos, sin = self._ctx(lens, t, chunk, c.left_context, x.dtype, x.device)
         for blk in self.blocks:
             x = blk(x, mask, pad, cos, sin)
-        if c.family == "multirate":
+        if c.family in ("multirate", "unet3"):
             skip = x
-            # Zero padded 25 Hz positions before pairing: a valid final position 2k of an
-            # odd-length utterance must pair with zeros (as the streaming path does), never with
-            # a padded state, which the blocks leave nonzero (biases, self-attending queries).
-            x = x.masked_fill(pad[..., None], 0.0)
-            if t % 2:
-                x = F.pad(x, (0, 0, 0, 1))
-            m = self.pair(x.reshape(b, -1, 2 * d))  # position k <- 25 Hz positions 2k, 2k+1
-            m_lens = torch.div(lens + 1, 2, rounding_mode="floor")
-            mm, mp, mc, ms = self._ctx(m_lens, m.shape[1], chunk // 2, c.left_context // 2,
-                                       m.dtype, m.device)
+            m, m_lens = self._downsample2(x, pad, lens, self.pair)
+            c2 = chunk // 2 if chunk > 0 else chunk
+            mm, mp, mc, ms = self._ctx(m_lens, m.shape[1], c2, c.left_context // 2, m.dtype, m.device)
             for blk in self.mid_blocks:
                 m = blk(m, mm, mp, mc, ms)
+            if c.family == "unet3":
+                skip12 = m
+                t12 = m.shape[1]
+                deep, d_lens = self._downsample2(m, mp, m_lens, self.pair2)
+                c4 = chunk // 4 if chunk > 0 else chunk
+                dm, dp, dc, ds = self._ctx(d_lens, deep.shape[1], c4, c.left_context // 4,
+                                           deep.dtype, deep.device)
+                for blk in self.deep_blocks:
+                    deep = blk(deep, dm, dp, dc, ds)
+                m = self.restore2(deep).reshape(b, -1, d)[:, :t12] + skip12
+                for blk in self.up_blocks:
+                    m = blk(m, mm, mp, mc, ms)
             x = self.restore(m).reshape(b, -1, d)[:, :t] + skip
             for blk in self.final_blocks:
                 x = blk(x, mask, pad, cos, sin)
