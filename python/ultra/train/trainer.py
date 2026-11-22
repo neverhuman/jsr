@@ -136,6 +136,11 @@ class TrainConfig:
     delay_penalty: float = 0.0
     # H14/H27 dual-mode chunk sampling (e.g. "2,4,8" or "4,8,16,0"; "" = fixed cfg.chunk).
     chunk_modes: str = ""
+    # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
+    inter_ctc_weight: float = 0.0  # Self-Conditioned InterCTC loss weight (recommended 0.2 for V2)
+    balancer_weight: float = 0.0  # Zipformer Activation Balancer weight (recommended 1e-3 for V2)
+    synth_aug: bool = False  # O2-clean synthetic RIR + pink/white spectral noise in data workers
+    specaug_ramp_start: int = 0  # >0 (e.g. 500): linearly ramp SpecAug widths to specaug_start
     eden_lr_batches: float = 7500.0
     eden_lr_epochs: float = 3.5
     eden_steps_per_epoch: float = 0.0
@@ -212,7 +217,8 @@ class Trainer:
 
     def _watch_sig(self) -> dict:
         c = self.cfg
-        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.zloss, c.delay_penalty, c.rnnt_loss, c.prune_range, c.budget_s,
+        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.inter_ctc_weight, c.balancer_weight,
+                         c.zloss, c.delay_penalty, c.rnnt_loss, c.prune_range, c.budget_s,
                          c.max_batch, self.model_cfg.ctc_weight],
                 "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
@@ -276,6 +282,24 @@ class Trainer:
                 break
         self.model.cmvn.set_stats(feats)
 
+    def _step_augment(self) -> SpecAugConfig | None:
+        """Return active SpecAugConfig for self.step (supports smooth ramp from specaug_ramp_start)."""
+        if not self.augment.enabled:
+            return None
+        if self.step >= self.cfg.specaug_start:
+            return self.augment
+        rs = self.cfg.specaug_ramp_start
+        if rs > 0 and self.step >= rs and self.cfg.specaug_start > rs:
+            frac = (self.step - rs) / float(self.cfg.specaug_start - rs)
+            return SpecAugConfig(
+                enabled=True,
+                freq_masks=self.augment.freq_masks,
+                freq_width=max(1, int(round(self.augment.freq_width * frac))),
+                time_masks_per_10s=self.augment.time_masks_per_10s,
+                time_width=max(1, int(round(self.augment.time_width * frac))),
+            )
+        return None
+
     # ---- one optimiser step ------------------------------------------------------------------
     def train_step(self, batch: Batch) -> dict:
         self.model.train()
@@ -302,8 +326,7 @@ class Trainer:
                             enabled=self.device.type == "cuda"):
             out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
                                     stats=self.stats if b.active else None,
-                                    augment=self.augment if self.step >= self.cfg.specaug_start
-                                    else None, gen=gen,
+                                    augment=self._step_augment(), gen=gen,
                                     chunk=step_chunk,
                                     pruned_scale=self._pruned_scale(),
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
@@ -312,7 +335,11 @@ class Trainer:
                                     **({"cr_ctc_weight": self.cfg.cr_ctc_weight}
                                        if self.cfg.cr_ctc_weight else {}),
                                     **({"delay_penalty": self.cfg.delay_penalty}
-                                       if self.cfg.delay_penalty else {}))
+                                       if self.cfg.delay_penalty else {}),
+                                    **({"inter_ctc_weight": self.cfg.inter_ctc_weight}
+                                       if self.cfg.inter_ctc_weight else {}),
+                                    **({"balancer_weight": self.cfg.balancer_weight}
+                                       if self.cfg.balancer_weight else {}))
         loss = out["loss"]
         if self.world > 1:
             hb = self._hb_acc()
@@ -353,7 +380,9 @@ class Trainer:
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
                 **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {}),
-                **({"cr_ctc": float(out["cr_ctc"].detach())} if "cr_ctc" in out else {})}
+                **({"cr_ctc": float(out["cr_ctc"].detach())} if "cr_ctc" in out else {}),
+                **({"inter_ctc": float(out["inter_ctc"].detach())} if "inter_ctc" in out else {}),
+                **({"balancer": float(out["balancer"].detach())} if "balancer" in out else {})}
 
     def _ddp_interval_stats(self, acc: dict) -> dict:
         """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
@@ -446,6 +475,10 @@ class Trainer:
             loss = loss + self.cfg.zloss * float(active) * out["zloss"]
         if "cr_ctc" in out:  # H26 CR-CTC consistency KL: per-rank mean over valid frames
             loss = loss + self.cfg.cr_ctc_weight * float(active) * out["cr_ctc"]
+        if "inter_ctc" in out:  # H28 Self-Conditioned InterCTC: same token weighting as CTC
+            loss = loss + self.cfg.inter_ctc_weight * fc * out["inter_ctc"]
+        if "balancer" in out:  # H28 Activation Balancer: per-rank mean
+            loss = loss + self.cfg.balancer_weight * float(active) * out["balancer"]
         if self.cfg.kd_weight > 0 and "kd" not in out:
             out["kd"] = out["rnnt"].new_zeros(())
         keys = ["rnnt", "ctc"]
@@ -498,7 +531,8 @@ class Trainer:
             return
         if self.qkv_caps is None:  # record the reference at the first eligible step
             self.qkv_caps = {n: {"rows": m.qkv.weight.norm(dim=1).cpu() * c.qkv_cap_ratio,
-                                 "gain": m.norm.weight.abs().cpu() * c.qkv_cap_ratio}
+                                 **({"gain": m.norm.weight.abs().cpu() * c.qkv_cap_ratio}
+                                    if m.norm.weight is not None else {})}
                              for n, m in self._attention_modules()}
             self.qkv_ref_norm = self._max_qkv_norm()
             return
@@ -509,8 +543,9 @@ class Trainer:
             scale = torch.clamp(cap["rows"].to(w.device) / rows.clamp(min=1e-12), max=1.0)
             w.mul_(scale[:, None])
             g = m.norm.weight
-            lim = cap["gain"].to(g.device)
-            g.copy_(torch.maximum(torch.minimum(g, lim), -lim))
+            if g is not None and "gain" in cap:
+                lim = cap["gain"].to(g.device)
+                g.copy_(torch.maximum(torch.minimum(g, lim), -lim))
         if c.qkv_guard_ratio and self.qkv_ref_norm:
             cur = self._max_qkv_norm()
             if cur > c.qkv_guard_ratio * self.qkv_ref_norm:
@@ -654,7 +689,8 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc",
+                      "inter_ctc", "balancer"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -671,6 +707,9 @@ class Trainer:
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
                           **({"zloss": acc["zloss"] / acc["n"]} if "zloss" in acc else {}),
                           **({"cr_ctc": acc["cr_ctc"] / acc["n"]} if "cr_ctc" in acc else {}),
+                          **({"inter_ctc": acc["inter_ctc"] / acc["n"]} if "inter_ctc" in acc
+                             else {}),
+                          **({"balancer": acc["balancer"] / acc["n"]} if "balancer" in acc else {}),
                           **({"clip_thr": self.clipper.last_threshold}
                              if self.clipper.mode == "adaptive" else {}),
                           **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)}
@@ -825,7 +864,7 @@ def main(argv=None) -> int:
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
                                 teacher=_teacher(cfg), loader=cfg.loader,
-                                window_groups=cfg.window_groups)
+                                window_groups=cfg.window_groups, synth_aug=cfg.synth_aug)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
