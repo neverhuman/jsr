@@ -20,6 +20,8 @@ py="${PY:-$repo/.venv/bin/python}"
 mkdir -p "$run_dir"
 cd "$repo/python/ultra"
 
+# The trainer sees only its guarded GPU (multi-GPU hosts), unless the caller already chose one.
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-$gpu}"
 setsid nohup taskset -c "$cpus" nice -n 10 "$py" -m train.trainer --run-dir "$run_dir" "$@" \
   >>"$run_dir/stdout.log" 2>&1 < /dev/null &
 pid=$!

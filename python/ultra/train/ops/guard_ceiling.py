@@ -18,7 +18,9 @@ RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itse
     "D2": ("local", "/mnt/xbabe3-external/jsr/runs/train/D2_S_960h", "fleet_guard.jsonl", "linux"),
     "D3MRc": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/D3MRc_S_MR_I8S_960h", "fleet_guard.jsonl", "linux"),
     "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
-    "H13ctl": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H13_current", "fleet_guard.jsonl", "linux"),
+    "H13d": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu0", "fleet_guard.jsonl", "linux"),
+    "H13b": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu0", "fleet_guard.jsonl", "linux"),
+    "H13c": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu1", "fleet_guard.jsonl", "linux"),
     "D4M": ("xbabe4", "/Users/agent/jsr-train/data/runs/train/D4M_M_MR_960h", "mac_guard.jsonl", "mac"),
 }
 MAC_RESTART = (
@@ -46,12 +48,15 @@ IOREG = ('for i in $(seq 1 20); do ioreg -r -d 1 -w 0 -c IOAccelerator '
 
 
 NVSMI = ('for i in $(seq 1 20); do nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits '
-         '-i 0; sleep 1; done')
+         '-i {gpu}; sleep 1; done')
 
 
-def linux_gpu_util(host):
+GPU_INDEX = {"H13c": 1}  # every other run uses GPU 0 of its host
+
+
+def linux_gpu_util(host, gpu=0):
     """Mean of 20 one-second nvidia-smi utilization.gpu samples (the fleet monitor's metric)."""
-    r = ssh(host, NVSMI, 60)
+    r = ssh(host, NVSMI.format(gpu=gpu), 60)
     vals = [int(v) for v in r.stdout.split() if v.isdigit()]
     return sum(vals) / len(vals) / 100.0 if vals else None
 
@@ -101,7 +106,8 @@ def main(argv=None):
     pool = ThreadPoolExecutor(max_workers=len(RUNS))
     while True:
         t0 = time.time()
-        futs = {k: pool.submit(mac_device_util if v[3] == "mac" else linux_gpu_util, v[0])
+        futs = {k: (pool.submit(mac_device_util, v[0]) if v[3] == "mac"
+                    else pool.submit(linux_gpu_util, v[0], GPU_INDEX.get(k, 0)))
                 for k, v in RUNS.items()}
         for label, (host, run, log, kind) in RUNS.items():
             ceiling, floor = a.ceiling, a.floor
@@ -122,7 +128,8 @@ def main(argv=None):
                 last_change[label] = time.time()
                 target[label] = round(target[label] - a.step, 3)
                 if kind == "linux":
-                    ssh(host, f"~/jsr/python/ultra/train/ops/restart_guard.sh {run} {target[label]}", 120)
+                    ssh(host, f"~/jsr/python/ultra/train/ops/restart_guard.sh {run} {target[label]} 0.85 "
+                              f"{GPU_INDEX.get(label, 0)}", 120)
                 else:
                     ssh(host, MAC_RESTART.format(r=run, t=target[label]), 120)
                 rec["action"] = f"target -> {target[label]}"
