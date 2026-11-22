@@ -316,29 +316,34 @@ class ParquetBatches:
 
         def producer():
             ep, w = start.epoch, start.window
-            try:
+            while not stop.is_set():
+                item = (ep, w, self._load_window(ep, w))
                 while not stop.is_set():
-                    item = (ep, w, self._load_window(ep, w))
-                    while not stop.is_set():
-                        try:
-                            q.put(item, timeout=1.0)
-                            break
-                        except queue.Full:
-                            continue
-                    w += 1
-                    if w >= self.windows_per_epoch:
-                        ep, w = ep + 1, 0
-            except Exception as e:  # surfaced to the consumer, never swallowed
-                q.put(e)
+                    try:
+                        q.put(item, timeout=1.0)
+                        break
+                    except queue.Full:
+                        continue
+                w += 1
+                if w >= self.windows_per_epoch:
+                    ep, w = ep + 1, 0
 
-        th = threading.Thread(target=producer, daemon=True)
-        th.start()
+        # The producer runs as a future: a failure is kept on the future (never swallowed) and
+        # re-raised here as a DataError as soon as the queue runs dry.
+        from concurrent.futures import ThreadPoolExecutor
+
+        runner = ThreadPoolExecutor(1, thread_name_prefix="batch-producer")
+        fut = runner.submit(producer)
         first = True
         try:
             while True:
-                item = q.get()
-                if isinstance(item, Exception):
-                    raise DataError(f"batch producer failed: {item!r}") from item
+                try:
+                    item = q.get(timeout=1.0)
+                except queue.Empty:
+                    if fut.done() and fut.exception() is not None:
+                        err = fut.exception()
+                        raise DataError(f"batch producer failed: {err!r}") from err
+                    continue
                 ep, w, batches = item
                 skip = start.batch if first else 0
                 first = False
@@ -347,6 +352,7 @@ class ParquetBatches:
                     yield nxt, collate(batches[bi], self.pad_frames, self.pad_tokens)
         finally:
             stop.set()
+            runner.shutdown(wait=False)
 
 
 class FixedBatches:

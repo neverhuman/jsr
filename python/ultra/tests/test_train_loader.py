@@ -72,3 +72,19 @@ def test_unknown_loader_refused(shard):
     with pytest.raises(Exception, match="unknown loader"):
         ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=1, parquet_root=root,
                        loader="magic")
+
+
+def test_producer_failure_surfaces_as_data_error(shard, monkeypatch):
+    from train.errors import DataError
+
+    root, tok = shard
+    t = Tokenizer(tok)
+    src = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=1, parquet_root=root,
+                         workers=1)
+
+    def boom(epoch, window):
+        raise OSError("disk went away")
+
+    monkeypatch.setattr(src, "_load_window", boom)
+    with pytest.raises(DataError, match="disk went away"):
+        next(iter(src.iterate(Position())))

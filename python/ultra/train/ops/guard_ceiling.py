@@ -125,7 +125,7 @@ def main(argv=None):
     for k, v in RUNS.items():  # start from the guards' real targets
         try:
             live = live_target(v[0], v[1], v[3])
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError):
             live = None
         if live is not None:
             target[k] = live
@@ -147,7 +147,8 @@ def main(argv=None):
                     mac_hist[label] = (mac_hist[label] + [u])[-5:]
                 m = sum(mac_hist[label]) / len(mac_hist[label]) if mac_hist[label] else None
                 ceiling, floor = ap_mac["ceiling"], ap_mac["floor"]
-            except Exception:  # an unreachable host must not stop the watchdog
+            except (subprocess.SubprocessError, OSError, TimeoutError, ValueError):
+                # an unreachable or slow host must not stop the watchdog
                 m = None
             rec = {"t": time.time(), "run": label, "gpu_5min": m, "target": target[label],
                    "metric": "ioreg_device_util" if kind == "mac" else "nvidia_smi_util"}
