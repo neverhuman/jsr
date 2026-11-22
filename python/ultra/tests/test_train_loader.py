@@ -111,7 +111,8 @@ def test_window_width_change_waits_for_the_epoch_boundary(shard):
 @pytest.mark.parametrize("speeds", [(), (0.9, 1.0, 1.1)])
 def test_sharded_windows_partition_the_single_process_batches(shard, speeds):
     """world=2: rank 0 and rank 1 together get exactly the single-process groups (header-only
-    durations pack identically), alternating, truncated to a multiple of the world size."""
+    durations pack identically), alternating; an odd tail goes to rank 0 and rank 1 repeats the
+    window's first group, so nothing is dropped and both ranks have the same batch count."""
     root, tok = shard
     t = Tokenizer(tok)
 
@@ -127,8 +128,8 @@ def test_sharded_windows_partition_the_single_process_batches(shard, speeds):
         full = [[e.uid for e in g] for g in one._load_window(0, w)]
         a = [[e.uid for e in g] for g in r0._load_window(0, w)]
         b = [[e.uid for e in g] for g in r1._load_window(0, w)]
-        n = len(full) // 2 * 2
-        assert a == full[:n:2] and b == full[1:n:2] and len(a) == len(b)
+        padded = full + full[: len(full) % 2]
+        assert a == padded[0::2] and b == padded[1::2] and len(a) == len(b)
         feats_one = {e.uid: e.feats for g in one._load_window(0, w) for e in g}
         for g in r0._load_window(0, w):
             for e in g:

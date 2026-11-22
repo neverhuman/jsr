@@ -353,7 +353,13 @@ class ParquetBatches:
             dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
         groups = pack(dur, self.budget_s, self.max_batch)
         rng.shuffle(groups)
-        groups = groups[: len(groups) // self.world * self.world][self.rank::self.world]
+        # Every rank gets the same number of groups and no group is dropped: the window's tail
+        # (fewer than world groups) goes to the first ranks, and the remaining ranks repeat the
+        # window's first groups, so each example is used at least once.
+        n = len(groups)
+        if n % self.world:
+            groups = groups + groups[: self.world - n % self.world]
+        groups = groups[self.rank::self.world]
         mine = [[rows[keep[i]] for i in g] for g in groups]
         flat = [r for g in mine for r in g]
         if self.loader == "process" and self._pool is not None:

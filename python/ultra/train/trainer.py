@@ -234,7 +234,8 @@ class Trainer:
         loss = out["loss"]
         if self.world > 1:
             loss, out = self._global_loss(out)
-        if not torch.isfinite(loss):
+        # finite-loss agreement: under DDP the all-reduced loss decides for every rank at once
+        if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -652,6 +653,12 @@ def main(argv=None) -> int:
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     if world > 1:
+        from train.dist import all_reduce_max
+
+        # every rank must start from the same checkpoint state: same step, same position
+        key = float(tr.step * 1_000_003 + tr.pos.epoch * 10_007 + tr.pos.window * 101 + tr.pos.batch)
+        if all_reduce_max(key, tr.device) != -all_reduce_max(-key, tr.device):
+            raise CheckpointError("ranks resumed different checkpoints (step/position differ)")
         broadcast_state(tr.model)  # identical weights (and CMVN) on every rank
         tr.log({"kind": "ddp", "world": world, "rank0_device": str(tr.device)})
     try:
