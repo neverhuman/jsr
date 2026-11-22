@@ -16,13 +16,13 @@ panel, same harness and executable, INT8.}
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrcrrrrrcr@{}}
 \toprule
- & \multicolumn{4}{c}{Paced density (A1), p99 in ms} & \multicolumn{3}{c}{32 streams/CCX} & Single stream & \\
-\cmidrule(lr){2-5}\cmidrule(lr){6-8}\cmidrule(lr){9-9}
-System & /core (/CCX) & ratio [bracket] & p99 & fail (p99) & \cpus & RTFx & util. & median [95\% CI] & WER \\
+ & \multicolumn{5}{c}{Paced density (A1), p99 in ms} & \multicolumn{2}{c}{32 streams/CCX} & Single stream & \\
+\cmidrule(lr){2-6}\cmidrule(lr){7-8}\cmidrule(lr){9-9}
+System & /core (/CCX) & ratio [bracket] & p99 & fail (p99) & demand & \cpus & RTFx & median [95\% CI] & WER \\
 \midrule
-Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \CostLadderRzero & \RtfxLadderRzero & \UtilClaimRzero\% & 1 & \WerRehearsalRzero \\
-dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \CostLadderDense & \RtfxLadderDense & \UtilClaimDense\% & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDense \\
-multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \UtilClaimMR\% & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMR \\
+Zipformer int8 & \DenRzeroCore{} (\DenRzeroCCX) & 1 & \DenPninetyNineRzero & \DenFailRzeroCCX{} (\DenFailPninetyNineRzero) & \DemandRzero\% & \CostLadderRzero & \RtfxLadderRzero & 1 & \WerRehearsalRzero \\
+dense, avg.\ 3 & \DenDenseCore{} (\DenDenseCCX) & \DenRatioDense{} [\DenRatioDenseBracketLo--\DenRatioDenseBracketHi] & \DenPninetyNineDense & \DenFailDenseCCX{} (\DenFailPninetyNineDense) & \DemandDense\% & \CostLadderDense & \RtfxLadderDense & \AbabMedianDense$^{a}$ [\AbabMedianDenseLo--\AbabMedianDenseHi] & \WerRehearsalDense \\
+multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenRatioMRBracketLo--\DenRatioMRBracketHi] & \DenPninetyNineMR & \DenFailMRCCX{} (\DenFailPninetyNineMR) & \DemandMR\% & \textbf{\CostLadderMR} & \textbf{\RtfxLadderMR} & \AbabMedianMR{} [\AbabMedianMRLo--\AbabMedianMRHi] & \WerRehearsalMR \\
 \midrule
 \multicolumn{10}{@{}l}{\textit{Engine facts measured elsewhere (other runs or tools; not comparable with the rows above)}} \\
 \multicolumn{10}{@{}l}{FP32 engine vs.\ ONNX Runtime, same executable, weights and transcripts: \SpeedupEngineFPVsORT{}$\times$ less CPU.} \\
@@ -34,8 +34,9 @@ multirate, 50k & \textbf{\DenMRCore{} (\DenMRCCX)} & \textbf{\DenRatioMR} [\DenR
 
 \vspace{2pt}
 \parbox{\textwidth}{\footnotesize Bracket: the true density ratio lies between (pass / other's
-fail) and (fail / other's pass), because rungs are 16 streams per CCX apart. Util.: busy fraction of
-the four worker cores at the passing rung. RTFx: audio-seconds per CPU-second ($1/$\cpus). WER in \%. $^{a}$Single-stream blocks used the dense step-45k
+fail) and (fail / other's pass), because rungs are 16 streams per CCX apart. Demand: projected CPU demand
+at the passing rung, CPU-seconds used over the four cores' CPU-seconds in the rung, from processed
+audio (not sampled utilisation). RTFx: audio-seconds per CPU-second ($1/$\cpus). WER in \%. $^{a}$Single-stream blocks used the dense step-45k
 checkpoint (\WerRehearsalDenseFortyFive\%), whose density was
 \DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} per CCX across two earlier ladder runs.
 Zipformer and multirate densities were identical in all \DenReproRuns{} runs.}
@@ -54,12 +55,16 @@ equal-load probe at \ProbeStreams{} streams for \ProbeSeconds\,s gave worst-work
 (Zipformer, over the bound), all drained.
 
 \para{Why density exceeds cost.} The density ratio (\DenRatioMR{}$\times$) is larger than the cost
-ratio (\CostRatioMR{}$\times$) for two measured reasons. At its passing rung Zipformer keeps the
-workers only \UtilClaimRzero\% busy, against \UtilClaimMR\% for the multirate model: Zipformer fails
-on lateness before it runs out of CPU. And rule A1 counts the time a packet waits for its chunk to
-fill, which penalises Zipformer's 320\,ms chunk against our 160\,ms chunk. Batching does not explain
-the gain: batching sixteen streams lowers our cost per stream by at most \BatchLift\%; the gain is
-per-stream work.
+ratio (\CostRatioMR{}$\times$) because the systems fail for different reasons. \ultra fails only when
+projected CPU demand reaches the four cores' capacity: \DemandFailDense\% (dense) and
+\DemandFailMR\% (multirate) at the first failed rung, against \DemandDense\% and \DemandMR\% at the
+passing rung. It is compute-bound and uses nearly all of the hardware. Zipformer passes at
+\DemandRzero\% and fails at \DemandFailRzero\%, with a fifth of the CPU still unused. That is
+consistent with a scheduling limit under the tested chunk and pacing geometry (rule A1 also counts
+time a packet waits for its chunk to fill, and Zipformer's chunk is 320\,ms against our 160\,ms),
+but the receipts do not isolate chunk size. Batching does not explain our gain (it saves at most
+\BatchLift\% per stream). Every passing rung processed all accepted audio
+(\AudioProcessedMR\,s for multirate), none unfinished.
 
 \para{Single-stream cost.} In the eight counterbalanced blocks the pre-registered median ratio of
 CPU time to Zipformer's was \AbabMedianMR{} for the multirate engine (95\% bootstrap CI
@@ -70,9 +75,8 @@ the geometric means are \AbabRatioMR{} and \AbabRatioDense.
 \para{What these numbers are, and are not.} Zipformer runs through sherpa-onnx's C API with one
 thread per worker and its batched multi-stream decode, at its released 320\,ms chunk; we did not
 sweep its configuration. The ladder used 20\,s rungs, so ``p99'' is close to the maximum lateness
-of the run. Each stream cycles the first \LadderUtts{} dev-clean utterances rather than the panel.
-The rehearsal used rungs of 4 to 48 streams per worker in steps of 4, one of the 16 CCX, and
-nothing is extrapolated to the machine. The multirate model's fleet memory is higher than
+of the run. Each stream cycles the first \LadderUtts{} dev-clean utterances; one of the 16 CCX was used,
+and nothing is extrapolated to the machine. The multirate model's fleet memory is higher than
 Zipformer's (\DenRssMR{} vs.\ \DenRssRzero\,GB).
 
 \begin{figure}[t]
@@ -200,8 +204,5 @@ passes its gate with the worst upper bound at \GateMaxUpper\pp, well inside the 
 (\cref{tab:acc}), with a similar gain at step 50k (\cref{tab:ablate}), and the engine's native
 beam takes the multirate model from \LeftOneTwentyEightWer\% to \MRBeamPanelBeamInt\% pooled on the
 panel, both INT8, while passing the INT8 gate. Untrained 640\,ms
-chunks gain \ChunkSixteenGainOther\pp on dev-other, but untrained full attention hurts dev-clean. Halving the left context
-of the multirate model to 64 frames costs only \LeftSixtyFourDelta\pp, cuts attention time to about
-\LeftSixtyFourAttn{} of its original and halves the key/value state; it is a candidate density knob
-that has not yet been run through the ladder. Thirty-two frames costs \LeftThirtyTwoDelta\pp
-without retraining.
+chunks gain \ChunkSixteenGainOther\pp on dev-other, but untrained full attention hurts dev-clean. Halving the multirate model's left context
+costs only \LeftSixtyFourDelta\pp and halves key/value state, a density knob not yet laddered.

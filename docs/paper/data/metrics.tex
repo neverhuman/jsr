@@ -39,6 +39,12 @@
 \newcommand{\AudioPerCpuDense}{24.7}% [exploratory] audio-s per CPU-s
 \newcommand{\AudioPerCpuMR}{30.7}% [exploratory] audio-s per CPU-s
 \newcommand{\AudioPerCpuRzero}{13.8}% [exploratory] audio-s per CPU-s
+\newcommand{\AudioProcessedDense}{1877.83}% [exploratory] audio-s
+\newcommand{\AudioProcessedMR}{2818.45}% [exploratory] audio-s
+\newcommand{\AudioProcessedRzero}{622.17}% [exploratory] audio-s
+\newcommand{\AudioUnfinishedDense}{0.00}% [exploratory] audio-s
+\newcommand{\AudioUnfinishedMR}{0.00}% [exploratory] audio-s
+\newcommand{\AudioUnfinishedRzero}{0.00}% [exploratory] audio-s
 \newcommand{\AvgGainClean}{0.44}% [exploratory] pp WER
 \newcommand{\AvgGainOther}{0.81}% [exploratory] pp WER
 \newcommand{\BOneAttnCut}{3--10}% [exploratory] %
@@ -77,6 +83,12 @@
 \newcommand{\CostRatioMR}{2.22}% [exploratory] x
 \newcommand{\CostRzero}{0.078}% [exploratory] CPU-s/audio-s
 \newcommand{\DecoderShare}{4--5}% [exploratory] % of single stream
+\newcommand{\DemandDense}{80.58}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandFailDense}{97.93}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandFailMR}{102.21}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandFailRzero}{81.04}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandMR}{89.42}% [exploratory] % CPU demand of the CCX's 4 cores
+\newcommand{\DemandRzero}{56.35}% [exploratory] % CPU demand of the CCX's 4 cores
 \newcommand{\DenDenseBeforeFailCCX}{96}% [exploratory] streams/CCX
 \newcommand{\DenDenseCCX}{96}% [exploratory] streams/CCX
 \newcommand{\DenDenseCore}{24}% [exploratory] streams/core
@@ -196,6 +208,7 @@
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
 \newcommand{\NonGemmGain}{0--5}% [exploratory] %
+\newcommand{\OrtVersion}{1.28.2}% [reported] version
 \newcommand{\PanelSpeakers}{73}% [reported] speakers
 \newcommand{\ParamsDtwo}{58.7}% [reported] M parameters
 \newcommand{\ParamsDtwoMR}{59.2}% [reported] M parameters
@@ -233,6 +246,7 @@
 \newcommand{\RtfxLadderDense}{24.7}% [exploratory] x real time per CPU core
 \newcommand{\RtfxLadderMR}{30.7}% [exploratory] x real time per CPU core
 \newcommand{\RtfxLadderRzero}{13.8}% [exploratory] x real time per CPU core
+\newcommand{\SherpaVersion}{2.0.2}% [reported] version
 \newcommand{\SingleMthreeDense}{0.0132}% [exploratory] CPU-s/audio-s
 \newcommand{\SingleMthreeMR}{0.0123}% [exploratory] CPU-s/audio-s
 \newcommand{\SingleZenDense}{0.040}% [exploratory] CPU-s/audio-s
@@ -262,9 +276,9 @@
 \newcommand{\UsevenVsActLo}{0.89}% [exploratory] x
 \newcommand{\UsevenVsKzeroHi}{1.01}% [exploratory] x
 \newcommand{\UsevenVsKzeroLo}{0.94}% [exploratory] x
-\newcommand{\UtilClaimDense}{82}% [exploratory] % of the CCX's 4 cores
-\newcommand{\UtilClaimMR}{91}% [exploratory] % of the CCX's 4 cores
-\newcommand{\UtilClaimRzero}{58}% [exploratory] % of the CCX's 4 cores
+\newcommand{\UtilClaimDense}{82}% [exploratory] % projected CPU demand of the CCX's 4 cores
+\newcommand{\UtilClaimMR}{91}% [exploratory] % projected CPU demand of the CCX's 4 cores
+\newcommand{\UtilClaimRzero}{58}% [exploratory] % projected CPU demand of the CCX's 4 cores
 \newcommand{\WerBridgeFP}{21.88}% [exploratory] % WER
 \newcommand{\WerBridgeIntEight}{21.80}% [exploratory] % WER
 \newcommand{\WerDthreeMRbTwentyK}{15.0}% [exploratory] % WER

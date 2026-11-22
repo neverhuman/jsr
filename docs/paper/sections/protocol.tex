@@ -14,7 +14,8 @@ pass found items marked fixed that were not implemented, and a third closed most
 an outsider read the code behind each claim before the claim is frozen}.
 
 \para{One harness.} Every density, cost and latency row comes from one tool, which runs
-Zipformer (through sherpa-onnx's C API~\cite{sherpaonnx}), ONNX Runtime~\cite{onnxruntime} and the
+Zipformer (through sherpa-onnx's C API~\cite{sherpaonnx}, version \SherpaVersion, with ONNX
+Runtime \OrtVersion), ONNX Runtime~\cite{onnxruntime} and the
 \ultra engine through the same scheduler, the same lateness code, the same grid, the same cost
 scope and the same placement. Development harnesses are never compared with it.
 
