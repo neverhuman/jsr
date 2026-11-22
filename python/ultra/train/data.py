@@ -160,10 +160,50 @@ def _worker_init(tok_rnnt: str, tok_ctc: str, jsr_data: str) -> None:
     _WORKER["feat"] = Featurizer(Tokenizer(tok_rnnt), Tokenizer(tok_ctc))
 
 
+def apply_synth_aug(pcm: np.ndarray, uid: str, epoch: int, seed: int) -> np.ndarray:
+    """O2-clean mathematical acoustic augmentation (0 external audio files, exact length preserved):
+    25% synthetic exponential-decay RIR (RT60 0.10-0.45 s) + 25% synthetic pink/white noise (10-28 dB).
+    Deterministic from (seed, epoch, uid) so thread and process loaders match bit-for-bit."""
+    if len(pcm) < 64:
+        return pcm
+    import hashlib
+
+    h = hashlib.sha256(f"synth:{seed}:{epoch}:{uid}".encode()).digest()
+    rng = np.random.default_rng(int.from_bytes(h[:8], "little"))
+    do_rir = (h[8] & 3) == 0  # 25%
+    do_noise = (h[9] & 3) == 0  # 25%
+    if not do_rir and not do_noise:
+        return pcm
+    y = pcm.astype(np.float32) / 32768.0
+    if do_rir:
+        from scipy.signal import fftconvolve
+
+        rt60 = float(rng.uniform(0.10, 0.45))
+        n_rir = int(rng.integers(512, 1921))  # 32-120 ms at 16 kHz
+        t = np.arange(n_rir, dtype=np.float32) / 16000.0
+        decay = np.exp(-6.9077553 * t / rt60)
+        ir = rng.standard_normal(n_rir).astype(np.float32) * decay * 0.25
+        ir[0] = 1.0  # direct path at tap 0 preserves causal onset alignment
+        ir /= float(np.sqrt(np.sum(ir * ir)) + 1e-12)
+        y = fftconvolve(y, ir, mode="full")[:len(pcm)].astype(np.float32)
+    if do_noise:
+        snr_db = float(rng.uniform(10.0, 28.0))
+        sig_rms = float(np.sqrt(np.mean(y * y)) + 1e-8)
+        n = rng.standard_normal(len(pcm)).astype(np.float32)
+        if (h[10] & 1) == 0:  # pink 1/sqrt(f) spectral shaping
+            spec = np.fft.rfft(n)
+            freqs = np.arange(1, len(spec) + 1, dtype=np.float32)
+            spec /= np.sqrt(freqs)
+            n = np.fft.irfft(spec, n=len(pcm)).astype(np.float32)
+        n_rms = float(np.sqrt(np.mean(n * n)) + 1e-8)
+        y = y + n * (sig_rms / n_rms * (10.0 ** (-snr_db / 20.0)))
+    return np.clip(np.round(y * 32768.0), -32768, 32767).astype(np.int16)
+
+
 def _decode_job(args):
     """Worker side of ParquetBatches(loader="process"): the thread path's _decode, returning
     plain arrays (uid, text, feats float32 (T, 80), rnnt ids, ctc ids, speed factor) or None."""
-    uid, text, audio, epoch, seed, speeds, max_seconds = args
+    uid, text, audio, epoch, seed, speeds, max_seconds, synth_aug = args
     pcm, sr = sf.read(io.BytesIO(audio), dtype="int16")
     if sr != 16000 or pcm.ndim != 1:
         raise DataError(f"{uid}: expected 16 kHz mono, got {sr} {pcm.shape}")
@@ -183,6 +223,8 @@ def _decode_job(args):
             pcm = np.clip(np.round(y), -32768, 32767).astype(np.int16)
     if len(pcm) / 16000.0 > max_seconds:
         return None
+    if synth_aug:
+        pcm = apply_synth_aug(pcm, uid, epoch, seed)
     ex = _WORKER["feat"].example(uid, text, pcm)
     return uid, text, ex.feats.numpy(), ex.rnnt, ex.ctc, f
 
@@ -194,7 +236,7 @@ class ParquetBatches:
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
                  parquet_root: str | None = None, workers: int = 4, teacher=None,
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
-                 pad_tokens: int = 0, loader: str = "thread"):
+                 pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -218,6 +260,7 @@ class ParquetBatches:
         self.ddp_global_batches = False
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
+        self.synth_aug = bool(synth_aug)
         self.teacher = teacher
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
         if loader not in ("thread", "process"):
@@ -265,6 +308,8 @@ class ParquetBatches:
             pcm = self._perturb(pcm, row["id"], epoch)
         if len(pcm) / 16000.0 > self.max_seconds:
             return None
+        if self.synth_aug:
+            pcm = apply_synth_aug(pcm, row["id"], epoch, self.seed)
         ex = self.feat.example(row["id"], row["text"], pcm)
         if self.teacher is not None:
             ex.kd = self.teacher.get(row["id"], f)
@@ -312,7 +357,7 @@ class ParquetBatches:
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
-                     self.max_seconds) for r in rows]
+                     self.max_seconds, self.synth_aug) for r in rows]
             decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
         else:
             dec = functools.partial(self._decode, epoch=epoch)
@@ -372,7 +417,7 @@ class ParquetBatches:
         flat = [r for g in mine for r in g]
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
-                     self.max_seconds) for r in flat]
+                     self.max_seconds, self.synth_aug) for r in flat]
             decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
         else:
             dec = functools.partial(self._decode, epoch=epoch)

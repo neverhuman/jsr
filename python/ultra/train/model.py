@@ -42,14 +42,42 @@ class EncoderConfig:
     # "dense": n_blocks at 25 Hz. "multirate" (spec v1.0-B §17.2-17.4): lower_blocks at 25 Hz,
     # a trained projection of each pair of 25 Hz positions to one 12.5 Hz position, middle_blocks
     # at 12.5 Hz (chunk/2, left_context/2), a trained restoration to two 25 Hz positions plus the
-    # lower-block skip, then final_blocks at 25 Hz. n_blocks is ignored for multirate.
+    # lower-block skip, then final_blocks at 25 Hz. "unet3" (JSR v2 Wave H28): 0-lookahead 3-scale
+    # U-Net (25 -> 12.5 -> 6.25 -> 12.5 -> 25 Hz) with lower/middle/deep/up/final blocks.
     family: str = "dense"
     lower_blocks: int = 4
     middle_blocks: int = 10
     final_blocks: int = 2
+    deep_blocks: int = 8  # unet3 6.25 Hz bottleneck blocks (ignored for dense/multirate)
+    up_blocks: int = 2  # unet3 12.5 Hz upsample blocks (ignored for dense/multirate)
+    kv_heads: int = 0  # 0 = standard MHA (kv_heads == n_heads); >0 = GQA (n_heads % kv_heads == 0)
+    ffn_act: str = "silu"  # "silu" (v1 default) | "relu2" (v2 squared ReLU for sparse pqscan)
+    # JSR v2 Stage-1A upgrades (all default-off for 100% v1 bit-exactness):
+    stem_type: str = "conv2d"  # "conv2d" (v1 dense) | "dwsep" (5.2x cheaper causal DW-Sep 2D stem)
+    qk_rmsnorm: bool = False  # Pre-RoPE per-head Q/K RMSNorm with learnable scale
+    norm_affine: bool = True  # False removes redundant pre-norm LN.g <-> W scale freedom
+    layer_scale_init: float = 0.0  # >0: residual LayerScale (folds into w2/out/pw2 at export)
+    stage_left: tuple[int, ...] = ()  # optional (25Hz, 12.5Hz, 6.25Hz) left contexts; () = default
+    inter_ctc_vocab: int = 0  # >0: Self-Conditioned InterCTC head+feedback after lower_blocks
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _rms_norm(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    return x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + eps)
+
+
+def activation_balancer_loss(x: torch.Tensor, min_rms: float = 0.25,
+                             max_rms: float = 4.0) -> torch.Tensor:
+    """Zipformer-style channel RMS/mean balancer (train-only, 0 inference ops)."""
+    xf = x.float()
+    rms = xf.pow(2).mean(dim=(0, 1)).add(1e-6).sqrt()
+    mean = xf.mean(dim=(0, 1)).abs()
+    hi = F.relu(rms - max_rms).pow(2).mean()
+    lo = F.relu(min_rms - rms).pow(2).mean()
+    m = F.relu(mean - 0.5).pow(2).mean()
+    return hi + lo + 0.1 * m
 
 
 def stem_out_len(n: torch.Tensor | int):
@@ -60,13 +88,22 @@ def stem_out_len(n: torch.Tensor | int):
 
 
 class CausalStem(nn.Module):
-    """Two 3x3 stride-2 Conv2d layers, padded only on the past side of the time axis."""
+    """Two stride-2 causal Conv2d layers (`conv2d` dense or `dwsep` 5.2x cheaper depthwise-sep)."""
 
-    def __init__(self, n_mels: int, channels: int, d_model: int):
+    def __init__(self, n_mels: int, channels: int, d_model: int, stem_type: str = "conv2d"):
         super().__init__()
-        self.c1 = nn.Conv2d(1, channels, 3, stride=2)
-        self.c2 = nn.Conv2d(channels, channels, 3, stride=2)
+        if stem_type not in ("conv2d", "dwsep"):
+            raise ShapeError(f"unknown stem_type {stem_type}")
+        self.stem_type = stem_type
         f = ((n_mels - 3) // 2 + 1 - 3) // 2 + 1
+        if stem_type == "conv2d":
+            self.c1 = nn.Conv2d(1, channels, 3, stride=2)
+            self.c2 = nn.Conv2d(channels, channels, 3, stride=2)
+        else:
+            mid = min(32, channels)
+            self.c1 = nn.Conv2d(1, mid, 3, stride=2)
+            self.c2_dw = nn.Conv2d(mid, mid, 3, stride=2, groups=mid)
+            self.c2_pw = nn.Conv2d(mid, channels, 1)
         self.out = nn.Linear(channels * f, d_model)
 
     int8_qat = False  # set by train.qat.apply_int8_stem
@@ -75,7 +112,9 @@ class CausalStem(nn.Module):
         # x: (B, T, F). Pad 2 frames of past before each conv so output s sees inputs <= 2 s.
         x = x.unsqueeze(1)
         x = F.silu(self.c1(F.pad(x, (0, 0, 2, 0))))
-        if self.int8_qat:
+        if self.stem_type == "dwsep":
+            x = F.silu(self.c2_pw(self.c2_dw(F.pad(x, (0, 0, 2, 0)))))
+        elif self.int8_qat:
             from train.qat import int8_conv2d_as_gemm
 
             x = F.silu(int8_conv2d_as_gemm(F.pad(x, (0, 0, 2, 0)), self.c2))
@@ -86,7 +125,9 @@ class CausalStem(nn.Module):
 
 
 def chunk_mask(t: int, chunk: int, left: int, device=None) -> torch.Tensor:
-    """Boolean (t, t) mask, True where query i may attend key j."""
+    """Boolean (t, t) mask, True where query i may attend key j. chunk <= 0 means full utterance."""
+    if chunk <= 0:
+        return torch.ones((t, t), dtype=torch.bool, device=device)
     i = torch.arange(t, device=device)[:, None]
     j = torch.arange(t, device=device)[None, :]
     c_start = (i // chunk) * chunk
@@ -105,42 +146,70 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
 
 class FeedForward(nn.Module):
-    def __init__(self, d: int, mult: int, p: float):
+    def __init__(self, d: int, mult: int, p: float, act: str = "silu", norm_affine: bool = True):
         super().__init__()
-        self.norm = nn.LayerNorm(d)
+        if act not in ("silu", "relu2"):
+            raise ShapeError(f"unknown ffn_act {act}")
+        self.act = act
+        self.norm = nn.LayerNorm(d, elementwise_affine=norm_affine)
         self.w1 = nn.Linear(d, d * mult)
         self.w2 = nn.Linear(d * mult, d)
         self.drop = nn.Dropout(p)
 
     def forward(self, x):
-        return self.drop(self.w2(self.drop(F.silu(self.w1(self.norm(x))))))
+        h = self.w1(self.norm(x))
+        h = F.silu(h) if self.act == "silu" else F.relu(h).square()
+        return self.drop(self.w2(self.drop(h)))
 
 
 class ChunkAttention(nn.Module):
-    def __init__(self, d: int, heads: int, p: float):
+    def __init__(self, d: int, heads: int, p: float, kv_heads: int = 0,
+                 qk_rmsnorm: bool = False, norm_affine: bool = True):
         super().__init__()
         if d % heads:
             raise ShapeError(f"d_model {d} not divisible by heads {heads}")
-        self.h, self.dh = heads, d // heads
-        self.norm = nn.LayerNorm(d)
-        self.qkv = nn.Linear(d, 3 * d)
+        kvh = heads if kv_heads <= 0 else kv_heads
+        if heads % kvh:
+            raise ShapeError(f"n_heads {heads} not divisible by kv_heads {kvh}")
+        self.h, self.kvh, self.dh = heads, kvh, d // heads
+        self.qk_rmsnorm = qk_rmsnorm
+        self.norm = nn.LayerNorm(d, elementwise_affine=norm_affine)
+        self.qkv = nn.Linear(d, (heads + 2 * kvh) * self.dh)
+        if qk_rmsnorm:
+            self.q_scale = nn.Parameter(torch.ones(1, heads, 1, self.dh))
+            self.k_scale = nn.Parameter(torch.ones(1, kvh, 1, self.dh))
         self.out = nn.Linear(d, d)
         self.p = p
         self.drop = nn.Dropout(p)
 
     def forward(self, x, mask, cos, sin):
         b, t, d = x.shape
-        q, k, v = self.qkv(self.norm(x)).view(b, t, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
+        proj = self.qkv(self.norm(x))
+        if self.kvh == self.h:
+            q, k, v = proj.view(b, t, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
+        else:
+            q_dim, kv_dim = self.h * self.dh, self.kvh * self.dh
+            q, k, v = proj.split((q_dim, kv_dim, kv_dim), dim=-1)
+            q = q.view(b, t, self.h, self.dh).transpose(1, 2)
+            k = k.view(b, t, self.kvh, self.dh).transpose(1, 2)
+            v = v.view(b, t, self.kvh, self.dh).transpose(1, 2)
+        if self.qk_rmsnorm:
+            q = _rms_norm(q) * self.q_scale.to(q.dtype)
+            k = _rms_norm(k) * self.k_scale.to(k.dtype)
         q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
+        if self.kvh != self.h:
+            rep = self.h // self.kvh
+            k = k.repeat_interleave(rep, dim=1)
+            v = v.repeat_interleave(rep, dim=1)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask,
                                            dropout_p=self.p if self.training else 0.0)
         return self.drop(self.out(y.transpose(1, 2).reshape(b, t, d)))
 
 
 class CausalConvModule(nn.Module):
-    def __init__(self, d: int, kernel: int, p: float):
+    def __init__(self, d: int, kernel: int, p: float, norm_affine: bool = True):
         super().__init__()
-        self.norm = nn.LayerNorm(d)
+        self.norm = nn.LayerNorm(d, elementwise_affine=norm_affine)
         self.pw1 = nn.Linear(d, 2 * d)
         self.dw = nn.Conv1d(d, d, kernel, groups=d)
         self.k = kernel
@@ -158,17 +227,31 @@ class CausalConvModule(nn.Module):
 class ConformerBlock(nn.Module):
     def __init__(self, c: EncoderConfig):
         super().__init__()
-        self.ff1 = FeedForward(c.d_model, c.ffn_mult, c.dropout)
-        self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout)
-        self.conv = CausalConvModule(c.d_model, c.conv_kernel, c.dropout)
-        self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout)
+        self.ff1 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act, c.norm_affine)
+        self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout, c.kv_heads,
+                                  c.qk_rmsnorm, c.norm_affine)
+        self.conv = CausalConvModule(c.d_model, c.conv_kernel, c.dropout, c.norm_affine)
+        self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act, c.norm_affine)
         self.norm = nn.LayerNorm(c.d_model) if c.post_block_norm else nn.Identity()
+        self.has_ls = c.layer_scale_init > 0.0
+        if self.has_ls:
+            v = c.layer_scale_init
+            self.ls_ff1 = nn.Parameter(torch.full((c.d_model,), v))
+            self.ls_att = nn.Parameter(torch.full((c.d_model,), v))
+            self.ls_conv = nn.Parameter(torch.full((c.d_model,), v))
+            self.ls_ff2 = nn.Parameter(torch.full((c.d_model,), v))
 
     def forward(self, x, mask, pad, cos, sin):
-        x = x + 0.5 * self.ff1(x)
-        x = x + self.att(x, mask, cos, sin)
-        x = x + self.conv(x, pad)
-        x = x + 0.5 * self.ff2(x)
+        if self.has_ls:
+            x = x + (0.5 * self.ls_ff1.to(x.dtype)) * self.ff1(x)
+            x = x + self.ls_att.to(x.dtype) * self.att(x, mask, cos, sin)
+            x = x + self.ls_conv.to(x.dtype) * self.conv(x, pad)
+            x = x + (0.5 * self.ls_ff2.to(x.dtype)) * self.ff2(x)
+        else:
+            x = x + 0.5 * self.ff1(x)
+            x = x + self.att(x, mask, cos, sin)
+            x = x + self.conv(x, pad)
+            x = x + 0.5 * self.ff2(x)
         return self.norm(x)
 
 
@@ -176,7 +259,7 @@ class Encoder(nn.Module):
     def __init__(self, c: EncoderConfig):
         super().__init__()
         self.cfg = c
-        self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model)
+        self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model, c.stem_type)
         if c.family == "dense":
             self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
         elif c.family == "multirate":
@@ -187,9 +270,32 @@ class Encoder(nn.Module):
             self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
             self.restore = nn.Linear(c.d_model, 2 * c.d_model)
             self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
+        elif c.family == "unet3":
+            if c.chunk % 4 or c.left_context % 4:
+                raise ShapeError("unet3 needs chunk and left_context divisible by 4 (e.g. 4 / 128)")
+            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
+            if c.inter_ctc_vocab > 0:
+                self.inter_ctc = nn.Linear(c.d_model, c.inter_ctc_vocab)
+                self.inter_proj = nn.Linear(c.inter_ctc_vocab, c.d_model)
+            self.pair = nn.Linear(2 * c.d_model, c.d_model)
+            self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
+            self.pair2 = nn.Linear(2 * c.d_model, c.d_model)
+            self.deep_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.deep_blocks))
+            self.restore2 = nn.Linear(c.d_model, 2 * c.d_model)
+            self.up_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.up_blocks))
+            self.restore = nn.Linear(c.d_model, 2 * c.d_model)
+            self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
         else:
             raise ShapeError(f"unknown encoder family {c.family}")
         self.final_norm = nn.Identity() if c.post_block_norm else nn.LayerNorm(c.d_model)
+
+    def _stage_lefts(self) -> tuple[int, int, int]:
+        c = self.cfg
+        if c.stage_left:
+            if len(c.stage_left) != 3:
+                raise ShapeError(f"stage_left must have 3 entries (25Hz, 12.5Hz, 6.25Hz), got {c.stage_left}")
+            return int(c.stage_left[0]), int(c.stage_left[1]), int(c.stage_left[2])
+        return c.left_context, c.left_context // 2, c.left_context // 4
 
     def _ctx(self, lens: torch.Tensor, t: int, chunk: int, left: int, dtype, device):
         pad = torch.arange(t, device=device)[None] >= lens[:, None]
@@ -199,31 +305,68 @@ class Encoder(nn.Module):
         cos, sin = rope_tables(t, self.cfg.d_model // self.cfg.n_heads, device, dtype)
         return mask[:, None], pad, cos, sin
 
-    def forward(self, feats: torch.Tensor, feat_lens: torch.Tensor, chunk: int | None = None):
-        """feats (B, T, 80) normalised log-mel; returns (states (B, T', d), lens (B,))."""
+    def _downsample2(self, x: torch.Tensor, pad: torch.Tensor, lens: torch.Tensor,
+                     proj: nn.Linear) -> tuple[torch.Tensor, torch.Tensor]:
+        b, t, d = x.shape
+        x = x.masked_fill(pad[..., None], 0.0)
+        if t % 2:
+            x = F.pad(x, (0, 0, 0, 1))
+        m = proj(x.reshape(b, -1, 2 * d))
+        m_lens = torch.div(lens + 1, 2, rounding_mode="floor")
+        return m, m_lens
+
+    def forward(self, feats: torch.Tensor, feat_lens: torch.Tensor, chunk: int | None = None,
+                return_aux: bool = False):
+        """feats (B, T, 80) normalised log-mel; returns (states (B, T', d), lens (B,)),
+        or (states, lens, aux_dict) when `return_aux=True`."""
         c = self.cfg
-        chunk = chunk or c.chunk
+        chunk = c.chunk if chunk is None else chunk
+        l25, l12, l6 = self._stage_lefts()
         x = self.stem(feats)
         lens = stem_out_len(feat_lens)
         b, t, d = x.shape
-        mask, pad, cos, sin = self._ctx(lens, t, chunk, c.left_context, x.dtype, x.device)
+        mask, pad, cos, sin = self._ctx(lens, t, chunk, l25, x.dtype, x.device)
         for blk in self.blocks:
             x = blk(x, mask, pad, cos, sin)
-        if c.family == "multirate":
+        aux: dict[str, torch.Tensor] = {}
+        bal_terms: list[torch.Tensor] = [activation_balancer_loss(x)] if return_aux else []
+        if c.family == "unet3" and c.inter_ctc_vocab > 0:
+            inter_logits = self.inter_ctc(x.float())
+            x = x + self.inter_proj(torch.softmax(inter_logits, dim=-1).to(x.dtype))
+            if return_aux:
+                aux["inter_logits"] = inter_logits
+        if c.family in ("multirate", "unet3"):
             skip = x
-            # Zero padded 25 Hz positions before pairing: a valid final position 2k of an
-            # odd-length utterance must pair with zeros (as the streaming path does), never with
-            # a padded state, which the blocks leave nonzero (biases, self-attending queries).
-            x = x.masked_fill(pad[..., None], 0.0)
-            if t % 2:
-                x = F.pad(x, (0, 0, 0, 1))
-            m = self.pair(x.reshape(b, -1, 2 * d))  # position k <- 25 Hz positions 2k, 2k+1
-            m_lens = torch.div(lens + 1, 2, rounding_mode="floor")
-            mm, mp, mc, ms = self._ctx(m_lens, m.shape[1], chunk // 2, c.left_context // 2,
-                                       m.dtype, m.device)
+            m, m_lens = self._downsample2(x, pad, lens, self.pair)
+            c2 = chunk // 2 if chunk > 0 else chunk
+            mm, mp, mc, ms = self._ctx(m_lens, m.shape[1], c2, l12, m.dtype, m.device)
             for blk in self.mid_blocks:
                 m = blk(m, mm, mp, mc, ms)
+            if return_aux:
+                bal_terms.append(activation_balancer_loss(m))
+            if c.family == "unet3":
+                skip12 = m
+                t12 = m.shape[1]
+                deep, d_lens = self._downsample2(m, mp, m_lens, self.pair2)
+                c4 = chunk // 4 if chunk > 0 else chunk
+                dm, dp, dc, ds = self._ctx(d_lens, deep.shape[1], c4, l6,
+                                           deep.dtype, deep.device)
+                for blk in self.deep_blocks:
+                    deep = blk(deep, dm, dp, dc, ds)
+                if return_aux:
+                    bal_terms.append(activation_balancer_loss(deep))
+                m = self.restore2(deep).reshape(b, -1, d)[:, :t12] + skip12
+                for blk in self.up_blocks:
+                    m = blk(m, mm, mp, mc, ms)
+                if return_aux:
+                    bal_terms.append(activation_balancer_loss(m))
             x = self.restore(m).reshape(b, -1, d)[:, :t] + skip
             for blk in self.final_blocks:
                 x = blk(x, mask, pad, cos, sin)
-        return self.final_norm(x), lens
+            if return_aux:
+                bal_terms.append(activation_balancer_loss(x))
+        out = self.final_norm(x)
+        if return_aux:
+            aux["balancer"] = torch.stack(bal_terms).mean()
+            return out, lens, aux
+        return out, lens

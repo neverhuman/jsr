@@ -25,9 +25,11 @@ class ModelConfig:
     vocab_rnnt: int = 4097  # 4,096 pieces + blank
     vocab_ctc: int = 1025  # 1,024 pieces + blank
     pred_emb: int = 256
+    pred_ctx: int = 2  # stateless predictor context length (2 = v1 default, 4 = v2 BPE-500)
     joiner: int = 320
     joiner_act: str = "tanh"
     ctc_weight: float = 0.3
+    inter_ctc: bool = False  # True: Self-Conditioned InterCTC head+feedback sized to vocab_ctc
     qat: str = "none"  # "ternary": train.qat ternary weights + per-row int8 inputs
     qat_stem: str = "none"  # "int8": stem conv 2 + projection trained as the engine's int8 GEMMs
     # RNN-T training loss: "exact" (full lattice, train.transducer) or "pruned" (k2, H13b): a
@@ -46,7 +48,10 @@ class ModelConfig:
     @staticmethod
     def from_dict(d: dict) -> ModelConfig:
         d = dict(d)
-        d["encoder"] = EncoderConfig(**d["encoder"])
+        enc = dict(d["encoder"])
+        if "stage_left" in enc and isinstance(enc["stage_left"], list):
+            enc["stage_left"] = tuple(enc["stage_left"])
+        d["encoder"] = EncoderConfig(**enc)
         return ModelConfig(**d)
 
 
@@ -68,6 +73,39 @@ PRESETS = {
     "M_MR": ModelConfig(encoder=EncoderConfig(d_model=512, n_heads=8, post_block_norm=False,
                                               family="multirate", lower_blocks=4,
                                               middle_blocks=10, final_blocks=2)),
+    # JSR v2 Wave H28: 0-lookahead 3-scale U-Net (25->12.5->6.25 Hz) + GQA + ReLU^2 + dwsep stem
+    # + Pre-RoPE QK-RMSNorm + norm_affine=False + LayerScale + Self-Conditioned InterCTC + pred_ctx=4.
+    "V2_S": ModelConfig(encoder=EncoderConfig(d_model=384, n_heads=6, kv_heads=2, ffn_act="relu2",
+                                              stem_type="dwsep", qk_rmsnorm=True, norm_affine=False,
+                                              layer_scale_init=0.1, stage_left=(32, 64, 64),
+                                              post_block_norm=False, family="unet3",
+                                              lower_blocks=2, middle_blocks=4, deep_blocks=8,
+                                              up_blocks=2, final_blocks=2),
+                        pred_ctx=4, inter_ctc=True),
+    "V2_M": ModelConfig(encoder=EncoderConfig(d_model=512, n_heads=8, kv_heads=2, ffn_act="relu2",
+                                              stem_type="dwsep", qk_rmsnorm=True, norm_affine=False,
+                                              layer_scale_init=0.1, stage_left=(32, 64, 64),
+                                              post_block_norm=False, family="unet3",
+                                              lower_blocks=2, middle_blocks=4, deep_blocks=8,
+                                              up_blocks=2, final_blocks=2),
+                        pred_ctx=4, inter_ctc=True),
+    "V2_L": ModelConfig(encoder=EncoderConfig(d_model=768, n_heads=12, kv_heads=2, ffn_act="relu2",
+                                              stem_type="dwsep", qk_rmsnorm=True, norm_affine=False,
+                                              layer_scale_init=0.1, stage_left=(32, 64, 64),
+                                              post_block_norm=False, family="unet3",
+                                              lower_blocks=2, middle_blocks=4, deep_blocks=10,
+                                              up_blocks=2, final_blocks=2),
+                        pred_ctx=4, inter_ctc=True),
+    "V2_TINY": ModelConfig(encoder=EncoderConfig(d_model=32, n_heads=4, kv_heads=2, ffn_act="relu2",
+                                                 stem_type="dwsep", qk_rmsnorm=True,
+                                                 norm_affine=False, layer_scale_init=0.1,
+                                                 stage_left=(4, 4, 4), stem_channels=8,
+                                                 conv_kernel=5, chunk=4, left_context=8,
+                                                 dropout=0.0, post_block_norm=False,
+                                                 family="unet3", lower_blocks=1, middle_blocks=1,
+                                                 deep_blocks=2, up_blocks=1, final_blocks=1),
+                           vocab_rnnt=11, vocab_ctc=7, pred_emb=8, pred_ctx=4, joiner=16,
+                           inter_ctc=True),
     # The configuration of the first D1 attempt (collapsed); kept loadable.
     "S_POSTNORM": ModelConfig(),
     # Small pipeline-check model for D0 overfitting and tests.
@@ -110,11 +148,16 @@ def spec_augment(x: torch.Tensor, lens: torch.Tensor, cfg: SpecAugConfig, gen: t
 class ASRModel(nn.Module):
     def __init__(self, cfg: ModelConfig):
         super().__init__()
+        import dataclasses
+
         self.cfg = cfg
         self.cmvn = GlobalCMVN(cfg.encoder.n_mels)
-        self.encoder = Encoder(cfg.encoder)
+        enc_cfg = (dataclasses.replace(cfg.encoder, inter_ctc_vocab=cfg.vocab_ctc)
+                   if (cfg.inter_ctc and cfg.encoder.inter_ctc_vocab == 0) else cfg.encoder)
+        self.encoder = Encoder(enc_cfg)
         self.ctc_head = nn.Linear(cfg.encoder.d_model, cfg.vocab_ctc)
-        self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner)
+        self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
+                                            context_len=cfg.pred_ctx)
         self.joiner = Joiner(cfg.encoder.d_model, cfg.joiner, cfg.vocab_rnnt, cfg.joiner_act)
         if cfg.rnnt_loss == "pruned":
             if cfg.prune_range < 2:
@@ -144,10 +187,16 @@ class ASRModel(nn.Module):
                gen: torch.Generator | None = None, chunk: int | None = None,
                pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0,
                simple_detach: bool = False, zloss_weight: float = 0.0,
-               cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0) -> dict:
+               cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0,
+               inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0) -> dict:
         x_norm = self.cmvn(feats)
         x = spec_augment(x_norm, feat_lens, augment, gen) if (augment is not None and gen is not None) else x_norm
-        enc, enc_lens = self.encoder(x, feat_lens, chunk)
+        need_aux = (self.cfg.inter_ctc and inter_ctc_weight > 0) or (balancer_weight > 0)
+        if need_aux:
+            enc, enc_lens, aux = self.encoder(x, feat_lens, chunk, return_aux=True)
+        else:
+            enc, enc_lens = self.encoder(x, feat_lens, chunk)
+            aux = {}
         enc = enc.float()
         # Heads and losses run in fp32 even under autocast.
         with torch.autocast(device_type=enc.device.type, enabled=False):
@@ -156,7 +205,7 @@ class ASRModel(nn.Module):
             ctc_sum, ctc_tokens, ok = ctc_loss(ctc_lp, enc_lens, ctc_tgt, ctc_lens, stats)
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
-            pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt)).float()
+            pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt, self.cfg.pred_ctx)).float()
             zl = None
             if self.cfg.rnnt_loss == "pruned":
                 nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
@@ -178,6 +227,17 @@ class ASRModel(nn.Module):
         total = self.cfg.ctc_weight * ctc
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+        if "inter_logits" in aux and inter_ctc_weight > 0:
+            with torch.autocast(device_type=enc.device.type, enabled=False):
+                inter_lp = torch.log_softmax(aux["inter_logits"].float(), dim=-1)
+                isum, itok, _ = ctc_loss(inter_lp, enc_lens, ctc_tgt, ctc_lens, None)
+                inter_ctc = isum / max(1, itok)
+            total = total + inter_ctc_weight * inter_ctc
+            out["inter_ctc"] = inter_ctc
+        if "balancer" in aux and balancer_weight > 0:
+            bal = aux["balancer"]
+            total = total + balancer_weight * bal
+            out["balancer"] = bal
         if cr_ctc_weight > 0 and augment is not None and gen is not None:
             # H26 CR-CTC (Yao et al. 2024): supervise BOTH augmented views + symmetric stop-grad KL.
             x2 = spec_augment(x_norm, feat_lens, augment, gen)

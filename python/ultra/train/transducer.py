@@ -37,23 +37,26 @@ def _act_grad_from_out(h: torch.Tensor, kind: str) -> torch.Tensor:
 
 
 class StatelessPredictor(nn.Module):
-    def __init__(self, vocab_out: int, emb: int = 256, joiner: int = 320):
+    def __init__(self, vocab_out: int, emb: int = 256, joiner: int = 320, context_len: int = 2):
         super().__init__()
+        if context_len < 1:
+            raise ShapeError(f"context_len must be >= 1, got {context_len}")
+        self.context_len = context_len
         self.emb = nn.Embedding(vocab_out, emb)
-        self.proj = nn.Linear(2 * emb, joiner)
+        self.proj = nn.Linear(context_len * emb, joiner)
 
     def forward(self, ctx: torch.Tensor) -> torch.Tensor:
-        """ctx (..., 2) token indices (older, newer) -> (..., joiner)."""
+        """ctx (..., context_len) token indices (oldest .. newest) -> (..., joiner)."""
         e = self.emb(ctx)
         return self.proj(e.flatten(-2))
 
     @staticmethod
-    def contexts(targets: torch.Tensor) -> torch.Tensor:
-        """targets (B, U) -> contexts (B, U+1, 2): context before emitting target u."""
-        b = targets.shape[0]
-        z = targets.new_zeros(b, 2)
-        padded = torch.cat([z, targets], dim=1)  # (B, U+2)
-        return torch.stack([padded[:, :-1], padded[:, 1:]], dim=-1)
+    def contexts(targets: torch.Tensor, context_len: int = 2) -> torch.Tensor:
+        """targets (B, U) -> contexts (B, U+1, context_len): context before emitting target u."""
+        b, u = targets.shape[0], targets.shape[1]
+        z = targets.new_zeros(b, context_len)
+        padded = torch.cat([z, targets], dim=1)  # (B, U + context_len)
+        return torch.stack([padded[:, i:i + u + 1] for i in range(context_len)], dim=-1)
 
 
 class Joiner(nn.Module):
@@ -213,7 +216,8 @@ def greedy_decode(predictor: StatelessPredictor, joiner: Joiner, enc_p: torch.Te
     increments (spec v1.0-B §17.7). Returns (token lists, forced advances).
     """
     B, T, _ = enc_p.shape
-    ctx = torch.zeros(B, 2, dtype=torch.long, device=enc_p.device)
+    k_ctx = getattr(predictor, "context_len", 2)
+    ctx = torch.zeros(B, k_ctx, dtype=torch.long, device=enc_p.device)
     out: list[list[int]] = [[] for _ in range(B)]
     forced = 0
     for t in range(T):
@@ -228,7 +232,10 @@ def greedy_decode(predictor: StatelessPredictor, joiner: Joiner, enc_p: torch.Te
             for i, kk in zip(idx[emit].tolist(), k[emit].tolist(), strict=True):
                 out[i].append(kk)
             ei = idx[emit]
-            ctx[ei] = torch.stack([ctx[ei, 1], k[emit]], dim=1)
+            if k_ctx == 1:
+                ctx[ei] = k[emit].unsqueeze(1)
+            else:
+                ctx[ei] = torch.cat([ctx[ei, 1:], k[emit].unsqueeze(1)], dim=1)
             active = torch.zeros_like(active)
             active[ei] = True
         else:
