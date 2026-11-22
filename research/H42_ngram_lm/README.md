@@ -175,3 +175,14 @@ M5 = token 5-gram, `lmplz --prune 0 0 1 4 9`, 179.1 MB quantised trie. Full pre-
 - The engine's gain from each LM matches the Python gain within 0.1 pp. The hypotheses that differ (≈ 50 of 730) differ without an LM too: INT8 against FP32, not the fusion.
 - **Engine cost** (one shared H0 core each, plain beam 4, exploratory): 0.146 CPU-s per audio-s without LM; 0.162 / 0.159 / 0.161 with M5 / S5 / S4 (**+9-11%**). Peak RSS 342 MiB without LM; +357 / +90 / +79 MiB (the pack is held in RAM).
 - **Small models against M5 (ship rule "within ~0.2 pp"):** S5 +0.25 pp (engine, panel) / +0.30 pp (Python, full dev, held out); S4 +0.28 / +0.37. Neither meets it.
+
+### What a streaming engine needs (the next step; runtime-lane's #49 already does most of it)
+- **Model files.** One token n-gram over the model's 500 output tokens plus the LODR bigram. Tokens are written as decimal output indices "1".."500" (SentencePiece id + 1; 0 is blank and never queried). Sources:
+  - ARPA (gzipped) under `/mnt/xbabe3-external/jsr/lm/models/token/arpa/`: M5 `tok5.p00149.arpa.gz`, S5 `tok5.p0063060.arpa.gz`, S4 `tok4.p00415.arpa.gz`; LODR `token/lodr2.train960.arpa`;
+  - the KenLM tries these numbers were decoded with under `models/token/`, and the engine packs (`ultra.lm-ngram/v1`, q8) under `models/engine/`. Hashes in `models/SHA256SUMS`.
+- **Size.** M5 is 179 MB as KenLM's quantised trie and 334 MB as an engine pack; S5 is 48 / 95 MB; S4 47 / 82 MB; LODR ≈ 2.4 MB (1 MB as a dense 501×501 table). The size is per process: every stream shares one read-only copy (mmap-able).
+- **Per hypothesis:** the last 4 tokens (5-gram context), plus the cached backoff weights if the engine walks reverse tries.
+- **Lookups.** 13.3 new LM contexts per audio second (2.47 per output token, beam 4). Scoring a full row per context (the Python reference) is 499 lookups per context, about 6,600 per audio second. The exact upper bound (ln P_LM ≤ 0) lets the engine look up only tokens that could still enter the beam. On a shared core the engine's measured cost of fusion was +9-11% CPU at beam 4.
+- **Weights to ship (M5, beam 4):** λ1 0.6, λ2 0.45, blank penalty 0 (chosen on all dev utterances; held-out folds chose λ1 0.6-0.7 with λ2 = 0.75·λ1).
+- **Formula:** see "Phase 2" above: natural log, no term on blank, `<s>` start state, no `</s>`.
+- **Not streaming:** word 4-gram rescoring needs the final N-best list, so it can only be a second pass at the end of an utterance. It is also the smaller gain (−0.37 to −0.50 pp against −1.41 pp).
