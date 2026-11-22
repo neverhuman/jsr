@@ -3,18 +3,10 @@ from __future__ import annotations
 
 import torch
 
-from train.asr import ModelConfig
-from train.data import Example
+from train.asr import PRESETS
+from train.data import Example, FixedBatches
 from train.dist import StepThrottle
-from train.trainer import FixedBatches, TrainConfig, Trainer
-
-
-def _tiny_cfg() -> ModelConfig:
-    return ModelConfig(
-        d=32, heads=2, n_blocks=2, ffn=64, kernel=7, stem_ch=8,
-        chunk=4, left_context=8, vocab_rnnt=12, vocab_ctc=12,
-        pred_emb=16, joiner=32,
-    )
+from train.trainer import TrainConfig, Trainer
 
 
 def _tiny_examples(n: int = 4) -> list[Example]:
@@ -48,9 +40,9 @@ def test_step_throttle_reacts_to_hottest_rank_gpu_and_cpu_target():
 
 def test_default_off_throttle_is_bit_exact(tmp_path):
     exs = _tiny_examples(4)
-    mc = _tiny_cfg()
+    mc = PRESETS["TINY"]
     cfg = TrainConfig(
-        preset="S", total_steps=5, warmup=2, lr=1e-3, specaug=False,
+        preset="TINY", total_steps=5, warmup=2, lr=1e-3, specaug=False,
         eval_every=0, eval_each_epoch=False, ckpt_every_steps=100, log_every=5,
         ddp_util_target=0.0, cpu_util_target=0.0,
     )
