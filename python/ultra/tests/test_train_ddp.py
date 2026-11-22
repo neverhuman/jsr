@@ -2,6 +2,7 @@
 end bit-close to one process on the concatenated batch (global-count loss normalisation,
 averaged gradients, clip after sync, identical optimiser steps)."""
 import dataclasses
+import json
 import os
 import socket
 import sys
@@ -32,10 +33,10 @@ def _cfg():
     return dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, dropout=0.0))
 
 
-def _train(run_dir, batch_size, steps, rank=0, world=1):
+def _train(run_dir, batch_size, steps, rank=0, world=1, log_every=1000):
     torch.manual_seed(0)
     cfg = TrainConfig(preset="TINY", warmup=2, total_steps=100, ckpt_every_steps=1000,
-                      ckpt_every_minutes=1e9, eval_every=0, log_every=1000, specaug=False,
+                      ckpt_every_minutes=1e9, eval_every=0, log_every=log_every, specaug=False,
                       clip=1.0)
     src = FixedBatches(_examples(), batch_size=batch_size, shuffle=False)
     t = Trainer(run_dir, cfg, src, model_cfg=_cfg(), device="cpu", log=False, rank=rank,
@@ -55,7 +56,7 @@ def _worker(rank, world, port, run_dir, out):
     import torch.distributed as dist
 
     dist.init_process_group("gloo")
-    t = _train(os.path.join(run_dir, f"r{rank}"), 2, 5, rank, world)
+    t = _train(os.path.join(run_dir, f"r{rank}"), 2, 5, rank, world, log_every=5)
     if rank == 0:
         torch.save(t.model.state_dict(), out)
     dist.destroy_process_group()
@@ -87,5 +88,12 @@ def test_two_ranks_equal_one_process_on_the_concatenated_batch(workdir):
     out = os.path.join(workdir, "ddp.pt")
     mp.spawn(_worker, args=(2, port, workdir, out), nprocs=2, join=True)
     ddp = torch.load(out)
+    for rank in (0, 1):  # per-rank heartbeat: every rank, its own run dir, local values
+        with open(os.path.join(workdir, f"r{rank}", f"rank{rank}.jsonl")) as fh:
+            hb = [json.loads(line) for line in fh]
+        assert len(hb) == 1 and hb[0]["kind"] == "rank" and hb[0]["rank"] == rank
+        assert hb[0]["world"] == 2 and hb[0]["step"] == 5 and hb[0]["audio_s"] > 0
+        assert hb[0]["loss"] > 0 and hb[0]["compute_s"] > 0 and hb[0]["gpu"] == "cpu"
+        assert {"interval_s", "comm_s", "wait_s", "sleep_s", "pad_pct", "host", "time"} <= set(hb[0])
     for k, v in single.items():
         assert torch.allclose(ddp[k].float(), v.float(), atol=2e-5, rtol=1e-4), k

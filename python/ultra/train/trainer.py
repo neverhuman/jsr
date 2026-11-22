@@ -278,7 +278,13 @@ class Trainer:
                                     **({"zloss_weight": self.cfg.zloss} if self.cfg.zloss else {}))
         loss = out["loss"]
         if self.world > 1:
+            hb = self._hb_acc()
+            hb["loss"] += float(loss.detach()) if b.active else 0.0
+            hb["n"] += int(b.active)
+            hb["audio_s"] += batch.audio_seconds if b.active else 0.0
+            t_c = time.time()
             loss, out = self._global_loss(out, active=b.active)
+            hb["comm_s"] += time.time() - t_c
         # finite-loss agreement: under DDP the all-reduced loss decides for every rank at once
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
@@ -305,7 +311,7 @@ class Trainer:
         return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
                 "ctc": float(out["ctc"]),
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"] if b.active else 0,
-                "lr": self.sched.get_last_lr()[0], "audio_s": self._global_audio(batch.audio_seconds),
+                "lr": self.sched.get_last_lr()[0], "audio_s": self._timed_global_audio(batch.audio_seconds),
                 "utts": len(batch.uids) if b.active else 0,
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
@@ -331,6 +337,45 @@ class Trainer:
                 "rank_bwd_comm_s": col(2), "rank_step_s": col(3), "rank_data_wait_s": col(4),
                 "rank_throttle_sleep_s": col(5), "rank_duty": col(6, 3), "rank_gpu_util_5min": col(7, 3),
                 "util_target": ts["target"]}
+
+    def _hb_acc(self) -> dict:
+        if getattr(self, "_hb", None) is None:
+            self._hb = {"audio_s": 0.0, "loss": 0.0, "n": 0, "comm_s": 0.0, "step_s": 0.0,
+                        "wait_s": 0.0, "sleep_s": 0.0, "frames": 0, "padded": 0, "t": time.time()}
+        return self._hb
+
+    def _timed_global_audio(self, seconds: float) -> float:
+        t = time.time()
+        out = self._global_audio(seconds)
+        if self.world > 1:
+            self._hb_acc()["comm_s"] += time.time() - t
+        return out
+
+    def _rank_heartbeat(self) -> None:
+        """DDP: every rank appends one line of LOCAL values per log interval to
+        <run_dir>/rank<R>.jsonl (no collective; best-effort, never raises)."""
+        if self.world <= 1:
+            return
+        import socket
+
+        from train.dist import physical_gpu
+
+        hb, now = self._hb_acc(), time.time()
+        gpu = physical_gpu(self.device.index or 0) if self.device.type == "cuda" else "cpu"
+        rec = {"kind": "rank", "rank": self.rank, "world": self.world, "host": socket.gethostname(),
+               "gpu": int(gpu) if gpu.isdigit() else gpu, "step": self.step, "time": now,
+               "interval_s": round(now - hb["t"], 3), "audio_s": round(hb["audio_s"], 2),
+               "loss": hb["loss"] / hb["n"] if hb["n"] else None,
+               "compute_s": round(max(0.0, hb["step_s"] - hb["comm_s"]), 3),
+               "comm_s": round(hb["comm_s"], 3), "wait_s": round(hb["wait_s"], 3),
+               "sleep_s": round(hb["sleep_s"], 3),
+               "pad_pct": round(100.0 * (1 - hb["frames"] / max(1, hb["padded"])), 2)}
+        self._hb = None
+        try:
+            with open(os.path.join(self.run_dir, f"rank{self.rank}.jsonl"), "a") as fh:
+                fh.write(json.dumps(rec) + "\n")
+        except (OSError, TypeError, ValueError):
+            pass
 
     def _global_audio(self, seconds: float) -> float:
         """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
@@ -550,10 +595,19 @@ class Trainer:
             if self.world > 1:
                 from train.dist import all_reduce_max
 
-                if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
-                    throttle.pause(all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step),
-                                                  self.device))
+                hb = self._hb_acc()
+                hb["step_s"] += time.time() - t_step
+                hb["wait_s"] += t_step - t_wait
+                hb["frames"] += int(batch.feat_lens.sum())
+                hb["padded"] += batch.feats.shape[0] * batch.feats.shape[1]
+                t_c = time.time()
+                nap = all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step), self.device) \
+                    if throttle is not None else 0.0
                 self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
+                hb["comm_s"] += time.time() - t_c
+                if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
+                    throttle.pause(nap)
+                    hb["sleep_s"] += max(0.0, nap)
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
             steps_here += 1
@@ -565,6 +619,7 @@ class Trainer:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
             if self.step % self.cfg.log_every == 0:
+                self._rank_heartbeat()
                 dt = time.time() - t0
                 self.log({"kind": "train", "step": self.step, "pos": pos.to_dict(),
                           "loss": acc["loss"] / acc["n"], "rnnt": acc["rnnt"] / acc["n"],
