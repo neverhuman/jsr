@@ -117,9 +117,27 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                               "(1 / CostLadder)",
                 source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
         util = 100.0 * claim * at_claim["rtf_service_cpu"] / ladder["workers"]
-        rec.add(f"UtilClaim{stem}", fmt(util, 0), raw=util, unit="% of the CCX's 4 cores",
-                configuration=f"{disp}; claimed streams x CPU-s per audio-s at the claimed rung / {ladder['workers']} cores",
+        rec.add(f"UtilClaim{stem}", fmt(util, 0), raw=util, unit="% projected CPU demand of the CCX's 4 cores",
+                configuration=(f"{disp}; PROJECTED CPU DEMAND, not sampled utilisation: nominal claimed streams x "
+                               f"CPU-s per audio-s at the claimed rung / {ladder['workers']} cores"),
                 source=f"derived: {psrc} candidate={cand} total_streams={claim}", **common)
+        cores_s = ladder["workers"] * ladder["step_seconds"]
+        for tag, pt in (("", at_claim), ("Fail", above[0] if above else None)):
+            if pt is None:
+                continue
+            dem = 100.0 * pt["audio_processed_seconds"] * pt["rtf_service_cpu"] / cores_s
+            rec.add(f"Demand{tag}{stem}", fmt(dem, 2), raw=dem, unit="% CPU demand of the CCX's 4 cores",
+                    configuration=(f"{disp}; processed-audio CPU demand at the {'first failed' if tag else 'claimed'} rung "
+                                   f"({pt['total_streams']} streams): processed audio-s x CPU-s per audio-s / "
+                                   f"({ladder['workers']} cores x {ladder['step_seconds']:.0f} s)"),
+                    source=f"derived: {psrc} candidate={cand} total_streams={pt['total_streams']}", **common)
+        rec.add(f"AudioProcessed{stem}", fmt(at_claim["audio_processed_seconds"], 2), raw=at_claim["audio_processed_seconds"],
+                unit="audio-s", configuration=f"{disp}; audio processed during the {ladder['step_seconds']:.0f} s claimed rung",
+                source=f"{psrc} candidate={cand} total_streams={claim}", **common)
+        rec.add(f"AudioUnfinished{stem}", fmt(at_claim["audio_unfinished_seconds"], 2),
+                raw=at_claim["audio_unfinished_seconds"], unit="audio-s",
+                configuration=f"{disp}; accepted audio left unprocessed at the claimed rung's cutoff",
+                source=f"{psrc} candidate={cand} total_streams={claim}", **common)
         fails[key] = (claim, above[0]["total_streams"] if above else None)
         rec.add(f"CostLadder{stem}", fmt(at_match["rtf_service_cpu"], 4), raw=at_match["rtf_service_cpu"],
                 unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at the matched {MATCHED_RUNG}-stream rung; {lconf}",
