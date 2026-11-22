@@ -47,6 +47,9 @@ pub struct DecWorkspace {
     pub(crate) logits: Vec<f32>,
     active: Vec<usize>,
     need: Vec<usize>,
+    pub(crate) beam_offs: Vec<usize>,
+    pub(crate) beam_active: Vec<usize>,
+    pub(crate) beam_need: Vec<(usize, usize)>,
     pub(crate) q: QuantScratch,
 }
 

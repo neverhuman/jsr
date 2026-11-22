@@ -14,6 +14,8 @@
 //! insertion order (Python's `max` over the dict). Batch invariance: each stream's
 //! hypotheses are their own joiner rows, and the joiner GEMM quantises per row.
 
+use std::sync::Arc;
+
 use crate::decoder::DecWorkspace;
 use crate::encoder::{linear, Precision};
 use crate::kernels::Isa;
@@ -21,12 +23,13 @@ use crate::model::Model;
 use crate::EngineError;
 
 /// One hypothesis: its token sequence, f32 log-probability, and cached predictor output for
-/// its context (valid when `dec_ok`).
+/// its context (valid when `dec_ok`). `dec` is `Arc`-shared so blank continuations avoid
+/// copying `joiner` floats on every frame.
 #[derive(Debug, Clone)]
 pub struct Hyp {
     pub tokens: Vec<u32>,
     pub score: f32,
-    dec: Vec<f32>,
+    dec: Arc<Vec<f32>>,
     dec_ok: bool,
 }
 
@@ -42,7 +45,7 @@ impl BeamState {
             hyps: vec![Hyp {
                 tokens: Vec::new(),
                 score: 0.0,
-                dec: vec![0.0; m.arch.joiner],
+                dec: Arc::new(vec![0.0; m.arch.joiner]),
                 dec_ok: false,
             }],
         }
@@ -123,33 +126,33 @@ pub fn beam_chunk(
     ws: &mut DecWorkspace,
 ) -> Result<(), EngineError> {
     let (jn, v, e, blank) = (m.arch.joiner, m.arch.vocab, m.arch.pred_emb, m.arch.blank);
-    let offs: Vec<usize> = ns
-        .iter()
-        .scan(0usize, |acc, &n| {
-            let o = *acc;
-            *acc += n;
-            Some(o)
-        })
-        .collect();
+    ws.beam_offs.clear();
+    let mut acc = 0usize;
+    for &n in ns {
+        ws.beam_offs.push(acc);
+        acc += n;
+    }
     let tmax = ns.iter().copied().max().unwrap_or(0);
     let t_all = ws.q.prof.start();
     let gemm0 = ws.q.prof.ns;
     let mut cands: Vec<Cand> = Vec::with_capacity(beam);
     for t in 0..tmax {
-        let active: Vec<usize> = (0..states.len()).filter(|&s| t < ns[s]).collect();
-        // Predictor outputs for hypotheses whose context changed.
-        let need: Vec<(usize, usize)> = active
-            .iter()
-            .flat_map(|&s| {
-                let st = &states[s];
-                (0..st.hyps.len())
-                    .filter(move |&h| !st.hyps[h].dec_ok)
-                    .map(move |h| (s, h))
-            })
-            .collect();
-        if !need.is_empty() {
-            let inp = grow(&mut ws.emb_in, need.len() * 2 * e);
-            for (r, &(s, h)) in need.iter().enumerate() {
+        ws.beam_active.clear();
+        ws.beam_need.clear();
+        for s in 0..states.len() {
+            if t < ns[s] {
+                ws.beam_active.push(s);
+                for h in 0..states[s].hyps.len() {
+                    if !states[s].hyps[h].dec_ok {
+                        ws.beam_need.push((s, h));
+                    }
+                }
+            }
+        }
+        if !ws.beam_need.is_empty() {
+            let need_len = ws.beam_need.len();
+            let inp = grow(&mut ws.emb_in, need_len * 2 * e);
+            for (r, &(s, h)) in ws.beam_need.iter().enumerate() {
                 for (half, tok) in context(&states[s].hyps[h].tokens, blank)
                     .into_iter()
                     .enumerate()
@@ -158,45 +161,57 @@ pub fn beam_chunk(
                         .copy_from_slice(&m.emb[tok * e..(tok + 1) * e]);
                 }
             }
-            let out = grow(&mut ws.dec_out, need.len() * jn);
+            let out = grow(&mut ws.dec_out, need_len * jn);
             linear(
                 isa,
                 Precision::F32,
                 &m.pred_proj,
-                inp,
-                need.len(),
+                &ws.emb_in[..need_len * 2 * e],
+                need_len,
                 out,
                 &mut ws.q,
             );
-            for (r, &(s, h)) in need.iter().enumerate() {
+            for (r, &(s, h)) in ws.beam_need.iter().enumerate() {
                 let hy = &mut states[s].hyps[h];
-                hy.dec.copy_from_slice(&out[r * jn..(r + 1) * jn]);
+                Arc::make_mut(&mut hy.dec).copy_from_slice(&ws.dec_out[r * jn..(r + 1) * jn]);
                 hy.dec_ok = true;
             }
         }
         // Joiner rows: every hypothesis of every active stream.
-        let rows: usize = active.iter().map(|&s| states[s].hyps.len()).sum();
+        let rows: usize = ws.beam_active.iter().map(|&s| states[s].hyps.len()).sum();
         let hid = grow(&mut ws.hid, rows * jn);
         let mut r = 0;
-        for &s in &active {
-            let ev = &enc[(offs[s] + t) * jn..(offs[s] + t + 1) * jn];
+        for &s in &ws.beam_active {
+            let ev = &enc[(ws.beam_offs[s] + t) * jn..(ws.beam_offs[s] + t + 1) * jn];
             for hy in &states[s].hyps {
-                for ((o, &a), &b) in hid[r * jn..(r + 1) * jn].iter_mut().zip(ev).zip(&hy.dec) {
+                for ((o, &a), &b) in hid[r * jn..(r + 1) * jn]
+                    .iter_mut()
+                    .zip(ev)
+                    .zip(hy.dec.iter())
+                {
                     *o = (a + b).tanh();
                 }
                 r += 1;
             }
         }
         let logits = grow(&mut ws.logits, rows * v);
-        linear(isa, prec, &m.joiner_out, hid, rows, logits, &mut ws.q);
+        linear(
+            isa,
+            prec,
+            &m.joiner_out,
+            &ws.hid[..rows * jn],
+            rows,
+            logits,
+            &mut ws.q,
+        );
         let mut r0 = 0;
-        for &s in &active {
+        for &s in &ws.beam_active {
             let st = &mut *states[s];
             let nh = st.hyps.len();
             // Top `beam` candidates over (hypothesis, token).
             cands.clear();
             for h in 0..nh {
-                let row = &logits[(r0 + h) * v..(r0 + h + 1) * v];
+                let row = &ws.logits[(r0 + h) * v..(r0 + h + 1) * v];
                 let lse = logsumexp(isa, row)?;
                 let base = st.hyps[h].score;
                 for (k, &x) in row.iter().enumerate() {
@@ -224,6 +239,20 @@ pub fn beam_chunk(
                 }
             }
             r0 += nh;
+            // Fast path (~85% of speech frames): every surviving candidate is a distinct blank
+            // continuation, so we reorder and update scores in-place with zero token/dec clones.
+            if cands.len() == nh
+                && cands.iter().all(|c| c.k == blank)
+                && (0..cands.len()).all(|i| cands[..i].iter().all(|p| p.h != cands[i].h))
+            {
+                let mut old: Vec<Option<Hyp>> = st.hyps.drain(..).map(Some).collect();
+                for c in &cands {
+                    let mut hy = old[c.h].take().expect("distinct blank parent");
+                    hy.score = c.score;
+                    st.hyps.push(hy);
+                }
+                continue;
+            }
             // New hypotheses in candidate order, merging equal sequences.
             let mut next: Vec<Hyp> = Vec::with_capacity(beam);
             for c in &cands {
@@ -241,7 +270,7 @@ pub fn beam_chunk(
                     next.push(Hyp {
                         tokens,
                         score: c.score,
-                        dec: parent.dec.clone(),
+                        dec: Arc::clone(&parent.dec),
                         dec_ok,
                     });
                 }

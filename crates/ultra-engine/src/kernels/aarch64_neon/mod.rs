@@ -190,6 +190,21 @@ pub(crate) fn axpy(alpha: f32, x: &[f32], y: &mut [f32]) {
     scalar::axpy(alpha, &x[main..], &mut y[main..]);
 }
 
+pub(crate) fn mul_add_exact(dst: &mut [f32], src: &[f32], w: &[f32]) {
+    assert!(dst.len() == src.len() && dst.len() == w.len());
+    let n = dst.len();
+    let main = n - n % 8;
+    let mut i = 0;
+    while i < main {
+        let r = V8::load(dst, i).add(V8::load(w, i).mul(V8::load(src, i)));
+        r.store(dst, i);
+        i += 8;
+    }
+    for ((d, &s), &wv) in dst[main..].iter_mut().zip(&src[main..]).zip(&w[main..]) {
+        *d += wv * s;
+    }
+}
+
 pub(crate) fn layer_norm(x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
     if !d.is_multiple_of(8) {
         scalar::layer_norm(x, d, g, b, out);
