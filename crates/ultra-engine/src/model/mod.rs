@@ -127,6 +127,145 @@ pub struct Block {
     pub post_norm: Option<Norm>,
 }
 
+/// Precomputed predictor projection halves for compact vocabularies (`vocab <= 1024`, e.g.
+/// BPE-500): `h0[t0] + h1[t1]` equals `W_pred @ [emb[t0], emb[t1]] + bias`, turning each
+/// predictor step into a single `joiner`-float vector add (~15 ns vs a `320x512` GEMM).
+#[derive(Debug, Clone)]
+pub struct PredCache {
+    /// `W[:, :pred_emb] @ emb[tok] + bias`, shape `[vocab][joiner]`.
+    pub h0: Vec<f32>,
+    /// `W[:, pred_emb:] @ emb[tok]`, shape `[vocab][joiner]`.
+    pub h1: Vec<f32>,
+}
+
+/// Exact Cauchy-Schwarz blank-first certificate for the joiner output layer (`0.000%` error).
+///
+/// For any hidden vector `h` of length `joiner`:
+/// `z_v = (w_bar . h) + (w_v - w_bar) . h + b_v <= (w_bar . h) + r_max * ||h||_2 + b_max_nonblank`
+/// for all `v != blank`. Whenever `z_blank > upper` (plus FP/quant slack), `argmax == blank`
+/// is mathematically certified without running the `V x joiner` joiner GEMM.
+#[derive(Debug, Clone)]
+pub struct BlankCert {
+    pub w_blank: Vec<f32>,
+    pub b_blank: f32,
+    pub w_bar: Vec<f32>,
+    pub r_max: f32,
+    pub b_max_nonblank: f32,
+    pub max_w_norm: f32,
+}
+
+impl BlankCert {
+    /// Build from row-major fp32 joiner weights `w[v][j]` and biases `b[v]`.
+    pub fn from_row_major(
+        w: &[f32],
+        b: &[f32],
+        vocab: usize,
+        jn: usize,
+        blank: usize,
+    ) -> Option<Self> {
+        if vocab < 2 || jn == 0 || blank >= vocab || w.len() != vocab * jn || b.len() != vocab {
+            return None;
+        }
+        let w_blank = w[blank * jn..(blank + 1) * jn].to_vec();
+        let b_blank = b[blank];
+        let mut w_bar = vec![0.0f32; jn];
+        let inv_n = 1.0 / (vocab - 1) as f32;
+        let mut b_max_nonblank = f32::NEG_INFINITY;
+        for v in 0..vocab {
+            if v == blank {
+                continue;
+            }
+            let row = &w[v * jn..(v + 1) * jn];
+            for (m, &val) in w_bar.iter_mut().zip(row) {
+                *m += val * inv_n;
+            }
+            b_max_nonblank = b_max_nonblank.max(b[v]);
+        }
+        let mut r_max = 0.0f32;
+        let mut max_w_norm = 0.0f32;
+        for v in 0..vocab {
+            let row = &w[v * jn..(v + 1) * jn];
+            let mut n2 = 0.0f64;
+            for &val in row {
+                n2 += f64::from(val) * f64::from(val);
+            }
+            max_w_norm = max_w_norm.max(n2.sqrt() as f32);
+            if v == blank {
+                continue;
+            }
+            let mut d2 = 0.0f64;
+            for (&val, &m) in row.iter().zip(&w_bar) {
+                let d = f64::from(val) - f64::from(m);
+                d2 += d * d;
+            }
+            r_max = r_max.max(d2.sqrt() as f32);
+        }
+        Some(Self {
+            w_blank,
+            b_blank,
+            w_bar,
+            r_max,
+            b_max_nonblank,
+            max_w_norm,
+        })
+    }
+
+    /// Build from a packed int8 joiner matrix using its exact dequantised weights `w_q * scale`.
+    pub fn from_packed_i8(q: &PackedI8, blank: usize) -> Option<Self> {
+        use crate::kernels::NR;
+        use crate::quant::KG;
+        let (v, jn) = (q.n(), q.k());
+        if v < 2 || jn == 0 || blank >= v {
+            return None;
+        }
+        let mut w = vec![0.0f32; v * jn];
+        let mut b = vec![0.0f32; v];
+        for row in 0..v {
+            let (p, j) = (row / NR, row % NR);
+            let panel = q.panel(p);
+            let s = q.scale[row];
+            b[row] = q.bias[row];
+            for kk in 0..jn {
+                let code = panel[((kk / KG) * NR + j) * KG + kk % KG];
+                w[row * jn + kk] = f32::from(code) * s;
+            }
+        }
+        Self::from_row_major(&w, &b, v, jn, blank)
+    }
+
+    /// Returns `true` ONLY when `z_blank > z_v` is mathematically certified for every `v != blank`.
+    pub fn is_certified_blank(&self, hid: &[f32], int8_slack: bool) -> bool {
+        let jn = self.w_blank.len();
+        debug_assert_eq!(hid.len(), jn);
+        let mut z_blank = f64::from(self.b_blank);
+        let mut mu = 0.0f64;
+        let mut h2 = 0.0f64;
+        let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
+        for ((&h, &wb), &wm) in hid.iter().zip(&self.w_blank).zip(&self.w_bar) {
+            if !h.is_finite() {
+                return false;
+            }
+            lo = lo.min(h);
+            hi = hi.max(h);
+            let hf = f64::from(h);
+            z_blank += f64::from(wb) * hf;
+            mu += f64::from(wm) * hf;
+            h2 += hf * hf;
+        }
+        let h_norm = h2.sqrt();
+        let mut margin = 1e-4f64 * (1.0 + h_norm * f64::from(self.max_w_norm));
+        if int8_slack {
+            // Per-row centred int8 quantisation perturbs each element by <= scale / 2,
+            // so ||x_hat - hid||_2 <= (scale / 2) * sqrt(jn) and |(w_v - w_blank).(x_hat - hid)|
+            // <= scale * sqrt(jn) * max_w_norm.
+            let scale = f64::from((hi - lo) / 254.0);
+            margin += scale * (jn as f64).sqrt() * f64::from(self.max_w_norm) + 1e-3;
+        }
+        let upper = mu + f64::from(self.r_max) * h_norm + f64::from(self.b_max_nonblank) + margin;
+        z_blank > upper
+    }
+}
+
 /// Everything the engine needs, loaded and packed once, shared read-only by all workers.
 #[derive(Debug)]
 pub struct Model {
@@ -148,7 +287,12 @@ pub struct Model {
     /// Predictor embedding table `[vocab][pred_emb]`.
     pub emb: Vec<f32>,
     pub pred_proj: Linear,
+    /// Precomputed predictor halves for compact vocabularies (`vocab <= 1024`).
+    pub pred_cache: Option<PredCache>,
     pub joiner_out: Linear,
+    /// Exact Cauchy-Schwarz blank-first certificates for fp32 and int8 joiner paths.
+    pub blank_cert_f32: Option<BlankCert>,
+    pub blank_cert_i8: Option<BlankCert>,
     pub rope_inv: Vec<f32>,
     pub mel_cfg: Arc<TrainerMelConfig>,
     pub tokens: Arc<TokenTable>,
@@ -324,6 +468,7 @@ impl Model {
             let path = verify(root, file(&raw, "weights_int8")?, verify_hashes)?;
             model.load_prepared_int8(&path, i8)?;
         }
+        model.refresh_blank_cert_i8();
         model.apply_qat_stem()?;
         Ok(model)
     }
@@ -444,6 +589,42 @@ impl Model {
         } else {
             (None, None)
         };
+        let emb = st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?;
+        let pred_w = st.f32("predictor.proj.weight", &[a.joiner, 2 * a.pred_emb])?;
+        let pred_b = st.f32("predictor.proj.bias", &[a.joiner])?;
+        let pred_proj = Linear::new(&pred_w, a.joiner, 2 * a.pred_emb, Some(&pred_b));
+        let pred_cache = (a.vocab <= 1024).then(|| {
+            let (v, e, jn) = (a.vocab, a.pred_emb, a.joiner);
+            let mut h0 = vec![0.0f32; v * jn];
+            let mut h1 = vec![0.0f32; v * jn];
+            for tok in 0..v {
+                let er = &emb[tok * e..(tok + 1) * e];
+                for j in 0..jn {
+                    let wr = &pred_w[j * 2 * e..(j + 1) * 2 * e];
+                    let mut s0 = f64::from(pred_b[j]);
+                    let mut s1 = 0.0f64;
+                    for kk in 0..e {
+                        let ev = f64::from(er[kk]);
+                        s0 += f64::from(wr[kk]) * ev;
+                        s1 += f64::from(wr[e + kk]) * ev;
+                    }
+                    h0[tok * jn + j] = s0 as f32;
+                    h1[tok * jn + j] = s1 as f32;
+                }
+            }
+            PredCache { h0, h1 }
+        });
+        let joiner_b = st.f32("joiner.out.bias", &[a.vocab])?;
+        let (joiner_out, blank_cert_f32) = if int8_only("joiner.out") {
+            (Linear::int8_only(a.vocab, a.joiner, &joiner_b), None)
+        } else {
+            let joiner_w = st.f32("joiner.out.weight", &[a.vocab, a.joiner])?;
+            let cert = BlankCert::from_row_major(&joiner_w, &joiner_b, a.vocab, a.joiner, a.blank);
+            (
+                Linear::new(&joiner_w, a.vocab, a.joiner, Some(&joiner_b)),
+                cert,
+            )
+        };
         Ok(Self {
             pair,
             restore,
@@ -454,9 +635,12 @@ impl Model {
             blocks,
             final_norm,
             enc_proj: lin("joiner.enc_proj", a.joiner, d)?,
-            emb: st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?,
-            pred_proj: lin("predictor.proj", a.joiner, 2 * a.pred_emb)?,
-            joiner_out: lin("joiner.out", a.vocab, a.joiner)?,
+            emb,
+            pred_proj,
+            pred_cache,
+            joiner_out,
+            blank_cert_f32,
+            blank_cert_i8: None,
             rope_inv,
             mel_cfg,
             tokens,

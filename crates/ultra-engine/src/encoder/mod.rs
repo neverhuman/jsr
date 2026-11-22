@@ -213,7 +213,6 @@ pub struct EncWorkspace {
     h: Vec<f32>,
     h2: Vec<f32>,
     y: Vec<f32>,
-    win: Vec<f32>,
     rope: Vec<f32>,
     rope_mid: Vec<f32>,
     scores: Vec<f32>,

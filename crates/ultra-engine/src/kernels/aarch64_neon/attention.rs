@@ -74,7 +74,9 @@ pub(crate) fn attention_values(
     let nv = dh / 8;
     let nk = (vals[0].len() + vals[1].len()) / dh;
     assert!(scores.len() >= n * nk && out.len() >= (n - 1) * o_stride + dh);
-    for i in 0..n {
+    let mut invs = [0.0f32; 64];
+    assert!(n <= invs.len(), "attention_values n > 64");
+    for (i, inv_slot) in invs.iter_mut().enumerate().take(n) {
         let sc = &mut scores[i * nk..(i + 1) * nk];
         let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let mv = V8::splat(mx);
@@ -92,7 +94,44 @@ pub(crate) fn attention_values(
             *s = scalar::exp_approx(*s - mx);
             sum += *s;
         }
-        let inv = 1.0 / sum;
+        *inv_slot = 1.0 / sum;
+    }
+    // 2-Query Attention Value Mixing in 32-float (4 V8 = 8 NEON regs/query) strips (0-ULP exact).
+    let mut i = 0;
+    while i + 1 < n {
+        let sc0 = &scores[i * nk..(i + 1) * nk];
+        let sc1 = &scores[(i + 1) * nk..(i + 2) * nk];
+        let (inv0, inv1) = (invs[i], invs[i + 1]);
+        let mut v0 = 0;
+        while v0 < nv {
+            let strip = (nv - v0).min(4);
+            let mut acc0 = [V8::zero(); 4];
+            let mut acc1 = [V8::zero(); 4];
+            let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
+            for ((&p0, &p1), vr) in sc0.iter().zip(sc1.iter()).zip(rows) {
+                let pv0 = V8::splat(p0 * inv0);
+                let pv1 = V8::splat(p1 * inv1);
+                for c in 0..strip {
+                    let vc = V8::load(vr, 8 * (v0 + c));
+                    acc0[c] = pv0.fma(vc, acc0[c]);
+                    acc1[c] = pv1.fma(vc, acc1[c]);
+                }
+            }
+            let o0 = &mut out[i * o_stride..i * o_stride + dh];
+            for (c, a) in acc0[..strip].iter().enumerate() {
+                a.store(o0, 8 * (v0 + c));
+            }
+            let o1 = &mut out[(i + 1) * o_stride..(i + 1) * o_stride + dh];
+            for (c, a) in acc1[..strip].iter().enumerate() {
+                a.store(o1, 8 * (v0 + c));
+            }
+            v0 += strip;
+        }
+        i += 2;
+    }
+    if i < n {
+        let sc = &scores[i * nk..(i + 1) * nk];
+        let inv = invs[i];
         let mut acc = [V8::zero(); 16];
         let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
         for (&p, vr) in sc.iter().zip(rows) {

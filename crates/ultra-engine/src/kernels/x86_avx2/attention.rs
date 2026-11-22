@@ -124,7 +124,10 @@ fn values_avx2(
     assert!(dh.is_multiple_of(8) && nv <= MAXV);
     let nk = (vals[0].len() + vals[1].len()) / dh;
     assert!(scores.len() >= n * nk && out.len() >= (n - 1) * o_stride + dh);
-    for i in 0..n {
+    // First normalize softmax weights for all `n` queries in-place (same exact exp/sum order).
+    let mut invs = [0.0f32; 64];
+    assert!(n <= invs.len(), "attention_values n > 64");
+    for (i, inv_slot) in invs.iter_mut().enumerate().take(n) {
         let sc = &mut scores[i * nk..(i + 1) * nk];
         let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let mv = _mm256_set1_ps(mx);
@@ -143,7 +146,48 @@ fn values_avx2(
             *s = scalar::exp_approx(*s - mx);
             sum += *s;
         }
-        let inv = 1.0 / sum;
+        *inv_slot = 1.0 / sum;
+    }
+    // 2-Query Attention Value Mixing (0-ULP bit-identical FMA order, halves V-ring loads!).
+    // Process in 32-float (4-YMM) strips so acc0[4] + acc1[4] + loads stay <= 11/16 YMM regs.
+    let mut i = 0;
+    while i + 1 < n {
+        let sc0 = &scores[i * nk..(i + 1) * nk];
+        let sc1 = &scores[(i + 1) * nk..(i + 2) * nk];
+        let (inv0, inv1) = (invs[i], invs[i + 1]);
+        let mut v0 = 0;
+        while v0 < nv {
+            let strip = (nv - v0).min(4);
+            let mut acc0 = [_mm256_setzero_ps(); 4];
+            let mut acc1 = [_mm256_setzero_ps(); 4];
+            let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
+            for ((&p0, &p1), vr) in sc0.iter().zip(sc1.iter()).zip(rows) {
+                let pv0 = _mm256_set1_ps(p0 * inv0);
+                let pv1 = _mm256_set1_ps(p1 * inv1);
+                for c in 0..strip {
+                    // SAFETY: (v0 + c) * 8 + 8 <= dh = vr.len().
+                    let vc = unsafe { _mm256_loadu_ps(vr.as_ptr().add((v0 + c) * 8)) };
+                    acc0[c] = _mm256_fmadd_ps(pv0, vc, acc0[c]);
+                    acc1[c] = _mm256_fmadd_ps(pv1, vc, acc1[c]);
+                }
+            }
+            let o0 = &mut out[i * o_stride + v0 * 8..i * o_stride + (v0 + strip) * 8];
+            for (a, oc) in acc0[..strip].iter().zip(o0.chunks_exact_mut(8)) {
+                // SAFETY: oc.len() == 8.
+                unsafe { _mm256_storeu_ps(oc.as_mut_ptr(), *a) };
+            }
+            let o1 = &mut out[(i + 1) * o_stride + v0 * 8..(i + 1) * o_stride + (v0 + strip) * 8];
+            for (a, oc) in acc1[..strip].iter().zip(o1.chunks_exact_mut(8)) {
+                // SAFETY: oc.len() == 8.
+                unsafe { _mm256_storeu_ps(oc.as_mut_ptr(), *a) };
+            }
+            v0 += strip;
+        }
+        i += 2;
+    }
+    if i < n {
+        let sc = &scores[i * nk..(i + 1) * nk];
+        let inv = invs[i];
         let mut acc = [_mm256_setzero_ps(); MAXV];
         let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
         for (&p, vr) in sc.iter().zip(rows) {

@@ -37,6 +37,12 @@ pub struct Engine {
     pub pool: Option<Arc<crate::pool::GemmPool>>,
     /// Beam width: 1 = greedy (default), k > 1 = bounded beam search (`crate::beam`).
     pub beam: usize,
+    /// Maximum tokens emitted per frame during beam search (`1` default = B6 parity; `2..=8`
+    /// recommended for BPE-500 and multirate/V2 models to prevent consecutive-token deletions).
+    pub beam_max_symbols: usize,
+    /// Entropy-gated Micro-Beam-4 threshold (`0.0` default = always-on exact beam; e.g. `3.5`
+    /// collapses to width-1 joiner whenever the top hypothesis & blank logit dominate by `> margin`).
+    pub beam_margin: f32,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -177,6 +183,8 @@ impl Engine {
             act7: false,
             pool: None,
             beam: 1,
+            beam_max_symbols: 1,
+            beam_margin: 0.0,
         })
     }
 
@@ -193,6 +201,24 @@ impl Engine {
     /// step.
     pub fn with_beam(mut self, k: usize) -> Self {
         self.beam = k.clamp(1, 16);
+        self
+    }
+
+    /// Set the maximum tokens emitted per encoder frame during beam search (`1..=8`;
+    /// `1` = default B6 parity; `2..=4` recommended for BPE-500 / 12.5 Hz / V2 models).
+    pub fn with_beam_max_symbols(mut self, k: usize) -> Self {
+        self.beam_max_symbols = k.clamp(1, 8);
+        self
+    }
+
+    /// Enable Entropy-Gated Micro-Beam-4 (`0.0` = off / exact beam; e.g. `3.5` collapses
+    /// confident blank frames to width-1 joiner evaluation).
+    pub fn with_beam_margin(mut self, margin: f32) -> Self {
+        self.beam_margin = if margin.is_finite() && margin > 0.0 {
+            margin
+        } else {
+            0.0
+        };
         self
     }
 
@@ -337,11 +363,13 @@ impl Engine {
                     .iter_mut()
                     .map(|d| d.beam.get_or_insert_with(|| crate::beam::BeamState::new(m)))
                     .collect();
-                crate::beam::beam_chunk(
+                crate::beam::beam_chunk_with_opts(
                     m,
                     self.isa,
                     self.precision,
                     self.beam,
+                    self.beam_max_symbols,
+                    self.beam_margin,
                     &mut bs,
                     &ns,
                     &ws.enc_out,

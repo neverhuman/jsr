@@ -35,6 +35,16 @@ impl Model {
             }
             l.q = keep(kind, blk).then(|| PackedI8::from_packed_f32(&l.f));
         }
+        self.refresh_blank_cert_i8();
+    }
+
+    /// Build or refresh the exact Cauchy-Schwarz blank certificate for the int8 joiner layer.
+    pub(super) fn refresh_blank_cert_i8(&mut self) {
+        self.blank_cert_i8 = self
+            .joiner_out
+            .q
+            .as_ref()
+            .and_then(|q| super::BlankCert::from_packed_i8(q, self.arch.blank));
     }
 
     /// For a checkpoint whose stem was trained int8 (`qat_stem = "int8"`), pack stem conv 2

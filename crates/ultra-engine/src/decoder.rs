@@ -83,6 +83,18 @@ fn refresh_pred(m: &Model, isa: Isa, states: &mut [&mut DecState], ws: &mut DecW
     if rows == 0 {
         return;
     }
+    if let Some(pc) = &m.pred_cache {
+        for &s in &ws.need {
+            let [t0, t1] = states[s].ctx;
+            let a = &pc.h0[t0 * jn..(t0 + 1) * jn];
+            let b = &pc.h1[t1 * jn..(t1 + 1) * jn];
+            for ((o, &av), &bv) in states[s].dec.iter_mut().zip(a).zip(b) {
+                *o = av + bv;
+            }
+            states[s].dec_ok = true;
+        }
+        return;
+    }
     let inp = grow(&mut ws.emb_in, rows * 2 * e);
     for (r, &s) in ws.need.iter().enumerate() {
         for (half, &tok) in states[s].ctx.iter().enumerate() {
@@ -112,6 +124,17 @@ pub fn greedy_chunk(
 ) -> Result<(), EngineError> {
     let jn = m.arch.joiner;
     let v = m.arch.vocab;
+    let (cert, int8_slack) = match prec {
+        Precision::F32 => (m.blank_cert_f32.as_ref(), false),
+        Precision::Int8 => (
+            if m.joiner_out.q.is_some() {
+                m.blank_cert_i8.as_ref()
+            } else {
+                m.blank_cert_f32.as_ref()
+            },
+            m.joiner_out.q.is_some(),
+        ),
+    };
     let offs: Vec<usize> = ns
         .iter()
         .scan(0usize, |acc, &n| {
@@ -135,20 +158,38 @@ pub fn greedy_chunk(
             refresh_pred(m, isa, states, ws);
             let a_n = ws.active.len();
             let hid = grow(&mut ws.hid, a_n * jn);
-            for (r, &s) in ws.active.iter().enumerate() {
+            let mut keep_gemm = 0;
+            for r in 0..a_n {
+                let s = ws.active[r];
                 let e = &enc[(offs[s] + t) * jn..(offs[s] + t + 1) * jn];
-                for ((h, &ev), &dv) in hid[r * jn..(r + 1) * jn]
-                    .iter_mut()
-                    .zip(e)
-                    .zip(&states[s].dec)
-                {
+                let row = &mut hid[keep_gemm * jn..(keep_gemm + 1) * jn];
+                for ((h, &ev), &dv) in row.iter_mut().zip(e).zip(&states[s].dec) {
                     *h = (ev + dv).tanh();
                 }
+                // Exact Cauchy-Schwarz blank-first certificate (0.000% error):
+                // if z_blank > upper_bound(z_{v != blank}), skip the V x J joiner GEMM.
+                if cert.is_some_and(|c| c.is_certified_blank(row, int8_slack)) {
+                    continue;
+                }
+                ws.active[keep_gemm] = s;
+                keep_gemm += 1;
             }
-            let logits = grow(&mut ws.logits, a_n * v);
-            linear(isa, prec, &m.joiner_out, hid, a_n, logits, &mut ws.q);
+            ws.active.truncate(keep_gemm);
+            if keep_gemm == 0 {
+                break;
+            }
+            let logits = grow(&mut ws.logits, keep_gemm * v);
+            linear(
+                isa,
+                prec,
+                &m.joiner_out,
+                &ws.hid[..keep_gemm * jn],
+                keep_gemm,
+                logits,
+                &mut ws.q,
+            );
             let mut keep = 0;
-            for r in 0..a_n {
+            for r in 0..keep_gemm {
                 let s = ws.active[r];
                 let k = argmax(&logits[r * v..(r + 1) * v])?;
                 if k != m.arch.blank {
@@ -173,4 +214,41 @@ pub fn greedy_chunk(
         ws.q.prof.ns[crate::prof::Phase::Greedy as usize] += total.saturating_sub(inner);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::model::BlankCert;
+
+    #[test]
+    fn blank_cert_is_sound_and_skips_confident_blank() {
+        let (v, jn, blank) = (8, 16, 0);
+        let mut w = vec![0.0f32; v * jn];
+        let mut b = vec![-2.0f32; v];
+        b[blank] = 4.0;
+        for row in 0..v {
+            for k in 0..jn {
+                w[row * jn + k] = if row == blank {
+                    0.3
+                } else {
+                    ((row * 7 + k * 3) % 11) as f32 * 0.02 - 0.1
+                };
+            }
+        }
+        let cert = BlankCert::from_row_major(&w, &b, v, jn, blank).expect("valid cert");
+        // Confident blank vector must be certified.
+        let hid_blank = vec![0.5f32; jn];
+        assert!(cert.is_certified_blank(&hid_blank, false));
+        assert!(cert.is_certified_blank(&hid_blank, true));
+        // Adversarial non-blank vector: raise bias of token 3 above z_blank (= 6.4) so argmax != blank.
+        let mut b2 = b.clone();
+        b2[3] = 7.0;
+        let cert2 = BlankCert::from_row_major(&w, &b2, v, jn, blank).expect("valid cert");
+        assert!(!cert2.is_certified_blank(&hid_blank, false));
+        assert!(!cert2.is_certified_blank(&hid_blank, true));
+        // NaN must never be certified blank.
+        let mut hid_nan = hid_blank.clone();
+        hid_nan[4] = f32::NAN;
+        assert!(!cert.is_certified_blank(&hid_nan, false));
+    }
 }

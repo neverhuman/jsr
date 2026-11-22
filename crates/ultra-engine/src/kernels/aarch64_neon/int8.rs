@@ -117,21 +117,30 @@ pub(crate) fn gemm_i8_panels(
             bias: &w.bias[p * NR..(p + 1) * NR],
         };
         let mut r = 0;
-        while r < rows {
-            let m = (rows - r).min(MR8);
-            let ar = &a[r * kp..(r + m) * kp];
-            let acc = if mm {
+        if mm {
+            while r < rows {
+                let m = (rows - r).min(super::smmla::MR_SMMLA);
+                let ar = &a[r * kp..(r + m) * kp];
                 // SAFETY: i8mm availability checked by has_i8mm().
-                unsafe { super::smmla::acc_smmla(ar, kp, mmp, m) }
-            } else if dot {
-                // SAFETY: dotprod availability checked by has_dotprod().
-                unsafe { acc_sdot(ar, kp, panel, m) }
-            } else {
-                acc_widen(ar, kp, panel, m)
-            };
-            let os = &mut out[r * ldo + p * NR - col0..];
-            ep.store(&acc[..m], &sa[r..r + m], &ca[r..r + m], os, ldo, ncols);
-            r += m;
+                let acc = unsafe { super::smmla::acc_smmla(ar, kp, mmp, m) };
+                let os = &mut out[r * ldo + p * NR - col0..];
+                ep.store(&acc[..m], &sa[r..r + m], &ca[r..r + m], os, ldo, ncols);
+                r += m;
+            }
+        } else {
+            while r < rows {
+                let m = (rows - r).min(MR8);
+                let ar = &a[r * kp..(r + m) * kp];
+                let acc = if dot {
+                    // SAFETY: dotprod availability checked by has_dotprod().
+                    unsafe { acc_sdot(ar, kp, panel, m) }
+                } else {
+                    acc_widen(ar, kp, panel, m)
+                };
+                let os = &mut out[r * ldo + p * NR - col0..];
+                ep.store(&acc[..m], &sa[r..r + m], &ca[r..r + m], os, ldo, ncols);
+                r += m;
+            }
         }
     }
 }

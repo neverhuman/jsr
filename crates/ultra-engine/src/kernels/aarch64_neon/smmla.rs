@@ -4,18 +4,35 @@
 use std::arch::aarch64::*;
 
 use super::super::NR;
-use super::int8::MR8;
+
+/// Rows per `smmla` register tile: 3 row-pairs x 8 col-pairs = 24 accumulator registers
+/// (+ up to 8 weight/activation registers = 31-32 NEON registers, zero spills on Apple M-series).
+pub(super) const MR_SMMLA: usize = 6;
 
 /// Exact int32 sums with `smmla` (ARMv8.6 i8mm): one instruction multiplies a 2-row x 8-k
 /// activation block by a 2-column x 8-k weight block into a 2x2 int32 tile; the i8mm
 /// packing (`PackedI8::mm`) stores each column pair's 8-k blocks contiguously.
 #[target_feature(enable = "neon,i8mm")]
-pub(super) fn acc_smmla(a: &[i8], kp: usize, mm: &[i8], m: usize) -> [[int32x4_t; 4]; MR8] {
-    assert!(m <= MR8 && a.len() >= m * kp && mm.len() >= kp * NR && kp.is_multiple_of(8));
+pub(super) fn acc_smmla(a: &[i8], kp: usize, mm: &[i8], m: usize) -> [[int32x4_t; 4]; MR_SMMLA] {
+    assert!(m <= MR_SMMLA && a.len() >= m * kp && mm.len() >= kp * NR && kp.is_multiple_of(8));
     let pairs = m.div_ceil(2);
     // acc[rp][cp] lanes: (2rp, 2cp), (2rp, 2cp+1), (2rp+1, 2cp), (2rp+1, 2cp+1).
-    let mut acc = [[vdupq_n_s32(0); 8]; 2];
-    for g in 0..kp / 8 {
+    let mut acc = [[vdupq_n_s32(0); 8]; 3];
+    let groups = kp / 8;
+    for g in 0..groups {
+        if g + 2 < groups {
+            // Best-effort L1 prefetch two k-groups ahead to hide memory latency on M-series.
+            // SAFETY: (g + 2) * 128 < groups * 128 = kp * 16 <= mm.len().
+            unsafe {
+                let pf = mm.as_ptr().add((g + 2) * 128);
+                std::arch::asm!(
+                    "prfm pldl1keep, [{p}]",
+                    "prfm pldl1keep, [{p}, #64]",
+                    p = in(reg) pf,
+                    options(nostack, preserves_flags)
+                );
+            }
+        }
         // SAFETY: g * 128 + 128 <= kp * 16 <= mm.len() (asserted).
         let wv: [int8x16_t; 8] =
             std::array::from_fn(|cp| unsafe { vld1q_s8(mm.as_ptr().add(g * 128 + 16 * cp)) });
@@ -47,7 +64,7 @@ pub(super) fn acc_smmla(a: &[i8], kp: usize, mm: &[i8], m: usize) -> [[int32x4_t
         }
     }
     // Re-tile to [row][4-column block] as the epilogue expects.
-    let mut out = [[vdupq_n_s32(0); 4]; MR8];
+    let mut out = [[vdupq_n_s32(0); 4]; MR_SMMLA];
     for rp in 0..pairs {
         for cb in 0..4 {
             let (x, y) = (
@@ -55,7 +72,7 @@ pub(super) fn acc_smmla(a: &[i8], kp: usize, mm: &[i8], m: usize) -> [[int32x4_t
                 vreinterpretq_s64_s32(acc[rp][2 * cb + 1]),
             );
             out[2 * rp][cb] = vreinterpretq_s32_s64(vzip1q_s64(x, y));
-            if 2 * rp + 1 < MR8 {
+            if 2 * rp + 1 < MR_SMMLA {
                 out[2 * rp + 1][cb] = vreinterpretq_s32_s64(vzip2q_s64(x, y));
             }
         }
