@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Sample mean CPU (5 s window, all processes) and GPU utilisation on every xbabe host; one JSON line
-# per host per round to stdout and to the data-drive log. Owner rule: keep every host under 90%.
+# per host per round (GPU = the busiest GPU on the host) to stdout and to the data-drive log. Owner rule: keep every host under 90%.
 set -uo pipefail
 LOG=${FLEET_UTIL_LOG:-/mnt/xbabe3-external/jsr/logs/fleet_util.jsonl}
 HOSTS=${FLEET_HOSTS:-"local xbabe0 xbabe1 xbabe2 xbabe4"}
 # macOS hosts (no /proc/stat, no nvidia-smi): CPU from top, GPU from ioreg IOAccelerator "Device Utilization %" (no root).
 MAC_HOSTS=${FLEET_MAC_HOSTS:-"xbabe4"}
 probe='read -r _ a b c d e f g h _ < /proc/stat; t1=$((a+b+c+d+e+f+g+h)); i1=$((d+e)); gs=0; gn=0;
-for _ in 1 2 3 4 5; do v=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1);
+for _ in 1 2 3 4 5; do v=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | sort -n | tail -1);
   if [ -n "$v" ]; then gs=$((gs+v)); gn=$((gn+1)); fi; sleep 1; done;
 read -r _ a b c d e f g h _ < /proc/stat; t2=$((a+b+c+d+e+f+g+h)); i2=$((d+e));
 cpu=$(( 1000 * ( (t2-t1) - (i2-i1) ) / (t2-t1) ));
