@@ -17,11 +17,12 @@
 - **Reference:** D2 (S, 4096/1024, exact loss), compared at equal audio-hours.
 - **Known differences from D2:** D2 was warm-started from D1d-7800 with warmup 500, SpecAugment from step 0, and no speed perturbation.
 
-### H13 matched 100 h controls (one GPU, run one after another, same host)
+### H13 matched 100 h controls (one GPU, run one after another, same host: xbabe6, NVIDIA A10 24 GB)
 Identical for all arms:
 - preset S from scratch, train-clean-100;
 - `seed=1234 budget_s=300 max_batch=64 lr=1e-3 warmup=2000 total_steps=24000` (about 20 epochs; ~2,000 audio-h of exposure) `clip=5 specaug_start=4000`, no speed perturbation, `ema_decay=0.9995`;
-- dev-clean400 every 2000 steps; the 730-utterance panel (greedy + beam 4) at the end.
+- dev-clean400 and an eval-only snapshot every 2000 steps; at the end, the 730-utterance panel (greedy + beam 4) and the last-3 average.
+- Runner: `train/ops/h13_controls.sh` under fleet_guard at GPU target 0.88. The data was downloaded on xbabe6 from openslr/librispeech_asr and sha256-checked against our manifest. Tokenizers and dev caches were copied from xbabe2 over the network, sha256-identical to H0's.
 
 | Arm | RNN-T loss | RNN-T pieces | CTC pieces |
 |---|---|---:|---:|
