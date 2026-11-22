@@ -102,3 +102,19 @@ def test_prepare_seed_adds_only_simple_heads(tmp_path):
     for k, v in exact.state_dict().items():
         assert torch.equal(seed["model"][k], v), k
     assert seed["model_config"]["rnnt_loss"] == "pruned"
+
+
+def test_simple_detach_keeps_simple_loss_out_of_the_model():
+    if not HAVE_K2:
+        with pytest.raises(ImportError, match="needs k2"):
+            _models(prune_range=3)[1].losses(*_batch(), simple_detach=True)
+        return
+    _, pruned = _models(prune_range=3, simple_scale=0.5)
+    pruned.train()
+    out = pruned.losses(*_batch(), pruned_scale=0.0, simple_detach=True)
+    pruned.zero_grad()
+    (out["rnnt_simple"]).backward()
+    assert float(pruned.simple_am.weight.grad.abs().sum()) > 0
+    assert pruned.joiner.out.weight.grad is None or float(pruned.joiner.out.weight.grad.abs().sum()) == 0
+    enc_grads = [p.grad for n, p in pruned.named_parameters() if n.startswith("encoder.")]
+    assert all(g is None or float(g.abs().sum()) == 0 for g in enc_grads)

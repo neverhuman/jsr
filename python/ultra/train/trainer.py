@@ -98,6 +98,10 @@ class TrainConfig:
     rnnt_loss: str = "exact"
     prune_range: int = 5
     prune_warmup: int = 0
+    # Warm starts into the pruned loss (D2c): for the first prune_hold steps the pruned-loss weight
+    # is 0 and the new simple-joiner heads train on detached encoder/predictor outputs, so an
+    # untrained band cannot push gradients into the pretrained model; the ramp starts after it.
+    prune_hold: int = 0
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
@@ -215,7 +219,8 @@ class Trainer:
                                     else None, gen=gen,
                                     chunk=self.cfg.chunk or None,
                                     pruned_scale=self._pruned_scale(),
-                                    kd=b.kd, kd_weight=self.cfg.kd_weight)
+                                    kd=b.kd, kd_weight=self.cfg.kd_weight,
+                                    simple_detach=self.step < self.cfg.prune_hold)
         loss = out["loss"]
         if not torch.isfinite(loss):
             self._pause(batch, out, float("nan"), "loss")
@@ -246,8 +251,10 @@ class Trainer:
         raise DivergenceError(self.step, detail, diag)
 
     def _pruned_scale(self) -> float:
-        w = self.cfg.prune_warmup
-        return 1.0 if not w else min(1.0, 0.1 + 0.9 * self.step / w)
+        if self.step < self.cfg.prune_hold:
+            return 0.0
+        w, s = self.cfg.prune_warmup, self.step - self.cfg.prune_hold
+        return 1.0 if not w else min(1.0, 0.1 + 0.9 * s / w)
 
     @torch.no_grad()
     def _ema_update(self) -> None:
