@@ -16,7 +16,7 @@
 #   <system>-t8                         eight intra-op threads in one recogniser
 #   <system>-w8                         eight single-thread recognisers side by side
 # Models, virtualenvs and the anchors live under $PAPER_OPPONENTS_ROOT (default $data/opponents).
-# shellcheck disable=SC2034  # cmd, files and artifacts are read by the script that sources this file
+# shellcheck disable=SC2034,SC2154  # sourced: cmd, files, artifacts go back to the caller; wav, run, data come from it
 
 open_arm() {
     local opp=${PAPER_OPPONENTS_ROOT:-"$data/opponents"} here="$PWD/docs/paper/opponents"
