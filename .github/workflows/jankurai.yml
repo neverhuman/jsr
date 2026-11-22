@@ -54,7 +54,7 @@ jobs:
       - uses: neverhuman/jankurai-action@4a45526ac904315f96e6bbebda4e088268023afa
         id: quality
         with:
-          release-tag: v1.7.0
+          release-tag: v1.7.6
           fail-under: "85"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
