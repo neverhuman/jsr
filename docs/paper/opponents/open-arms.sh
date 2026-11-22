@@ -67,7 +67,7 @@ open_arm() {
             case "$system" in
                 jsr-h22ctl-79800-ema-int8)
                     model="$opp/models/H22ctl-79800-ema/int8"
-                    binary="$opp/energy/bin/ultra-cold-wav"
+                    binary="$anchor/ultra-cold-wav-457a4db7"  # copy of the primary row's binary
                     ;;
                 jsr-d2e-16457-int8) model="$anchor/d2e-16457-int8" ;;
                 r0-zipformer-int8) model="$anchor/r0-zipformer-int8" ;;

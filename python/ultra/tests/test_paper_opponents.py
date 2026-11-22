@@ -393,7 +393,7 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     assert zipformer[3] == "zipformer-int8" and zipformer[5:7] == ["/panel/wav", "/run/predictions.jsonl"]
     assert "zipformer-int8" in open_arm(tmp_path, "r0-zipformer-int8-w8").stdout.split("--\n")[1]
     ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")
-    assert ours[0].endswith("opponents/energy/bin/ultra-cold-wav") and ours[1] == "r1-engine-int8"
+    assert ours[0].endswith("opponents/bench-open/anchor/ultra-cold-wav-457a4db7") and ours[1] == "r1-engine-int8"
     assert ours[2].endswith("opponents/models/H22ctl-79800-ema/int8") and ours[3] == "/panel/wav"
     for bad in ("vosk-small-t8", "jsr-d2e-16457-int8-t8", "r0-zipformer-int8-t8", "nonesuch"):
         assert open_arm(tmp_path, bad).returncode == 2
