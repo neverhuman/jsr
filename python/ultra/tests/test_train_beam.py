@@ -35,3 +35,16 @@ def test_wider_beam_runs_and_rejects_bad_width():
     assert all(isinstance(k, int) and k != 0 for s in out for k in s)
     with pytest.raises(ValueError):
         modified_beam_search(pred, join, enc_p, lens, beam=0)
+
+
+def test_blank_penalty_and_length_norm():
+    pred, join, enc_p, lens = _parts(2)
+    base = modified_beam_search(pred, join, enc_p, lens, beam=4)
+    assert modified_beam_search(pred, join, enc_p, lens, beam=4, blank_penalty=0.0) == base
+    many = modified_beam_search(pred, join, enc_p, lens, beam=4, blank_penalty=50.0)
+    # a huge blank penalty makes every frame emit a token
+    assert [len(s) for s in many] == [int(n) for n in lens]
+    ln = modified_beam_search(pred, join, enc_p, lens, beam=4, length_norm=True)
+    assert len(ln) == 3 and ln[2] == []
+    with pytest.raises(ValueError):
+        modified_beam_search(pred, join, enc_p, lens, beam=4, blank_penalty=-1.0)
