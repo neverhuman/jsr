@@ -55,3 +55,16 @@ Identical for all arms:
 ## Addendum (Codex, 2026-11-22)
 
 The GPU implementation smoke used dense S with vocabulary size 513 and a BF16 batch of sixteen 10-second inputs. The 0.33 to 0.22 second step change was accompanied by a 4.2 to 3.7 GB reduction in peak memory. The queued equal-exposure experiments carry the accuracy comparison. [Trainer implementation and smoke record](../H12_accuracy_diagnostics/README.md)
+
+## Interim (2026-11-22 ~09:20Z): H13b–d running in parallel, one GPU each
+
+| Arm | Device | Step | dev-clean400 greedy at steps 2,712 / 6,000 / 10,846 |
+|---|---|---:|---|
+| H13b exact-4096 | xbabe5 GPU0, A100 | 3,300 | 55.81 / — / — |
+| H13c pruned-4096 | xbabe5 GPU1, A100 | 11,250 | 88.54 / 42.69 / 27.10 |
+| H13d pruned-512 | xbabe6, A10 | 11,650 | 53.86 / 32.09 / **23.01** |
+
+- **Step time (same device type, A100):** pruned-4096 is 0.196 s/step against 0.74 s for exact-4096, **3.8× faster**.
+- **Co-location makes later step times incomparable:** for ~1 h, teacher-cache processes on xbabe5 throttled H13b/c through the guards' CPU target. They have been removed. Step times measured after that point are not comparable; WER at equal steps is unaffected.
+- **pruned-4096 starts slowly** (88.5% at 2.7k vs ~55% for the other two). The simple joiner that chooses the band trains first, and the pruned-loss weight ramps over 2k steps. By 10.8k it is 4.1 pp behind pruned-512.
+- **Final comparison:** at 24k steps (end of schedule), including the panel with beam 4 and last-3 averaging, per the decision rule above.
