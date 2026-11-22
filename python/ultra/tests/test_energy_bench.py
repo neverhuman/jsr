@@ -8,6 +8,7 @@ import time
 import pytest
 
 from tools import energy_bench as eb
+from tools import energy_report as er
 
 UNIT_MSR = 0xA1003  # the Zen 2 hosts: energy exponent 16
 UNIT_J = 2.0 ** -16
@@ -59,16 +60,16 @@ def test_summarise_reports_median_and_spread():
 
 
 def test_linear_fit_recovers_slope_intercept_and_flags_a_bent_line():
-    line = eb.linear_fit([1, 2, 4, 8], [7.0, 12.0, 22.0, 42.0])
+    line = er.linear_fit([1, 2, 4, 8], [7.0, 12.0, 22.0, 42.0])
     assert line["slope"] == pytest.approx(5.0)
     assert line["intercept"] == pytest.approx(2.0)
     assert line["r2"] == pytest.approx(1.0)
     assert line["max_rel_residual"] == pytest.approx(0.0, abs=1e-12)
-    bent = eb.linear_fit([1, 2, 4, 8], [7.0, 12.0, 22.0, 30.0])
+    bent = er.linear_fit([1, 2, 4, 8], [7.0, 12.0, 22.0, 30.0])
     assert bent["r2"] < 0.99
     assert bent["max_rel_residual"] > 0.05
     with pytest.raises(ValueError):
-        eb.linear_fit([2, 2], [1.0, 3.0])
+        er.linear_fit([2, 2], [1.0, 3.0])
 
 
 def test_view_metrics_subtracts_idle_and_divides_by_audio_and_cpu():
@@ -207,14 +208,14 @@ def test_headline_uses_only_the_repetitions_that_are_clean_for_each_view():
 
 
 def test_least_squares_and_phase_points_recover_package_watts_per_core_watt():
-    fit = eb.least_squares([[1.0, 4.0], [2.0, 4.0], [4.0, 9.0], [8.0, 5.0], [0.5, 30.0]],
+    fit = er.least_squares([[1.0, 4.0], [2.0, 4.0], [4.0, 9.0], [8.0, 5.0], [0.5, 30.0]],
                            [55 + 1.4 * 1 + 1.5 * 4, 55 + 1.4 * 2 + 1.5 * 4, 55 + 1.4 * 4 + 1.5 * 9,
                             55 + 1.4 * 8 + 1.5 * 5, 55 + 1.4 * 0.5 + 1.5 * 30])
     assert fit["intercept"] == pytest.approx(55.0)
     assert fit["coefficients"] == pytest.approx([1.4, 1.5])
     assert fit["r2"] == pytest.approx(1.0)
     with pytest.raises(ValueError):
-        eb.least_squares([[1.0], [1.0], [1.0]], [1.0, 2.0, 3.0])
+        er.least_squares([[1.0], [1.0], [1.0]], [1.0, 2.0, 3.0])
     receipt = {"arm": "spin-2", "reps": [
         {"rep": 1, "core": {"run_watts": 20.0, "idle_before_watts": 1.0, "idle_after_watts": 1.2, "idle_watts": 1.1},
          "other_cores": {"run_watts": 4.0, "idle_watts": 4.0, "idle_before_watts": 4.0, "idle_after_watts": 4.1},
@@ -223,7 +224,7 @@ def test_least_squares_and_phase_points_recover_package_watts_per_core_watt():
          "other_cores": {"run_watts": 9.0, "idle_watts": 4.0, "idle_before_watts": 4.1, "idle_after_watts": 3.9},
          "package": {"run_watts": 98.0, "idle_before_watts": 62.4, "idle_after_watts": 61.8, "idle_watts": 62.1}},
     ]}
-    labels = [point[0] for point in eb.phase_points(receipt)]
+    labels = [point[0] for point in er.phase_points(receipt)]
     assert labels == ["spin-2:run1", "spin-2:idle1", "spin-2:run2", "spin-2:idle2", "spin-2:idle3"]
 
 
@@ -300,13 +301,14 @@ def test_run_writes_a_receipt_with_the_agreed_fields(tmp_path, monkeypatch):
 
     # Re-applying the rules to the stored repetitions changes no measured value.
     again = tmp_path / "again.json"
-    assert eb.main(["resummarise", str(out), "--out", str(again)]) == 0
+    assert er.main(["resummarise", str(out), "--out", str(again)]) == 0
     redone = json.loads(again.read_text())
     assert redone["reps"] == receipt["reps"]
-    assert redone["joules_per_audio_s"] == receipt["joules_per_audio_s"]
+    # (the stored values are rounded to six digits, so a median of two can move in the last one)
+    assert redone["joules_per_audio_s"] == pytest.approx(receipt["joules_per_audio_s"], rel=1e-5)
     assert redone["resummarised"]["measured_with_tool_sha256"] == receipt["tool_sha256"]
 
-    lines = eb.sidecar_lines(receipt, "fake-arm-zen2-t1", "f" * 64, "2026-11-22 xbabe0 e2ef608")
+    lines = er.sidecar_lines(receipt, "fake-arm-zen2-t1", "f" * 64, "2026-11-22 xbabe0 e2ef608")
     assert [line["energy_method"] for line in lines] == ["core_msr_active", "core_msr_dynamic", "pkg_rapl_delta"]
     active, dynamic, package = lines
     assert all(line["row"] == "fake-arm-zen2-t1" and line["kind"] == "energy" for line in lines)
@@ -332,13 +334,13 @@ def test_fit_and_table_read_receipts(tmp_path, capsys):
         path = tmp_path / f"{workers}.json"
         path.write_text(json.dumps(receipt))
         paths.append(str(path))
-    assert eb.main(["fit", *paths]) == 0
+    assert er.main(["fit", *paths]) == 0
     fit = json.loads(capsys.readouterr().out)
     assert fit["core"]["slope"] == pytest.approx(6.0)
     assert fit["package"]["slope"] == pytest.approx(10.0)
     assert fit["package"]["intercept"] == pytest.approx(6.0)
     assert fit["package_over_core_slope"] == pytest.approx(10.0 / 6.0, rel=1e-5)
-    assert eb.main(["table", "--ours", "spin-1", *paths]) == 0
+    assert er.main(["table", "--ours", "spin-1", *paths]) == 0
     table = capsys.readouterr().out.splitlines()
     assert table[2].startswith("| spin-1 | 0.05 | 0.3 | 0.5 | 6 / 10 | 1x |")
     assert "| 4x |" in table[4]
@@ -353,9 +355,10 @@ def test_committed_receipt_is_consistent(path):
     assert receipt["schema"] == eb.SCHEMA  # derived files (fits, tables) live in a subdirectory
     assert receipt["arm"] == path.stem
     assert receipt["machine"] and receipt["energy_method"] and receipt["sha256"]
-    head = eb.rounded(eb.headline(receipt["reps"], receipt["thresholds"]))
-    for field in ("joules_per_audio_s", "joules_per_audio_s_package", "watts_per_busy_core", "idle_watts",
-                  "clean_repetitions", "flags", "repetitions"):
+    head = eb.headline(receipt["reps"], receipt["thresholds"])
+    for field in ("joules_per_audio_s", "joules_per_audio_s_package", "watts_per_busy_core", "idle_watts"):
+        assert receipt[field] == pytest.approx(head[field], rel=1e-5), field
+    for field in ("clean_repetitions", "flags", "repetitions"):
         assert receipt[field] == head[field], field
     assert receipt["host"]["kernel"] and receipt["host"]["boost"] is not None and receipt["host"]["governor"]
     assert len(receipt["reps"]) == receipt["repetitions"] >= 1
