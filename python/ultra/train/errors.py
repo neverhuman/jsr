@@ -36,3 +36,25 @@ class DivergenceError(TrainError):
 
 class ShapeError(TrainError):
     """Tensor shapes violate a model or loss contract."""
+
+
+class OptimConfigError(TrainError, ValueError):
+    """An optimiser, LR-schedule or gradient-clipping option is invalid or misused (train/optim).
+
+    purpose: refuse an H23 optimiser configuration before a run starts, instead of training with
+    a silently different optimiser.
+    reason: unknown `optimizer` / `grad_clip_mode`, an out-of-range knob (lookahead k/alpha,
+    clip_window, lr), an unsupported combination (lookahead + schedulefree_adamw), or a
+    Schedule-Free step taken while its averaged weights are swapped in.
+    common_fixes: use one of train.optim.OPTIMIZERS / train.optim.clip.MODES; fix the `--set`
+    value; leave `lookahead_k=0` with schedulefree_adamw; call the step outside `eval_weights`.
+    docs_url: research/H23_optimizer_bakeoff/README.md
+    repair_hint: cd python/ultra && python -m pytest -q tests/test_train_optim.py
+    """
+
+    def __init__(self, reason: str):
+        hint = "rerun: cd python/ultra && python -m pytest -q tests/test_train_optim.py"
+        super().__init__(f"{reason} (see research/H23_optimizer_bakeoff/README.md; {hint})")
+        self.reason = reason
+        self.docs_url = "research/H23_optimizer_bakeoff/README.md"
+        self.repair_hint = hint

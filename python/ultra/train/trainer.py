@@ -6,7 +6,9 @@
 Resumes automatically from `<run-dir>/LATEST`. Logs JSON lines to `<run-dir>/train.jsonl`.
 A non-finite loss or gradient pauses the run: diagnostics go to `<run-dir>/PAUSED.json` and the
 process exits with status 3; a paused run refuses to resume until that file is removed.
-Optimiser: AdamW with linear warm-up and cosine decay; bf16 autocast on CUDA, fp32 on CPU.
+Optimiser: AdamW with linear warm-up and cosine decay by default; H23 alternatives (ScaledAdam+Eden,
+Schedule-Free AdamW, Muon, Lookahead, adaptive/AGC clipping, joiner z-loss) live in train/optim.
+bf16 autocast on CUDA, fp32 on CPU.
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
 from train.data import Batch, Example, FixedBatches, Position, collate
 from train.errors import CheckpointError, DivergenceError, NonFiniteLossError, ShapeError
+from train.optim import build_optimizer, eval_weights, make_clipper
 
 DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
 
@@ -111,6 +114,23 @@ class TrainConfig:
     pad_frames: int = 0  # round batch time axis up to this multiple (MPS: fewer shapes)
     pad_tokens: int = 0  # round target axes up to this multiple  # e.g. "0.9,1.0,1.1" (train batches only)
     weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
+    # H23 optimiser bake-off (train/optim; defaults reproduce the original AdamW run bit for bit).
+    # optimizer: adamw | scaled_adam (+ Eden lr) | schedulefree_adamw | muon (+ AdamW for the rest).
+    # grad_clip_mode: fixed (clip) | adaptive (clip_k x median of the last clip_window norms) | agc.
+    # lookahead_k > 0 wraps the optimiser in Lookahead; zloss weights the joiner-logit z-loss.
+    optimizer: str = "adamw"
+    grad_clip_mode: str = "fixed"
+    clip_k: float = 2.0
+    clip_window: int = 200
+    agc_lambda: float = 0.1
+    lookahead_k: int = 0
+    lookahead_alpha: float = 0.5
+    zloss: float = 0.0
+    eden_lr_batches: float = 7500.0
+    eden_lr_epochs: float = 3.5
+    eden_steps_per_epoch: float = 0.0
+    sf_beta2: float = 0.999
+    muon_momentum: float = 0.95
     extra: dict = field(default_factory=dict)
 
 
@@ -137,12 +157,8 @@ class Trainer:
         self.model_cfg = model_cfg or PRESETS[cfg.preset]
         torch.manual_seed(cfg.seed)
         self.model = ASRModel(self.model_cfg).to(self.device)
-        decay = [p for n, p in self.model.named_parameters() if p.ndim >= 2]
-        no_decay = [p for n, p in self.model.named_parameters() if p.ndim < 2]
-        self.opt = torch.optim.AdamW([{"params": decay, "weight_decay": cfg.weight_decay},
-                                      {"params": no_decay, "weight_decay": 0.0}],
-                                     lr=cfg.lr, betas=cfg.betas)
-        self.sched = torch.optim.lr_scheduler.LambdaLR(self.opt, lr_lambda(cfg))
+        self.opt, self.sched = build_optimizer(self.model, cfg, lr_lambda)
+        self.clipper = make_clipper(cfg)
         self.step = 0
         self.pos = Position()
         self.stats = FeasibilityStats()
@@ -169,7 +185,8 @@ class Trainer:
                 "manifest": list(getattr(self.source, "manifest", [])),
                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary(),
-                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema}
+                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema,
+                **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
 
     def save(self, wait: bool = False) -> None:
         """Snapshot now; the write finishes in the background unless `wait`. Under data
@@ -204,6 +221,7 @@ class Trainer:
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
+        self.clipper.load_state_dict(p.get("clipper"))
         self.ema = ({k: v.to(self.device) for k, v in p["ema"].items()}
                     if p.get("ema") is not None else None)
         return True
@@ -230,7 +248,8 @@ class Trainer:
                                     chunk=self.cfg.chunk or None,
                                     pruned_scale=self._pruned_scale(),
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
-                                    simple_detach=self.step < self.cfg.prune_hold)
+                                    simple_detach=self.step < self.cfg.prune_hold,
+                                    **({"zloss_weight": self.cfg.zloss} if self.cfg.zloss else {}))
         loss = out["loss"]
         if self.world > 1:
             loss, out = self._global_loss(out)
@@ -242,7 +261,7 @@ class Trainer:
             from train.dist import all_reduce_grads
 
             all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
-        gnorm = float(torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip))
+        gnorm = self.clipper(self.model)  # after the gradient sync (DDP: same norm on every rank)
         if not math.isfinite(gnorm):
             self._pause(batch, out, gnorm, "gradient norm")
         self.opt.step()
@@ -256,7 +275,8 @@ class Trainer:
                 "lr": self.sched.get_last_lr()[0], "audio_s": self._global_audio(batch.audio_seconds),
                 "utts": len(batch.uids),
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
-                **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
+                **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
+                **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {})}
 
     def _global_audio(self, seconds: float) -> float:
         """Audio seconds in this step over all ranks (logged audio-h/h is then the run's total)."""
@@ -284,6 +304,8 @@ class Trainer:
         loss = fr * rn + c.ctc_weight * fc * out["ctc"]
         if "kd" in out:
             loss = loss + self.cfg.kd_weight * fk * out["kd"]
+        if "zloss" in out:  # H23 joiner z-loss: a per-rank mean, averaged across ranks
+            loss = loss + self.cfg.zloss * out["zloss"]
         keys = [k for k in ("rnnt", "ctc", "rnnt_simple", "kd") if k in out]
         scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
         vals = all_reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], self.device)
@@ -391,10 +413,14 @@ class Trainer:
 
     # ---- evaluation ----------------------------------------------------------------------------
     def evaluate(self, max_batch_s: float = 300.0) -> dict:
-        from ultra.wer import corpus_wer
-
         if not self.dev or self.tok is None:
             return {}
+        with eval_weights(self.opt):
+            return self._evaluate(max_batch_s)
+
+    def _evaluate(self, max_batch_s: float) -> dict:
+        from ultra.wer import corpus_wer
+
         self.model.eval()
         exs = sorted(self.dev, key=lambda e: e.seconds)
         refs, hyps, forced = [], [], 0
@@ -422,7 +448,7 @@ class Trainer:
         live = {k: v.detach().clone() for k, v in self.model.state_dict().items()}
         self.model.load_state_dict(self.ema)
         try:
-            ev = self.evaluate()
+            ev = self._evaluate(300.0)  # as loaded: no Schedule-Free x swap over the EMA weights
         finally:
             self.model.load_state_dict(live)
         return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
@@ -466,7 +492,7 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -480,6 +506,11 @@ class Trainer:
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
+                          **({"zloss": acc["zloss"] / acc["n"]} if "zloss" in acc else {}),
+                          **({"clip_thr": self.clipper.last_threshold}
+                             if self.clipper.mode == "adaptive" else {}),
+                          **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)}
+                             if self.device.type == "cuda" else {}),
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
                           "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
@@ -500,14 +531,16 @@ class Trainer:
                     wer = broadcast_value(wer, self.device)  # every rank takes the same branch
                 self._watch_wer(wer)
                 t0 = time.time()
-            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0 and self.local_rank == 0:
-                self.saver.save(self.run_dir, self.step,
-                                {"model": self.model.state_dict(),
-                                 "model_config": self.model_cfg.to_dict(),
-                                 "train_config": asdict(self.cfg),
-                                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
-                                 "ema": self.ema},
-                                weights_only=True)
+            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0 \
+                    and self.local_rank == 0:
+                with eval_weights(self.opt):  # snapshot copies on this thread
+                    self.saver.save(self.run_dir, self.step,
+                                    {"model": self.model.state_dict(),
+                                     "model_config": self.model_cfg.to_dict(),
+                                     "train_config": asdict(self.cfg),
+                                     "tokenizer_sha256": getattr(self.tok, "sha256", None),
+                                     "ema": self.ema},
+                                    weights_only=True)
             due = (self.step % self.cfg.ckpt_every_steps == 0
                    or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)
             if due or self.stop_requested:
