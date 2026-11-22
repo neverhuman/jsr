@@ -119,8 +119,8 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
                 f"({axis['k']:.2f}\\,W; every system is within {100 * axis['spread']:.0f}\\% of it).")
     elif have:
         method = ENERGY_WORDS[next(p["row"]["energy_method"] for p in pts if p["watts"] is not None)]
-        text = (f"The watts beside a name are what one live stream of that system costs ({method}, same run), "
-                f"measured for {have} of the {len(pts)} systems so far.")
+        text = (f"Watts beside a name: W per always-on stream ({method}, measured in the same run), so far for "
+                f"{have} of the {len(pts)} systems.")
     else:
         text = "Watts per live stream are not drawn: no energy measurement has been admitted yet."
     first = rows[0] if rows else None

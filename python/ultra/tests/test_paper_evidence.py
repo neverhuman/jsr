@@ -153,7 +153,7 @@ def test_each_system_is_drawn_from_its_quiet_host_row_when_one_exists(tmp_path):
         "sys-a-zen2-t1-xbabe3": ("0", "0"), "sys-b-zen2-t1-xbabe3": ("1", "1")}
     tex = files["metrics.tex"]
     for text in ("\\ColdRowsCount}{3}", "\\ColdAnchorCount}{2}", "\\ColdRowsInterim}{1}", "\\ColdRowsFaded}{1}",
-                 "\\ColdOursASpeed}{33.3}", "their CPU cost is 1.75 to 2.00 times that of the row printed here",
+                 "\\ColdOursASpeed}{33.3}", "2 systems, measured on both hosts, cost 1.75 to 2.00 times as much CPU on the shared host H0 as on the quiet host H1",
                  "1 of the 3 points is still interim (lighter marks): measured on host H0"):
         assert text in tex, text
     assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["2.000"]  # sys-b's 1.0% is not on it: quiet rows only
@@ -177,7 +177,7 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     layout = files["money_layout.tex"]
     assert "{Ours\\,$\\cdot$\\,0.34\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
     assert "\\def\\MoneyWattsOn{0}" in layout  # no axis: one system has no value yet
-    assert "measured for 1 of the 2 systems so far" in files["metrics.tex"]
+    assert "so far for 1 of the 2 systems" in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, rows + [dict(energy, row="sys-a-zen2-t1", joules_per_audio_s=1.7)]))
     # every system has a value and 0.343 x 25 = 8.6 W and 1.7 x 5 = 8.5 W per busy core agree: a watts axis
@@ -211,6 +211,16 @@ def test_a_slow_system_timed_on_the_subset_is_drawn_and_counted(tmp_path):
     tex = files["metrics.tex"]
     assert "\\ColdRowsSubset}{1}" in tex and "\\ColdSysSLagDesignPfifty}{600}" in tex and "ColdSysSLagPfifty" not in tex
     assert "1 slow system is timed on a 73-utterance subset of the panel (A)" in tex
+
+
+def test_an_energy_headline_without_a_group_names_the_method_of_every_group(tmp_path):
+    ours = _row(variant="sys-o", role="ours")
+    line = {"kind": "energy", "row": "sys-a-zen2-t1", "host": "h0", "energy_receipt_sha256": "e"}
+    rows = [_row(), ours, dict(line, joules_per_audio_s=0.6, energy_method="core_msr_active"),
+            dict(line, joules_per_audio_s=0.5, energy_method="core_msr_dynamic"),
+            {"kind": "energy_headline", "energy_method": "core_msr_active"}]
+    files, _ = pd.build(_mini_repo(tmp_path, rows))
+    assert "\\ColdSysAWatts}{0.60}" in files["metrics.tex"]
 
 
 def test_eight_cores_used_three_ways_are_three_rows(tmp_path):
