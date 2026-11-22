@@ -1,0 +1,5 @@
+5f6d74403de8da627e8c8f46121ff29174ac41854613030e119d4b23171bdda1  /Users/agent/jsr-train/data/opponents/bench-cross/scripts/bsd_time_measure.py
+a80fa6ee44220250f975221dfafb26c145ad4c2de3f832fb155f4eb041140189  /Users/agent/jsr-train/data/opponents/bench-cross/bin/ultra-engine-eval
+89916a6b6089566691310804c11a28749a0aeb06b15bb2b328802e4056fafd89  /Users/agent/jsr-train/data/opponents/jsr-d2e-16457-int8/model/arch.json
+5633a93e1979a70a313a3c68490f6b57ef6ab1027d88d9b28d65e874f76fbd7c  /Users/agent/jsr-train/data/opponents/jsr-d2e-16457-int8/model/weights.int8.safetensors
+652b9e8aeac43c8eab6b2a2e45976b16274ea8753bc6b79edd5bb50e2b77dfe4  /Users/agent/jsr-train/data/opponents/bench-cross/scripts/run-opponent.sh

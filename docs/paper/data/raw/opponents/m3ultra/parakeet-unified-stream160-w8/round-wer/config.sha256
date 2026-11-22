@@ -1,0 +1,4 @@
+5f6d74403de8da627e8c8f46121ff29174ac41854613030e119d4b23171bdda1  /Users/agent/jsr-train/data/opponents/bench-cross/scripts.v2/bsd_time_measure.py
+deb9c276c74373809ab48edeacb4fe8fcc46677d3c78e6d749d7988ae8527347  /Users/agent/jsr-train/data/opponents/bench-cross/bin/transcribe-cold
+4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795  /Users/agent/jsr-train/data/opponents/parakeet-unified/model-gguf/parakeet-unified-en-0.6b-Q8_0.gguf
+9ab03b9ef23010b7b33c69120dec92fb325b5ea50a07279dbbdb44d6365a63e4  /Users/agent/jsr-train/data/opponents/bench-cross/scripts.v2/run-opponent.sh

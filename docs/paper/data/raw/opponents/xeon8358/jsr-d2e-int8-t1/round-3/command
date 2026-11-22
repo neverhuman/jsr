@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-cold-wav r1-engine-int8 /home/ubuntu/jsr-data/opponents/jsr-d2e-16457-int8/model /home/ubuntu/jsr-data/opponents/bench-cross/workloads/panel730/wav /home/ubuntu/jsr-data/opponents/bench-cross/receipts/xeon8358/jsr-d2e-int8-t1/round-3/predictions.jsonl 

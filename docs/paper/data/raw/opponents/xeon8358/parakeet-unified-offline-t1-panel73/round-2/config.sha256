@@ -1,0 +1,4 @@
+dbeb7dffb66792496df04598dc9f97e429f22210e7905a01894285e588921d57  /home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-measure
+81a699fcdc274948fe3665d80bea40342e5463fb736b0091dcc6ae92ac3bcbe8  /home/ubuntu/jsr-data/opponents/bench-cross/bin/transcribe-cold
+4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795  /home/ubuntu/jsr-data/opponents/parakeet-unified/model-gguf/parakeet-unified-en-0.6b-Q8_0.gguf
+8e3f483bcecb6ceed48ff35d1450d1a61cde3b70fc663588f36bdcf004eca1b1  /home/ubuntu/jsr-data/opponents/bench-cross/scripts.v5/run-opponent.sh

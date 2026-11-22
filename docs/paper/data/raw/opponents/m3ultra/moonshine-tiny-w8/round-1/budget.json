@@ -1,0 +1,3 @@
+{"arm": "moonshine-tiny", "budget": "w8", "class": "streaming", "machine": "m3ultra", "threads": 8,
+ "parallel": "workers", "service_cpus": "", "observer_cpu": "", "workload": "panel730",
+ "trace": 0}

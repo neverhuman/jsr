@@ -213,6 +213,18 @@
       "command": "just paper",
       "purpose": "the IEEE paper builds with no undefined references, Type-1 fonts, and every number generated from sourced records (tests/test_paper_data.py)"
     },
+    "docs/paper/opponents/": {
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py",
+      "purpose": "opponent benchmark runners: panel views and balanced shards, side-by-side workers, plan phases, the macOS meter parser and the receipt table (every repetition and the median)"
+    },
+    "docs/paper/data/raw/opponents/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py",
+      "purpose": "opponent receipts are pinned by sha256 in raw/MANIFEST.txt; the generator refuses unlisted or changed files"
+    },
+    "python/ultra/tests/test_opponents_tools.py": {
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py",
+      "purpose": "proof for docs/paper/opponents"
+    },
     "python/ultra/tools/paper_data/": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py tests/test_paper_claims.py",
       "purpose": "paper numbers regenerate byte-identically from sourced records; pairing rules; no bare numbers in sections"

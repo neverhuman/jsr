@@ -1,0 +1,10 @@
+dbeb7dffb66792496df04598dc9f97e429f22210e7905a01894285e588921d57  /home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-measure
+85891e90085072ffdabbb9fc762ee3f0106dc6195d6b0c4661cec230ba5c410a  /home/ubuntu/jsr-data/opponents/bench-cross/bin/moonshine-stream
+c5f9f7cc98c27a965d8e200816f7e5c07b892712bb30cf07444bbde4ffd38199  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/adapter.ort
+5f68900da4ea20f40fbe67bbec36399f0d47faedbd7198b29abd9dc5f472ef9f  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/cross_kv.ort
+6564f2c9a19de44195a53e336e07d05108f14babab57105d623bb68b79572d75  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/decoder_kv.ort
+617e403b2aae48f2474e0b148bf835deb9510bc8692efeabfe27203959a3256e  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/encoder.ort
+5662679f0e5758646d8eade3bc4b5d9ebda875feb6e696c0cc5f1a08fea2219e  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/frontend.model.ort
+55c91d7efab9f7506d7d753131cba72145ff016be3447319fe414a31e13f25b4  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/frontend.weights.ort
+74fe5ddebd63b17caf59e8a3b18c17547ff7bce1642050edbb1c3962674f8950  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/streaming_config.json
+6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d  /home/ubuntu/jsr-data/opponents/moonshine-tiny/model/tokenizer.bin
