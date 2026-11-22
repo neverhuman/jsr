@@ -8,3 +8,4 @@ pyarrow<18
 sentencepiece
 pytest
 jiwer
+aiohttp  # read-only training dashboard and WebSocket transport
