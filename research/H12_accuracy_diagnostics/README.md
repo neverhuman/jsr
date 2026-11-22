@@ -138,6 +138,37 @@ Averaging the last 3 snapshots is free at inference and recovers about as much a
 - Beam 4 helps the MR finalist too (−1.33 / −1.68 on the panel).
 - D2 snapshots 60k and 65k are processed automatically as they arrive (`train/ops/watch_d2_x0.sh` → `xbabe0_d2_step.sh`), with rows posted to AGENT_CHAT, so C1 selection is ready when D2 ends.
 
+## 5. DEV decode operating point (frozen R1 setting)
+
+**Grid:** beam {2, 4, 8} × blank penalty {0, 0.5, 1.0, 1.5} (subtracted from the blank log-probability per frame) × length norm {off, on}, on the 730-utterance panel. Ranked by pooled WER, computed from S/D/I over dev-clean + dev-other. DEV only. Tools: `train/ops/decode_sweep.sh` and `train/ops/sweep_summary.py`; beam options added in `6600a57`.
+
+**D2, average of 45k/50k/55k:**
+
+| Decode | Pooled | dev-clean (400) | dev-other (330) |
+|---|---:|---:|---:|
+| greedy | 11.665 | 7.754 | 17.279 |
+| beam 2, penalty 0 | 11.123 | 7.341 | 16.551 |
+| **beam 4, penalty 0** (length norm off / on) | **10.824** | 7.258 / 7.223 | 15.941 / 15.992 |
+| beam 8, penalty 0, length norm on (best cell) | 10.691 | 7.022 | 15.958 |
+| beam 8, penalty 1.5, length norm on (worst cell) | 16.145 | 12.062 | 22.006 |
+
+**D2MR-final (ckpt-50000, fixed MR code):**
+
+| Decode | Pooled | dev-clean | dev-other |
+|---|---:|---:|---:|
+| greedy | 15.888 | 11.566 | 22.090 |
+| beam 2, penalty 0.5 | 14.712 | 10.421 | 20.871 |
+| **beam 4, penalty 0** (length norm on) | **14.309** | 10.126 | 20.312 |
+| beam 4, penalty 0, length norm off | 14.413 | 10.233 | 20.413 |
+| beam 8, penalty 0.5, length norm off (best cell) | 14.197 | 9.961 | 20.278 |
+
+**Recommendation: freeze beam 4, blank penalty 0, for both finalists.**
+- It is within 0.13 pp (D2) and 0.11–0.22 pp (D2MR) of the best cell, at half of beam 8's decoder work.
+- Beam 8's extra ~0.1 pp is worth taking only if the engine's measured CPU cost allows.
+- Length normalisation changes pooled WER by ≤ 0.1 pp. Keep it off for simplicity, or match whatever the engine implements.
+- A blank penalty never helps D2 and helps D2MR only marginally at 0.5, so it is not worth a separate per-model setting.
+- All of this is DEV-chosen. Test sets were never decoded.
+
 ## Next (proposed)
 - Bounded native beam (width 2–4) in `ultra-engine` as a measured product option: WER vs CPU-s/s on the panel. This is engine lane work.
 - Dual-mode fine-tune of D2 (streaming + full-context branch, consistency loss), 20–30k steps, against a control with the same steps. Measure at chunk 4 and at chunk 8.

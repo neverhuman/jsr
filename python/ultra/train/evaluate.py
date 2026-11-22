@@ -104,6 +104,10 @@ def main(argv=None) -> None:
     ap.add_argument("--batch", type=int, default=8, help="utterances per forward pass")
     ap.add_argument("--beam", type=int, default=0,
                     help=">0: also decode with modified beam search of this width (diagnostic)")
+    ap.add_argument("--blank-penalty", type=float, default=0.0,
+                    help="beam only: subtract this from the blank log-probability per frame")
+    ap.add_argument("--length-norm", action="store_true",
+                    help="beam only: choose the final hypothesis by score per token")
     ap.add_argument("--chunk", type=int, default=0,
                     help="override the attention chunk (frames); 0 = the trained value")
     ap.add_argument("--left-context", type=int, default=-1,
@@ -161,7 +165,8 @@ def main(argv=None) -> None:
             toks, f = greedy_decode(model.predictor, model.joiner, enc_p, lens, a.max_symbols)
             if a.beam:
                 beam_hyps.extend(tok.decode(t) for t in modified_beam_search(
-                    model.predictor, model.joiner, enc_p, lens, a.beam))
+                    model.predictor, model.joiner, enc_p, lens, a.beam,
+                    blank_penalty=a.blank_penalty, length_norm=a.length_norm))
             best = model.ctc_head(enc.float()).argmax(dim=-1)
         forced += f
         for j in range(best.shape[0]):
@@ -188,6 +193,8 @@ def main(argv=None) -> None:
            "full_context": a.full_context}
     if a.beam:
         out["beam"] = a.beam
+        out["blank_penalty"] = a.blank_penalty
+        out["length_norm"] = a.length_norm
         out["beam_wer"] = corpus_wer(refs, beam_hyps)
     if a.panel:
         out["panel"] = panel_record(a.panel, a.panel_split, panel_sha)
