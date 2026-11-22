@@ -203,7 +203,19 @@ class Trainer:
                 "ctc_stats": self.stats.summary(),
                 "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema,
                 "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
+                "watch_sig": self._watch_sig(),
                 **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
+
+    def _watch_sig(self) -> dict:
+        c = self.cfg
+        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.zloss, c.rnnt_loss, c.prune_range, c.budget_s,
+                         c.max_batch, self.model_cfg.ctc_weight],
+                "dev": [c.dev_split, c.dev_limit, c.chunk]}
+
+    def reset_watch(self) -> None:
+        """Re-arm the divergence guard (e.g. after --swap-weights replaced the model)."""
+        self.loss_ema = self.best_ema = self.best_wer = None
+        self.over_since = None
 
     def save(self, wait: bool = False) -> None:
         """Snapshot now; the write finishes in the background unless `wait`. Under data
@@ -238,9 +250,14 @@ class Trainer:
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
-        self.loss_ema = p.get("loss_ema")
-        self.best_ema = p.get("best_ema")
-        self.best_wer = p.get("best_wer")
+        # divergence baselines carry over only while they measure the same thing: a resume that
+        # changes the loss definition (KD / CR-CTC / z-loss weights, loss type, batch) or the
+        # dev panel re-arms the guard from scratch instead of comparing against an old scale
+        sig, old = self._watch_sig(), p.get("watch_sig") or {}
+        if old.get("loss") == sig["loss"]:
+            self.loss_ema, self.best_ema = p.get("loss_ema"), p.get("best_ema")
+        if old.get("dev") == sig["dev"]:
+            self.best_wer = p.get("best_wer")
         self.clipper.load_state_dict(p.get("clipper"))
         self.ema = ({k: v.to(self.device) for k, v in p["ema"].items()}
                     if p.get("ema") is not None else None)
@@ -824,6 +841,7 @@ def main(argv=None) -> int:
         if a.swap_weights:
             tr.log({"kind": "swap_weights", "step": tr.step, **swap_weights(tr.model, a.swap_weights)})
             tr.ema = None  # the EMA restarts from the swapped weights (no carry-over of the old line)
+            tr.reset_watch()  # and the divergence guard re-arms on the new weights
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
         import dataclasses
