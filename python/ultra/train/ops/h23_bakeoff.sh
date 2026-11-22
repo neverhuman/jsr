@@ -21,11 +21,17 @@ for arm in "H23a_adamw optimizer=adamw lr=0.001 warmup=2000" \
   read -r name extra <<< "$arm"
   [[ "$want" == *" ${name%%_*} "* ]] || continue
   R=$DATA/runs/train/$name
-  [ -f "$R/DONE" ] && continue
+  [ -f "$R/DONE" ] || [ -f "$R/DIVERGED" ] && continue
   mkdir -p "$R" && ln -sfn "$R" "$DATA/runs/train/H23_current_gpu$GPU"  # guard_ceiling follows the running arm
   # shellcheck disable=SC2086
   "$REPO/python/ultra/train/launch_guarded.sh" "$R" "$CPUS" "$GPU" -- $COMMON --set $SETS $extra || exit 1
   while kill -0 "$(cat "$R/PID")" 2>/dev/null; do sleep 60; done
   kill "$(cat "$R/GUARD_PID")" 2>/dev/null
-  grep -q '"kind": "train", "step": 24000' "$R/train.jsonl" && touch "$R/DONE" || { echo "$name did not finish"; exit 1; }
+  if grep -q '"kind": "train", "step": 24000' "$R/train.jsonl"; then
+    touch "$R/DONE"
+  elif [ -f "$R/DIVERGED.json" ] || [ -f "$R/PAUSED.json" ]; then  # a diverged arm is a result: record it, go on
+    echo "$(date -u +%FT%TZ) $name stopped by the guard at step $(grep -o '"step": [0-9]*' "$R/train.jsonl" | tail -1 | grep -o '[0-9]*')" | tee "$R/DIVERGED"
+  else
+    echo "$name did not finish (no DONE, no guard stop)"; exit 1
+  fi
 done
