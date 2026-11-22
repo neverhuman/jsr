@@ -15,12 +15,13 @@ from train.transducer import BLANK, Joiner, StatelessPredictor
 @torch.no_grad()
 def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: torch.Tensor,
                          lens: torch.Tensor, beam: int = 4, blank_penalty: float = 0.0,
-                         length_norm: bool = False) -> list[list[int]]:
+                         length_norm: bool = False, nbest: list | None = None) -> list[list[int]]:
     """enc_p (B, T, J) already projected; returns the best token list per utterance.
 
     blank_penalty is subtracted from the blank log-probability at every frame (> 0 favours
     emitting tokens, countering deletions). length_norm picks the final hypothesis by score per
-    token instead of total score (as icefall's get_best(length_norm=True))."""
+    token instead of total score (as icefall's get_best(length_norm=True)). If `nbest` is a list,
+    each utterance's final beam is appended to it as [(tokens, score), ...], best first."""
     if beam < 1:
         raise ValueError("beam must be >= 1")
     if blank_penalty < 0:
@@ -46,9 +47,10 @@ def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: t
                 new[s] = float(torch.logaddexp(torch.tensor(new[s]), torch.tensor(sc))) \
                     if s in new else sc
             hyps = new
-        if length_norm:
-            best = max(hyps.items(), key=lambda kv: kv[1] / max(1, len(kv[0])))
-        else:
-            best = max(hyps.items(), key=lambda kv: kv[1])
+        key = (lambda kv: kv[1] / max(1, len(kv[0]))) if length_norm else (lambda kv: kv[1])
+        ranked = sorted(hyps.items(), key=key, reverse=True)
+        if nbest is not None:
+            nbest.append([(list(t), float(sc)) for t, sc in ranked])
+        best = ranked[0]
         out.append(list(best[0]))
     return out

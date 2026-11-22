@@ -106,6 +106,9 @@ def main(argv=None) -> None:
                     help=">0: also decode with modified beam search of this width (diagnostic)")
     ap.add_argument("--blank-penalty", type=float, default=0.0,
                     help="beam only: subtract this from the blank log-probability per frame")
+    ap.add_argument("--nbest", action="store_true",
+                    help="beam only: dump each utterance's final beam and report the N-best "
+                         "oracle WER (reference-chosen; diagnostic, never a deployable result)")
     ap.add_argument("--length-norm", action="store_true",
                     help="beam only: choose the final hypothesis by score per token")
     ap.add_argument("--chunk", type=int, default=0,
@@ -156,7 +159,7 @@ def main(argv=None) -> None:
 
         random.Random(0).shuffle(exs)
     refs, hyps, ctc_hyps, uids, forced, exact, ctc_exact = [], [], [], [], 0, 0, 0
-    beam_hyps, secs = [], []
+    beam_hyps, secs, nbest_lists = [], [], []
     for i in range(0, len(exs), a.batch):
         b = collate(exs[i:i + a.batch]).to(a.device)
         with torch.no_grad():
@@ -166,7 +169,8 @@ def main(argv=None) -> None:
             if a.beam:
                 beam_hyps.extend(tok.decode(t) for t in modified_beam_search(
                     model.predictor, model.joiner, enc_p, lens, a.beam,
-                    blank_penalty=a.blank_penalty, length_norm=a.length_norm))
+                    blank_penalty=a.blank_penalty, length_norm=a.length_norm,
+                    nbest=nbest_lists if a.nbest else None))
             best = model.ctc_head(enc.float()).argmax(dim=-1)
         forced += f
         for j in range(best.shape[0]):
@@ -195,6 +199,16 @@ def main(argv=None) -> None:
         out["beam"] = a.beam
         out["blank_penalty"] = a.blank_penalty
         out["length_norm"] = a.length_norm
+        if a.nbest:
+            from ultra.wer import edit_counts, normalise
+
+            oracle = []
+            for r, cands in zip(refs, nbest_lists, strict=True):
+                rw = normalise(r)
+                oracle.append(min((tok.decode(t) for t, _ in cands),
+                                  key=lambda h: sum(edit_counts(rw, normalise(h)))))
+            out["oracle_wer"] = corpus_wer(refs, oracle)
+            out["nbest_mean_size"] = round(sum(map(len, nbest_lists)) / max(1, len(nbest_lists)), 2)
         out["beam_wer"] = corpus_wer(refs, beam_hyps)
     if a.panel:
         out["panel"] = panel_record(a.panel, a.panel_split, panel_sha)
@@ -204,6 +218,8 @@ def main(argv=None) -> None:
                 row = {"uid": u, "ref": r, "hyp": h, "ctc_hyp": c, "seconds": secs[n]}
                 if a.beam:
                     row["beam_hyp"] = beam_hyps[n]
+                if a.nbest:
+                    row["nbest"] = [[tok.decode(t), sc] for t, sc in nbest_lists[n]]
                 fh.write(json.dumps(row) + "\n")
         out["dump"] = a.dump
     print(json.dumps(out))
