@@ -27,6 +27,7 @@ struct Args {
     seconds: f64,
     grid_ms: u64,
     precision: Precision,
+    chunk: Option<usize>,
     max_chunks: usize,
     int8_stem: bool,
     int8_stem_kinds: Vec<String>,
@@ -43,6 +44,7 @@ fn parse() -> Result<Args, String> {
         seconds: 60.0,
         grid_ms: 320,
         precision: Precision::Int8,
+        chunk: None,
         max_chunks: 1,
         int8_stem: false,
         int8_stem_kinds: Vec::new(),
@@ -59,6 +61,7 @@ fn parse() -> Result<Args, String> {
             "--streams" => a.streams = v()?.parse().map_err(|e| format!("{e}"))?,
             "--seconds" => a.seconds = v()?.parse().map_err(|e| format!("{e}"))?,
             "--int8-stem" => a.int8_stem = true,
+            "--chunk" => a.chunk = Some(v()?.parse().map_err(|e| format!("{e}"))?),
             "--max-chunks" => a.max_chunks = v()?.parse().map_err(|e| format!("{e}"))?,
             "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
@@ -108,7 +111,7 @@ fn decode_ready(
     t0: Instant,
     late: &mut Vec<(f64, f64)>,
 ) -> Result<(usize, usize), String> {
-    let c = engine.model.arch.chunk;
+    let c = engine.chunk;
     let (mut calls, mut frames) = (0usize, 0usize);
     loop {
         let mut arrivals: Vec<f64> = Vec::new();
@@ -166,10 +169,13 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     } else {
         0
     };
-    let engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
+    let mut engine = Engine::new(Arc::new(model), Isa::detect(), a.precision)
         .map_err(|e| e.to_string())?
         .with_max_chunks(a.max_chunks)
         .with_beam(a.beam);
+    if let Some(c) = a.chunk {
+        engine = engine.with_chunk(c).map_err(|e| e.to_string())?;
+    }
     let utts = load_npz_audio_only(&a.npz, 0, Some(400)).map_err(|e| e.to_string())?;
     let grid = a.grid_ms as f64 / 1000.0;
     let mut slots: Vec<Slot> = (0..a.streams)

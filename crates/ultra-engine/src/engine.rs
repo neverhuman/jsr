@@ -27,6 +27,9 @@ pub struct Engine {
     pub model: Arc<Model>,
     pub isa: Isa,
     pub precision: Precision,
+    /// Active encoder chunk length in 25 Hz frames (defaults to `model.arch.chunk`; override at
+    /// start-up via [`Engine::with_chunk`] for multi-chunk exports such as 4/8/16 = 160/320/640 ms).
+    pub chunk: usize,
     /// Most consecutive ready chunks of one stream run in one step (layer by layer, so one
     /// weight pass serves them all). Outputs are identical for every value.
     pub max_chunks: usize,
@@ -178,10 +181,12 @@ impl Engine {
                 "int8 requested but the model was not quantised (Model::quantize_int8)".into(),
             ));
         }
+        let chunk = model.arch.chunk;
         Ok(Self {
             model,
             isa,
             precision,
+            chunk,
             max_chunks: 1,
             act7: false,
             pool: None,
@@ -190,6 +195,25 @@ impl Engine {
             beam_margin: 0.0,
             kv_int8: false,
         })
+    }
+
+    /// Override the streaming chunk length (in 25 Hz encoder frames, `1..=64`; must be even for
+    /// multirate models) without re-exporting weights. Streams created afterwards run with the
+    /// requested chunk mask (e.g. `4`, `8`, `16` = 160 / 320 / 640 ms). Passing `model.arch.chunk`
+    /// is bit-identical to the default engine.
+    pub fn with_chunk(mut self, chunk: usize) -> Result<Self, EngineError> {
+        if chunk == 0 || chunk > 64 {
+            return Err(EngineError::Shape(format!(
+                "chunk must be in 1..=64 (got {chunk})"
+            )));
+        }
+        if self.model.arch.mid > 0 && !chunk.is_multiple_of(2) {
+            return Err(EngineError::Shape(format!(
+                "multirate models require an even chunk length (got {chunk})"
+            )));
+        }
+        self.chunk = chunk;
+        Ok(self)
     }
 
     /// Split each small-batch int8 GEMM across `threads` threads (the caller plus
@@ -252,7 +276,12 @@ impl Engine {
             ring: FeatureRing::new(),
             finished: false,
             failed: false,
-            enc: EncState::new_with_kv(&self.model, self.max_chunks, self.kv_int8),
+            enc: EncState::new_with_kv_and_chunk(
+                &self.model,
+                self.max_chunks,
+                self.kv_int8,
+                self.chunk,
+            ),
             dec: DecState::new(&self.model),
         }
     }
@@ -260,7 +289,7 @@ impl Engine {
     /// The next step `(t0, t1)` of `s`: up to `max_chunks` consecutive chunks whose features
     /// are complete (limited by the stream's cache capacity).
     pub fn next_chunk(&self, s: &EngineStream) -> Option<(usize, usize)> {
-        let c = self.model.arch.chunk;
+        let c = self.chunk;
         let cap = self.max_chunks.min(s.enc.max_step_frames() / c).max(1);
         let (t0, mut t1) = chunk_bounds(s.enc.t, s.ring.n_feat(), c, s.finished)?;
         for _ in 1..cap {
