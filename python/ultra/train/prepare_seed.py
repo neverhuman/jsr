@@ -34,21 +34,25 @@ def linearise_simple_heads(model: ASRModel) -> None:
 
 
 def make_seed(src: str, out: str, rnnt_loss: str, prune_range: int, seed: int,
-              linearise: bool = True) -> dict:
+              linearise: bool = True, use_ema: bool = False) -> dict:
     p = checkpoint.load(src, restore_rng=False)
     cfg = dataclasses.replace(ModelConfig.from_dict(p["model_config"]), rnnt_loss=rnnt_loss,
                               prune_range=prune_range)
     torch.manual_seed(seed)
     model = ASRModel(cfg)
-    missing, unexpected = model.load_state_dict(p["model"], strict=False)
+    if use_ema and p.get("ema") is None:
+        raise CheckpointError(f"{src} has no EMA weights")
+    missing, unexpected = model.load_state_dict(p["ema"] if use_ema else p["model"], strict=False)
     allowed = {"simple_am.weight", "simple_am.bias", "simple_lm.weight", "simple_lm.bias"}
     if unexpected or not set(missing) <= allowed:
         raise CheckpointError(f"unexpected state difference: missing={missing} unexpected={unexpected}")
-    if linearise and rnnt_loss == "pruned":
+    if linearise and rnnt_loss == "pruned" and missing:  # never overwrite trained heads
         linearise_simple_heads(model)
     payload = {"model": model.state_dict(), "model_config": cfg.to_dict(), "step": p.get("step", 0),
                "seed_from": {"path": os.path.abspath(src), "sha256": open(src[:-3] + ".sha256").read().strip(),
-                             "added": sorted(missing), "simple_heads": "linearised" if linearise else "random"},
+                             "added": sorted(missing),
+                             "simple_heads": ("linearised" if linearise else "random") if missing else "trained",
+                             "weights": "ema" if use_ema else "model"},
                "tokenizer_sha256": p.get("tokenizer_sha256")}
     tmp = out + ".tmp"
     with open(tmp, "wb") as fh:
@@ -69,10 +73,12 @@ def main(argv=None) -> int:
     ap.add_argument("--prune-range", type=int, default=5)
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--random-heads", action="store_true", help="random simple heads (default: linearised)")
+    ap.add_argument("--use-ema", action="store_true", help="seed from the checkpoint's EMA weights")
     a = ap.parse_args(argv)
     if not a.out.endswith(".pt") or os.path.abspath(a.out) == os.path.abspath(a.src):
         ap.error("--out must be a new .pt path (the source is never overwritten)")
-    pl = make_seed(a.src, a.out, a.rnnt_loss, a.prune_range, a.seed, linearise=not a.random_heads)
+    pl = make_seed(a.src, a.out, a.rnnt_loss, a.prune_range, a.seed, linearise=not a.random_heads,
+                   use_ema=a.use_ema)
     print({"out": a.out, "step": pl["step"], "added": pl["seed_from"]["added"]})
     return 0
 
