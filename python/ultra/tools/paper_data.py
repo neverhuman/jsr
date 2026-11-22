@@ -521,6 +521,9 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
         rec.add(f"AudioPerCpu{stem}", fmt(inv, 1), raw=inv, unit="audio-s per CPU-s",
                 configuration=f"{disp}; 1 / whole-service CPU-s per audio-s at the matched {MATCHED_RUNG}-stream rung",
                 source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
+        rec.add(f"RtfxLadder{stem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
+                configuration=f"{disp}; same as RTFxLadder{stem} (paper-writer spelling)",
+                source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
         rec.add(f"RTFxLadder{stem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
                 configuration=f"{disp}; audio-seconds processed per CPU-second at the matched {MATCHED_RUNG}-stream rung "
                               "(1 / CostLadder)",
@@ -590,12 +593,22 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
             configuration=f"rung-spacing bracket, low end: MR claim {mc} / (R0 first failed rung {rf} - 1)", **bcommon)
     rec.add("DenRatioMRBracketHi", fmt(hi, 1), raw=hi, unit="x",
             configuration=f"rung-spacing bracket, high end: (MR first failed rung {mf} - 1) / R0 claim {rc}", **bcommon)
+    (dc, df) = fails["dense"]
+    lo, hi = dc / (rf - 1), (df - 1) / rc
+    rec.add("DenRatioDenseBracketLo", fmt(lo, 1), raw=lo, unit="x",
+            configuration=f"rung-spacing bracket, low end: dense claim {dc} / (R0 first failed rung {rf} - 1)", **bcommon)
+    rec.add("DenRatioDenseBracketHi", fmt(hi, 1), raw=hi, unit="x",
+            configuration=f"rung-spacing bracket, high end: (dense first failed rung {df} - 1) / R0 claim {rc}", **bcommon)
     largs = man[("ladder_e_ce58952_avg3", CANDIDATES[0][1])]["cli_args"]
     limits = {tuple(j["cli_args"][j["cli_args"].index("--limit") + 1:j["cli_args"].index("--limit") + 2])
               for (sub, _), j in man.items() if sub == "ladder_e_ce58952_avg3"}
     if len(limits) != 1:
         raise PaperDataError(f"ladder jobs used different --limit values: {limits}")
     lim = largs[largs.index("--limit") + 1]
+    rec.add("LadderUtts", str(lim), raw=int(lim), unit="utterances", label="reported",
+            configuration="dev-clean utterances each ladder stream cycles, read from the Job E job manifests (--limit)",
+            workload=LADDER_WORKLOAD, workload_digest=npz_sha,
+            source=f"docs/paper/data/{ldir.relative_to(DATA)}/*.job_manifest.json cli_args --limit")
     rec.add("LadderWorkload", f"first {lim} utterances cycled per stream (\\texttt{{--limit {lim}}})", raw=int(lim),
             unit="text", label="reported", configuration="ladder workload, read from the Job E job manifests (cli_args)",
             workload=LADDER_WORKLOAD, workload_digest=npz_sha,
