@@ -1,13 +1,12 @@
 \section{Introduction}\label{sec:intro}
 
-Most live speech recognition in production still runs on CPUs: call centres, captioning,
-meeting transcription and voice interfaces scale by adding streams, not by shortening one
-utterance. For these workloads the figure of merit is not the speed of a single stream but
-\emph{stream density}: the number of concurrent paced live streams a core sustains while the
-worst worker's p99 lateness stays within a budget and no backlog grows. Density is the number
-that sets the bill, and it is rarely reported. Papers report WER and, sometimes, a
-single-stream real-time factor on an unspecified machine; serving stacks report throughput
-without a lateness bound; and neither is reproducible to the bit.
+CPU speech services for captioning, meeting transcription and voice interfaces
+must keep up with audio as it arrives across many streams. Stream density counts
+the concurrent paced streams a configuration serves under a lateness budget
+and a bounded backlog. We measure passing and failing loads at a specified CPU
+placement, and pair the result with WER from the same deployed checkpoint.
+Single-stream cost measures the work needed per audio second. A paced replay
+also exposes scheduling delays and backlog as load increases.
 
 Three properties make density hard to improve and harder to measure. First, batching across
 streams is the obvious way to amortise weights, yet on a compute-bound CPU it buys little, and

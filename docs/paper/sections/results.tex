@@ -55,8 +55,8 @@ equal-load probe at \ProbeStreams{} streams for \ProbeSeconds\,s gave worst-work
 (Zipformer, over the bound), all drained.
 
 \para{Why density exceeds cost.} The density ratio (\DenRatioMR{}$\times$) is larger than the cost
-ratio (\CostRatioMR{}$\times$) because the systems fail for different reasons. \ultra fails only when
-projected CPU demand reaches the four cores' capacity: \DemandFailDense\% (dense) and
+ratio (\CostRatioMR{}$\times$). At the first failing load, the two \ultra
+configurations approached the four cores' projected capacity: \DemandFailDense\% (dense) and
 \DemandFailMR\% (multirate) at the first failed rung, against \DemandDense\% and \DemandMR\% at the
 passing rung. It is compute-bound and uses nearly all of the hardware. Zipformer passes at
 \DemandRzero\% and fails at \DemandFailRzero\%, with a fifth of the CPU still unused. That is
@@ -121,9 +121,14 @@ the 400 panel dev-clean utterances (40 speakers) of \cref{tab:density}, on which
 $^{b}$Unknown training-data overlap.}
 \end{table}
 
-\Cref{tab:acc} places \ultra beside the reference systems. The best dense configuration (average
-of three snapshots, beam 4) reaches \WerDtwoBestClean\% / \WerDtwoBestOther\% on full dev-clean /
-dev-other, far above Zipformer; training was still in progress and the curves still falling.
+On the full 730-utterance DEV selection panel, pooled WER is
+\WerRzeroPanel\% for Zipformer INT8, \WerRehearsalDensePooled\% for the
+timed dense average, and \WerRehearsalMRPooled\% for D2MR. The
+D2MR gap against Zipformer is \GapMRvsRzeroPooled{} percentage points
+(descriptive paired speaker-cluster 95\% interval
+\GapMRvsRzeroPooledLo--\GapMRvsRzeroPooledHi). \Cref{tab:acc} also gives
+full-set results for the later dense average, which reaches
+\WerDtwoBestClean\% and \WerDtwoBestOther\% with beam four.
 
 \subsection{Cold boundary}
 

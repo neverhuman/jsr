@@ -4,6 +4,14 @@
 draft is exploratory.** Qualified results replace them after `bench-freeze-v1` by regenerating
 `data/metrics.tex`; the prose does not change.
 
+The [six-page IEEE checkpoint edition](jsr-cpu-asr.pdf) gives the
+preliminary DEV results for prepared INT8 D2MR at step 50,000. The portable
+build runs with `make -C docs/paper/checkpoint check` and writes the PDF to
+`target/paper-checkpoint/`. Its source, pinned evidence, bibliography and
+figure generator are in [checkpoint/](checkpoint/). The matched cold plot
+populates from completed three-repetition measurements. The paced rehearsal
+has its own measured figure and table.
+
 ## Build
 
 ```bash
