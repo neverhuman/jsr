@@ -24,6 +24,9 @@ HEARTBEAT_SECONDS = 4.0
 DISCOVERY_SECONDS = 5.0
 HARDWARE_SECONDS = 10.0
 RECENT_BYTES = 2 * 1024 * 1024
+MAX_GLOBAL_TRAIN = 400
+MAX_RECENT_TRAIN = 160
+MAX_EVALS = 400
 MAX_LINE_BYTES = 128 * 1024
 PYTHON_NAME = re.compile(r"python(?:\d+(?:\.\d+)*)?[dm]?\Z", re.IGNORECASE)
 DEV_SPLITS = {"dev-clean", "dev-other"}
@@ -225,9 +228,13 @@ def gpu_snapshot():
 
 @dataclass
 class History:
-    """Read at most a recent suffix initially and only new bytes on each poll."""
+    """Read full train.jsonl from step 0 with stride decimation plus recent high-res window."""
 
     train: dict = field(default_factory=dict)
+    train_global: list = field(default_factory=list)
+    train_global_stride: int = 1
+    train_global_seen: int = 0
+    last_train: dict | None = None
     evals: dict = field(default_factory=dict)
     identity: tuple | None = None
     mtime: int = 0
@@ -239,6 +246,49 @@ class History:
     total_steps: int | None = None
     dev_limit: int | None = None
     overfit: int | None = None
+
+    def _reset_series(self):
+        self.train.clear()
+        self.train_global.clear()
+        self.train_global_stride = 1
+        self.train_global_seen = 0
+        self.last_train = None
+        self.evals.clear()
+
+    def _record_global_train(self, row):
+        if not self.train_global:
+            self.train_global.append(row)
+            self.train_global_seen = 1
+            return
+        if row["step"] == self.train_global[-1]["step"]:
+            self.train_global[-1] = row
+            return
+        if row["step"] < self.train_global[-1]["step"]:
+            return
+        self.train_global_seen += 1
+        if self.train_global_seen % self.train_global_stride == 0:
+            self.train_global.append(row)
+            if len(self.train_global) > MAX_GLOBAL_TRAIN:
+                first, last = self.train_global[0], self.train_global[-1]
+                self.train_global = [first, *self.train_global[2:-1:2], last]
+                self.train_global_stride *= 2
+
+    def global_train_rows(self):
+        rows = list(self.train_global)
+        if self.last_train is not None and (not rows or self.last_train["step"] > rows[-1]["step"]):
+            rows.append(self.last_train)
+        return rows
+
+    def _nearest_train(self, step):
+        if self.last_train is not None and self.last_train["step"] <= step:
+            return self.last_train
+        best = None
+        for row in self.train_global:
+            if row["step"] <= step:
+                best = row
+            else:
+                break
+        return best
 
     def remember(self, rows, key, row, limit):
         previous = rows.get(key)
@@ -261,13 +311,14 @@ class History:
             return False
         kind, step, stamp = event.get("kind"), count(event.get("step")), number(event.get("time"))
         if kind == "start":
-            self.train.clear()
-            self.evals.clear()
+            self._reset_series()
             return True
         if step is None:
             return False
         if kind == "resume":
             self.train = {key: row for key, row in self.train.items() if row["step"] <= step}
+            self.train_global = [row for row in self.train_global if row["step"] <= step]
+            self.last_train = self.train_global[-1] if self.train_global else None
             self.evals = {key: row for key, row in self.evals.items() if row["step"] <= step}
             return True
         if kind == "train":
@@ -279,7 +330,10 @@ class History:
                    "rnnt": number(event.get("rnnt")), "ctc": number(event.get("ctc")),
                    "audio_s": audio, "wall_s": wall, "audio_per_second": rate,
                    "epoch": count(epoch)}
-            return self.remember(self.train, step, row, 160)
+            if self.last_train is None or step >= self.last_train["step"]:
+                self.last_train = row
+            self._record_global_train(row)
+            return self.remember(self.train, step, row, MAX_RECENT_TRAIN)
         split = event.get("split")
         if kind != "eval" or not isinstance(split, str) or split not in DEV_SPLITS:
             return False
@@ -292,16 +346,23 @@ class History:
         scored = [(decoder, event)]
         if isinstance(event.get("beam_wer"), dict):
             scored.append((f"beam-{beam}" if beam else "beam", event["beam_wer"]))
+        paired_train = self._nearest_train(step)
         changed = False
         for decoder, values in scored:
             wer = number(values.get("wer"))
             if wer is not None:
-                row = {"step": step, "time": stamp, "split": split, "wer": wer, "decoder": decoder}
+                row = {"step": step, "time": stamp, "split": split, "wer": wer,
+                       "ema_wer": number(values.get("ema_wer")), "decoder": decoder}
                 row.update({key: count(values.get(key)) for key in ("ref_words", "sub", "del", "ins")})
-                changed |= self.remember(self.evals, (split, step, decoder), row, 60)
+                if paired_train is not None:
+                    row["train_loss"] = paired_train.get("loss")
+                    row["train_rnnt"] = paired_train.get("rnnt")
+                    row["train_ctc"] = paired_train.get("ctc")
+                changed |= self.remember(self.evals, (split, step, decoder), row, MAX_EVALS)
         return changed
 
     def read_log(self, path):
+        changed = False
         try:
             with path.open("rb") as source:
                 stat = os.fstat(source.fileno())
@@ -313,32 +374,32 @@ class History:
                     source.seek(self.offset - len(self.anchor))
                     reset = source.read(len(self.anchor)) != self.anchor
                 if reset:
-                    self.offset = max(0, stat.st_size - RECENT_BYTES)
+                    self._reset_series()
+                    self.offset = 0
                     self.pending = b""
                     self.skipping = False
-                    if self.offset:
-                        source.seek(self.offset - 1)
-                        self.skipping = source.read(1) != b"\n"
                 source.seek(self.offset)
-                data = source.read(RECENT_BYTES)
-                self.offset = source.tell()
+                while True:
+                    data = source.read(RECENT_BYTES)
+                    if not data:
+                        break
+                    self.offset = source.tell()
+                    lines = (self.pending + data).split(b"\n")
+                    self.pending = lines.pop()
+                    if self.skipping and lines:
+                        lines.pop(0)
+                        self.skipping = False
+                    if self.skipping or len(self.pending) > MAX_LINE_BYTES:
+                        self.skipping = True
+                        self.pending = b""
+                    for line in lines:
+                        if len(line) <= MAX_LINE_BYTES:
+                            changed |= self.record(line)
                 source.seek(max(0, self.offset - 64))
                 self.anchor = source.read(min(self.offset, 64))
                 self.identity, self.mtime = identity, stat.st_mtime_ns
         except OSError:
             return False
-        lines = (self.pending + data).split(b"\n")
-        self.pending = lines.pop()
-        if self.skipping and lines:
-            lines.pop(0)
-            self.skipping = False
-        if self.skipping or len(self.pending) > MAX_LINE_BYTES:
-            self.skipping = True
-            self.pending = b""
-        changed = False
-        for line in lines:
-            if len(line) <= MAX_LINE_BYTES:
-                changed |= self.record(line)
         return changed
 
     def read_config(self, path):
@@ -470,6 +531,7 @@ def live(args):
                              "dev_limit": history.dev_limit, "eval_scope": scope,
                              "overfit": bool(overfit) if overfit is not None else None, "ddp": ddp,
                              "train": [] if ddp and ddp["rank"] else sorted(history.train.values(), key=lambda row: row["step"]),
+                             "train_global": [] if ddp and ddp["rank"] else history.global_train_rows(),
                              "eval": [] if ddp and ddp["rank"] else sorted(history.evals.values(), key=lambda row: (row["step"], row["split"], row["decoder"]))})
             info = {"gpu": gpus[0] if gpus else None, "gpus": gpus, "disk_free_bytes": free,
                     "cpu_pct": cpu_pct, "cpu_load": cpu_load, "cpu_count": os.cpu_count(), "runs": runs}
