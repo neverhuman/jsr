@@ -9,6 +9,10 @@ while :; do
   for d in $(ssh -n "$H" "cd ~/jsr-data/runs/train && ls -d $PAT 2>/dev/null" ); do
     [ -L "$T/$d" ] && continue
     case "$d" in *_current_*) continue;; esac
+    # finished/stopped arms: mirrored once (.final), restarted only if the trainer runs again
+    if [ -f "$T/$d/.final" ] && ! ssh -n "$H" "kill -0 \$(cat ~/jsr-data/runs/train/$d/PID) 2>/dev/null"; then
+      continue
+    fi
     if ! pgrep -f "sync_and_post.py $H /home/ubuntu/jsr-data/runs/train/$d " > /dev/null; then
       mkdir -p "$T/$d"
       setsid nohup nice -n 10 python3 "$T/sync_and_post.py" "$H" "/home/ubuntu/jsr-data/runs/train/$d" "$T/$d" "$d" \
