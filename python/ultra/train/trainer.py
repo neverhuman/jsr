@@ -132,6 +132,8 @@ class TrainConfig:
     zloss: float = 0.0
     # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
     cr_ctc_weight: float = 0.0
+    # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
+    delay_penalty: float = 0.0
     eden_lr_batches: float = 7500.0
     eden_lr_epochs: float = 3.5
     eden_steps_per_epoch: float = 0.0
@@ -208,7 +210,7 @@ class Trainer:
 
     def _watch_sig(self) -> dict:
         c = self.cfg
-        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.zloss, c.rnnt_loss, c.prune_range, c.budget_s,
+        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.zloss, c.delay_penalty, c.rnnt_loss, c.prune_range, c.budget_s,
                          c.max_batch, self.model_cfg.ctc_weight],
                 "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
@@ -300,7 +302,9 @@ class Trainer:
                                     simple_detach=self.step < self.cfg.prune_hold,
                                     **({"zloss_weight": self.cfg.zloss} if self.cfg.zloss else {}),
                                     **({"cr_ctc_weight": self.cfg.cr_ctc_weight}
-                                       if self.cfg.cr_ctc_weight else {}))
+                                       if self.cfg.cr_ctc_weight else {}),
+                                    **({"delay_penalty": self.cfg.delay_penalty}
+                                       if self.cfg.delay_penalty else {}))
         loss = out["loss"]
         if self.world > 1:
             hb = self._hb_acc()

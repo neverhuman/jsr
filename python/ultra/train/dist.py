@@ -98,8 +98,8 @@ class StepThrottle:
     max over ranks, so all ranks pause together. A `UTIL_TARGET` file in `live_dir` overrides
     the target at run time. target <= 0 disables it."""
 
-    def __init__(self, target: float, gpu_index: int, every: int = 25, period_s: float = 2.0,
-                 window: int = 150, live_dir: str | None = None, floor: float = 0.5):
+    def __init__(self, target: float, gpu_index: int, every: int = 25, period_s: float = 1.13,
+                 window: int = 265, live_dir: str | None = None, floor: float = 0.5):
         import collections
         import threading
 
@@ -120,14 +120,26 @@ class StepThrottle:
             return None
 
     def _sample_loop(self) -> None:
+        """One long-lived `nvidia-smi -lms` streams readings on its own clock. (Sampling from a
+        thread inside the trainer was GIL-phased: wake-ups clustered in GPU-idle stretches and
+        the 5-min mean read ~10 points under the host's nvidia-smi mean on D2d.)"""
+        cmd = ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits",
+               "-i", str(self.gpu), "-lms", str(int(self._period * 1000))]
         while True:
-            u = self._util()
-            if u is not None:
-                self.samples.append(u)
-            time.sleep(self._period)
+            try:
+                with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                      text=True) as proc:
+                    for line in proc.stdout:
+                        try:
+                            self.samples.append(float(line.split()[0]) / 100.0)
+                        except (IndexError, ValueError):
+                            continue
+            except OSError:
+                pass
+            time.sleep(5.0)  # nvidia-smi exited or is missing: retry
 
-    def util_mean(self) -> float | None:
-        s = list(self.samples)
+    def util_mean(self, last: int | None = None) -> float | None:
+        s = list(self.samples)[-last:] if last else list(self.samples)
         return sum(s) / len(s) if s else None
 
     def _live_target(self) -> None:
@@ -144,12 +156,15 @@ class StepThrottle:
         self.step_s = 0.9 * self.step_s + 0.1 * step_seconds if self.step_s else step_seconds
         if step % self.every == 0:
             self._live_target()
-            m = self.util_mean()
-            if m is not None and len(self.samples) >= 15:  # >= 30 s of samples
+            # control on the last ~60 s (53 samples): the 5-min mean lags the duty by minutes, and
+            # stepping on it wound the duty down to its floor before the mean could respond (D2e).
+            # The 5-min mean is still what the cap watch sees; the 60-s loop keeps it at target.
+            m = self.util_mean(53)
+            if m is not None and len(self.samples) >= 27:  # >= 30 s of samples
                 if m > self.target:
-                    self.duty = max(self.floor, self.duty - 0.02)
+                    self.duty = max(self.floor, self.duty - 0.01)
                 elif m < self.target - 0.03:
-                    self.duty = min(1.0, self.duty + 0.02)
+                    self.duty = min(1.0, self.duty + 0.01)
         return self.step_s * (1.0 / self.duty - 1.0)
 
     def pause(self, seconds: float) -> None:
