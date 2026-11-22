@@ -1,0 +1,23 @@
+{
+ "arms": [
+  "v1-idle-vs-idle",
+  "v2-spin-1",
+  "v2-spin-2",
+  "v2-spin-4",
+  "v2-spin-8"
+ ],
+ "core_per_pinned_core": {
+  "pairs": 15,
+  "median_abs_watts": 0.197821,
+  "p90_abs_watts": 0.403945,
+  "max_abs_watts": 0.55676,
+  "mean_watts": 0.0272447
+ },
+ "package": {
+  "pairs": 15,
+  "median_abs_watts": 15.4675,
+  "p90_abs_watts": 37.3955,
+  "max_abs_watts": 39.2559,
+  "mean_watts": 2.36579
+ }
+}

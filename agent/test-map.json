@@ -248,6 +248,30 @@
     "python/ultra/train/ops/launch_ddp_ranks.sh": {
       "command": "shellcheck -x -S warning python/ultra/train/ops/launch_ddp_ranks.sh",
       "purpose": "validate the fixed-rank launcher script"
+    },
+    "python/ultra/tools/energy_bench.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "energy meter arithmetic: counter wrap-around, unit conversion, idle subtraction, repetition statistics, distrust flags, and an end-to-end run against a stand-in counter helper"
+    },
+    "python/ultra/tests/test_energy_bench.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "the energy meter's own tests run"
+    },
+    "research/H39_energy/": {
+      "command": "just score",
+      "purpose": "the H39 energy wave (protocol note, validation, results) stays visible to the audit"
+    },
+    "docs/paper/data/raw/energy/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "every committed energy receipt has the receipt schema and headline numbers that equal the median of its repetitions"
+    },
+    "python/ultra/tools/energy_report.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
+      "purpose": "ladder fits, the package-against-core regression, the evidence lines and the table are computed correctly from receipts"
+    },
+    "docs/paper/run-energy.sh": {
+      "command": "shellcheck -x -S warning docs/paper/run-energy.sh",
+      "purpose": "validate the energy driver (quiet lock handling and one case per arm)"
     }
   }
 }

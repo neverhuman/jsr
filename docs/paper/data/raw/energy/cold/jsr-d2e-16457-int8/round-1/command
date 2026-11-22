@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/energy/bin/ultra-cold-wav r1-engine-int8 /home/ubuntu/jsr-data/opponents/energy/models/d2e-16457-int8 /home/ubuntu/jsr-data/opponents/panel/wav /home/ubuntu/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/predictions.jsonl 

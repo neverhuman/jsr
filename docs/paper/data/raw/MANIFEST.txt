@@ -104,6 +104,154 @@ b6f643444dba98e87a9048d26d97a6fd8d6d32c1cc39884c9010144c4977ae36  d2mr_decode_sw
 60ebc6d1a5f838aa81de0668e27c3866b631d5c6ff032972f946ecd90f4e9d61  d2mr_decode_sweep/b8_bp1.5_lnon_dev-clean.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep/b8_bp1.5_lnon_dev-clean.json
 1cda9e461f733f2cdc4c72475dbd7ff0e2b2ea0c74ca80a809b8e003d25a5205  d2mr_decode_sweep/b8_bp1.5_lnon_dev-other.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep/b8_bp1.5_lnon_dev-other.json
 f757aee6cafb73089c18bd14906184758c1a5b03ae67b6fe42f7a38cbeedb4da  d2mr_decode_sweep_summary.json  /mnt/xbabe3-external/jsr/runs/train/D2MR_S_MR_960h_copy/decode_sweep_summary.json (stale: 8/24 cells; cells below are complete)
+e18423062a8ed082c9f80948b25496d8d6a9d1570af26ccfcc1f438134ca8117  energy/cold/jsr-d2e-16457-int8/round-1/command  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/command
+08541ee0c78ad5f60df0d9eaf669426b4b189383dceb1b54eaae7447b7ef0768  energy/cold/jsr-d2e-16457-int8/round-1/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/config.sha256
+162b6ed938da621dc2913c1ddfc5b63080c0976070f4ba9ee8370dceb58287e0  energy/cold/jsr-d2e-16457-int8/round-1/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/jsr-d2e-16457-int8/round-1/host  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host
+3fcb70326cbe11fde63bea96610e35e042493e5c6c0ec64ce281a88cf8d5c481  energy/cold/jsr-d2e-16457-int8/round-1/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host.after
+293e1ebfe343accfbfe01dac6c89c6da261b62727f33e329203f2b47643c8537  energy/cold/jsr-d2e-16457-int8/round-1/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host.before
+becab34f806b5e5809d60d956c2a25027d8983fe85d4b3bd59b09e88e77c546e  energy/cold/jsr-d2e-16457-int8/round-1/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host.cpu.after
+76bb0ba2b5891c04cfbf26bbab8ee64e763c87bb2b2b91220eddb234f819add4  energy/cold/jsr-d2e-16457-int8/round-1/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host.cpu.before
+93a0309416c9debcd57ae8b48ddfe2b03611f005a67ec147cde874da1441af58  energy/cold/jsr-d2e-16457-int8/round-1/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/host.freq.tsv
+7c0298846bcf8ed28dff80d45a937a7c38dcb55a1b52263bc4a7878cc6a5d1bc  energy/cold/jsr-d2e-16457-int8/round-1/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/measurement.json
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  energy/cold/jsr-d2e-16457-int8/round-1/round  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/jsr-d2e-16457-int8/round-1/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/runtime-libraries.sha256
+95af58e05fbc60f3f32ed8f4cbcf6f4a472a098f2dc7423ceccba58ced5b8d6a  energy/cold/jsr-d2e-16457-int8/round-1/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/score.json
+ad5f491bee2735d895dcc4c3948b762c598fccaac11b1d6d2251a4453d5a4f7e  energy/cold/jsr-d2e-16457-int8/round-1/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/service.stderr
+14ee33c64e003661a71d0ed96e2ef03a3cd27f383b957699bc156e0e46f9e901  energy/cold/jsr-d2e-16457-int8/round-1/started  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/jsr-d2e-16457-int8/round-1/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/jsr-d2e-16457-int8/workload.sha256
+8220a66f6062bdd0edb97974ee383395d006d69f1c41f122c08f1215a1a78497  energy/cold/jsr-d2e-16457-int8/round-2/command  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/command
+08541ee0c78ad5f60df0d9eaf669426b4b189383dceb1b54eaae7447b7ef0768  energy/cold/jsr-d2e-16457-int8/round-2/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/config.sha256
+190eef7814a91cd7bfc257bf3df916c19a76c1e56764878f91d8023ded17b7d0  energy/cold/jsr-d2e-16457-int8/round-2/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/jsr-d2e-16457-int8/round-2/host  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host
+cb5fee21e48a33990e1d8ba60d4d59f51301488d042049be9f2441a26232647d  energy/cold/jsr-d2e-16457-int8/round-2/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host.after
+33106f9c97f7fca6c6f995b236e8d939a271955138beb00b9d7f7b67445b82ef  energy/cold/jsr-d2e-16457-int8/round-2/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host.before
+a90e704080f2606ba54fac4aba5c44124701849013aac84ccc705370474d9ee2  energy/cold/jsr-d2e-16457-int8/round-2/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host.cpu.after
+e97dd926fc0109c2a82ca3703fa32ebf5114a407b536898c72a247f63bec1540  energy/cold/jsr-d2e-16457-int8/round-2/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host.cpu.before
+5836ba277450d4124347e568a6ec72345d1bec463f610688f7b2906647e6cc42  energy/cold/jsr-d2e-16457-int8/round-2/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/host.freq.tsv
+cfd8407106f1b539bd92c506d704407a7aabb117ad76fa3c06370a04adef8831  energy/cold/jsr-d2e-16457-int8/round-2/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/measurement.json
+53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3  energy/cold/jsr-d2e-16457-int8/round-2/round  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/jsr-d2e-16457-int8/round-2/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/runtime-libraries.sha256
+95af58e05fbc60f3f32ed8f4cbcf6f4a472a098f2dc7423ceccba58ced5b8d6a  energy/cold/jsr-d2e-16457-int8/round-2/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/score.json
+1cd0a92c2465f45755732c8e2fefd1667023489318118df3b774114e5f419903  energy/cold/jsr-d2e-16457-int8/round-2/scores.jsonl  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/scores.jsonl
+ad5f491bee2735d895dcc4c3948b762c598fccaac11b1d6d2251a4453d5a4f7e  energy/cold/jsr-d2e-16457-int8/round-2/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/service.stderr
+162b6ed938da621dc2913c1ddfc5b63080c0976070f4ba9ee8370dceb58287e0  energy/cold/jsr-d2e-16457-int8/round-2/started  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/jsr-d2e-16457-int8/round-2/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/jsr-d2e-16457-int8/workload.sha256
+309c23732c0c314c62ff790f0d364ac823704d422e647de4538c1b2123ec47d3  energy/cold/jsr-d2e-16457-int8/round-3/command  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/command
+08541ee0c78ad5f60df0d9eaf669426b4b189383dceb1b54eaae7447b7ef0768  energy/cold/jsr-d2e-16457-int8/round-3/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/config.sha256
+fd20c5ae83bd5358f0809457c571b8b5959eccf022d2464fef822f3a8ba7e93a  energy/cold/jsr-d2e-16457-int8/round-3/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/jsr-d2e-16457-int8/round-3/host  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host
+3a2582dd63a484433cac1094068e9697055328aae0d7fe259f9e1774f1e57e84  energy/cold/jsr-d2e-16457-int8/round-3/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host.after
+fcc032db035e4cdd2b72feb24de889432b119fdee93d1779e683184184da91bc  energy/cold/jsr-d2e-16457-int8/round-3/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host.before
+a84b14dcc86e259446028c4762a245aaf8f8199dd57e7c24525c1e5b96e5a8f2  energy/cold/jsr-d2e-16457-int8/round-3/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host.cpu.after
+799defaaa49eec3549bd807d46ed22c0e7d28b714f4bb4cfbb19ff6cdc76ea1b  energy/cold/jsr-d2e-16457-int8/round-3/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host.cpu.before
+574c0394613097e670ac513dcc1bbf3ee04169822e780f9e7606ca95a50946c8  energy/cold/jsr-d2e-16457-int8/round-3/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/host.freq.tsv
+2262960efdfaf824e679cc5d0c460a86d20ad3a373656c51857bca12148c3ca4  energy/cold/jsr-d2e-16457-int8/round-3/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/measurement.json
+1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2  energy/cold/jsr-d2e-16457-int8/round-3/round  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/jsr-d2e-16457-int8/round-3/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/runtime-libraries.sha256
+95af58e05fbc60f3f32ed8f4cbcf6f4a472a098f2dc7423ceccba58ced5b8d6a  energy/cold/jsr-d2e-16457-int8/round-3/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/score.json
+ad5f491bee2735d895dcc4c3948b762c598fccaac11b1d6d2251a4453d5a4f7e  energy/cold/jsr-d2e-16457-int8/round-3/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/service.stderr
+190eef7814a91cd7bfc257bf3df916c19a76c1e56764878f91d8023ded17b7d0  energy/cold/jsr-d2e-16457-int8/round-3/started  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/jsr-d2e-16457-int8/round-3/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/jsr-d2e-16457-int8/workload.sha256
+62e299b33a1b4c621b79f976ba7586bbff96e5c5c3a7705519b8d61b7ab19b63  energy/cold/sampler-cpus-16-20.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+58e3188a0562731f8a837771a45a8699e0e6115f6807ffcb7da810ff610e1000  energy/cold/zipformer-int8/round-1/command  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/command
+6ffebda6cf4c70c1708fce49d69f058622a17e1b54a743a072c3e044f85721cb  energy/cold/zipformer-int8/round-1/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/config.sha256
+1daeaf48ba40508268f610820f1adc942e1ebb15e61d8f4c0e27ea22ef14341a  energy/cold/zipformer-int8/round-1/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/zipformer-int8/round-1/host  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host
+3b919d7904c0d1fbf5e71302977defb0ca19f5f200d39c235c3b92343200d30d  energy/cold/zipformer-int8/round-1/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host.after
+ad2378f25e88fd43bbc2fa45a8cc45dd4f23f100a37dd3c13c979f847cb0f0a7  energy/cold/zipformer-int8/round-1/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host.before
+8c03befd2a02ffb6799f27ef32986909fb4e8137bd859c376b93149900e9292b  energy/cold/zipformer-int8/round-1/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host.cpu.after
+03195e4cf1f59cbb18faff2d732931ca7b6d0796e535e0180d55ff604acee9ab  energy/cold/zipformer-int8/round-1/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host.cpu.before
+33b6db56be240771fa738bb0644b04197a7a1bf8cb384a2cc221ce9b51120a08  energy/cold/zipformer-int8/round-1/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/host.freq.tsv
+0333282e6cf82d2e48b1439b897eec1a49ff721dfdfb1156fe0f14be06c87cb5  energy/cold/zipformer-int8/round-1/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/measurement.json
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  energy/cold/zipformer-int8/round-1/round  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zipformer-int8/round-1/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/runtime-libraries.sha256
+21ba70a502aef7ee607b0925a2bf2e2583f86335265dc5e00f4b10c373939511  energy/cold/zipformer-int8/round-1/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/score.json
+8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-1/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/service.stderr
+190eef7814a91cd7bfc257bf3df916c19a76c1e56764878f91d8023ded17b7d0  energy/cold/zipformer-int8/round-1/started  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-1/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-1/zipformer-int8/workload.sha256
+0e6c743c90315bc1fbf5782b9f6170fd222744d8644ab32bb9edb3f4a5b60208  energy/cold/zipformer-int8/round-2/command  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/command
+6ffebda6cf4c70c1708fce49d69f058622a17e1b54a743a072c3e044f85721cb  energy/cold/zipformer-int8/round-2/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/config.sha256
+1b78638f3c81f4571b12291c68fa418b1518df658f2b7cf55e8b3ee295282d50  energy/cold/zipformer-int8/round-2/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/zipformer-int8/round-2/host  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host
+d663d39b84e4e076da4416171768535ac5584e1ac2830cc06a11daa5137d772e  energy/cold/zipformer-int8/round-2/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host.after
+eca17325a55d71b2a851973b216fdf0743ee32c68650d5153658e69e57ba6c17  energy/cold/zipformer-int8/round-2/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host.before
+a82211b9bd6f60915e8cef1921378b87972c3f0156d7f6f67f7ba4828e2913ea  energy/cold/zipformer-int8/round-2/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host.cpu.after
+5f7e458bcafa887465e34b719137ea251e319b8c84ac94b57f24bfb22dc4b3a8  energy/cold/zipformer-int8/round-2/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host.cpu.before
+8ea9935f31f327db45eb0b2de2076813b3b39e7a8ce04cf6abb50724e2799045  energy/cold/zipformer-int8/round-2/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/host.freq.tsv
+32d4ef7e721bc300dd792419e5f86afad3e5f747b8f4459d934eb43acb354eb7  energy/cold/zipformer-int8/round-2/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/measurement.json
+53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3  energy/cold/zipformer-int8/round-2/round  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zipformer-int8/round-2/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/runtime-libraries.sha256
+21ba70a502aef7ee607b0925a2bf2e2583f86335265dc5e00f4b10c373939511  energy/cold/zipformer-int8/round-2/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/score.json
+8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-2/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/service.stderr
+1daeaf48ba40508268f610820f1adc942e1ebb15e61d8f4c0e27ea22ef14341a  energy/cold/zipformer-int8/round-2/started  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-2/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-2/zipformer-int8/workload.sha256
+9428194bdeacaa944cc4087b60d8b731106268b3bc881cf4b9b4f636da6a5c2b  energy/cold/zipformer-int8/round-3/command  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/command
+6ffebda6cf4c70c1708fce49d69f058622a17e1b54a743a072c3e044f85721cb  energy/cold/zipformer-int8/round-3/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/config.sha256
+647d60d645f2c3124ea7eb5ee63403272089fbd5effc7b59cb44d3364a45ab52  energy/cold/zipformer-int8/round-3/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/zipformer-int8/round-3/host  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host
+2f2cc41630c3b0add044fbde3d35d619d003c1186d4b66f37c8922cfae2155ef  energy/cold/zipformer-int8/round-3/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host.after
+04b199d21f117e11a95178adfd05de878d71e3b36860cc8f523f83d46baea6ca  energy/cold/zipformer-int8/round-3/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host.before
+75440920fe04ede3af062858e9642af9847adfa55764593bc4d22763a8320a97  energy/cold/zipformer-int8/round-3/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host.cpu.after
+974aa73119c1d8ef09e552302e03d141112824950a81f946c3a843fbd75fb1b2  energy/cold/zipformer-int8/round-3/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host.cpu.before
+aee8d011586121b6f419591f56ff8477d4f8bb222b2648529124cdc0f01f214e  energy/cold/zipformer-int8/round-3/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/host.freq.tsv
+75d356ab6ecfc659235cf5f9c0ee602f10e53fd77618730c82a6b5dca4eeab20  energy/cold/zipformer-int8/round-3/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/measurement.json
+1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2  energy/cold/zipformer-int8/round-3/round  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zipformer-int8/round-3/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/runtime-libraries.sha256
+21ba70a502aef7ee607b0925a2bf2e2583f86335265dc5e00f4b10c373939511  energy/cold/zipformer-int8/round-3/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/score.json
+ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113  energy/cold/zipformer-int8/round-3/scores.jsonl  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/scores.jsonl
+8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-3/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/service.stderr
+1daeaf48ba40508268f610820f1adc942e1ebb15e61d8f4c0e27ea22ef14341a  energy/cold/zipformer-int8/round-3/started  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-3/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-3/zipformer-int8/workload.sha256
+42082342e071f49ebba29bd7c9312c9d0a564bf0f95ce384581abe185dbb286d  energy/cold/zipformer-int8/round-4/command  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/command
+6ffebda6cf4c70c1708fce49d69f058622a17e1b54a743a072c3e044f85721cb  energy/cold/zipformer-int8/round-4/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/config.sha256
+bbfab7f9cdaf582d5f1d5526bf6faa456729cd7a438bdaa6ba8b48cc93bc8093  energy/cold/zipformer-int8/round-4/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/zipformer-int8/round-4/host  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host
+026a5d4f8bb1ad14a02663fc5ffb98ef7d81cb6078535b62efbffe632ce950d9  energy/cold/zipformer-int8/round-4/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host.after
+87a3fff89f03c2ceeecdbd55935964651ba0e1d7f8e9b679cccef1d428dd0df0  energy/cold/zipformer-int8/round-4/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host.before
+c222de89e56a454d31f36fbf288f0f67a4a21244e143d7061ceb0b1e8a59606a  energy/cold/zipformer-int8/round-4/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host.cpu.after
+fa6e63f295a55d6e7a53f3c9e5bae7a324b3f426cd311683220caf85b0f47579  energy/cold/zipformer-int8/round-4/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host.cpu.before
+228d7065253656146d19b55b6f5d0827b891d0b79451065c55a2854cf4477042  energy/cold/zipformer-int8/round-4/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/host.freq.tsv
+c381e31edb8710c9cdee4eb14c32f20e855ce0bacd4d7ddd156c3be3700565db  energy/cold/zipformer-int8/round-4/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/measurement.json
+7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d  energy/cold/zipformer-int8/round-4/round  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zipformer-int8/round-4/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/runtime-libraries.sha256
+21ba70a502aef7ee607b0925a2bf2e2583f86335265dc5e00f4b10c373939511  energy/cold/zipformer-int8/round-4/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/score.json
+ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113  energy/cold/zipformer-int8/round-4/scores.jsonl  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/scores.jsonl
+8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-4/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/service.stderr
+7f42065d1777361a0911c6446a9255c60975a551d3712a20c0938a8fe96598a6  energy/cold/zipformer-int8/round-4/started  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-4/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-4/zipformer-int8/workload.sha256
+8dfceac763c824a2875b3fedeb0b89b7e3a76b0df6e99ef1bb56eb95eab644a1  energy/cold/zipformer-int8/round-5/command  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/command
+6ffebda6cf4c70c1708fce49d69f058622a17e1b54a743a072c3e044f85721cb  energy/cold/zipformer-int8/round-5/config.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/config.sha256
+2a7a07cdb76a6ae2f987e9d9a0dd3e6a940eea6e26fa87b9d2341e16ef4510b5  energy/cold/zipformer-int8/round-5/finished  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/finished
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  energy/cold/zipformer-int8/round-5/host  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host
+8849a89f99a99b3f6931a539726b97cc540262bd353303b27f63a9ea221cf33f  energy/cold/zipformer-int8/round-5/host.after  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host.after
+9be11b7015e02693b8b9c27b5c9ddef3888a71602e8a76e657a91bf2574396f5  energy/cold/zipformer-int8/round-5/host.before  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host.before
+23950b46f75caa385c2fe0a2aea9f7c14374ece2881cbbb69aa86f283272636e  energy/cold/zipformer-int8/round-5/host.cpu.after  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host.cpu.after
+9fb921436cfa6d7dfa76322efdc72eadd6a179b5ee60cf6941211a7862a31401  energy/cold/zipformer-int8/round-5/host.cpu.before  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host.cpu.before
+005c4597deda0f40b8f57e103f96f32111a6a803f787cf48153f5e5ae6a9f759  energy/cold/zipformer-int8/round-5/host.freq.tsv  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/host.freq.tsv
+13872c28eabe0309aa706cc76d3ca23dbaa98d486bbd0f50673cac89f952faf1  energy/cold/zipformer-int8/round-5/measurement.json  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/measurement.json
+f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06  energy/cold/zipformer-int8/round-5/round  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/round
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zipformer-int8/round-5/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/runtime-libraries.sha256
+21ba70a502aef7ee607b0925a2bf2e2583f86335265dc5e00f4b10c373939511  energy/cold/zipformer-int8/round-5/score.json  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/score.json
+8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-5/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/service.stderr
+bbfab7f9cdaf582d5f1d5526bf6faa456729cd7a438bdaa6ba8b48cc93bc8093  energy/cold/zipformer-int8/round-5/started  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/started
+87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-5/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/workload.sha256
+92cf4fed11754fb4145398ae3f46aa1b87939eafd394f759ddb58ed3a84836a0  energy/derived/cold-rounds-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+f38daf0ffb38ba3d36c8481c7389a2cfce87dd01e8dd0722ba2c7e7dd9d5ec09  energy/derived/engine-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+485266bc008c9698bbc256f011951f5b2687278bbad52468170c2ced99a7be9a  energy/derived/entry2-h22ctl-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+483b90a031217de212512f9b607b25833856cbd974138dce6f61d6896749bd7a  energy/derived/idle-against-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+df7d0c44a8c224ecc1ddd17150447bdb3b2d7f1258b70be75603f4d254e09ed2  energy/derived/v2-spin-fit.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+cc429824aeb844d2007fc57e02fc7d529de7a029ecd4a1eb8d23524fea911377  energy/derived/zipformer-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+8a3213722a67f12e3190902bb78005deadc2d69e0b5123ff969361b90484a523  energy/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+0ce510219967d911e7b0618a7f127373dd0be14f4c17ccd852ff59870055cc84  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
+683b9b8ec5d9dd6d6d8a078a446061062db36b32f3514b97c02da56110590567  energy/series/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+2f93f046017525c9ce09a1cefa7e6262551fb2694f69625061e85c844a3806fa  energy/series/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+7820892f07f681b39b25a3d18ed4c8f4bb84952b76e846aff5e5d4586db2a23e  energy/v1-idle-vs-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+642f181433061cf5541e63b624dfd27c5d9a12356fcc4bd1b3f881b267415a38  energy/v2-spin-1.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+d832dc0335220e7342670dfdf500fadf6d40090c454a4f4cc725d2c79bc8fb8b  energy/v2-spin-2.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+74f8abdf78b5a5225083914bd49a665981879803a79f3f10809916aa6c626369  energy/v2-spin-4.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+0f7843d14129278cde65da993ba85860ed02595769fb72ed0a3cf2b16cf455e5  energy/v2-spin-8.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+fc1ad7439643ca98984239fb188bf1053c30b4a508fb50541293cb86e8f0f28b  energy/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 c628016f68f8e94d5d6ef08b3fd86b60d97df9c9021924e5648f01ebe06d0dc8  evidence_codex.json  /home/ubuntu/jsr/docs/paper/evidence.json (Codex Evidence, untracked in main checkout, copied 2026-11-22)
 b59f4a7e93495a2749c65333623778c192239d9f0b6c80a0dd52cdc0a93d73c8  frontier.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/frontier.json
 7c355dec2266f6ef5f445f8e0cd8dfe312e78acf1a3b640980f14607ffdfe227  frontier_panel.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/frontier.json
