@@ -32,8 +32,9 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H10](H10_benchmark_methodology_review/README.md) | Independent methodology review → FREEZE | ongoing | 7 blocking findings; the cross-harness density claim was retracted; FREEZE rewritten |
 | [H11](H11_cross_isa_portable_logmel/README.md) | Cross-ISA bit-exact portable log-mel (G4) | EXPLORATORY | **7,300/7,300 (100%)** identical PCM→tokens x86 AVX2 == M3 NEON across 5 models × FP32/INT8 (R4T 636→730/730); 5/5 INT8 gates PASS |
 | [H12](H12_accuracy_diagnostics/README.md) | Accuracy diagnostics: MR padding fix, D2 error sources | EXPLORATORY | MR pad-before-pair fixed; D2MR impact ≤0.03 pp (no fine-tune). D2: beam 4 −0.65/−1.63 pp (search error); untrained chunk 16 −0.39/−0.90; no length or final-word effect; last-3 average −0.41/−1.64 (panel); k2 pruned loss exact vs ours (≤1e-13), 10× faster loss on CPU |
+| [H16](H16_engine_beam_search/README.md) | Bounded beam search in the Rust engine (B6); D2 avg-3 INT8 gate; left-context sweep | EXPLORATORY | Beam 4 = beam.py 730/730 token-identical, −1.43 pp on D2MR panel, INT8 gate PASS; left context 64 costs +0.09 pp |
 | [H17](H17_spec_corrections/README.md) | Spec claims our data contradicts; 3 qualification bugs (grok-lane) | note | Double fleet offset, grid error spin (runtime), ternary+act7 width switch (engine); trainer resume/CMVN facts |
 | [H18](H18_ieee_paper_draft/README.md) | IEEE paper draft (docs/paper), every number sourced and generated | draft | Abstract leads with the WER gap; pairing errors in repo docs caught and fixed |
 | [H19](H19_single_harness_rehearsal/README.md) | Single-harness rehearsal: R0 vs dense vs MR, per-CCX ladder + 8-block ABAB | EXPLORATORY | Density 32 / 96–112 / 144 per CCX (MR 4.5×, reproduced 3×); single-stream CPU 1.50× / 1.59× lower (p<1e-5); WER gap stated |
 
-Reserved: H13 recipe parity (trainer), H14 dual-mode, H16 engine beam search (engine). Next free: **H20**.
+Reserved: H13 recipe parity (trainer), H14 dual-mode. Next free: **H20**.
