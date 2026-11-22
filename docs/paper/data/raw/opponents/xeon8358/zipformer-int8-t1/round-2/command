@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/bench-cross/bin/ultra-cold-wav zipformer-int8 /home/ubuntu/jsr-data/opponents/zipformer-int8/bundle /home/ubuntu/jsr-data/opponents/bench-cross/workloads/panel730/wav /home/ubuntu/jsr-data/opponents/bench-cross/receipts/xeon8358/zipformer-int8-t1/round-2/predictions.jsonl 

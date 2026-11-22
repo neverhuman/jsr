@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/bench-cross/bin/moonshine-stream tiny /home/ubuntu/jsr-data/opponents/moonshine-tiny/model /home/ubuntu/jsr-data/opponents/bench-cross/workloads/panel730/wav /home/ubuntu/jsr-data/opponents/bench-cross/receipts/xeon8358/moonshine-tiny-t1/round-2/outputs 

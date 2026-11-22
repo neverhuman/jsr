@@ -1,0 +1,4 @@
+ce71b26e8e128e708ee0895ded0c69726bc2251c1f0ddc104c1389a74eaeab76  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv/lib/python3.12/site-packages/sherpa_onnx/lib/_sherpa_onnx.cpython-312-darwin.so
+b0613d0ae53199a83b05fa48e169211498e9d40d54beaa372068ebe5ec5b0929  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv/lib/python3.12/site-packages/sherpa_onnx/lib/libonnxruntime.dylib
+87aabc290e11de363070e5758eab91f162dda527674b9ad586ade716805b2b5f  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv/lib/python3.12/site-packages/sherpa_onnx/lib/libsherpa-onnx-c-api.dylib
+66714e8455f1fdd409a083f9cc1657733f8a6b93242ba15b5dc93d2f18c5b440  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv/lib/python3.12/site-packages/sherpa_onnx/lib/libsherpa-onnx-cxx-api.dylib

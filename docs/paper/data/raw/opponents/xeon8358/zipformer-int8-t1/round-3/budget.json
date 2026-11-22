@@ -1,0 +1,3 @@
+{"arm": "zipformer-int8", "budget": "t1", "class": "streaming", "machine": "xeon8358", "threads": 1,
+ "parallel": "intra_op", "service_cpus": "28", "observer_cpu": "29", "workload": "panel730",
+ "trace": 0}
