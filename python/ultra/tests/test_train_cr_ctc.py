@@ -172,3 +172,49 @@ def test_full_form_two_view_step_runs_with_the_pruned_loss(tmp_path):
     t.run(max_steps=2)
     assert t.step == 2 and all(torch.isfinite(p).all() for p in t.model.parameters())
 
+
+def test_half_form_two_view_step_matches_the_one_graph_gradient(tmp_path):
+    """cr_ctc_half: CTC on both views and the consistency KL, transducer loss on view A only. The
+    sequential step must accumulate the gradient of that loss computed in one graph."""
+    from train.asr import spec_augment
+
+    exs = [Example(f"u{i}", "hi", torch.randn(40 + 4 * i, 80), [1, 2, 3], [1, 2]) for i in range(4)]
+    cfg = TrainConfig(preset="TINY", total_steps=4, warmup=1, log_every=1, eval_every=0,
+                      ckpt_every_steps=100, specaug=True, specaug_start=0, clip=1e9,
+                      cr_ctc_weight=0.2, cr_ctc_half=True)
+
+    def trainer(d):
+        torch.manual_seed(11)
+        return Trainer(str(tmp_path / d), cfg, FixedBatches(exs, batch_size=4, shuffle=False),
+                       model_cfg=PRESETS["TINY"], device="cpu", log=False)
+
+    ref, two = trainer("ref"), trainer("two")
+    batch = next(iter(two._batches()))[1]
+    b = batch.to(ref.device)
+    gen = torch.Generator().manual_seed(cfg.seed * 1_000_003 + ref.step)
+    m = ref.model
+    m.train()
+    with torch.no_grad():
+        x_norm = m.cmvn(b.feats)
+        xa = spec_augment(x_norm, b.feat_lens, ref.augment, gen)
+        xb = spec_augment(x_norm, b.feat_lens, ref.augment, gen)
+    args = (b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens)
+    kw = {"pruned_scale": ref._pruned_scale(), "simple_detach": False, "cr_ctc_weight": 0.2}
+    with torch.no_grad():
+        lp_a = m.losses(*args, view=xa, **kw)["ctc_lp"]
+        lp_b = m.losses(*args, view=xb, **kw)["ctc_lp"]
+    out_a = m.losses(*args, view=xa, cr_target=lp_b, **kw)
+    out_b = m.losses(*args, view=xb, cr_target=lp_a, **kw)
+    cw = m.cfg.ctc_weight
+    part_a = cw * out_a["ctc"] + 0.2 * out_a["cr_ctc"]
+    part_b = cw * out_b["ctc"] + 0.2 * out_b["cr_ctc"]
+    want_loss = out_a["loss"] - 0.5 * part_a + 0.5 * part_b  # transducer(A) + mean CTC + mean KL
+    want_loss.backward()
+    want = {n: p.grad.clone() for n, p in m.named_parameters() if p.grad is not None}
+
+    r = two.train_step(batch)
+    got = {n: p.grad for n, p in two.model.named_parameters() if p.grad is not None}
+    assert want.keys() == got.keys() and len(want) > 10
+    for n, g in want.items():
+        assert torch.allclose(got[n], g, atol=1e-6, rtol=1e-5), n
+    assert abs(r["loss"] - float(want_loss)) < 1e-5 and abs(r["rnnt"] - float(out_a["rnnt"])) < 1e-6

@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import time
 
 import torch
 
@@ -156,8 +157,14 @@ def main(argv=None) -> int:
                          budget_s=a.budget_s, max_batch=a.max_batch)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=1e-4)
     it = src.iterate(Position())
+    run_dir = os.path.dirname(os.path.abspath(a.out))
+    os.makedirs(run_dir, exist_ok=True)
+    progress = os.path.join(run_dir, "train.jsonl")  # same record kind the trainer writes (dashboards)
+    t0 = t_last = time.time()
+    audio_s = audio_last = 0.0
     for step in range(1, a.steps + 1):
         _, b = next(it)
+        audio_s += b.audio_seconds
         b = b.to(a.device)
         opt.zero_grad(set_to_none=True)
         out = mwer_loss(model, b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.texts, tok_r,
@@ -166,6 +173,14 @@ def main(argv=None) -> int:
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         opt.step()
         if step == 1 or step % 25 == 0 or step == a.steps:
+            now = time.time()
+            rec = {"kind": "train", "step": step, "loss": float(out["loss"]), "rnnt": float(out["rnnt"]),
+                   "ctc": 0.0, "mwer": float(out["mwer"]), "active_utts": out["active_utts"], "lr": a.lr,
+                   "audio_s": audio_s, "wall_s": round(now - t0, 1),
+                   "audio_h_per_h": (audio_s - audio_last) / max(1e-9, now - t_last), "time": now}
+            t_last, audio_last = now, audio_s
+            with open(progress, "a") as fh:
+                fh.write(json.dumps(rec) + "\n")
             print(json.dumps({"step": step, "loss": round(float(out["loss"]), 4),
                               "rnnt": round(float(out["rnnt"]), 4),
                               "mwer": round(float(out["mwer"]), 4),
