@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # H13b/c/d matched 100 h controls (research/H13_vocab_and_pruned_loss): the given arms run one after
-# another on one GPU (in practice one arm per GPU: H13b/H13c on xbabe7's A100s, H13d on xbabe6's
+# another on one GPU (in practice one arm per GPU: H13b/H13c on xbabe5's A100s, H13d on xbabe6's
 # A10), each under its own fleet_guard (GPU target 0.88). Pinned: seed 1234, budget 300 s,
 # max batch 64, lr 1e-3, warmup 2000, 24k steps, clip 5, SpecAugment from 4k, no speed perturbation,
 # EMA 0.9995, dev-clean400 + eval-only snapshot every 2000 steps.
@@ -20,7 +20,7 @@ for arm in "H13b_exact4096 rnnt_loss=exact rnnt_pieces=4096 ctc_pieces=1024" \
   [[ "$want" == *" ${name%%_*} "* ]] || continue
   R=$DATA/runs/train/$name
   [ -f "$R/DONE" ] && continue
-  ln -sfn "$R" "$DATA/runs/train/H13_current_gpu$GPU"  # guard_ceiling follows the running arm
+  mkdir -p "$R" && ln -sfn "$R" "$DATA/runs/train/H13_current_gpu$GPU"  # guard_ceiling follows the running arm
   # shellcheck disable=SC2086
   "$REPO/python/ultra/train/launch_guarded.sh" "$R" "$CPUS" "$GPU" -- $COMMON --set $SETS $extra || exit 1
   while kill -0 "$(cat "$R/PID")" 2>/dev/null; do sleep 60; done

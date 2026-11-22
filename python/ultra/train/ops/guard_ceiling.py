@@ -19,8 +19,8 @@ RUNS = {  # label: (host, run_dir, guard log name, kind); host "local" = H0 itse
     "D3MRc": ("xbabe1", "/mnt/amphora-backup/jsr-data/runs/train/D3MRc_S_MR_I8S_960h", "fleet_guard.jsonl", "linux"),
     "H13a": ("xbabe2", "/home/ubuntu/jsr-data/runs/train/H13a_S_spm512_960h", "fleet_guard.jsonl", "linux"),
     "H13d": ("xbabe6", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu0", "fleet_guard.jsonl", "linux"),
-    "H13b": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu0", "fleet_guard.jsonl", "linux"),
-    "H13c": ("xbabe7", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu1", "fleet_guard.jsonl", "linux"),
+    "H13b": ("xbabe5", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu0", "fleet_guard.jsonl", "linux"),
+    "H13c": ("xbabe5", "/home/ubuntu/jsr-data/runs/train/H13_current_gpu1", "fleet_guard.jsonl", "linux"),
     "D4M": ("xbabe4", "/Users/agent/jsr-train/data/runs/train/D4M_M_MR_960h", "mac_guard.jsonl", "mac"),
 }
 MAC_RESTART = (
