@@ -20,20 +20,29 @@ pub(super) fn stem(
     m: &Model,
     isa: Isa,
     prec: Precision,
-    jobs: &[ChunkJob<'_>],
+    jobs: &mut [ChunkJob<'_>],
     ws: &mut EncWorkspace,
     rows: usize,
 ) {
     let a = &m.arch;
     let (ch, f1, f2, nm) = (a.stem_ch, a.f1, a.f2, a.n_mels);
+    let row_elems = f1 * ch;
     let t_stem = ws.q.prof.start();
     let col = grow(&mut ws.col, rows * f2 * 9 * ch);
     let mut crow = 0;
-    for j in jobs {
+    for j in jobs.iter_mut() {
         let n1 = 2 * j.n + 1;
-        let c1 = grow(&mut ws.c1, n1 * f1 * ch);
+        let c1 = grow(&mut ws.c1, n1 * row_elems);
         // Layer 1: out[j1][f][c], channel-last.
-        for r in 0..n1 {
+        // Row r = 0 at position t0 equals row r = 2 * n_prev of the previous chunk (t0_prev + n_prev == t0).
+        let r_start = if j.state.c1_prev_t == Some(j.state.t) && j.state.c1_prev.len() == row_elems
+        {
+            c1[..row_elems].copy_from_slice(&j.state.c1_prev);
+            1
+        } else {
+            0
+        };
+        for r in r_start..n1 {
             let zero = 2 * j.state.t + r < 2;
             for f in 0..f1 {
                 let o = &mut c1[(r * f1 + f) * ch..(r * f1 + f + 1) * ch];
@@ -53,6 +62,13 @@ pub(super) fn stem(
                 }
                 kernels::silu_inplace(isa, o);
             }
+        }
+        if j.state.c1_prev.len() == row_elems {
+            let last_off = (n1 - 1) * row_elems;
+            j.state
+                .c1_prev
+                .copy_from_slice(&c1[last_off..last_off + row_elems]);
+            j.state.c1_prev_t = Some(j.state.t + j.n);
         }
         // im2col for layer 2: row (i, f), K = (kh, kw, c).
         for i in 0..j.n {
