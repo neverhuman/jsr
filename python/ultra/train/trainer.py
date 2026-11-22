@@ -130,6 +130,8 @@ class TrainConfig:
     lookahead_k: int = 0
     lookahead_alpha: float = 0.5
     zloss: float = 0.0
+    # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
+    cr_ctc_weight: float = 0.0
     eden_lr_batches: float = 7500.0
     eden_lr_epochs: float = 3.5
     eden_steps_per_epoch: float = 0.0
@@ -200,6 +202,7 @@ class Trainer:
                 "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary(),
                 "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema,
+                "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
                 **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
 
     def save(self, wait: bool = False) -> None:
@@ -235,6 +238,9 @@ class Trainer:
         self.step = p["step"]
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
+        self.loss_ema = p.get("loss_ema")
+        self.best_ema = p.get("best_ema")
+        self.best_wer = p.get("best_wer")
         self.clipper.load_state_dict(p.get("clipper"))
         self.ema = ({k: v.to(self.device) for k, v in p["ema"].items()}
                     if p.get("ema") is not None else None)
@@ -275,7 +281,9 @@ class Trainer:
                                     pruned_scale=self._pruned_scale(),
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
                                     simple_detach=self.step < self.cfg.prune_hold,
-                                    **({"zloss_weight": self.cfg.zloss} if self.cfg.zloss else {}))
+                                    **({"zloss_weight": self.cfg.zloss} if self.cfg.zloss else {}),
+                                    **({"cr_ctc_weight": self.cfg.cr_ctc_weight}
+                                       if self.cfg.cr_ctc_weight else {}))
         loss = out["loss"]
         if self.world > 1:
             hb = self._hb_acc()
@@ -315,7 +323,8 @@ class Trainer:
                 "utts": len(batch.uids) if b.active else 0,
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
-                **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {})}
+                **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {}),
+                **({"cr_ctc": float(out["cr_ctc"].detach())} if "cr_ctc" in out else {})}
 
     def _ddp_interval_stats(self, acc: dict) -> dict:
         """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
@@ -406,6 +415,8 @@ class Trainer:
             loss = loss + self.cfg.kd_weight * fk * out["kd"]
         if "zloss" in out:  # H23 joiner z-loss: a per-rank mean, averaged across active ranks
             loss = loss + self.cfg.zloss * float(active) * out["zloss"]
+        if "cr_ctc" in out:  # H26 CR-CTC consistency KL: per-rank mean over valid frames
+            loss = loss + self.cfg.cr_ctc_weight * float(active) * out["cr_ctc"]
         if self.cfg.kd_weight > 0 and "kd" not in out:
             out["kd"] = out["rnnt"].new_zeros(())
         keys = ["rnnt", "ctc"]
@@ -614,7 +625,7 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -630,6 +641,7 @@ class Trainer:
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
                           **({"zloss": acc["zloss"] / acc["n"]} if "zloss" in acc else {}),
+                          **({"cr_ctc": acc["cr_ctc"] / acc["n"]} if "cr_ctc" in acc else {}),
                           **({"clip_thr": self.clipper.last_threshold}
                              if self.clipper.mode == "adaptive" else {}),
                           **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)}

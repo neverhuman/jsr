@@ -59,6 +59,15 @@ def r0_to_student(ids: torch.Tensor) -> torch.Tensor:
     return torch.where(ids > 0, ids + 1, torch.zeros_like(ids))
 
 
+def verify_emitted_path(emitted: np.ndarray, rnnt_tgt: list[int] | np.ndarray) -> bool:
+    """H26 forensic guard: verify teacher's non-blank emitted subword sequence matches the
+    student's exact RNN-T target tokens (stronger than normalised text equality)."""
+    nz = emitted[emitted > 0]
+    student_emitted = (nz.astype(np.int64) + 1).tolist()
+    target = list(rnnt_tgt) if not isinstance(rnnt_tgt, np.ndarray) else rnnt_tgt.astype(np.int64).tolist()
+    return student_emitted == target
+
+
 def kd_loss(joiner, enc_p: torch.Tensor, pred_p: torch.Tensor, enc_lens: torch.Tensor,
             rnnt_lens: torch.Tensor, kd_ids: torch.Tensor, kd_lp: torch.Tensor,
             kd_u: torch.Tensor, kd_mask: torch.Tensor) -> tuple[torch.Tensor, int]:
