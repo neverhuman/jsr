@@ -31,23 +31,23 @@ mkdir -p "$WORK/grids" "$RUNS" "$WORK/results" "$WORK/logs"
 taskset -cp "${CORES// /,}" $$ > /dev/null
 lm_tune() { (cd "$ROOT" && "$PY" -m train.lm_tune "$@"); }
 lm_tune grid --tag "$TAG" --lm "$LM" --lodr "$LODR" --beam "$BEAM" --kind "$KIND" --out "$grid"
-todo=$grid
+batch_file=$grid
 round=0
 while :; do
-  PY="$PY" LM_BEAM_ARGS=--fast bash "$HERE/lm_beam_grid.sh" "$todo" "$RUNS" "$WORK/logs/$name.r$round"
+  PY="$PY" LM_BEAM_ARGS=--fast bash "$HERE/lm_beam_grid.sh" "$batch_file" "$RUNS" "$WORK/logs/$name.r$round"
   lm_tune fusion --cache "$LM_CACHE" --runs "$RUNS" --baseline "${BASELINE:-b4}" --grid "$grid" \
     --dump "$WORK/results/hyps" --out "$WORK/results/fusion_$name.json" --procs "${PROCS:-8}" \
     > "$WORK/logs/tune_$name.log"
   echo "round $round of $name tuned: $(date -u +%H:%M:%SZ)"
   round=$((round + 1))
-  todo="$WORK/grids/$name.ext$round.json"
-  n=$(lm_tune extend --grid "$grid" --results "$WORK/results/fusion_$name.json" --out "$todo")
+  batch_file="$WORK/grids/$name.ext$round.json"
+  n=$(lm_tune extend --grid "$grid" --results "$WORK/results/fusion_$name.json" --out "$batch_file")
   if [ "$n" -eq 0 ]; then echo "edge rule: every chosen value is interior"; break; fi
   if [ "$round" -gt "${MAX_ROUNDS:-4}" ]; then
     echo "edge rule: CAPPED after ${MAX_ROUNDS:-4} rounds, $n configs still on an edge (not decoded)"
     break
   fi
   echo "edge rule: $n configs added in round $round"
-  "$PY" -c 'import json, sys; g = json.load(open(sys.argv[1])); g += json.load(open(sys.argv[2])); json.dump(g, open(sys.argv[1], "w"), indent=1)' "$grid" "$todo"
+  "$PY" -c 'import json, sys; g = json.load(open(sys.argv[1])); g += json.load(open(sys.argv[2])); json.dump(g, open(sys.argv[1], "w"), indent=1)' "$grid" "$batch_file"
 done
 echo "sweep $name done: $(date -u +%H:%M:%SZ)"

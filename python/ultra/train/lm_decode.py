@@ -234,17 +234,17 @@ def beam(a) -> None:
     for split, (index, frames) in caches.items():
         # Utterance-outer loop: the configs of a grid visit nearly the same LM contexts on one
         # utterance, so each LM row is computed once and shared by all of them.
-        todo = []
+        open_runs = []
         for cfg, fusion in zip(configs, fusions, strict=True):
             out = os.path.join(a.out, cfg["name"], f"{split}.{shard:02d}of{nshard:02d}.jsonl")
             if not os.path.exists(out) and not complete_shards(os.path.dirname(out), split):
                 os.makedirs(os.path.dirname(out), exist_ok=True)
-                todo.append((cfg, fusion, out, open(out + ".tmp", "w")))  # noqa: SIM115
+                open_runs.append((cfg, fusion, out, open(out + ".tmp", "w")))  # noqa: SIM115
         for n, u in enumerate(index["utts"]):
-            if n % nshard != shard or not todo:
+            if n % nshard != shard or not open_runs:
                 continue
             x = np.array(frames[u["offset"]:u["offset"] + u["frames"]])
-            for cfg, fusion, _, fh in todo:
+            for cfg, fusion, _, fh in open_runs:
                 nb: list = []
                 t0 = time.perf_counter()
                 if fast is not None:
@@ -267,12 +267,12 @@ def beam(a) -> None:
                     fusion.contexts = 0
                 fh.write(json.dumps(row) + "\n")
             if n % (50 * nshard) == shard:
-                for *_, fh in todo:
+                for *_, fh in open_runs:
                     fh.flush()  # progress is visible while a shard runs
-        for _, _, out, fh in todo:
+        for _, _, out, fh in open_runs:
             fh.close()
             os.replace(out + ".tmp", out)
-        print(json.dumps({"done": split, "shard": a.shard, "configs": len(todo),
+        print(json.dumps({"done": split, "shard": a.shard, "configs": len(open_runs),
                           "lm_lookups": {os.path.basename(k): v.lookups for k, v in lms.items()}}),
               flush=True)
 
