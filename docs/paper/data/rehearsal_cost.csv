@@ -1,4 +1,4 @@
 key,system,cpu_matched,wer_panel_clean,streams_ccx,streams_before_fail,cpu_at_claim,cpu_batch16,cpu_single
-rzero,R0 Zipformer INT8,0.06809,2.952,32,32,0.06809,0.05938,0.22572
-dense,D2-45k dense INT8,0.04059,9.561,112,112,0.03486,0.04074,0.17017
-mr,D2MR-50k MR INT8,0.03207,11.561,144,144,0.02541,0.03186,0.16653
+rzero,R0 Zipformer INT8,0.07245,2.952,32,32,0.07245,0.05938,0.22572
+dense,D2 avg-3 (45/50/55k) dense INT8,0.04043,7.750,96,96,0.03433,,
+mr,D2MR-50k MR INT8,0.03258,11.561,144,144,0.02538,0.03186,0.16653

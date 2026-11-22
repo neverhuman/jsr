@@ -43,8 +43,17 @@ REQUIRED = ("id", "value", "unit", "label", "configuration", "workload", "worklo
 CANDIDATES = (
     # key, candidate string in the raw files, display name, macro stem
     ("rzero", "zipformer-int8", "R0 Zipformer INT8", "Rzero"),
-    ("dense", "/home/ubuntu/jsr-data/runs/engine/d2-45000/weights-int8prep", "D2-45k dense INT8", "Dense"),
+    ("dense", "/home/ubuntu/jsr-engine-data/runs/d2-avg3-45-50-55/weights-int8prep", "D2 avg-3 (45/50/55k) dense INT8", "Dense"),
     ("mr", "/home/ubuntu/jsr-data/runs/engine/d2mr-50000/weights-int8prep", "D2MR-50k MR INT8", "MR"),
+)
+# Job C (panel frontier) and Job B (ABAB) timed the dense step-45k checkpoint, not the avg-3 finalist.
+FRONT_DENSE = "/home/ubuntu/jsr-data/runs/engine/d2-45000/weights-int8prep"
+# Every single-harness ladder run on xbabe0: (raw dir, dense candidate, build note).
+LADDER_RUNS = (
+    ("ladder_a_57fc3c5", FRONT_DENSE, "Job A, ultra 57fc3c5 (pre-H15 mel), dense step 45k"),
+    ("ladder_d_ce58952", FRONT_DENSE, "Job D, ultra ce58952, dense step 45k"),
+    ("ladder_e_ce58952_avg3", "/home/ubuntu/jsr-engine-data/runs/d2-avg3-45-50-55/weights-int8prep",
+     "Job E, ultra ce58952, dense avg-3 finalist"),
 )
 MATCHED_RUNG = 32  # highest total-streams rung every rehearsal candidate sustained
 LADDER_WORKLOAD = "dev-clean.npz, first 10 utt cycled per stream (ladder --limit 10)"
@@ -244,7 +253,7 @@ CODEX_ROWS = (
     ("WerDtwoBest", "d2-avg3-60k-beam4", ("Clean", "Other", "Pooled")),
     ("WerDtwoBestPanel", "panel-d2-avg3-60k-beam4", ("Clean", "Other", "Pooled")),
     ("WerDtwoAvgGreedyPanel", "panel-d2-avg3-60k-greedy", ("Pooled",)),
-    ("WerDtwoAvgOldGreedyPanel", "panel-d2-avg3-55k-greedy", ("Pooled",)),
+    ("WerDtwoAvgOldGreedyPanel", "panel-d2-avg3-55k-greedy", ("Clean", "Other", "Pooled")),
     ("WerDtwoSnapGreedyPanel", "panel-d2-55k-greedy", ("Pooled",)),
     ("WerDtwoMRAvgThreePanel", "panel-smr-avg3-50k-greedy", ("Pooled",)),
     ("WerDtwoMRAvgFivePanel", "panel-smr-avg5-50k-greedy", ("Pooled",)),
@@ -349,10 +358,11 @@ def curve_wer(root: Path, run: str, step: int) -> float:
 
 
 def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
-    """Warm single-harness rehearsal (exploratory): Job D ladder, Job C panel frontier, Job B ABAB.
+    """Warm single-harness rehearsal (exploratory): Job E ladder (main), Jobs A/D (dense step 45k, range),
+    Job C panel frontier, Job B ABAB.
 
-    Job C and Job D ran the same `ultra` executable; Job B ran an earlier build (4fafb45)."""
-    ldir = RAW / "ladder_d_ce58952"
+    Jobs C, D and E ran the same `ultra` executable; Job B ran 4fafb45 and Job A 57fc3c5."""
+    ldir = RAW / "ladder_e_ce58952_avg3"
     ladder = read_json(root, str(ldir / "density_ladder.json"))
     points = [json.loads(x) for x in (root / ldir / "density_ladder.points.jsonl").read_text().splitlines() if x]
     abab = read_json(root, str(RAW / "abab_timing.json"))
@@ -362,7 +372,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
     asrc = "docs/paper/data/raw/abab_timing.json"
     fsrc = "docs/paper/data/raw/frontier_panel.json"
     man = {}
-    for sub in ("abab_manifests", "ladder_d_ce58952", "panel_manifests"):
+    for sub in ("abab_manifests", "ladder_d_ce58952", "ladder_e_ce58952_avg3", "panel_manifests"):
         for p in sorted((root / RAW / sub).glob("*.job_manifest.json")):
             j = json.loads(p.read_text())
             man[(sub, j["candidate"])] = j
@@ -431,22 +441,36 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
         rec.add(f"CostClaim{stem}", fmt(at_claim["rtf_service_cpu"], 4), raw=at_claim["rtf_service_cpu"],
                 unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at its claimed rung",
                 source=f"{psrc} candidate={cand} total_streams={claim}", **common)
-        fr = next(r for r in panel["rows"] if r["candidate"] == cand)
+        fcand = FRONT_DENSE if key == "dense" else cand
+        fdisp = "D2-45k dense INT8" if key == "dense" else disp
+        fr = next(r for r in panel["rows"] if r["candidate"] == fcand)
         pcommon = dict(label="exploratory", workload=pwl, workload_digest=PANEL_DIGEST)
-        fsel = f"{fsrc} rows[candidate={cand}]"
+        fsel = f"{fsrc} rows[candidate={fcand}]"
         rec.add(f"Frontier{stem}", fmt(fr["batch_rtf_cpu"], 4), raw=fr["batch_rtf_cpu"], unit="CPU-s/audio-s",
-                configuration=f"{disp}; batch-16; {pconf}", source=f"{fsel}.batch_rtf_cpu", **pcommon)
+                configuration=f"{fdisp}; batch-16; {pconf}", source=f"{fsel}.batch_rtf_cpu", **pcommon)
         rec.add(f"FrontierPerCore{stem}", fmt(fr["batch_streams_per_core"], 1), raw=fr["batch_streams_per_core"],
-                unit="streams/core", configuration=f"{disp}; 1/batch-16 cost", source=f"{fsel}.batch_streams_per_core", **pcommon)
+                unit="streams/core", configuration=f"{fdisp}; 1/batch-16 cost", source=f"{fsel}.batch_streams_per_core", **pcommon)
         rec.add(f"FrontierSingle{stem}", fmt(fr["single_rtf_cpu"], 3), raw=fr["single_rtf_cpu"], unit="CPU-s/audio-s",
-                configuration=f"{disp}; single stream; {pconf}", source=f"{fsel}.single_rtf_cpu", **pcommon)
+                configuration=f"{fdisp}; single stream; {pconf}", source=f"{fsel}.single_rtf_cpu", **pcommon)
         rec.add(f"FrontierChunkPninetyNine{stem}", fmt(fr["chunk_ms"]["p99"], 0), raw=fr["chunk_ms"]["p99"], unit="ms",
-                configuration=f"{disp}; per-chunk compute p99, single stream", source=f"{fsel}.chunk_ms.p99", **pcommon)
-        rec.add(f"WerRehearsal{stem}", fmt(fr["wer_pct"], 2), raw=fr["wer_pct"], unit="% WER",
-                configuration=f"{disp}; same harness and executable as the ladder, Rust scorer, greedy",
+                configuration=f"{fdisp}; per-chunk compute p99, single stream", source=f"{fsel}.chunk_ms.p99", **pcommon)
+        rec.add(f"WerRehearsal{stem}" + ("FortyFive" if key == "dense" else ""), fmt(fr["wer_pct"], 2), raw=fr["wer_pct"], unit="% WER",
+                configuration=f"{fdisp}; same harness and executable as the ladder, Rust scorer, greedy",
                 source=f"{fsel}.wer_pct", **pcommon)
-        rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(fr["wer_pct"], 3), claim, before_fail,
-                          fmt(at_claim["rtf_service_cpu"], 5), fmt(fr["batch_rtf_cpu"], 5), fmt(fr["single_rtf_cpu"], 5)])
+        if key == "dense":
+            wsrc = rec.rows["WerDtwoAvgOldGreedyPanelClean"]
+            wer = float(wsrc["raw"])
+            rec.add("WerRehearsalDense", fmt(wer, 2), raw=wer, unit="% WER", label="exploratory",
+                    configuration=(f"{disp}; FP32 trainer greedy decode, Rust-rescored (Codex evidence); the same-harness "
+                                   "INT8 row (runtime Job F1) is pending; INT8 gate on this checkpoint +0.042 pp pooled"),
+                    workload=wsrc["workload"], workload_digest=wsrc["workload_digest"], source=wsrc["source"])
+        else:
+            wer = fr["wer_pct"]
+        rows_cost.append([key, disp, fmt(at_match["rtf_service_cpu"], 5), fmt(wer, 3), claim, before_fail,
+                          fmt(at_claim["rtf_service_cpu"], 5),
+                          # the panel frontier timed the 45k dense checkpoint: never put it on the avg-3 row
+                          "" if key == "dense" else fmt(fr["batch_rtf_cpu"], 5),
+                          "" if key == "dense" else fmt(fr["single_rtf_cpu"], 5)])
         for p in pts:
             rows_ladder.append([key, p["total_streams"], fmt(p["rtf_service_cpu"], 5), fmt(p["max_worker_p99_ms"], 2),
                                 int(bool(p["all_sustained"] and p["drained"])), fmt(p["peak_rss_bytes"] / 1e9, 3)])
@@ -462,10 +486,12 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
                 configuration=f"last-rung-before-first-failure streams/CCX {key} over R0", source=f"derived: {psrc}", **common)
         rec.add(f"CostRatio{stem}", fmt(base_cost / cost, 2), raw=base_cost / cost, unit="x",
                 configuration=f"R0 over {key} CPU-s/audio-s at the {MATCHED_RUNG}-stream rung", source=f"derived: {psrc}", **common)
-        fb = next(r for r in panel["rows"] if r["candidate"] == dict((k, c) for k, c, _, _ in CANDIDATES)[key])["batch_rtf_cpu"]
+        fcand = FRONT_DENSE if key == "dense" else dict((k, c) for k, c, _, _ in CANDIDATES)[key]
+        fb = next(r for r in panel["rows"] if r["candidate"] == fcand)["batch_rtf_cpu"]
         rec.add(f"FrontierRatio{stem}", fmt(base_fb / fb, 2), raw=base_fb / fb, unit="x", label="exploratory",
                 configuration=f"R0 over {key} batch-16 CPU-s/audio-s, panel frontier", workload=pwl,
                 workload_digest=PANEL_DIGEST, source=f"derived: {fsrc}")
+    add_ladder_runs(root, rec, npz_sha)
     rec.add("DenRatioMRvsDense", fmt(claims["mr"][0] / claims["dense"][0], 1), raw=claims["mr"][0] / claims["dense"][0],
             unit="x", label="exploratory", configuration="claimed streams/CCX MR over dense", workload=LADDER_WORKLOAD,
             workload_digest=npz_sha, source=f"derived: {lsrc}")
@@ -500,6 +526,45 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
     for key, *_ in CANDIDATES:
         rows = [r for r in rows_ladder if r[0] == key]
         out[f"ladder_{key}.csv"] = csv_text(["total_streams", "p99_ms", "sustained"], [[r[1], r[3], r[4]] for r in rows])
+
+
+def add_ladder_runs(root: Path, rec: Records, npz_sha: str) -> None:
+    """Reproducibility across the three single-harness ladder runs (A, D, E)."""
+    claims: dict[str, list[tuple[int, str]]] = {"rzero": [], "dense": [], "mr": []}
+    for sub, dense, note in LADDER_RUNS:
+        lad = read_json(root, str(RAW / sub / "density_ladder.json"))
+        by = {r["candidate"]: r["claimed_total_streams"] for r in lad["results"]}
+        claims["rzero"].append((by[CANDIDATES[0][1]], note))
+        claims["dense"].append((by[dense], note))
+        claims["mr"].append((by[CANDIDATES[2][1]], note))
+    srcs = "; ".join(f"docs/paper/data/raw/{sub}/density_ladder.json" for sub, _, _ in LADDER_RUNS)
+    common = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha, source=srcs)
+    runs = len(LADDER_RUNS)
+    for key, stem in (("rzero", "Rzero"), ("mr", "MR")):
+        vals = {v for v, _ in claims[key]}
+        if len(vals) != 1:
+            raise PaperDataError(f"{key} density differs across ladder runs: {claims[key]}; replace the reproducibility "
+                                 "macros with a range")
+    rec.add("DenReproRuns", str(runs), raw=runs, unit="runs",
+            configuration=(f"single-harness ladder runs in which R0 ({claims['rzero'][0][0]}/CCX) and MR "
+                           f"({claims['mr'][0][0]}/CCX) gave identical densities: " + "; ".join(n for _, n in claims["rzero"])),
+            **common)
+    dense = [v for v, _ in claims["dense"]]
+    base = claims["rzero"][0][0]
+    detail = "; ".join(f"{n}: {v}" for v, n in claims["dense"])
+    rec.add("DenDenseRangeLo", str(min(dense)), raw=min(dense), unit="streams/CCX",
+            configuration=f"lowest dense density across ladder runs ({detail})", **common)
+    rec.add("DenDenseRangeHi", str(max(dense)), raw=max(dense), unit="streams/CCX",
+            configuration=f"highest dense density across ladder runs ({detail})", **common)
+    rec.add("DenRatioDenseRangeLo", fmt(min(dense) / base, 1), raw=min(dense) / base, unit="x",
+            configuration="lowest dense/R0 density ratio across ladder runs", **common)
+    rec.add("DenRatioDenseRangeHi", fmt(max(dense) / base, 1), raw=max(dense) / base, unit="x",
+            configuration="highest dense/R0 density ratio across ladder runs", **common)
+    d45 = dict((n, v) for v, n in claims["dense"])
+    rec.add("DenDenseFortyFiveCCX", str(d45[LADDER_RUNS[1][2]]), raw=d45[LADDER_RUNS[1][2]], unit="streams/CCX",
+            configuration=f"dense step 45k, {LADDER_RUNS[1][2]} (the checkpoint of the ABAB and panel-frontier rows)", **common)
+    rec.add("DenRatioDenseFortyFive", fmt(d45[LADDER_RUNS[1][2]] / base, 1), raw=d45[LADDER_RUNS[1][2]] / base, unit="x",
+            configuration=f"dense step 45k over R0, {LADDER_RUNS[1][2]}", **common)
 
 
 def add_curves(root: Path, rec: Records, out: dict[str, str]) -> None:
@@ -684,12 +749,14 @@ def metrics_tex(rec: Records) -> str:
         missing = r.get("pending") or any(r.get(k) in (None, "") for k in REQUIRED)
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
-    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense model at step 45k and the "
-             "multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} executable on a shared AMD "
-             "Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers on one CCX, "
-             "\\DenRungSeconds{}~s ladder rungs, one repeat. Left: whole-service CPU-seconds per audio-second at the matched "
-             "\\MatchedRung-stream rung against the WER of the same checkpoints on the 400 dev-clean utterances of the DEV "
-             "panel, scored in the same harness. Right: highest sustained streams per CCX, with each checkpoint's WER.")
+    cap_r = ("Warm single-harness rehearsal (exploratory): R0 Zipformer INT8, the dense finalist (average of steps "
+             "45/50/55k) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
+             "executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers "
+             "on one CCX, \\DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in "
+             "\\DenReproRuns{} runs, dense ranged \\DenDenseRangeLo--\\DenDenseRangeHi{} per CCX. Left: whole-service "
+             "CPU-seconds per audio-second at the matched \\MatchedRung-stream rung against WER on the panel's 400 "
+             "dev-clean utterances (R0 and multirate: same harness; dense: trainer FP32 decode, Rust-rescored). "
+             "Right: highest sustained streams per CCX, with each checkpoint's WER.")
     cap_c = ("Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, "
              "one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).")
     lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]

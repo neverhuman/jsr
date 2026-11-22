@@ -72,12 +72,16 @@ def test_pairing_rule_rehearsal_rows_use_rehearsal_checkpoints():
     keys = [r.split(",")[0] for r in rows]
     assert keys == ["rzero", "dense", "mr"]
     text = (DATA / "rehearsal_cost.csv").read_text()
-    for forbidden in ("Nemotron", "ORT", "60k", "avg"):
+    for forbidden in ("Nemotron", "ORT", "60k", "beam", "0.04074", "0.17017"):
         assert forbidden not in text
     recs = {json.loads(x)["id"]: json.loads(x) for x in (DATA / "records.jsonl").read_text().splitlines()}
-    for stem, cand in (("Rzero", "zipformer-int8"), ("Dense", "d2-45000"), ("MR", "d2mr-50000")):
+    for stem, cand in (("Rzero", "zipformer-int8"), ("DenseFortyFive", "d2-45000"), ("MR", "d2mr-50000")):
         assert cand in recs[f"WerRehearsal{stem}"]["source"]
         assert "frontier_panel.json" in recs[f"WerRehearsal{stem}"]["source"]
+    # the ladder's dense row is the avg-3 (45/50/55k) finalist, so its WER must be that checkpoint's
+    assert "d2-avg3-45-50-55" in pd.CANDIDATES[1][1]
+    assert "panel-d2-avg3-55k-greedy" in recs["WerRehearsalDense"]["source"]
+    assert "d2-45000" in recs["FrontierDense"]["source"]
 
 
 def test_manifest_refuses_tampered_raw(tmp_path):
