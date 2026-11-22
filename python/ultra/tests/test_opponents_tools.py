@@ -160,3 +160,33 @@ def test_table_reports_every_repetition_and_the_median(tmp_path):
     (arm / "round-3/scores.jsonl").write_text("different")
     (row,) = collect.table(tmp_path, {"panel10": 50.0})
     assert not row["identical_hypotheses"]
+
+
+def test_timing_turn_waits_for_earlier_entries_and_releases_the_lock(tmp_path):
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "timing-turn.sh").write_text((TOOLS / "timing-turn.sh").read_text())
+    (scripts / "run-opponent.sh").write_text(
+        "#!/usr/bin/env bash\n"
+        "test -f \"$OPP_ROOT/TIMING.lock/owner\" || exit 9\n"
+        "run=\"$OPP_ROOT/bench-cross/receipts/$OPP_MACHINE/$1-$2-$OPP_WORKLOAD/round-$3\"\n"
+        "mkdir -p \"$run\" && echo \"$OPP_SERVICE_CPUS $OPP_OBSERVER_CPU\" > \"$run/finished\"\n")
+    (tmp_path / "bench-cross/logs").mkdir(parents=True)
+    (tmp_path / "TIMING.done").write_text("DONE 1 x energy\n")
+    env = {**os.environ, "OPP_ROOT": str(tmp_path), "OPP_MACHINE": "zen2", "OPP_TIMING_POLL": "0.2"}
+    turn = subprocess.Popen(["bash", str(scripts / "timing-turn.sh"), "3", "bench-cross", "5"],
+                            stdin=subprocess.PIPE, text=True, env=env)
+    turn.stdin.write("32 48 demo t1 1 panel73\n36 49 demo t1 2 panel73\n")
+    turn.stdin.close()
+    with pytest.raises(subprocess.TimeoutExpired):
+        turn.wait(timeout=1.5)
+    assert not (tmp_path / "TIMING.lock").exists()  # entry 2 is still open: no lock taken
+    with (tmp_path / "TIMING.done").open("a") as done:
+        done.write("SKIP 2 x runtime-lane\n")
+    assert turn.wait(timeout=60) == 0
+    assert not (tmp_path / "TIMING.lock").exists()
+    assert (tmp_path / "TIMING.done").read_text().splitlines()[-1].startswith("DONE 3 ")
+    first = tmp_path / "bench-cross/receipts/zen2/demo-t1-panel73/round-1"
+    assert (first / "finished").read_text() == "32 48\n"
+    assert (first / "timing.lock").read_text().startswith("bench-cross 3 pid=")
+    assert (first.parent / "round-2/timing.lock").is_file()

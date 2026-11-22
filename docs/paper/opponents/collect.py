@@ -52,8 +52,10 @@ def sha256(path):
 
 
 def runs(stage):
+    """Finished repetitions; an arm directory holding a file INVALID (with the reason) is left out."""
     for done in sorted(stage.glob("*/*/round-*/finished")):
-        yield done.parent
+        if not (done.parent.parent / "INVALID").is_file():
+            yield done.parent
 
 
 def pull(stage):
@@ -153,7 +155,7 @@ def repetition(run, panel_seconds):
 
 def table(stage, panel_seconds):
     rows = []
-    for arm in sorted(path for path in stage.glob("*/*") if path.is_dir()):
+    for arm in sorted(path for path in stage.glob("*/*") if path.is_dir() and not (path / "INVALID").is_file()):
         reps = [repetition(run, panel_seconds) for run in sorted(arm.glob("round-*"))
                 if (run / "score.json").is_file() and (run / "round").read_text().strip().isdigit()]
         if not reps:

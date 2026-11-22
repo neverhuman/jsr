@@ -237,7 +237,9 @@ if [[ $parallel == workers ]]; then
 fi
 # Moonshine sets the SDK's one-thread ORT option in the adapter before load.
 if [[ $arm != moonshine-* ]]; then
-    envs+=(OMP_NUM_THREADS="$threads" OMP_THREAD_LIMIT="$threads" MKL_NUM_THREADS="$threads")
+    # VECLIB_MAXIMUM_THREADS bounds Accelerate on macOS, which ignores the OpenMP settings.
+    envs+=(OMP_NUM_THREADS="$threads" OMP_THREAD_LIMIT="$threads" MKL_NUM_THREADS="$threads"
+        VECLIB_MAXIMUM_THREADS="$threads")
 fi
 
 printf '%q ' "${argv[@]}" > "$run/command"
