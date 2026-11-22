@@ -55,3 +55,17 @@ python3 python/ultra/tools/paper_cold_aggregate.py \
   docs/paper/evidence.json target/paper-evidence \
   docs/paper/data/evidence/xbabe3-cold-dev.jsonl --format manuscript-jsonl
 ```
+
+## Open-source opponents (Vosk, Whisper.cpp streaming, onnx-asr Parakeet)
+
+These arms use the same panel, meter and scorer. Each system has its own virtualenv and model directory under `$JSR_DATA/opponents/` (`vosk/`, `whispercpp-stream/`, `parakeet-onnx-asr/`); versions, sources and hashes are in the candidate manifests. [Vosk Large](../ultra/candidates/vosk-en-us-0.22.yaml) · [Vosk Small](../ultra/candidates/vosk-small-en-us-0.15.yaml) · [Whisper.cpp Streaming Base](../ultra/candidates/whispercpp-stream-base-en.yaml) · [Whisper.cpp Streaming Tiny](../ultra/candidates/whispercpp-stream-tiny-en.yaml) · [Parakeet TDT v3 with onnx-asr](../ultra/candidates/parakeet-tdt-0.6b-v3-onnx-asr-int8.yaml)
+
+`run-cold.sh` knows the one-thread arms (`vosk-large`, `vosk-small`, `whispercpp-stream-base`, `whispercpp-stream-tiny`, `parakeet-v3-onnxasr-int8`) and the same-session anchors `jsr-d2e-16457-int8` (our engine) and `r0-zipformer-int8`; their commands are defined once in `opponents/open-arms.sh`. The streaming runners feed 20 ms packets as fast as possible and write the partial results they read to `trace.jsonl` (one JSON object per result: `id`, `audio_ms`, `wall_ms`, `text`, `final`, plus `audio_s`, `chunk_wall_ms`, `cum_wall_ms` for the word-lag harness). "Whisper.cpp streaming" is the Picovoice benchmark's engine: consecutive 3 s chunks, each decoded on its own.
+
+On the shared benchmark host a repetition is started through `opponents/open-run.sh`, which wraps `run-cold.sh` for the one-core budget and repeats its steps with a CPU list for the eight-core budget (`<arm>-t8` = eight intra-op threads, `<arm>-w8` = eight single-thread recognisers side by side). It waits for quiet windows and for room under the host limit of active benchmark cores, records per-CPU busy time (`host.cpu.json`) and the service CPUs' clock frequency (`host.freq.tsv`), and repeats a repetition whose CCX was not otherwise idle. `opponents/open_schedule.py` runs a plan of repetitions; `opponents/open_summary.py` copies the small receipt files into `data/raw/opponents/` and prints the table and the evidence rows.
+
+```sh
+bash docs/paper/opponents/open-run.sh vosk-small 1 4 0          # round 1 on CPU 4, meter on CPU 0
+bash docs/paper/opponents/open-run.sh vosk-small-w8 1 8-15 3    # eight workers on CPUs 8-15
+python3 docs/paper/opponents/open_summary.py table docs/paper/data/raw/opponents
+```

@@ -1,0 +1,75 @@
+# Vosk Small: vosk-model-small-en-us-0.15 through the vosk 0.3.45 Python package (Kaldi nnet3 online decoding), CPU only.
+# Open-source comparator of paper v2. Schema: spec v1.0-B §11.2 (ultra.candidate.v1).
+# Approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory).
+# Every field is resolved from the files run on xbabe0 on 2026-11-22 (bench-open).
+# Receipts: docs/paper/data/raw/opponents/vosk-small*/. Runner: docs/paper/opponents/vosk_stream.py.
+---
+schema: ultra.candidate.v1
+candidate_id: vosk_small_en_us_015
+model:
+  repository: https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+  revision: zip-sha256-30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498  # the publisher gives no revision or checksum; the archive hash is the pin
+  archive_bytes: 41205931
+  artifact: graph/Gr.fst
+  artifact_bytes: 24013795
+  artifact_sha256: 023c8b7e30704a9e37765c635c252e608a02f361235bf94abdcf2a5225d85b20
+  artifacts:
+    README: c0cf286e4f7783306c5f6469b37db69228fb16803b03cae661edb2d7bba64ebb
+    am/final.mdl: 75370a0137f9daf8f469dedd7daa4513ae7a621f03240c6e512e2b50b656a7b6
+    conf/mfcc.conf: 1e2228006d01d805ad1c267fee9f79709ca87ac51bd82b0e3f5c69ba543f0fc4
+    conf/model.conf: 8f14cb1eeb07c762c371db648c6be688d347236155ca0f64fb13b6567a8ce81f
+    graph/HCLr.fst: 5caafba3081e1646545ac6bff0dd7a318e53dcbdc86f237909ce1d2ac1293d34
+    graph/disambig_tid.int: 9ad87cc166d0998f08f758f47a6223a120dfffcbee805c4849c3aa5e6bb3c0fc
+    graph/phones/word_boundary.int: da199d9c991e0e84681ddbb34627b915b26302d50a8fdaa23c51e2bc3a50b5c3
+    ivector/final.dubm: 8c5d7dd69d2122313baaf19f61f35dd3fa18b70c62ac0687e311e1c46e6daca7
+    ivector/final.ie: 3f37faf90c375b9e4740b569398b5829ed9cc07d19be6d441f72c3b71d7efcc6
+    ivector/final.mat: ddd83586dc5f928cda8738b922c85ffe38fc789cb5f9151a712ca12f37265382
+    ivector/global_cmvn.stats: 33be09afcc80059847a275c3d043b51f1ab954c7c2438ddbbf4745e8ba144ff9
+    ivector/online_cmvn.conf: a2f3571754b64297cb7efb2e7ca3df61995c5a45fcbb97188f90613552bb2dfe
+    ivector/splice.conf: 9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756
+  directory_bytes: 70898967  # every file of the unpacked model directory (the paper's model size)
+  local_path: /home/ubuntu/jsr-data/opponents/vosk/models/vosk-model-small-en-us-0.15  # on xbabe0
+  training_data: >-
+    Model README: "US English model for mobile Vosk applications" (Alpha Cephei, 2020). The publisher does
+    not itemise the training corpora.
+  published_wer: >-
+    LibriSpeech test-clean 9.85%, TED-LIUM 10.38% (model README and alphacephei.com/vosk/models); 9.9%
+    test-clean and 21.0% test-other in Picovoice/speech-to-text-benchmark @ 272be8f2244c10dfb2994f192bd6390982b17a5d (README, Vosk Small).
+  honesty_label: unknown_overlap
+runtime:
+  repository: https://github.com/alphacep/vosk-api
+  commit: 0.3.45
+  wheel: vosk-0.3.45-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
+  wheel_sha256: 25e025093c4399d7278f543568ed8cc5460ac3a4bf48c23673ace1e25d26619f
+  library: vosk/libvosk.so
+  library_sha256: 85c4654de3acdeb99abab86eeb2a6e603927d37089597c0fcc33d8638dc2ccaf
+  backend: cpu
+  quantization: fp32
+  decoder: HCLr.fst + Gr.fst lookahead graph, beam 10, max-active 3000, lattice-beam 2 (conf/model.conf); no rescoring
+  runtime_options: '{"backend":"cpu","endpointing":"model.conf rules","max_alternatives":0,"packet_ms":20,"partial_results":"PartialResult after every packet","partial_words":false,"sample_rate_hz":16000,"threads":1,"words":false}'
+  runtime_options_sha256: 0e2c6945f4046fc84ea5f3d58eaffc122a96cf65fddb426118efa3791215c74b
+  invocation: >-
+    python -I docs/paper/opponents/vosk_stream.py <model_dir> <wav_dir> predictions.jsonl trace.jsonl
+    (one KaldiRecognizer per utterance, 20 ms packets through AcceptWaveform, PartialResult after
+    every packet, FinalResult at end of stream; endpoint segments joined by spaces)
+  determinism: >-
+    Kaldi feature dither draws from one process-wide random stream, so a clip's hypothesis depends on
+    what the process decoded before it. A cold run in a fixed order is reproducible; runs with
+    several recogniser threads are not bit-reproducible.
+stream:
+  requested_chunk_ms: 20
+  actual_right_context_ms: 150  # model README: "Latency: 0.15s (right context)"
+  left_context_policy: kaldi_online_nnet3_cached_no_recomputation
+  revision_policy: editable_until_final
+  endpoint_policy_id: kaldi_endpoint_rules.segments_joined_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: pinned_one_physical_core_smt_sibling_idle
+  eight_core_budget: >-
+    no intra-op thread knob; --workers 8 = eight recogniser threads sharing one loaded Model, one pinned
+    core each (parallel: workers)
+licenses:
+  code_id: Apache-2.0
+  weights_id: Apache-2.0
+  distribution_status: internal_evaluation_only_until_resolved

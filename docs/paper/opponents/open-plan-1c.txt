@@ -1,0 +1,24 @@
+# One-core budget on xbabe0 (bench-open, 2026-11-22): PHASE ARM ROUND SERVICE_CPU OBSERVER_CPU.
+# Round r of every arm runs on the r-th service CPU (4, 24, 28: CCX 1, 6, 7), each alone on its CCX.
+# The three rounds of a phase run side by side; the arm order is rotated from lane to lane.
+quick jsr-d2e-16457-int8        1 4  0
+quick r0-zipformer-int8         1 4  0
+quick parakeet-v3-onnxasr-int8  1 4  0
+quick vosk-small                1 4  0
+quick vosk-large                1 4  0
+quick r0-zipformer-int8         2 24 1
+quick parakeet-v3-onnxasr-int8  2 24 1
+quick vosk-small                2 24 1
+quick vosk-large                2 24 1
+quick jsr-d2e-16457-int8        2 24 1
+quick parakeet-v3-onnxasr-int8  3 28 2
+quick vosk-small                3 28 2
+quick vosk-large                3 28 2
+quick jsr-d2e-16457-int8        3 28 2
+quick r0-zipformer-int8         3 28 2
+tiny  whispercpp-stream-tiny    1 4  0
+tiny  whispercpp-stream-tiny    2 24 1
+tiny  whispercpp-stream-tiny    3 28 2
+base  whispercpp-stream-base    1 4  0
+base  whispercpp-stream-base    2 24 1
+base  whispercpp-stream-base    3 28 2

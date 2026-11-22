@@ -1,0 +1,95 @@
+# Vosk Large: vosk-model-en-us-0.22 through the vosk 0.3.45 Python package (Kaldi nnet3 online decoding), CPU only.
+# Open-source comparator of paper v2. Schema: spec v1.0-B §11.2 (ultra.candidate.v1).
+# Approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory).
+# Every field is resolved from the files run on xbabe0 on 2026-11-22 (bench-open).
+# Receipts: docs/paper/data/raw/opponents/vosk-large*/. Runner: docs/paper/opponents/vosk_stream.py.
+---
+schema: ultra.candidate.v1
+candidate_id: vosk_en_us_022
+model:
+  repository: https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip
+  revision: zip-sha256-47f9a81ebb039dbb0bd319175c36ac393c0893b796c2b6303e64cf58c27b69f6  # the publisher gives no revision or checksum; the archive hash is the pin
+  archive_bytes: 1913365522
+  artifact: graph/HCLG.fst
+  artifact_bytes: 494348373
+  artifact_sha256: 067a6bea50f9cb0f09720af919461567675b2c1928cc61d0e11c816041a6f549
+  artifacts:
+    README: 16f6c3ca3d8f04fe19cb113c53fb7dba97a33790f86a1741b3bbdb840d4ce833
+    am/final.mdl: c8586dfa7f571b8b01bac8217ef96493690c65aa512b72e6ce5acde39c262afe
+    am/tree: cc3f3ecb42b3e4513575e7c43c922eb1cf48657f46414350cdb48c165b51be2b
+    conf/ivector.conf: 1c3d9011b6013807ad7ca5fbc7269d2ba01ca583d9a0c254112abdded0e2103e
+    conf/mfcc.conf: df62f0c23a628b6a2c2e030d43b72ca992fcbe9f2d6d768946579ae25898570f
+    conf/model.conf: 1342ebe9f48b400e9e2ae3b03b66a8f3bd0a77027cb1a99ac4232b9f1d1bc8ff
+    graph/disambig_tid.int: 2f2e13e3f1dd63922219a3fe3d63a32e6c5c270e2622a518b59da79015091dc5
+    graph/num_pdfs: ed9df96af944d40bcff60d76167d3dd363b5859a5a6b6764f982f4b766aee3de
+    graph/phones.txt: 6d01b4f94c7a161fc41a5573ace33f72d0c01b7b6e99cc7d14ffe9526d4fe4ca
+    graph/phones/align_lexicon.int: a72d310238a5b20b5c7a224f02521b4c9f658409a0d6e2bb5dc5039ba8383dca
+    graph/phones/align_lexicon.txt: 2ac672b4e1014451ded473c86a205ba032a0ed9086945065568cb2dc5ebb4633
+    graph/phones/disambig.int: 107b0aa4f4f9114c0738773e3ed919797a5eb41b61b03a706918b034854992e1
+    graph/phones/disambig.txt: 3162b994687ed9f2a0b1938c4d86f0028f1a79072e7d26e217a216e2cdcc181e
+    graph/phones/optional_silence.csl: 4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865
+    graph/phones/optional_silence.int: 4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865
+    graph/phones/optional_silence.txt: ebe5d1c9a1dc955e8b0e9d16062b2d6fede3ba741afdb9a6aec65810009bee11
+    graph/phones/silence.csl: 6011987b79faad6c5d2f17984eb9ca18e5da49ee00f3c643b4f6db92b0d0be12
+    graph/phones/word_boundary.int: 9f63870f605d47e29a050117d255c4fc2cb1551d903883c0040aa16219856165
+    graph/phones/word_boundary.txt: d0c1f6456391a212d687d079ab88cbf8228b9ada90d22772a2a1e44148023cb7
+    graph/words.txt: a41ee044b03e934160972f1467c65bbc88de6fc30acd0578e99286f4e1927116
+    ivector/final.dubm: 76309d6d4f4612de0e6e2c1e836811becaa9a0adc0e0bfff53a90371488a413d
+    ivector/final.ie: ed35fa2f46d8853370f89480a53d3e0184ceaab9afef7f112b43cdda492e5326
+    ivector/final.mat: 29f411865e71494ff1ff03965b3a5812b5c38d3bcdff3e62aa80462978234f4f
+    ivector/global_cmvn.stats: 3d7d721fa592c21136597955fd550b1f84568d32e4de7adc35d3b9a033e65afe
+    ivector/online_cmvn.conf: a2f3571754b64297cb7efb2e7ca3df61995c5a45fcbb97188f90613552bb2dfe
+    ivector/splice.conf: 9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756
+    rescore/G.carpa: 5ba6d2741c06dd3ac17d9b8b9db64f06cb827004641d2cf2537261818009edf5
+    rescore/G.fst: 6e33594e33a6c26ccffb0e36a7e25540250a80dbe1093ae39a653b13f11b9bc5
+    rnnlm/feat_embedding.final.mat: 66a1e6e59b7cede5f7c5775111bc44b4a6f3f95545bb82bd04ca63dd657a3a94
+    rnnlm/final.raw: caafd73da01cfa73325db23c4b4e0f7784f2145f7ee3af48329f6b8aa94591da
+    rnnlm/special_symbol_opts.conf: 0bc8caddf72c43f63094a3db8dd65b87dd3d20c41b867f8b24a56ac7038e47f1
+    rnnlm/special_symbol_opts.txt: 1ce15df62fb44677a77e1e13f7c0d7039ceb2a812a5465ed1a1dd71da319dfa1
+    rnnlm/word_feats.txt: be84ff640fd6a0f90211cac771ca0d7805a4bc6b218267c1a7f6384258bb0a43
+  directory_bytes: 2865977882  # every file of the unpacked model directory (the paper's model size)
+  local_path: /home/ubuntu/jsr-data/opponents/vosk/models/vosk-model-en-us-0.22  # on xbabe0
+  training_data: >-
+    Model README: "Accurate universal English model (both for callcenter and wideband)", based on the Appen
+    Kaldi model (github.com/Appen/UHV-OTS-Speech). The publisher does not itemise the training corpora.
+  published_wer: >-
+    LibriSpeech test-clean 5.69% (model README and alphacephei.com/vosk/models); 5.4% test-clean and 12.7%
+    test-other in Picovoice/speech-to-text-benchmark @ 272be8f2244c10dfb2994f192bd6390982b17a5d (README, Vosk Large).
+  honesty_label: unknown_overlap
+runtime:
+  repository: https://github.com/alphacep/vosk-api
+  commit: 0.3.45
+  wheel: vosk-0.3.45-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
+  wheel_sha256: 25e025093c4399d7278f543568ed8cc5460ac3a4bf48c23673ace1e25d26619f
+  library: vosk/libvosk.so
+  library_sha256: 85c4654de3acdeb99abab86eeb2a6e603927d37089597c0fcc33d8638dc2ccaf
+  backend: cpu
+  quantization: fp32
+  decoder: HCLG.fst static graph, beam 13, max-active 7000, lattice-beam 6 (conf/model.conf); finals rescored with rescore/G.carpa and the RNNLM in rnnlm/
+  runtime_options: '{"backend":"cpu","endpointing":"model.conf rules","max_alternatives":0,"packet_ms":20,"partial_results":"PartialResult after every packet","partial_words":false,"sample_rate_hz":16000,"threads":1,"words":false}'
+  runtime_options_sha256: 0e2c6945f4046fc84ea5f3d58eaffc122a96cf65fddb426118efa3791215c74b
+  invocation: >-
+    python -I docs/paper/opponents/vosk_stream.py <model_dir> <wav_dir> predictions.jsonl trace.jsonl
+    (one KaldiRecognizer per utterance, 20 ms packets through AcceptWaveform, PartialResult after
+    every packet, FinalResult at end of stream; endpoint segments joined by spaces)
+  determinism: >-
+    Kaldi feature dither draws from one process-wide random stream, so a clip's hypothesis depends on
+    what the process decoded before it. A cold run in a fixed order is reproducible; runs with
+    several recogniser threads are not bit-reproducible.
+stream:
+  requested_chunk_ms: 20
+  actual_right_context_ms: not_published_for_this_model  # internal to am/final.mdl; measured word lag is in the lag receipts
+  left_context_policy: kaldi_online_nnet3_cached_no_recomputation
+  revision_policy: editable_until_final
+  endpoint_policy_id: kaldi_endpoint_rules.segments_joined_final_at_eos
+resources:
+  intra_op_threads: 1
+  inter_op_threads: 1
+  affinity: pinned_one_physical_core_smt_sibling_idle
+  eight_core_budget: >-
+    no intra-op thread knob; --workers 8 = eight recogniser threads sharing one loaded Model, one pinned
+    core each (parallel: workers)
+licenses:
+  code_id: Apache-2.0
+  weights_id: Apache-2.0
+  distribution_status: internal_evaluation_only_until_resolved
