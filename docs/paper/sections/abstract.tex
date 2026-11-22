@@ -7,8 +7,9 @@ utterances. \ultra is markedly less accurate. What it buys is cost: in a warm, i
 rehearsal of our pre-registered single-harness protocol (p99 lateness $\le$ 800\,ms, four workers
 on one Zen~2 core complex), the multirate model at step 50k sustains \DenMRCCX{} live streams and
 the dense model at step 45k \DenDenseCCX, against \DenRzeroCCX{} for Zipformer
-(\DenRatioMR{}$\times$ and \DenRatioDense{}$\times$), at \WerLadderMRDevClean\% and
-\WerLadderDenseDevClean\% WER on the same 400 utterances. The engine is integer-exact: per-row
+(\DenRatioMR{}$\times$ and \DenRatioDense{}$\times$), at \WerRehearsalMR\% and
+\WerRehearsalDense\% WER against Zipformer's \WerRehearsalRzero\% on the same 400 dev-clean panel
+utterances, scored in the same harness. The engine is integer-exact: per-row
 centred INT8 makes each stream's output independent of its batch, and with a portable log-mel
 front end the tokens decoded from raw PCM are bit-identical on x86 AVX2 and ARM NEON
 (\XisaAgree/\XisaTotal{} decodes), with INT8 within \GateMaxDelta\pp WER of FP32. All numbers are

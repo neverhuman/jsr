@@ -59,7 +59,7 @@ Zen~2 server and NEON on an Apple M3 Ultra agree on \XisaAgree{} of \XisaTotal{}
 Exactness did not cost speed in the front end: a sparse triangular filterbank
 (\MelNnzSparse{} instead of \MelNnzDense{} nonzero weights), precomputed bit reversal and an
 unfused vectorised double-precision FFT (four lanes on AVX2, two on NEON) make log-mel
-\MelSpeedZen{}$\times$ faster on Zen~2 and \MelSpeedMthree{}$\times$ on M3 while staying 0-ULP
+\MelSpeedupZen{}$\times$ faster on Zen~2 and \MelSpeedupMthree{}$\times$ on M3 while staying 0-ULP
 identical to the portable reference.
 
 \para{Where the time goes.} Profiling the dense model at a single stream on Zen~2, the int8 GEMMs

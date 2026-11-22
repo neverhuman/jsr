@@ -4,7 +4,7 @@ Stream density, not single-stream speed, is the number that sets the cost of CPU
 recognition, and it is cheap to inflate. We built a streaming transducer and a pure-Rust engine
 around integer exactness: per-row centred INT8 that is batch-invariant by construction, exact
 int32 kernels, prepared artifacts and a portable front end, giving \XisaAgree/\XisaTotal{}
-bit-identical decodes across x86 and ARM at no measurable accuracy cost. Under one harness and one
+bit-identical decodes across x86 and ARM, with INT8 inside a pre-registered accuracy gate. Under one harness and one
 lateness rule, the multirate model sustains \DenMRCCX{} streams per four-core complex,
 \DenRatioMR{}$\times$ a pretrained Zipformer, at a WER that is still several times higher. We
 retracted an earlier, larger claim when an independent review showed it compared unequal
