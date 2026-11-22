@@ -115,3 +115,29 @@ Same protocol (held-out speaker folds, beam-4 baseline 4.803 / 12.972 / 8.754). 
 | beam 4, no LM, blank penalty chosen by the same folds (control) | 4.796 | 12.948 | 8.738 | -0.015 [-0.057, +0.027] | penalty 0.25 on both folds |
 
 - The blank penalty alone does not lower WER, so a fusion gain is not a penalty effect.
+
+### Phase 2: token n-gram fusion in the beam (IN PROGRESS, 2026-11-22 22:55Z; this section is replaced by the final table)
+Token LMs (all on the OpenSLR 11 text, 1,577,847,566 tokens; sizes = the quantised KenLM trie each decode queries):
+
+| name | order | `--prune` | n-grams (orders 2..N) | trie MB | sha256 (trie) |
+|---|---:|---|---|---:|---|
+| S3 | 3 | none | 194,853 / 14,346,832 | 31.4 | `tok3.p000.trie.bin` |
+| S4 | 4 | 0 0 4 15 | 194,853 / 6,441,413 / 9,565,946 | 47.4 | `tok4.p00415.trie.bin` |
+| S5 | 5 | 0 0 6 30 60 | 194,853 / 5,466,300 / 5,345,531 / 2,295,257 | 48.2 | `tok5.p0063060.trie.bin` |
+| M4 | 4 | 0 0 0 1 | 194,853 / 14,346,832 / 59,140,270 | 187.7 | `tok4.p0001.trie.bin` |
+| **M5** | 5 | 0 0 1 4 9 | 194,853 / 10,054,238 / 25,723,048 / 16,787,323 | 179.1 | `tok5.p00149.trie.bin` |
+| L5a | 5 | 0 0 1 2 3 | 194,853 / 10,054,238 / 40,283,631 / 46,781,615 | 305.0 | `tok5.p00123.trie.bin` |
+| L5b | 5 | 0 0 0 1 1 | 194,853 / 14,346,832 / 59,140,270 / 114,371,177 | 548.5 | `tok5.p00011.trie.bin` |
+
+Every LM met its size class with the thresholds fixed in amendment 2 (no rebuild was needed). LODR: token bigram of the 960 h transcripts (18,252,156 tokens; 131,573 bigrams; 2.4 MB).
+
+Sweep results so far (FastBeam, beam 4, held-out speaker folds, baseline 8.754 pooled; the edge rule is still extending M5's grid):
+
+| LM | fusion only: clean / other / pooled | fusion + LODR: clean / other / pooled |
+|---|---|---|
+| S3 (31 MB, edge rule done) | 4.643 / 12.348 / 8.369 | 4.634 / 12.228 / 8.307 |
+| M5 (179 MB, full grid, round 1 of the edge rule) | 4.061 / 11.361 / 7.591 | 3.895 / 11.027 / 7.344 |
+| L5a (305 MB, reduced grid, edge rule pending) | 4.116 / 11.698 / 7.783 | 3.834 / 10.980 / 7.290 |
+| L5b (548 MB, reduced grid, edge rule pending) | 4.103 / 11.681 / 7.767 | 3.873 / 11.047 / 7.342 |
+
+Pending: the edge rule for M5, S4, S5, M4, L5a, L5b; M5 at beam 8; the reference re-decode (`train.beam` + hook) of every chosen config; `ultra-score` rows; decode cost.

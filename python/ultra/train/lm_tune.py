@@ -468,12 +468,29 @@ def reference(a) -> None:
                                     a.procs))
         same = {n: sum(ref[n][u["uid"]]["tokens"] == twin[n][u["uid"]]["tokens"] for u in utts)
                 for n in ref}
+        audio = sum(u["seconds"] for u in utts)
+        cost = {}
+        for n, run in ref.items():
+            ctx = sum(r.get("lm_contexts", 0) for r in run.values())
+            toks = sum(len(r["tokens"]) for r in run.values())
+            cost[n] = {"decode_seconds": round(sum(r["sec"] for r in run.values()), 1),
+                       "lm_contexts": ctx, "lm_contexts_per_utt": round(ctx / len(utts), 1),
+                       "lm_contexts_per_audio_s": round(ctx / audio, 2),
+                       "lm_contexts_per_output_token": round(ctx / max(toks, 1), 2),
+                       "output_tokens": toks}
         out["families"][fam] = {
             "chosen": f["chosen"], "held_out": compare(sdi, sdi_base, utts),
             "sweep_held_out_pooled_wer": f["held_out"]["pooled"]["arm"]["wer"],
             "identical_to_sweep_decode": {n: f"{v}/{len(utts)}" for n, v in same.items()},
-            "decode_seconds": {n: round(sum(r["sec"] for r in ref[n].values()), 1) for n in ref},
+            "cost": cost, "audio_seconds": round(audio, 1),
             "baseline_decode_seconds": round(sum(r["sec"] for r in base.values()), 1)}
+    if a.timing:
+        run = load_run(a.runs, a.timing, a.splits, len(utts))
+        out["no_lm_timing_run"] = {"name": a.timing,
+                                   "decode_seconds": round(sum(r["sec"] for r in run.values()), 1),
+                                   "identical_to_baseline": sum(
+                                       run[u["uid"]]["tokens"] == base[u["uid"]]["tokens"]
+                                       for u in utts)}
         if a.dump:
             dump_hyps(os.path.join(a.dump, f"{a.prefix}{fam}.heldout.jsonl"), utts, hyps)
     _write(a.out, out)
@@ -516,6 +533,7 @@ def main(argv=None) -> None:
     r.add_argument("--prefix", default="ref_")
     r.add_argument("--out", required=True)
     r.add_argument("--dump", default=None)
+    r.add_argument("--timing", default=None, help="no-LM run decoded in the same batch (timing)")
     r.add_argument("--splits", nargs="+", default=["dev-clean", "dev-other"])
     r.add_argument("--procs", type=int, default=8)
     r.set_defaults(fn=reference)

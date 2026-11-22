@@ -40,10 +40,13 @@ while :; do
     > "$WORK/logs/tune_$name.log"
   echo "round $round of $name tuned: $(date -u +%H:%M:%SZ)"
   round=$((round + 1))
-  [ "$round" -le "${MAX_ROUNDS:-4}" ] || { echo "edge rule: stopped after ${MAX_ROUNDS:-4} rounds"; break; }
   todo="$WORK/grids/$name.ext$round.json"
   n=$(lm_tune extend --grid "$grid" --results "$WORK/results/fusion_$name.json" --out "$todo")
-  [ "$n" -gt 0 ] || break
+  if [ "$n" -eq 0 ]; then echo "edge rule: every chosen value is interior"; break; fi
+  if [ "$round" -gt "${MAX_ROUNDS:-4}" ]; then
+    echo "edge rule: CAPPED after ${MAX_ROUNDS:-4} rounds, $n configs still on an edge (not decoded)"
+    break
+  fi
   echo "edge rule: $n configs added in round $round"
   "$PY" -c 'import json, sys; g = json.load(open(sys.argv[1])); g += json.load(open(sys.argv[2])); json.dump(g, open(sys.argv[1], "w"), indent=1)' "$grid" "$todo"
 done

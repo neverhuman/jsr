@@ -325,3 +325,23 @@ def test_complete_shards_picks_a_full_set_whatever_the_shard_count(tmp_path):
     assert sorted(rows) == ["u0", "u1", "u2"]
     with pytest.raises(ValueError):
         lm_tune.load_run(str(tmp_path), "cfg", ["dev-other"])
+
+
+def test_chosen_collects_each_folds_choice_once_with_a_prefix(tmp_path):
+    grid = lm_tune.make_grid("T", "/lm", "/lodr", kind="reduced")
+    (tmp_path / "g.json").write_text(json.dumps(grid))
+    pick = {"name": "T_b4_l0.30_r0.00_p0.25", "lm_weight": 0.3, "blank_penalty": 0.25}
+    other = {"name": "T_b4_l0.40_r0.50_p0.00", "lm_weight": 0.4, "lodr_weight": 0.2,
+             "blank_penalty": 0.0}
+    res = {"families": {"T_b4_fusion": {"chosen": {"a": pick, "b": pick}},
+                        "T_b4_fusion_lodr": {"chosen": {"a": other, "b": pick}}}}
+    (tmp_path / "r.json").write_text(json.dumps(res))
+
+    class A:
+        results, grids = [str(tmp_path / "r.json")], [str(tmp_path / "g.json")]
+        prefix, out = "ref_", str(tmp_path / "out.json")
+
+    lm_tune.chosen(A)
+    got = json.loads((tmp_path / "out.json").read_text())
+    assert [c["name"] for c in got] == ["ref_T_b4_l0.30_r0.00_p0.25", "ref_T_b4_l0.40_r0.50_p0.00"]
+    assert got[1]["lodr"] == "/lodr" and got[1]["lodr_weight"] == 0.2 and got[0]["lm"] == "/lm"
