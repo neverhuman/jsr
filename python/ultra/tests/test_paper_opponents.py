@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
+import time
 import wave
 
 import numpy as np
@@ -20,7 +22,7 @@ sys.path.insert(0, str(OPPONENTS))
 
 import open_common as common  # noqa: E402
 import open_receipt as receipt  # noqa: E402
-import open_schedule as schedule  # noqa: E402
+import open_turn as turn  # noqa: E402
 import vosk_stream  # noqa: E402
 import whispercpp_stream  # noqa: E402
 
@@ -228,6 +230,16 @@ def test_guard_rejects_a_busy_sibling_or_ccx_neighbour(tmp_path, busy, reason):
     assert result["verdict"] == "contaminated" and reason in result["reasons"][0]
 
 
+def test_guard_rejects_a_busy_host_when_asked_to(tmp_path):
+    fake_topology(tmp_path)
+    before, after = snapshots({1: 1.0, 4: 0.97, 5: 0.99, 6: 0.8})
+    assert receipt.guard(before, after, [1], 0.01, 0.02, root=tmp_path)["verdict"] == "clean"
+    assert receipt.guard(before, after, [1], 0.01, 0.02, other_limit=3, root=tmp_path)["verdict"] == "clean"
+    busy = receipt.guard(before, after, [1], 0.01, 0.02, other_limit=2, root=tmp_path)
+    assert busy["verdict"] == "contaminated" and busy["reasons"] == ["3 other cores were active on the host (limit 2)"]
+    assert busy["limits"]["other_active_cores"] == 2
+
+
 def test_guard_covers_both_ccxs_of_an_eight_core_arm(tmp_path):
     fake_topology(tmp_path)
     before, after = snapshots({cpu: 1.0 for cpu in range(8)} | {12: 0.5})
@@ -245,21 +257,102 @@ def test_active_cores_count_a_core_once_and_cpu_lists_expand(tmp_path):
     assert receipt.parse_cpus("8-15,4") == [4, 8, 9, 10, 11, 12, 13, 14, 15]
 
 
-def test_plan_runs_phase_by_phase_and_one_job_per_cpu_set():
-    jobs = schedule.read_plan("p1 a 1 4 0\np1 b 1 4 0\np1 a 2 24 1  # second lane\n\np2 c 1 8-15 3\n")
+def test_turn_plan_parsing_and_turn_rules(tmp_path):
+    jobs, anchor = turn.read_plan("anchor ours 3.5 0.5\n5 full a 1 4 0 17\n5 full a 2 24 1 17  # second\n\n"
+                                  "12 p73 b 1 4 0 4.5\n")
+    assert [(job["entry"], job["panel"], job["arm"], job["round"], job["est_s"]) for job in jobs] == [
+        (5, "full", "a", 1, 1020.0), (5, "full", "a", 2, 1020.0), (12, "p73", "b", 1, 270.0)]
+    assert anchor == {"arm": "ours", "est_s": {"full": 210.0, "p73": 30.0}}
+    for bad in ("5 full a 1 4 0", "anchor ours 3"):
+        with pytest.raises(ValueError):
+            turn.read_plan(bad)
+    done = "DONE 1 t energy\nSKIP 2 t runtime-lane\nSKIP 2b t lead (re-queued)\nDONE 3 t bench-open\nnote 4\n"
+    assert turn.finished_entries(done) == {1, 2, 3} and turn.finished_entries(done, "bench-open") == {3}
+    assert turn.turn_has_come(4, done) and not turn.turn_has_come(5, done) and turn.turn_has_come(1, "")
+    assert turn.fits(jobs[0], 0.0, False) and turn.fits(jobs[0], 5000.0, False)
+    assert turn.fits(jobs[2], 1020.0, True) and not turn.fits(jobs[1], 1020.0, True)
+    assert turn.cpu_count("4") == 1 and turn.cpu_count("8-15") == 8 and turn.cpu_count("0,2-3") == 3
+    assert turn.receipt_dir(tmp_path, "p73", "8-15", 2, "x") == tmp_path / "8c-p73/cold/round-2/x"
+    assert turn.receipt_dir(tmp_path, "full", "4", 1, "x") == tmp_path / "1c/cold/round-1/x"
+    for arm, wall, verdict in (("t8", 300.0, "clean"), ("w8", 200.0, "clean"), ("z8", 100.0, "contaminated")):
+        run = turn.receipt_dir(tmp_path, "p73", "8-15", 1, arm)
+        run.mkdir(parents=True)
+        (run / "measurement.json").write_text(json.dumps({"wall_seconds": wall}))
+        (run / "host.cpu.json").write_text(json.dumps({"verdict": verdict}))
+    job = {"panel": "p73", "service": "8-15"}
+    assert turn.resolve(tmp_path, {**job, "arm": "t8|w8"}) == "w8"
+    assert turn.resolve(tmp_path, {**job, "arm": "t8|z8"}) == "t8"  # a busy-host round does not count
+    assert turn.resolve(tmp_path, {**job, "arm": "q8|r8"}) == "q8"  # nothing measured yet: the first
+    assert turn.next_round(tmp_path, "p73", "8-15", "t8") == 2 and turn.next_round(tmp_path, "full", "4", "t8") == 1
 
-    def ready():
-        return [(job["arm"], job["round"]) for job in schedule.next_jobs(jobs)]
 
-    assert ready() == [("a", 1), ("a", 2)]
-    jobs[0]["status"] = "running"
-    assert ready() == [("a", 2)]
-    jobs[0]["status"], jobs[2]["status"] = "done", "running"
-    assert ready() == [("b", 1)]
-    jobs[1]["status"], jobs[2]["status"] = "failed", "done"
-    assert ready() == [("c", 1)]
-    with pytest.raises(ValueError):
-        schedule.read_plan("p1 a 1 4")
+FAKE_RUN = """
+case "$3" in *-*|*,*) group=8c ;; *) group=1c ;; esac
+[[ $OPEN_PANEL == full ]] || group="$group-$OPEN_PANEL"
+receipt="$OPEN_RUNS/$group/cold/round-$2/$1"
+mkdir -p "$receipt"
+wall=0.3; [[ $1 == b ]] && wall=1.0; [[ $1 == c ]] && wall=0.5
+printf '{"wall_seconds": %s}\\n' "$wall" > "$receipt/measurement.json"
+printf '{"verdict": "clean"}\\n' > "$receipt/host.cpu.json"
+owner=$(cut -d' ' -f1-2 "$PAPER_OPPONENTS_ROOT/TIMING.lock/owner")
+printf '%s %s %s %s %s %s\\n' "$1" "$2" "$3" "$4" "$OPEN_PANEL" "$owner" >> "$FAKE_LOG"
+sleep 0.3
+if [[ $1 == flaky && ! -e $PAPER_OPPONENTS_ROOT/flaky.seen ]]; then
+    : > "$PAPER_OPPONENTS_ROOT/flaky.seen"
+    exit 3
+fi
+"""
+
+
+def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_hold(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    plan = tmp_path / "plan.txt"
+    plan.write_text("anchor anc 0.001 0.001\n3 full a 1 4 0 0.004\n3 full a 2 24 1 0.004\n3 full flaky 3 28 2 0.004\n"
+                    "5 p73 b 1 8-15 3 0.004\n5 p73 c 1 8-15 3 0.004\n5 p73 b|c 2 8-15 3 0.004\n")
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
+           "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.1", "OPEN_HOLD_S": "0.6", "OPEN_HOLD_MARGIN_S": "0.1",
+           "FAKE_LOG": str(tmp_path / "calls.log"), "OPEN_AGENT": "bench-open"}
+    command = [sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")]
+    runner = subprocess.Popen(command, env=env)
+    time.sleep(1.0)
+    assert not (tmp_path / "calls.log").exists() and not (host / "TIMING.lock").exists()  # entry 2 is not done yet
+
+    def others():  # entry 2 finishes; later entry 4 is skipped by its owner
+        with (host / "TIMING.done").open("a") as out:
+            out.write("DONE 2 t runtime-lane\n")
+        while "DONE 3" not in (host / "TIMING.done").read_text():
+            time.sleep(0.05)
+        with (host / "TIMING.done").open("a") as out:
+            out.write("SKIP 4 t bench-cross\n")
+
+    helper = threading.Thread(target=others)
+    helper.start()
+    assert runner.wait(timeout=90) == 0
+    helper.join()
+    assert (tmp_path / "calls.log").read_text().splitlines() == [
+        "anc 1 4 0 full bench-open 3", "a 1 4 0 full bench-open 3",
+        "anc 2 24 1 full bench-open 3", "a 2 24 1 full bench-open 3",
+        "anc 3 28 2 full bench-open 3", "flaky 3 28 2 full bench-open 3",
+        "anc 4 28 2 full bench-open 3", "flaky 3 28 2 full bench-open 3",
+        "anc 1 8 3 p73 bench-open 5", "b 1 8-15 3 p73 bench-open 5",
+        "anc 2 8 3 p73 bench-open 5", "c 1 8-15 3 p73 bench-open 5",
+        "anc 3 8 3 p73 bench-open 5", "c 2 8-15 3 p73 bench-open 5"]
+    done = (host / "TIMING.done").read_text().splitlines()
+    assert [line.split()[:2] + line.split()[-1:] for line in done] == [
+        ["DONE", "1", "energy"], ["DONE", "2", "runtime-lane"], ["DONE", "3", "bench-open"],
+        ["SKIP", "4", "bench-cross"], ["DONE", "5", "bench-open"]]
+    assert not (host / "TIMING.lock").exists()
+    state = json.loads((tmp_path / "logs/turn.json").read_text())
+    assert len(state["holds"]) == 7 and all("released_utc" in hold for hold in state["holds"])
+    assert [job["status"] for job in state["jobs"] if not job.get("anchor")] == [
+        "done", "done", "not-alone", "done", "done", "done", "done"]
+    restart = subprocess.run(command, env=env, timeout=30)  # a restarted runner skips what it already did
+    assert restart.returncode == 0 and len((host / "TIMING.done").read_text().splitlines()) == 5
+    assert len((tmp_path / "calls.log").read_text().splitlines()) == 14
 
 
 ARM_SCRIPT = """
@@ -299,6 +392,9 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     assert zipformer[0].endswith("/env") and zipformer[1].startswith("ULTRA_SHERPA_LIB=")
     assert zipformer[3] == "zipformer-int8" and zipformer[5:7] == ["/panel/wav", "/run/predictions.jsonl"]
     assert "zipformer-int8" in open_arm(tmp_path, "r0-zipformer-int8-w8").stdout.split("--\n")[1]
+    ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")
+    assert ours[0].endswith("opponents/energy/bin/ultra-cold-wav") and ours[1] == "r1-engine-int8"
+    assert ours[2].endswith("opponents/models/H22ctl-79800-ema/int8") and ours[3] == "/panel/wav"
     for bad in ("vosk-small-t8", "jsr-d2e-16457-int8-t8", "r0-zipformer-int8-t8", "nonesuch"):
         assert open_arm(tmp_path, bad).returncode == 2
 
@@ -308,7 +404,7 @@ def test_run_cold_dispatches_the_open_arms_to_their_definitions():
     case = next(line for line in script.splitlines() if "parakeet-v3-onnxasr-int8" in line)
     assert set(case.strip().rstrip(")").split("|")) == {
         "vosk-large", "vosk-small", "whispercpp-stream-base", "whispercpp-stream-tiny",
-        "parakeet-v3-onnxasr-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
+        "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
     assert 'source "$PWD/docs/paper/opponents/open-arms.sh"' in script
 
 
@@ -346,17 +442,23 @@ def test_worker_launcher_pins_each_shard_and_merges_the_parts(tmp_path):
 WORKLOAD = json.loads((REPO / "docs/paper/evidence.json").read_text())["workloads"]["cold-panel"]
 INDEX = [{"id": "u00000", "uid": "1-1-0", "speaker": "1", "dataset": "dev-clean", "ref": "A B", "duration_s": 1.0},
          {"id": "u00001", "uid": "2-1-0", "speaker": "2", "dataset": "dev-other", "ref": "C", "duration_s": 2.0}]
+P73_DIGEST = "12936656" + "0" * 56
+P73_SECONDS = 597.089875
+SCORE = {"dev-clean": {"wer": 0.05, "utterances": 365}, "dev-other": {"wer": 0.15, "utterances": 365}}
 
 
-def fake_repetition(runs, group, arm, round_id, cpu_s, wall_s, service, hyps, rss=10**8, verdict="clean"):
+def fake_repetition(runs, group, arm, round_id, cpu_s, wall_s, service, hyps, rss=10**8, verdict="clean", wer=0.1):
     """A finished repetition as open-run.sh leaves it (only the fields the summary reads are real)."""
     run = runs / group / "cold" / f"round-{round_id}" / arm
     run.mkdir(parents=True)
+    p73 = group.endswith("-p73")
     texts = {"arm": arm, "round": str(round_id), "host": "xbabe0", "started": f"2026-11-22T21:0{round_id}:00Z",
              "finished": f"2026-11-22T22:0{round_id}:00Z", "command": "cmd", "config.sha256": "0  /x",
              "runtime-libraries.sha256": "0  /lib", "host.before": "0.5 0.5 0.5 1/1 1\nschedutil\n1",
              "host.after": "1.0 0.5 0.5 1/1 1", "service.stderr": "", "artifact.bytes": "1000000",
-             "trace.sha256": "0  trace.jsonl", "workload.sha256": f"{WORKLOAD['digest']}  /panel/audio.json",
+             "trace.sha256": "0  trace.jsonl", "panel": "p73" if p73 else "full",
+             "audio.seconds": str(P73_SECONDS if p73 else WORKLOAD["audio_seconds"]),
+             "workload.sha256": f"{P73_DIGEST if p73 else WORKLOAD['digest']}  /panel/audio.json",
              "host.freq.tsv": "1\t4000000\t0.5 0.5 0.5\n2\t4200000\t0.6 0.5 0.5"}
     for name, text in texts.items():
         (run / name).write_text(text + "\n")
@@ -364,19 +466,31 @@ def fake_repetition(runs, group, arm, round_id, cpu_s, wall_s, service, hyps, rs
     (run / "measurement.json").write_text(json.dumps({
         "cpu_seconds_user": cpu_s, "cpu_seconds_sys": 0.0, "wall_seconds": wall_s, "peak_rss_bytes": rss,
         "max_threads": 1, "max_processes": 1, "exit_code": 0, "placement": placement}))
-    dataset = {"wer": 0.05 + round_id / 1000, "utterances": 365}
-    (run / "score.json").write_text(json.dumps({"system_a": {
-        "utterances": WORKLOAD["utterances"], "pooled_wer": 0.1 + round_id / 1000,
-        "datasets": {"dev-clean": dataset, "dev-other": dataset}}}))
     (run / "host.cpu.json").write_text(json.dumps({
-        "verdict": verdict, "other_active_cores": [8, 9], "smt_siblings_busy": {"68": 0.001},
+        "verdict": verdict, "other_active_cores": [31], "smt_siblings_busy": {"68": 0.001},
         "loadavg_before": ["0.5"], "loadavg_after": ["1.0"]}))
     (run / "host.gate.json").write_text("{}")
     common.write_predictions(run / "predictions.jsonl", hyps)
-    with (run / "scores.jsonl").open("x") as out:
-        for reference in INDEX:
-            row = {key: value for key, value in reference.items() if key not in {"id", "uid"}}
-            out.write(json.dumps({**row, "id": reference["uid"], "hyp": hyps[reference["id"]]}) + "\n")
+    if not p73:
+        (run / "score.json").write_text(json.dumps({"system_a": {
+            "utterances": WORKLOAD["utterances"], "pooled_wer": wer + round_id / 1000, "datasets": SCORE}}))
+        with (run / "scores.jsonl").open("x") as out:
+            for reference in INDEX:
+                row = {key: value for key, value in reference.items() if key not in {"id", "uid"}}
+                out.write(json.dumps({**row, "id": reference["uid"], "hyp": hyps[reference["id"]]}) + "\n")
+    return run
+
+
+def fake_wer_pass(root, arm, hyps):
+    run = root / arm
+    run.mkdir(parents=True)
+    for name, text in {"command": "python runner --workers 24", "host": "xbabe3", "started": "t0", "finished": "t1",
+                       "config.sha256": "0  /x", "workload.sha256": f"{WORKLOAD['digest']}  /panel/audio.json"}.items():
+        (run / name).write_text(text + "\n")
+    common.write_predictions(run / "predictions.jsonl", hyps)
+    (run / "scores.jsonl").write_text("scorer input\n")
+    (run / "score.json").write_text(json.dumps({"system_a": {
+        "utterances": WORKLOAD["utterances"], "pooled_wer": 0.2, "datasets": SCORE}}))
     return run
 
 
@@ -385,53 +499,83 @@ def summary(*args):
                           capture_output=True, text=True, check=True).stdout
 
 
-def test_receipts_collect_compactly_expand_exactly_and_export_the_median_row(tmp_path):
+def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     runs, raw, panel = tmp_path / "runs", tmp_path / "raw", tmp_path / "panel"
     panel.mkdir()
     (panel / "index.json").write_text(json.dumps(INDEX))
     same = {"u00000": "a b", "u00001": "c"}
+    other = {"u00000": "a", "u00001": "c"}
     audio = WORKLOAD["audio_seconds"]
-    for round_id, cpu, service in ((1, 0.20, [4]), (2, 0.10, [24]), (3, 0.15, [28])):
+    lanes = ((1, [4]), (2, [24]), (3, [28]))
+    for (round_id, service), cpu in zip(lanes, (0.20, 0.10, 0.15)):  # full panel, cost and WER together
         fake_repetition(runs, "1c", "vosk-small", round_id, cpu * audio, cpu * audio, service, same, rss=round_id * 10**8)
-    for round_id in (1, 2, 3):
-        hyps = same if round_id < 3 else {"u00000": "a", "u00001": "c"}
-        fake_repetition(runs, "8c", "vosk-small-w8", round_id, 0.2 * audio, 0.03 * audio, list(range(8, 16)), hyps)
-    for arm, wall in (("whispercpp-stream-tiny-t8", 0.30), ("whispercpp-stream-tiny-w8", 0.20)):
+    for round_id, service in lanes:  # panel73 timing; WER from the full-panel pass
+        fake_repetition(runs, "1c-p73", "whispercpp-stream-tiny", round_id, 1.2 * P73_SECONDS, 1.2 * P73_SECONDS,
+                        service, same if round_id < 3 else other)
+    for arm, wall in (("whispercpp-stream-tiny-t8", 0.30), ("whispercpp-stream-tiny-w8", 0.20), ("vosk-small-w8", 0.02)):
         for round_id in (1, 2, 3):
-            fake_repetition(runs, "8c", arm, round_id, 1.5 * audio, wall * audio, list(range(8, 16)), same)
-    for round_id, service in ((1, [4]), (2, [24]), (3, [28])):
-        fake_repetition(runs, "1c", "jsr-d2e-16457-int8", round_id, 0.035 * audio, 0.035 * audio, service, same)
+            fake_repetition(runs, "8c-p73", arm, round_id, 1.5 * P73_SECONDS, wall * P73_SECONDS, list(range(8, 16)), same)
+    fake_repetition(runs, "1c", "jsr-h22ctl-79800-ema-int8", 1, 0.035 * audio, 0.035 * audio, [4], same)
+    fake_repetition(runs, "1c-p73", "jsr-h22ctl-79800-ema-int8", 1, 0.036 * P73_SECONDS, 0.036 * P73_SECONDS, [24], same)
     fake_repetition(runs, "1c", "vosk-large", 1, 1.0, 1.0, [4], same, verdict="contaminated")
     summary("collect", runs, raw)
-    assert not (raw / "vosk-large").exists()
-    small = raw / "vosk-small"
+    summary("collect-wer", fake_wer_pass(tmp_path / "pass", "whispercpp-stream-tiny", same), raw, "whispercpp-stream-tiny")
+    small, tiny = raw / "vosk-small", raw / "whispercpp-stream-tiny"
     assert (small / "round-1/predictions.jsonl").is_file() and not (small / "round-2/predictions.jsonl").exists()
     assert (small / "round-2/predictions.jsonl.ref").read_text().split()[0] == "round-1"
-    assert (raw / "vosk-small-w8/round-3/predictions.jsonl").is_file()
-    assert not list(raw.rglob("scores.jsonl")) and len(list(raw.rglob("scores.jsonl.sha256"))) == 15
+    assert (tiny / "p73-round-2/predictions.jsonl.ref").read_text().split()[0] == "p73-round-1"
+    assert (tiny / "p73-round-3/predictions.jsonl").is_file() and (tiny / "wer-full/score.json").is_file()
+    assert (tiny / "wer-full/scores.jsonl.sha256").read_text().strip() == receipt.hashlib.sha256(b"scorer input\n").hexdigest()
+    assert not list(raw.rglob("scores.jsonl")) and not (tiny / "p73-round-1/scores.jsonl.sha256").exists()
+    assert sorted(path.name for path in (raw / "jsr-h22ctl-79800-ema-int8").iterdir()) == ["p73-round-1", "round-1"]
     summary("expand", raw, panel, tmp_path / "full")
-    for original in runs.rglob("scores.jsonl"):
+    for original in runs.rglob("predictions.jsonl"):
         rebuilt = tmp_path / "full" / original.relative_to(runs)
-        if "vosk-large" not in str(original):
-            assert rebuilt.read_bytes() == original.read_bytes()
-            assert (rebuilt.parent / "predictions.jsonl").read_bytes() == (original.parent / "predictions.jsonl").read_bytes()
+        assert rebuilt.read_bytes() == original.read_bytes()
+        if (original.parent / "scores.jsonl").is_file():
+            assert (rebuilt.parent / "scores.jsonl").read_bytes() == (original.parent / "scores.jsonl").read_bytes()
     rows = {row["id"]: row for row in map(json.loads, summary("rows", raw, "2026-11-22 xbabe0 test").splitlines())}
-    assert set(rows) == {"vosk-small-zen2-t1", "vosk-small-zen2-t8", "whispercpp-stream-tiny-zen2-t8"}
+    assert set(rows) == {"vosk-small-zen2-t1", "vosk-small-zen2-t8", "whispercpp-stream-tiny-zen2-t1",
+                         "whispercpp-stream-tiny-zen2-t8"}
     one = rows["vosk-small-zen2-t1"]
     assert one["cpu_s_per_audio_s"] == pytest.approx(0.15) and one["cpu_reps"] == pytest.approx([0.20, 0.10, 0.15])
     assert one["wer_pct"] == pytest.approx(10.3) and one["peak_rss_bytes"] == 3 * 10**8
     assert one["threads"] == 1 and one["parallel"] == "intra_op" and one["class"] == "streaming"
     assert one["arm"] == "vosk-small" and one["configuration"].startswith("vosk-model-small-en-us-0.15")
     assert one["repeated_hypotheses_identical"] and one["workload_digest"] == WORKLOAD["digest"]
+    assert one["timing_panel"] == "full" and one["wer_source"].startswith("the timed repetitions")
     assert "CPUs 4; 24; 28" in one["hardware"] and one["session"] == "2026-11-22 xbabe0 test"
-    assert one["n_busy_cores"] == [3, 3, 3] and one["service_mhz"] == [4100, 4100, 4100]
-    assert one["recogniser_s_per_audio_s"] is None
-    assert not rows["vosk-small-zen2-t8"]["repeated_hypotheses_identical"]
-    tiny = rows["whispercpp-stream-tiny-zen2-t8"]
-    assert tiny["parallel"] == "workers" and tiny["wall_s_per_audio_s"] == pytest.approx(0.20)
-    assert [other["parallel"] for other in tiny["alternatives"]] == ["intra_op"]
-    anchors = [json.loads(line) for line in summary("anchors", raw, "session").splitlines()]
-    assert [(row["id"], row["role"]) for row in anchors] == [("jsr-d2e-16457-int8-zen2-t1", "ours")]
-    assert anchors[0]["cpu_s_per_audio_s"] == pytest.approx(0.035)
+    assert one["n_busy_cores"] == [2, 2, 2] and one["service_mhz"] == [4100, 4100, 4100]
+    assert one["recogniser_s_per_audio_s"] is None and len(one["repetition_windows"]) == 3
+    slow = rows["whispercpp-stream-tiny-zen2-t1"]
+    assert slow["timing_panel"] == "p73" and slow["workload_digest"] == P73_DIGEST
+    assert slow["cpu_s_per_audio_s"] == pytest.approx(1.2) and slow["wer_pct"] == pytest.approx(20.0)
+    assert slow["wer_workload_digest"] == WORKLOAD["digest"] and "full-panel pass on xbabe3" in slow["wer_source"]
+    assert slow["shared_hypotheses_equal_full_pass"] == ["2/2", "2/2", "1/2"]
+    assert not slow["repeated_hypotheses_identical"]
+    eight = rows["whispercpp-stream-tiny-zen2-t8"]
+    assert eight["parallel"] == "processes" and eight["wall_s_per_audio_s"] == pytest.approx(0.20)
+    assert [alternative["parallel"] for alternative in eight["alternatives"]] == ["intra_op"]
+    assert eight["wer_pct"] == pytest.approx(20.0)
+    shared = rows["vosk-small-zen2-t8"]
+    assert shared["parallel"] == "workers" and shared["timing_panel"] == "p73"
+    assert shared["wer_pct"] == pytest.approx(10.3) and "one-core full-panel repetitions" in shared["wer_source"]
+    assert shared["shared_hypotheses_equal_full_pass"] == ["2/2", "2/2", "2/2"]
+    anchors = {row["id"]: row for row in map(json.loads, summary("anchors", raw, "session").splitlines())}
+    assert set(anchors) == {"jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-full-r1",
+                            "jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-p73-r1"}
+    quiet = anchors["jsr-h22ctl-79800-ema-int8-zen2-t1-anchor-p73-r1"]
+    assert quiet["anchor"] is True and quiet["role"] == "ours" and quiet["alone_on_host"]
+    assert quiet["cpu_s_per_audio_s"] == pytest.approx(0.036) and quiet["timing_panel"] == "p73"
     table = summary("table", raw)
-    assert "| vosk-small | 2 | 24 | 0.1000 |" in table and "| vosk-small-w8 | 3 | 0.2000 |" in table
+    assert "| vosk-small | full | 2 | 24 | 0.1000 |" in table and "| vosk-small-w8 | p73 | 3 | 1.5000 |" in table
+
+
+def test_loaded_cross_checks_never_become_rows(tmp_path):
+    runs, raw = tmp_path / "runs", tmp_path / "raw"
+    audio = WORKLOAD["audio_seconds"]
+    for round_id, service in ((1, [4]), (2, [24]), (3, [28])):
+        fake_repetition(runs, "1c", "vosk-small", round_id, 0.3 * audio, 0.3 * audio, service, {"u00000": "a", "u00001": "c"})
+    summary("collect", runs, raw / "loaded-2118Z")
+    assert summary("rows", raw, "session") == ""
+    assert "| vosk-small | full | 3 | 0.3000 |" in summary("table", raw / "loaded-2118Z")

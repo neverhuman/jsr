@@ -10,7 +10,8 @@
 #   vosk-large  vosk-small              Vosk 0.3.45, streaming, 20 ms packets
 #   whispercpp-stream-base|-tiny        whisper.cpp through pywhispercpp, Picovoice's 3 s chunk engine
 #   parakeet-v3-onnxasr-int8            Parakeet TDT 0.6B v3, onnx-asr INT8, whole utterance
-#   jsr-d2e-16457-int8                  our engine, D2e 16457 INT8 (same-session anchor)
+#   jsr-h22ctl-79800-ema-int8           our engine, H22ctl 79800 EMA INT8 (same-session anchor)
+#   jsr-d2e-16457-int8                  our engine, D2e 16457 INT8 (earlier cross-session anchor)
 #   r0-zipformer-int8                   R0 Zipformer INT8 through sherpa-onnx (same-session anchor)
 #   <system>-t8                         eight intra-op threads in one recogniser
 #   <system>-w8                         eight single-thread recognisers side by side
@@ -57,25 +58,33 @@ open_arm() {
             files=("${artifacts[@]}" "$venv"/lib/python3*/site-packages/onnxruntime/capi/*.so*
                 "$opp/parakeet-onnx-asr/venv.freeze.txt")
             ;;
-        jsr-d2e-16457-int8|r0-zipformer-int8)
-            # Same-session anchors through ultra-cold-wav: our engine and the R0 Zipformer (sherpa-onnx).
-            local anchor="$opp/bench-open/anchor"
+        jsr-h22ctl-79800-ema-int8|jsr-d2e-16457-int8|r0-zipformer-int8)
+            # Same-session anchors through ultra-cold-wav: our engine (H22ctl-79800 EMA INT8 with the
+            # primary row's binary; D2e-16457 as the earlier cross-session anchor) and the R0 Zipformer.
+            local anchor="$opp/bench-open/anchor" binary
             local -a engine
-            if [[ $system == jsr-d2e-16457-int8 ]]; then
-                model="$anchor/d2e-16457-int8"
-                engine=("$anchor/ultra-cold-wav" r1-engine-int8 "$model")
+            binary="$anchor/ultra-cold-wav"
+            case "$system" in
+                jsr-h22ctl-79800-ema-int8)
+                    model="$opp/models/H22ctl-79800-ema/int8"
+                    binary="$opp/energy/bin/ultra-cold-wav"
+                    ;;
+                jsr-d2e-16457-int8) model="$anchor/d2e-16457-int8" ;;
+                r0-zipformer-int8) model="$anchor/r0-zipformer-int8" ;;
+            esac
+            if [[ $system == r0-zipformer-int8 ]]; then
+                engine=("$(command -v env)" "ULTRA_SHERPA_LIB=$anchor/sherpa-lib/libsherpa-onnx-c-api.so"
+                    "$binary" zipformer-int8 "$model")
+                artifacts=("$model/model")
+                files=("$model/manifest.json" "$model"/model/* "$anchor"/sherpa-lib/*)
+            else
+                engine=("$binary" r1-engine-int8 "$model")
                 # INT8 mode opens the INT8 weights only; the FP32 file is pinned but not counted.
                 artifacts=("$model/arch.json" "$model/weights.int8.safetensors" "$model/bpe.model"
                     "$model/tokens.txt" "$model/mel_fbank.f32")
                 files=("${artifacts[@]}" "$model/weights.safetensors")
-            else
-                model="$anchor/r0-zipformer-int8"
-                engine=("$(command -v env)" "ULTRA_SHERPA_LIB=$anchor/sherpa-lib/libsherpa-onnx-c-api.so"
-                    "$anchor/ultra-cold-wav" zipformer-int8 "$model")
-                artifacts=("$model/model")
-                files=("$model/manifest.json" "$model"/model/* "$anchor"/sherpa-lib/*)
             fi
-            files+=("$anchor/ultra-cold-wav")
+            files+=("$binary")
             if [[ ${mode[0]:-} == --workers ]]; then
                 cmd=("$(command -v python3)" -I "$here/open_workers.py" "${mode[1]}" "$wav" "$run/predictions.jsonl"
                     -- "${engine[@]}")
