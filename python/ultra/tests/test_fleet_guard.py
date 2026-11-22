@@ -63,8 +63,10 @@ def test_windowed_control_tracks_the_5min_mean_and_includes_paused_time():
         w.add(2.0 * k, 1.0 if k % 5 else 0.0)
     assert abs(w.mean(300.0, now=300.0) - 0.8) < 0.02  # paused samples count
     p = Policy(gpu_target=0.85)
-    assert next_duty_windowed(0.8, 0.88, 0.88, 0.2, p) < 0.8        # 5-min mean over: slow step down
-    assert next_duty_windowed(0.8, 0.84, 0.99, 0.2, p) <= 0.8 - p.step_down + 1e-9  # burst far over: fast
-    assert next_duty_windowed(0.8, 0.84, 0.84, 0.2, p) == 0.8        # inside the deadband: hold
-    assert next_duty_windowed(0.8, 0.70, 0.70, 0.2, p) > 0.8         # headroom: slow step up
-    assert next_duty_windowed(0.8, None, None, 0.95, p) < 0.8        # CPU over
+    assert abs(next_duty_windowed(0.8, 0.84, 0.88, 0.88, 0.2, p) - 0.79) < 1e-9  # last minute over: small step
+    assert next_duty_windowed(0.8, 0.84, 0.84, 0.99, 0.2, p) <= 0.8 - p.step_down + 1e-9  # burst far over: fast
+    assert next_duty_windowed(0.8, 0.84, 0.84, 0.84, 0.2, p) == 0.8        # inside the deadband: hold
+    assert next_duty_windowed(0.8, 0.70, 0.70, 0.70, 0.2, p) > 0.8         # headroom: slow step up
+    assert next_duty_windowed(0.8, 0.88, 0.70, 0.70, 0.2, p) == 0.8        # 5-min mean over: hold, never rise
+    assert abs(next_duty_windowed(0.8, 0.88, 0.80, 0.80, 0.2, p) - 0.8) < 1e-9  # ...and no wind-down on it
+    assert next_duty_windowed(0.8, None, None, None, 0.95, p) < 0.8        # CPU over

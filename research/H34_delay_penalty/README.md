@@ -1,6 +1,6 @@
 # H34: emission-delay penalty for streaming first-preview latency
 
-**Status:** pre-registered on 2026-11-22, before any H34 run.
+**Status:** NEGATIVE (2026-11-22). Pre-registered before any H34 run; results below.
 
 ## Question
 Live Transcribe shows the first preview **370–540 ms after speech onset**. Codex's direct-PCM measurement puts almost all of that in the model's emission delay; the pipeline accounts for only 18–27 ms.
@@ -43,3 +43,20 @@ Everything except λ is matched across arms:
 ## Out of scope
 - No production change happens without the gate.
 - The penalty is not applied to D2e, H22 or L3 runs.
+
+## Results
+All three arms ran 3,000 steps on xbabe1 (RTX 4090).
+
+**dev-clean400, greedy:**
+
+| λ | 1,000 raw / EMA | 2,000 raw / EMA | 3,000 raw / EMA |
+|---|---|---|---|
+| 0 (control) | 6.317 / 6.187 | 6.317 / 6.239 | 6.473 / 6.213 |
+| 0.0015 | 6.369 / 6.134 | 6.330 / 6.213 | 6.239 / 6.226 |
+| 0.004 | 6.265 / 6.187 | 6.512 / 6.173 | 6.278 / 6.187 |
+
+- **Accuracy:** no WER cost at either λ.
+- **Latency:** codex-review's harness found identical first-preview packets across the three arms, a change of 0 ms.
+- **Verdict by the pre-registered rule:** neither arm brings the first preview 150 ms earlier, so H34 is negative and λ stays 0 in production.
+- **Reading:** the first preview is bounded by the 160 ms attention chunk, not by the emission delay the penalty acts on. H14 tests the chunk instead.
+

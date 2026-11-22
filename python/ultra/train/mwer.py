@@ -173,6 +173,8 @@ def main(argv=None) -> int:
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     payload = dict(p, model=model.state_dict(), ema=None, mwer_steps=a.steps)
     torch.save(payload, a.out)
+    with open(a.out[:-3] + ".sha256", "w") as fh:  # the completion marker checkpoint.load requires
+        fh.write(checkpoint._sha256(a.out) + "\n")
     print(json.dumps({"saved": a.out, "steps": a.steps}), flush=True)
     return 0
 

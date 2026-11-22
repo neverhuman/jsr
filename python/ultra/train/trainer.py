@@ -24,6 +24,7 @@ from dataclasses import asdict, dataclass, field
 import torch
 
 from train import checkpoint
+from train.checkpoint import swap_weights  # noqa: F401  (re-exported: tests and tools import it from here)
 from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
 from train.data import Batch, Example, FixedBatches, Position, collate
@@ -60,6 +61,15 @@ class TrainConfig:
     dev_split: str = "dev-clean"
     dev_limit: int = 200
     chunk: int = 0  # 0 = model default
+    # Batches behind the initial CMVN statistics of a from-scratch run. 8 keeps new runs comparable
+    # with every earlier one (PR #32 raised the default to 32; set 32 here to opt in).
+    cmvn_batches: int = 8
+    # Per-step attention chunk drawn from this comma list (e.g. "4,8,16" = 160/320/640 ms), the same
+    # on every rank; "" = off (bit-exact). After runtime-lane's chunk_modes (PR #30), with its own
+    # RNG stream so SpecAugment masks stay those of the fixed-chunk run (paired replay gates).
+    chunk_modes: str = ""
+    # Extra attention chunks scored at each dev eval (comma list), logged as wer_c<k> / ema_wer_c<k>.
+    eval_chunks: str = ""
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
     # Divergence guard (D3MR 2026-11-21 diverged at lr 8e-4: attention qkv weights of one block
@@ -99,6 +109,10 @@ class TrainConfig:
     ddp_util_target: float = 0.0
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
     ddp_global_batches: bool = False
+    # Throughput-weighted shards: one relative speed per rank (e.g. "1,1,0.6"); each rank takes
+    # that share of the seconds of every global batch, so a slow (shared) GPU stops making the
+    # others wait. "" = equal shares (unchanged split). ops/rank_weights.py suggests values.
+    ddp_rank_weights: str = ""
     ddp_native: bool = False  # overlap gradient communication with backward
     ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
     kd_dir: str = ""
@@ -132,10 +146,12 @@ class TrainConfig:
     zloss: float = 0.0
     # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
     cr_ctc_weight: float = 0.0
+    # H41 full-form CR-CTC (needs cr_ctc_weight > 0): two SpecAugment views per step, CTC and
+    # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
+    # so memory stays at one view's graph and a step costs about 2.3x. False = unchanged path.
+    cr_ctc_full: bool = False
     # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
     delay_penalty: float = 0.0
-    # H14/H27 dual-mode chunk sampling (e.g. "2,4,8" or "4,8,16,0"; "" = fixed cfg.chunk).
-    chunk_modes: str = ""
     # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
     inter_ctc_weight: float = 0.0  # Self-Conditioned InterCTC loss weight (recommended 0.2 for V2)
     balancer_weight: float = 0.0  # Zipformer Activation Balancer weight (recommended 1e-3 for V2)
@@ -215,12 +231,23 @@ class Trainer:
                 "watch_sig": self._watch_sig(),
                 **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
 
+    def _step_chunk(self) -> int | None:
+        c = self.cfg
+        if not c.chunk_modes:
+            return c.chunk or None
+        modes = [int(v) for v in c.chunk_modes.split(",") if v.strip()]
+        pick = torch.Generator().manual_seed(c.seed * 1_000_003 + self.step + 500_009)
+        return modes[int(torch.randint(0, len(modes), (1,), generator=pick))]
+
     def _watch_sig(self) -> dict:
         c = self.cfg
-        return {"loss": [c.kd_weight, c.cr_ctc_weight, c.inter_ctc_weight, c.balancer_weight,
-                         c.zloss, c.delay_penalty, c.rnnt_loss, c.prune_range, c.budget_s,
-                         c.max_batch, self.model_cfg.ctc_weight],
-                "dev": [c.dev_split, c.dev_limit, c.chunk]}
+        sig = [c.kd_weight, c.cr_ctc_weight, c.zloss, c.delay_penalty, c.chunk_modes, c.rnnt_loss,
+               c.prune_range, c.budget_s, c.max_batch, self.model_cfg.ctc_weight]
+        # options added later are appended only when set, so a checkpoint written before they
+        # existed still matches and a resumed run keeps its divergence baselines
+        sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
+                                    ("cr_ctc_full", c.cr_ctc_full)) if v]
+        return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
         """Re-arm the divergence guard (e.g. after --swap-weights replaced the model)."""
@@ -273,8 +300,9 @@ class Trainer:
                     if p.get("ema") is not None else None)
         return True
 
-    def init_cmvn(self, n_batches: int = 32) -> None:
-        """Compute initial CMVN over up to `n_batches` batches (32 = low-variance fresh-run stats)."""
+    def init_cmvn(self, n_batches: int = 8) -> None:
+        """Initial CMVN statistics of a from-scratch run, over up to `n_batches` batches
+        (TrainConfig.cmvn_batches; 8 is what every run before 2026-11-22 used)."""
         feats = []
         for i, (_, b) in enumerate(self.source.iterate(Position())):
             feats.extend(b.feats[j, :b.feat_lens[j]] for j in range(len(b.uids)))
@@ -305,6 +333,10 @@ class Trainer:
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
+        if self.cfg.cr_ctc_full and self.cfg.cr_ctc_weight > 0:
+            from train.two_view import two_view_step
+
+            return two_view_step(self, batch, b, gen)
         if self.world > 1 and self.cfg.ddp_native and self._ddp_loss is None:
             from torch.nn.parallel import DistributedDataParallel
 
@@ -317,17 +349,13 @@ class Trainer:
 
                 self._ddp_loss.register_comm_hook(None, default_hooks.bf16_compress_hook)
         forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
-        step_chunk = self.cfg.chunk or None
-        if self.cfg.chunk_modes:
-            modes = [int(v) for v in self.cfg.chunk_modes.split(",") if v.strip()]
-            if modes:
-                step_chunk = modes[int(torch.randint(0, len(modes), (1,), generator=gen))]
+        t_fwd = time.time()
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
             out = forward(b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens,
                                     stats=self.stats if b.active else None,
                                     augment=self._step_augment(), gen=gen,
-                                    chunk=step_chunk,
+                                    chunk=self._step_chunk(),
                                     pruned_scale=self._pruned_scale(),
                                     kd=b.kd, kd_weight=self.cfg.kd_weight,
                                     simple_detach=self.step < self.cfg.prune_hold,
@@ -340,6 +368,10 @@ class Trainer:
                                        if self.cfg.inter_ctc_weight else {}),
                                     **({"balancer_weight": self.cfg.balancer_weight}
                                        if self.cfg.balancer_weight else {}))
+        if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
+            if self.device.type == "cuda":
+                torch.cuda.synchronize(self.device)
+            self._fwd_s = getattr(self, "_fwd_s", 0.0) + (time.time() - t_fwd)
         loss = out["loss"]
         if self.world > 1:
             hb = self._hb_acc()
@@ -397,13 +429,14 @@ class Trainer:
         self._slept_mark = ts["slept_s"]
         rows = all_gather_floats([float(acc.get("frames", 0)), pad, getattr(self, "_bwd_s", 0.0),
                                   float(acc.get("step_s", 0.0)), float(acc.get("data_wait_s", 0.0)),
-                                  slept, ts["duty"], ts["util_5min"]], self.device)
-        self._bwd_s = 0.0
+                                  slept, ts["duty"], ts["util_5min"],
+                                  getattr(self, "_fwd_s", 0.0)], self.device)
+        self._bwd_s = self._fwd_s = 0.0
         col = lambda k, nd=2: [round(r[k], nd) for r in rows]  # noqa: E731
         return {"rank_frames": [int(r[0]) for r in rows], "rank_pad_pct": col(1),
                 "rank_bwd_comm_s": col(2), "rank_step_s": col(3), "rank_data_wait_s": col(4),
                 "rank_throttle_sleep_s": col(5), "rank_duty": col(6, 3), "rank_gpu_util_5min": col(7, 3),
-                "util_target": ts["target"]}
+                "rank_fwd_s": col(8), "util_target": ts["target"]}
 
     def _hb_acc(self) -> dict:
         if getattr(self, "_hb", None) is None:
@@ -599,7 +632,7 @@ class Trainer:
         with eval_weights(self.opt):
             return self._evaluate(max_batch_s)
 
-    def _evaluate(self, max_batch_s: float) -> dict:
+    def _evaluate(self, max_batch_s: float, chunk: int | None = None) -> dict:
         from ultra.wer import corpus_wer
 
         self.model.eval()
@@ -611,7 +644,7 @@ class Trainer:
             while j < len(exs) and exs[j].seconds * (j - i + 1) <= max_batch_s:
                 j += 1
             b = collate(exs[i:j]).to(self.device)
-            toks, f = self.model.greedy(b.feats, b.feat_lens, self.cfg.chunk or None)
+            toks, f = self.model.greedy(b.feats, b.feat_lens, chunk or self.cfg.chunk or None)
             forced += f
             refs.extend(b.texts)
             hyps.extend(self.tok.decode(t) for t in toks)
@@ -622,14 +655,29 @@ class Trainer:
         return w
 
     @torch.no_grad()
-    def _evaluate_ema(self) -> dict:
+    def _evaluate_extra_chunks(self) -> dict:
+        """Dev WER of the live and EMA weights at each extra attention chunk in cfg.eval_chunks."""
+        out: dict = {}
+        if not self.cfg.eval_chunks or not self.dev or self.tok is None:
+            return out
+        for c in [int(v) for v in self.cfg.eval_chunks.split(",") if v.strip()]:
+            with eval_weights(self.opt):
+                out[f"wer_c{c}"] = self._evaluate(300.0, c).get("wer")
+            ema = self._evaluate_ema(c).get("ema_wer")
+            if ema is not None:
+                out[f"ema_wer_c{c}"] = ema
+        return out
+
+    @torch.no_grad()
+    def _evaluate_ema(self, chunk: int | None = None) -> dict:
         """Dev WER of the EMA weights (swapped in, then the live weights restored)."""
         if self.ema is None or not self.dev or self.tok is None:
             return {}
         live = {k: v.detach().clone() for k, v in self.model.state_dict().items()}
         self.model.load_state_dict(self.ema)
         try:
-            ev = self._evaluate(300.0)  # as loaded: no Schedule-Free x swap over the EMA weights
+            # as loaded: no Schedule-Free x swap over the EMA weights
+            ev = self._evaluate(300.0, chunk) if chunk else self._evaluate(300.0)
         finally:
             self.model.load_state_dict(live)
         return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
@@ -725,6 +773,7 @@ class Trainer:
             if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
                 ev = self.evaluate() if self.rank == 0 else {}
                 ema = self._evaluate_ema() if self.rank == 0 else {}
+                ema.update(self._evaluate_extra_chunks() if self.rank == 0 else {})
                 self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
                           "epoch": pos.epoch, "epoch_end": bool(epoch_end),
                           **ev, **ema, **self.stats.summary()})
@@ -790,25 +839,16 @@ def _teacher(cfg: TrainConfig):
     return store
 
 
-def swap_weights(model, path: str) -> dict:
-    """Load a checkpoint's model weights into a resumed model (optimizer and schedule untouched).
-    Only training-only simple-joiner heads may be absent from the file; they keep their values."""
-    p = checkpoint.load(path, restore_rng=False)
-    missing, unexpected = model.load_state_dict(p["model"], strict=False)
-    allowed = {"simple_am.weight", "simple_am.bias", "simple_lm.weight", "simple_lm.bias"}
-    if unexpected or not set(missing) <= allowed:
-        raise CheckpointError(f"--swap-weights state mismatch: missing={missing} unexpected={unexpected}")
-    with open(path[:-3] + ".sha256") as fh:
-        return {"swap_from": os.path.abspath(path), "sha256": fh.read().strip(), "kept": sorted(missing)}
-
-
 def model_config_for(cfg: TrainConfig) -> ModelConfig:
     """The preset's model config with output heads sized to the configured tokenizers."""
     import dataclasses
 
     if cfg.rnnt_pieces < 2 or cfg.ctc_pieces < 2:
         raise ShapeError("rnnt_pieces and ctc_pieces must be >= 2")
-    return dataclasses.replace(PRESETS[cfg.preset], vocab_rnnt=cfg.rnnt_pieces + 1,
+    base = PRESETS[cfg.preset]
+    if cfg.chunk:  # the exported config must carry the trained attention chunk (H14), not the preset's
+        base = dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, chunk=cfg.chunk))
+    return dataclasses.replace(base, vocab_rnnt=cfg.rnnt_pieces + 1,
                                vocab_ctc=cfg.ctc_pieces + 1, rnnt_loss=cfg.rnnt_loss,
                                prune_range=cfg.prune_range)
 
@@ -873,6 +913,11 @@ def main(argv=None) -> int:
     if world > 1 and hasattr(source, "world"):
         source.rank, source.world = rank, world
         source.ddp_global_batches = cfg.ddp_global_batches
+        if cfg.ddp_rank_weights:
+            w = tuple(float(v) for v in cfg.ddp_rank_weights.split(","))
+            if len(w) != world or min(w) <= 0 or not cfg.ddp_global_batches:
+                raise ValueError("ddp_rank_weights needs one positive weight per rank and ddp_global_batches")
+            source.rank_weights = w
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
     cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
@@ -898,6 +943,8 @@ def main(argv=None) -> int:
         import dataclasses
 
         src = ModelConfig.from_dict(p["model_config"])
+        # the attention chunk only shapes the mask (no weights): a checkpoint may seed another chunk
+        src = dataclasses.replace(src, encoder=dataclasses.replace(src.encoder, chunk=tr.model_cfg.encoder.chunk))
         if dataclasses.replace(src, qat="none", qat_stem="none") != \
                 dataclasses.replace(tr.model_cfg, qat="none", qat_stem="none"):
             raise CheckpointError("--init-from checkpoint has a different model config")
@@ -906,7 +953,7 @@ def main(argv=None) -> int:
                 "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     else:
-        tr.init_cmvn()
+        tr.init_cmvn(cfg.cmvn_batches)
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
     if world > 1:

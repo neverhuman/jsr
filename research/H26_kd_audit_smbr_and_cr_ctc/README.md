@@ -24,3 +24,28 @@ Can we close the remaining streaming WER gap toward R0 Zipformer (`2.85%` dev-cl
 
 ## 4. Pointers
 - Sources: `tips/v2/JSR_CPU_ASR_BREAKTHROUGH_RESEARCH_SPEC.md` §5, `tips/v2/ULTRA-SU_single_user_cpu_asr_spec.md` §5.1, `tips/v2/jsr_ultra_v4_0_radical_cpu_asr_architecture_hpc_specification.md` §5.1, `research/H22_r0_distillation/README.md`.
+
+## CR-CTC 100 h arms run by trainer-lane on 2026-11-22 (written after the results)
+
+**Process note:** these arms were launched at 17:40Z without a gate section in this README, and this section was written after they ended. They do not measure this README's gate (dev-other at matched GPU hours): they are matched on steps and scored on dev-clean400 greedy. Treat them as exploratory.
+
+- **Protocol:** H23a's exactly (preset S, SentencePiece-512, pruned RNN-T, AdamW lr 1e-3, 2,000 warmup steps, seed 1234, budget 300 s / 64, 24,000 steps on 100 h, SpecAugment from 4,000, EMA) plus `cr_ctc_weight`. H23a is the control.
+- **Loss variant:** PR #24's. The second view receives only the consistency term, not a supervised CTC loss. PR #32 changes that.
+- **Arms:** weight 0.1 on xbabe1 (RTX 4090), completed. Weight 0.2 on xbabe6 (A10), stopped at step 17,582 when the fleet plan changed.
+
+**dev-clean400, greedy, raw / EMA:**
+
+| step | H23a (control) | CR-CTC 0.1 | CR-CTC 0.2 |
+|---:|---|---|---|
+| 10,000 | 24.538 / 21.412 | 23.496 / 21.164 | 23.639 / 21.529 |
+| 16,000 | 18.312 / 16.827 | 17.400 / 16.424 | 17.947 / 16.697 |
+| 20,000 | 17.023 / 16.228 | 15.877 / 15.486 | not reached |
+| 23,034 | 16.450 / 16.319 | 15.395 / 15.277 | not reached |
+| 24,000 | 16.202 / 16.371 | 15.642 / 15.290 | not reached |
+
+- **Reading:** weight 0.1 ends 0.56 pp raw and 1.08 pp EMA better than H23a at step 24,000. That is not distinguishable from run-to-run spread:
+  - H23e, which has no CR-CTC, ends at 15.251 / 15.343, also about 1 pp better than H23a;
+  - two identical 100 h runs differ by about 0.57 pt on this panel.
+- **Cost:** CR-CTC runs a second encoder pass. On the A10 it trained at 417 audio-h/h against H23a's 984 (guard targets 0.83 and 0.88).
+- **Verdict:** not adopted on this evidence. A further test belongs in the H41 replay protocol, with both views supervised.
+

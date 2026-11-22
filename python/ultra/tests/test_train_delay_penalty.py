@@ -37,3 +37,37 @@ def test_delay_penalty_rejects_the_exact_loss():
     m = ASRModel(PRESETS["TINY"])
     with pytest.raises(ValueError):
         m.losses(*_batch(), delay_penalty=0.01)
+
+
+def test_model_config_records_the_trained_chunk():
+    from train.trainer import TrainConfig, model_config_for
+
+    assert model_config_for(TrainConfig(preset="S")).encoder.chunk == PRESETS["S"].encoder.chunk
+    assert model_config_for(TrainConfig(preset="S", chunk=2)).encoder.chunk == 2
+
+
+def test_chunk_modes_draw_is_deterministic_per_step_and_trains(tmp_path):
+    from train.data import Example, FixedBatches
+    from train.trainer import TrainConfig, Trainer
+
+    exs = [Example(f"u{i}", "hi", torch.randn(48, 80), [1, 2], [1, 2]) for i in range(4)]
+
+    def trainer(d, **kw):
+        cfg = TrainConfig(preset="TINY", total_steps=8, warmup=1, log_every=1, eval_every=0,
+                          ckpt_every_steps=100, specaug=False, **kw)
+        return Trainer(str(tmp_path / d), cfg, FixedBatches(exs, batch_size=2), model_cfg=PRESETS["TINY"],
+                       device="cpu", log=False)
+
+    off = trainer("off")
+    assert off._step_chunk() is None  # "" = the model's own chunk, unchanged path
+    a, b = trainer("a", chunk_modes="2,4"), trainer("b", chunk_modes="2,4")
+    seen = set()
+    for step in range(40):
+        a.step = b.step = step
+        assert a._step_chunk() == b._step_chunk()  # same draw on every rank / rerun
+        seen.add(a._step_chunk())
+    assert seen == {2, 4}
+    a.step = 0
+    a.run(max_steps=4)
+    assert a.step == 4 and all(torch.isfinite(p).all() for p in a.model.parameters())
+    assert a._evaluate_extra_chunks() == {}  # no dev set: nothing scored
