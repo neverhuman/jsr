@@ -15,8 +15,8 @@
 ]
 % later checkpoint, not timed
 \addplot[okGrey, dashed, thin, mark=none, forget plot] coordinates {(0,\WerDtwoBestPanelClean) (44,\WerDtwoBestPanelClean)};
-\node[font=\tiny, text=okGrey, anchor=north east, inner sep=1.5pt] at (axis cs:44,\WerDtwoBestPanelClean)
-  {later checkpoint, not timed; training ongoing};
+\node[font=\tiny, text=okGrey, anchor=south east, inner sep=1.5pt, align=right] at (axis cs:44,\WerDtwoBestPanelClean)
+  {later checkpoint,\\not timed;\\training ongoing};
 % whiskers: claim -> first failed rung
 \addplot[okVermillion, thin, mark=|, mark size=2pt, forget plot]
   coordinates {(\DenRzeroCCX/4,\WerRehearsalRzero) (\DenFailRzeroCCX/4,\WerRehearsalRzero)};
@@ -27,8 +27,8 @@
 % dense step 45k: hollow, range over runs A/D
 \addplot[okBlue, thin, densely dashed, mark=o, mark size=1.7pt, mark options={solid, fill=white}, forget plot]
   coordinates {(\DenDenseFortyFiveRangeLo/4,\WerRehearsalDenseFortyFive) (\DenDenseFortyFiveRangeHi/4,\WerRehearsalDenseFortyFive)};
-\node[font=\tiny, text=okBlue, anchor=south, inner sep=1.5pt, align=center]
-  at (axis cs:{(\DenDenseFortyFiveRangeLo+\DenDenseFortyFiveRangeHi)/8},\WerRehearsalDenseFortyFive)
+\node[font=\tiny, text=okBlue, anchor=south, inner sep=1pt]
+  at (axis cs:{(\DenDenseFortyFiveRangeLo+\DenDenseFortyFiveRangeHi)/8},{\WerRehearsalDenseFortyFive+0.45})
   {step 45k (earlier), runs A, D};
 % timed systems
 \addplot[ultra/rzero, only marks, mark size=2pt] coordinates {(\DenRzeroCCX/4,\WerRehearsalRzero)};
@@ -43,8 +43,6 @@
 % R0 -> MR density ratio
 \draw[-{Stealth[length=4pt]}, okGrey, thin] (axis cs:\DenRzeroCCX/4,4.4) -- (axis cs:\DenMRCCX/4,4.4)
   node[midway, above, font=\scriptsize, text=okGrey, inner sep=1.5pt] {R0 $\rightarrow$ multirate: \DenRatioMR$\times$ streams};
-\draw[okGrey, very thin, dotted] (axis cs:\DenRzeroCCX/4,\WerRehearsalRzero) -- (axis cs:\DenRzeroCCX/4,4.4);
-\draw[okGrey, very thin, dotted] (axis cs:\DenMRCCX/4,4.4) -- (axis cs:\DenMRCCX/4,\WerRehearsalMR);
 \end{axis}
 % top axis: per CCX
 \begin{axis}[ultra/base,
