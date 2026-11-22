@@ -53,6 +53,7 @@
     "research/": "lead",
     "docs/paper/": "lead",
     "python/ultra/tools/paper_data/": "lead",
-    "python/ultra/tools/export_curves.py": "lead"
+    "python/ultra/tools/export_curves.py": "lead",
+    "python/ultra/tools/fleet_dashboard/": "lead"
   }
 }

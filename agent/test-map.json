@@ -216,6 +216,10 @@
     "python/ultra/tools/export_curves.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_export_curves.py",
       "purpose": "training/validation curves export deterministically from train.jsonl"
+    },
+    "python/ultra/tools/fleet_dashboard/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_fleet_dashboard.py",
+      "purpose": "fleet dashboard parsing/aggregation (train.jsonl records, nvidia-smi rows, fleet KPIs) is correct and fast"
     }
   }
 }
