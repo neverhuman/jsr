@@ -1,0 +1,1 @@
+{"runtime":"transcribe.cpp","version":"0.4.2","commit":"cfa237c2","backend":"CPU","variant":"unified-en-0.6b","mode":"offline","threads":1,"input_packet_ms":0}
