@@ -232,6 +232,19 @@ def global_summary(runs: list[dict], nodes: dict) -> dict:
     }
 
 
+def summarize_rank(rec: dict, now: float) -> dict:
+    """Compact per-rank DDP heartbeat (`rank<R>.jsonl`, written by every rank each log interval)."""
+    iv = rec.get("interval_s") or 0
+    ahh = (rec.get("audio_s") or 0) / iv if iv else None
+    return {
+        "run": rec.get("run"), "rank": rec.get("rank"), "world": rec.get("world"), "gpu": rec.get("gpu"),
+        "step": rec.get("step"), "loss": rec.get("loss"), "ahh": round(ahh, 1) if ahh is not None else None,
+        "compute_s": rec.get("compute_s"), "comm_s": rec.get("comm_s"), "wait_s": rec.get("wait_s"),
+        "sleep_s": rec.get("sleep_s"), "pad_pct": rec.get("pad_pct"),
+        "age": (now - rec["time"]) if rec.get("time") else None,
+    }
+
+
 def parse_nvidia(text: str) -> list[dict]:
     """Parse `nvidia-smi` CSV lines into GPU dicts."""
     out = []

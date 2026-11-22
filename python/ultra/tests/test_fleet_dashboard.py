@@ -98,3 +98,12 @@ def test_first_probe_does_not_mark_starting():
     rs.add({"k": "t", "step": 5, "loss": 1.0, "ahh": 500.0, "time": 1000.0, "lr": 1e-4, "audio_s": 1.0, "ep": 0})
     rs.set_live("xbabe1", True, now=0.0)  # dashboard just started: launch time unknown
     assert rs.summary(now=1200.0, inventory_complete=True)["status"] == "running"
+
+
+def test_rank_heartbeat_summary():
+    from tools.fleet_dashboard.parse import summarize_rank
+
+    r = summarize_rank({"run": "D2d_S_960h", "rank": 3, "world": 4, "gpu": 0, "step": 500, "time": 990.0,
+                        "audio_s": 3600.0 * 5, "interval_s": 3.6, "loss": 1.4, "compute_s": 2.1, "comm_s": 0.9,
+                        "wait_s": 0.1, "sleep_s": 0.5}, now=1000.0)
+    assert r["ahh"] == 5000.0 and r["rank"] == 3 and r["age"] == 10.0 and r["comm_s"] == 0.9

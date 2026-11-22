@@ -11,7 +11,8 @@ from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
-from tools.fleet_dashboard.parse import RunState, global_summary, parse_line, parse_live_runs, parse_nvidia
+from tools.fleet_dashboard.parse import (RunState, global_summary, parse_line, parse_live_runs, parse_nvidia,
+                                          summarize_rank)
 from tools.fleet_dashboard.remote_tail import tail_remote_node
 
 RUN_ROOT = Path(os.environ.get("FLEET_RUN_ROOT", "/mnt/xbabe3-external/jsr/runs/train"))
@@ -200,11 +201,16 @@ class Fleet:
         while True:
             await self.probe(node)
             if node != LOCAL_NODE and self.nodes.get(node, {}).get("up"):
+                ranks: list[dict] = []
                 for item in await tail_remote_node(node, SSH_OPTS, self.offsets):
+                    if "ranks" in item:
+                        ranks = [summarize_rank(r, time.time()) for r in item["ranks"]]
+                        continue
                     key = f"{node}:{item['path']}"
                     self.offsets[key] = int(item["off"])
                     if item["lines"]:
                         self._ingest_lines(item["run"], node, item.get("total"), item["lines"])
+                self.nodes[node]["ranks"] = sorted(ranks, key=lambda r: (str(r["run"]), r["rank"] or 0))
             await asyncio.sleep(NODE_PERIOD)
 
     # ---------- websocket ----------
