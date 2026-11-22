@@ -431,6 +431,8 @@ class Trainer:
 
     # ---- loop --------------------------------------------------------------------------------
     def log(self, rec: dict) -> None:
+        if self.rank != 0:  # one train.jsonl per data-parallel run
+            return
         rec = dict(rec, time=time.time())
         with open(os.path.join(self.run_dir, "train.jsonl"), "a") as fh:
             fh.write(json.dumps(rec) + "\n")
