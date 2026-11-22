@@ -163,10 +163,8 @@ def test_bare_number_checker_is_narrow():
 
 def test_sections_contain_no_bare_result_numbers():
     sec = pd.REPO / "docs" / "paper" / "sections"
-    if not sec.is_dir():
-        pytest.skip("no sections yet")
     bad = {}
-    for p in sorted(sec.glob("*.tex")):
+    for p in sorted(sec.glob("*.tex")) if sec.is_dir() else []:
         hits = bare_numbers(p.read_text(encoding="utf-8"))
         if hits:
             bad[p.name] = hits
@@ -188,10 +186,10 @@ x
 """
 
 
-@pytest.mark.skipif(shutil.which("pdflatex") is None, reason="pdflatex not installed")
 def test_figures_compile_standalone_within_column(tmp_path):
     import subprocess
 
+    assert shutil.which("pdflatex"), "pdflatex is required for the paper figures (texlive-latex-extra, texlive-pictures)"
     paper = pd.REPO / "docs" / "paper"
     body = " ".join(f"\\measure{{{f}}}" for f in FIGURES)
     tex = tmp_path / "figs.tex"
