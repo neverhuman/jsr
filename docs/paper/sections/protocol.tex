@@ -51,11 +51,9 @@ per audio-second over the three runs; peak resident memory of the tree and artif
 recorded beside it. Each system uses its native streaming interface; an external recognizer that
 only offers a child process is measured exactly like ours.
 
-\para{Warm cost.} Warm cost is whole-service CPU-seconds per audio-second, warm (model load excluded and
-reported separately), measured as process rusage after load. The CPU governor and boost state are
-recorded. Nemotron~\cite{nemotron}, which we can only run as a child process, has no comparable
-warm measurement; it is excluded from cost and density claims and appears only as context with
-its own scope label.
+\para{Warm cost.} Whole-service CPU-seconds per audio-second after model load, from process
+rusage, with governor and boost state recorded. Nemotron~\cite{nemotron} runs only as a child
+process, so it is excluded from cost and density claims.
 
 \para{Counterbalanced timing.} The cost claim (C-cost) compares each \ultra finalist with Zipformer
 in eight blocks. Each block runs every arm once on the same 50 utterances, in the order
