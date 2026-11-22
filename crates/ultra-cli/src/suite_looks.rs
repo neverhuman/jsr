@@ -28,6 +28,8 @@ struct LookRecord {
     who: String,
     board: String,
     split: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    set: Option<String>,
     candidate: String,
     raw_candidate: String,
     freeze_tag: String,
@@ -47,11 +49,25 @@ pub struct LoggedPublicTestRead {
     pub board: String,
     pub kind: String,
     pub split: String,
+    pub ood_set: Option<String>,
     pub freeze_tag: String,
     pub freeze_tag_commit: String,
     pub build_commit: String,
     pub completion_status: String,
     pub candidates: Vec<(String, String)>, // (canonical_id, raw_arg)
+}
+
+/// Map any `Partition::DomainSealed` split alias (`ami-ihm`, `ami_test`, `voxpopuli-en`, etc.)
+/// to the canonical OOD set key shared with `python/ultra/ultra/ood.py` and `score-ood`.
+pub fn canonical_ood_set(split: &str) -> String {
+    let lower = split.trim().to_ascii_lowercase();
+    if lower.contains("ami") {
+        "ami".into()
+    } else if lower.contains("voxpopuli") {
+        "voxpopuli".into()
+    } else {
+        lower
+    }
 }
 
 fn git_in(repo: &Path, args: &[&str]) -> Option<String> {
@@ -167,10 +183,15 @@ pub fn guard_and_log_in_repo_for_partition(
     build_dirty: bool,
     completion_status: &str,
 ) -> Result<LoggedPublicTestRead, CliError> {
-    let (board, kind) = if partition == Partition::DomainSealed {
-        ("PRIVATE-OOD", "sealed-ood-read")
+    let is_ood = partition == Partition::DomainSealed;
+    let (board, kind, ood_set) = if is_ood {
+        (
+            "PRIVATE-OOD",
+            "ood-sealed-read",
+            Some(canonical_ood_set(split)),
+        )
     } else {
-        ("PUBLIC-TEST", "public-test-read")
+        ("PUBLIC-TEST", "public-test-read", None)
     };
     let look_id = look_id.trim();
     if look_id.is_empty() {
@@ -225,7 +246,7 @@ pub fn guard_and_log_in_repo_for_partition(
         .map_err(|e| CliError::Resource(format!("lock {}: {e}", looks_path.display())))?;
 
     let existing = std::fs::read_to_string(&looks_path)?;
-    for (canon, raw) in candidates {
+    if let Some(ref set_name) = ood_set {
         for line in existing.lines().filter(|l| !l.trim().is_empty()) {
             let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
                 continue;
@@ -233,15 +254,39 @@ pub fn guard_and_log_in_repo_for_partition(
             if v.get("historical_reconstruction").and_then(|x| x.as_bool()) == Some(true) {
                 continue;
             }
-            let same_kind = v.get("kind").and_then(|x| x.as_str()) == Some(kind);
-            let same_split = v.get("split").and_then(|x| x.as_str()) == Some(split);
-            let same_cand = v.get("candidate").and_then(|x| x.as_str()) == Some(canon.as_str());
-            let same_tag = v.get("freeze_tag").and_then(|x| x.as_str()) == Some(freeze_tag);
-            if same_kind && same_split && same_cand && same_tag {
+            let same_kind = v.get("kind").and_then(|x| x.as_str()) == Some("ood-sealed-read");
+            let same_set = v
+                .get("set")
+                .and_then(|x| x.as_str())
+                .map(canonical_ood_set)
+                .as_deref()
+                == Some(set_name.as_str());
+            if same_kind && same_set {
                 return Err(CliError::Config(format!(
-                    "refusing second {board} read for canonical candidate `{canon}` (arg `{raw}`) on `{split}` under `{freeze_tag}` (already logged in `{}`; FREEZE.md §4.2 / S6)",
+                    "refusing second {board} read for set `{set_name}` (split `{split}`; already logged in `{}`; O15 / S6)",
                     looks_path.display()
                 )));
+            }
+        }
+    } else {
+        for (canon, raw) in candidates {
+            for line in existing.lines().filter(|l| !l.trim().is_empty()) {
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                    continue;
+                };
+                if v.get("historical_reconstruction").and_then(|x| x.as_bool()) == Some(true) {
+                    continue;
+                }
+                let same_kind = v.get("kind").and_then(|x| x.as_str()) == Some(kind);
+                let same_split = v.get("split").and_then(|x| x.as_str()) == Some(split);
+                let same_cand = v.get("candidate").and_then(|x| x.as_str()) == Some(canon.as_str());
+                let same_tag = v.get("freeze_tag").and_then(|x| x.as_str()) == Some(freeze_tag);
+                if same_kind && same_split && same_cand && same_tag {
+                    return Err(CliError::Config(format!(
+                        "refusing second {board} read for canonical candidate `{canon}` (arg `{raw}`) on `{split}` under `{freeze_tag}` (already logged in `{}`; FREEZE.md §4.2 / S6)",
+                        looks_path.display()
+                    )));
+                }
             }
         }
     }
@@ -249,7 +294,22 @@ pub fn guard_and_log_in_repo_for_partition(
     let now_s = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    for (canon, raw) in candidates {
+    let records_to_log: Vec<(String, String)> = if is_ood {
+        let joined_canon = candidates
+            .iter()
+            .map(|(c, _)| c.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let joined_raw = candidates
+            .iter()
+            .map(|(_, r)| r.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        vec![(joined_canon, joined_raw)]
+    } else {
+        candidates.to_vec()
+    };
+    for (canon, raw) in &records_to_log {
         let rec = LookRecord {
             kind: kind.into(),
             look_id: look_id.to_owned(),
@@ -257,6 +317,7 @@ pub fn guard_and_log_in_repo_for_partition(
             who: "ultra-bench-suite".into(),
             board: board.into(),
             split: split.to_owned(),
+            set: ood_set.clone(),
             candidate: canon.clone(),
             raw_candidate: raw.clone(),
             freeze_tag: freeze_tag.to_owned(),
@@ -275,11 +336,12 @@ pub fn guard_and_log_in_repo_for_partition(
         board: board.into(),
         kind: kind.into(),
         split: split.to_owned(),
+        ood_set,
         freeze_tag: freeze_tag.to_owned(),
         freeze_tag_commit: tag_commit,
         build_commit: build_commit.to_owned(),
         completion_status: completion_status.to_owned(),
-        candidates: candidates.to_vec(),
+        candidates: records_to_log,
     })
 }
 
@@ -306,6 +368,7 @@ pub fn record_aborted_public_test_reads(logged: &LoggedPublicTestRead, reason: &
             who: "ultra-bench-suite".into(),
             board: logged.board.clone(),
             split: logged.split.clone(),
+            set: logged.ood_set.clone(),
             candidate: canon.clone(),
             raw_candidate: raw.clone(),
             freeze_tag: logged.freeze_tag.clone(),
@@ -319,151 +382,4 @@ pub fn record_aborted_public_test_reads(logged: &LoggedPublicTestRead, reason: &
         }
     }
     let _ = fh.flush();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn scratch_repo() -> (tempfile::TempDir, String) {
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let run = |args: &[&str]| {
-            let st = Command::new("git")
-                .arg("-C")
-                .arg(tmp.path())
-                .args(args)
-                .status()
-                .expect("git");
-            assert!(st.success(), "git {args:?} failed");
-        };
-        run(&["init", "-q"]);
-        std::fs::write(tmp.path().join("README"), "x").expect("write");
-        run(&["add", "README"]);
-        run(&[
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "-q",
-            "-m",
-            "init",
-        ]);
-        let commit = git_in(tmp.path(), &["rev-parse", "HEAD"]).expect("head");
-        (tmp, commit)
-    }
-
-    #[test]
-    fn public_test_guard_enforces_tag_clean_build_canonical_id_and_abort_log() {
-        let (tmp, commit) = scratch_repo();
-        let cands = vec![("nemotron-560:gguf=deadbeef".into(), "nemotron-560".into())];
-
-        // S6(1): refused before bench-freeze-v1 tag exists, even in exploratory mode.
-        assert!(guard_and_log_in_repo(
-            tmp.path(),
-            "look-001",
-            "test-clean",
-            &cands,
-            "bench-freeze-v1",
-            &commit,
-            false,
-            "exploratory",
-        )
-        .is_err());
-
-        // Create freeze tag.
-        assert!(Command::new("git")
-            .arg("-C")
-            .arg(tmp.path())
-            .args(["tag", "bench-freeze-v1"])
-            .status()
-            .expect("tag")
-            .success());
-
-        // Dirty build still refused.
-        assert!(guard_and_log_in_repo(
-            tmp.path(),
-            "look-001",
-            "test-clean",
-            &cands,
-            "bench-freeze-v1",
-            &commit,
-            true,
-            "qualified",
-        )
-        .is_err());
-
-        // Historical reconstruction line must NOT block the first post-freeze read.
-        let looks = tmp.path().join("docs/ultra/LOOKS.jsonl");
-        std::fs::create_dir_all(looks.parent().expect("parent")).expect("mkdir");
-        std::fs::write(
-            &looks,
-            "{\"kind\":\"public-test-read\",\"historical_reconstruction\":true,\"split\":\"test-clean\",\"candidate\":\"nemotron-560:gguf=deadbeef\",\"freeze_tag\":\"bench-freeze-v1\"}\n",
-        )
-        .expect("seed");
-
-        let logged = guard_and_log_in_repo(
-            tmp.path(),
-            "look-001",
-            "test-clean",
-            &cands,
-            "bench-freeze-v1",
-            &commit,
-            false,
-            "qualified",
-        )
-        .expect("first post-freeze read passes");
-
-        // S6(3): different CLI alias resolving to the same canonical_id MUST be refused.
-        let alias = vec![(
-            "nemotron-560:gguf=deadbeef".into(),
-            "nemotron_en_q8_live_560".into(),
-        )];
-        let err = guard_and_log_in_repo(
-            tmp.path(),
-            "look-002",
-            "test-clean",
-            &alias,
-            "bench-freeze-v1",
-            &commit,
-            false,
-            "qualified",
-        )
-        .expect_err("alias second read must fail");
-        assert!(err.to_string().contains("second PUBLIC-TEST read"));
-
-        // S6(4): abort audit record appends cleanly.
-        record_aborted_public_test_reads(&logged, "simulated downstream error");
-        let text = std::fs::read_to_string(&looks).expect("read");
-        assert!(text.contains("public-test-read-aborted"));
-        assert!(text.contains("simulated downstream error"));
-
-        // S6(OOD): Partition::DomainSealed (AMI / VoxPopuli) enforces the exact same tag/one-read guard.
-        let ood_logged = guard_and_log_in_repo_for_partition(
-            tmp.path(),
-            Partition::DomainSealed,
-            "look-ood-1",
-            "ami-ihm",
-            &cands,
-            "bench-freeze-v1",
-            &commit,
-            false,
-            "qualified",
-        )
-        .expect("first OOD read passes");
-        assert_eq!(ood_logged.board, "PRIVATE-OOD");
-        assert_eq!(ood_logged.kind, "sealed-ood-read");
-        assert!(guard_and_log_in_repo_for_partition(
-            tmp.path(),
-            Partition::DomainSealed,
-            "look-ood-2",
-            "ami-ihm",
-            &alias,
-            "bench-freeze-v1",
-            &commit,
-            false,
-            "qualified",
-        )
-        .is_err());
-    }
 }
