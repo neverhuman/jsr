@@ -74,6 +74,10 @@ PANEL5 = (
     ("mr_dev-clean_jobc.json", "D2MR-50k MR INT8", "dev-clean"),
     ("mr_dev-other.json", "D2MR-50k MR INT8", "dev-other"),
     ("moontiny_dev-other.json", "Moonshine v2 tiny INT8", "dev-other"),
+    ("dense_avg3new_clean-greedy.json", "D2 avg-3 (55/60/65k) dense INT8 greedy", "dev-clean"),
+    ("dense_avg3new_clean-beam4.json", "D2 avg-3 (55/60/65k) dense INT8 beam 4", "dev-clean"),
+    ("dense_avg3new_other-greedy.json", "D2 avg-3 (55/60/65k) dense INT8 greedy", "dev-other"),
+    ("dense_avg3new_other-beam4.json", "D2 avg-3 (55/60/65k) dense INT8 beam 4", "dev-other"),
 )
 
 
@@ -90,13 +94,15 @@ def add_panel5(root: Path, rec: Records) -> None:
         if ds["utterances"] != want:
             raise PaperDataError(f"{name}: {ds['utterances']} utterances, expected the full panel half ({want})")
         rep[name] = (c["substitutions"] + c["deletions"] + c["insertions"], c["ref_words"])
-    conf = ("bench-suite --panel, threads 1, grid 320 ms, ultra ce58952 (same executable as Jobs C/D/E); "
-            "scored by ultra-score 38eacc04 (ultra-en-wer-norm/v1)")
+    score = "scored by ultra-score 38eacc04 (ultra-en-wer-norm/v1)"
+    exe_old = "ultra ce58952 (same executable as Jobs C/D/E)"
     src = "docs/paper/data/raw/panel5_rust_scores/"
     halves = {"Clean": ("DEV selection panel, dev-clean half (400 utt)", "clean"),
               "Other": ("DEV selection panel, dev-other half (330 utt)", "other")}
 
     def add(rid, files, system):
+        exe = "ultra 43f31a1 (Job G panel runs g3a/g3b)" if files[0].startswith("dense_avg3new") else exe_old
+        conf = f"bench-suite --panel, threads 1, grid 320 ms, {exe}; {score}"
         e = sum(rep[f][0] for f in files)
         n = sum(rep[f][1] for f in files)
         wl = "DEV selection panel, pooled (730 utt)" if len(files) == 2 else halves["Clean" if "clean" in files[0] else "Other"][0]
@@ -107,9 +113,16 @@ def add_panel5(root: Path, rec: Records) -> None:
     add("WerRzeroPanel", ["rzero_dev-clean.json", "rzero_dev-other.json"], "R0 Zipformer INT8")
     add("WerRzeroPanelClean", ["rzero_dev-clean.json"], "R0 Zipformer INT8")
     add("WerRzeroPanelOther", ["rzero_dev-other.json"], "R0 Zipformer INT8")
-    add("WerRehearsalDense", ["dense_avg3_dev-clean.json"], "D2 avg-3 (45/50/55k) dense prepared INT8, the ladder's dense finalist")
-    add("WerRehearsalDenseOther", ["dense_avg3_dev-other.json"], "D2 avg-3 (45/50/55k) dense prepared INT8")
-    add("WerRehearsalDensePooled", ["dense_avg3_dev-clean.json", "dense_avg3_dev-other.json"], "D2 avg-3 dense prepared INT8")
+    old = "D2 avg-3 (45/50/55k) dense prepared INT8, the Job E ladder's dense row (history)"
+    add("WerRehearsalDenseOld", ["dense_avg3_dev-clean.json"], old)
+    add("WerRehearsalDenseOldOther", ["dense_avg3_dev-other.json"], old)
+    add("WerRehearsalDenseOldPooled", ["dense_avg3_dev-clean.json", "dense_avg3_dev-other.json"], old)
+    new = "D2 avg-3 (55/60/65k) dense prepared INT8, the headline dense checkpoint (Job G, ultra 43f31a1)"
+    for stem, tag in (("Dense", "greedy"), ("DenseBeam", "beam4")):
+        sysd = f"{new}, {'greedy' if tag == 'greedy' else 'beam 4'}"
+        add(f"WerRehearsal{stem}", [f"dense_avg3new_clean-{tag}.json"], sysd)
+        add(f"WerRehearsal{stem}Other", [f"dense_avg3new_other-{tag}.json"], sysd)
+        add(f"WerRehearsal{stem}Pooled", [f"dense_avg3new_clean-{tag}.json", f"dense_avg3new_other-{tag}.json"], sysd)
     add("WerRehearsalMROther", ["mr_dev-other.json"], "D2MR-50k multirate prepared INT8")
     add("WerRehearsalMRPooled", ["mr_dev-clean_jobc.json", "mr_dev-other.json"], "D2MR-50k multirate prepared INT8")
     add("WerMoonTinyPanelOther", ["moontiny_dev-other.json"], "Moonshine v2 tiny INT8 (sherpa offline)")

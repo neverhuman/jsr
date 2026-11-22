@@ -1,8 +1,8 @@
 % Fig. 2 body (paper-data): warm single-harness density ladder, exploratory.
 % Worst-worker p99 lateness vs live streams per Zen 2 CCX (4 workers). Hollow marks = failed rung;
 % rings = claimed density (last sustained rung).
-% Data: data/ladder_{rzero,dense,mr}.csv (Job E, ultra ce58952; dense = avg-3 finalist). WER: panel dev-clean
-% (R0, MR: same harness, Job C; dense avg-3: Rust-rescored trainer FP32 until runtime Job F1 lands).
+% Data: data/ladder_{rzero,dense,mr}.csv (Job E, ultra ce58952; dense = avg 45/50/55k, the Job E session; the
+% headline avg 55/60/65k is in Fig. 1). WER: same-harness panel dev-clean (Jobs C and F1).
 \input{figures/style.tex}
 \begin{tikzpicture}
 \begin{axis}[ultra/base,
@@ -20,7 +20,7 @@
 \addplot[ultra/rzero] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_rzero.csv};
 \addlegendentry{R0 Zipformer: \DenRzeroCCX{}/CCX, WER \WerRehearsalRzero\,\%}
 \addplot[ultra/dense] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_dense.csv};
-\addlegendentry{dense avg-3: \DenDenseCCX{}/CCX, WER \WerRehearsalDense\,\%}
+\addlegendentry{dense avg 45/50/55k: \DenDenseOldCCX{}/CCX, WER \WerRehearsalDenseOld\,\%}
 \addplot[ultra/mr] table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_mr.csv};
 \addlegendentry{multirate 50k: \DenMRCCX{}/CCX, WER \WerRehearsalMR\,\%}
 % failed rungs drawn hollow on top
@@ -32,7 +32,7 @@
   table[col sep=comma, x=total_streams, y=p99_ms]{\paperdatadir ladder_mr.csv};
 % ring the claimed rung of each system
 \addplot[okVermillion, only marks, mark=o, mark size=3.4pt, forget plot] coordinates {(\DenRzeroCCX,\DenPninetyNineRzero)};
-\addplot[okBlue, only marks, mark=o, mark size=3.4pt, forget plot] coordinates {(\DenDenseCCX,\DenPninetyNineDense)};
+\addplot[okBlue, only marks, mark=o, mark size=3.4pt, forget plot] coordinates {(\DenDenseOldCCX,\DenPninetyNineDenseOld)};
 \addplot[okGreen, only marks, mark=o, mark size=3.8pt, forget plot] coordinates {(\DenMRCCX,\DenPninetyNineMR)};
 \end{axis}
 \end{tikzpicture}

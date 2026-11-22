@@ -1,21 +1,22 @@
 \begin{abstract}
-Streaming speech services must bound decode lateness as concurrent audio arrives.
-We measure a streaming transducer with multirate encoding and prepared INT8
-inference. In \DenRungSeconds-second replay rungs on one four-core Zen~2 complex,
-D2MR at step 50,000 passed at \DenMRCCX{} streams versus \DenRzeroCCX{} for
-Zipformer INT8, a \DenRatioMR-fold difference in passing load. Worst-worker p99
-lateness was \DenPninetyNineMR{} and \DenPninetyNineRzero\,ms, respectively,
-under an 800-ms deadline. Both passing configurations drained all accepted
-audio. The dense checkpoint passed at \DenDenseCCX{} streams in the same
-replay. At the common \MatchedRung-stream load, D2MR processed
-\AudioPerCpuMR{} audio seconds per CPU second versus \AudioPerCpuRzero{} for
-Zipformer, corresponding to \CostLadderMR{} and \CostLadderRzero{} CPU seconds
-per audio second. At \ProbeStreams{} streams in a \ProbeSeconds-second probe,
-worst-worker p99 was \ProbePninetyNineMR{} versus \ProbePninetyNineRzero\,ms.
-On the 400-utterance dev-clean selection panel, the same configurations yield
-\WerRehearsalMR\% and \WerRehearsalRzero\% word error rate. These shared-host
-results are exploratory. Matched cold costs, hour-long capacity confirmation,
-and registered test accuracy remain pending.
+On one four-core Zen~2 core complex, the \ultra multirate streaming transducer sustains
+\DenMRCore{} live streams per physical core (\DenMRCCX{} per complex) with worst-worker p99
+lateness under 800\,ms, against \DenRzeroCore{} per core for a pretrained Zipformer INT8 in the
+same harness: \DenRatioMR{}$\times$ the passing load (bracket
+\DenRatioMRBracketLo--\DenRatioMRBracketHi{} given the rung spacing), identical in all
+\DenReproRuns{} rehearsal runs, with all accepted audio drained. At an equal load of
+\MatchedRung{} streams it processes \AudioPerCpuMR{} audio-seconds per CPU-second against
+\AudioPerCpuRzero{} (\CostRatioMR{}$\times$ less CPU), and at \ProbeStreams{} streams its worst-worker
+p99 is \ProbePninetyNineMR{} against \ProbePninetyNineRzero\,ms. Accuracy lags, and training
+continues: \WerRehearsalMRPooled\% against \WerRzeroPanel\% pooled WER on the same 730-utterance
+DEV panel. The latest dense checkpoint sustains \DenDenseCore{} streams per core with greedy decoding and
+with beam 4 alike, so beam search, which lowers its pooled WER to \WerRehearsalDenseBeamPooled\%,
+costs no density.
+The engine behind this is pure Rust and integer-exact: per-row centred INT8 makes each stream's
+output independent of its batch, within \GateMaxDelta\pp WER of FP32, and with a portable log-mel
+front end the tokens decoded from raw PCM are bit-identical on x86 AVX2 and ARM NEON
+(\XisaAgree/\XisaTotal{} decodes). All results are exploratory (\DenRungSeconds\,s ladder rungs,
+shared host); cold costs, hour-long confirmation and registered test accuracy are pending.
 \end{abstract}
 
 \begin{IEEEkeywords}

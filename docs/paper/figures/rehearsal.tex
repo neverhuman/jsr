@@ -12,8 +12,8 @@
 ]
 \addplot[ultra/rzero, only marks] coordinates {(\CostLadderRzero,\WerRehearsalRzero)}
   node[pos=0, anchor=south east, font=\scriptsize, text=okVermillion, align=right] {R0};
-\addplot[ultra/dense, only marks] coordinates {(\CostLadderDense,\WerRehearsalDense)}
-  node[pos=0, anchor=south west, font=\scriptsize, text=okBlue] {dense avg-3};
+\addplot[ultra/dense, only marks] coordinates {(\CostLadderDenseOld,\WerRehearsalDenseOld)}
+  node[pos=0, anchor=south west, font=\scriptsize, text=okBlue] {dense 45/50/55k};
 \addplot[ultra/mr, only marks] coordinates {(\CostLadderMR,\WerRehearsalMR)}
   node[pos=0, anchor=south west, font=\scriptsize, text=okGreen] {MR 50k};
 \end{axis}
@@ -23,10 +23,10 @@
   xtick={1,2,3}, xticklabels={R0, dense, MR}, ylabel={Streams per CCX}, grid=none, ymajorgrids,
 ]
 \addplot[fill=okVermillion, draw=okVermillion] coordinates {(1,\DenRzeroCCX)};
-\addplot[fill=okBlue, draw=okBlue] coordinates {(2,\DenDenseCCX)};
+\addplot[fill=okBlue, draw=okBlue] coordinates {(2,\DenDenseOldCCX)};
 \addplot[fill=okGreen, draw=okGreen] coordinates {(3,\DenMRCCX)};
 \node[font=\scriptsize, anchor=south] at (axis cs:1,\DenRzeroCCX) {\WerRehearsalRzero\,\%};
-\node[font=\scriptsize, anchor=south] at (axis cs:2,\DenDenseCCX) {\WerRehearsalDense\,\%};
+\node[font=\scriptsize, anchor=south] at (axis cs:2,\DenDenseOldCCX) {\WerRehearsalDenseOld\,\%};
 \node[font=\scriptsize, anchor=south] at (axis cs:3,\DenMRCCX) {\WerRehearsalMR\,\%};
 \end{axis}
 \end{tikzpicture}
