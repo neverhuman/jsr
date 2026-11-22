@@ -1,0 +1,48 @@
+\section{Training}\label{sec:training}
+
+\para{Data and recipe.} All models are trained on LibriSpeech~\cite{panayotov2015librispeech}
+960\,h only, with SpecAugment~\cite{park2019specaugment} (delayed until the model has started to
+align; applied from step zero it stalled our first run) and, in later runs, speed perturbation.
+We optimise the joint RNN-T and CTC loss with AdamW, linear warm-up and cosine decay, bf16 autocast
+on single consumer GPUs (RTX 3090/4090) and on an Apple M3 Ultra. The RNN-T loss never
+materialises the full $(B,T,U{+}1,V{+}1)$ lattice: the joiner is evaluated in time chunks that keep
+only blank and target log-probabilities, with an analytic backward. We validated a pruned
+loss~\cite{kuang2022pruned} against it (values and gradients equal to within $10^{-12}$ at full
+band) for future runs. The dense model D2 reported here had reached step \DtwoStep{} (epoch
+\DtwoEpoch) of a planned 102k at the time of writing; the multirate model D2MR ran to 50k.
+
+\para{Divergence and the qkv-norm cap.} Two multirate runs with an int8-trained stem diverged. In
+both, the query--key--value weight norm of a single attention block ran away, from \QkvRunawayFrom{}
+to \QkvRunawayTo{}, together with its pre-attention LayerNorm gain, and the model stopped emitting words. The
+block was already the largest in the warm-start checkpoint; AdamW weight decay was far too weak to
+hold it. Dense training from scratch grew all blocks evenly. We added two safeguards that leave
+the inference graph unchanged: (i) from a reference step, every row of each qkv weight and every
+element of its LayerNorm gain is clamped to at most \QkvCapRatio{}$\times$ its reference norm; (ii)
+a divergence guard stops a run when the loss moving average stays well above its best for 300 steps,
+or dev WER worsens by five points, preserving diagnostics. The relaunched run (D3MRc, which also carries
+the padding fix below and weight EMA) trains stably under the cap and reached \WerDthreeMRc\%
+on the first 400 dev-clean utterances at step 20k, below the \WerDthreeMRbTwentyK\% of its
+diverged predecessor at the same step. A ternary fine-tune at 960\,h that predated the cap failed with a gradient-norm spike and
+is reported as such (\cref{sec:negative}).
+
+\para{A train/inference mismatch, found and bounded.} The batched multirate training path zeroed
+padded positions only \emph{after} pairing, so the last real frame of an odd-length utterance
+could be paired with a padded state that the blocks had left nonzero. Inference pairs with
+zeros. After the fix, batched training equals single-utterance processing for every input length
+we tested (with $50\times$ junk padding). Re-scoring the shipped multirate checkpoint, the bug had
+changed at most \MRPadDeltaMax\pp WER, and the checkpoint was kept.
+
+\para{Free decode-time levers.} Two levers need no retraining. Averaging the last three
+snapshots (5k steps apart) and a modified beam search of width four each
+recover a similar share of errors, and they stack: on full dev-clean / dev-other, step-\DtwoStep{}
+D2 improves from \WerDtwoGreedyClean\% / \WerDtwoGreedyOther\% (single snapshot, greedy) to
+\WerDtwoBestClean\% / \WerDtwoBestOther\% (average of three, beam 4). A 48-point DEV-panel sweep over beam width
+(2, 4, 8), blank penalty and length normalisation found little beyond the plain beam: the best
+point for the averaged dense model (beam \SweepDtwoBestBeam) reaches \SweepDtwoBestPooled\% pooled,
+against \SweepDtwoBeamFourPooled\% for beam 4 and \SweepDtwoGreedyPooled\% greedy. We also keep an exponential
+moving average of weights~\cite{polyak1992ema} in the newer runs. The beam is implemented in the
+engine and passes the INT8 gate (\cref{sec:results}); speed rows in this draft are greedy.
+
+\para{Error anatomy.} Substitutions dominate D2's errors, with no utterance-length trend and no
+final-word deletions (\cref{tab:ablate}); the gap to Zipformer is spread over interior words,
+pointing to capacity, exposure and data rather than a streaming boundary defect.

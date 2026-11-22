@@ -1,0 +1,36 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "sherpa-onnx-streaming-zipformer-en-2023-06-26-int8",
+  "source_commit": "unknown",
+  "hardware": "xbabe0-zen2-64c",
+  "target": "x86_64",
+  "configured_threads": 1,
+  "observed_threads": 1,
+  "cpu_only_verified": true,
+  "audio_seconds": 232.005,
+  "process_tree_cpu_seconds": 16.185,
+  "peak_rss_bytes": 347639808,
+  "events": 50,
+  "wakeups": 141,
+  "cap_hits": null,
+  "chunk_ms": {
+    "p50": 241.988,
+    "p95": 319.092,
+    "p99": 347.878
+  },
+  "status_events": [
+    "audio_accepted_s:232.005",
+    "audio_processed_s:232.005",
+    "audio_unfinished_s:0.000"
+  ],
+  "gaps": [],
+  "hashes": {
+    "events": "d9a22805b73db1f54d0e0f022b393302d441696c6b466c969bcc942137234257",
+    "preview": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commit": "2b5d282c752df154589f6b24789f33664f89ef564a1002771c47d1c47b87bc16",
+    "final": "ee4633e410065f6212cfc1b854b27fbc8fd9d0504dd852445c4fb5d67ef2587c"
+  },
+  "label": "in-corpus",
+  "partition": "DEV",
+  "completion_status": "exploratory"
+}

@@ -1,0 +1,40 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "sherpa-onnx-streaming-zipformer-en-2023-06-26-int8",
+  "source_commit": "unknown",
+  "hardware": "xbabe0-zen2-64c",
+  "target": "x86_64",
+  "configured_threads": 4,
+  "observed_threads": 6,
+  "cpu_only_verified": true,
+  "audio_seconds": 1875.385,
+  "process_tree_cpu_seconds": 115.719,
+  "peak_rss_bytes": 2153787392,
+  "events": 283,
+  "wakeups": 809,
+  "cap_hits": 0,
+  "chunk_ms": {
+    "p50": 306.543,
+    "p95": 401.376,
+    "p99": 627.728
+  },
+  "status_events": [
+    "observer_cpu_seconds:15.570451",
+    "process_cpu_seconds:131.289858",
+    "effective_observer_cpus:[100, 101, 102, 103]",
+    "effective_worker_cpus:[[96], [97], [98], [99]]",
+    "audio_accepted_s:1875.385",
+    "audio_processed_s:1875.385",
+    "audio_unfinished_s:0.000"
+  ],
+  "gaps": [],
+  "hashes": {
+    "events": "2523ed09e01e98410056486e64849dce1d69d081ce219d4a0d8ef2d7767d36fb",
+    "preview": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commit": "d6eb97c50f2cf68e4d18f0a9052fff3edb01f6097e0437548ba880dd72e5c980",
+    "final": "66df2e35db6fbee070041c53ac367271dd35a68bab68e65fcd39be407ee81e1e"
+  },
+  "label": "in-corpus",
+  "partition": "DEV",
+  "completion_status": "exploratory"
+}

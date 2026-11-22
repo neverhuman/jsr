@@ -1,0 +1,18 @@
+# LaTeX build products (ultra.pdf is committed on purpose)
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.run.xml
+*-blx.bib
+*.bcf
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb

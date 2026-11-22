@@ -1,0 +1,7 @@
+\section{Conclusion}\label{sec:conclusion}
+
+Integer exactness (batch-invariant per-row INT8, exact int32 kernels and a portable front end)
+gives an engine whose tokens are bit-identical across batches and ISAs and that, with a multirate
+encoder, sustains \DenMRCCX{} streams per four-core complex, \DenRatioMR{}$\times$ a pretrained
+Zipformer, at a WER that is still several times higher. Next are the qualified run and closing the
+accuracy gap with recipe changes that leave the engine, and its exactness, unchanged.

@@ -1,0 +1,138 @@
+% Related work (owner: paper-related, lane/paper).
+% Rule: no literal result numbers of ours in this file. Our measured values come from
+% data/metrics.tex; every literal number below is a published value with its citation in the
+% same table row. Fallbacks: any metric that paper-data has not defined yet prints a red ??.
+\providecommand{\PH}[1]{\textbf{??}}
+\providecommand{\WerBridgeIntEight}{\PH{WerBridgeIntEight}}
+\providecommand{\BridgeStep}{\PH{BridgeStep}}
+\providecommand{\WerRzeroDevClean}{\PH{WerRzeroDevClean}}
+\providecommand{\WerNemoDevClean}{\PH{WerNemoDevClean}}
+\providecommand{\CostEngineIntEight}{\PH{CostEngineIntEight}}
+\providecommand{\CostRzero}{\PH{CostRzero}}
+\providecommand{\CostNemo}{\PH{CostNemo}}
+\providecommand{\ParamsRone}{\PH{ParamsRone}}
+\providecommand{\CostPfiveRzero}{\PH{CostPfiveRzero}}
+\providecommand{\CostPfiveMoonBase}{\PH{CostPfiveMoonBase}}
+\providecommand{\CostPfiveMoonTiny}{\PH{CostPfiveMoonTiny}}
+\providecommand{\CostPfiveWhisperSmall}{\PH{CostPfiveWhisperSmall}}
+\providecommand{\WerPfiveRzeroTestClean}{\PH{WerPfiveRzeroTestClean}}
+\providecommand{\WerPfiveMoonBaseTestClean}{\PH{WerPfiveMoonBaseTestClean}}
+\providecommand{\WerPfiveMoonTinyTestClean}{\PH{WerPfiveMoonTinyTestClean}}
+\providecommand{\WerPfiveWhisperSmallTestClean}{\PH{WerPfiveWhisperSmallTestClean}}
+\providecommand{\WerPfiveMoonBaseDevClean}{\PH{WerPfiveMoonBaseDevClean}}
+\providecommand{\WerPfiveMoonTinyDevClean}{\PH{WerPfiveMoonTinyDevClean}}
+\providecommand{\WerPfiveWhisperSmallDevClean}{\PH{WerPfiveWhisperSmallDevClean}}
+\providecommand{\WerNemoTestCleanOneSixty}{\PH{WerNemoTestCleanOneSixty}}
+\providecommand{\WerNemoTestOtherOneSixty}{\PH{WerNemoTestOtherOneSixty}}
+
+\section{Related Work}\label{sec:related}
+
+\para{Streaming transducers and chunked attention.} The RNN transducer~\cite{graves2012rnnt}
+became the default streaming recogniser after it ran in real time on a phone~\cite{he2019streaming}. Self-attention encoders were made
+streamable by restricting each frame's context. Transformer Transducer limits the left and right
+context~\cite{zhang2020transformertransducer}. Chunk masks with cached history decode in fixed
+blocks~\cite{chen2021developing}, and WeNet trains one model over dynamic chunk
+sizes~\cite{yao2021wenet}. Emformer carries an augmented memory across
+segments~\cite{shi2021emformer}, and cache-aware FastConformer removes the gap between how a model
+is trained and how it is streamed~\cite{noroozi2024stateful}. Zipformer~\cite{yao2024zipformer} improves on the Conformer~\cite{gulati2020conformer} by running
+middle stacks at lower frame rates. Pruned RNN-T~\cite{kuang2022pruned}, a stateless
+predictor~\cite{ghodsi2020stateless} and consistency-regularised CTC~\cite{yao2025crctc} cut
+training cost. \ultra is a chunked Conformer transducer built from these parts. Our multirate
+encoder applies Zipformer's insight that not every block needs the full frame rate inside
+fixed 160\,ms streaming chunks. We claim the measurement of multirate as a lever on CPU
+stream density, not the idea of multirate itself.
+
+\para{Efficient and light ASR.} Whisper~\cite{radford2023whisper} spans five sizes, from tiny
+to large. Its encoder always processes a padded 30\,s window, so a short utterance costs as much
+as a long one; Distil-Whisper~\cite{gandhi2023distilwhisper} shrinks the decoder by distillation.
+Moonshine~\cite{moonshine} scales encoder compute with input length, and Moonshine
+v2~\cite{kudlur2026moonshinev2} adds a sliding-window streaming encoder. NVIDIA's
+FastConformer~\cite{rekesh2023fastconformer} uses 8\x subsampling. It underlies the
+Parakeet-TDT~\cite{xu2023tdt,parakeettdt} and Nemotron streaming~\cite{nemotron} models. These
+models reach low WER at several hundred million parameters. Self-supervised encoders such as
+wav2vec~2.0~\cite{baevski2020wav2vec} are larger still. Kaldi~\cite{povey2011kaldi} and the Vosk toolkit built on it~\cite{vosk} remain the usual
+light offline baseline. All of these works report WER together with parameters, FLOPs or a
+single-stream speed figure. None, to our knowledge, reports how many concurrent live streams
+a stated CPU sustains under a lateness bound. \Cref{tab:related} collects the light and
+streaming systems, and keeps the numbers we measured apart from the published ones.
+
+\para{CPU inference and quantisation.} Integer-arithmetic-only inference~\cite{jacob2018quantization}
+and its extensions to Transformers~\cite{kim2021ibert} established INT8 with int32 accumulation.
+Surveys cover the practical choices of granularity and calibration~\cite{wu2020integer,nagel2021whitepaper},
+and LLM.int8() scales activations per row~\cite{dettmers2022llmint8}. Ternary and 1.58-bit
+weights~\cite{wang2023bitnet,ma2024bitnet} promise large memory savings. Our negative result
+(\cref{sec:negative}) shows that the memory saving does not by itself buy batch throughput on a
+compute-bound CPU. Deployed CPU ASR mostly runs through general runtimes: ONNX
+Runtime~\cite{onnxruntime} behind sherpa-onnx~\cite{sherpaonnx}, the next-gen Kaldi deployment of
+icefall Zipformers~\cite{icefall}, or ggml-based runtimes such as NeMo-Speech.cpp~\cite{nemospeechcpp}.
+He et al.\ traced nondeterministic LLM serving to batch-variant kernels~\cite{he2025nondeterminism}.
+In \ultra, every activation row is quantised from its own range and accumulation is exact. As a
+result, a stream's tokens do not depend on its batch partners, and the engine produces
+bit-identical tokens on AVX2 and NEON. We are not aware of an ASR engine that documents
+either property.
+
+\para{Benchmarking practice.} MLPerf Inference~\cite{reddi2020mlperf} judges servers by the throughput
+they hold under a tail-latency bound, not by a single query's speed. Stream density is the
+streaming-ASR form of that rule. ESB~\cite{gandhi2022esb} standardises WER across domains. Cross-paper speed comparisons, by contrast, mix hosts, thread counts, batch
+shapes and harnesses. We retracted one of our own density ratios for exactly this reason
+(\cref{sec:protocol}). We therefore measure every system we compare against in one harness, on one
+host, and report WER beside each cost. Timing contrasts use Holm correction~\cite{holm1979simple}, and accuracy gates use bootstrap
+intervals~\cite{bisani2004bootstrap,efron1994bootstrap}.
+
+% ------------------------------------------------------------------ comparison table
+\begin{table*}[t]
+\centering
+\caption{Light and streaming ASR systems. \textbf{Top:} measured by us on host H0 (AMD Zen~2,
+one thread), all exploratory. The two cost columns are separate harnesses. \textbf{[A]} is the
+warm whole-service run on DEV400, and \textbf{[B]} is the P05 single-thread bench on test-clean.
+Compare costs within a column, never across. \textbf{Bottom:} published values, cited per row.
+Never compare a top row with a bottom row. WER in \%; ``--'' = not measured; params in M.}
+\label{tab:related}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l r c l l l r r@{}}
+\toprule
+\multicolumn{8}{@{}l}{\textit{Measured by us (same host H0, Zen~2; exploratory, shared host)}}\\
+\midrule
+System & Params & Stream. & dev-clean & test-clean & test-other & \cpus [A] & \cpus [B] \\
+\midrule
+\ultra dense S, step 5k, INT8 (ours) & \ParamsRone & \checkmark{} 160\,ms & \WerBridgeIntEight$^{a}$ & sealed$^{e}$ & sealed$^{e}$ & \CostEngineIntEight & -- \\
+Zipformer int8, sherpa-onnx (\Rzero)~\cite{icefall,sherpaonnx} & (below) & \checkmark{} 320\,ms & \WerRzeroDevClean$^{b}$ & \WerPfiveRzeroTestClean$^{c}$ & -- & \CostRzero & \CostPfiveRzero \\
+Nemotron 0.6B Q8\_0, NeMo-Speech.cpp~\cite{nemotron,nemospeechcpp} & (below) & \checkmark{} 160\,ms & \WerNemoDevClean$^{b}$ & \WerNemoTestCleanOneSixty & \WerNemoTestOtherOneSixty & \CostNemo$^{\dagger}$ & -- \\
+Moonshine base int8 (sherpa ``v2'' export)~\cite{sherpaonnx} & -- & offline & \WerPfiveMoonBaseDevClean$^{c}$ & \WerPfiveMoonBaseTestClean$^{c}$ & -- & -- & \CostPfiveMoonBase \\
+Moonshine tiny int8 (sherpa ``v2'' export)~\cite{sherpaonnx} & -- & offline & \WerPfiveMoonTinyDevClean$^{c}$ & \WerPfiveMoonTinyTestClean$^{c}$ & -- & -- & \CostPfiveMoonTiny \\
+Whisper small.en int8, sherpa-onnx~\cite{radford2023whisper,sherpaonnx} & (below) & offline & \WerPfiveWhisperSmallDevClean$^{d}$ & \WerPfiveWhisperSmallTestClean$^{d}$ & -- & -- & \CostPfiveWhisperSmall \\
+\midrule
+\multicolumn{8}{@{}l}{\textit{Reported in the original papers (published values; not re-measured)}}\\
+\midrule
+System & Params & Stream. & \multicolumn{2}{l}{test-clean / test-other} & \multicolumn{3}{l}{Source} \\
+\midrule
+Streaming Zipformer (icefall, \Rzero's source) & 66.1 & \checkmark{} 320\,ms & \multicolumn{2}{l}{3.06 / 7.79} & \multicolumn{3}{l}{\cite{icefall}, streaming table, greedy, chunk-wise} \\
+Zipformer-S, pruned transducer & 23.3 & offline & \multicolumn{2}{l}{2.42 / 5.73} & \multicolumn{3}{l}{\cite{yao2024zipformer}, Tab.~2} \\
+Nemotron Speech Streaming 0.6B & 600 & \checkmark{} 160\,ms & \multicolumn{2}{l}{2.56 / 5.57} & \multicolumn{3}{l}{\cite{nemotron}, model card} \\
+Nemotron Speech Streaming 0.6B & 600 & \checkmark{} 1.12\,s & \multicolumn{2}{l}{2.32 / 4.84} & \multicolumn{3}{l}{\cite{nemotron}, model card} \\
+Parakeet-TDT 0.6B v2 & 600 & offline & \multicolumn{2}{l}{1.69 / 3.19} & \multicolumn{3}{l}{\cite{parakeettdt}, model card} \\
+Moonshine Tiny (v1) & 27.1 & offline & \multicolumn{2}{l}{4.52 / 11.71} & \multicolumn{3}{l}{\cite{moonshine}, Tabs.~1, 3} \\
+Moonshine Base (v1) & 61.5 & offline & \multicolumn{2}{l}{3.23 / 8.18} & \multicolumn{3}{l}{\cite{moonshine}, Tabs.~1, 2} \\
+Moonshine v2 Tiny & 33.6 & \checkmark{} enc.$^{f}$ & \multicolumn{2}{l}{4.49 / 12.09} & \multicolumn{3}{l}{\cite{kudlur2026moonshinev2}, Tabs.~1, 3} \\
+Moonshine v2 Small & 123.4 & \checkmark{} enc.$^{f}$ & \multicolumn{2}{l}{2.49 / 6.78} & \multicolumn{3}{l}{\cite{kudlur2026moonshinev2}, Tabs.~1, 3} \\
+Whisper tiny.en & 39 & offline & \multicolumn{2}{l}{5.6 / 14.6} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
+Whisper base.en & 74 & offline & \multicolumn{2}{l}{4.2 / 10.2} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
+Whisper small.en & 244 & offline & \multicolumn{2}{l}{3.1 / 7.4} & \multicolumn{3}{l}{\cite{radford2023whisper}, Tabs.~1, 8 (greedy)} \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\begin{minipage}{\textwidth}\scriptsize
+$^{a}$DEV400, greedy, the step-\BridgeStep{} checkpoint timed in cost run [A] (Run~A of
+\cref{sec:results}); WER and cost come from the same checkpoint. Later, more accurate checkpoints are
+in \cref{tab:acc} and have no cost [A] row. $^{b}$DEV400 panel. $^{c}$First 100 utterances only (small sample).
+$^{d}$50 utterances only (small sample). $^{e}$R1 is selected on DEV only; the LibriSpeech test sets
+stay sealed until the qualifying run. Comparator test-set numbers are historical reads, disclosed
+in \cref{sec:protocol}. $^{\dagger}$Different cost scope: a cold child process, including model
+load; not comparable with the other [A] rows. $^{f}$Streaming encoder with an autoregressive
+decoder. Our ``Moonshine'' rows are sherpa-onnx exports that sherpa files under v2. The v2 paper
+defines no Base size, so no published row matches them. Nemotron's card scores with a
+different text normaliser than ours. ``(below)'': see the published row for the parameter count.
+\end{minipage}
+\end{table*}

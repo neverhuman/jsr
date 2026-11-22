@@ -1,0 +1,336 @@
+{
+  "schema": "ultra.frontier-suite/v1",
+  "split": "dev-clean",
+  "grid_ms": 320,
+  "max_chunks": 2,
+  "source_commit": "unknown",
+  "hardware_id": "xbabe0-zen2-64c",
+  "completion_status": "exploratory",
+  "density_ladder_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/density_ladder.json",
+  "rows": [
+    {
+      "candidate": "zipformer-int8",
+      "loaded_identity": "sherpa-onnx-streaming-zipformer-en-2023-06-26-int8",
+      "driver": "rust-sherpa-c-api",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 10,
+      "audio_seconds": 52.065,
+      "wer_pct": 0.581,
+      "single_rtf_cpu": 0.28672,
+      "single_streams_per_core": 3.49,
+      "batch_rtf_cpu": 0.08057,
+      "batch_streams_per_core": 12.41,
+      "chunk_ms": {
+        "p50": 119.944,
+        "p95": 186.021,
+        "p99": 188.259
+      },
+      "peak_rss_bytes": 2153787392,
+      "cap_hits": null,
+      "evidence_complete": false,
+      "density": {
+        "workers": 4,
+        "streams_per_worker": 4,
+        "total_streams": 16,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 468.02,
+        "peak_rss_bytes": 2153787392
+      },
+      "latency": {
+        "loaded_identity": "sherpa-onnx-zipformer-int8",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 3,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 3,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.8387750620000001,
+        "delay": null,
+        "finalization": {
+          "episodes": 3,
+          "finalized": 3,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.08617618200000088,
+          "conditional_p95_s": 0.09050021899999994,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 3
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 3
+            }
+          ]
+        }
+      },
+      "sustained_probe": {
+        "workers": 4,
+        "streams_per_worker": 16,
+        "total_streams": 64,
+        "sustained": false,
+        "drained": true,
+        "lateness_p99_ms": 927.55,
+        "peak_rss_bytes": 2153787392
+      },
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 0,
+          "audio_seconds": 0.0,
+          "ref_words": 0,
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "wer_pct": null
+        },
+        "fast_speech": {
+          "utterances": 4,
+          "audio_seconds": 21.415,
+          "ref_words": 82,
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "wer_pct": 0.0
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.receipt.json"
+    },
+    {
+      "candidate": "/home/ubuntu/jsr-engine-data/runs/d2-avg3-45-50-55/weights-int8prep",
+      "loaded_identity": "ultra-engine-dense-int8-8427559adf28",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 10,
+      "audio_seconds": 52.065,
+      "wer_pct": 8.14,
+      "single_rtf_cpu": 0.19995,
+      "single_streams_per_core": 5.0,
+      "batch_rtf_cpu": 0.05385,
+      "batch_streams_per_core": 18.57,
+      "chunk_ms": {
+        "p50": 81.896,
+        "p95": 94.105,
+        "p99": 94.673
+      },
+      "peak_rss_bytes": 2153787392,
+      "cap_hits": 0,
+      "evidence_complete": false,
+      "density": {
+        "workers": 4,
+        "streams_per_worker": 4,
+        "total_streams": 16,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 364.44,
+        "peak_rss_bytes": 2153787392
+      },
+      "latency": {
+        "loaded_identity": "ultra-engine-dense-int8-8427559adf28",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 3,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 3,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.6510054540000001,
+        "delay": null,
+        "finalization": {
+          "episodes": 3,
+          "finalized": 3,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.007145378000000591,
+          "conditional_p95_s": 0.008830592000000692,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 3
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 3
+            }
+          ]
+        }
+      },
+      "sustained_probe": {
+        "workers": 4,
+        "streams_per_worker": 16,
+        "total_streams": 64,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 494.09,
+        "peak_rss_bytes": 2153787392
+      },
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 0,
+          "audio_seconds": 0.0,
+          "ref_words": 0,
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "wer_pct": null
+        },
+        "fast_speech": {
+          "utterances": 4,
+          "audio_seconds": 21.415,
+          "ref_words": 82,
+          "errors": 4,
+          "substitutions": 3,
+          "deletions": 1,
+          "insertions": 0,
+          "wer_pct": 4.878
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-45-50-55_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-45-50-55_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-engine-data_runs_d2-avg3-45-50-55_weights-int8prep.receipt.json"
+    },
+    {
+      "candidate": "/home/ubuntu/jsr-data/runs/engine/d2mr-50000/weights-int8prep",
+      "loaded_identity": "ultra-engine-multirate-int8-06bc1d9f5579",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 10,
+      "audio_seconds": 52.065,
+      "wer_pct": 4.07,
+      "single_rtf_cpu": 0.21543,
+      "single_streams_per_core": 4.64,
+      "batch_rtf_cpu": 0.04828,
+      "batch_streams_per_core": 20.71,
+      "chunk_ms": {
+        "p50": 59.373,
+        "p95": 69.457,
+        "p99": 70.456
+      },
+      "peak_rss_bytes": 2153787392,
+      "cap_hits": 0,
+      "evidence_complete": false,
+      "density": {
+        "workers": 4,
+        "streams_per_worker": 4,
+        "total_streams": 16,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 353.25,
+        "peak_rss_bytes": 2153787392
+      },
+      "latency": {
+        "loaded_identity": "ultra-engine-multirate-int8-06bc1d9f5579",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 3,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 3,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.648909328,
+        "delay": null,
+        "finalization": {
+          "episodes": 3,
+          "finalized": 3,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.006853894000000693,
+          "conditional_p95_s": 0.007738259000000802,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 3
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 3
+            }
+          ]
+        }
+      },
+      "sustained_probe": {
+        "workers": 4,
+        "streams_per_worker": 16,
+        "total_streams": 64,
+        "sustained": true,
+        "drained": true,
+        "lateness_p99_ms": 449.33,
+        "peak_rss_bytes": 2153787392
+      },
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 0,
+          "audio_seconds": 0.0,
+          "ref_words": 0,
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "wer_pct": null
+        },
+        "fast_speech": {
+          "utterances": 4,
+          "audio_seconds": 21.415,
+          "ref_words": 82,
+          "errors": 3,
+          "substitutions": 2,
+          "deletions": 1,
+          "insertions": 0,
+          "wer_pct": 3.659
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json"
+    }
+  ]
+}

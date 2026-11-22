@@ -1,0 +1,75 @@
+{
+ "complete_cells": 8,
+ "missing": 16,
+ "greedy": {
+  "pooled": 15.888,
+  "dev-clean": 11.566,
+  "dev-other": 22.09
+ },
+ "ranked": [
+  {
+   "pooled": 14.712,
+   "beam": 2,
+   "blank_penalty": 0.5,
+   "length_norm": "off",
+   "dev-clean": 10.421,
+   "dev-other": 20.871
+  },
+  {
+   "pooled": 14.949,
+   "beam": 2,
+   "blank_penalty": 0.0,
+   "length_norm": "on",
+   "dev-clean": 10.657,
+   "dev-other": 21.108
+  },
+  {
+   "pooled": 14.983,
+   "beam": 2,
+   "blank_penalty": 0.5,
+   "length_norm": "on",
+   "dev-clean": 10.622,
+   "dev-other": 21.243
+  },
+  {
+   "pooled": 15.032,
+   "beam": 2,
+   "blank_penalty": 0.0,
+   "length_norm": "off",
+   "dev-clean": 10.705,
+   "dev-other": 21.243
+  },
+  {
+   "pooled": 15.046,
+   "beam": 2,
+   "blank_penalty": 1.0,
+   "length_norm": "off",
+   "dev-clean": 10.752,
+   "dev-other": 21.21
+  },
+  {
+   "pooled": 15.658,
+   "beam": 2,
+   "blank_penalty": 1.5,
+   "length_norm": "off",
+   "dev-clean": 11.247,
+   "dev-other": 21.989
+  },
+  {
+   "pooled": 16.096,
+   "beam": 2,
+   "blank_penalty": 1.0,
+   "length_norm": "on",
+   "dev-clean": 11.708,
+   "dev-other": 22.395
+  },
+  {
+   "pooled": 17.237,
+   "beam": 2,
+   "blank_penalty": 1.5,
+   "length_norm": "on",
+   "dev-clean": 12.77,
+   "dev-other": 23.649
+  }
+ ]
+}

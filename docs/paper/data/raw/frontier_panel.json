@@ -1,0 +1,309 @@
+{
+  "schema": "ultra.frontier-suite/v1",
+  "split": "dev-clean",
+  "panel_manifest_sha256": "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36",
+  "grid_ms": 320,
+  "max_chunks": 2,
+  "source_commit": "unknown",
+  "hardware_id": "xbabe0-zen2-64c",
+  "completion_status": "exploratory",
+  "rows": [
+    {
+      "candidate": "zipformer-int8",
+      "loaded_identity": "sherpa-onnx-streaming-zipformer-en-2023-06-26-int8",
+      "driver": "rust-sherpa-c-api",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 400,
+      "audio_seconds": 3052.165,
+      "wer_pct": 2.952,
+      "single_rtf_cpu": 0.22572,
+      "single_streams_per_core": 4.43,
+      "batch_rtf_cpu": 0.05938,
+      "batch_streams_per_core": 16.84,
+      "chunk_ms": {
+        "p50": 228.601,
+        "p95": 304.938,
+        "p99": 335.392
+      },
+      "peak_rss_bytes": 1274601472,
+      "cap_hits": null,
+      "evidence_complete": false,
+      "density": null,
+      "latency": {
+        "loaded_identity": "sherpa-onnx-zipformer-int8",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 10,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 10,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002",
+          "2277-149896-0003",
+          "2277-149896-0004",
+          "2277-149896-0005",
+          "2277-149896-0006",
+          "2277-149896-0007",
+          "2277-149896-0008",
+          "2277-149896-0009"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.8389325580000001,
+        "delay": null,
+        "finalization": {
+          "episodes": 10,
+          "finalized": 10,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.07505291600000064,
+          "conditional_p95_s": 0.0884282169999997,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 10
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 10
+            }
+          ]
+        }
+      },
+      "sustained_probe": null,
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 14,
+          "audio_seconds": 343.835,
+          "ref_words": 900,
+          "errors": 28,
+          "substitutions": 21,
+          "deletions": 3,
+          "insertions": 4,
+          "wer_pct": 3.111
+        },
+        "fast_speech": {
+          "utterances": 31,
+          "audio_seconds": 187.165,
+          "ref_words": 718,
+          "errors": 17,
+          "substitutions": 12,
+          "deletions": 3,
+          "insertions": 2,
+          "wer_pct": 2.368
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.receipt.json"
+    },
+    {
+      "candidate": "/home/ubuntu/jsr-data/runs/engine/d2-45000/weights-int8prep",
+      "loaded_identity": "ultra-engine-dense-int8-8a51ba26367b",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 400,
+      "audio_seconds": 3052.165,
+      "wer_pct": 9.561,
+      "single_rtf_cpu": 0.17017,
+      "single_streams_per_core": 5.88,
+      "batch_rtf_cpu": 0.04074,
+      "batch_streams_per_core": 24.55,
+      "chunk_ms": {
+        "p50": 155.858,
+        "p95": 161.869,
+        "p99": 163.059
+      },
+      "peak_rss_bytes": 1338331136,
+      "cap_hits": 1,
+      "evidence_complete": false,
+      "density": null,
+      "latency": {
+        "loaded_identity": "ultra-engine-dense-int8-8a51ba26367b",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 10,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 10,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002",
+          "2277-149896-0003",
+          "2277-149896-0004",
+          "2277-149896-0005",
+          "2277-149896-0006",
+          "2277-149896-0007",
+          "2277-149896-0008",
+          "2277-149896-0009"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.809882567,
+        "delay": null,
+        "finalization": {
+          "episodes": 10,
+          "finalized": 10,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.006820414000000774,
+          "conditional_p95_s": 0.011075339000000461,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 10
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 10
+            }
+          ]
+        }
+      },
+      "sustained_probe": null,
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 14,
+          "audio_seconds": 343.835,
+          "ref_words": 900,
+          "errors": 102,
+          "substitutions": 72,
+          "deletions": 13,
+          "insertions": 17,
+          "wer_pct": 11.333
+        },
+        "fast_speech": {
+          "utterances": 31,
+          "audio_seconds": 187.165,
+          "ref_words": 718,
+          "errors": 61,
+          "substitutions": 42,
+          "deletions": 15,
+          "insertions": 4,
+          "wer_pct": 8.496
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.receipt.json"
+    },
+    {
+      "candidate": "/home/ubuntu/jsr-data/runs/engine/d2mr-50000/weights-int8prep",
+      "loaded_identity": "ultra-engine-multirate-int8-06bc1d9f5579",
+      "driver": "rust-ultra-engine-v1",
+      "cost_scope": "in_process_warm_rusage_self_post_load",
+      "honesty_label": "in-corpus",
+      "partition": "DEV",
+      "completion_status": "exploratory",
+      "utterances": 400,
+      "audio_seconds": 3052.165,
+      "wer_pct": 11.561,
+      "single_rtf_cpu": 0.16653,
+      "single_streams_per_core": 6.01,
+      "batch_rtf_cpu": 0.03186,
+      "batch_streams_per_core": 31.39,
+      "chunk_ms": {
+        "p50": 112.554,
+        "p95": 116.069,
+        "p99": 116.922
+      },
+      "peak_rss_bytes": 1338331136,
+      "cap_hits": 0,
+      "evidence_complete": false,
+      "density": null,
+      "latency": {
+        "loaded_identity": "ultra-engine-multirate-int8-06bc1d9f5579",
+        "finalization_mode": "controlled_eof_finish_input",
+        "whole_population_claim_eligible": false,
+        "mfa_sha256": null,
+        "utterances_inferred": 10,
+        "utterances_timed": 0,
+        "timing_unavailable_count": 10,
+        "timing_unavailable_ids": [
+          "2277-149896-0000",
+          "2277-149896-0001",
+          "2277-149896-0002",
+          "2277-149896-0003",
+          "2277-149896-0004",
+          "2277-149896-0005",
+          "2277-149896-0006",
+          "2277-149896-0007",
+          "2277-149896-0008",
+          "2277-149896-0009"
+        ],
+        "population_scope": "waveform_bounds_no_mfa",
+        "word_timing_available": false,
+        "first_partial_p50_s": 0.8075115820000001,
+        "delay": null,
+        "finalization": {
+          "episodes": 10,
+          "finalized": 10,
+          "coverage": 1.0,
+          "conditional_p50_s": 0.0065795400000006055,
+          "conditional_p95_s": 0.008159377000001022,
+          "early_finals": 0,
+          "fc": [
+            {
+              "deadline_ms": 800,
+              "fc": 1.0,
+              "successes": 10
+            },
+            {
+              "deadline_ms": 1500,
+              "fc": 1.0,
+              "successes": 10
+            }
+          ]
+        }
+      },
+      "sustained_probe": null,
+      "slices": {
+        "long_form_threshold_s": 20.0,
+        "fast_speech_threshold_wps": 3.5682,
+        "long_form": {
+          "utterances": 14,
+          "audio_seconds": 343.835,
+          "ref_words": 900,
+          "errors": 90,
+          "substitutions": 69,
+          "deletions": 8,
+          "insertions": 13,
+          "wer_pct": 10.0
+        },
+        "fast_speech": {
+          "utterances": 31,
+          "audio_seconds": 187.165,
+          "ref_words": 718,
+          "errors": 70,
+          "substitutions": 48,
+          "deletions": 15,
+          "insertions": 7,
+          "wer_pct": 9.749
+        }
+      },
+      "silence_probe": null,
+      "job_manifest_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json",
+      "scores_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.scores.jsonl",
+      "receipt_file": "/home/ubuntu/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json"
+    }
+  ]
+}
