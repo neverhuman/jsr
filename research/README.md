@@ -53,5 +53,7 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | H32 | **JSR v2 Expanded Data Track (Owner-Gated):** Libri-Light `unlab-60k` MVQ-KD + GigaSpeech multi-domain + long-form sessions (separate from Controlled 960 h) | PLANNED | Target `≤ 1.9% / 4.2%` DEV clean/other + strong OOD |
 | H33 | **JSR v2 Qualifying Freeze & Paper v2:** quiet-host `FREEZE.md` across `CCX Density` (`V2-S`), `SU-Live` (`V2-M/L`), and `SU-File` (`≥ 1,500×` RT) | PLANNED | Full SHA-256 receipts, cross-ISA 100% bit-exact, `jankurai ≥ 85` |
 | [H34](H34_delay_penalty/README.md) | **Streaming first-preview latency:** pruned RNN-T `delay_penalty` λ ∈ {0.0015, 0.004} vs λ=0, 3k-step fine-tunes from D2c final | PRE-REGISTERED (running) | Gate: first-preview horizon `≥ 150 ms` earlier at `≤ +0.3 pp` dev-clean400 vs control |
+| [H37](H37_trunks_a1_f1/README.md) | **Production trunks:** A1 (dense S, R0 BPE-500, high-LR restart from H22ctl, chunk sampling {4,8,16}, 4-rank DDP) and F1 (S_MR, R0 BPE-500, from scratch) | RUNNING | A1 expected below 4.95% dev-clean400 late in its cosine |
+| [H41](H41_replay_gates/README.md) | **Replay gates:** fork H22ctl step 60,000, replay 8k steps; control, A/A, Muon, chunk sampling | PRE-REGISTERED (running) | Adopt only above 2× the A/A spread on full dev-clean + dev-other |
 
 Reserved: H14 dual-mode / 3-mask tier training (executed in H27). Next free: **H34**.

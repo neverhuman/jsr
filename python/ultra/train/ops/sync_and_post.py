@@ -44,18 +44,20 @@ while True:
         recs = [json.loads(l) for l in open(path) if l.strip()]
         evals = [r for r in recs if r.get("kind") == "eval"]
         trains = [r for r in recs if r.get("kind") == "train"]
+        lines = []
         for r in evals:
             if f"eval:{r['step']}" in posted:
                 continue
             t = max((x for x in trains if x["step"] <= r["step"]), key=lambda x: x["step"], default={})
+            lines.append(f"- step {r['step']}, epoch {r.get('epoch')}: **WER {r['wer']}%** (sub {r['sub']} del {r['del']} "
+                         f"ins {r['ins']}), train RNNT {t.get('rnnt', 0):.3f} CTC {t.get('ctc', 0):.3f}/token, "
+                         f"{t.get('audio_h_per_h', 0):.0f} audio-h/h\n")
+        if lines:  # one post per pass and run, however many evals landed since the last sync
             ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
             with open(chat, "a") as fh:
-                fh.write(f"\n## {ts} | trainer-lane | {label} dev-clean eval (auto, {host})\n"
-                         f"- step {r['step']}, epoch {r.get('epoch')}: **WER {r['wer']}%** (sub {r['sub']} del {r['del']} "
-                         f"ins {r['ins']}, 400 utts, greedy, chunk-masked), forced advances {r['forced_advances']}; "
-                         f"train RNNT {t.get('rnnt', 0):.3f} CTC {t.get('ctc', 0):.3f}/token; "
-                         f"{t.get('audio_h_per_h', 0):.0f} audio-h/h (guarded wall clock).\n")
-            _mark(f"eval:{r['step']}")
+                fh.write(f"\n## {ts} | trainer-lane | {label} dev-clean400 greedy evals (auto, {host})\n" + "".join(lines))
+            for r in evals:
+                _mark(f"eval:{r['step']}")
         for r in [x for x in recs if x.get("kind") == "diverged"]:
             if f"diverged:{r.get('step')}" in posted:
                 continue
