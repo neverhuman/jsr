@@ -38,12 +38,13 @@ pub fn run_sp_a_native_engine_shared_workers(
     if audio_utts.is_empty() {
         return Err(StreamError::Protocol("no audio utterances loaded".into()));
     }
-    let backend = NativeEngineBackend::load_with_max_chunks(
+    let backend = NativeEngineBackend::load_with_options(
         &cfg.weights_dir,
         cfg.precision,
         cfg.threads,
         true,
         cfg.max_chunks.max(1),
+        cfg.beam.max(1),
     )?;
     let bundle_id = backend.bundle_id();
     let worker_cpus = assign_worker_cpus(workers, &current_affinity(), observer_cpus, false)?;

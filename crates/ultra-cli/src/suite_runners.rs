@@ -8,7 +8,9 @@ use ultra_adapters::{run_nemotron_batch, NemotronChunkMode, NemotronConfig};
 use ultra_core::receipt::{HonestyLabel, Partition};
 use ultra_stream::{run_offline_contrast, ContrastConfig};
 
-use crate::runner::{instantiate_backend_with_precision, resolve_offline_config};
+use crate::runner::{
+    instantiate_backend_with_beam, instantiate_backend_with_precision, resolve_offline_config,
+};
 use crate::suite_latency::{measure_paced_latency, FrontierRow};
 use crate::suite_manifest::{
     current_loadavg_3, sanitize_slug, write_json_create_new, write_receipt_create_new,
@@ -28,6 +30,7 @@ pub(crate) struct SuiteCtx<'a> {
     pub batch_streams: usize,
     pub grid_ms: u32,
     pub max_chunks: usize,
+    pub beam: usize,
     pub density_workers: usize,
     pub density_streams: usize,
     pub density_seconds: f64,
@@ -240,7 +243,7 @@ pub(crate) fn eval_backend_probes(
     if ctx.latency_limit == 0 && ctx.silence_probe_wav.is_none() {
         return Ok((None, None));
     }
-    let b = instantiate_backend_with_precision(raw_cand, ctx.precision, ctx.threads)?;
+    let b = instantiate_backend_with_beam(raw_cand, ctx.precision, ctx.threads, ctx.beam)?;
     let lat = if ctx.latency_limit > 0 {
         Some(measure_paced_latency(
             &*b,
