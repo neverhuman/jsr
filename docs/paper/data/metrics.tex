@@ -57,11 +57,11 @@
 \newcommand{\CapOneBeamClean}{7.50}% [exploratory] % WER
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
-\newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 27.8$\times$ real time at 5.20\% dev-clean WER; same-host rows of the other systems are being measured.}% [reported] sentence
+\newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 27.8$\times$ real time at 5.20\% dev-clean WER, against 14.5$\times$ and 3.03\% for Zipformer, the fastest other streaming system on the same host.}% [reported] sentence
 \newcommand{\ColdAccuracyCount}{5}% [reported] rows
 \newcommand{\ColdAccuracySentence}{5 of the 6 other systems are more accurate on dev-clean than \ultra. The most accurate, Nemotron at 560\,ms, scores 2.61\% (4.93\% on dev-other, 3.56\% pooled), 2.59 points below \ultra.}% [reported] sentence
 \newcommand{\ColdAnchorCount}{1}% [reported] rows
-\newcommand{\ColdAnchorSentence}{No system has a quiet second measurement yet, so there is no host-agreement check.}% [reported] sentence
+\newcommand{\ColdAnchorSentence}{Zipformer, measured on both hosts, costs 1.69 times as much CPU on the shared host H0 as on the quiet host H1.}% [reported] sentence
 \newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
 \newcommand{\ColdComparatorCount}{6}% [reported] rows
 \newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
@@ -93,6 +93,7 @@
 \newcommand{\ColdDtwoERss}{79}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdDtwoERtfx}{28.4}% [exploratory] audio-s per wall-s
 \newcommand{\ColdDtwoESpeed}{28.4}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdDtwoEWatts}{0.34}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdDtwoEWer}{9.09}% [exploratory] % WER
 \newcommand{\ColdDtwoEWerClean}{5.84}% [exploratory] % WER
 \newcommand{\ColdDtwoEWerOther}{13.74}% [exploratory] % WER
@@ -106,6 +107,7 @@
 \newcommand{\ColdHctlRss}{74}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdHctlRtfx}{27.8}% [exploratory] audio-s per wall-s
 \newcommand{\ColdHctlSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdHctlWatts}{0.33}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdHctlWer}{8.06}% [exploratory] % WER
 \newcommand{\ColdHctlWerClean}{5.20}% [exploratory] % WER
 \newcommand{\ColdHctlWerOther}{12.16}% [exploratory] % WER
@@ -116,11 +118,12 @@
 \newcommand{\ColdHeadRss}{74}% [exploratory] MB peak resident memory
 \newcommand{\ColdHeadSentence}{\ultra{} (H22ctl, step 79,800, EMA weights, INT8) costs 0.036 CPU-seconds per audio-second on host H1, which is 27.8$\times$ real time on one core, at 5.20\% WER on dev-clean (12.16\% on dev-other, 8.06\% pooled), and peaks at 74\,MB of memory.}% [reported] sentence
 \newcommand{\ColdHeadSpeed}{27.8}% [exploratory] audio-s per CPU-s (x real time, one core)
+\newcommand{\ColdHeadSpeedOverFast}{1.9}% [exploratory] x
 \newcommand{\ColdHeadWer}{8.06}% [exploratory] % WER, pooled
 \newcommand{\ColdHeadWerClean}{5.20}% [exploratory] % WER, dev-clean half
 \newcommand{\ColdHeadWerGapBest}{2.59}% [exploratory] pp WER
 \newcommand{\ColdHeadWerOther}{12.16}% [exploratory] % WER, dev-other half
-\newcommand{\ColdHostSentence}{6 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
+\newcommand{\ColdHostSentence}{5 of the 7 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
 \newcommand{\ColdLagSentence}{With the input paced at real time on one core of the shared host H0, the median word lag of \ultra{} is 350\,ms (95th percentile 494\,ms); the other streaming systems measured there range from 564\,ms (Zipformer) to 719\,ms (Moonshine Tiny).}% [reported] sentence
 \newcommand{\ColdLightRssOverHead}{2.1}% [exploratory] x
 \newcommand{\ColdMRCpu}{0.037}% [exploratory] CPU-s/audio-s
@@ -136,7 +139,7 @@
 \newcommand{\ColdMRWerClean}{11.56}% [exploratory] % WER
 \newcommand{\ColdMRWerOther}{22.19}% [exploratory] % WER
 \newcommand{\ColdMachinesSentence}{Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are being measured; none is reported yet.}% [reported] sentence
-\newcommand{\ColdMemorySentence}{The other systems need between 156\,MB (Zipformer) and 1290\,MB (Nemotron at 560\,ms) of memory, 2.1 to 17.5 times as much as \ultra.}% [reported] sentence
+\newcommand{\ColdMemorySentence}{The other systems need between 153\,MB (Zipformer) and 1290\,MB (Nemotron at 560\,ms) of memory, 2.1 to 17.5 times as much as \ultra.}% [reported] sentence
 \newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMoonSmallLagDesignPfifty}{540}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdMoonSmallLagDesignPninetyFive}{920}% [exploratory] ms word lag with unbounded compute, p95
@@ -191,27 +194,28 @@
 \newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
 \newcommand{\ColdOrderSentence}{The dev-other half ranks the systems in the same order.}% [reported] sentence
 \newcommand{\ColdRowsCount}{7}% [reported] rows
-\newcommand{\ColdRowsEnergy}{0}% [reported] rows
-\newcommand{\ColdRowsFaded}{6}% [reported] rows
-\newcommand{\ColdRowsInterim}{6}% [reported] rows
+\newcommand{\ColdRowsEnergy}{2}% [reported] rows
+\newcommand{\ColdRowsFaded}{5}% [reported] rows
+\newcommand{\ColdRowsInterim}{5}% [reported] rows
 \newcommand{\ColdRowsLag}{3}% [reported] rows
-\newcommand{\ColdRowsOffFrontier}{6}% [reported] rows
+\newcommand{\ColdRowsOffFrontier}{5}% [reported] rows
 \newcommand{\ColdRowsStreaming}{7}% [reported] rows
 \newcommand{\ColdRowsSubset}{0}% [reported] rows
 \newcommand{\ColdRowsUndrawn}{0}% [reported] rows
 \newcommand{\ColdRowsWhole}{0}% [reported] rows
-\newcommand{\ColdSpeedSentence}{No other system has a row from host H1 yet, so no speed ratio is given: the other points come from a shared host that ran other jobs, where every system is slower.}% [reported] sentence
+\newcommand{\ColdSpeedSentence}{On the same host the fastest other streaming system, Zipformer, runs at 14.5$\times$ real time: \ultra is 1.9$\times$ faster. 1 other system has a row from that host, and \ultra is the fastest of them.}% [reported] sentence
 \newcommand{\ColdSubsetSentence}{\relax}% [reported] sentence
-\newcommand{\ColdWattsSentence}{Energy per audio-second (the watts one live stream costs) is being measured; no value has been admitted yet.}% [reported] sentence
-\newcommand{\ColdZipCpu}{0.117}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdWattsSentence}{One always-on stream of \ultra{} costs 0.33\,W, against 0.59\,W for Zipformer (core energy registers, same host).}% [reported] sentence
+\newcommand{\ColdZipCpu}{0.069}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdZipLagDesignPfifty}{510}% [exploratory] ms word lag with unbounded compute, p50
 \newcommand{\ColdZipLagDesignPninetyFive}{720}% [exploratory] ms word lag with unbounded compute, p95
 \newcommand{\ColdZipLagPfifty}{564}% [exploratory] ms word lag, input paced at real time, p50
 \newcommand{\ColdZipLagPninetyFive}{762}% [exploratory] ms word lag, input paced at real time, p95
 \newcommand{\ColdZipModel}{73}% [exploratory] MB of model files (10^6 bytes)
-\newcommand{\ColdZipRss}{156}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
-\newcommand{\ColdZipRtfx}{8.50}% [exploratory] audio-s per wall-s
-\newcommand{\ColdZipSpeed}{8.56}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdZipRss}{153}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdZipRtfx}{14.4}% [exploratory] audio-s per wall-s
+\newcommand{\ColdZipSpeed}{14.5}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdZipWatts}{0.59}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdZipWer}{5.25}% [exploratory] % WER
 \newcommand{\ColdZipWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdZipWerOther}{8.43}% [exploratory] % WER
@@ -377,8 +381,8 @@
 \newcommand{\MelNnzSparse}{477}% [reported] nonzeros
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
-\newcommand{\MoneyMarksCaption}{Diamond: ours (\ColdHeadDetail). Filled: live streaming systems.}% [reported] sentence
-\newcommand{\MoneyWattsCaption}{Watts per live stream are not drawn: no energy measurement has been admitted yet.}% [reported] sentence
+\newcommand{\MoneyMarksCaption}{Diamond: ours (\ColdHeadDetail). Filled: live streaming systems. Dashed: the streaming systems that no other streaming system beats on both axes.}% [reported] sentence
+\newcommand{\MoneyWattsCaption}{Watts beside a name: W per always-on stream (core energy registers, measured in the same run), so far for 2 of the 7 systems.}% [reported] sentence
 \newcommand{\NonGemmGain}{0--5}% [exploratory] %
 \newcommand{\OrtVersion}{1.28.2}% [reported] version
 \newcommand{\PanelSpeakers}{73}% [reported] speakers

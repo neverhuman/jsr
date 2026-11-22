@@ -157,12 +157,12 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     watts = [r for r in group if r["watts"] is not None and r["host"] == head["host"]]
     if head["watts"] is not None and len(watts) > 1:
         rest = sorted((r for r in watts if r is not head), key=lambda r: r["watts"])
-        say("ColdWattsSentence", f"One live stream of \\ultra{{}} costs {fmt(head['watts'], 2)}\\,W, against "
+        say("ColdWattsSentence", f"One always-on stream of \\ultra{{}} costs {fmt(head['watts'], 2)}\\,W, against "
             f"{fmt(rest[0]['watts'], 2)}\\,W for {_name(rest[0])}"
             + (f" and {fmt(rest[-1]['watts'], 2)}\\,W for {_name(rest[-1])}" if len(rest) > 1 else "")
             + f" ({ENERGY_WORDS[head['energy_method']]}, same host).", "energy rows")
     else:
-        say("ColdWattsSentence", "Energy per audio-second (the watts one live stream costs) is being measured; no "
+        say("ColdWattsSentence", "Energy per audio-second (the watts one always-on stream costs) is being measured; no "
             "value has been admitted yet.", "no energy row is admitted yet")
     where = head.get("lag_host")
     lag = [r for r in group if r.get("lag_p50_ms") is not None and r.get("lag_host") == where]
@@ -171,9 +171,11 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
         kind = "the quiet host" if where == MACHINES[HEADLINE[0]]["primary_host"] else "the shared host"
         say("ColdLagSentence", f"With the input paced at real time on one core of {kind} "
             f"{HOST_NAMES.get(where, where)}, the median word lag of \\ultra{{}} is {fmt(head['lag_p50_ms'], 0)}\\,ms "
-            f"(95th percentile {fmt(head['lag_p95_ms'], 0)}\\,ms); the other streaming systems measured there range "
-            f"from {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms ({_name(rest[0])}) to {fmt(rest[-1]['lag_p50_ms'], 0)}\\,ms "
-            f"({_name(rest[-1])}).", "lag rows measured on one host")
+            f"(95th percentile {fmt(head['lag_p95_ms'], 0)}\\,ms); "
+            + (f"{_name(rest[0])} measured there has {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms." if len(rest) == 1 else
+               f"the other streaming systems measured there range from {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms "
+               f"({_name(rest[0])}) to {fmt(rest[-1]['lag_p50_ms'], 0)}\\,ms ({_name(rest[-1])})."),
+            "lag rows measured on one host")
     else:
         say("ColdLagSentence", "Word lag (end to end, with the input paced at real time) is being measured; no value "
             "has been admitted yet.", "no lag row is admitted yet")
