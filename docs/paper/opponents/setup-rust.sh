@@ -3,7 +3,8 @@
 # usage: setup-rust.sh OPPONENTS_ROOT TARGET_DIR [CPU_LIST]
 # Run from the lane checkout. Nothing is written outside OPPONENTS_ROOT and TARGET_DIR.
 # SETUP_BINS selects the binaries (default: ultra-cold-wav ultra-measure ultra-score); a host
-# that reuses the pinned meter from docs/paper/evidence.json builds ultra-cold-wav only.
+# that reuses the pinned meter from docs/paper/evidence.json builds ultra-cold-wav only, and
+# macOS builds ultra-engine-eval only (after aarch64-pqscan-compile-fix.patch).
 set -euo pipefail
 O=$1; target=$2; cpus=${3:-}
 tool="$O/bench-cross/toolchain"
@@ -34,12 +35,15 @@ jobs=${SETUP_JOBS:-2}
 bins=${SETUP_BINS:-ultra-cold-wav ultra-measure ultra-score}
 mkdir -p "$O/bench-cross/bin"
 for bin in $bins; do
-    package=ultra-eval
-    if [[ $bin == ultra-cold-wav ]]; then
-        package=ultra-bridge
-    fi
+    package=(-p ultra-eval)
+    case "$bin" in
+        ultra-cold-wav) package=(-p ultra-bridge) ;;
+        # The engine's own tool; without the Linux-only scoring feature so that the same
+        # build works on macOS (see engine_cache.py).
+        ultra-engine-eval) package=(-p ultra-engine --no-default-features) ;;
+    esac
     ${pin[@]+"${pin[@]}"} "$CARGO_HOME/bin/cargo" build --locked --release -j "$jobs" --target-dir "$target" \
-        -p "$package" --bin "$bin"
+        "${package[@]}" --bin "$bin"
     cp "$target/release/$bin" "$O/bench-cross/bin/$bin"
 done
 {

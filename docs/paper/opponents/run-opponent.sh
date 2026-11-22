@@ -237,6 +237,22 @@ cat > "$run/budget.json" <<EOF
 EOF
 date -u +%FT%TZ > "$run/started"
 status=0
+sampler=""
+if [[ $os == Linux && -r /sys/devices/system/cpu/cpu${service%%,*}/cpufreq/scaling_cur_freq ]]; then
+    # Clock of the service CPUs every two seconds, read from the meter's CPU.
+    taskset -c "$observer" bash -c '
+        IFS=, read -r -a cpus <<< "$1"
+        while :; do
+            line=$(date +%s)
+            for cpu in "${cpus[@]}"; do
+                read -r khz < "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_cur_freq"
+                line+=" $khz"
+            done
+            printf "%s\n" "$line"
+            sleep 2
+        done' _ "$service" > "$run/freq.tsv" &
+    sampler=$!
+fi
 if [[ $os == Linux ]]; then
     env ${envs[@]+"${envs[@]}"} taskset -c "$observer" \
         "$meter" --interval-ms 200 --service-cpus "$service" --observer-cpus "$observer" \
@@ -251,6 +267,10 @@ else
     env ${envs[@]+"${envs[@]}"} "$python" "$meter" "$run/service.stderr" ${extra[@]+"${extra[@]}"} \
         -- "${argv[@]}" > "$run/measurement.json" || status=$?
     sysctl -n vm.loadavg > "$run/host.after"
+fi
+if [[ -n $sampler ]]; then
+    kill "$sampler" 2>/dev/null || true
+    wait "$sampler" 2>/dev/null || true
 fi
 if [[ $status != 0 ]]; then
     printf 'arm %s %s round %s failed with status %s\n' "$arm" "$budget" "$round" "$status" >&2

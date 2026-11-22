@@ -6,8 +6,9 @@ PANEL is the verified staged panel (`audio.json`, `wav/u%05d.wav`). NAME selects
 
     panel730  all 730 utterances (the cost and WER workload)
     panel73   every tenth staged file, one utterance per speaker (slow arms)
+    panel10   five dev-clean and five dev-other utterances (arms too slow even for panel73)
     lag100    the first 100 dev-clean utterances (word-lag traces)
-    smoke10   five dev-clean and five dev-other utterances (smoke test only)
+    smoke10   the panel10 utterances under the name used for smoke tests
 
 OUT/NAME/wav holds hard links, OUT/NAME/audio.json the matching manifest rows and
 OUT/NAME/workload.json the identity. With --shards N, OUT/NAME/shards-N/shard-K holds N
@@ -25,6 +26,7 @@ VIEWS = {
     "panel730": lambda count: range(count),
     "panel73": lambda count: range(0, count, 10),
     "lag100": lambda count: range(100),
+    "panel10": lambda count: [0, 1, 2, 3, 4, 400, 401, 402, 403, 404],
     "smoke10": lambda count: [0, 1, 2, 3, 4, 400, 401, 402, 403, 404],
 }
 
