@@ -29,7 +29,7 @@ while :; do
       echo "$(date -u +%FT%TZ) copied $label $m"
     done
   done
-  ssh -n xbabe0 "export JSR_DATA=\$HOME/jsr-data; : > $X/backfill_jobs.txt; for r in D3MRc:D3MRc_S_MR_I8S_960h H13a:H13a_S_spm512_960h D4M:D4M_M_MR_960h; do $OPS/make_backfill_jobs.sh \$HOME/$PY \$HOME/$W \$HOME/$X/\${r#*:} \${r%%:*} >> $X/backfill_jobs.txt; done; $OPS/eval_queue.sh \$HOME/$PY \$HOME/$W $X/backfill_jobs.txt \$HOME/$X/backfill $slots"
+  ssh -n xbabe0 "export JSR_DATA=\$HOME/jsr-data; (for r in D3MRc:D3MRc_S_MR_I8S_960h H13a:H13a_S_spm512_960h D4M:D4M_M_MR_960h; do AVG_CREATE=1 taskset -c 63 nice -n 10 $OPS/make_backfill_jobs.sh \$HOME/$PY \$HOME/$W \$HOME/$X/\${r#*:} \${r%%:*} > /dev/null; done) & : > $X/backfill_jobs.txt; for r in D3MRc:D3MRc_S_MR_I8S_960h H13a:H13a_S_spm512_960h D4M:D4M_M_MR_960h; do AVG_CREATE=0 $OPS/make_backfill_jobs.sh \$HOME/$PY \$HOME/$W \$HOME/$X/\${r#*:} \${r%%:*} >> $X/backfill_jobs.txt; done; $OPS/eval_queue.sh \$HOME/$PY \$HOME/$W $X/backfill_jobs.txt \$HOME/$X/backfill $slots; wait"
   echo "$(date -u +%FT%TZ) round done"
   sleep 600
 done

@@ -3,6 +3,8 @@
 # --beam 4 (greedy and beam in one pass) for model-<step>.pt and for the last-3 average
 # (step-10k, step-5k, step), creating the averages first (avg3-<step>.pt next to the snapshots).
 #   make_backfill_jobs.sh <python> <ultra_dir> <run_dir> <label> > jobs.txt
+# AVG_CREATE=0: list only averages that already exist (no averaging), so evaluation can start at
+# once while a separate AVG_CREATE=1 pass builds the rest.
 set -uo pipefail
 PY=$1 W=$2 R=$3 LABEL=$4
 cd "$W" || exit 1
@@ -17,6 +19,7 @@ for s in "${steps[@]}"; do
   if [ -f "$a.sha256" ] && [ -f "$b.sha256" ]; then
     avg=$R/avg3-$s.pt
     if [ ! -f "${avg%.pt}.sha256" ]; then
+      [ "${AVG_CREATE:-1}" = 0 ] && continue
       nice -n 10 "$PY" -m train.average --out "$avg" "$b.pt" "$a.pt" "$f.pt" > /dev/null 2>&1 || continue
     fi
     for split in dev-clean dev-other; do
