@@ -21,6 +21,7 @@ pub mod decoder;
 pub mod encoder;
 pub mod engine;
 pub mod kernels;
+pub mod lm;
 pub mod model;
 pub mod panel;
 pub mod pool;
@@ -33,6 +34,7 @@ pub mod workload;
 
 pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
+pub use lm::{LmConfig, NgramLm};
 pub use model::{Arch, Model};
 
 /// Errors from loading an engine weight directory or running a chunk.
