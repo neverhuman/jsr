@@ -100,6 +100,7 @@ class TrainConfig:
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
     ddp_global_batches: bool = False
     ddp_native: bool = False  # overlap gradient communication with backward
+    ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -259,6 +260,10 @@ class Trainer:
             self._ddp_loss = DistributedDataParallel(_ForwardLoss(self.model), device_ids=devices,
                                                      broadcast_buffers=False,
                                                      gradient_as_bucket_view=True)
+            if self.cfg.ddp_bf16_comm:
+                from torch.distributed.algorithms.ddp_comm_hooks import default_hooks
+
+                self._ddp_loss.register_comm_hook(None, default_hooks.bf16_compress_hook)
         forward = self._ddp_loss if self._ddp_loss is not None else self.model.losses
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
                             enabled=self.device.type == "cuda"):
