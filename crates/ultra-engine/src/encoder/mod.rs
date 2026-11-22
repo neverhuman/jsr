@@ -142,7 +142,11 @@ impl EncState {
             .gmid
             .as_ref()
             .map_or(0, |g| g.k.capacity() + g.v.capacity() + g.conv.capacity());
-        4 * (self.k.capacity() + self.v.capacity() + self.conv.capacity() + self.c1_prev.capacity() + g)
+        4 * (self.k.capacity()
+            + self.v.capacity()
+            + self.conv.capacity()
+            + self.c1_prev.capacity()
+            + g)
     }
 
     fn view25(&mut self, n: usize) -> View<'_> {
