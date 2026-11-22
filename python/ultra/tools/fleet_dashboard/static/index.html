@@ -51,7 +51,11 @@ tr.off td{opacity:.35}
 td .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px;cursor:pointer}
 .pill{padding:1px 7px;border-radius:9px;font-size:10.5px;font-family:var(--sans)}
 .pill.running{background:rgba(60,207,145,.14);color:var(--ok)}
-.pill.stale{background:rgba(242,184,75,.14);color:var(--warn)}
+.pill.stalled{background:rgba(255,93,108,.18);color:var(--bad);font-weight:600}
+.rank{font-size:10.5px;color:var(--muted);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank.stale{color:var(--bad)}
+.pill.starting{background:rgba(106,168,255,.14);color:var(--accent)}
+.pill.stopped{background:rgba(140,150,170,.12);color:var(--muted)}
 .pill.diverged{background:rgba(255,93,108,.14);color:var(--bad)}
 .pill.done{background:rgba(106,168,255,.14);color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 12px;font:11px var(--mono);color:var(--muted);margin-top:6px}
@@ -131,6 +135,8 @@ function renderKpis(){
     ["Fleet CPU",fmt(g.cpu_pct,0)+"%",(g.cpu_threads??0)+" threads"],
     ["Best prod WER",g.best_prod_wer==null?(g.best_wer==null?"–":fmt(g.best_wer,2)+"%"):fmt(g.best_prod_wer,2)+"%","EMA/greedy · R0 ref 2.95%"],
     ["Nodes up",(g.nodes_up??0)+" / "+(g.nodes??0),""],
+    ["Stalled / idle",((g.stalled||[]).length+(g.idle_nodes||[]).length)===0?"none":((g.stalled||[]).length+" / "+(g.idle_nodes||[]).length),
+      [...(g.stalled||[]).map(n=>"stalled: "+n),...(g.idle_nodes||[]).map(n=>"idle GPU node: "+n)].join(" · ")||"every live run logging; every GPU node training"],
   ];
   $("kpis").innerHTML=tiles.map(([l,v,s])=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
 }
@@ -138,6 +144,16 @@ function renderKpis(){
 /* ---------- nodes ---------- */
 function bar(label,pct,txt){const p=Math.max(0,Math.min(100,pct||0));
   return `<div class="bar"><span>${label}</span><div class="track"><div class="band"></div><div class="fill" style="width:${p}%;background:${band(pct)}"></div></div><span class="pct">${txt??fmt(pct,0)+"%"}</span></div>`;}
+function rankRows(n){
+  const rs=n.ranks||[];
+  if(!rs.length){  // no per-rank heartbeat yet: show each live run's shared (rank-0) metrics on every host it spans
+    return (n.runs||[]).map(name=>{const r=S.sums.find(x=>x.name===name);if(!r)return "";
+      const k=(r.hosts||[]).length||1,share=k>1?` · ~${fmt((r.ahh||0)/k,0)} ah/h/host of ${fmt(r.ahh,0)}`:` · ${fmt(r.ahh,0)} ah/h`;
+      return `<div class="rank" title="shared DDP run metrics from rank 0's log">${name}${k>1?` (${k} hosts)`:""} · step ${fmtInt(r.step)}${share} · loss ${fmt(r.loss,3)} · ${ago(r.age)}</div>`;}).join("");
+  }
+  return rs.map(r=>{const t=[r.compute_s,r.comm_s,r.wait_s,r.sleep_s].map(v=>v==null?"–":fmt(v,1)).join("/");
+    const stale=r.age!=null&&r.age>120;
+    return `<div class="rank${stale?" stale":""}" title="${r.run} · compute/comm/wait/sleep s per interval">r${r.rank}/${r.world??"?"} · step ${fmtInt(r.step)} · ${fmt(r.ahh,0)} ah/h · loss ${fmt(r.loss,3)} · ${t}s · ${ago(r.age)}</div>`;}).join("");}
 function renderNodes(){
   const order=Object.keys(S.nodes).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   $("nodes").innerHTML=order.map(k=>{const n=S.nodes[k];
@@ -146,7 +162,7 @@ function renderNodes(){
         bar("util",g.util)+(mp==null?"":bar("mem",mp,`${fmt(g.mem_used/1024,1)}G`));}).join("")||`<div class="gpuname">no GPU visible</div>`;
     const runs=(n.runs||[]).join(" · ");
     return `<div class="node ${n.up?"":"down"}"><div class="h"><span class="n">${k}</span><span class="r">${n.up?(n.ncpu??"?")+"t · "+(n.rtt_ms??"?")+" ms":"unreachable"}</span></div>
-      <div class="jobs" title="${runs}">${runs||"&nbsp;"}</div>
+      <div class="jobs" title="${runs}">${runs||"&nbsp;"}</div>${rankRows(n)}
       ${bar("cpu",n.cpu_pct)}${n.ram_total_gb?bar("ram",100*n.ram_used_gb/n.ram_total_gb,`${fmt(n.ram_used_gb,0)}G`):""}${gpus}</div>`;}).join("");
 }
 
@@ -154,8 +170,9 @@ function renderNodes(){
 function werCell(e,idx=2){return e&&e[idx]!=null?`${fmt(e[idx],2)}<span style="color:var(--dim)"> @${(e[0]/1000).toFixed(1)}k</span>`:"–";}
 function matchCohort(r){
   if(S.cohort==="all")return true;
-  if(S.cohort==="active")return r.status==="running";
-  return r.cohort===S.cohort&&r.status==="running";
+  const live=r.status==="running"||r.status==="starting"||r.status==="stalled";
+  if(S.cohort==="active")return live;
+  return r.cohort===S.cohort&&live;
 }
 function renderRuns(){
   const tb=$("runs").tBodies[0];

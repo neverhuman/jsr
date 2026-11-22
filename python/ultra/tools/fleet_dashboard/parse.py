@@ -9,11 +9,24 @@ from dataclasses import dataclass, field
 # Train history is decimated so a client snapshot stays small (fast first paint).
 MAX_TRAIN_POINTS = 1500
 STALE_SECONDS = 300
+# A live trainer whose log has been silent this long is a real stall (evals can take a few minutes).
+STALL_SECONDS = 600
+_RUN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
+
+
+def parse_live_runs(text: str) -> set[str]:
+    """Run names from probe lines `RUN <name>` (the basename of each live trainer's --run-dir)."""
+    out = set()
+    for line in text.splitlines():
+        p = line.split()
+        if len(p) == 2 and p[0] == "RUN" and _RUN_NAME.match(p[1]):
+            out.add(p[1])
+    return out
 
 
 def classify_cohort(name: str) -> str:
     """Separate production/warm runs from 960h scratch and 100h ablations."""
-    if re.search(r"^(D2_S_|D2c|L1w)", name) or "warm" in name.lower():
+    if re.search(r"^(D2_S_|D2[c-z]_|L1w)", name) or "warm" in name.lower():
         return "prod"
     if re.search(r"^(H13[bcd]|H23|ABL_|D0_|D1)", name):
         return "ablation"
@@ -77,6 +90,8 @@ class RunState:
     status: str = "running"
     stride: int = 1
     total_steps: int | None = None
+    live_hosts: set = field(default_factory=set)  # nodes with a live trainer process for this run (DDP: several)
+    live_since: float = 0.0  # when a live process was first seen after none (restart / new launch)
     _n: int = 0
     _recent: list = field(default_factory=list)  # [(step, time)] for the rate / ETA
 
@@ -110,14 +125,35 @@ class RunState:
         rows = [e for e in self.evals if e[1] == split and len(e) > 4 and e[4] is not None]
         return min(rows, key=lambda e: e[4]) if rows else None
 
-    def summary(self, now: float) -> dict:
+    def set_live(self, node: str, live: bool, now: float) -> None:
+        if live:
+            if not self.live_hosts:
+                self.live_since = now
+            self.live_hosts.add(node)
+        else:
+            self.live_hosts.discard(node)
+
+    def summary(self, now: float, inventory_complete: bool = False) -> dict:
+        """inventory_complete: every node answered its latest probe, so 'no live process' is authoritative."""
         lt = self.last.get("time") or 0
         best = self.best_wer()
         best_ema = self.best_ema_wer()
         last_e = next((e for e in reversed(self.evals) if e[1] == "dev-clean"), None)
         last_o = next((e for e in reversed(self.evals) if e[1] == "dev-other"), None)
         last_ema = next((e for e in reversed(self.evals) if e[1] == "dev-clean" and len(e) > 4 and e[4] is not None), None)
-        stale = (now - lt) > STALE_SECONDS if lt else True
+        age = (now - lt) if lt else None
+        if self.status in ("diverged", "done"):
+            status = self.status
+        elif self.live_hosts:  # a process is alive
+            fresh_start = not lt or self.live_since > lt  # no train record since this launch yet
+            if fresh_start and now - self.live_since <= STALL_SECONDS:
+                status = "starting"
+            else:  # silent log = stalled
+                status = "stalled" if (age is None or age > STALL_SECONDS) else "running"
+        elif inventory_complete:  # every node reported and none runs it
+            status = "stopped"
+        else:  # some node unreachable: trust a fresh log
+            status = "running" if (age is not None and age <= STALE_SECONDS) else "stopped"
         rate = None
         if len(self._recent) >= 2:
             (s0, t0), (s1, t1) = self._recent[0], self._recent[-1]
@@ -134,7 +170,8 @@ class RunState:
             "steps_per_h": round(rate) if rate else None,
             "eta_h": round(eta_h, 1) if eta_h is not None else None,
             "progress": round(100.0 * step / self.total_steps, 1) if (self.total_steps and step is not None) else None,
-            "host": self.host,
+            "host": ",".join(sorted(self.live_hosts)) if self.live_hosts else self.host,
+            "hosts": sorted(self.live_hosts),
             "step": step,
             "ep": self.last.get("ep"),
             "loss": self.last.get("loss"),
@@ -151,8 +188,8 @@ class RunState:
             "last_clean": last_e,
             "last_ema": last_ema,
             "last_other": last_o,
-            "age": (now - lt) if lt else None,
-            "status": "stale" if (stale and self.status == "running") else self.status,
+            "age": age,
+            "status": status,
         }
 
 
@@ -188,6 +225,23 @@ def global_summary(runs: list[dict], nodes: dict) -> dict:
         "best_prod_wer": min(prod_wers) if prod_wers else None,
         "nodes_up": sum(1 for n in nodes.values() if n.get("up")),
         "nodes": len(nodes),
+        "stalled": sorted(r["name"] for r in runs if r["status"] == "stalled"),
+        # GPU nodes that are up with no live trainer process: idle capacity
+        "idle_nodes": sorted(k for k, n in nodes.items()
+                             if n.get("up") and n.get("gpus") and not n.get("mac") and not n.get("runs")),
+    }
+
+
+def summarize_rank(rec: dict, now: float) -> dict:
+    """Compact per-rank DDP heartbeat (`rank<R>.jsonl`, written by every rank each log interval)."""
+    iv = rec.get("interval_s") or 0
+    ahh = (rec.get("audio_s") or 0) / iv if iv else None
+    return {
+        "run": rec.get("run"), "rank": rec.get("rank"), "world": rec.get("world"), "gpu": rec.get("gpu"),
+        "step": rec.get("step"), "loss": rec.get("loss"), "ahh": round(ahh, 1) if ahh is not None else None,
+        "compute_s": rec.get("compute_s"), "comm_s": rec.get("comm_s"), "wait_s": rec.get("wait_s"),
+        "sleep_s": rec.get("sleep_s"), "pad_pct": rec.get("pad_pct"),
+        "age": (now - rec["time"]) if rec.get("time") else None,
     }
 
 

@@ -11,7 +11,8 @@ from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
-from tools.fleet_dashboard.parse import RunState, global_summary, parse_line, parse_nvidia
+from tools.fleet_dashboard.parse import (RunState, global_summary, parse_line, parse_live_runs, parse_nvidia,
+                                          summarize_rank)
 from tools.fleet_dashboard.remote_tail import tail_remote_node
 
 RUN_ROOT = Path(os.environ.get("FLEET_RUN_ROOT", "/mnt/xbabe3-external/jsr/runs/train"))
@@ -22,6 +23,8 @@ LOCAL_NODE = os.environ.get("FLEET_LOCAL_NODE", "xbabe3")
 NODE_PERIOD = float(os.environ.get("FLEET_NODE_PERIOD", "3"))
 LOG_PERIOD = float(os.environ.get("FLEET_LOG_PERIOD", "2"))
 ACTIVE_DAYS = float(os.environ.get("FLEET_ACTIVE_DAYS", "1"))
+# Stopped/finished runs drop out of the table after this many hours (history stays in the charts).
+HIDE_AFTER_S = float(os.environ.get("FLEET_HIDE_AFTER_H", "2")) * 3600
 
 # Run name -> node (override with FLEET_HOST_MAP='{"RUN": "xbabeN"}').
 HOST_RULES = [
@@ -39,12 +42,14 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "LogLevel=ERR
 LINUX_PROBE = r"""read -r _ a b c d e f g h _ < /proc/stat; t1=$((a+b+c+d+e+f+g+h)); i1=$((d+e)); sleep 1
 read -r _ a b c d e f g h _ < /proc/stat; t2=$((a+b+c+d+e+f+g+h)); i2=$((d+e))
 echo "CPU $(( 1000*((t2-t1)-(i2-i1))/(t2-t1) ))"; echo "NCPU $(nproc)"
-free -m | awk '/Mem/{print "MEM",$3,$2}'; awk '{print "LOAD",$1}' /proc/loadavg; echo GPUS
+free -m | awk '/Mem/{print "MEM",$3,$2}'; awk '{print "LOAD",$1}' /proc/loadavg
+ps -eo args | grep -E -- '-m train[.]trainer ' | grep -oE -- '--run-dir [^ ]+' | sed 's#.*/#RUN #'; echo GPUS
 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits 2>/dev/null || true"""
 
 MAC_PROBE = r"""idle=$(top -l 2 -n 0 -s 1 | awk '/CPU usage/ {v=$7} END {sub("%","",v); print v}')
 echo "CPU $(awk -v i="$idle" 'BEGIN{printf "%d", (100-i)*10}')"; echo "NCPU $(sysctl -n hw.ncpu)"
 echo "LOAD $(sysctl -n vm.loadavg | awk '{print $2}')"
+ps -axo command | grep -E -- '-m train[.]trainer ' | grep -oE -- '--run-dir [^ ]+' | sed 's#.*/#RUN #' 
 g=$(ioreg -r -d 1 -w 0 -c IOAccelerator | grep -o 'Device Utilization %.=[0-9]*' | head -1 | grep -o '[0-9]*$')
 echo GPUS; echo "0, M3 Ultra (MPS), ${g:-0}, 0, 0, 0, 0" """
 
@@ -65,6 +70,7 @@ class Fleet:
         self.pending: dict[str, dict] = {}
         self.nodes: dict[str, dict] = {n: {"name": n, "up": False} for n in LINUX_NODES + MAC_NODES}
         self.clients: set[web.WebSocketResponse] = set()
+        self.probed: set[str] = set()
         self.dirty = True
 
     # ---------- training logs ----------
@@ -160,7 +166,12 @@ class Fleet:
             elif p[0] == "LOAD" and len(p) > 1:
                 info["load"] = float(p[1])
         info["gpus"] = parse_nvidia(gpu_txt)
-        info["runs"] = sorted(n for n, r in self.runs.items() if r.host == node)
+        live = parse_live_runs(head)
+        for name, rs in self.runs.items():  # where each run's processes actually are (DDP spans nodes)
+            # on a node's first probe, a live run was not *seen* starting: leave live_since unknown (0)
+            rs.set_live(node, name in live, time.time() if node in self.probed else 0.0)
+        info["runs"] = sorted(live)
+        self.probed.add(node)
         info["t"] = time.time()
         self.nodes[node] = info
         self.dirty = True
@@ -190,19 +201,27 @@ class Fleet:
         while True:
             await self.probe(node)
             if node != LOCAL_NODE and self.nodes.get(node, {}).get("up"):
+                ranks: list[dict] = []
                 for item in await tail_remote_node(node, SSH_OPTS, self.offsets):
+                    if "ranks" in item:
+                        ranks = [summarize_rank(r, time.time()) for r in item["ranks"]]
+                        continue
                     key = f"{node}:{item['path']}"
                     self.offsets[key] = int(item["off"])
                     if item["lines"]:
                         self._ingest_lines(item["run"], node, item.get("total"), item["lines"])
+                self.nodes[node]["ranks"] = sorted(ranks, key=lambda r: (str(r["run"]), r["rank"] or 0))
             await asyncio.sleep(NODE_PERIOD)
 
     # ---------- websocket ----------
     def summaries(self) -> list[dict]:
         now = time.time()
         rank = {"prod": 0, "scratch": 1, "ablation": 2}
+        complete = all(n.get("up") for n in self.nodes.values())
+        sums = [r.summary(now, inventory_complete=complete) for r in self.runs.values()]
+        sums = [s for s in sums if s["status"] in ("running", "starting", "stalled") or (s["age"] or 1e12) < HIDE_AFTER_S]
         return sorted(
-            (r.summary(now) for r in self.runs.values()),
+            sums,
             key=lambda s: (s["status"] != "running", rank.get(s.get("cohort", "scratch"), 1), s["name"]),
         )
 

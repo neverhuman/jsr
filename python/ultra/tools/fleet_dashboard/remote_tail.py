@@ -21,6 +21,23 @@ for line in ps.splitlines():
     ts = re.search(r"total_steps=(\d+)", line)
     found[rdir] = int(ts.group(1)) if ts else None
 out = []
+ranks = []
+for rdir in found:  # per-rank heartbeats (rank<R>.jsonl): only the last line of each
+    try:
+        names = [n for n in os.listdir(rdir) if re.match(r"^rank\d+\.jsonl$", n)]
+    except OSError:
+        names = []
+    for n in names:
+        try:
+            with open(os.path.join(rdir, n), "rb") as fh:
+                fh.seek(max(0, os.path.getsize(fh.name) - 4096))
+                tail = fh.read().decode("utf-8", "replace").strip().splitlines()
+            rec = json.loads(tail[-1]) if tail else None
+        except (OSError, ValueError):
+            rec = None
+        if isinstance(rec, dict):
+            rec["run"] = os.path.basename(rdir.rstrip("/"))
+            ranks.append(rec)
 for rdir, total in found.items():
     p = os.path.join(rdir, "train.jsonl")
     if not os.path.isfile(p):
@@ -40,6 +57,8 @@ for rdir, total in found.items():
             new_off = off + cut + 1
             lines = chunk[:cut].decode("utf-8", "replace").splitlines()
     out.append({"run": os.path.basename(rdir.rstrip("/")), "path": p, "total": total, "off": new_off, "lines": lines})
+if ranks:
+    out.append({"ranks": ranks})
 print(json.dumps(out, separators=(",", ":")))
 """
 
