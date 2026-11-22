@@ -84,3 +84,8 @@ paper:
     p1="$(pdftotext -f 1 -l 1 paper.pdf -)"; if ! grep -q "Fig. 1\." <<< "$p1"; then echo "paper: Fig. 1. not on page 1"; fail=1; fi
     [ "$fail" = 0 ] || exit 1
     echo "paper: docs/paper/paper.pdf ($(pdfinfo paper.pdf | awk '/^Pages/ {print $2}') pages)"
+
+# Real-time fleet dashboard (loss / WER / throughput per run, GPU + CPU per node) on 127.0.0.1:8765.
+# View remotely: ssh -L 8765:127.0.0.1:8765 <this host>, then open http://localhost:8765
+dashboard:
+    cd python/ultra && ../../.venv/bin/python -m tools.fleet_dashboard
