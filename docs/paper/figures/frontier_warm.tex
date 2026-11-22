@@ -1,39 +1,57 @@
 % Fig. 1 body (paper-data): warm single-harness frontier, exploratory, Zen 2. One IEEE column (<= 243 pt).
-% x: WER on the 400 dev-clean utterances of the DEV panel, same harness and executable as the ladder
-%    (ultra ce58952, Rust scorer). y: highest sustained live streams per CCX (Job E ladder, 4 workers).
-% The dense step-45k checkpoint (a different, earlier checkpoint) is drawn hollow with its density
-% range over ladder runs A/D. Caption text: \FrontierWarmCaption.
+% x: live streams per core sustained at p99 lateness <= \LatenessBoundMs ms (Job E ladder; top axis per CCX = x4).
+% y: WER on the DEV panel's 400 dev-clean utterances, same harness and executable (ultra ce58952), lower is better.
+% Filled: the timed checkpoints. Whiskers run from each claim to its first failed rung (rung spacing).
+% Hollow: the earlier dense step-45k checkpoint with its density range over runs A/D.
+% Dashed line: a later checkpoint's WER that was NOT timed (no point is drawn on it).
+% Caption text: \FrontierWarmCaption. All numbers are metrics.tex macros.
 \input{figures/style.tex}
 \begin{tikzpicture}
-\begin{axis}[ultra/base,
-  width=0.82\columnwidth, height=5.0cm,
-  xmin=0, xmax=14, ymin=0, ymax=176, xtick={0,2,4,6,8,10,12,14}, ytick={0,32,64,96,128,160},
-  xlabel={WER (\%), DEV panel dev-clean, same harness},
-  ylabel={Live streams per CCX},
+\begin{axis}[ultra/base, name=main,
+  width=0.85\columnwidth, height=5.2cm,
+  xmin=0, xmax=44, ymin=0, ymax=15, xtick={0,8,16,24,32,40}, ytick={0,2,4,6,8,10,12,14},
+  xlabel={Live streams per core (p99 $\le$ \LatenessBoundMs\,ms)},
+  ylabel={WER (\%), panel dev-clean},
 ]
-% step-45k density range (runs A/D), hollow, at that checkpoint's own WER
-\addplot[okBlue, thin, mark=none, forget plot]
-  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) (\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
-\addplot[okBlue, only marks, mark=-, mark size=2.5pt, forget plot]
-  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) (\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
-\addplot[ultra/dense, ultra/failed, only marks, mark size=1.7pt, forget plot]
-  coordinates {(\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeHi)};
-\draw[okBlue, thin, densely dotted] (axis cs:\WerRehearsalDenseFortyFive,\DenDenseFortyFiveRangeLo) -- (axis cs:10.0,80)
-  node[anchor=north, font=\tiny, text=okBlue, inner sep=1pt, align=center]
-  {dense step 45k (earlier ckpt.):\\\DenDenseFortyFiveRangeLo--\DenDenseFortyFiveRangeHi{} over runs A, D};
-% the three timed systems
-\addplot[ultra/rzero, only marks, mark size=2pt] coordinates {(\WerRehearsalRzero,\DenRzeroCCX)};
-\addplot[ultra/dense, only marks, mark size=2.1pt] coordinates {(\WerRehearsalDense,\DenDenseCCX)};
-\addplot[ultra/mr, only marks, mark size=2.6pt] coordinates {(\WerRehearsalMR,\DenMRCCX)};
-% direct labels with leaders
-\draw[okVermillion, thin] (axis cs:\WerRehearsalRzero,\DenRzeroCCX) -- (axis cs:4.2,22)
-  node[anchor=west, font=\scriptsize, text=okVermillion, inner sep=1pt, align=left]
-  {R0 Zipformer: \DenRzeroCCX{} at \WerRehearsalRzero\,\%};
-\draw[okBlue, thin] (axis cs:\WerRehearsalDense,\DenDenseCCX) -- (axis cs:4.4,118)
-  node[anchor=south, font=\scriptsize, text=okBlue, inner sep=1pt, align=center]
-  {dense avg-3: \DenDenseCCX\\at \WerRehearsalDense\,\%};
-\draw[okGreen, thin] (axis cs:\WerRehearsalMR,\DenMRCCX) -- (axis cs:9.9,152)
-  node[anchor=east, font=\scriptsize, text=okGreen, inner sep=1pt, align=right]
-  {multirate 50k: \DenMRCCX\\at \WerRehearsalMR\,\%};
+% later checkpoint, not timed
+\addplot[okGrey, dashed, thin, mark=none, forget plot] coordinates {(0,\WerDtwoBestPanelClean) (44,\WerDtwoBestPanelClean)};
+\node[font=\tiny, text=okGrey, anchor=north east, inner sep=1.5pt] at (axis cs:44,\WerDtwoBestPanelClean)
+  {later checkpoint, not timed; training ongoing};
+% whiskers: claim -> first failed rung
+\addplot[okVermillion, thin, mark=|, mark size=2pt, forget plot]
+  coordinates {(\DenRzeroCCX/4,\WerRehearsalRzero) (\DenFailRzeroCCX/4,\WerRehearsalRzero)};
+\addplot[okBlue, thin, mark=|, mark size=2pt, forget plot]
+  coordinates {(\DenDenseCCX/4,\WerRehearsalDense) (\DenFailDenseCCX/4,\WerRehearsalDense)};
+\addplot[okGreen, thin, mark=|, mark size=2pt, forget plot]
+  coordinates {(\DenMRCCX/4,\WerRehearsalMR) (\DenFailMRCCX/4,\WerRehearsalMR)};
+% dense step 45k: hollow, range over runs A/D
+\addplot[okBlue, thin, densely dashed, mark=o, mark size=1.7pt, mark options={solid, fill=white}, forget plot]
+  coordinates {(\DenDenseFortyFiveRangeLo/4,\WerRehearsalDenseFortyFive) (\DenDenseFortyFiveRangeHi/4,\WerRehearsalDenseFortyFive)};
+\node[font=\tiny, text=okBlue, anchor=south, inner sep=1.5pt, align=center]
+  at (axis cs:{(\DenDenseFortyFiveRangeLo+\DenDenseFortyFiveRangeHi)/8},\WerRehearsalDenseFortyFive)
+  {step 45k (earlier), runs A, D};
+% timed systems
+\addplot[ultra/rzero, only marks, mark size=2pt] coordinates {(\DenRzeroCCX/4,\WerRehearsalRzero)};
+\addplot[ultra/dense, only marks, mark size=2.1pt] coordinates {(\DenDenseCCX/4,\WerRehearsalDense)};
+\addplot[ultra/mr, only marks, mark size=2.6pt] coordinates {(\DenMRCCX/4,\WerRehearsalMR)};
+\node[font=\scriptsize, text=okVermillion, anchor=north, inner sep=2pt, align=center]
+  at (axis cs:\DenRzeroCCX/4,\WerRehearsalRzero) {R0 Zipformer\\\WerRehearsalRzero\,\%};
+\node[font=\scriptsize, text=okBlue, anchor=east, inner sep=3pt]
+  at (axis cs:\DenDenseCCX/4,\WerRehearsalDense) {dense avg-3, \WerRehearsalDense\,\%};
+\node[font=\scriptsize, text=okGreen, anchor=south, inner sep=3pt, align=center]
+  at (axis cs:\DenMRCCX/4,\WerRehearsalMR) {multirate 50k\\\WerRehearsalMR\,\%};
+% R0 -> MR density ratio
+\draw[-{Stealth[length=4pt]}, okGrey, thin] (axis cs:\DenRzeroCCX/4,4.4) -- (axis cs:\DenMRCCX/4,4.4)
+  node[midway, above, font=\scriptsize, text=okGrey, inner sep=1.5pt] {R0 $\rightarrow$ multirate: \DenRatioMR$\times$ streams};
+\draw[okGrey, very thin, dotted] (axis cs:\DenRzeroCCX/4,\WerRehearsalRzero) -- (axis cs:\DenRzeroCCX/4,4.4);
+\draw[okGrey, very thin, dotted] (axis cs:\DenMRCCX/4,4.4) -- (axis cs:\DenMRCCX/4,\WerRehearsalMR);
+\end{axis}
+% top axis: per CCX
+\begin{axis}[ultra/base,
+  width=0.85\columnwidth, height=5.2cm, axis x line*=top, axis y line=none, grid=none,
+  xmin=0, xmax=176, ymin=0, ymax=15, xtick={0,32,64,96,128,160},
+  xlabel={Live streams per CCX (4 workers)}, xlabel style={font=\scriptsize}, ticklabel style={font=\tiny},
+]
+\addplot[draw=none, forget plot] coordinates {(0,0)};
 \end{axis}
 \end{tikzpicture}

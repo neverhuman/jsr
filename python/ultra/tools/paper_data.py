@@ -339,6 +339,29 @@ def add_panel5(root: Path, rec: Records) -> None:
     add("WerMoonTinyPanelOther", ["moontiny_dev-other.json"], "Moonshine v2 tiny INT8 (sherpa offline)")
 
 
+def add_cluster_gap(root: Path, rec: Records) -> None:
+    """Codex Evidence: paired speaker-cluster bootstrap of the pooled WER gap, MR (b) vs R0 (a), 730 panel."""
+    rel = RAW / "tier1_dev_cluster_gap.json"
+    d = read_json(root, str(rel))
+    pd_ = d["comparison"]["pooled_delta"]
+    # the two systems must be exactly the same-harness rows used elsewhere
+    for side, rid in (("a", "WerRzeroPanel"), ("b", "WerRehearsalMRPooled")):
+        if abs(100 * pd_[f"observed_{side}"] - rec.raw(rid)) > 1e-6:
+            raise PaperDataError(f"{rel}: observed_{side} does not match {rid}")
+    strata = ", ".join(f"{s_['dataset']} {s_['clusters']} speakers" for s_ in pd_["strata"])
+    conf = (f"pooled WER, multirate 50k INT8 minus R0 INT8, same-harness 730-utt panel; paired speaker-cluster bootstrap "
+            f"({strata}), {pd_['replicates']} replicates, seed {pd_['seed']}, two-sided 95%; ultra-score "
+            f"({d['normaliser_id']})")
+    common = dict(label="exploratory", configuration=conf, workload="DEV selection panel, pooled (730 utt)",
+                  workload_digest=PANEL_DIGEST)
+    src = f"docs/paper/data/{rel.relative_to(DATA)} comparison.pooled_delta"
+    for rid, v in (("GapMRvsRzeroPooled", pd_["delta"]), ("GapMRvsRzeroPooledLo", pd_["lower"]),
+                   ("GapMRvsRzeroPooledHi", pd_["upper"])):
+        rec.add(rid, fmt(100 * v, 2), raw=100 * v, unit="pp WER", source=f"{src}", **common)
+    rec.add("GapReplicates", thousands(str(pd_["replicates"])), raw=pd_["replicates"], unit="resamples",
+            source=f"{src}.replicates", **common)
+
+
 def add_derived(rec: Records) -> None:
     """Ratios and differences of curated numbers (same workload on both sides)."""
     def ratio(rid, a, b, nd, conf):
@@ -357,6 +380,11 @@ def add_derived(rec: Records) -> None:
 
     ratio("SpeedupVsRzero", "CostRzero", "CostEngineIntEight", 1,
           "R0 vs engine INT8 whole-service CPU, same executable 6df5c8f")
+    x = 1.0 / rec.raw("SingleMthreeMR")
+    r0 = rec.rows["SingleMthreeMR"]
+    rec.add("RTFxMthreeMR", fmt(x, 0), raw=round(x, 6), unit="x real time per CPU core", label="exploratory",
+            configuration="1 / SingleMthreeMR: D2MR-final INT8 single stream on M3 Ultra (dev tool)",
+            workload=r0["workload"], workload_digest=r0["workload_digest"], source=f"derived: {r0['source']}")
     # No cross-run ratios: ORT FP32 exists only in Run B (db5c14a), so it is compared only with Run B's engine FP32.
     ratio("SpeedupEngineFPVsORT", "CostORTRunB", "CostEngineFPRunB", 2,
           "Run B (db5c14a, one executable): ORT FP32 vs fused engine FP32, 400/400 identical transcripts")
@@ -448,7 +476,7 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
 
     by_cand = {r["candidate"]: r for r in ladder["results"]}
     rows_cost, rows_ladder = [], []
-    claims, early = {}, {}
+    claims, early, fails = {}, {}, {}
     for key, cand, disp, stem in CANDIDATES:
         res = by_cand[cand]
         pts = sorted((p for p in points if p["candidate"] == cand), key=lambda p: p["total_streams"])
@@ -486,6 +514,22 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
             rec.add(f"DenFail{stem}CCX", str(above[0]["total_streams"]), raw=above[0]["total_streams"],
                     unit="streams/CCX", configuration=f"{disp}; first rung above the claim (failed)",
                     source=f"{psrc} candidate={cand} total_streams={above[0]['total_streams']}", **common)
+            rec.add(f"DenFailPninetyNine{stem}", fmt(above[0]["max_worker_p99_ms"], 0), raw=above[0]["max_worker_p99_ms"],
+                    unit="ms", configuration=f"{disp}; max worker p99 lateness at the first failed rung",
+                    source=f"{psrc} candidate={cand} total_streams={above[0]['total_streams']}", **common)
+        inv = 1.0 / at_match["rtf_service_cpu"]
+        rec.add(f"AudioPerCpu{stem}", fmt(inv, 1), raw=inv, unit="audio-s per CPU-s",
+                configuration=f"{disp}; 1 / whole-service CPU-s per audio-s at the matched {MATCHED_RUNG}-stream rung",
+                source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
+        rec.add(f"RTFxLadder{stem}", fmt(inv, 1), raw=inv, unit="x real time per CPU core",
+                configuration=f"{disp}; audio-seconds processed per CPU-second at the matched {MATCHED_RUNG}-stream rung "
+                              "(1 / CostLadder)",
+                source=f"derived: {psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
+        util = 100.0 * claim * at_claim["rtf_service_cpu"] / ladder["workers"]
+        rec.add(f"UtilClaim{stem}", fmt(util, 0), raw=util, unit="% of the CCX's 4 cores",
+                configuration=f"{disp}; claimed streams x CPU-s per audio-s at the claimed rung / {ladder['workers']} cores",
+                source=f"derived: {psrc} candidate={cand} total_streams={claim}", **common)
+        fails[key] = (claim, above[0]["total_streams"] if above else None)
         rec.add(f"CostLadder{stem}", fmt(at_match["rtf_service_cpu"], 4), raw=at_match["rtf_service_cpu"],
                 unit="CPU-s/audio-s", configuration=f"{disp}; whole-service CPU at the matched {MATCHED_RUNG}-stream rung; {lconf}",
                 source=f"{psrc} candidate={cand} total_streams={MATCHED_RUNG}", **common)
@@ -537,7 +581,27 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
         rec.add(f"FrontierRatio{stem}", fmt(base_fb / fb, 2), raw=base_fb / fb, unit="x", label="exploratory",
                 configuration=f"R0 over {key} batch-16 CPU-s/audio-s, panel frontier", workload=pwl,
                 workload_digest=PANEL_DIGEST, source=f"derived: {fsrc}")
+    (rc, rf), (mc, mf) = fails["rzero"], fails["mr"]
+    if rf is None or mf is None:
+        raise PaperDataError("density bracket needs a failed rung for R0 and MR")
+    bcommon = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha, source=f"derived: {psrc}")
+    lo, hi = mc / (rf - 1), (mf - 1) / rc
+    rec.add("DenRatioMRBracketLo", fmt(lo, 1), raw=lo, unit="x",
+            configuration=f"rung-spacing bracket, low end: MR claim {mc} / (R0 first failed rung {rf} - 1)", **bcommon)
+    rec.add("DenRatioMRBracketHi", fmt(hi, 1), raw=hi, unit="x",
+            configuration=f"rung-spacing bracket, high end: (MR first failed rung {mf} - 1) / R0 claim {rc}", **bcommon)
+    largs = man[("ladder_e_ce58952_avg3", CANDIDATES[0][1])]["cli_args"]
+    limits = {tuple(j["cli_args"][j["cli_args"].index("--limit") + 1:j["cli_args"].index("--limit") + 2])
+              for (sub, _), j in man.items() if sub == "ladder_e_ce58952_avg3"}
+    if len(limits) != 1:
+        raise PaperDataError(f"ladder jobs used different --limit values: {limits}")
+    lim = largs[largs.index("--limit") + 1]
+    rec.add("LadderWorkload", f"first {lim} utterances cycled per stream (\\texttt{{--limit {lim}}})", raw=int(lim),
+            unit="text", label="reported", configuration="ladder workload, read from the Job E job manifests (cli_args)",
+            workload=LADDER_WORKLOAD, workload_digest=npz_sha,
+            source=f"docs/paper/data/{ldir.relative_to(DATA)}/*.job_manifest.json cli_args --limit")
     add_ladder_runs(root, rec, npz_sha)
+    add_equal_load_probe(root, rec, npz_sha, ldir, ladder)
     for rid, v, unit, conf, src, wl in (
         ("DenWorkers", ladder["workers"], "workers", "single-threaded workers on one 4-core CCX", lsrc, LADDER_WORKLOAD),
         ("DenRungSeconds", int(ladder["step_seconds"]), "s", "duration of each ladder rung", lsrc, LADDER_WORKLOAD),
@@ -579,6 +643,50 @@ def add_rehearsal(root: Path, rec: Records, out: dict[str, str]) -> None:
     for key, *_ in CANDIDATES:
         rows = [r for r in rows_ladder if r[0] == key]
         out[f"ladder_{key}.csv"] = csv_text(["total_streams", "p99_ms", "sustained"], [[r[1], r[3], r[4]] for r in rows])
+
+
+def add_equal_load_probe(root: Path, rec: Records, npz_sha: str, ldir: Path, ladder: dict) -> None:
+    """Job E's fixed equal-load probe (same stream count for every system) and the ladder scope."""
+    front = read_json(root, str(ldir / "frontier.json"))
+    fsrc = f"docs/paper/data/{ldir.relative_to(DATA)}/frontier.json"
+    probes = {}
+    for key, cand, disp, stem in CANDIDATES:
+        row = next(r for r in front["rows"] if r["candidate"] == cand)
+        pr = row["sustained_probe"]
+        man = json.loads((root / ldir / f"{cand.replace('/', '_')}.job_manifest.json").read_text())
+        args = man["cli_args"]
+        secs = int(args[args.index("--sustained-seconds") + 1])
+        rcpt_name = f"{cand.replace('/', '_')}.sustained.receipt.json"
+        rcpt = json.loads((root / ldir / rcpt_name).read_text())
+        probes[key] = (pr["total_streams"], secs)
+        common = dict(label="exploratory", workload=LADDER_WORKLOAD, workload_digest=npz_sha)
+        conf = (f"{disp}; fixed equal-load probe, {pr['workers']} workers x {pr['streams_per_worker']} streams = "
+                f"{pr['total_streams']} streams on one CCX for {secs} s (Job E, ultra ce58952)")
+        src = f"{fsrc} rows[candidate={cand}].sustained_probe"
+        rec.add(f"ProbePninetyNine{stem}", fmt(pr["lateness_p99_ms"], 0), raw=pr["lateness_p99_ms"], unit="ms",
+                configuration=f"{conf}; worst-worker p99 lateness", source=src, **common)
+        rec.add(f"ProbeSustained{stem}", "yes" if pr["sustained"] else "no", raw=int(bool(pr["sustained"])), unit="flag",
+                configuration=f"{conf}; sustained under the A1 rule", source=src, **common)
+        rec.add(f"ProbeDrained{stem}", "yes" if pr["drained"] else "no", raw=int(bool(pr["drained"])), unit="flag",
+                configuration=f"{conf}; all accepted audio processed at cutoff", source=src, **common)
+        cost = rcpt["process_tree_cpu_seconds"] / rcpt["audio_seconds"]
+        rec.add(f"ProbeCost{stem}", fmt(cost, 4), raw=cost, unit="CPU-s/audio-s",
+                configuration=f"{conf}; process-tree CPU over processed audio (observer excluded)",
+                source=f"docs/paper/data/{ldir.relative_to(DATA)}/{rcpt_name}", **common)
+    if len(set(probes.values())) != 1:
+        raise PaperDataError(f"equal-load probe differs between systems: {probes}")
+    n, secs = next(iter(probes.values()))
+    common = dict(label="reported", workload=LADDER_WORKLOAD, workload_digest=npz_sha, source=fsrc)
+    rec.add("ProbeStreams", str(n), raw=n, unit="streams/CCX", configuration="equal-load probe stream count, every system", **common)
+    rec.add("ProbeSeconds", str(secs), raw=secs, unit="s", configuration="equal-load probe duration", **common)
+    if ladder["confirm_seconds"] or ladder["repeats_required"] != 1:
+        raise PaperDataError("ladder scope changed (confirmation or repeats); update LadderScope")
+    scope = f"{ladder['step_seconds']:.0f}~s rungs, one repeat per rung, no confirmation"
+    rec.add("LadderScope", scope, raw=None, unit="text", label="reported",
+            configuration="ladder protocol of the exploratory rehearsal, from density_ladder.json "
+                          "(step_seconds, repeats_required, confirm_seconds)",
+            workload=LADDER_WORKLOAD, workload_digest=npz_sha,
+            source=f"docs/paper/data/{ldir.relative_to(DATA)}/density_ladder.json")
 
 
 def add_ladder_runs(root: Path, rec: Records, npz_sha: str) -> None:
@@ -824,18 +932,20 @@ def metrics_tex(rec: Records) -> str:
              "45/50/55k) and the multirate model at step 50k, all prepared INT8, in one \\texttt{ultra bench-suite} "
              "executable on a shared AMD Threadripper PRO 3995WX (Zen~2). Density: \\DenWorkers{} single-threaded workers "
              "on one CCX, \\DenRungSeconds{}~s ladder rungs, one repeat; R0 and multirate densities were identical in "
-             "\\DenReproRuns{} runs, dense ranged \\DenDenseRangeLo--\\DenDenseRangeHi{} per CCX. Left: whole-service "
-             "CPU-seconds per audio-second at the matched \\MatchedRung-stream rung against WER on the panel's 400 "
-             "dev-clean utterances (R0 and multirate: same harness; dense: trainer FP32 decode, Rust-rescored). "
+             "\\DenReproRuns{} runs; the earlier dense step-45k checkpoint reached \\DenDenseFortyFiveRangeLo--"
+             "\\DenDenseFortyFiveRangeHi{} per CCX over two runs. Left: whole-service CPU-seconds per audio-second at the "
+             "matched \\MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same "
+             "harness and executable. "
              "Right: highest sustained streams per CCX, with each checkpoint's WER.")
     cap_c = ("Cold process-tree CPU cost against pooled DEV WER on the frozen 730-utterance DEV panel, "
              "one pinned physical core, median of three repetitions, AMD Threadripper PRO 3995WX (Zen~2).")
-    cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host): highest sustained "
-             "live streams per CCX (\\DenWorkers{} single-threaded workers, p99 lateness at most \\LatenessBoundMs\\,ms, "
-             "\\DenRungSeconds{}~s rungs, one repeat) against WER on the 400 dev-clean utterances of the DEV panel, both "
-             "measured in one \\texttt{ultra bench-suite} executable for the same checkpoints. The hollow bar is the "
-             "earlier dense step-45k checkpoint, which reached \\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} "
-             "streams over two runs.")
+    cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per "
+             "core sustained at p99 lateness of at most \\LatenessBoundMs\\,ms (top axis: per CCX, \\DenWorkers{} "
+             "single-threaded workers; \\LadderScope) against WER on the 400 dev-clean utterances of the DEV panel, "
+             "both measured in one \\texttt{ultra bench-suite} executable for the same checkpoints. Whiskers run to "
+             "the first failed rung. Hollow: the earlier dense step-45k checkpoint, "
+             "\\DenDenseFortyFiveRangeLo--\\DenDenseFortyFiveRangeHi{} streams per CCX over two runs. Dashed: a later "
+             "dense checkpoint's WER, not timed.")
     lines += ["", f"\\newcommand{{\\FrontierWarmCaption}}{{{cap_f}}}"]
     lines += ["", f"\\newcommand{{\\RehearsalCaption}}{{{cap_r}}}", f"\\newcommand{{\\ColdCaption}}{{{cap_c}}}", ""]
     return "\n".join(lines)
@@ -879,6 +989,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     cur = add_curated(root, rec)
     add_codex_evidence(root, rec)
     add_panel5(root, rec)
+    add_cluster_gap(root, rec)
     add_derived(rec)
     add_rehearsal(root, rec, out)
     add_curves(root, rec, out)

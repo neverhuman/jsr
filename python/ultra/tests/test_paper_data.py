@@ -179,7 +179,7 @@ FIGURES = ("money", "frontier_warm", "density", "rehearsal", "curve", "sweep", "
 _HARNESS = r"""\documentclass[conference]{IEEEtran}
 \usepackage[T1]{fontenc}\usepackage{lmodern}
 \usepackage[table]{xcolor}\usepackage{tikz}\usepackage{pgfplots}\pgfplotsset{compat=1.17}
-\usetikzlibrary{calc}\usepgfplotslibrary{groupplots}
+\usetikzlibrary{calc,arrows.meta}\usepgfplotslibrary{groupplots}
 \input{data/metrics.tex}
 \newsavebox\fbx
 \newcommand{\measure}[1]{\sbox\fbx{\input{figures/#1.tex}}\typeout{FIGWIDTH #1 \the\wd\fbx}}
