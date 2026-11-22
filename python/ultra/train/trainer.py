@@ -85,6 +85,11 @@ class TrainConfig:
     # RNN-T loss (ModelConfig.rnnt_loss): "exact" or "pruned" (k2; H13b), band width, and a linear
     # ramp of the pruned-loss weight from 0.1 to 1 over the first prune_warmup steps while the
     # simple joiner that picks the band is still untrained (0 = weight 1 from the start).
+    # H22 distillation from R0: cache dir of train/teacher_cache.py outputs and the KL weight;
+    # tokenizer overrides both heads' SentencePiece model path (R0's bpe.model for H22).
+    kd_dir: str = ""
+    kd_weight: float = 0.0
+    tokenizer: str = ""
     rnnt_loss: str = "exact"
     prune_range: int = 5
     prune_warmup: int = 0
@@ -200,7 +205,8 @@ class Trainer:
                                     augment=self.augment if self.step >= self.cfg.specaug_start
                                     else None, gen=gen,
                                     chunk=self.cfg.chunk or None,
-                                    pruned_scale=self._pruned_scale())
+                                    pruned_scale=self._pruned_scale(),
+                                    kd=b.kd, kd_weight=self.cfg.kd_weight)
         loss = out["loss"]
         if not torch.isfinite(loss):
             self._pause(batch, out, float("nan"), "loss")
@@ -218,7 +224,8 @@ class Trainer:
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"],
                 "lr": self.sched.get_last_lr()[0], "audio_s": batch.audio_seconds,
                 "utts": len(batch.uids),
-                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {})}
+                **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
+                **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {})}
 
     def _diverged(self, detail: str, extra: dict) -> None:
         diag = os.path.join(self.run_dir, "DIVERGED.json")
@@ -363,7 +370,7 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -376,6 +383,7 @@ class Trainer:
                           "dropped_long": getattr(self.source, "dropped_long", 0),
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
+                          **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
                           "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9)})
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
@@ -415,6 +423,16 @@ def load_dev(split: str, limit: int, feat) -> list[Example]:
     return [feat.example(u.uid, u.text, u.pcm) for u in load_split(split, limit)]
 
 
+def _teacher(cfg: TrainConfig):
+    if not cfg.kd_dir:
+        return None
+    from train.kd import TeacherStore
+
+    store = TeacherStore(cfg.kd_dir)
+    print(json.dumps({"kind": "teacher", "entries": len(store), "topk": store.topk}), flush=True)
+    return store
+
+
 def model_config_for(cfg: TrainConfig) -> ModelConfig:
     """The preset's model config with output heads sized to the configured tokenizers."""
     import dataclasses
@@ -451,7 +469,10 @@ def main(argv=None) -> int:
     from train.data import Featurizer, ParquetBatches
     from train.tokenizer import Tokenizer, tokenizer_path
 
-    tok_r, tok_c = Tokenizer(tokenizer_path(cfg.rnnt_pieces)), Tokenizer(tokenizer_path(cfg.ctc_pieces))
+    tok_r = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.rnnt_pieces))
+    tok_c = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.ctc_pieces))
+    if cfg.kd_weight > 0 and not cfg.kd_dir:
+        raise ValueError("kd_weight > 0 needs kd_dir (the R0 teacher cache)")
     model_cfg = model_config_for(cfg)
     if tok_r.num_outputs != model_cfg.vocab_rnnt or tok_c.num_outputs != model_cfg.vocab_ctc:
         raise ShapeError(f"tokenizer sizes {tok_r.num_outputs}/{tok_c.num_outputs} != model heads "
@@ -468,7 +489,8 @@ def main(argv=None) -> int:
                                 cfg.max_seconds, workers=cfg.workers,
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
                                                     if v.strip()),
-                                pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens)
+                                pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
+                                teacher=_teacher(cfg))
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg)

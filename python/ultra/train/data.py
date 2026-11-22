@@ -35,6 +35,7 @@ class Example:
     feats: torch.Tensor  # (T, 80)
     rnnt: list[int]
     ctc: list[int]
+    kd: tuple | None = None  # H22 teacher targets (ids, lp, u, ok) from train.kd.TeacherStore
 
     @property
     def seconds(self) -> float:
@@ -51,6 +52,7 @@ class Batch:
     rnnt_lens: torch.Tensor
     ctc: torch.Tensor
     ctc_lens: torch.Tensor
+    kd: tuple | None = None  # (kd_ids, kd_lp, kd_u, kd_mask), padded to the longest teacher track
 
     @property
     def audio_seconds(self) -> float:
@@ -58,7 +60,8 @@ class Batch:
 
     def to(self, device) -> Batch:
         return Batch(self.uids, self.texts, *(t.to(device) for t in (
-            self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)))
+            self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
+            kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None)
 
 
 @dataclass(frozen=True)
@@ -93,7 +96,28 @@ def collate(exs: list[Example], pad_frames: int = 0, pad_tokens: int = 0) -> Bat
     return Batch([e.uid for e in exs], [e.text for e in exs], feats,
                  torch.tensor([e.feats.shape[0] for e in exs]),
                  pad([e.rnnt for e in exs], torch.long), torch.tensor([len(e.rnnt) for e in exs]),
-                 pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]))
+                 pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]),
+                 kd=_collate_kd(exs))
+
+
+def _collate_kd(exs: list[Example]):
+    if all(e.kd is None for e in exs):
+        return None
+    k = next(e.kd[0].shape[1] for e in exs if e.kd is not None)
+    tt = max((len(e.kd[2]) for e in exs if e.kd is not None), default=0)
+    ids = torch.zeros(len(exs), tt, k, dtype=torch.int16)
+    lp = torch.zeros(len(exs), tt, k, dtype=torch.float16)
+    u = torch.zeros(len(exs), tt, dtype=torch.long)
+    mask = torch.zeros(len(exs), tt, dtype=torch.bool)
+    for i, e in enumerate(exs):
+        if e.kd is None or not e.kd[3]:
+            continue  # no teacher entry, or R0's 1-best differs from the reference
+        n = len(e.kd[2])
+        ids[i, :n] = torch.from_numpy(np.asarray(e.kd[0]))
+        lp[i, :n] = torch.from_numpy(np.asarray(e.kd[1]))
+        u[i, :n] = torch.from_numpy(np.asarray(e.kd[2]))
+        mask[i, :n] = True
+    return ids, lp, u, mask
 
 
 def pack(durations: list[float], budget_s: float, max_batch: int) -> list[list[int]]:
@@ -127,7 +151,7 @@ class ParquetBatches:
 
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
-                 parquet_root: str | None = None, workers: int = 4,
+                 parquet_root: str | None = None, workers: int = 4, teacher=None,
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
                  pad_tokens: int = 0):
         from concurrent.futures import ThreadPoolExecutor
@@ -148,6 +172,7 @@ class ParquetBatches:
         self.window_groups = window_groups
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
+        self.teacher = teacher
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
         self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
         self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
@@ -166,11 +191,21 @@ class ParquetBatches:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
         if sr != 16000 or pcm.ndim != 1:
             raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
-        if self.speed_perturb:
+        f = self._speed(row["id"], epoch) if self.speed_perturb else 1.0
+        if f != 1.0:
             pcm = self._perturb(pcm, row["id"], epoch)
         if len(pcm) / 16000.0 > self.max_seconds:
             return None
-        return self.feat.example(row["id"], row["text"], pcm)
+        ex = self.feat.example(row["id"], row["text"], pcm)
+        if self.teacher is not None:
+            ex.kd = self.teacher.get(row["id"], f)
+        return ex
+
+    def _speed(self, uid: str, epoch: int) -> float:
+        import hashlib
+
+        h = hashlib.sha256(f"{self.seed}:{epoch}:{uid}".encode()).digest()
+        return self.speed_perturb[h[0] % len(self.speed_perturb)]
 
     def _perturb(self, pcm: np.ndarray, uid: str, epoch: int) -> np.ndarray:
         """Speed perturbation (tempo and pitch together, labels unchanged): resample by a

@@ -143,8 +143,13 @@ def main(argv=None) -> None:
         ecfg = model.encoder.cfg = dataclasses.replace(ecfg, left_context=a.left_context)
     chunk = a.chunk or None
     mcfg = ModelConfig.from_dict(p["model_config"])  # heads sized to the run's tokenizers
-    tok = Tokenizer(tokenizer_path(mcfg.vocab_rnnt - 1))
-    tok_c = Tokenizer(tokenizer_path(mcfg.vocab_ctc - 1))
+    tok_override = (p.get("train_config") or {}).get("tokenizer") or ""
+    if tok_override and not os.path.exists(tok_override):  # trained elsewhere: same file name here
+        from train.tokenizer import TOKDIR
+
+        tok_override = os.path.join(TOKDIR, os.path.basename(tok_override))
+    tok = Tokenizer(tok_override or tokenizer_path(mcfg.vocab_rnnt - 1))
+    tok_c = Tokenizer(tok_override or tokenizer_path(mcfg.vocab_ctc - 1))
     feat = Featurizer(tok, tok_c)
     panel_sha = None
     if a.panel:

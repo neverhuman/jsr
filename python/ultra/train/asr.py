@@ -142,7 +142,7 @@ class ASRModel(nn.Module):
     def losses(self, feats, feat_lens, rnnt_tgt, rnnt_lens, ctc_tgt, ctc_lens,
                stats: FeasibilityStats | None = None, augment: SpecAugConfig | None = None,
                gen: torch.Generator | None = None, chunk: int | None = None,
-               pruned_scale: float = 1.0) -> dict:
+               pruned_scale: float = 1.0, kd: tuple | None = None, kd_weight: float = 0.0) -> dict:
         x = self.cmvn(feats)
         if augment is not None and gen is not None:
             x = spec_augment(x, feat_lens, augment, gen)
@@ -167,6 +167,13 @@ class ASRModel(nn.Module):
         total = self.cfg.ctc_weight * ctc
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+        if kd is not None and kd_weight > 0:
+            from train.kd import kd_loss
+
+            with torch.autocast(device_type=enc.device.type, enabled=False):
+                kl, n = kd_loss(self.joiner, enc_p, pred_p, enc_lens, rnnt_lens, *kd)
+            total = total + kd_weight * kl
+            out["kd"], out["kd_frames"] = kl, n
         if simple is None:
             total = total + rnnt
         else:
