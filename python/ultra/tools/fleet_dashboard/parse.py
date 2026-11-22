@@ -9,6 +9,19 @@ from dataclasses import dataclass, field
 # Train history is decimated so a client snapshot stays small (fast first paint).
 MAX_TRAIN_POINTS = 1500
 STALE_SECONDS = 300
+# A live trainer whose log has been silent this long is a real stall (evals can take a few minutes).
+STALL_SECONDS = 600
+_RUN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
+
+
+def parse_live_runs(text: str) -> set[str]:
+    """Run names from probe lines `RUN <name>` (the basename of each live trainer's --run-dir)."""
+    out = set()
+    for line in text.splitlines():
+        p = line.split()
+        if len(p) == 2 and p[0] == "RUN" and _RUN_NAME.match(p[1]):
+            out.add(p[1])
+    return out
 
 
 def classify_cohort(name: str) -> str:
@@ -77,6 +90,7 @@ class RunState:
     status: str = "running"
     stride: int = 1
     total_steps: int | None = None
+    live_hosts: set = field(default_factory=set)  # nodes with a live trainer process for this run (DDP: several)
     _n: int = 0
     _recent: list = field(default_factory=list)  # [(step, time)] for the rate / ETA
 
@@ -117,7 +131,13 @@ class RunState:
         last_e = next((e for e in reversed(self.evals) if e[1] == "dev-clean"), None)
         last_o = next((e for e in reversed(self.evals) if e[1] == "dev-other"), None)
         last_ema = next((e for e in reversed(self.evals) if e[1] == "dev-clean" and len(e) > 4 and e[4] is not None), None)
-        stale = (now - lt) > STALE_SECONDS if lt else True
+        age = (now - lt) if lt else None
+        if self.status in ("diverged", "done"):
+            status = self.status
+        elif self.live_hosts:  # a process is alive: silent log = stalled
+            status = "stalled" if (age is None or age > STALL_SECONDS) else "running"
+        else:  # no live process seen anywhere
+            status = "running" if (age is not None and age <= STALE_SECONDS) else "stopped"
         rate = None
         if len(self._recent) >= 2:
             (s0, t0), (s1, t1) = self._recent[0], self._recent[-1]
@@ -134,7 +154,8 @@ class RunState:
             "steps_per_h": round(rate) if rate else None,
             "eta_h": round(eta_h, 1) if eta_h is not None else None,
             "progress": round(100.0 * step / self.total_steps, 1) if (self.total_steps and step is not None) else None,
-            "host": self.host,
+            "host": ",".join(sorted(self.live_hosts)) if self.live_hosts else self.host,
+            "hosts": sorted(self.live_hosts),
             "step": step,
             "ep": self.last.get("ep"),
             "loss": self.last.get("loss"),
@@ -151,8 +172,8 @@ class RunState:
             "last_clean": last_e,
             "last_ema": last_ema,
             "last_other": last_o,
-            "age": (now - lt) if lt else None,
-            "status": "stale" if (stale and self.status == "running") else self.status,
+            "age": age,
+            "status": status,
         }
 
 
@@ -188,6 +209,10 @@ def global_summary(runs: list[dict], nodes: dict) -> dict:
         "best_prod_wer": min(prod_wers) if prod_wers else None,
         "nodes_up": sum(1 for n in nodes.values() if n.get("up")),
         "nodes": len(nodes),
+        "stalled": sorted(r["name"] for r in runs if r["status"] == "stalled"),
+        # GPU nodes that are up with no live trainer process: idle capacity
+        "idle_nodes": sorted(k for k, n in nodes.items()
+                             if n.get("up") and n.get("gpus") and not n.get("mac") and not n.get("runs")),
     }
 
 

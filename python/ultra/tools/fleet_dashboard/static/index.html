@@ -51,7 +51,8 @@ tr.off td{opacity:.35}
 td .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px;cursor:pointer}
 .pill{padding:1px 7px;border-radius:9px;font-size:10.5px;font-family:var(--sans)}
 .pill.running{background:rgba(60,207,145,.14);color:var(--ok)}
-.pill.stale{background:rgba(242,184,75,.14);color:var(--warn)}
+.pill.stalled{background:rgba(255,93,108,.18);color:var(--bad);font-weight:600}
+.pill.stopped{background:rgba(140,150,170,.12);color:var(--muted)}
 .pill.diverged{background:rgba(255,93,108,.14);color:var(--bad)}
 .pill.done{background:rgba(106,168,255,.14);color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 12px;font:11px var(--mono);color:var(--muted);margin-top:6px}
@@ -131,6 +132,8 @@ function renderKpis(){
     ["Fleet CPU",fmt(g.cpu_pct,0)+"%",(g.cpu_threads??0)+" threads"],
     ["Best prod WER",g.best_prod_wer==null?(g.best_wer==null?"–":fmt(g.best_wer,2)+"%"):fmt(g.best_prod_wer,2)+"%","EMA/greedy · R0 ref 2.95%"],
     ["Nodes up",(g.nodes_up??0)+" / "+(g.nodes??0),""],
+    ["Stalled / idle",((g.stalled||[]).length+(g.idle_nodes||[]).length)===0?"none":((g.stalled||[]).length+" / "+(g.idle_nodes||[]).length),
+      [...(g.stalled||[]).map(n=>"stalled: "+n),...(g.idle_nodes||[]).map(n=>"idle GPU node: "+n)].join(" · ")||"every live run logging; every GPU node training"],
   ];
   $("kpis").innerHTML=tiles.map(([l,v,s])=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
 }
@@ -154,8 +157,9 @@ function renderNodes(){
 function werCell(e,idx=2){return e&&e[idx]!=null?`${fmt(e[idx],2)}<span style="color:var(--dim)"> @${(e[0]/1000).toFixed(1)}k</span>`:"–";}
 function matchCohort(r){
   if(S.cohort==="all")return true;
-  if(S.cohort==="active")return r.status==="running";
-  return r.cohort===S.cohort&&r.status==="running";
+  const live=r.status==="running"||r.status==="stalled";
+  if(S.cohort==="active")return live;
+  return r.cohort===S.cohort&&live;
 }
 function renderRuns(){
   const tb=$("runs").tBodies[0];
