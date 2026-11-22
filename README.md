@@ -10,12 +10,14 @@ The controlling specification is `docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_
 
 ### Accuracy: our best R1 so far
 - **D2:** dense S (d_model 384, 16 Conformer blocks, streaming, 160 ms chunks), trained on LibriSpeech 960 h.
-- **Best checkpoint:** step 50,000, **epoch 7** (0-indexed, i.e. the 8th pass over the data). Training continues to 102k steps.
+- **Best checkpoint:** step 55,000, **epoch 8** (0-indexed, i.e. the 9th pass over the data). Training continues to 102k steps. Full curves: [`research/curves/`](research/curves/README.md).
 
 | Set (400 utterances, greedy, streaming) | WER |
 |---|---:|
-| dev-clean | **8.52%** |
-| dev-other | **19.60%** |
+| dev-clean | **7.83%** (step 55k) |
+| dev-other | 19.60% (step 50k; the 55k dev-other eval is pending) |
+
+Beam search (4 candidates, same encoder, step 50k, full dev sets) gives 8.00% / 18.53%, versus greedy at 8.65% / 20.16% (H12, Python).
 
 - **Other runs:**
   - multirate S_MR (D2MR, final 50k, epoch 5): 11.09% full dev-clean / 22.90% full dev-other;

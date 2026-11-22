@@ -1,6 +1,6 @@
 //! Contract drift: serialised ultra-core values must validate against the
-//! hand-maintained schemas in `contracts/events/`, and the schemas must refuse
-//! what the Rust types refuse.
+//! schemas generated into `contracts/events/` from `src/schemas/`, and the
+//! schemas must refuse what the Rust types refuse.
 //!
 //! The validator below implements only the JSON Schema keywords these schemas
 //! use. Any other keyword fails the test, so a schema edit cannot silently
@@ -31,6 +31,24 @@ const KEYWORDS: &[&str] = &[
     "if",
     "then",
 ];
+
+#[test]
+fn generated_schemas_match_the_crate_source() {
+    for name in ["receipt.v1.schema.json", "transcript-event.v1.schema.json"] {
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/schemas")
+            .join(name);
+        let generated = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../contracts/events")
+            .join(name);
+        let src = std::fs::read_to_string(&source).expect("schema source readable");
+        let gen = std::fs::read_to_string(&generated).expect("generated schema readable");
+        assert_eq!(
+            src, gen,
+            "{name} drifted; run: cargo run -p ultra-core --bin emit-schemas --locked"
+        );
+    }
+}
 
 fn load(name: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
