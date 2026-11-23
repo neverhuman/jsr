@@ -58,3 +58,25 @@ class OptimConfigError(TrainError, ValueError):
         self.reason = reason
         self.docs_url = "research/H23_optimizer_bakeoff/README.md"
         self.repair_hint = hint
+
+
+class LmEvalError(TrainError, ValueError):
+    """An H46 language-model evaluation input is inconsistent (train.h46_tune, train/ops/h46_*).
+
+    purpose: stop a "+LM" tuning or scoring step before it reports a number from mismatched
+    inputs (a dev split that does not cover the encoder cache, a decode copy that does not
+    answer for the named source checkpoint).
+    reason: the split file lists an utterance twice or not exactly the cache's utterances; a
+    derived checkpoint records another source sha256 or non-EMA weights.
+    common_fixes: pass eval-lane's `dev_split_v2.json` for the full-dev cache; re-cut the decode
+    copy from the derived file of the named checkpoint.
+    docs_url: research/H46_lm_and_text/README.md
+    repair_hint: cd python/ultra && python -m pytest -q tests/test_h46_tune.py
+    """
+
+    def __init__(self, reason: str):
+        hint = "rerun: cd python/ultra && python -m pytest -q tests/test_h46_tune.py"
+        super().__init__(f"{reason} (see research/H46_lm_and_text/README.md; {hint})")
+        self.reason = reason
+        self.docs_url = "research/H46_lm_and_text/README.md"
+        self.repair_hint = hint
