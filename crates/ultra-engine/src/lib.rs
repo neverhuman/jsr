@@ -16,6 +16,8 @@
 //! - [`kernels`]: scalar references and runtime-dispatched AVX2/FMA kernels; `unsafe` lives
 //!   only in `kernels::x86_avx2`.
 
+pub mod agc;
+pub mod agc_stream;
 pub mod beam;
 pub mod commit;
 pub mod decoder;
@@ -34,6 +36,8 @@ pub mod safetensors;
 pub mod sealed;
 pub mod workload;
 
+pub use agc::{WarmAgc, WarmAgcConfig};
+pub use agc_stream::AgcStream;
 pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
 pub use lm::{FfnnActivation, FfnnLm, LmConfig, NgramLm, TokenLm};
