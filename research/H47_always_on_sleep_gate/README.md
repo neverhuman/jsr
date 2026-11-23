@@ -181,3 +181,12 @@ Paired comparisons (B − A; speaker-cluster bootstrap; one-sided 95% bounds una
 - **(4) PASS: criterion 2 of the skip-gate simulation.** With the swarm's real Sentinel-0 segments (R 1 s, gate-driven close after 1.5 s cold, no flush), the stream WER is −0.036 pp against C1 (upper bound +0.041, ≤ +0.20) and first-word recall after sleep +0.04 pp (lower bound −0.43, ≥ −0.5). Gap false words: 8 against C1's 5. 2 are genuine last words emitted more than 0.5 s after the utterance end (a scorer-allowance artefact), 5 are "SH" / "W" decoded inside the 1.5 s hangover in loud white / pink noise, and 1 is a first word emitted less than 0.5 s after its utterance start (the same artefact). Added rate 3 / 17.06 h.
 - **Not yet passing on the real segments: first words after noise gaps.** S1n keeps 88.11% against C1's 88.72% there; S1n − O3n is −0.65 pp overall. Amendment 5 tests R = 500 ms on the real segments.
 - **The ideal configuration** (word-onset wake, 500 ms pre-roll, no-flush close) beats today's always-on configuration by 0.245 pp WER and 1.18 pp first-word recall, at 47.1% decoded duty.
+
+### Amendment 5: real Sentinel-0 segments with a 500 ms pre-roll (exploratory, post-hoc)
+| Arm | WER | Gap false words (95% upper / h) | First word, all / after sleep | Decoded duty |
+|---|---:|---:|---:|---:|
+| C1 | 8.377% | 5 (0.62) | 88.92 / 88.81% | 100% (+37.9% replayed) |
+| S1n (R 1 s) | 8.341% | 8 (0.85) | 88.70 / 88.85% | 53.7% |
+| **S2n (R 500 ms)** | **8.185%** | 7 (0.77) | 89.60 / 89.77% | **51.0%** |
+- S2n − C1: WER −0.192 pp (one-sided 95% [−0.280, −0.106]); first word after sleep +0.95 pp [+0.52, +1.39]. S2n − S1n (descriptive): −0.157 pp, +0.91 pp. Segments `oracle/segs/S2.segs.jsonl` (`00111435…`, 5,415 segments).
+- **Reading: PASS, recommend R = 500 ms with a no-flush close.** On the real gate's segments, the shorter pre-roll is more accurate than today's always-on configuration in both WER and first words, with about half the decoded audio.
