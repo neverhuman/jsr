@@ -19,6 +19,36 @@ candidates:
     model: nvidia/nemotron-speech-streaming-en-0.6b @ ebe59e5a817142986528bbbee5dba8db7b38ed50 (q8_0 gguf sha256 d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d)
     runtime: NeMo-Speech.cpp @ e790e463b2913cff9f989a3df224c587f14b4c5c (GCC 13.3 -O3, portable AVX2, no CUDA)
     status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-20)
+  - candidate_id: vosk-en-us-0.22
+    manifest: docs/ultra/candidates/vosk-en-us-0.22.yaml
+    manifest_sha256: 508795472d88017e5cbffad0e6e678bc7b37472843878f79d12f97ec65ec6e14
+    runtime: vosk 0.3.45; model zip sha256 47f9a81e...
+    approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
+  - candidate_id: vosk-small-en-us-0.15
+    manifest: docs/ultra/candidates/vosk-small-en-us-0.15.yaml
+    manifest_sha256: 324f30bc18dd61a09201ddebbc33923b5cd431760aef373f64c759f914e45080
+    runtime: vosk 0.3.45; model zip sha256 30f26242...
+    approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
+  - candidate_id: whispercpp-stream-base-en
+    manifest: docs/ultra/candidates/whispercpp-stream-base-en.yaml
+    manifest_sha256: d8941822728437e9020ac16cd084add506da31133b8994f5db3a3e0cb9ef3f82
+    runtime: pywhispercpp 1.4.1 (whisper.cpp 1.8.2), Picovoice 3 s chunk engine @ 272be8f
+    approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
+  - candidate_id: whispercpp-stream-tiny-en
+    manifest: docs/ultra/candidates/whispercpp-stream-tiny-en.yaml
+    manifest_sha256: abbf8f533497010dbdc2dbac60a4eb4b1cd49ae07e824a4108a6e371bbdc6e50
+    runtime: pywhispercpp 1.4.1 (whisper.cpp 1.8.2), Picovoice 3 s chunk engine @ 272be8f
+    approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
+  - candidate_id: parakeet-tdt-0.6b-v3-onnx-asr-int8
+    manifest: docs/ultra/candidates/parakeet-tdt-0.6b-v3-onnx-asr-int8.yaml
+    manifest_sha256: a81e44a1bfd0bce3c59800399fb39c1ad825dee6debe4d32fd7adb7c8b93d64d
+    runtime: onnx-asr 0.12.0, onnxruntime 1.32.0; istupakov/parakeet-tdt-0.6b-v3-onnx @ 8f23f0c
+    approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
   - candidate_id: parakeet-unified-en-0.6b-q8
     manifest: docs/ultra/candidates/parakeet-unified-en-0.6b-q8.yaml
     manifest_sha256: 1cfabb779bda8708e150e60998e9984d1358bb2dfad09f4d539e8fbeedfb60b3

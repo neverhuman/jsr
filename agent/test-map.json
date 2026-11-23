@@ -214,8 +214,8 @@
       "purpose": "the IEEE paper builds with no undefined references, Type-1 fonts, and every number generated from sourced records (tests/test_paper_data.py)"
     },
     "docs/paper/opponents/": {
-      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py",
-      "purpose": "opponent benchmark runners: panel views and balanced shards, side-by-side workers, plan phases, the macOS meter parser and the receipt table (every repetition and the median)"
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_opponents_tools.py python/ultra/tests/test_paper_opponents.py",
+      "purpose": "opponent benchmark runners (bench-cross: panel views and balanced shards, side-by-side workers, plan phases, the macOS meter parser and the receipt table; bench-open: 20 ms packet feed, the Picovoice chunk engine, trace v1, host guard, timing-lock turns, arm definitions and evidence rows)"
     },
     "docs/paper/data/raw/opponents/": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_data.py",
@@ -260,6 +260,10 @@
     "python/ultra/train/ops/launch_ddp_ranks.sh": {
       "command": "shellcheck -x -S warning python/ultra/train/ops/launch_ddp_ranks.sh",
       "purpose": "validate the fixed-rank launcher script"
+    },
+    "python/ultra/tests/test_paper_opponents.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_paper_opponents.py",
+      "purpose": "the open opponent harness tests run with fake recognisers and a fake CPU topology"
     },
     "python/ultra/tools/energy_bench.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_energy_bench.py",
