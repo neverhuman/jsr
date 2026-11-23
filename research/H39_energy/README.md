@@ -99,7 +99,7 @@ Core registers, full 730-utterance panel, one pinned core alone on its 4-core L3
 - **Always-on (owner's direction, 22:32Z):** a stream running all year at those watts costs **ours 2.9 kWh (core registers) / 3.6 kWh (package marginal), the Zipformer 5.2 / 5.7–6.5 kWh per stream-year** (W × 8,766 h). Streams one core can carry unpaced (1 / CPU-s per audio-s, no latency bound): **ours 27.8, the Zipformer 14.5**; the measured number at a latency bound comes from the paced check (§3.8).
 - One stream alone on an otherwise idle machine raises the package by about 34 W (H22ctl: 97.7 W median while running against 63.3 W in the 13 idle minutes after entry 2), i.e. 1.2 J per audio-second; almost all of that is the step every busy core causes (§3.5), paid once per machine.
 - The package column multiplies the core figure by the measured package watts per core-register watt (§3.5). On top of it the package draws about 16 W more as soon as any core is busy, once per machine.
-- Rows for the other recognisers come from the continuous power log joined with each agent's timed runs (§3.9); they are appended to `docs/paper/data/raw/energy/evidence/` as the serial timing queue produces them.
+- Rows for the other recognisers come from the continuous power log joined with each agent's timed runs (§3.9), in `evidence/xbabe0-energy-joins.jsonl` as the serial timing queue produces them. So far: **Moonshine Tiny 1.077 W per live stream** (0.122 CPU-s per audio-s, 3.2× ours, 9.4 kWh per stream-year) and **Parakeet TDT v3 INT8 (sherpa-onnx, whole utterance) 1.711 W** (0.169 CPU-s per audio-s, 5.1× ours, 15.0 kWh per stream-year).
 
 ### 3.2 Instruments agree
 
@@ -179,8 +179,24 @@ Our engine, 1 to 8 single-thread processes started in steps inside one run, each
 ### 3.8 Live-paced check
 
 - **Word lag** is the stable-word lag the lead ruled for the paper (end to end, input paced at real time): a reference word counts as emitted at the first event after which it is never withdrawn from the hypothesis; lag = that time minus the word's end in the audio (MFA word ends, `word-lag/timestamps_100_mfa.json`, the first 22 utterances of the panel concatenated). Event payloads are bounded windows (the tail of the hypothesis, about 60 bytes), so `energy_report.py paced-lag` places each window in the final hypothesis. Check against runtime-lane's harness on the same model: one paced stream of ours on an idle H0 core gave 346 / 442 ms (p50 / p95), its trace gave 350 / 494 ms; the Zipformer 593 / 769 ms against 570 / 770 ms.
-- **Pending: TIMING entry 23 on xbabe0** (N = 1, 4, 8, 16 paced streams of ours on CPU 16 and N = 1, 2, 4, 8 of the Zipformer on CPU 20, `ultra stream --pace 1.0`, one process per stream, 128 s of audio, 12 s cut at both ends). The result is compared with the unpaced figures above, on the same host and model.
-- A first attempt on H0 (xbabe3, 21:31–22:15Z) is discarded: every repetition was flagged (SMT siblings busy with other agents' work, foreign load changing by tens of watts, idle drift), net core watts came out negative, and the engine ran 4–7× slower than on xbabe0 because of memory-bus load. Receipts kept in `/mnt/xbabe3-external/jsr/runs/energy-h39/runs/` as an example of what the flags are for.
+**Always-on capacity test (TIMING entry 4b, xbabe0, 23:32–23:50Z, the host otherwise idle):** N live streams paced at 1×, one `ultra stream --pace 1.0` process each, all on one core (ours on CPU 16, the Zipformer on CPU 20, side by side; 128 s of audio = the first 22 panel utterances; 12 s cut at both ends for the watts; `derived/capacity-test-entry4b.jsonl`, receipts in `paced/`):
+
+| System | N streams on one core | core busy | stable-word lag p50 / p95 (max) | W per stream, net of the core's idle floor | W per stream, gross | words matched |
+|---|---:|---:|---|---:|---:|---:|
+| ours (H22ctl) | 1 | 7% | 305 / 430 ms (501) | 0.224 | 0.485 | 96% |
+| ours | 4 | 17% | 313 / 439 ms (519) | 0.390 | 0.426 | 96% |
+| ours | 8 | 35% | 309 / 437 ms (514) | 0.335 | 0.372 | 96% |
+| ours | **16** | 62% | **303 / 429 ms (513)** | **0.368** | **0.375** | 96% |
+| Zipformer | 1 | 12% | 539 / 744 ms (929) | 0.303 | 0.588 | 95% |
+| Zipformer | 2 | 23% | 552 / 754 ms (942) | 0.561 | 0.663 | 95% |
+| Zipformer | 4 | 40% | 546 / 751 ms (939) | 0.520 | 0.595 | 95% |
+| Zipformer | **8** | 65% | **548 / 755 ms (958)** | **0.592** | **0.639** | 95% |
+
+- **Latency does not move with load up to the largest N tested:** ours holds p95 429–439 ms from 1 to 16 streams on one core (62% busy); the Zipformer 744–755 ms from 1 to 8 (65% busy). So the measured always-on capacity at a p95 ≤ 450 ms (ours) or ≤ 760 ms (Zipformer) bound is **at least 16 and at least 8 streams per core**; from the paced CPU cost the ceiling is about 26 and 12 (1 / CPU-s per audio-s per stream: 0.0387 and 0.0815, model load included). The lag of ours is lower than the Zipformer's at every N.
+- **Watts per stream, paced against unpaced (pass rule 15%):** at 8 or more streams per core the paced figure agrees with the unpaced one: ours 0.335–0.375 W against 0.334 (+0 to +12%), the Zipformer 0.592–0.639 against 0.591 (+0 to +8%). **Pass**: the unpaced joules per audio-second can be quoted as watts per live stream for a core that carries several streams.
+- **A core with one stream is a different regime.** The idle floor of the core (0.1–0.4 W) is then carried by one stream (gross 0.485 W for ours), while the governor keeps the core at 2.3 GHz instead of 4.2 GHz, so the work itself costs less (net 0.224 W). Both numbers have a large relative uncertainty (the idle floor drifted by 0.3 W between the windows, flagged).
+- The Zipformer's last word arrives up to 0.54 s after the end of the audio at N = 8 (0.08 s at N = 1); ours 0.01–0.05 s.
+- A first attempt on H0 (xbabe3, 21:31–22:15Z) is discarded: every repetition was flagged (SMT siblings busy with other agents' work, foreign load changing by tens of watts, idle drift), net core watts came out negative, and the engine ran 4–7× slower than on xbabe0 because of memory-bus load. Receipts kept in `/mnt/xbabe3-external/jsr/runs/energy-h39/runs/`.
 
 ### 3.9 Watts for every other row: the power log join
 
