@@ -20,19 +20,18 @@ from train.errors import LmEvalError
 V = 501
 
 
-def counts(path: str, chunk: int = 1 << 22) -> tuple[np.ndarray, np.ndarray]:
-    """Exact bigram and trigram counts. Bigrams are counted per chunk (a 2 MB table); trigram
-    codes go into one int32 array (501^3 < 2^31) counted by a single bincount, so no large
-    temporary is allocated per chunk (fresh multi-GB allocations page-fault slowly on loaded
-    hosts). Chunks of 4 M tokens keep every temporary small enough to be reused."""
+def counts(path: str, chunk: int = 1 << 24) -> tuple[np.ndarray, np.ndarray]:
+    """Exact bigram and trigram counts in bounded memory: bigrams by a per-chunk bincount into a
+    2 MB table; trigrams by sorting each chunk's codes and adding the per-code counts into one
+    persistent int32 table (501^3 < 2^31 bins, 503 MB). No multi-GB temporary is allocated, so
+    the pass is cheap on hosts whose page faults are slow and fits beside other jobs."""
     data = np.memmap(path, dtype=np.uint16, mode="r")
     n = data.shape[0]
     c2 = np.zeros(V * V, dtype=np.int64)
-    skip = V * V * V  # sentinel bin for windows whose middle token is a sentence break
-    codes3 = np.empty(max(n - 2, 0), dtype=np.int32)
+    c3 = np.zeros(V * V * V, dtype=np.int32)
     for s in range(0, n - 1, chunk):
         e = min(n, s + chunk + 2)
-        x = np.asarray(data[s:e]).astype(np.int32)
+        x = np.asarray(data[s:e]).astype(np.int64)
         if int(x.max(initial=0)) >= V:
             raise LmEvalError(f"{path}: token >= {V} in [{s}, {e})")
         last = e == n
@@ -42,12 +41,13 @@ def counts(path: str, chunk: int = 1 << 22) -> tuple[np.ndarray, np.ndarray]:
         c2 += np.bincount((a * V + b)[ok2], minlength=V * V)
         p, q, r = x[:-2], x[1:-1], x[2:]
         k = len(p) if last else min(len(p), chunk)
-        code = (p[:k] * V + q[:k]) * V + r[:k]
-        code[q[:k] == 0] = skip
-        codes3[s:s + k] = code
+        keep = q[:k] != 0
+        code = ((p[:k] * V + q[:k]) * V + r[:k])[keep]
+        code.sort()
+        u, cnt = np.unique(code, return_counts=True)
+        c3[u] += cnt.astype(np.int32)
         if last:
             break
-    c3 = np.bincount(codes3, minlength=skip + 1)[:skip]
     return c2, c3
 
 
