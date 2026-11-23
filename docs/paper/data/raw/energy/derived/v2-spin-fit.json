@@ -1,0 +1,57 @@
+{
+ "workers": [
+  1,
+  2,
+  4,
+  8
+ ],
+ "arms": [
+  "v2-spin-1",
+  "v2-spin-2",
+  "v2-spin-4",
+  "v2-spin-8"
+ ],
+ "core": {
+  "slope": 10.5025,
+  "intercept": 1.43824,
+  "r2": 0.999339,
+  "max_rel_residual": 0.0448066,
+  "net_watts": [
+   11.4058,
+   22.2451,
+   44.6819,
+   84.9581
+  ]
+ },
+ "package": {
+  "slope": 10.3389,
+  "intercept": 11.8655,
+  "r2": 0.961258,
+  "max_rel_residual": 0.264931,
+  "net_watts": [
+   17.9547,
+   41.1649,
+   47.7252,
+   95.7
+  ]
+ },
+ "clean_repetitions": [
+  {
+   "core": 2,
+   "package": 0
+  },
+  {
+   "core": 0,
+   "package": 0
+  },
+  {
+   "core": 1,
+   "package": 0
+  },
+  {
+   "core": 2,
+   "package": 0
+  }
+ ],
+ "package_over_core_slope": 0.984416
+}

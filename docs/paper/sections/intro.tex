@@ -1,65 +1,69 @@
 \section{Introduction}\label{sec:intro}
 
-CPU speech services for captioning, meeting transcription and voice interfaces
-must keep up with audio as it arrives across many streams. Stream density counts
-the concurrent paced streams a configuration serves under a lateness budget
-and a bounded backlog. We measure passing and failing loads at a specified CPU
-placement, and pair the result with WER from the same deployed checkpoint.
-Single-stream cost measures the work needed per audio second. A paced replay
-also exposes scheduling delays and backlog as load increases.
+An always-on recogniser listens to every second of audio, speech or not, for as long as the
+device or service runs. Its cost is paid continuously: the share of a CPU core it occupies, the
+watts that share draws, the memory it holds, and how late its words arrive. Anyone choosing a
+recogniser for such a service wants these numbers, and its accuracy, on one axis.
 
-Three properties make density hard to improve and harder to measure. First, batching across
-streams is the obvious way to amortise weights, yet on a compute-bound CPU it buys little, and
-common INT8 schemes make a stream's output depend on which other streams share its batch.
-Second, the encoder's frame rate fixes the arithmetic per audio second; most of it is spent on
-blocks that need not run at the full rate. Third, density claims are easy to inflate: different
-harnesses, worker counts and lateness rules can move a ratio by a factor of several, as we learned
-ourselves (\cref{sec:protocol}).
+Published comparisons do not give them. Each uses its own machine, thread count, audio and text
+normaliser: one vendor benchmark averages four corpora on ten cores of a desktop
+CPU~\cite{picovoice2026benchmark}; a runtime's own benchmark reports eight threads on another
+desktop CPU and a hundred test utterances~\cite{nvidia2026nemospeechbench}; a model card
+reports eight cores of a server CPU on a test set~\cite{moondream2026parakeetredux}; a model
+family's documentation reports response time on a laptop~\cite{moonshine2026docs}. None of
+these numbers can be divided by another.
 
-\input{sections/fig1.tex}%
-\para{A same-hardware comparison.} Published speed figures for CPU recognisers come from different
-machines, thread counts and audio, so they cannot share an axis. \Cref{fig:money} therefore places
-every recogniser we have measured so far on one: speed on one pinned core against WER on the same
-730 DEV utterances, each system a cold process with model load included (\cref{sec:protocol}).
-\ColdHeadSentence{} \ColdSpeedSentence{} \ColdAccuracySentence{}
-\ColdHostSentence{}
+\input{sections/tab_measured.tex}%
+\para{What we did.} We ran the recognisers of those comparisons that we could obtain and license on
+our own hardware, under one protocol (\cref{sec:protocol}): the same 730 LibriSpeech DEV utterances (\ColdAudioMinutes{}
+minutes), one cold process per system with model load included, one pinned physical core, three
+repetitions, and one scorer and text normaliser for every transcript. We keep two classes apart. A \emph{live streaming} system emits words while the
+audio arrives, so it has a word lag. A \emph{whole-utterance} system sees the whole clip before
+it emits anything, so it has throughput but no live words. \Cref{fig:money} plots speed against
+dev-clean WER for every system measured so far, and \cref{tab:measured} adds dev-other and pooled
+WER, memory, word lag, watts and an eight-core budget. Numbers that others published for the same
+systems are collected in \cref{tab:reported}; they never share an axis with a measured number.
+
+\para{The cost of always listening.} \Cref{tab:alwayson} gives, for every system measured on the
+quiet host, the share of one core, the watts and the kilowatt-hours per year one always-on stream
+costs, its memory and its live word lag. \ColdWattsSentence{}
+
+\para{Where \ultra wins and where it loses.} \ColdHeadSentence{} \ColdSpeedSentence{}
+\ColdAccuracySentence{} \ColdMemorySentence{} \ultra is trained on LibriSpeech alone; training
+continues, and the engine does not change with the weights.
 
 \para{Our approach.} \ultra co-designs a small streaming transducer and a CPU engine around one
 invariant: \emph{integer exactness}. Every quantised GEMM accumulates exactly in int32; every
-activation row is quantised from its own range; and the log-mel front end is computed in portable
-IEEE arithmetic. The result is an engine whose tokens are a pure function of the input audio and
-the weights, independent of batch composition, kernel tile, and instruction set. Exactness is
-what lets us change kernels freely (any change must reproduce the continuity fixtures bit for
-bit) and what makes every speed measurement a measurement of the same computation.
+activation row is quantised from its own range; and the log-mel front end is computed in
+portable IEEE arithmetic. The engine's tokens are therefore a pure function of the input audio
+and the weights, independent of batch composition, kernel tile and instruction set. Exactness
+lets us change kernels freely (any change must reproduce the continuity fixtures bit for bit)
+and makes every speed measurement a measurement of the same computation.
 
-\para{Units.} We report three distinct quantities and never convert one into another: CPU cost in
-CPU-seconds per audio-second (\cpus, measured work); its reciprocal, audio-seconds per
-CPU-second, which we call RTFx; and density, a paced pass under the lateness and no-growth rules.
+\para{Units.} CPU cost is CPU-seconds per audio-second (\cpus), the measured work of the whole
+process tree. Speed is its reciprocal, audio-seconds per CPU-second, written as a multiple of
+real time; on one pinned core it is also the number of live streams that core could feed.
+Density is a paced pass under a lateness rule. We never convert one of these into another
+across harnesses.
 
-\para{Two cost boundaries.} \emph{Warm} cost times a running service after load, inside the one
-harness that also measures paced density; it governs serving cost. \emph{Cold}
-cost times a whole recognizer process tree, model load included, so that external recognizers we
-can run only as child processes can be compared (\cref{fig:money}, \cref{sec:protocol}).
+\para{Two cost boundaries.} \emph{Cold} cost times a whole recogniser process, model load
+included; any recogniser that runs as a process can be measured this way, so the comparison of
+\cref{fig:money} uses it. \emph{Warm} cost times a running service after load, inside the one
+harness that also measures paced density (\cref{sec:density}). The two are never mixed.
 
 \para{Contributions.}
 \begin{enumerate}
-\item \textbf{A serving-density result under one harness.} With four single-threaded workers on
-  one Zen~2 core complex and a worst-worker p99 lateness bound of 800\,ms, the \ultra multirate
-  model sustains \DenMRCore{} live streams per core against \DenRzeroCore{} for Zipformer int8
-  (\DenRatioMR{}$\times$, reproduced in \DenReproRunsMR{} runs) and uses \CostRatioMR{}$\times$ less CPU per
-  audio second at equal load; the latest dense checkpoint sustains \DenDenseCore{} per core with
-  beam 4 at no density cost, its accuracy-improving operating point (\WerRehearsalDenseBeamPooled\%
-  pooled WER; \cref{fig:frontier,tab:density}). Ratios use Zipformer's clean-session run; a later
-  loaded-host run is not used for ratios.
+\item \textbf{A same-hardware comparison of published CPU recognisers}: one protocol for speed,
+  WER, memory, word lag and energy, with live streaming and whole-utterance systems kept apart
+  and published numbers kept in a separate group (\cref{fig:money,tab:measured,tab:reported}).
 \item \textbf{A batch-invariant, cross-ISA bit-exact INT8 engine.} Per-row centred activations
   with per-channel weights cost at most \GateMaxDelta\pp WER against FP32, are bit-identical at
   batch sizes 1 to 32, and give \XisaAgree/\XisaTotal{} identical PCM-to-token decodes on AVX2 and
-  NEON (\cref{sec:engine}). Even in FP32, in one executable on the same weights, the engine uses
-  \SpeedupEngineFPVsORT{}$\times$ less CPU than ONNX Runtime, with identical transcripts.
+  NEON (\cref{sec:engine}).
 \item \textbf{A multirate streaming encoder} running ten of sixteen blocks at \MidRateHz\,Hz inside
-  160\,ms chunks, which raised density by a further
-  \DenRatioMRvsDenseLo--\DenRatioMRvsDenseHi{}$\times$ over the dense model at equal width
-  (exploratory; different training runs) (\cref{sec:model}).
+  160\,ms chunks, and a paced serving-density measurement: \DenMRCore{} live streams per core at
+  a worst-worker p99 lateness of 800\,ms against \DenRzeroCore{} for Zipformer INT8 in the same
+  harness, each beside its own checkpoint's WER (\cref{sec:model,tab:density}).
 \item \textbf{A pre-registered evaluation protocol} for CPU ASR: a single harness, a fixed density
   ladder that stops at the first failure, counterbalanced timing blocks with Holm correction, a
   speaker-balanced selection panel, and a bootstrap INT8 gate (\cref{sec:protocol}).
@@ -68,8 +72,8 @@ can run only as child processes can be compared (\cref{fig:money}, \cref{sec:pro
   Zen~2 (\cref{sec:negative}).
 \end{enumerate}
 
-\para{What we do not claim.} \ultra is less accurate than the systems it outruns. Our best model,
-trained only on LibriSpeech, reaches \WerDtwoBestClean\% WER on dev-clean against
-\WerRzeroDevClean\% for Zipformer. Every density ratio in this paper is printed next to that gap.
-All results here are exploratory; the qualified numbers will replace them through the same macros
-once the protocol is frozen and run on a quiet host.
+\para{What we do not claim.} \ultra is less accurate than the best systems it outruns, and every
+speed in this paper is printed next to the WER of the same checkpoint, harness and run. Our
+accuracy comes from DEV data only; the LibriSpeech test sets stay sealed. All results are
+exploratory; qualified numbers will replace them through the same macros once the protocol is
+frozen.

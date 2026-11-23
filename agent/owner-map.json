@@ -53,11 +53,20 @@
     "python/ultra/tools/": "training",
     "research/": "lead",
     "docs/paper/": "lead",
+    "docs/paper/opponents/": "lead",
+    "docs/paper/data/raw/opponents/": "lead",
+    "python/ultra/tests/test_opponents_tools.py": "lead",
     "python/ultra/tools/paper_data/": "lead",
     "python/ultra/tools/export_curves.py": "lead",
     "python/ultra/tools/fleet_dashboard/": "lead",
     "training-dashboard.html": "training",
     "docs/paper/opponents/": "lead",
-    "python/ultra/tests/test_paper_opponents.py": "lead"
+    "python/ultra/tests/test_paper_opponents.py": "lead",
+    "python/ultra/tools/energy_bench.py": "eval",
+    "python/ultra/tests/test_energy_bench.py": "eval",
+    "research/H39_energy/": "eval",
+    "docs/paper/data/raw/energy/": "eval",
+    "python/ultra/tools/energy_report.py": "eval",
+    "docs/paper/run-energy.sh": "eval"
   }
 }

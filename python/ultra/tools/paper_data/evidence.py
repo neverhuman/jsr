@@ -33,9 +33,10 @@ def _read(root: Path) -> tuple[list[dict], list[dict], dict]:
                 rows.append(r)
             elif kind in ("lag", "energy"):
                 sidecars.append(r)
-            elif kind == "energy_headline":
-                if headline.setdefault((r["machine"], r["threads"]), r["energy_method"]) != r["energy_method"]:
-                    raise PaperDataError(f"{r['_where']}: a second energy headline for group {r['machine']}/t{r['threads']}")
+            elif kind == "energy_headline":  # without machine and threads it names the method of every group
+                group = (r["machine"], r["threads"]) if "machine" in r or "threads" in r else "*"
+                if headline.setdefault(group, r["energy_method"]) != r["energy_method"]:
+                    raise PaperDataError(f"{r['_where']}: a second energy headline for group {group}")
             else:
                 raise PaperDataError(f"{r['_where']}: unknown kind {kind!r}")
     return rows, sidecars, headline
@@ -91,7 +92,11 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
     for r in members:
         r["interim"] = r in drawable and r not in home  # measured only away from the quiet host so far
         r["faded"] = r["interim"] and bool(home)        # drawn lighter once quiet-host rows share the figure
+    # rows measured under the quiet host's timing protocol (one arm at a time on an otherwise idle machine) are
+    # comparable whatever their session; elsewhere a comparator needs a row of ours from its own session
     ours = {r["session"] for r in members if r["role"] == "ours"}
+    if quiet is not None and any(r["role"] == "ours" and r["host"] == quiet and not r.get("anchor") for r in members):
+        ours |= {r["session"] for r in members if r["host"] == quiet}
     off = set()
     for r in members:
         r["watts"], r["energy_method"] = r.get("energy", {}).get(chosen), chosen
@@ -100,8 +105,15 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
             if base is None and not r["loaded"]:
                 raise PaperDataError(f"{r['_where']}: anchor row has no primary row of {r['variant']} in {group}")
             r["anchor_ratio"] = float(r["cpu_s_per_audio_s"]) / float(base["cpu_s_per_audio_s"]) if base else None
+            r["anchor_base_host"] = base["host"] if base else None
             if base and not r["loaded"] and abs(r["anchor_ratio"] - 1.0) > ANCHOR_LIMIT_PCT / 100.0:
                 off.add(r["session"])
+    for r in drawable:  # a lag is a property of the system on the host it was measured on, not of one cost row
+        if r.get("lag_p50_ms") is None and r.get("lag_design_p50_ms") is None:
+            other = [a for a in members if a.get("anchor") and a["variant"] == r["variant"]
+                     and (a.get("lag_p50_ms") is not None or a.get("lag_design_p50_ms") is not None)]
+            if other:
+                r.update({k: other[0].get(k) for k in LAG_KEYS})
     stems: dict[tuple, str] = {}
     for r in members:
         # drawn only beside a row of ours from the same session; never an anchor or an ablation
@@ -137,7 +149,7 @@ def read_rows(root: Path) -> list[dict]:
     for r in rows:
         groups.setdefault((r["machine"], r["threads"]), []).append(r)
     for group, members in sorted(groups.items()):
-        _group(group, members, headline.get(group))
+        _group(group, members, headline.get(group, headline.get("*")))
     return sorted(rows, key=lambda r: (r["machine"], r["threads"], r.get("order", 999), r["id"]))
 
 

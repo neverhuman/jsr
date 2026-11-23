@@ -1,0 +1,104 @@
+# Parakeet Unified EN 0.6B, Q8_0 GGUF (handy-computer), transcribe.cpp, CPU only (H40, bench-cross).
+# Schema: spec v1.0-B §11.2 (ultra.candidate.v1). One document per operating point.
+# Approval: owner ruling O16 (the wider comparison set): internal evaluation, DEV audio only, hash-locked, exploratory.
+# Measured by bench-cross on xbabe0 (Zen 2); receipts under docs/paper/data/raw/opponents/zen2/.
+---
+schema: ultra.candidate.v1
+candidate_id: parakeet_unified_en_q8_whole_utterance
+model:
+  repository: handy-computer/parakeet-unified-en-0.6b-gguf
+  revision: 843b1b175ace04f5a89d379c79e2518c0d065b25
+  artifact: parakeet-unified-en-0.6b-Q8_0.gguf
+  artifact_bytes: 731357568
+  artifact_sha256: 4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795  # equals the HF LFS oid
+  upstream: nvidia/parakeet-unified-en-0.6b @ fe53cd885760c96b6a5f51a0bfd362cb4584a98b (parakeet-unified-en-0.6b.nemo, 2474055680 bytes, sha256 ec23ed9150c8fde49072c3e2d61678ab903dbcef389d658db833420cbc1da35b); the GGUF was converted by handy-computer from upstream commit d4ac992
+  parameters: 600M (Unified FastConformer encoder, 24 layers, RNN-T decoder)
+  training_data: >-
+    Model card: about 250k h, mostly the English part of Granary (YTC, YODAS2, Mosel, LibriLight), plus
+    LibriSpeech 960 h, Fisher, Switchboard, WSJ, NSC, VCTK, VoxPopuli, Europarl, MLS-EN, Common Voice,
+    People's Speech and AMI.
+  honesty_label: unknown overlap  # LibriSpeech train is in-corpus; overlap of the other corpora with LibriSpeech dev/test is unverified
+  host_copy: xbabe0:~/jsr-data/opponents/parakeet-unified/model-gguf (sha256 verified there; no local_path on the audit host)
+runtime:
+  repository: https://github.com/handy-computer/transcribe.cpp
+  commit: cfa237c2551a4b2d3a56ff8fe5461e3c67c51772
+  version: transcribe.cpp 0.4.2 (v0.4.2-4-gcfa237c2), bundled ggml 1.0.0
+  compiler_and_flags: >-
+    GCC 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1), CMake 3.28.3, CMAKE_BUILD_TYPE=Release, default options:
+    ggml-cpu built -march=native (AVX2/FMA on Zen 2), ggml's own thread pool (no OpenMP), no BLAS found
+    (the host decoder uses its scalar fallback). Adapter docs/paper/opponents/transcribe_cold.cc, g++ -std=c++17 -O3,
+    linked statically against libtranscribe and ggml.
+  why_this_runtime: >-
+    NeMo-Speech.cpp 0.3.0 (e790e46) does not list the model and has no chunked_limited_with_rc attention or
+    buffered RNN-T loop; transcribe.cpp implements the offline pass and NeMo's buffered streaming loop for it.
+  backend: cpu
+  effective_backend_reported: backend CPU (printed by the adapter to service.stderr)
+  quantization: Q8_0
+  runtime_options: '{"backend":"cpu","decoder":"greedy_rnnt","mode":"offline","threads":1,"timestamps":"none"}'
+  runtime_options_sha256: d16b2a4e4478e4df492713106a1a1c88400ace820196c9355bbc82979810d498  # sha256 of the runtime_options string above, no trailing newline
+stream:
+  requested_chunk_ms: 0  # whole utterance: no chunking
+  actual_right_context_ms: whole utterance (full-context attention, non-causal convolutions)
+  left_context_policy: whole utterance in one encoder pass
+  revision_policy: single_final
+  endpoint_policy_id: none.single_final_at_eos
+  output_text: cased and punctuated (model native); scored with ultra-en-wer-norm/v1
+resources:
+  intra_op_threads: 1  # 8 in the eight-core budget (parallel: intra_op); eight single-thread workers are also measured
+  inter_op_threads: 1
+  affinity: xbabe0, one physical core per process (taskset through ultra-measure), the arm alone on its CCX, SMT siblings idle; the 8-core budget pins eight cores of two CCXs; cores recorded per repetition
+licenses:
+  code_id: MIT
+  weights_id: NVIDIA Open Model License Agreement
+  distribution_status: internal_evaluation_only_until_resolved
+---
+schema: ultra.candidate.v1
+candidate_id: parakeet_unified_en_q8_stream_160
+model:
+  repository: handy-computer/parakeet-unified-en-0.6b-gguf
+  revision: 843b1b175ace04f5a89d379c79e2518c0d065b25
+  artifact: parakeet-unified-en-0.6b-Q8_0.gguf
+  artifact_bytes: 731357568
+  artifact_sha256: 4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795  # equals the HF LFS oid
+  upstream: nvidia/parakeet-unified-en-0.6b @ fe53cd885760c96b6a5f51a0bfd362cb4584a98b (parakeet-unified-en-0.6b.nemo, 2474055680 bytes, sha256 ec23ed9150c8fde49072c3e2d61678ab903dbcef389d658db833420cbc1da35b); the GGUF was converted by handy-computer from upstream commit d4ac992
+  parameters: 600M (Unified FastConformer encoder, 24 layers, RNN-T decoder)
+  training_data: >-
+    Model card: about 250k h, mostly the English part of Granary (YTC, YODAS2, Mosel, LibriLight), plus
+    LibriSpeech 960 h, Fisher, Switchboard, WSJ, NSC, VCTK, VoxPopuli, Europarl, MLS-EN, Common Voice,
+    People's Speech and AMI.
+  honesty_label: unknown overlap  # LibriSpeech train is in-corpus; overlap of the other corpora with LibriSpeech dev/test is unverified
+  host_copy: xbabe0:~/jsr-data/opponents/parakeet-unified/model-gguf (sha256 verified there; no local_path on the audit host)
+runtime:
+  repository: https://github.com/handy-computer/transcribe.cpp
+  commit: cfa237c2551a4b2d3a56ff8fe5461e3c67c51772
+  version: transcribe.cpp 0.4.2 (v0.4.2-4-gcfa237c2), bundled ggml 1.0.0
+  compiler_and_flags: >-
+    GCC 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1), CMake 3.28.3, CMAKE_BUILD_TYPE=Release, default options:
+    ggml-cpu built -march=native (AVX2/FMA on Zen 2), ggml's own thread pool (no OpenMP), no BLAS found
+    (the host decoder uses its scalar fallback). Adapter docs/paper/opponents/transcribe_cold.cc, g++ -std=c++17 -O3,
+    linked statically against libtranscribe and ggml.
+  why_this_runtime: >-
+    NeMo-Speech.cpp 0.3.0 (e790e46) does not list the model and has no chunked_limited_with_rc attention or
+    buffered RNN-T loop; transcribe.cpp implements the offline pass and NeMo's buffered streaming loop for it.
+  backend: cpu
+  effective_backend_reported: backend CPU (printed by the adapter to service.stderr)
+  quantization: Q8_0
+  runtime_options: '{"backend":"cpu","chunk_ms":80,"decoder":"greedy_rnnt","input_packet_ms":20,"left_ms":5600,"mode":"stream","right_ms":80,"threads":1,"timestamps":"none"}'
+  runtime_options_sha256: 236763f268fa9592316a7b9d06af7df90a6c3560d7452e9ca87966b84c7038a2  # sha256 of the runtime_options string above, no trailing newline
+stream:
+  requested_chunk_ms: 80
+  runtime_reported_geometry: left=70 chunk=1 right=1 encoder frames of 80 ms (the model card's 160 ms row)
+  actual_right_context_ms: 80  # latency as the card defines it = chunk + right = 160 ms
+  left_context_policy: buffered, not cache-aware; the 5.6 s left context is re-encoded for every 80 ms chunk (chunked_limited_with_rc mask)
+  end_of_stream_flush: finalize appends R frames of silence so the last real frames keep their lookahead (transcribe.cpp docs)
+  revision_policy: append_only  # RNN-T state carried across chunks; emitted tokens are not revised
+  endpoint_policy_id: none.single_final_at_eos
+  output_text: cased and punctuated (model native); scored with ultra-en-wer-norm/v1
+resources:
+  intra_op_threads: 1  # 8 in the eight-core budget
+  inter_op_threads: 1
+  affinity: xbabe0, one physical core per process (taskset through ultra-measure), the arm alone on its CCX, SMT siblings idle; the 8-core budget pins eight cores of two CCXs; cores recorded per repetition
+licenses:
+  code_id: MIT
+  weights_id: NVIDIA Open Model License Agreement
+  distribution_status: internal_evaluation_only_until_resolved

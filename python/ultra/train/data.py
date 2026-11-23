@@ -143,7 +143,8 @@ def weighted_share(group: list[int], durations: list[float], weights, rank: int)
     shards). Utterances are dealt in the group's order to the rank whose seconds so far, relative
     to its weight, would stay smallest, so each rank gets about weight / sum(weights) of the
     seconds and its part spans the group's duration range. Every rank computes the same deal, so
-    the parts are disjoint and complete; equal weights give group[rank::world]."""
+    the parts are disjoint and complete. Only used when weights are set; without them the
+    loader keeps the plain group[rank::world] split."""
     given = [0.0] * len(weights)
     mine = []
     for i in group:

@@ -1,0 +1,1 @@
+{"runtime": "sherpa-onnx", "version": "2.0.2", "threads": 1, "input_packet_ms": 20, "eof_tail_ms": 800}

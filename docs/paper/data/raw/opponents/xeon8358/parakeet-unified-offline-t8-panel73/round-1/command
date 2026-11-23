@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/bench-cross/bin/transcribe-cold offline /home/ubuntu/jsr-data/opponents/parakeet-unified/model-gguf/parakeet-unified-en-0.6b-Q8_0.gguf /home/ubuntu/jsr-data/opponents/bench-cross/workloads/panel73/wav /home/ubuntu/jsr-data/opponents/bench-cross/receipts/xeon8358/parakeet-unified-offline-t8-panel73/round-1/predictions.jsonl 8 

@@ -68,6 +68,10 @@ pub struct Linear {
 }
 
 impl Linear {
+    pub fn from_fp32(w: &[f32], n: usize, k: usize, b: Option<&[f32]>) -> Self {
+        Self::new(w, n, k, b)
+    }
+
     fn new(w: &[f32], n: usize, k: usize, b: Option<&[f32]>) -> Self {
         Self {
             f: PackedF32::pack(w, n, k, b),

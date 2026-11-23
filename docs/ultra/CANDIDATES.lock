@@ -49,6 +49,24 @@ candidates:
     runtime: onnx-asr 0.12.0, onnxruntime 1.32.0; istupakov/parakeet-tdt-0.6b-v3-onnx @ 8f23f0c
     approval: owner ruling O16 (internal evaluation, DEV audio only, hash-locked, exploratory)
     status: PINNED_PENDING_FREEZE  # ultra candidate validate --verify-files: valid (2026-11-22, on H0 copies byte-identical to the xbabe0 files)
+  - candidate_id: parakeet-unified-en-0.6b-q8
+    manifest: docs/ultra/candidates/parakeet-unified-en-0.6b-q8.yaml
+    manifest_sha256: 1cfabb779bda8708e150e60998e9984d1358bb2dfad09f4d539e8fbeedfb60b3
+    model: nvidia/parakeet-unified-en-0.6b @ fe53cd885760c96b6a5f51a0bfd362cb4584a98b as handy-computer/parakeet-unified-en-0.6b-gguf @ 843b1b175ace04f5a89d379c79e2518c0d065b25 (Q8_0 gguf sha256 4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795)
+    runtime: transcribe.cpp @ cfa237c2551a4b2d3a56ff8fe5461e3c67c51772 (GCC 13.3 -O3, native AVX2 on Zen 2, CPU backend)
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate: valid (2026-11-22); files hashed on xbabe0, ruling O16, exploratory
+  - candidate_id: nemotron-labs-unified-asr-0.6b
+    manifest: docs/ultra/candidates/nemotron-labs-unified-asr-0.6b.yaml
+    manifest_sha256: 459d2b473e9bfb20375b596caccddeb4720f7c797734789663f4c449e613302f
+    model: nvidia/nemotron-labs-unified-asr-0.6b @ 023ce907267a09a308a5cb69239447cb3d0c1597 (.nemo sha256 1718cc1b44fb8597b2356328d706a8d89f31c389ca6f2256c2e3f743c0246936)
+    runtime: NeMo (NVIDIA-NeMo/Speech) @ c02239ab43822ea837b21fb5c0c29e45fbd063fd, torch 2.15.0+cpu, FP32
+    status: PINNED_PENDING_FREEZE  # ultra candidate validate: valid (2026-11-22); files hashed on xbabe0, ruling O16, exploratory
+  - candidate_id: parakeet-redux-photon
+    manifest: docs/ultra/candidates/parakeet-redux-photon.yaml
+    manifest_sha256: 43b04ff59a663d789b138b596c7df9bc0f2992c793f4786baa4b43bb0e29c845
+    model: moondream/parakeet-redux @ 2bf128600aac4b16946f7ed8372e56117fe5e23b (model.safetensors sha256 78ec25733ee0d0c1586d1346fc86db9d0c2e436e3a8ab1d32a82d1bb8f848d21)
+    runtime: Photon (moondream 2.6.1, kestrel 0.9.1, kestrel-kernels 0.7.4), CPU
+    status: RESEARCH_UNQUALIFIED  # HOLD (lead, 2026-11-22T20:55Z): kestrel-kernels is proprietary and needs a written agreement; no Photon run and no Photon number until the owner rules. Manifest kept for identity only
   - candidate_id: r1-d1-s-100h
     status: RESEARCH_UNQUALIFIED  # measured research bundle; not frozen
     checkpoint: /mnt/xbabe3-external/jsr/runs/train/D1d_S_preln_lr1e-3_b300_sa4k/ckpt-00007800.pt

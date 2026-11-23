@@ -76,8 +76,12 @@ def _add_row_records(rec: Records, r: dict) -> None:
         if d[key] is not None:
             fields.append((name, fmt(d[key], 0), d[key], unit,
                            f"; {r['lag_method']}; lag workload {str(r['lag_workload_digest'])[:12]}"))
+    fields.append(("CorePct", fmt(100 * d["cpu"], 1), 100 * d["cpu"], "% of one core for one always-on stream", ""))
     if d["watts"] is not None:
         fields.append(("Watts", fmt(d["watts"], 2), d["watts"], "W per live stream (= J per audio-s)",
+                       f"; energy method {r['energy_method']}"))
+        kwh = d["watts"] * 8766.0 / 1000.0
+        fields.append(("KwhYear", fmt(kwh, 1), kwh, "kWh per stream-year (W x 8766 h)",
                        f"; energy method {r['energy_method']}"))
     for name, value, raw, unit, note in fields:
         rec.add(f"Cold{r['macro']}{name}{suffix}", value, raw=raw, unit=unit, configuration=conf + note, **common)
@@ -98,17 +102,26 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
                   workload_digest=first["workload_digest"] if first else "pending",
                   source="docs/paper/data/evidence/*.jsonl")
     # a host-agreement check needs a quiet second measurement: a row measured on a busy host says nothing about it
-    ratios = sorted(r["anchor_ratio"] for r in anchors if r["anchor_ratio"] is not None and not r["loaded"])
-    interim = [r for r in drawn if r["interim"]]
-    quiet = HOST_NAMES.get(MACHINES[HEADLINE[0]]["primary_host"], MACHINES[HEADLINE[0]]["primary_host"])
-    other = HOST_NAMES.get(interim[0]["host"], interim[0]["host"]) if interim else ""
+    pairs = [r for r in anchors if r["anchor_ratio"] is not None and not r["loaded"]]
+    ratios = sorted(r["anchor_ratio"] for r in pairs)
+    quiet_host = MACHINES[HEADLINE[0]]["primary_host"]
     if not ratios:
         sentence = "No system has a quiet second measurement yet, so there is no host-agreement check."
     else:
-        many = len(ratios) != 1
         span = fmt(ratios[0], 2) + (f" to {fmt(ratios[-1], 2)}" if fmt(ratios[0], 2) != fmt(ratios[-1], 2) else "")
-        sentence = (f"{len(ratios)} row{'s were' if many else ' was'} measured a second time (another host or "
-                    f"session); {'their' if many else 'its'} CPU cost is {span} times that of the row printed here.")
+        hosts = {r["host"] for r in pairs}
+        one = len(pairs) == 1
+        if len(hosts) == 1 and quiet_host not in hosts and all(r["anchor_base_host"] == quiet_host for r in pairs):
+            who = (pairs[0].get("text") or pairs[0]["short"]) if one else f"{len(pairs)} systems"
+            sentence = (f"{who}, measured on both hosts, {'costs' if one else 'cost'} {span} times as much CPU on the "
+                        f"shared host {HOST_NAMES.get(hosts.pop(), '?')} as on the quiet host "
+                        f"{HOST_NAMES.get(quiet_host, quiet_host)}.")
+        else:
+            sentence = (f"{len(pairs)} row{' was' if one else 's were'} measured a second time (another host or "
+                        f"session); {'its' if one else 'their'} CPU cost is {span} times that of the row printed here.")
+    interim = [r for r in drawn if r["interim"]]
+    quiet = HOST_NAMES.get(MACHINES[HEADLINE[0]]["primary_host"], MACHINES[HEADLINE[0]]["primary_host"])
+    other = HOST_NAMES.get(interim[0]["host"], interim[0]["host"]) if interim else ""
     if interim and len(interim) == len(drawn):
         host = (f"Interim: every point was measured on host {other}, a shared host that ran other jobs; rows from the "
                 f"quiet host {quiet} replace them as they arrive.")
@@ -119,6 +132,13 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     else:
         host = (f"Every point was measured on host {quiet}, one system at a time on the otherwise idle machine."
                 if drawn else "No measured rows yet.")
+    if interim and len(interim) == len(drawn):
+        short = f"Interim: every point was measured on the shared host {other}; quiet-host ({quiet}) rows replace them."
+    elif interim:
+        short = (f"Lighter marks ({len(interim)} of {len(drawn)} points): interim, measured on the shared host {other} "
+                 f"until their quiet-host ({quiet}) rows arrive.")
+    else:
+        short = f"Every point was measured on host {quiet}, one system at a time." if drawn else "No measured rows yet."
     minutes = {round(r["audio_seconds"] / 60.0, 1) for r in rows if r.get("audio_seconds")}
     if len(minutes) == 1:
         rec.add("ColdAudioMinutes", fmt(minutes.pop(), 1), unit="minutes of audio", configuration="duration of the "
@@ -144,4 +164,13 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
         rec.add(rid, str(value), raw=value, unit="rows", configuration=f"number of {what}", **common)
     rec.add("ColdAnchorSentence", sentence, unit="sentence", configuration="generated from the cross-check rows", **common)
     rec.add("ColdHostSentence", host, unit="sentence", configuration="generated from the hosts of the rows", **common)
+    rec.add("ColdHostShort", short, unit="sentence", configuration="generated from the hosts of the rows (short form "
+            "for the caption of Figure 1)", **common)
+    if interim:
+        brief = (f"{len(interim)} of the {len(drawn)} systems are still measured on a shared host; quiet-host rows "
+                 f"replace them as they arrive.")
+    else:
+        brief = "\\relax"
+    rec.add("ColdHostAbstract", brief, unit="sentence", configuration="generated from the hosts of the rows (the "
+            "abstract's form)", **common)
     return rows

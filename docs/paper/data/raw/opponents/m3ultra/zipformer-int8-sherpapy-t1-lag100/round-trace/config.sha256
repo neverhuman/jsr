@@ -1,0 +1,6 @@
+5f6d74403de8da627e8c8f46121ff29174ac41854613030e119d4b23171bdda1  /Users/agent/jsr-train/data/opponents/bench-cross/scripts/bsd_time_measure.py
+b268d9eee13e33cbc544f2d39c2c1c1909606415e668a32952ef067bc2dbcdfd  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv/bin/python
+2f98a3f25b2ae1b24883f5bb78c6bc1e7e6beb024a0011e9e763195d8bbf8254  /Users/agent/jsr-train/data/opponents/zipformer-int8/bundle/manifest.json
+3c029d26db5e2dafe4ae12e365cee1096d6a6e93a1d267e20c8d915a68a514ac  /Users/agent/jsr-train/data/opponents/bench-cross/scripts/sherpa_zipformer.py
+4930d8f0081dd1e2bb1a17fbfa4bbd5f3b7c2e69f231306769dc0f086bfcb20b  /Users/agent/jsr-train/data/opponents/zipformer-int8/sherpa-venv.freeze.txt
+652b9e8aeac43c8eab6b2a2e45976b16274ea8753bc6b79edd5bb50e2b77dfe4  /Users/agent/jsr-train/data/opponents/bench-cross/scripts/run-opponent.sh

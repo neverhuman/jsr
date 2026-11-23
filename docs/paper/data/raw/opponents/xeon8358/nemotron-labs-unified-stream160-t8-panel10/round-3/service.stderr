@@ -1,0 +1,188 @@
+[NeMo I 2026-11-22 22:11:19 mixins:197] Tokenizer SentencePieceTokenizer initialized with 4095 tokens
+[NeMo W 2026-11-22 22:11:21 modelPT:309] You tried to register an artifact under config key=tokenizer.model_path but an artifact for it has already been registered.
+[NeMo W 2026-11-22 22:11:21 modelPT:309] You tried to register an artifact under config key=tokenizer.vocab_path but an artifact for it has already been registered.
+[NeMo W 2026-11-22 22:11:21 modelPT:309] You tried to register an artifact under config key=tokenizer.spe_tokenizer_vocab but an artifact for it has already been registered.
+[NeMo I 2026-11-22 22:11:21 mixins:197] Tokenizer SentencePieceTokenizer initialized with 4095 tokens
+[NeMo W 2026-11-22 22:11:22 modelPT:192] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
+    Train config : 
+    use_lhotse: true
+    skip_missing_manifest_entries: true
+    input_cfg: null
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 16
+    shuffle: true
+    num_workers: 2
+    pin_memory: true
+    max_duration: 40.0
+    min_duration: 0.1
+    text_field: answer
+    batch_duration: null
+    lang_field: source_lang
+    use_bucketing: true
+    max_tps: null
+    bucket_duration_bins: null
+    bucket_batch_size: null
+    num_buckets: null
+    bucket_buffer_size: null
+    shuffle_buffer_size: null
+    tarred_audio_filepaths: null
+    augmentor: null
+    
+[NeMo W 2026-11-22 22:11:22 modelPT:199] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s). 
+    Validation config : 
+    use_lhotse: true
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 4
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    text_field: answer
+    lang_field: source_lang
+    tarred_audio_filepaths: null
+    
+[NeMo I 2026-11-22 22:11:26 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:11:26 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:11:26 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo I 2026-11-22 22:11:26 rnnt_bpe_models_prompt:163] Model with prompt feature has been initialized (RNNT-only)
+[NeMo I 2026-11-22 22:11:28 save_restore_connector:309] Model EncDecRNNTBPEModelWithPrompt was successfully restored from /home/ubuntu/jsr-data/opponents/nemotron-labs-unified/model-nemo/nemotron-labs-unified-asr-0.6b.nemo.
+{"runtime": "nemo", "nemo_toolkit": "3.1.0+c02239ab4", "torch": "2.15.0+cpu", "threads": 8, "mode": "stream:5.6:0.08:0.08", "model_class": "EncDecRNNTBPEModelWithPrompt"}
+[NeMo I 2026-11-22 22:11:28 rnnt_models:234] Using RNNT Loss : warprnnt_numba
+    Loss warprnnt_numba_kwargs: None
+[NeMo W 2026-11-22 22:11:28 label_looping_base:144] No conditional node support for Cuda.
+    Cuda graphs with while loops are disabled, decoding speed will be slower
+    Reason: CUDA is not available
+[NeMo I 2026-11-22 22:11:28 rnnt_decoding:1051] Joint fused batch size <= 0; Will temporarily disable fused batch step in the Joint.
+[NeMo I 2026-11-22 22:11:28 rnnt_bpe_models:440] Changed decoding strategy to 
+    model_type: rnnt
+    strategy: greedy_batch
+    compute_hypothesis_token_set: false
+    preserve_alignments: null
+    tdt_include_token_duration: null
+    confidence_cfg:
+      preserve_frame_confidence: false
+      preserve_token_confidence: false
+      preserve_word_confidence: false
+      exclude_blank: true
+      aggregation: min
+      tdt_include_duration: false
+      method_cfg:
+        name: entropy
+        entropy_type: tsallis
+        alpha: 0.33
+        entropy_norm: exp
+        temperature: DEPRECATED
+    fused_batch_size: -1
+    compute_timestamps: null
+    compute_langs: false
+    word_seperator: ' '
+    segment_seperators:
+    - .
+    - '!'
+    - '?'
+    segment_gap_threshold: null
+    rnnt_timestamp_type: all
+    restart_after_tokens: null
+    greedy:
+      max_symbols_per_step: 10
+      preserve_alignments: false
+      preserve_frame_confidence: false
+      tdt_include_token_duration: false
+      tdt_include_duration_confidence: false
+      confidence_method_cfg:
+        name: entropy
+        entropy_type: tsallis
+        alpha: 0.33
+        entropy_norm: exp
+        temperature: DEPRECATED
+      loop_labels: true
+      use_cuda_graph_decoder: true
+      ngram_lm_model: null
+      ngram_lm_alpha: 0.0
+      boosting_tree:
+        model_path: null
+        key_phrases_file: null
+        key_phrases_list: null
+        key_phrase_items_list: null
+        context_score: 1.0
+        depth_scaling: 2.0
+        unk_score: 0.0
+        final_eos_score: 1.0
+        score_per_phrase: 0.0
+        source_lang: en
+        use_triton: null
+        uniform_weights: false
+        bpe_mode: default
+        use_bpe_dropout: null
+        num_of_transcriptions: 5
+        bpe_alpha: 0.3
+        var_bpe_scoring_temp: 10.0
+        var_bpe_penalize_subsplits: true
+      boosting_tree_alpha: 0.0
+      enable_per_stream_biasing: false
+    beam:
+      beam_size: 4
+      search_type: default
+      score_norm: true
+      length_norm_power: null
+      return_best_hypothesis: true
+      tsd_max_sym_exp_per_step: 50
+      alsd_max_target_len: 1.0
+      nsc_max_timesteps_expansion: 1
+      nsc_prefix_alpha: 1
+      maes_num_steps: 2
+      maes_prefix_alpha: 1
+      maes_expansion_gamma: 2.3
+      maes_expansion_beta: 2
+      language_model: null
+      softmax_temperature: 1.0
+      preserve_alignments: false
+      ngram_lm_model: null
+      ngram_lm_alpha: 0.0
+      boosting_tree:
+        model_path: null
+        key_phrases_file: null
+        key_phrases_list: null
+        key_phrase_items_list: null
+        context_score: 1.0
+        depth_scaling: 2.0
+        unk_score: 0.0
+        final_eos_score: 1.0
+        score_per_phrase: 0.0
+        source_lang: en
+        use_triton: null
+        uniform_weights: false
+        bpe_mode: default
+        use_bpe_dropout: null
+        num_of_transcriptions: 5
+        bpe_alpha: 0.3
+        var_bpe_scoring_temp: 10.0
+        var_bpe_penalize_subsplits: true
+      boosting_tree_alpha: 0.0
+      hat_subtract_ilm: false
+      hat_ilm_weight: 0.0
+      max_symbols_per_step: 10
+      blank_lm_score_mode: LM_WEIGHTED_FULL
+      pruning_mode: LATE
+      allow_cuda_graphs: true
+      enable_per_stream_biasing: false
+      preserve_frame_confidence: false
+      tdt_include_duration_confidence: false
+      confidence_method_cfg:
+        name: entropy
+        entropy_type: tsallis
+        alpha: 0.33
+        entropy_norm: exp
+        temperature: DEPRECATED
+    temperature: 1.0
+    durations: []
+    big_blank_durations: []
+    strip_lang_tags: false
+    lang_tag_pattern: null
+    
+[NeMo W 2026-11-22 22:11:28 conformer_encoder:1287] att_context_size=[70, 1, 1] is not among the list of the supported look-aheads: [[-1, -1, -1]]
+{"context_frames": [70, 1, 1], "context_samples": [89600, 1280, 1280], "att_context_style": "chunked_limited_with_rc", "prompt_language": "en", "batch": 1}

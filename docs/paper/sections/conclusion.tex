@@ -1,7 +1,7 @@
 \section{Conclusion}\label{sec:conclusion}
 
-On one four-core Zen~2 complex \ultra sustains \DenMRCore{} live streams per core under an 800\,ms
-p99 lateness bound, \DenRatioMR{}$\times$ a pretrained Zipformer, from a batch-invariant INT8 engine whose
-tokens are bit-identical across x86 and ARM. Its WER is still higher (\WerRehearsalMRPooled\% vs.\
-\WerRzeroPanel\% pooled on the same panel); the qualified run and recipe changes that leave the
-engine untouched come next.
+\ColdAlwaysOnSentence{} We measured it and \ColdComparatorCount{} published recognisers on one pinned Zen~2
+core under one protocol. \ColdAbstractSentence{} \ColdAbstractAccuracy{} The engine that gives the speed is
+batch-invariant and bit-identical across x86 and ARM, and it does not change with the weights, so
+the accuracy gap is a training problem. Word lag, watts, the eight-core budget and two more
+machines are being measured under the same protocol, and the qualified run follows.

@@ -36,7 +36,7 @@ ENERGY_FIELDS = ("joules_per_audio_s", "energy_method", "energy_receipt_sha256")
 # A slow system is timed on a 73-utterance subset; its WER then comes from a full-panel pass elsewhere.
 TIMING_PANELS = ("full", "p73")
 # What data/systems.json may set per variant: names and order for the paper, never a number.
-PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail")
+PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail", "segmenter")
 MIN_REPS = 3
 SHORT_MAX = 22
 MAX_OTHER_BUSY = 2  # a primary row has at most this many other busy cores on the host in every repetition
@@ -115,7 +115,7 @@ def check_row(r: dict, where: str) -> None:
     if not NAME_RE.match(r["macro"]):
         raise PaperDataError(f"{where}: give the row a letters-only `macro` (derived {r['macro']!r} is not one)")
     busy = r.get("n_busy_cores_reps") or []
-    r["loaded"] = bool(busy) and max(busy) - 1 > MAX_OTHER_BUSY  # the arm's own core is one of the busy ones
+    r["loaded"] = bool(busy) and max(busy) - r["threads"] > MAX_OTHER_BUSY  # the arm's own cores are busy too
 
 
 def attach_energy(target: dict, src: dict, where: str) -> None:
@@ -137,3 +137,6 @@ def attach_energy(target: dict, src: dict, where: str) -> None:
     if method in target.setdefault("energy", {}):
         raise PaperDataError(f"{where}: energy by {method} is given twice for row {target['id']}")
     target["energy"][method] = float(src["joules_per_audio_s"])
+    factor = src.get("package_marginal_factor")  # [low, high] package watts per core-register watt, measured apart
+    if factor is not None:
+        target.setdefault("package_factor", {})[method] = [float(x) for x in (factor if isinstance(factor, list) else [factor] * 2)]
