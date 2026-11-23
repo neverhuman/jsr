@@ -48,13 +48,12 @@ repetitions. Timing starts at recognizer launch and covers every process in its 
 flushed final hypothesis and exit: model loading, features, inference, search, output and drain.
 Reference preparation, scoring and the observer are outside the boundary. The cost is the median
 of user plus system CPU-seconds per audio-second over the three runs, and speed is its
-reciprocal; peak resident memory of the tree and the size of the model files are recorded beside
-it. One scorer and one text normaliser score every transcript.
+reciprocal; peak resident memory of the tree and the bytes installed for the model are recorded
+beside it. One scorer and one text normaliser score every transcript.
 
-\para{One system at a time.} A recognizer that streams its weights through the cache on every
-chunk is bound by the memory bus, not by its core: with other benchmark arms running on the same
-machine, the same binary on a core that was alone in its cache group cost up to three quarters
-more CPU time. A row from the timing host is therefore a primary row only if the machine was
+\para{One system at a time.} With other benchmark arms running on the same machine, the same
+binary on a core that was alone in its cache group cost up to three quarters more CPU time; we have
+not separated how much of that is the shared memory system and how much the shared cache. A row from the timing host is therefore a primary row only if the machine was
 otherwise idle (at most two other busy cores in every repetition), and each receipt records the
 busy cores and the clock frequency. Rows from an earlier rotation on a shared host are shown as
 interim, in lighter marks, until a quiet row of the same system replaces them. \Cref{tab:hardware} gives
@@ -63,8 +62,9 @@ each machine's memory configuration. A system too slow for three full passes is 
 
 \begin{table}[t]
 \centering
-\caption{Machines of the measured comparison. Hosts are named as in the text. Memory channels
-matter because single-core speed here is limited by the memory bus. Rows: measured rows (cross-checks).}
+\caption{Machines of the measured comparison. Hosts are named as in the text. The memory configuration
+is recorded because it can affect systems that stream their weights; its effect was not measured.
+Rows: measured rows (cross-checks).}
 \label{tab:hardware}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -84,12 +84,22 @@ cores is measured in the mode each system's authors publish: eight threads insid
 one process with eight workers that share the weights, or eight separate processes. Rows measured
 together form a session. A system is drawn only beside a row of ours from the same session, and
 its speed is compared only with rows from the same host; a system measured again in another
-session is a cross-check, not a second point. Word lag is measured end to end with the input
-paced at real time, at the row's own core budget, against forced alignments of the reference
-words~\cite{mcauliffe2017mfa}; the lag the model would have with unbounded compute is recorded
-beside it. Energy is read from the processor's energy counters during the same run, by a method
-named with each value, and divided by the audio decoded, which gives the watts one live stream
-costs. Numbers published by others enter only \cref{tab:reported}.
+session is a cross-check, not a second point.
+
+\para{Two latency clocks.} Every latency in this paper names its clock. \emph{Stable-word lag} is the
+first time a word appears and is never revised again, minus the end of that word in a forced
+alignment of the reference~\cite{mcauliffe2017mfa}; it is a retrospective clock (known only once
+later output stops changing), measured end to end with the input paced at real time at the row's
+own core budget, and also with compute excluded (``design''). \emph{First visible text} is the first
+non-empty output after the end of the first spoken word, a provisional clock that says nothing
+about whether that text is right. Neither is a correct-by-deadline rate; that metric is planned
+for the release qualification.
+
+\para{Energy.} Energy is read from the processor core's energy counter during the same run, by a
+method named with each value, and divided by the audio decoded. The result is the
+\emph{core-register incremental energy} of one stream, in watts: it excludes the package, memory and
+the rest of the device, and it is measured unpaced, so it is not a device power figure and is not
+extrapolated to energy per year. Numbers published by others enter only \cref{tab:reported}.
 
 \para{Warm cost.} Whole-service CPU-seconds per audio-second after model load, from process
 rusage, with governor and boost state recorded. Nemotron~\cite{nemotron} runs only as a child

@@ -203,6 +203,18 @@ change by themselves when rows arrive.
 Figure 1's vertical axis is the WER on the panel's 400 dev-clean utterances (`wer_clean`), the number model cards
 lead with; dev-other and pooled WER are in the text, the tables and the README block.
 
+### Units the text must keep
+
+- Watts are the **core-register incremental energy** of one stream (the core's energy counter in the same run,
+  unpaced, divided by the audio decoded). They exclude the package, memory and the device, and are never
+  extrapolated to energy per year.
+- Every latency names its clock: **stable-word lag** (retrospective: when a word stops changing, minus its
+  aligned end; paced, or compute excluded as "design") or **first visible text** (provisional). Correct-by-deadline
+  is planned for the release qualification.
+- Zero false words in T hours is reported with its one-sided 95% Poisson upper bound (about 3/T per hour).
+- Our model size is the installed bundle (`raw/bundle/<variant>.files.json`): every file the INT8 engine loads,
+  FP32 weights included, until a minimal bundle exists.
+
 ### Page-1 facts and the always-on receipts
 
 `facts.py` writes the facts the abstract (`\Abs...`), the contributions and the results (`\Ao...`) and the README

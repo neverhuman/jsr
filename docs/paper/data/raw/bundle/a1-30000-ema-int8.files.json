@@ -1,0 +1,32 @@
+{
+ "bundle": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-30000-ema/int8",
+ "files": {
+  "arch.json": {
+   "bytes": 10221,
+   "sha256": "4bab96590a2decd4892d6913d9b4e1d7a174d7b2b4f5b6e57492d89719c707d2"
+  },
+  "bpe.model": {
+   "bytes": 244865,
+   "sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5"
+  },
+  "mel_fbank.f32": {
+   "bytes": 82240,
+   "sha256": "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439"
+  },
+  "tokens.txt": {
+   "bytes": 5044,
+   "sha256": "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1"
+  },
+  "weights.int8.safetensors": {
+   "bytes": 56512984,
+   "sha256": "d363eace8543fc318c07028e753411682e3de67d50e64dd3f611aa56f58f48bc"
+  },
+  "weights.safetensors": {
+   "bytes": 226988160,
+   "sha256": "b242f9fe2b5cc28a9cad98509c1f533234d8d128aa26f009625deb7121f412bc"
+  }
+ },
+ "note": "every file the INT8 engine's bundle directory holds; the engine still opens weights.safetensors (FP32)",
+ "schema": "installed-bundle/v1",
+ "variant": "a1-30000-ema-int8"
+}

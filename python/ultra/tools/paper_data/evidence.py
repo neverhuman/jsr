@@ -136,7 +136,10 @@ def read_rows(root: Path) -> list[dict]:
     rows, sidecars, headline = _read(root)
     _merge(rows, sidecars)
     present = presentation(root).get("variants", {})
-    for r in rows:
+    for r in rows:  # ours: every file the engine's bundle installs (raw/bundle), not only the INT8 runtime files
+        bundle = root / DATA / "raw" / "bundle" / f"{r.get('variant')}.files.json"
+        if bundle.is_file():
+            r["installed_bytes"] = sum(f["bytes"] for f in json.loads(bundle.read_text(encoding="utf-8"))["files"].values())
         extra = present.get(r.get("variant"), {})
         if set(extra) - set(PRESENTATION):
             raise PaperDataError(f"systems.json may only set {PRESENTATION} for {r['variant']}")
@@ -160,5 +163,6 @@ def derived(r: dict) -> dict:
         "rtfx": 1.0 / float(r["wall_s_per_audio_s"]), "wer": float(r["wer_pct"]),
         "wer_clean": float(r["wer_clean_pct"]), "wer_other": float(r["wer_other_pct"]),
         "rss_mb": r["peak_rss_bytes"] / 1e6, "model_mb": r["artifact_bytes"] / 1e6,
+        "installed_mb": r["installed_bytes"] / 1e6 if r.get("installed_bytes") else None,
         "watts": r.get("watts"), **{k: r.get(k) for k in LAG_KEYS if k not in LAG_PROOF + ("lag_host",)},
     }

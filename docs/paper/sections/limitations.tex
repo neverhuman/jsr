@@ -3,9 +3,10 @@
 \para{Where \ultra loses.} \ColdAccuracySentence{} Its speed is therefore compared across
 operating points, never at equal accuracy. It is trained on LibriSpeech alone; our Fig.~\ref{fig:money}
 point is \ColdHeadDetail. An optional $n$-gram language model
-lowers the pooled WER of H22ctl by \LmEngineGain{} points in the engine (beam~4, from
-\LmEngineNoLm\% to \LmEngineWithLm\% on the panel, with weights chosen on DEV) and by
-\LmHeldOutGain{} points held out on full DEV in PyTorch. Its \LmPackMb\,MB pack is held in memory,
+lowers the pooled WER of H22ctl by \LmHeldOutGain{} points held out on full DEV (PyTorch, weights
+chosen on the other speaker fold); in the engine it gives \LmEngineGain{} points on the panel (beam~4,
+from \LmEngineNoLm\% to \LmEngineWithLm\%, weights chosen on DEV, so a parity check rather than a
+held-out number). Its \LmPackMb\,MB pack is held in memory,
 and no row in our tables uses it. Its training text contains \LmOverlapCount{} of the
 \LmOverlapOf{} longer DEV transcripts verbatim; without them the relative gain is unchanged.
 
@@ -21,9 +22,8 @@ short excerpt of the panel, and its ceilings come from CPU cost, not from a run 
 \ColdHostSentence{} Each cost is the median of three runs. On the shared host the three runs of
 one system spanned a factor of two as the load changed, and on the quiet host other benchmark arms
 slowed a recognizer by up to three quarters; this is why rows are now admitted only from an
-otherwise idle machine. Absolute speeds on that machine are limited by its memory bus (four of
-eight channels populated), so they understate what the same core does with all channels filled,
-for every system that streams its weights. The density ladder used 20\,s rungs and a single
+otherwise idle machine, which has four of its eight memory channels populated; we have not
+measured how much a fully populated machine would change any row. The density ladder used 20\,s rungs and a single
 repeat, not the frozen three 120\,s repeats with 300\,s confirmations. The qualified run may move
 every ratio in either direction.
 

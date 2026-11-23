@@ -114,7 +114,7 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     if head["watts"] is not None:
         num("ColdHeadWatts", head["watts"], fmt(head["watts"], 3), "W per always-on stream", "watts one always-on "
             f"stream of ours costs ({head['energy_method']}, same run)", head)
-        parts.append(f"{fmt(head['watts'], 3)}\\,W")
+        parts.append(f"{fmt(head['watts'], 3)}\\,W at the core registers")
     if head.get("lag_p50_ms") is not None:
         parts.append(f"live words in {fmt(head['lag_p50_ms'], 0)}\\,ms")
     say("ColdSubtitle", "One live stream: " + ", ".join(parts[:-1]) + " and " + parts[-1], "subtitle")
@@ -196,10 +196,11 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
                    and r["role"] != "ours"), key=lambda r: r["watts"])
     watts = [aon] + rest
     if aon["watts"] is not None and rest:
-        say("ColdWattsSentence", f"One always-on stream of {ckname(aon)} costs {fmt(aon['watts'], 3)}\\,W, against "
+        say("ColdWattsSentence", f"The core-register incremental energy of one stream of {ckname(aon)} is "
+            f"{fmt(aon['watts'], 3)}\\,W, against "
             f"{fmt(rest[0]['watts'], 3)}\\,W for {_name(rest[0])}"
             + (f" and {fmt(rest[-1]['watts'], 3)}\\,W for {_name(rest[-1])}" if len(rest) > 1 else "")
-            + f" ({ENERGY_WORDS[aon['energy_method']]}, same host).", "energy rows")
+            + f" ({ENERGY_WORDS[aon['energy_method']]}, same host, unpaced; not device power).", "energy rows")
         quiet = [r for r in watts if r.get("package_factor", {}).get(r["energy_method"])]
         if quiet:
             def pkg(r):
@@ -224,7 +225,7 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
         rest = sorted(lag, key=lambda r: r["lag_p50_ms"])
         kind = "the quiet host" if where == MACHINES[HEADLINE[0]]["primary_host"] else "the shared host"
         say("ColdLagSentence", f"With the input paced at real time on one core of {kind} "
-            f"{HOST_NAMES.get(where, where)}, the median word lag of {ckname(lh)} is {fmt(lh['lag_p50_ms'], 0)}\\,ms "
+            f"{HOST_NAMES.get(where, where)}, the median stable-word lag of {ckname(lh)} is {fmt(lh['lag_p50_ms'], 0)}\\,ms "
             f"(95th percentile {fmt(lh['lag_p95_ms'], 0)}\\,ms); "
             + (f"{_name(rest[0])} measured there has {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms." if len(rest) == 1 else
                f"the other streaming systems measured there range from {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms "

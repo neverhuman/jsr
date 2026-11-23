@@ -65,6 +65,9 @@ def _add_row_records(rec: Records, r: dict) -> None:
         ("Rss", fmt(d["rss_mb"], 0), d["rss_mb"], "MB peak resident memory of the process tree (10^6 bytes)", ""),
         ("Model", fmt(d["model_mb"], 0), d["model_mb"], "MB of model files (10^6 bytes)", ""),
     ]
+    if d["installed_mb"] is not None:
+        fields.append(("Installed", fmt(d["installed_mb"], 0), d["installed_mb"], "MB installed: every file of the bundle "
+                       "the engine loads, FP32 weights included (10^6 bytes)", "; raw/bundle listing"))
     for key, name, unit in (
         ("lag_p50_ms", "LagPfifty", "ms word lag, input paced at real time, p50"),
         ("lag_p95_ms", "LagPninetyFive", "ms word lag, input paced at real time, p95"),
@@ -79,9 +82,6 @@ def _add_row_records(rec: Records, r: dict) -> None:
     fields.append(("CorePct", fmt(100 * d["cpu"], 1), 100 * d["cpu"], "% of one core for one always-on stream", ""))
     if d["watts"] is not None:
         fields.append(("Watts", fmt(d["watts"], 3), d["watts"], "W per live stream (= J per audio-s)",
-                       f"; energy method {r['energy_method']}"))
-        kwh = d["watts"] * 8766.0 / 1000.0
-        fields.append(("KwhYear", fmt(kwh, 1), kwh, "kWh per stream-year (W x 8766 h)",
                        f"; energy method {r['energy_method']}"))
     for name, value, raw, unit, note in fields:
         rec.add(f"Cold{r['macro']}{name}{suffix}", value, raw=raw, unit=unit, configuration=conf + note, **common)

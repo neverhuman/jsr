@@ -45,7 +45,7 @@ def readme_block(rows: list[dict], facts: dict, watts: str, always_on: str | Non
               f"{subset} Filled marks stream live. Hollow marks need the whole clip first. Lighter marks show interim "
               f"shared-host measurements. {watts} Results are exploratory. [Read the paper](docs/paper/paper.pdf).",
               "", LEAD, "", "See the [benchmark freeze protocol](docs/ultra/FREEZE.md).", "", *facts["bullets"], "",
-              "| System | Class | Cold throughput per core (× real time) | W per always-on stream | dev-clean WER (%) | "
+              "| System | Class | Cold throughput per core (× real time) | Core-register W per stream | dev-clean WER (%) | "
               "dev-other WER (%) | Pooled WER (%) | Peak memory (MB) | Host |", "|---|---|---:|---:|---:|---:|---:|---:|---|"]
     for r in sorted(drawn, key=lambda r: -derived(r)["speed"]) + extra:
         d = derived(r)
