@@ -1,0 +1,152 @@
+{
+ "schema": "h47.sentinel-stream/v1",
+ "sentinel0": "sentinel0_pr75_22ad91d.py",
+ "hops": 9923057,
+ "ring_ms": 1000,
+ "by_gap": {
+  "all": {
+   "transitions": 5567,
+   "woken_in_time": 5567,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 98.74259026405605,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 10.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 90.0,
+   "delay_ms_max": 450
+  },
+  "brown_-20": {
+   "transitions": 310,
+   "woken_in_time": 310,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 90.3225806451613,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 70.0,
+   "delay_ms_p99": 80.0,
+   "delay_ms_max": 130
+  },
+  "brown_-30": {
+   "transitions": 310,
+   "woken_in_time": 310,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 88.70967741935483,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 10.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 70.0,
+   "delay_ms_max": 190
+  },
+  "brown_-40": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 98.70550161812298,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 0.0,
+   "delay_ms_p95": 50.0,
+   "delay_ms_p99": 69.20000000000016,
+   "delay_ms_max": 70
+  },
+  "pink_-20": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 119.20000000000016,
+   "delay_ms_max": 160
+  },
+  "pink_-30": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 110.0,
+   "delay_ms_max": 280
+  },
+  "pink_-40": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 80.0,
+   "delay_ms_p99": 159.20000000000016,
+   "delay_ms_max": 450
+  },
+  "silence": {
+   "transitions": 2783,
+   "woken_in_time": 2783,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 0.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 70.0,
+   "delay_ms_max": 290
+  },
+  "stream_start": {
+   "transitions": 1,
+   "woken_in_time": 1,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 0.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 20.0,
+   "delay_ms_p95": 20.0,
+   "delay_ms_p99": 20.0,
+   "delay_ms_max": 20
+  },
+  "white_-20": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 70.0,
+   "delay_ms_p99": 109.20000000000016,
+   "delay_ms_max": 230
+  },
+  "white_-30": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 220.4000000000019,
+   "delay_ms_max": 410
+  },
+  "white_-40": {
+   "transitions": 309,
+   "woken_in_time": 309,
+   "woken_in_time_pct": 100.0,
+   "cold_at_gap_end_pct": 100.0,
+   "never_hot_within_6s": 0,
+   "delay_ms_p50": 40.0,
+   "delay_ms_p95": 60.0,
+   "delay_ms_p99": 146.0000000000008,
+   "delay_ms_max": 350
+  }
+ },
+ "gap_hot_fraction": {
+  "brown_-20": 0.11487485895689489,
+  "brown_-30": 0.07439204389901323,
+  "brown_-40": 0.0074879113656635835,
+  "pink_-20": 0.13193512912542749,
+  "pink_-30": 0.13210612618912695,
+  "pink_-40": 0.12638510549886883,
+  "silence": 0.0015155044036080489,
+  "white_-20": 0.13353824616929655,
+  "white_-30": 0.12776394914682518,
+  "white_-40": 0.1287620092358322
+ }
+}

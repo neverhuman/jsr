@@ -96,14 +96,47 @@ What existed when this was written: O0–O3 results (below), the O3n / O3n-r500 
 
 ## Results
 
-### O0–O3 (exploratory; decoded on the Mac 06:34–06:55Z, NEON, traces byte-identical to AVX2 on the sanity set; scored by `score_alwayson.py`)
-| Arm | Pooled WER | dev-clean | dev-other | Gap false words (17.06 h) | First-word recall (all / after sleep) | Duty |
+### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
+Three repetitions on CPUs 4 / 24 / 28 (one per repetition, ABBA order), bench-open's meter, quiet-host gate and whole-host guard (all three clean; a contaminated round-3 attempt was set aside and re-run). Binary `a067a307…` (main e61121e), A1-49000 EMA INT8. Per-run JSON, receipts and bench-open's receipts: `/mnt/xbabe3-external/jsr/h47-sleep/runs/A0-xbabe0/` (`a0_summary.json` sha256 `0f1850c7…`, copied to `results/A0_xbabe0_summary.json`; aggregated by `scripts/a0_aggregate.py` `d17c5fa3…`).
+
+| input (600 s) | A: no reset, CPU-s per audio-s (min–max) | B: T=1500 / R=1000 (min–max) | B ÷ A | resets in B |
+|---|---:|---:|---:|---:|
+| digital silence | 0.03531 (0.03447–0.03584) | 0.05009 (0.04862–0.05129) | 1.42 | 375 |
+| pink noise −30 dBFS | 0.03575 (0.03460–0.03636) | 0.05052 (0.04879–0.05144) | 1.41 | 375 |
+| speech only (85 DEV utterances) | 0.03594 (0.03463–0.03701) | 0.03592 (0.03457–0.03682) | 1.00 | 0 |
+- **Without resets, non-speech costs the same as speech** (0.98–1.00×). **With reset-with-replay, non-speech costs 1.39–1.41× speech**: a reset every 1.6 s of blanks re-encodes 0.96 s chunk by chunk. The designs' 1.6–1.67× overstates it, and the "+4.8%" measured on contended H0 understated it.
+- Spread across repetitions 4–7% (repetition 3 ran ~4% lower on every input). Arm A on pink noise printed 1 word per 600 s in every repetition, arm B none.
+- Speech/A (0.0359) is the active cost `c` of the savings estimates below; silence/B is the "ungated" non-speech denominator until the swarm's ungated twin is measured.
+
+### O: oracle arms against the continuous comparators (exploratory; decoded on the Mac 06:34–07:05Z, NEON, traces byte-identical to AVX2 on the sanity set; scored by `score_alwayson.py`; report `results/O_oracle_report_primary.json`)
+| Arm | Pooled WER | dev-clean | dev-other | Gap false words (17.06 h; Garwood 95% upper / h) | First word, all / after sleep | Decoded duty |
 |---|---:|---:|---:|---:|---:|---:|
-| O0 isolated | 8.273% | 4.461 | 12.332 | 1 | 90.07 / 89.94% | 38.1% |
-| O1 exact oracle, R 1 s | 8.371% | 4.536 | 12.454 | 0 | 89.10 / 88.97% | 43.7% |
-| O2 + 1.5 s hangover | 8.345% | 4.500 | 12.439 | 18 | 88.84 / 88.97% | 52.1% |
-| O3 word-onset detector | 8.297% | 4.372 | 12.476 | 10 | 89.35 / 89.37% | 49.9% |
-- O0 reproduces the INT8 engine's isolated full-dev WER (8.272%) to one edit, so decoding each utterance as its own segment on the stream timeline is isolated decoding.
-- O1 − O0: WER +0.098 pp (one-sided 95% [+0.006, +0.189]; Bonferroni [−0.037, +0.230]); first-word recall −0.97 pp [−1.42, −0.52]. O2 − O1: WER −0.026 pp (Bonferroni [−0.074, +0.017]); first-word recall −0.25 pp overall, 0.00 after sleep (the loss is in the 144 merged short-gap utterances).
-- Word lag p50 / p95 / p99 = 330 / 460 / 510 ms in every O arm.
-- Comparisons against C0 / C1 follow when those runs finish.
+| C0 continuous, no reset | 10.989% | 6.111 | 16.183 | 426 (27.1) | 75.26 / 74.93% | 100% |
+| C1 continuous, T=1500 / R=1000 | 8.377% | 4.489 | 12.517 | 5 (0.62) | 88.92 / 88.81% | 100% (+37.9% replayed encoder audio; 39,146 resets) |
+| O0 isolated [utt) | 8.273% | 4.461 | 12.332 | 1 (0.28) | 90.07 / 89.94% | 38.1% |
+| O1 exact oracle, R 1 s | 8.371% | 4.536 | 12.454 | 0 (0.18) | 89.10 / 88.97% | 43.7% |
+| O2 + 1.5 s hangover | 8.345% | 4.500 | 12.439 | 18 (1.57) | 88.84 / 88.97% | 52.1% |
+| O3 word-onset detector | 8.297% | 4.372 | 12.476 | 10 (1.00) | 89.35 / 89.37% | 49.9% |
+
+Paired comparisons (B − A; speaker-cluster bootstrap; one-sided 95% bounds unadjusted, then Bonferroni α/6):
+| B − A | ΔWER pp | bounds | Bonferroni | Δ first word pp (after sleep) | Bonferroni lower (after sleep) |
+|---|---:|---|---|---:|---:|
+| O1 − O0 (pre-roll) | +0.098 | [+0.006, +0.189] | [−0.037, +0.230] | −0.97 (−0.97) | −1.64 (−1.65) |
+| O2 − O1 (hangover) | −0.026 | [−0.059, +0.005] | [−0.074, +0.017] | −0.25 (0.00) | −0.41 (0.00) |
+| **O2 − C1** | **−0.032** | [−0.114, +0.048] | **[−0.150, +0.082]** | −0.07 (+0.15) | −0.81 (−0.59) |
+| **O3 − C1** | **−0.080** | [−0.165, +0.001] | **[−0.206, +0.039]** | +0.43 (+0.55) | −0.20 (−0.08) |
+| C1 − O0 (reset stream vs isolated) | +0.104 | [+0.013, +0.196] | [−0.029, +0.239] | −1.15 (−1.12) | −1.93 (−1.91) |
+| C0 − O0 (no-reset stream vs isolated) | +2.716 | [+2.482, +2.954] | [+2.378, +3.054] | −14.80 (−15.01) | −16.65 (−16.89) |
+
+**Readings (as pre-registered):**
+- **Restart damage:** O2 − C1 and O3 − C1 have Bonferroni upper bounds +0.082 and +0.039 pp, both ≤ +0.10 pp, and negative point estimates. **A gate that wakes on time loses nothing to restarts** against today's always-on configuration; its accuracy risk is in late or missed wakes and in what it does at a close (Q). Sleeping with restarts also keeps first words at least as well as C1 (O3 − C1 +0.43 pp).
+- **Pre-roll:** O1 − O0 = +0.098 pp (≤ +0.10, so no reading triggers), but first-word recall falls 0.97 pp, almost all after noise gaps (amendment 3).
+- **Savings ceiling** (estimates = decoded duty × A0's active cost 0.0359 CPU-s per audio-s): O3 ≈ 0.0179 CPU-s per stream-s against C1 ≈ 0.045 (A0 rates: speech 0.0359, non-speech 0.0503) and C0 ≈ 0.0356, i.e. ~60% below C1 and ~50% below C0 on this stream (38% speech). With the pre-roll replayed in one batched pass it would be ≈ 0.0164. On the ten non-speech blocks the oracle's duty is 0, against C1's 0.0503.
+- **New, not pre-registered as a question but measured here:** A1-49000 without resets (C0) is far worse on the endless stream than H22ctl was (+2.72 pp against isolated, 426 false words in the gaps, mostly white / pink noise, from the first hour on; H22ctl: +0.95 pp, 4 words). Reset-with-replay (C1) or the gate is required for B0.
+- Word lag p50 / p95 / p99: C0 302 / 436 / 487 ms, C1 329 / 457 / 509 ms, O arms 330 / 460 / 510 ms.
+
+### Q (so far): the swarm's Sentinel-0 on the real stream (independent check of PR #75's criterion 1; exploratory)
+- PR #75's `sentinel0.py` (22ad91d, sha256 `10608259…`, unmodified) as one never-reset gate over the whole stream (9,923,057 hops; `scripts/sentinel_stream.py` `f57deb12…`, which reproduces Appendix C's golden trace for block sizes 777 / 1000 / 16000 / 96000; run on the Mac, and an H0 run of the first 720,000 hops is byte-identical). Summary `results/Q_sentinel0_real_stream_summary.json`; trace `qual/sentinel/stream-mac/hot.u8` (`c9a51519…`).
+- **Wake:** the first hot hop at or after the MFA first-word onset comes within the 1 s ring on **5,567 / 5,567** transitions; delay p50 / p95 / p99 / max = 10 / 60 / 90 / 450 ms (worst gap types pink −40 and white −30). Criterion 1 (≥ 99.8%) holds on the real gaps, not only on PR #75's synthetic pre-onset background.
+- **Sleep opportunity:** the gate is cold over the last 80 ms of 98.7% of the gaps; the exceptions are all brown noise (35 / 310 at −30 dBFS, 30 / 310 at −20, 4 / 309 at −40).
+- **Hot hops inside the gaps:** silence 0.15%, brown −40 0.7%, brown −30 / −20 7–11%, pink and white ~13% (mostly the ~1.5 s the floor needs to forget the utterance's quiet tail when a noise gap starts).
