@@ -58,6 +58,7 @@ from .cold import load_evidence
 from .compare import add_comparison
 from .derive import add_derived
 from .facts import add_facts
+from .latency import add_first_token
 from .evidence import presentation
 from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
@@ -97,6 +98,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     out["table_hardware.tex"] = hardware_table(rows)
     out["table_always_on.tex"] = always_on_table(rows, headline.get("always_on"))
     out["table_capacity.tex"] = capacity_table(rows, capacity(root))
+    out["table_first_token.tex"] = add_first_token(root, rows, rec)
     add_reported(root, rec)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)

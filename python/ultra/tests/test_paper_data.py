@@ -203,3 +203,25 @@ def test_every_manifest_file_is_committed():
     untracked = [rel for rel in listed if f"{pd.RAW}/{rel}" not in tracked]
     assert len(untracked) < len(listed), "no manifest file is tracked: run this test from a checkout"
     assert all(not rel.endswith(".log") for rel in listed), "a .log file is never evidence, and docs/paper ignores it"
+
+
+def test_first_token_table_comes_from_the_summary_and_holds_back_photon(tmp_path):
+    """No summary: no table. A summary: one line per system, photon (licence on hold) left out."""
+    root = tmp_path / "repo"
+    shutil.copytree(DATA, root / pd.DATA)
+    shutil.copytree(pd.REPO / "research" / "curves", root / "research" / "curves")
+    files, _ = pd.build(root)
+    assert "\\begin{table}" not in files["table_first_token.tex"]
+    summary = {"schema": "first-token-latency/v1", "clips": 100, "systems": [
+        {"variant": "r0-int8", "chunk_ms": 160, "design_mean_ms": 390, "paced_mean_ms": 504},
+        {"variant": "h22ctl-79800-ema-int8", "chunk_ms": 160, "design_mean_ms": 242, "paced_mean_ms": 368},
+        {"variant": "parakeet-redux-photon", "chunk_ms": 160, "design_mean_ms": 1, "paced_mean_ms": 1}]}
+    path = root / pd.RAW / "latency/first_token_latency.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(summary))
+    manifest = root / pd.RAW / "MANIFEST.txt"
+    manifest.write_text(manifest.read_text() + f"{pd.sha256_file(path)}  latency/first_token_latency.json  test\n")
+    files, _ = pd.build(root)
+    table = files["table_first_token.tex"]
+    assert "photon" not in table and table.index("242") < table.index("390"), "sorted by design latency"
+    assert "\\label{tab:firsttoken}" in table

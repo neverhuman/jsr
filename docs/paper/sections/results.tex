@@ -100,7 +100,8 @@ in one piece. \AoEndless{}
 
 \para{The same words on every machine.} \AoSameWords{}
 
-\para{First words sooner, a training arm we did not adopt.} A delay-penalty fine-tune (H41 arm 13a)
+\input{data/table_first_token.tex}%
+\para{First words sooner, a training arm we did not adopt.} \FtlSentence{} A delay-penalty fine-tune (H41 arm 13a)
 emits its first word \FtlDelayFortyMs, \FtlDelayEightyMs{} and \FtlDelayOneSixtyMs\,ms (mean, compute
 unbounded) after the first spoken word ends, with 40, 80 and 160\,ms chunks, against
 \FtlParentOneSixtyMs\,ms for its parent at 160\,ms. It costs \FtlDelayWerCost\,pp of pooled DEV WER,
