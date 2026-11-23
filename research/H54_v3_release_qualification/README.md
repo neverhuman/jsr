@@ -7,7 +7,7 @@
 - warm-AGC criteria: claude-lead, 09:34:43Z, amended 11:48:10Z;
 - release-decoder settings: claude-lead, 11:12:38Z.
 
-Every number is **exploratory, LibriSpeech DEV only**. The test sets are sealed. The release notes are [`docs/ultra/releases/v3.0.0.md`](../../docs/ultra/releases/v3.0.0.md).
+Every number is **exploratory, LibriSpeech DEV only**. No test-set number appears here. LibriSpeech test-clean / test-other were read several times before the freeze, per the disclosure in [`FREEZE.md`](../../docs/ultra/FREEZE.md) §4. The release notes are [`docs/ultra/releases/v3.0.0.md`](../../docs/ultra/releases/v3.0.0.md).
 
 ## Question
 Does one frozen artifact (weights + decoder + scorer) pass every registered v3 release gate? And what exactly ships as v3.0.0, in what default state, with which limits?
