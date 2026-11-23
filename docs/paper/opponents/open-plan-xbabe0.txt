@@ -165,6 +165,17 @@ require 14o bench-open/assays/h47-a0/speech600.wav
 14o assay wake-ab                  1 4  0 24.5
 14o assay wake-ab                  2 24 1 24.5
 14o assay wake-ab                  3 28 2 24.5
+# Entry 14p (lead 13:00:49Z: WER and speed paired on ONE artifact): the CANDIDATE timing hold. The release decoder exactly as in
+# 14m's commit-lm16 (release binary 9a142e8e, c4 greedy stream + c16 beam 16 + M5 / LODR, pad 320, 40 s cap) on the release
+# candidate's INT8 export (models/candidate-rc/int8, exported with eval-lane's chain), 730 panel, one core, three repetitions.
+require 14p bench-open/assays/commit-kit/ultra-engine-commit
+require 14p bench-open/assays/l4-kit/M5.ulm
+require 14p bench-open/assays/commit-pass/run.sh
+require 14p bench-open/assays/commit-lm16-cand/run.sh
+require 14p models/candidate-rc/int8/weights.int8.safetensors
+14p assay commit-lm16-cand         1 4  0 8.5
+14p assay commit-lm16-cand         2 24 1 8.5
+14p assay commit-lm16-cand         3 28 2 8.5
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
