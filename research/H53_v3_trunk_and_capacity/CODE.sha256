@@ -1,0 +1,9 @@
+# H53 code as committed (h53-trunk; trainer-lane adopts the launchers into train/ops/). Originals stay at /mnt/xbabe3-external/jsr/h53-trunk/.
+fbad3051b693ffd98e9a9a3542f1f6c4425bfafbbb8f2fc6923fcb782493fe2f  tools/capacity_cost.py
+9229901d1082b2d2929c4c22a7d20be9af458d064d1bdc45d7af33c8e9ab781b  tools/grow_depth.py
+e16eb0ae04594eddf0a9f27ccb04d02c3ff46fd59479c5530cdd5799aa68383b  tools/h53_preflight.sh
+e783ea450cd928a80f233b017780c44ee52ad4dc532195ff6801547b9cd5d397  tools/h53_trunk.sh
+ebfe6b2c929fe91d8cd32a421b1c56e8a6c2dbb764007c93a69c750ff0a180c4  tools/p1_prepare.sh
+eccdfc59dd6145b97f1b4cbe9557f4fddb3fad19feb4a89a2493aa0ad1db0138  tests/test_grow_depth.py
+155b0421a99a38e0e2ca3822637cb0546b1d7818061d606a432de79aeaf00a7a  patches/0001a-encoder-blocks-a1l-tree-d5f231e.patch
+c1c68148aedb32860f901235f770332009f20e0f4b174c57e27b3e22315302d3  patches/0001-encoder-blocks-override.patch

@@ -1,0 +1,60 @@
+diff -ruN a/python/ultra/tests/test_h53_encoder_blocks.py b/python/ultra/tests/test_h53_encoder_blocks.py
+--- a/python/ultra/tests/test_h53_encoder_blocks.py	1970-01-01 00:00:00.000000000 +0000
++++ b/python/ultra/tests/test_h53_encoder_blocks.py	2026-11-23 06:57:17.161545931 +0000
+@@ -0,0 +1,31 @@
++"""H53: the encoder_blocks override (depth-grown seeds). Default 0 leaves every preset unchanged."""
++from __future__ import annotations
++
++import dataclasses
++
++import pytest
++
++from train.asr import PRESETS
++from train.recipe_opts import check_init_compatible, model_overrides
++from train.trainer import TrainConfig
++
++
++def test_default_is_the_preset_unchanged():
++    for name in ("S", "S_MR", "M_MR", "V2_S"):
++        assert model_overrides(PRESETS[name], TrainConfig()) == PRESETS[name]
++
++
++def test_override_sets_dense_depth_and_accepts_a_grown_seed():
++    dst = model_overrides(PRESETS["S"], TrainConfig(encoder_blocks=24))
++    assert dst.encoder.n_blocks == 24
++    assert dataclasses.replace(dst.encoder, n_blocks=16) == PRESETS["S"].encoder
++    grown_seed_cfg = dataclasses.replace(PRESETS["S"], encoder=dataclasses.replace(PRESETS["S"].encoder,
++                                                                                    n_blocks=24))
++    check_init_compatible(grown_seed_cfg, dst)  # a seed written by h53 grow_depth --blocks 24
++    with pytest.raises(Exception):
++        check_init_compatible(PRESETS["S"], dst)  # a 16-block checkpoint is a different model
++
++
++def test_override_refuses_non_dense():
++    with pytest.raises(ValueError):
++        model_overrides(PRESETS["S_MR"], TrainConfig(encoder_blocks=24))
+diff -ruN a/python/ultra/train/recipe_opts.py b/python/ultra/train/recipe_opts.py
+--- a/python/ultra/train/recipe_opts.py	2026-11-23 06:57:17.126545473 +0000
++++ b/python/ultra/train/recipe_opts.py	2026-11-23 06:57:17.153545827 +0000
+@@ -19,6 +19,10 @@
+         enc = dataclasses.replace(enc, chunk=cfg.chunk)
+     if cfg.left_context:
+         enc = dataclasses.replace(enc, left_context=cfg.left_context)
++    if getattr(cfg, "encoder_blocks", 0):  # H53: a depth-grown seed (h53 grow_depth); dense only
++        if enc.family != "dense":
++            raise ValueError(f"encoder_blocks applies to the dense family, not {enc.family}")
++        enc = dataclasses.replace(enc, n_blocks=cfg.encoder_blocks)
+     base = dataclasses.replace(base, encoder=enc)
+     return dataclasses.replace(base, pred_ctx=cfg.pred_ctx) if cfg.pred_ctx else base
+ 
+diff -ruN a/python/ultra/train/trainer.py b/python/ultra/train/trainer.py
+--- a/python/ultra/train/trainer.py	2026-11-23 06:57:17.123545433 +0000
++++ b/python/ultra/train/trainer.py	2026-11-23 06:57:17.153545827 +0000
+@@ -65,6 +65,7 @@
+     # with every earlier one (PR #32 raised the default to 32; set 32 here to opt in).
+     cmvn_batches: int = 8
+     pred_ctx: int = 0  # H41 arms 16-18 (train/recipe_opts.py; 0 = preset / built-in value)
++    encoder_blocks: int = 0  # H53 depth growth: dense block count (train/recipe_opts.py; 0 = preset)
+     left_context: int = 0
+     specaug_time_masks: int = 0
+     specaug_time_width: int = 0

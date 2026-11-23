@@ -1,0 +1,147 @@
+{
+ "schema": "alwayson-bench.endless/v1",
+ "system": "r0-zipformer-int8",
+ "host": "xbabe2",
+ "threads": "1 (sherpa-onnx num_threads=1; OMP/MKL 1); taskset core 63, nice 19",
+ "protocol": "one process, one stream over part-1..4.wav (27.56 h), 20 ms packets as fast as possible, no endpointing, no reset (the paper's Zipformer configuration); the whole hypothesis is read with get_result after every decoded chunk (live-caption read policy) and committed words are traced",
+ "stopped": "2026-11-23T07:07:30Z SIGINT pid 3298114: RssAnon 6155 MB > limit 6144 MB; last rss line: {\"wall_s\": 4195.33, \"audio_s\": 25128.15, \"rss_mb\": 6164.83, \"hwm_mb\": 6175.35, \"anon_mb\": 6151.75, \"file_mb\": 13.08, \"shmem_mb\": 0.0, \"words\": 26339}",
+ "stopped_reason": "safety watchdog at 6,144 MB anonymous memory (shared host); the run did not finish",
+ "audio_processed_s": 25128.15,
+ "words_committed": 26339,
+ "memory": {
+  "rss_start_mb": 172.02,
+  "anon_start_mb": 137.36,
+  "anon_end_mb": 6151.75,
+  "rss_end_mb": 6164.83,
+  "by_audio_hour": {
+   "0": {
+    "anon_max_mb": 267.43,
+    "rss_max_mb": 303.54,
+    "words_end": 3951,
+    "audio_s_per_wall_s": 7.56
+   },
+   "1": {
+    "anon_max_mb": 654.33,
+    "rss_max_mb": 690.44,
+    "words_end": 7534,
+    "audio_s_per_wall_s": 8.77
+   },
+   "2": {
+    "anon_max_mb": 1289.73,
+    "rss_max_mb": 1324.68,
+    "words_end": 11261,
+    "audio_s_per_wall_s": 8.16
+   },
+   "3": {
+    "anon_max_mb": 2178.8,
+    "rss_max_mb": 2194.12,
+    "words_end": 15010,
+    "audio_s_per_wall_s": 7.24
+   },
+   "4": {
+    "anon_max_mb": 3260.77,
+    "rss_max_mb": 3275.41,
+    "words_end": 18854,
+    "audio_s_per_wall_s": 6.55
+   },
+   "5": {
+    "anon_max_mb": 4571.96,
+    "rss_max_mb": 4584.93,
+    "words_end": 22597,
+    "audio_s_per_wall_s": 3.65
+   },
+   "6": {
+    "anon_max_mb": 6151.75,
+    "rss_max_mb": 6164.83,
+    "words_end": 26339,
+    "audio_s_per_wall_s": 4.22
+   }
+  }
+ },
+ "scores_prefix_until_s_25128": {
+  "eval_lane_rule_allowance_0.5s": {
+   "pooled_wer": 6.906,
+   "dev_clean": 4.271,
+   "dev_other": 9.666,
+   "gap_false_words_total": {
+    "words": 98,
+    "hours": 4.3195,
+    "per_hour": 22.69
+   },
+   "lag_ms_all": {
+    "n": 24938,
+    "p50": 530.8999999997468,
+    "p90": 690.3000000002066,
+    "p95": 729.8999999999864,
+    "p99": 806.9999999988795
+   },
+   "utterances": 1418,
+   "summary": "endless27h.t0.prefix6.98h.scored.summary.json"
+  },
+  "latency_tolerant_tail_1.5s": {
+   "pooled_wer": 6.78,
+   "dev-clean": 4.206,
+   "dev-other": 9.475,
+   "gap_false_words_total": {
+    "words": 10,
+    "hours": 4.3195,
+    "per_hour": 2.315,
+    "upper95_per_hour": 3.927
+   },
+   "lag_ms": {
+    "n": 24994,
+    "p50": 531.4999999991414,
+    "p95": 730.7999999975436
+   }
+  },
+  "note": "eval-lane's rule assigns a word by (emission - 0.5 s); Zipformer's late tail words (lag p95 730 ms) then land in the following gap. The tolerant rule assigns each word to the last utterance started before it, if it comes within 1.5 s of that utterance's end."
+ },
+ "audio": {
+  "parts": [
+   {
+    "file": "part-1.wav",
+    "wav_sha256": "977c3fe23aef64a8b3e0ae4728632e3fef8d36a6d025942fa3c5341fcebab052"
+   },
+   {
+    "file": "part-2.wav",
+    "wav_sha256": "01abe4747593325852e59650e428d9de7392664702fdf7677934757b06b32fb2"
+   },
+   {
+    "file": "part-3.wav",
+    "wav_sha256": "fdc4c05ed83b7c302cfc63a48f79f1dbf881a7fe55aa63b3a86bfb29d83c1580"
+   },
+   {
+    "file": "part-4.wav",
+    "wav_sha256": "1a3a6c89022d16c30fb88e5a3c04f1019cc00bc034eb040e1dfe7d203975a84a"
+   }
+  ]
+ },
+ "identity": {
+  "runtime": "sherpa-onnx 2.0.2 Python binding (same core libraries as the paper's ultra-cold-wav rows), numpy 1.26.4",
+  "model_files": {
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/manifest.json": "2f98a3f25b2ae1b24883f5bb78c6bc1e7e6beb024a0011e9e763195d8bbf8254",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/tokens.txt": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+  },
+  "runtime_libraries": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/_sherpa_onnx.cpython-312-x86_64-linux-gnu.so": "15116b22660ff697870e222d76ad1ef35e9e2e8eeaa987133904c42a8a73e086",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libonnxruntime.so": "4b3607aebd1784b26b6f9b20e4bd974c7ab8287043e4d095cb7d2cb40b5e566e",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libsherpa-onnx-c-api.so": "c72c8b56d8621a2742e89cbc891fb5a7af1aef2bf208d1001b93a7843812e585",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libsherpa-onnx-cxx-api.so": "f1b62370b75af9a8d349b1e8dc2b30682f0e46a2d91a40257c596cd69ee270e0"
+  },
+  "driver_and_binary": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/zipformer_alwayson.py": "7062cd1cd78a7a8f01715b9719991e6dd26a3eb101c052a8997a51ff31d18484",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/common.py": "9cda311563d56ba8bed6482bf00e9c3e83455b606472472af4d74f204cdc00ad",
+   "/usr/bin/python3.12": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+  }
+ },
+ "outputs": {
+  "trace": "endless27h.t0.trace.jsonl",
+  "trace_sha256": "b314d27c91cb75745630c57ee34c278e4eff1265d4e39a625677ce52cb22fe40",
+  "rss": "endless27h.t0.rss.jsonl",
+  "rss_sha256": "e2c3ed990ea6ab9861ac96dc9c27ef43e58dc8b6202c1da26d2b8968ac12c446"
+ },
+ "exploratory": true
+}

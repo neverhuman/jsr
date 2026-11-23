@@ -1,0 +1,39 @@
+{
+ "what": "H49 DEV student N-best (analysis only)",
+ "student": "A1-49000 EMA (B0)",
+ "ckpt": "/dev/shm/eval-lane/ckpt/A1-49000-ema-as-model.pt",
+ "ckpt_sha256": "4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c",
+ "tokenizer_sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5",
+ "chunk": 4,
+ "max_symbols": 8,
+ "beams": [
+  4,
+  8,
+  16
+ ],
+ "eval_code": "/dev/shm/h49-seqkd/code-d5f231e/python/ultra",
+ "beam_law": "modified beam (<=1 token/frame), equal sequences merged by log-sum-exp",
+ "beamlib_sha256": "41be55733da1903304341dbb6f42e8d148d030a28e33a56eca6023e6c4ee96fe",
+ "script_sha256": "4e3cdcc21b8afc9bcc7fa3251d56b86a53c12d78070309054c16dbae531ef343",
+ "torch": "2.7.0",
+ "gpu": "NVIDIA GeForce RTX 3090",
+ "limit": 0,
+ "splits": {
+  "dev-clean": {
+   "utts": 2703,
+   "greedy_wall_s": 129.8,
+   "wall_s": 171.0,
+   "beam_verified": 32,
+   "beam_mismatched": 0
+  },
+  "dev-other": {
+   "utts": 2864,
+   "greedy_wall_s": 122.4,
+   "wall_s": 158.6,
+   "beam_verified": 32,
+   "beam_mismatched": 0
+  }
+ },
+ "rows_sha256": "d68155cbbb21fc17b5dea3b5fce6b4571f608048cb5b76b1804c46d30841175a",
+ "score_input_sha256": "af1c790c787000a4456418bd92d99dbca8cabe9525eb021aa4574ae905d746eb"
+}

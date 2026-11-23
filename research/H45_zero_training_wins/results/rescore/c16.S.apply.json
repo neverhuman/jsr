@@ -1,0 +1,18 @@
+{
+ "config": "results/rescore/c16.S.config.json",
+ "subset": null,
+ "base": {
+  "greedy": 7.877998314047053,
+  "beam1": 7.780289677369914,
+  "oracle": 5.898919457429688,
+  "mean_nbest": 7.309130122214234,
+  "ctc_null_share": 0.0
+ },
+ "port_wer": {
+  "greedy": 7.878,
+  "beam1": 7.7803,
+  "d1": 7.7094,
+  "d2a": 7.7745,
+  "d2b": 7.7075
+ }
+}

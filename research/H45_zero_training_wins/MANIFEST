@@ -1,0 +1,76 @@
+# H45 MANIFEST (generated 2026-11-23T09:02:54Z); weights live on xbabe1:/mnt/amphora-backup/h45-wins/weights/ and the source hosts
+## source copies (pull.sh: streamed from the source host, verified against the source's own .sha256 marker)
+2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146 xbabe1:weights/src/A1-ckpt-00049000.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt
+f3f4982bd4badc50216b9df8d473547835898d1d0108646baa61c11bdcc0f86c xbabe1:weights/src/A1-model-00047500.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/A1_S_r0bpe_960h/model-00047500.pt
+33ce64c11cba492e41cdfbe3b16bc2613dac0839534b21fb0d1be7dcf2caa8c2 xbabe1:weights/src/A1-model-00045000.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/A1_S_r0bpe_960h/model-00045000.pt
+df301b8f75f428fec1deddd80becfc96e55601bd72c5f75ec922f4487cad1e27 xbabe1:weights/src/A1-model-00042500.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/A1_S_r0bpe_960h/model-00042500.pt
+6b576c5f24f10b0d589cdf8e120acc6fcb45db7030e0a919a16bb86ef6e91268 xbabe1:weights/src/A1-model-00040000.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/A1_S_r0bpe_960h/model-00040000.pt
+d8aaaafa52510787632bfc68339b48c024c750bc1a664b77af56ae2b509443fe xbabe1:weights/src/H41_chunk-model-00008000.pt <- local:/mnt/xbabe3-external/jsr/runs/train/H41_chunk/model-00008000.pt
+694d96dc050cc009a0a4b45f6ab6c388aad9dfbc0d9cdcb92a61758f99665ee7 xbabe1:weights/src/H41_chunklow_streamctx-model-00008000.pt <- xbabe6:/home/ubuntu/jsr-data/runs/train/H41_chunklow_streamctx/model-00008000.pt
+9222e43494790fa8c12364b6bcdc2e315360114ee2b860ba48e1a525f81ebaa2 xbabe1:weights/src/H41_chunk_predctx4-model-00008000.pt <- xbabe7:/home/ubuntu/jsr-data/runs/train/H41_chunk_predctx4/model-00008000.pt
+a23f5210eb1baaf1630f8f31b8662015acf7387d55e90635fb3279edc62d17b6 xbabe1:weights/src/H41_chunk_left256-model-00008000.pt <- xbabe7:/home/ubuntu/jsr-data/runs/train/H41_chunk_left256/model-00008000.pt
+f8ccbf2a582a8f3428efda3f93954e8c47cb648831665b6525d617cb3a83c1a5 xbabe1:weights/src/H41_chunk_specaug-model-00008000.pt <- xbabe9:/home/ubuntu/jsr-data/runs/train/H41_chunk_specaug/model-00008000.pt
+2cdcd722cba8af61fcb3f416fae5f79e1cbb10a090562abb15e0d9eb4c9fc228 xbabe1:weights/src/A1L-ckpt-00005907.pt <- xbabe8:/home/ubuntu/jsr-data/runs/train/A1L_dp0.005/ckpt-00005907.pt
+c06af229a00570533725a9c7639e9eedbac86f453eece53088d95096f6af2fed xbabe1:weights/src/H41_aa-model-00008000.pt <- xbabe2:/home/ubuntu/jsr-data/runs/train/H41_aa/model-00008000.pt
+a26e2abe15553c67d8067e0904045e7cb4c580b783ba833adcf9148705238326 xbabe1:weights/src/H41_chunk_s4321-model-00008000.pt <- xbabe8:/home/ubuntu/jsr-data/runs/train/H41_chunk_s4321/model-00008000.pt
+c3496ba0af26599c56d0c6cb16616dcab0e5a531976640548312cd61db597bcd xbabe1:weights/src/A1L-model-00008000.pt <- xbabe9:/home/ubuntu/jsr-data/runs/train/A1L_dp0.005/model-00008000.pt
+7bfe5536a3a2399e9f97ecf703b7034c4642fc910b7ffb18466ebe7b8d3462d5 xbabe1:weights/src/H41_chunk_predctx4_s4321-model-00008000.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/H41_chunk_predctx4_s4321/model-00008000.pt
+67d85bde33b8e55a2ec9bd9b0f49e27bff19b7f344526f57505205ee74ec2d7a xbabe1:weights/src/H41_chunk_specaug_s4321-model-00008000.pt <- xbabe5:/home/ubuntu/jsr-data/runs/train/H41_chunk_specaug_s4321/model-00008000.pt
+## read in place on xbabe1 (/mnt/amphora-backup/jsr-data/runs/train)
+975b9f515a3486173edda9571de3d76e26b3a297c852e901bcc16aee4071ac74 xbabe1:H41_control/model-00008000.pt
+ae5fa488d5a4280f9adb922774faaa979e7a1663efe08c19054d4efb9895f1c1 xbabe1:H41_chunk_low/model-00008000.pt
+d736a67445b0b6d40c4a62affe530dab8d061a6a9383d0472c74eb48a439d8ae xbabe1:H41_streamctx/model-00008000.pt
+30c7845a184169e06a70974508977c2cd92cd8300e72c3bfa79631f00e8f3cb7 xbabe1:H41_crctc_full/model-00008000.pt
+d97e6157697ddea65734d50785f56a5dfc100ac248a16cf6c03721742e5c430e xbabe1:H41_chunklow_streamctx_s4321/model-00008000.pt
+## derived weights (h45_merge.py; recipe + every input sha256 inside each file's h45_recipe)
+85100ddfe5bc233c1de77a3045ce69bba2829a79a5c3e95baa1fcf2156506a9e xbabe1:weights/derived/A1-49000-ema.slim.pt
+a92d6e5c1e01e5de8a66edbe094f650cf3828044902f48e2f5fbf2d967e22191 xbabe1:weights/derived/A-E2.pt
+19a3857d1c05131b409a2b8bc2d4bb49c371b08deb8013e6a8287ac97ab9d5b8 xbabe1:weights/derived/A-E3.pt
+0b466bf144f02ec9c6868d4f91b033b1bdb8631eb63f1d55c7020e5a4c7e1a80 xbabe1:weights/derived/A-E4.pt
+6da3efff40d302320ff0643283514ccee6ec655b7ef97d6ed282ea51db42149b xbabe1:weights/derived/A-E5.pt
+e4f5c64630f2a73bd7b704e5777d29a416b2c435d9bda131a8f9f4d674e29246 xbabe1:weights/derived/A-L25.pt
+fc9a01cda3ca5e30449b1cf3b3621c1926e6f90183f3d3ab3926e8ab82dd101c xbabe1:weights/derived/A-L50.pt
+ae9ad84abe96cc04ed5c0141c29bd362ab38d2f715d90a7b75939fb495099b95 xbabe1:weights/derived/A-M10.pt
+effb5071e0343a7345eea492d57e6946c0ac1308cb559a957aab2928201c34a8 xbabe1:weights/derived/A-P4.pt
+362b569c8cbd963cfc8e8e4319d437e534933c8cb5cd1ef2db5b2fc51d2013ec xbabe1:weights/derived/A-P8.pt
+0332e370fbf0108f68af65677d92dda115fc5bde1113e8a30553aeb5e0e2d40a xbabe1:weights/derived/A-R2.pt
+dae61d395730ce9705400bd078c76a5f61607264b5ebff1cce42b519e7a92df3 xbabe1:weights/derived/A-R3.pt
+4eb440d230f1cec793958dfe0089375774b8e77214136185ef8e1845b5bb5330 xbabe1:weights/derived/A-R4.pt
+149fa1ac937db0e6e3b5cadd920ffb20bce8fb92958ebdce55441673c69f917a xbabe1:weights/derived/A-R5.pt
+2687ba8c67f6edda3fe9f08ddea1e16653a47c41f0e6de199e7089a6ff3ba04b xbabe1:weights/derived/B1-M12-raw.pt
+3abac112dcba7a887c36e52414b800639f0e03505e05f6f02766d3f4c3cd54ee xbabe1:weights/derived/B1-M12.pt
+ae83ea05aea2bbbbe245782492facce9a343ae0692fbf95c7d243c7e708ddacf xbabe1:weights/derived/B2-16.pt
+9b85590179a6b9d666c4f5c72e412585515bd1ab110490005002547750b3275c xbabe1:weights/derived/B2-17.pt
+b1d856bcea7f3a8ea6c7ae90023d3da4801d8cc404174b4c57ef18af3e0cd547 xbabe1:weights/derived/B2-18.pt
+67f6a88390526007417f9f4027082038bec7cc91ad64e99528dc74b280788471 xbabe1:weights/derived/B2+7.pt
+79551d877430b11e2754111e53ae041c21a4dbf3a8bb194228b3e3b63a712cae xbabe1:weights/derived/B2-full-s4321.pt
+0b9ee5ad6c9b37ac21ce0f281c1959bad7908944548a79fc3ee8f8e4db7b5918 xbabe1:weights/derived/B2-full.pt
+c5b3f8e073bd3079de019fd5d8846a4bd707d3e099164f09f08e1a9acb53cd9a xbabe1:weights/derived/GS-trial01.pt
+585ce0a61d801025b454d67d766a0317a59282753799fe35d990a027977d6959 xbabe1:weights/derived/GS-trial02.pt
+80db88c7f2a86d478b09ede09288ba8c9edd787aac3a0c0349f363ded59d5b4b xbabe1:weights/derived/GS-trial03.pt
+e7182f4249f10e3f953de365c7a3668d978f56fc393b2ae9ba5fd920aeb602c8 xbabe1:weights/derived/GS-trial04.pt
+90a92b81b8eca26b5604ad94a7ec2871d8b214c5dc458c2b61621ae54f7b2445 xbabe1:weights/derived/GS-trial05.pt
+1c33122058ee175fa1c4bd61205b54c549f8476c123c999fe18841314344f89f xbabe1:weights/derived/GS-trial06.pt
+c90362191d73759064fd46f2dadfaf37d9506e2517c139807c319710d79e0bd9 xbabe1:weights/derived/GS-trial07.pt
+83af3adde54ddc70304a0e125344eb5cbddccadf253aa300f9156a9d4d4394d4 xbabe1:weights/derived/GS-trial08.pt
+09d3e371cf801e1774708b3b9c5ffbaad21b06aad4f6165afb4d332d0853885a xbabe1:weights/derived/GS-trial09.pt
+2f6e1c759a3fe844b9c6300bed89a90775953c1985c4d900a58f1e63c0a8af0c xbabe1:weights/derived/GS-trial10.pt
+a259f57f7f9ad67907e6f2b095bde1f22fdb5404099a185cdd531d9c978d32f4 xbabe1:weights/derived/GS-trial11.pt
+## data and tools
+bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6 dev-clean.npz
+2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8 dev-other.npz
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5 bpe.model (R0 tokenizer; transducer and CTC heads)
+002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac dev_split_v2.json (eval-lane)
+d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1 ultra-score (pinned)
+e61121e (origin/main) python/ultra decode tree; d5f231e eval-lane pinned tree (instrument check)
+## engine and LM artifacts (amendment 2, #76 parity)
+f76b287208b385c31d4232ddb1e5b7ab89c49b413fb372e9ce268a3f832f21f5 ultra-engine-commit (PR #76 d44b62e, runtime-lane-h45 staged)
+a9b552e96b1343842f43bc154f76b54bc968f6d0e4130d9a4f648dd16f68dff9 ultra-engine-eval (h46-lm build of e61121e, clean)
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285 B0 INT8 export weights.int8.safetensors (eval-lane export/A1-49000-ema/int8)
+b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f B0 INT8 export arch.json
+72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982 M5.ulm (engine LM pack v1, with LODR bigram)
+aaec33c6bacdc19844932b99905fc9a6305ee318bfd7fd14d55a962d0b5103c1 tok5.p00149.trie.bin (Python M5, h46-lm)
+00b5588eb91715ff7c640927b43b121fec6755fd69254a5f143f40ec3399f55a lodr2.train960.bin (Python LODR, h46-lm)
+89f2772bf7d11a6ccb7658da99d447a1b65a9714258270a9fc4527048bd3b30c kenlm.cpython-312-x86_64-linux-gnu.so (h46-lm pylib)
+85100ddfe5bc233c1de77a3045ce69bba2829a79a5c3e95baa1fcf2156506a9e A1-49000-ema.slim.pt (train.lm_decode slim of A1 ckpt-00049000, source 2a3dd9fb…)
+fc9a01cda3ca5e30449b1cf3b3621c1926e6f90183f3d3ab3926e8ab82dd101c A-L50.pt (copy for eval-lane: /mnt/xbabe3-external/jsr/h45-wins-weights/, never commit)

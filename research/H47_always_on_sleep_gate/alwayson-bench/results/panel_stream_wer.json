@@ -1,0 +1,97 @@
+{
+ "schema": "alwayson-bench.panel-stream-wer/v1",
+ "method": "assignment-free: the system's final full transcript of the contiguous panel stream against all 730 references concatenated in stream order, one alignment, pinned ultra-score normaliser (aobench/stream_wer.py)",
+ "why": "on contiguous speech any per-utterance assignment rule can misattribute late revisions (Vosk: 44-57% under the rules)",
+ "rows": {
+  "B0-C0": {
+   "duty100_panel_Q": {
+    "stream_wer": 8.126,
+    "ref_words": 14448,
+    "hyp_words": 14475,
+    "S": 927,
+    "D": 110,
+    "I": 137
+   },
+   "duty100_panel_N20": {
+    "stream_wer": 10.742,
+    "ref_words": 14448,
+    "hyp_words": 14416,
+    "S": 1196,
+    "D": 194,
+    "I": 162
+   }
+  },
+  "B0-C1": {
+   "duty100_panel_Q": {
+    "stream_wer": 8.05,
+    "ref_words": 14448,
+    "hyp_words": 14474,
+    "S": 923,
+    "D": 107,
+    "I": 133
+   },
+   "duty100_panel_N20": {
+    "stream_wer": 10.777,
+    "ref_words": 14448,
+    "hyp_words": 14422,
+    "S": 1209,
+    "D": 187,
+    "I": 161
+   }
+  },
+  "Zipformer": {
+   "duty100_panel_Q": {
+    "stream_wer": 5.959,
+    "ref_words": 14448,
+    "hyp_words": 14339,
+    "S": 596,
+    "D": 187,
+    "I": 78
+   },
+   "duty100_panel_N20": {
+    "stream_wer": 6.43,
+    "ref_words": 14448,
+    "hyp_words": 14360,
+    "S": 685,
+    "D": 166,
+    "I": 78
+   }
+  },
+  "Vosk-Small": {
+   "duty100_panel_Q": {
+    "stream_wer": 17.068,
+    "ref_words": 14448,
+    "hyp_words": 14678,
+    "S": 1896,
+    "D": 170,
+    "I": 400
+   },
+   "duty100_panel_N20": {
+    "stream_wer": 22.522,
+    "ref_words": 14448,
+    "hyp_words": 14391,
+    "S": 2355,
+    "D": 478,
+    "I": 421
+   }
+  },
+  "Moonshine-Tiny": {
+   "duty100_panel_Q": {
+    "stream_wer": 9.918,
+    "ref_words": 14448,
+    "hyp_words": 14611,
+    "S": 1064,
+    "D": 103,
+    "I": 266
+   },
+   "duty100_panel_N20": {
+    "stream_wer": 13.019,
+    "ref_words": 14448,
+    "hyp_words": 14652,
+    "S": 1411,
+    "D": 133,
+    "I": 337
+   }
+  }
+ }
+}

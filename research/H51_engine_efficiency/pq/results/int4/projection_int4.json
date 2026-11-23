@@ -1,0 +1,137 @@
+{
+ "note": "hot compute from h51_int4_bench on H0 core 36 (non-quiet); bandwidth and non-GEMM from bench-open 14h (quiet xbabe0, provisional); GEMM = max(compute, bytes / 13.7 GB/s)",
+ "projection": {
+  "chunk4": {
+   "int8": {
+    "compute_ms": 3.777,
+    "bw_ms": 4.063,
+    "gemm_ms": 4.063,
+    "measured_gemm_ms": 4.19
+   },
+   "K1": {
+    "compute_ms": 4.473,
+    "bw_ms": 2.031,
+    "gemm_ms": 4.473,
+    "step_ms": 5.758,
+    "speedup_vs_measured_step": 0.951,
+    "speedup_vs_model_int8": 0.929
+   },
+   "K2": {
+    "compute_ms": 2.239,
+    "bw_ms": 2.031,
+    "gemm_ms": 2.239,
+    "step_ms": 3.524,
+    "speedup_vs_measured_step": 1.554,
+    "speedup_vs_model_int8": 1.518
+   },
+   "quiet_step_ms": 5.475,
+   "non_gemm_ms": 1.285
+  },
+  "chunk2": {
+   "int8": {
+    "compute_ms": 1.933,
+    "bw_ms": 4.063,
+    "gemm_ms": 4.063,
+    "measured_gemm_ms": 3.879
+   },
+   "K1": {
+    "compute_ms": 2.255,
+    "bw_ms": 2.031,
+    "gemm_ms": 2.255,
+    "step_ms": 3.12,
+    "speedup_vs_measured_step": 1.521,
+    "speedup_vs_model_int8": 1.58
+   },
+   "K2": {
+    "compute_ms": 1.16,
+    "bw_ms": 2.031,
+    "gemm_ms": 2.031,
+    "step_ms": 2.896,
+    "speedup_vs_measured_step": 1.638,
+    "speedup_vs_model_int8": 1.702
+   },
+   "quiet_step_ms": 4.744,
+   "non_gemm_ms": 0.865
+  },
+  "chunk1": {
+   "int8": {
+    "compute_ms": 1.034,
+    "bw_ms": 4.063,
+    "gemm_ms": 4.063,
+    "measured_gemm_ms": 4.063
+   },
+   "K1": {
+    "compute_ms": 1.349,
+    "bw_ms": 2.031,
+    "gemm_ms": 2.031,
+    "step_ms": 2.698,
+    "speedup_vs_measured_step": 1.753,
+    "speedup_vs_model_int8": 1.753
+   },
+   "K2": {
+    "compute_ms": 0.732,
+    "bw_ms": 2.031,
+    "gemm_ms": 2.031,
+    "step_ms": 2.698,
+    "speedup_vs_measured_step": 1.753,
+    "speedup_vs_model_int8": 1.753
+   },
+   "quiet_step_ms": 4.73,
+   "non_gemm_ms": 0.667
+  }
+ },
+ "projection_K2g128": {
+  "chunk4": {
+   "f32_scales": {
+    "compute_ms": 2.342,
+    "bw_ms": 2.158,
+    "gemm_ms": 2.342,
+    "step_ms": 3.627,
+    "speedup_vs_measured_step": 1.51
+   },
+   "f16_scales": {
+    "compute_ms": 2.342,
+    "bw_ms": 2.095,
+    "gemm_ms": 2.342,
+    "step_ms": 3.627,
+    "speedup_vs_measured_step": 1.51
+   },
+   "k2g_over_k2_compute": 1.0458
+  },
+  "chunk2": {
+   "f32_scales": {
+    "compute_ms": 1.273,
+    "bw_ms": 2.158,
+    "gemm_ms": 2.158,
+    "step_ms": 3.023,
+    "speedup_vs_measured_step": 1.569
+   },
+   "f16_scales": {
+    "compute_ms": 1.273,
+    "bw_ms": 2.095,
+    "gemm_ms": 2.095,
+    "step_ms": 2.959,
+    "speedup_vs_measured_step": 1.603
+   },
+   "k2g_over_k2_compute": 1.0972
+  },
+  "chunk1": {
+   "f32_scales": {
+    "compute_ms": 0.771,
+    "bw_ms": 2.158,
+    "gemm_ms": 2.158,
+    "step_ms": 2.825,
+    "speedup_vs_measured_step": 1.674
+   },
+   "f16_scales": {
+    "compute_ms": 0.771,
+    "bw_ms": 2.095,
+    "gemm_ms": 2.095,
+    "step_ms": 2.762,
+    "speedup_vs_measured_step": 1.712
+   },
+   "k2g_over_k2_compute": 1.0536
+  }
+ },
+ "note_K2g128": "K2g = K2 + per-(row, 128-column group) scales; compute = run-1 K2 compute x the K2g/K2 hot ratio from bench_g128_h0_core52.jsonl (same core, interleaved); bytes add N*K/128 scales (f32: 1.72 MB, f16: 0.86 MB)"
+}

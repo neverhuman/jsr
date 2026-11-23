@@ -1,0 +1,33 @@
+{
+ "name": "H48b seed pair vs A1L c8",
+ "kind": "noninferiority",
+ "base": [
+  "h41/A1L_dp0.005-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H48b_c2_dp0.0075_s1234-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H48b_c2_dp0.0075_s4321-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.094,
+ "margin_registry_entry": {
+  "endpoint": "h48b-seedpair-vs-A1L-ni-ema-pooled-fulldev-c8",
+  "margin_pp": 0.094,
+  "direction": "lower_is_better",
+  "note": "H48b (A1L + chunk modes {2,4,8,16}, dp 0.0075, seeds 1234 + 4321) vs A1L, EMA pooled FULL dev, chunk 8, NON-INFERIORITY, seed-pair mean vs A1L (README c996396: 'within the four-run spread of A1L's own values (paired bootstrap)', 'the pair's mean decides'); margin = four-run control spread. v3 rule: PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. Accuracy gate passes iff PASS at chunks 4, 8 AND 16.",
+  "registered_utc": "2026-11-23T07:33:28Z"
+ },
+ "delta_pp": 0.1372,
+ "alpha": 0.05,
+ "lower_pp": 0.0702,
+ "upper_pp": 0.2079,
+ "p_one_sided": 1.0,
+ "decision": "INCONCLUSIVE",
+ "inputs_sha256": {
+  "h41/A1L_dp0.005-8000.ema.c8.ms8.score-input.jsonl": "0c015f515d65ee3f53a56866f9a377ac9d30fd4b9e66b984125be9454a975da6",
+  "h41/H48b_c2_dp0.0075_s1234-8000.ema.c8.ms8.score-input.jsonl": "d77ae417e796b5f4440c5d2b6b9ab6887c801aa7a422bde7367b4d5b8a3944b9",
+  "h41/H48b_c2_dp0.0075_s4321-8000.ema.c8.ms8.score-input.jsonl": "07b40612a70c460e093947fc79335b911a2eff1d46f2e1931d335c1ea01735d1"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

@@ -1,0 +1,18 @@
+{
+ "config": "results/rescore/c4.S.config.json",
+ "subset": "uids_confirmation.txt",
+ "base": {
+  "greedy": 8.208622674440194,
+  "beam1": 8.141780236919306,
+  "oracle": 6.041813658138067,
+  "mean_nbest": 7.1730700179533216,
+  "ctc_null_share": 0.0
+ },
+ "port_wer": {
+  "greedy": 8.2086,
+  "beam1": 8.1418,
+  "d1": 8.0861,
+  "d2a": 8.1603,
+  "d2b": 8.0842
+ }
+}

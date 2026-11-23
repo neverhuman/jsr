@@ -1,0 +1,243 @@
+{
+ "utts": 19330,
+ "beams": [
+  4,
+  8
+ ],
+ "spread_pp": 0.087,
+ "systems": {
+  "b4_oracle": {
+   "all": {
+    "N": 665302,
+    "S": 593,
+    "D": 87,
+    "I": 85,
+    "wer": 0.115,
+    "headroom_pp": 0.1291,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0156,
+     "content": 0.005,
+     "convention": 0.0044,
+     "function": 0.0428,
+     "near": 0.0511,
+     "rare": 0.0102
+    }
+   },
+   "clean": {
+    "N": 421098,
+    "S": 360,
+    "D": 51,
+    "I": 52,
+    "wer": 0.11,
+    "headroom_pp": 0.1204,
+    "by_category_headroom_pp": {
+     "acoustic": 0.014,
+     "content": 0.0045,
+     "convention": 0.0047,
+     "function": 0.0382,
+     "near": 0.0492,
+     "rare": 0.0097
+    }
+   },
+   "other": {
+    "N": 244204,
+    "S": 233,
+    "D": 36,
+    "I": 33,
+    "wer": 0.1237,
+    "headroom_pp": 0.1441,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0184,
+     "content": 0.0057,
+     "convention": 0.0037,
+     "function": 0.0508,
+     "near": 0.0545,
+     "rare": 0.0111
+    }
+   }
+  },
+  "b8_oracle": {
+   "all": {
+    "N": 665302,
+    "S": 352,
+    "D": 56,
+    "I": 23,
+    "wer": 0.0648,
+    "headroom_pp": 0.1793,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0215,
+     "content": 0.0062,
+     "convention": 0.0059,
+     "function": 0.0684,
+     "near": 0.0624,
+     "rare": 0.015
+    }
+   },
+   "clean": {
+    "N": 421098,
+    "S": 205,
+    "D": 32,
+    "I": 16,
+    "wer": 0.0601,
+    "headroom_pp": 0.1703,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0188,
+     "content": 0.0064,
+     "convention": 0.0066,
+     "function": 0.0625,
+     "near": 0.0606,
+     "rare": 0.0154
+    }
+   },
+   "other": {
+    "N": 244204,
+    "S": 147,
+    "D": 24,
+    "I": 7,
+    "wer": 0.0729,
+    "headroom_pp": 0.1949,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0262,
+     "content": 0.0057,
+     "convention": 0.0045,
+     "function": 0.0786,
+     "near": 0.0655,
+     "rare": 0.0143
+    }
+   }
+  },
+  "student_1best": {
+   "all": {
+    "N": 665302,
+    "S": 1271,
+    "D": 188,
+    "I": 165,
+    "wer": 0.2441,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   },
+   "clean": {
+    "N": 421098,
+    "S": 767,
+    "D": 108,
+    "I": 95,
+    "wer": 0.2304,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   },
+   "other": {
+    "N": 244204,
+    "S": 504,
+    "D": 80,
+    "I": 70,
+    "wer": 0.2678,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   }
+  }
+ },
+ "recall": {
+  "b4": {
+   "all": {
+    "positions": 1459,
+    "recall": 0.5449,
+    "by_category": {
+     "acoustic": 0.4449,
+     "content": 0.5849,
+     "convention": 0.6087,
+     "function": 0.4836,
+     "near": 0.6686,
+     "rare": 0.4313
+    }
+   },
+   "clean": {
+    "positions": 875,
+    "recall": 0.5417,
+    "by_category": {
+     "acoustic": 0.4677,
+     "content": 0.5429,
+     "convention": 0.5758,
+     "function": 0.4647,
+     "near": 0.6698,
+     "rare": 0.4242
+    }
+   },
+   "other": {
+    "positions": 584,
+    "recall": 0.5497,
+    "by_category": {
+     "acoustic": 0.4175,
+     "content": 0.6667,
+     "convention": 0.6923,
+     "function": 0.5106,
+     "near": 0.6667,
+     "rare": 0.4426
+    }
+   }
+  },
+  "b8": {
+   "all": {
+    "positions": 1459,
+    "recall": 0.7395,
+    "by_category": {
+     "acoustic": 0.6211,
+     "content": 0.717,
+     "convention": 0.8478,
+     "function": 0.7374,
+     "near": 0.8178,
+     "rare": 0.6375
+    }
+   },
+   "clean": {
+    "positions": 875,
+    "recall": 0.7497,
+    "by_category": {
+     "acoustic": 0.6371,
+     "content": 0.7143,
+     "convention": 0.8485,
+     "function": 0.7323,
+     "near": 0.8254,
+     "rare": 0.6768
+    }
+   },
+   "other": {
+    "positions": 584,
+    "recall": 0.7243,
+    "by_category": {
+     "acoustic": 0.6019,
+     "content": 0.7222,
+     "convention": 0.8462,
+     "function": 0.7447,
+     "near": 0.806,
+     "rare": 0.5738
+    }
+   }
+  }
+ },
+ "h49a_train_recall_gate": {
+  "beam4_oracle_headroom_pp": 0.1291,
+  "bar_pp": 0.174,
+  "verdict": "FAIL"
+ }
+}

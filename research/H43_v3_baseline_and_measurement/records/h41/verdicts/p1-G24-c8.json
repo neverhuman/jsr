@@ -1,0 +1,31 @@
+{
+ "name": "P1 G24 vs A1C c8 (full dev)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/A1C_dp0-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H53_P1_G24_s1234-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.094,
+ "margin_registry_entry": {
+  "endpoint": "h53-P1-G24-vs-A1C-ema-pooled-fulldev-c8",
+  "margin_pp": 0.094,
+  "direction": "lower_is_better",
+  "note": "H53 P1 arm G24 (B0 grown to 24 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 8; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+  "registered_utc": "2026-11-23T07:20:07Z"
+ },
+ "delta_pp": -0.0792,
+ "alpha": 0.05,
+ "lower_pp": -0.1669,
+ "upper_pp": 0.0083,
+ "p_one_sided": 0.0007003247447267191,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/A1C_dp0-8000.ema.c8.ms8.score-input.jsonl": "6d5c027c6f3ddc5905a097d8d9336a212722fd500ad8510e1d4bd4468a82c571",
+  "h41/H53_P1_G24_s1234-8000.ema.c8.ms8.score-input.jsonl": "e92a1e6e85918b648a036fffe34648c48a6f31fe42671d4710cef092401fd19c"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

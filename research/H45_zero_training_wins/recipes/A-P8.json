@@ -1,0 +1,31 @@
+{
+ "name": "A-P8",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00040000.pt",
+   "key": "ema",
+   "coef": 0.148573
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00042500.pt",
+   "key": "ema",
+   "coef": 0.137594
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00045000.pt",
+   "key": "ema",
+   "coef": 0.171708
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "ema",
+   "coef": 0.174294
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "ema",
+   "coef": 0.367831
+  }
+ ],
+ "note": "post-hoc EMA tau=8000 steps at 49k from the five EMA snapshots (fit err 0.401)"
+}

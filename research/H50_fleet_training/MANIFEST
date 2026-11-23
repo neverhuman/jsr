@@ -1,0 +1,39 @@
+# H50 fleet measurements (h50-fleet, 2026-11-23): what lives where. Results kept here; tools stay on the data drive.
+# The repository is public, so the committed copies replace public IP addresses and IP-derived host names with
+# fleet labels (xbabe5, xbabe7-private, H0-lan, ...) in results/, and the co-tenant project's name in DILOCO.md.
+# Measured values are unchanged. Raw originals and their sha256:
+# path on H0 (data drive)                                                     sha256 of the raw original
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/DILOCO.md                             76389027a2e9d7db0458652439f0624a57f8192dca6d0fbfaa1ec35d8742e8a7
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/configs/common.set                    2129d9de51c2d2ec02ffc5bd2d00794519af445197fb38721fbd8a2686333c6e
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/configs/D0.set                        c31ab6d74a211a137f9f225627c00f5744e65f2a35a1f664d178a3e339dcd718
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/configs/D1_island.set                 4e37e1e1474e18c006ad49035908f57d4be8dcf4a0ed3ce5a1c1d3a7af2b2991
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/configs/hub.args                      d231bf40eb8ebe749eac6d8a68cecf3ae5d3ce7149789df46539ea36f5973daa
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/network_map.json              8aa5e48e91996f1e260f604783dc1585feff0fbac02cb59991057f83ab59ad4f
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/cloud_ping.jsonl              629c6c979080b5d6511daa013c04a4191313c2c02118f8fb1459c120bcdcd6a1
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/cloud_tcp.jsonl               048a882b939c1c991aaff41191e05f5455f7e7c78c647dbf763ed58531398b11
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/lan_tcp.jsonl                 b86ac91ebaafc74618e535896b01215d02aec325af0f05d9bb141250a2872a55
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/wan_tcp.jsonl                 a9a231fc52194b8864d1a05f543c93f0d62b838644805d5d16fd982f26786d95
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/nccl_local_060706.jsonl       fb8c9fca62697e60505af4026cfd6fe3af1da421d403855f1577be99c55672e5
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/nccl_local2_060923.jsonl      12564537dcb16836c017e3235da22f1ea1e501f71ea8817eff79ebf91e4d4900
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/xhost_064708.jsonl            4b4b36b1b14455dd04c38a14e68bfb2b2a3776b2db188bdadb0962142e34823a
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/results/xhost_064834b.jsonl           32b27f328e0dcf62e08a43cbc470eed299de625c176b6241a0dd611055b93254
+# NCCL_DEBUG=INFO logs of the cross-host sweeps: /mnt/xbabe3-external/jsr/h50-fleet/nccl/xhost_064708/ and xhost_064834b/
+# Tools: committed under scripts/ and patches/ (see CODE.sha256; three scripts carry <role> placeholders). Originals:
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/h50_measure.py                        11d6c4d6af551775fe6402e3a6064e74000d804f149660f0342fc93fa87994b5
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/selftest/test_h50_measure.py          a0be7cd40dc0adb3ce8ad1b8daa18e9ba81fcaca802948a7e84c6937b8e3d404
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/gpu_sampler.sh                        74c98edf2f0ec43a20d1e12dc74af849f19ff55de4bb6bb8b78184467581eea4
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/nccl_bench.py                         f4cc88f3d17519e91d3ff125bb44aef801e21069dd02000ea9e5646064c3ea03
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/tcpbench.py                           e02663b0ac56fd10de7f046c4a9f92003191db6b9ebb27225a7c50bac22d84fd
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/ddp_step_probe.py                     8a0b46a2a57592b9091e992ef774f68b6ce5c67679a52d6c12e592c76dfdf9ff
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/diloco_tunnels.sh                     266b26147df5b56018825abed80ae01066a057e6503f1ccf982745ee3b58bd9a
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/xhost_verify.sh                       5f41d322de1b8294f302a4497389e30af58d486fbfd443ff46e5694f13777a76
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/h50_stratify_gns.patch                b6bee7ce4ad80547227ce4ff4a5673db3259f9512d5e69dd0ba3e8d397cbe13d
+# Codex's measurement-gate cases for h50_measure.py: target/ultra-v3/h50-measure-gates.patch (sha256 68505d1a...) in the main checkout.
+# D0/D1 proof on xbabe1 + xbabe2 (diloco-hub-engineer / runtime-lane, 10:38-10:49Z): amendment and run files, as committed.
+# The co-tenant project's mount name is replaced by <local-nvme> where it appears; raw originals and their sha256:
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/AMENDMENT_XB1_XB2.md               6a0294fd975956c3093819c3af5115fa0dedc5106885cba3cd7ab41b1ad53fb8
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/run_xb1_xb2/common_d0d1_24g.set    8c866405bfbea869805c85e0a2be1a7962a1c8eed7ca1ac61849f477a9ce07fe
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/run_xb1_xb2/launch_d0_control.sh   edf5e34979ee44321101ff9ce7eea9fa3a7601eb368461513bdb15498aa597b4
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/run_xb1_xb2/launch_d1_islands.sh   307f098675fc0b845da4c64c2923eaae3e0ef0fd8f499e7687ed9fa965a421a3
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/run_xb1_xb2/launch_hub_xb2.sh      9022be7778e3dc8dd9e88a56776085067c10fb5cc782d8ad18c9b38e78c8ebcd
+/mnt/xbabe3-external/jsr/h50-fleet/D0D1/run_xb1_xb2/stage_data_xb1_xb2.sh  f595103b7ee8fae3f5fff3ff236082dd7865a8d2e5d852138e37f7d04007db33

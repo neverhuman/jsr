@@ -1,0 +1,328 @@
+{
+ "schema": "alwayson-bench.nonspeech-extra/v1",
+ "seeds": [
+  20261123,
+  20261124
+ ],
+ "note": "complete blocks only; the rest were stopped by the 09:55Z wrap-up",
+ "systems": {
+  "moonshine-tiny-streaming": {
+   "words": 0,
+   "hours": 20.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.1498,
+   "blocks": [
+    {
+     "block": "seed20261123_brown_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_brown_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_brown_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_silence",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_silence",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    }
+   ]
+  },
+  "moonshine-small-streaming": {
+   "words": 0,
+   "hours": 20.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.1498,
+   "blocks": [
+    {
+     "block": "seed20261123_brown_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_brown_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_brown_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_silence",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_brown_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_pink_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_silence",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261124_white_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    }
+   ]
+  },
+  "r0-zipformer-int8": {
+   "words": 0,
+   "hours": 9.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.3329,
+   "blocks": [
+    {
+     "block": "seed20261123_brown_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_brown_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_pink_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_silence",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-20dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-30dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    },
+    {
+     "block": "seed20261123_white_-40dBFS",
+     "words_normalised": 0,
+     "words_raw": 0,
+     "hours": 1.0
+    }
+   ]
+  }
+ }
+}

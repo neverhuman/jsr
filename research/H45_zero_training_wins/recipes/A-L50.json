@@ -1,0 +1,16 @@
+{
+ "name": "A-L50",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "ema",
+   "coef": 0.5
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1L-model-00008000.pt",
+   "key": "ema",
+   "coef": 0.5
+  }
+ ],
+ "note": "B0 EMA 0.5 + A1L-final EMA 0.5"
+}

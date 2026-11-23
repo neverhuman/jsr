@@ -1,0 +1,63 @@
+{
+ "schema": "ultra.h43.combined-artifact-plan/v1",
+ "label": "exploratory",
+ "registered_utc": "2026-11-23T09:02:06Z",
+ "asked_by": "claude-lead 2026-11-23T08:51:04Z item 3 (codex-full-fleet 08:50Z tightening); matrix follows tips/v3 JSR_Final_Engineering_Plan section 11.2",
+ "principle": "Measure every row as a unit in the native runtime on frozen audio. Never add effect sizes across rows: better weights change blank frequency, beam traffic, endpointing and wake duration.",
+ "reference": {
+  "row": "B0",
+  "what": "A1-49000 EMA INT8 (weights.int8 4701787c..., arch b1581cbb...), native engine, greedy, 160 ms, continuous; 8,773 edits on full dev (8.272%)"
+ },
+ "single_intervention_rows": [
+  {
+   "row": "B0+CP",
+   "intervention": "commit pass (#76 ultra-engine-commit d44b62e: provisional greedy 160 ms, final at chunk 16, tail pad 320 ms)"
+  },
+  {
+   "row": "B0+LM",
+   "intervention": "compact LM, native L4 frozen (beam 4, M5 + LODR 0.8 / 0.6 / 0; pack sha256 72a621c2...)"
+  },
+  {
+   "row": "B0+SG",
+   "intervention": "sleep gate (#77 Sentinel-0, pre-roll 500 ms / idle 1500 ms)"
+  },
+  {
+   "row": "B0+HY",
+   "intervention": "hybrid (A1L provisional + B0 final, #94)"
+  },
+  {
+   "row": "later: capacity",
+   "intervention": "S-32 / S-24 trunk-scale weights, measured only as whole-row swaps once they exist"
+  },
+  {
+   "row": "later: Libri-Light",
+   "intervention": "S2 / S3 trunk weights, measured only as whole-row swaps once they exist"
+  }
+ ],
+ "combination_rows": [
+  {
+   "row": "C",
+   "what": "the candidate as it would ship: all adopted singles together, frozen bundle"
+  },
+  {
+   "row": "C-minus-one (optional)",
+   "what": "leave-one-out rows for interaction attribution, if time allows; reported, never gated"
+  }
+ ],
+ "endpoints": {
+  "E1_wer": "canonical full dev (5,567, ultra-score d784f8ca..., 10,000 speaker-cluster replicates, one-sided 95%) paired vs B0: <= 7,895 edits AND pooled upper < 0 AND dev-clean and dev-other uppers <= +0.20 pp. Sleep-gate rows also on the 27.56 h endless stream (tolerant scoring) vs B0 continuous: wake WER point <= +0.10, upper <= +0.20 pp.",
+  "E2_latency": "protected paced first-correct-word p95 (quiet x0, physically paced, onset clock) paired vs B0: p95 no more than +20 ms and median not higher; eval-lane's full-dev design-clock first-correct reported beside it.",
+  "E3_energy": "measured gross 5%-duty energy in a protected paired hold vs B0; savings credited only from measured holds.",
+  "E4_memory": "peak process RSS under the same workload."
+ },
+ "decision": {
+  "gate": "a row is eligible iff it passes E1 and E2 vs B0",
+  "primary": "the combination row C vs B0 is the release decision; single rows are attribution (reported, not gated)",
+  "selection_order": "among eligible rows: lowest WER (differences inside the four-run spread 0.087 count as ties), then lower paced first-correct p95, then lower gross 5%-duty energy, then lower peak memory (codex-lead 06:03Z item 6)",
+  "combination_check": "C vs its best single row on full-dev pooled WER at 160 ms: non-inferiority at 0.087 (v3 rule); if C is worse than its best single beyond that, ship the single and report the interaction"
+ },
+ "margin_entries": [
+  "v3-combined-C-vs-B0-release-gate-fulldev",
+  "v3-combined-C-vs-best-single-ni-ema-pooled-fulldev-c4"
+ ]
+}

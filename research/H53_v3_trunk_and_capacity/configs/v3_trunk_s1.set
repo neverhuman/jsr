@@ -1,0 +1,57 @@
+# H53 v3 trunk, segment S1 ("v3-a", LibriSpeech 960 h). TrainConfig --set values for tools/h53_trunk.sh.
+# README.md A1-A6. Preset S; splits train-clean-100 train-clean-360 train-other-500; --device cuda --threads 4.
+# Init (env INIT / INIT_SHA256): B0 raw = rank 0's xbabe5:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt (2a3dd9fb...;
+#   x9's same-named file is rank 3's, 9e8bba41..., not B0)
+#   whatever the penalty decision (set delay_penalty=0.005 only if amendments 21 + 22 pass).
+# Batch sized for 80-90% VRAM (owner 06:57Z): per rank 1,300 s / 288 (A1's shape, 75-84% measured; may be raised once
+# to <= 1,400 s / 310 in the first 200 steps). Global = per rank x world; values below are for 3 ranks (x5 x2 + x9).
+# LR rule: lr = 4.3e-4 x sqrt(global / 3900); EMA d = exp(-global / (3600 x 3600)). Per world size (override on the CLI):
+#   world 2 (x5 x2, lead 07:21Z): budget_s=2600 max_batch=576  lr=0.0003511 ema_decay=0.999799
+#   world 3:                      budget_s=3900 max_batch=864  lr=0.00043   ema_decay=0.999699   (values below)
+#   world 4 (x5 x2 + x7 x2):      budget_s=5200 max_batch=1152 lr=0.0004965 ema_decay=0.999599
+#   world 6:                      budget_s=7800 max_batch=1728 lr=0.0006081 ema_decay=0.999398
+# World changes only at a 500-step checkpoint restart (posted in the chat), with these values.
+seed=7919
+budget_s=3900.0
+max_batch=864
+ddp_global_batches=true
+optimizer=adamw
+lr=0.00043
+warmup=1000
+# WSD stable phase with the existing cosine: flat to within 0.03% for the first 100k steps (no trainer change).
+total_steps=10000000
+min_lr_ratio=0.02
+rnnt_pieces=500
+ctc_pieces=500
+tokenizer=$D/models/zipformer-en-2023-06-26/bpe.model
+clip=5.0
+specaug_start=0
+speed_perturb=0.9,1.0,1.1
+rnnt_loss=pruned
+prune_range=5
+prune_warmup=0
+prune_hold=0
+# exposure-indexed EMA: tau = 3,600 audio-h (A1's 0.9995 at 6,500 s/step) -> d = exp(-3900/(3600*3600)) = 0.99970
+ema_decay=0.9997
+qkv_cap_from=100
+qkv_cap_ratio=1.5
+qkv_guard_ratio=2.0
+# loss rule armed after the re-warm settles (A1 used 8000 for its 1e-3 re-warm; A1L 1000 for a smaller one)
+diverge_after=5000
+diverge_wer_points=3.0
+eval_every=2500
+eval_each_epoch=false
+dev_limit=400
+eval_chunks=8,16
+ckpt_every_steps=500
+weights_every=2500
+log_every=25
+loader=process
+workers=12
+window_groups=96
+chunk_modes=4,8,16
+# 0.005 only if amendments 21 + 22 (3 vs 3 seeds) pass at chunks 4/8/16 (README A2); otherwise 0
+delay_penalty=0.0
+ddp_util_target=0.87
+ddp_native=true
+ddp_bf16_comm=false

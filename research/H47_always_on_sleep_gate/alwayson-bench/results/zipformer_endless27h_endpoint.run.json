@@ -1,0 +1,152 @@
+{
+ "schema": "alwayson-bench.endless/v1",
+ "system": "r0-zipformer-int8",
+ "host": "xbabe2",
+ "threads": "1 (sherpa-onnx num_threads=1; OMP/MKL threads 1)",
+ "protocol": "one process, one stream over part-1..4.wav in order (27.56 h), 20 ms packets as fast as possible, sherpa-onnx endpoint rules with a stream reset at each endpoint (the library's always-on mode)",
+ "command": "taskset -c 62 nice -n 19 env OMP_NUM_THREADS=1 OMP_THREAD_LIMIT=1 MKL_NUM_THREADS=1 /usr/bin/python3 -I /home/ubuntu/jsr-data/alwayson-bench/drivers/zipformer_alwayson.py --site /home/ubuntu/jsr-data/alwayson-bench/venvs/sherpa --bundle /home/ubuntu/jsr-data/alwayson-bench/models/r0-zipformer-int8 --wavs /home/ubuntu/jsr-data/alwayson-bench/audio/stream/part-1.wav,/home/ubuntu/jsr-data/alwayson-bench/audio/stream/part-2.wav,/home/ubuntu/jsr-data/alwayson-bench/audio/stream/part-3.wav,/home/ubuntu/jsr-data/alwayson-bench/audio/stream/part-4.wav --endpoint --trace-out /home/ubuntu/jsr-data/alwayson-bench/out/r0-zipformer-int8/endless-27h/endless27h.endpoint.trace.jsonl --rss-out /home/ubuntu/jsr-data/alwayson-bench/out/r0-zipformer-int8/endless-27h/endless27h.endpoint.rss.jsonl --run-out /home/ubuntu/jsr-data/alwayson-bench/out/r0-zipformer-int8/endless-27h/endless27h.endpoint.driver.json",
+ "stopped": true,
+ "stopped_reason": "stopped 2026-11-23T09:55:46Z by SIGINT (flush) on the owner's research wrap-up directive (lead 09:53Z), at 64,859 s of 99,216 s",
+ "audio_processed_s": 64859.04,
+ "words_committed": 68389,
+ "endpoint_resets": 16939,
+ "memory": {
+  "anon_mb_start": 136.58,
+  "anon_mb_end": 151.23,
+  "anon_mb_peak": 151.23,
+  "rss_mb_peak": 178.94,
+  "anon_mb_by_audio_hour": {
+   "0": 136.58,
+   "1": 141.78,
+   "2": 142.28,
+   "3": 142.82,
+   "4": 143.37,
+   "5": 143.96,
+   "6": 144.49,
+   "7": 145.07,
+   "8": 145.65,
+   "9": 146.18,
+   "10": 146.76,
+   "11": 147.29,
+   "12": 147.88,
+   "13": 148.41,
+   "14": 148.97,
+   "15": 149.55,
+   "16": 150.13,
+   "17": 150.68,
+   "18": 151.22
+  }
+ },
+ "scores_prefix_until_s_64850": {
+  "eval_lane_rule_allowance_0.5s": {
+   "pooled_wer": 6.865,
+   "gap_false_words_total": {
+    "words": 242,
+    "hours": 11.1229,
+    "per_hour": 21.76
+   },
+   "lag_ms": {
+    "n": 64681,
+    "p50": 528.6999999989348,
+    "p90": 688.2000000041444,
+    "p95": 728.099999999813,
+    "p99": 806.2999999965541
+   }
+  },
+  "latency_tolerant_tail_1.5s": {
+   "pooled_wer": 6.726,
+   "gap_false_words_total": {
+    "words": 28,
+    "hours": 11.1229,
+    "per_hour": 2.517,
+    "upper95_per_hour": 3.451
+   },
+   "lag_ms": {
+    "n": 64825,
+    "p50": 529.0000000022701,
+    "p95": 729.099999999903
+   }
+  },
+  "ours_h22ctl_same_prefix_tolerant_1.5s": {
+   "endless27h.t0": {
+    "pooled_wer": 9.773,
+    "gap_false_words_total": {
+     "words": 0,
+     "hours": 11.1229,
+     "per_hour": 0.0,
+     "upper95_per_hour": 0.269
+    },
+    "lag_ms": {
+     "n": 62866,
+     "p50": 312.13750000461005,
+     "p95": 440.8000000003085
+    }
+   },
+   "endless27h.t1500_r1000": {
+    "pooled_wer": 9.145,
+    "gap_false_words_total": {
+     "words": 0,
+     "hours": 11.1229,
+     "per_hour": 0.0,
+     "upper95_per_hour": 0.269
+    },
+    "lag_ms": {
+     "n": 63338,
+     "p50": 313.28750000102445,
+     "p95": 441.39999999970314
+    }
+   }
+  },
+  "note": "prefix = utterances and gaps ending at or before until_s; the eval-lane rule counts this system's late words (lag p50 ~0.53 s) as gap words, so the tolerant rule is the comparator (eval-lane agreed)"
+ },
+ "audio": {
+  "parts": [
+   {
+    "file": "/mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream/part-1.wav",
+    "wav_sha256": "977c3fe23aef64a8b3e0ae4728632e3fef8d36a6d025942fa3c5341fcebab052"
+   },
+   {
+    "file": "/mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream/part-2.wav",
+    "wav_sha256": "01abe4747593325852e59650e428d9de7392664702fdf7677934757b06b32fb2"
+   },
+   {
+    "file": "/mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream/part-3.wav",
+    "wav_sha256": "fdc4c05ed83b7c302cfc63a48f79f1dbf881a7fe55aa63b3a86bfb29d83c1580"
+   },
+   {
+    "file": "/mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream/part-4.wav",
+    "wav_sha256": "1a3a6c89022d16c30fb88e5a3c04f1019cc00bc034eb040e1dfe7d203975a84a"
+   }
+  ],
+  "manifest_sha256": "40f8c63d6048f89f9787b452ba2816b10b2b29fa1f56780ad49c70ba8fbb750d",
+  "total_s": 99230.5781875
+ },
+ "identity": {
+  "runtime": "sherpa-onnx 2.0.2 Python binding (same core libraries as the paper's ultra-cold-wav rows), numpy 1.26.4",
+  "model_files": {
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/manifest.json": "2f98a3f25b2ae1b24883f5bb78c6bc1e7e6beb024a0011e9e763195d8bbf8254",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297",
+   "/mnt/xbabe3-external/jsr/bundles/r0-zipformer-int8/model/tokens.txt": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+  },
+  "runtime_libraries": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/_sherpa_onnx.cpython-312-x86_64-linux-gnu.so": "15116b22660ff697870e222d76ad1ef35e9e2e8eeaa987133904c42a8a73e086",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libonnxruntime.so": "4b3607aebd1784b26b6f9b20e4bd974c7ab8287043e4d095cb7d2cb40b5e566e",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libsherpa-onnx-c-api.so": "c72c8b56d8621a2742e89cbc891fb5a7af1aef2bf208d1001b93a7843812e585",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/venvs/sherpa/sherpa_onnx/lib/libsherpa-onnx-cxx-api.so": "f1b62370b75af9a8d349b1e8dc2b30682f0e46a2d91a40257c596cd69ee270e0"
+  },
+  "driver_and_binary": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/zipformer_alwayson.py": "7062cd1cd78a7a8f01715b9719991e6dd26a3eb101c052a8997a51ff31d18484",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/common.py": "9cda311563d56ba8bed6482bf00e9c3e83455b606472472af4d74f204cdc00ad",
+   "/usr/bin/python3.12": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+  }
+ },
+ "outputs": {
+  "trace": "./endless27h.endpoint.trace.jsonl",
+  "trace_sha256": "a2553c4bc653a35b11aafbc1197614227b51420e092d95fbe8b1e61fce51d16e",
+  "rss": "./endless27h.endpoint.rss.jsonl",
+  "rss_sha256": "f4d8094caa6b11e292cb142e484ff3188cb5e8f4a17eb145d9659c7c1b8d6daa"
+ },
+ "exploratory": true
+}

@@ -1,0 +1,37 @@
+{
+ "name": "H52 P vs C c8 (guard)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/H41_chunk-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_s4321-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_s5678-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H52_P_dp0_s1234-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H52_P_dp0_s4321-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.094,
+ "margin_registry_entry": {
+  "endpoint": "h52-amend1-P-vs-C-guard-ni-ema-pooled-fulldev-c8",
+  "margin_pp": 0.094,
+  "direction": "lower_is_better",
+  "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. GUARD chunk 8 (320 ms): non-inferiority at its own four-run spread 0.094; v3 rule, PASS iff one-sided 95% upper <= 0.094.",
+  "registered_utc": "2026-11-23T08:25:14Z"
+ },
+ "delta_pp": -0.0651,
+ "alpha": 0.05,
+ "lower_pp": -0.1288,
+ "upper_pp": -0.0011,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/H41_chunk-8000.ema.c8.ms8.score-input.jsonl": "dd0e48572982b56e36a62b00dd171824b566f86d9e641112c9b91ebf19615504",
+  "h41/H41_chunk_s4321-8000.ema.c8.ms8.score-input.jsonl": "323be135123c0db4ad694a3a414876d858fa45c263d785c6624689fe0926bcd8",
+  "h41/H41_chunk_s5678-8000.ema.c8.ms8.score-input.jsonl": "685258476684c934950c0b13da0a57736e9d6f9dfd4d2836502f045688e2aad6",
+  "h41/H52_P_dp0_s1234-8000.ema.c8.ms8.score-input.jsonl": "5492d8c09a8b39f91152d7a87c083ff5f9d20a96b03d7c673f1be633a1d971ab",
+  "h41/H52_P_dp0_s4321-8000.ema.c8.ms8.score-input.jsonl": "a04c9e0016196526911bdc9dd54efc16a1f5e25ff4286f06dc263b9739a2a36c"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

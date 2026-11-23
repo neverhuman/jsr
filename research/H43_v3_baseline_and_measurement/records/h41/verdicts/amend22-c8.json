@@ -1,0 +1,39 @@
+{
+ "name": "amend22 DECIDING: 14+14r+14s3 vs chunk+19+19s3 c8",
+ "kind": "noninferiority",
+ "base": [
+  "h41/H41_chunk-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_s4321-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_s5678-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H41_chunk_dp0.005-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_dp0.005_s4321-8000.ema.c8.ms8.score-input.jsonl",
+  "h41/H41_chunk_dp0.005_s5678-8000.ema.c8.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.094,
+ "margin_registry_entry": {
+  "endpoint": "h41-amend22-dp0.005-3seeds-vs-chunk3seeds-ema-pooled-fulldev-c8",
+  "margin_pp": 0.094,
+  "direction": "lower_is_better",
+  "note": "amendment 22 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19 + arm 19-s3), EMA pooled FULL dev, chunk 8, non-inferiority; margin = four-run control spread at this chunk. PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. dp 0.005 adopted iff PASS at chunks 4, 8 AND 16 (intersection-union). This 3-vs-3 reading DECIDES; amendment 21's 3-vs-2 reading is interim only.",
+  "registered_utc": "2026-11-23T07:07:07Z"
+ },
+ "delta_pp": 0.0346,
+ "alpha": 0.05,
+ "lower_pp": -0.022,
+ "upper_pp": 0.0924,
+ "p_one_sided": 0.045311042460981214,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/H41_chunk-8000.ema.c8.ms8.score-input.jsonl": "dd0e48572982b56e36a62b00dd171824b566f86d9e641112c9b91ebf19615504",
+  "h41/H41_chunk_s4321-8000.ema.c8.ms8.score-input.jsonl": "323be135123c0db4ad694a3a414876d858fa45c263d785c6624689fe0926bcd8",
+  "h41/H41_chunk_s5678-8000.ema.c8.ms8.score-input.jsonl": "685258476684c934950c0b13da0a57736e9d6f9dfd4d2836502f045688e2aad6",
+  "h41/H41_chunk_dp0.005-8000.ema.c8.ms8.score-input.jsonl": "0c293beda00b9238a2a6a861f52332eb7361512b01a4da1f572a440d915bac0f",
+  "h41/H41_chunk_dp0.005_s4321-8000.ema.c8.ms8.score-input.jsonl": "4ed12ae06683b25e3c68699d924666204013effd8734c0fd3c18724f6807226c",
+  "h41/H41_chunk_dp0.005_s5678-8000.ema.c8.ms8.score-input.jsonl": "6ea5d31cd567e24ef674b68082804c2e26cc3bc3aa90e38488be9c2780adb049"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

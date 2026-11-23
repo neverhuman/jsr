@@ -1,0 +1,47 @@
+{
+ "schema": "ultra.h43.family/v1",
+ "label": "exploratory",
+ "registered_utc": "2026-11-23T07:07:25Z",
+ "amendment": "H41 amendment 24 (arm 17-r, seed 4321)",
+ "rule": "Holm step-down over these 3 one-sided superiority comparisons at familywise alpha 0.05; seed-pair reading (each arm seed paired with each comparator seed, speakers kept); EMA pooled FULL dev. A comparison PASSES iff its Holm-adjusted one-sided upper bound < 0 and its p <= its Holm level. Arm 17's left_context=256 is called better iff at least one chunk passes; per-chunk results reported regardless.",
+ "caveat": "arm 17 was picked for replication from its single-seed full-dev result (Holm family 16/17/18 at chunk 4, p 0.071); the utterance sample is the same, only the training seed is new.",
+ "file_names": "arm 17-r's files as trainer-lane names them; the family is fixed by arm, chunk, kind, comparator and population, not by file name",
+ "comparisons": [
+  {
+   "name": "arm 17 + 17-r vs chunk arm + arm 19, chunk 4, EMA pooled full dev",
+   "kind": "superiority",
+   "a": [
+    "h41/H41_chunk-8000.ema.c4.ms8.score-input.jsonl",
+    "h41/H41_chunk_s4321-8000.ema.c4.ms8.score-input.jsonl"
+   ],
+   "b": [
+    "h41/H41_chunk_left256-8000.ema.c4.ms8.score-input.jsonl",
+    "h41/H41_chunk_left256_s4321-8000.ema.c4.ms8.score-input.jsonl"
+   ]
+  },
+  {
+   "name": "arm 17 + 17-r vs chunk arm + arm 19, chunk 8, EMA pooled full dev",
+   "kind": "superiority",
+   "a": [
+    "h41/H41_chunk-8000.ema.c8.ms8.score-input.jsonl",
+    "h41/H41_chunk_s4321-8000.ema.c8.ms8.score-input.jsonl"
+   ],
+   "b": [
+    "h41/H41_chunk_left256-8000.ema.c8.ms8.score-input.jsonl",
+    "h41/H41_chunk_left256_s4321-8000.ema.c8.ms8.score-input.jsonl"
+   ]
+  },
+  {
+   "name": "arm 17 + 17-r vs chunk arm + arm 19, chunk 16, EMA pooled full dev",
+   "kind": "superiority",
+   "a": [
+    "h41/H41_chunk-8000.ema.c16.ms8.score-input.jsonl",
+    "h41/H41_chunk_s4321-8000.ema.c16.ms8.score-input.jsonl"
+   ],
+   "b": [
+    "h41/H41_chunk_left256-8000.ema.c16.ms8.score-input.jsonl",
+    "h41/H41_chunk_left256_s4321-8000.ema.c16.ms8.score-input.jsonl"
+   ]
+  }
+ ]
+}

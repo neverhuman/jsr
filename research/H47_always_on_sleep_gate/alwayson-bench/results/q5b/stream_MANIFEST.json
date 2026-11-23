@@ -1,0 +1,1450 @@
+{
+ "schema": "alwayson-bench.q5b-stream/v1",
+ "purpose": "H47 Q5b (lead 09:39Z): fresh speech -> noise junction stream",
+ "seed": 20261125,
+ "sample_rate": 16000,
+ "format": "WAV PCM16 mono",
+ "generator": {
+  "path": "/home/ubuntu/jsr-data/alwayson-bench/aobench/gen_q5b.py",
+  "sha256": "39ebf93eb4ecc8fd863a068a0f37c71c878279ce27be9328d1753de022dc8ce1",
+  "numpy": "1.26.4",
+  "soundfile": "0.14.0",
+  "gen_alwayson_path": "/home/ubuntu/jsr-data/alwayson-bench/aobench-src/gen_alwayson.py",
+  "gen_alwayson_sha256": "8b96323102daf356d0d5123eb8043c940a7f2470734d631eb6b7a021da180f18"
+ },
+ "sources": {
+  "archive": "Libri-Light small.tar (official md5 c49207eb86a8e8ac895561c37232041e), members fetched by HTTPS byte range (FETCH.json) and verified against the archive index",
+  "fetch_json_sha256": "6325dd87b9709ed2b6a4f77d04c87aebd2ef2af4ccd699b4eea6e318399bedc7",
+  "members_tsv_sha256": "a9fd3c179c2b68420934f5817c41288d3e4e5c963eb0bcf720f47ade44257000",
+  "json_meta_sha256": "7e13e8c5ebc760e000a9d84e349b0592132f46f5935ee45d4c7010421fdd62ae",
+  "flac_members": {
+   "small/100/sea_fairies_0812_librivox_64kb_mp3/01_baum_sea_fairies_64kb.flac": {
+    "sha256": "aa62e9b84b4c5b7ab2e07df68d4883e90a170e37aafc9d9808e6983119184475",
+    "bytes": 10025689,
+    "samples": 9567080
+   },
+   "small/103/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_krs_64kb.flac": {
+    "sha256": "63ef32e0512ab61eb3267085ac6120a5e6245e9d6c813d98e0755fd945ed636f",
+    "bytes": 450324,
+    "samples": 457242
+   },
+   "small/1060/shortpoetry_039_librivox_64kb_mp3/caution_behn_vg_64kb.flac": {
+    "sha256": "8666b4b6e9547ad2b63d41f4cd4549d4431612112fceaadcf9e0945f11bdc167",
+    "bytes": 1143169,
+    "samples": 1007694
+   },
+   "small/1065/man_property_librivox_64kb_mp3/manofproperty_06_galsworthy_64kb.flac": {
+    "sha256": "e6fd153fbe56d99017d6520a6c0dba7ff4e22a9f47b6d812476cd38f685accb2",
+    "bytes": 26414026,
+    "samples": 21513190
+   },
+   "small/1081/history_of_holland__0707_librivox_64kb_mp3/historyofholland_14_gedmundson_64kb.flac": {
+    "sha256": "ad3c1a4e78c3bf00fba786660247df8c7b56c9476c4e0098078ff92e3dc22f8e",
+    "bytes": 38173988,
+    "samples": 29415962
+   },
+   "small/1085/book_1001_nights2_0908_librivox_64kb_mp3/thousand_nights_vol02_05_burton_64kb.flac": {
+    "sha256": "8a56f997bf18599142a5c7063d487658adcfc214c31576044b679080ab084a37",
+    "bytes": 21376542,
+    "samples": 20729934
+   },
+   "small/110/shirley_1006_librivox_64kb_mp3/shirley_38_bronte_64kb.flac": {
+    "sha256": "8061c99e9a211868b22390171499f77bea65ea37f230ec668ea81f96c10abc00",
+    "bytes": 33605158,
+    "samples": 30648013
+   },
+   "small/1124/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_anc_64kb.flac": {
+    "sha256": "1ec113fef00c8c30c68c52ea7fd469b9349963bfce71f7a7bd3970465bc1b908",
+    "bytes": 625527,
+    "samples": 619828
+   },
+   "small/1127/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_mt_64kb.flac": {
+    "sha256": "4f56754dbdb2cf276c321232f63e5fca6e1e8c1f78e856d068773bb19edc91d2",
+    "bytes": 798048,
+    "samples": 705928
+   },
+   "small/1134/female_quixote_vol2_1005_librivox_64kb_mp3/femalequixote2_35_lennox_64kb.flac": {
+    "sha256": "737fcc8aa85948379d5aef292554275eab9bf5d16ce1fd924fa93a578fedb554",
+    "bytes": 7422964,
+    "samples": 7081801
+   },
+   "small/1160/turns_thought_modern_philosophy_librivox_64kb_mp3/turnsofthought_1_1_santayana_64kb.flac": {
+    "sha256": "3dd877244babcaedec2de43b9e09995e1938acf9400540ce1f07f9a583adfdb4",
+    "bytes": 42948977,
+    "samples": 35561634
+   },
+   "small/1213/shortpoetry_028_librivox_64kb_mp3/futility_owen_ccf_64kb.flac": {
+    "sha256": "dcf8b811ce6a554c1afd24d8fb453abe22cd3506ff2ea3286acadeee0b8a76cb",
+    "bytes": 964099,
+    "samples": 934551
+   },
+   "small/123/history_of_holland__0707_librivox_64kb_mp3/historyofholland_31_gedmundson_64kb.flac": {
+    "sha256": "a518c3c5e77802553a83ab60d7c039095c8b5df917ecb9e260034ee597e10eba",
+    "bytes": 50890818,
+    "samples": 45232373
+   },
+   "small/12533/treatise_on_good_works_1811_librivox_64kb_mp3/goodworks_08_luther_64kb.flac": {
+    "sha256": "32b9dd2389a8c8490f809f8aa782aedac5fabcb4313262c6eea6766923ff458d",
+    "bytes": 8181962,
+    "samples": 8704309
+   },
+   "small/12539/treatise_on_good_works_1811_librivox_64kb_mp3/goodworks_31_luther_64kb.flac": {
+    "sha256": "73004f76760aa32cdd1f88fd2e494a42904ffa658d03276b93eb75c7de8ff5a4",
+    "bytes": 7538461,
+    "samples": 7554199
+   },
+   "small/1259/incidents_life_slave_girl_0806_librivox_64kb_mp3/incidentsslavegirl_01_jacobs_64kb.flac": {
+    "sha256": "9b7f3953743ea1454a43d3e80c45f948f22058babf850d563274c41cf2c11837",
+    "bytes": 10528670,
+    "samples": 8512151
+   },
+   "small/126/short_story_008_64kb_mp3/last_of_the_troubadours_henry_sjd_64kb.flac": {
+    "sha256": "77cf3384446e0656c874cc28d4ac588d6a42a89c71471c2d420cf5e4c8313245",
+    "bytes": 30199315,
+    "samples": 27897098
+   },
+   "small/1264/extermination_american_bison_1503_librivox_64kb_mp3/exterminationamericanbison_15_hornaday_64kb.flac": {
+    "sha256": "41b2b500f22a427e401e3458d4050aa17a055fbbd8fdd2891f8002a28de2bade",
+    "bytes": 3190785,
+    "samples": 3284324
+   },
+   "small/1267/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_mmv_64kb.flac": {
+    "sha256": "0cee32e9ee48691664476a4b28214d96fa300aec53b6c40636c8c0a400088d77",
+    "bytes": 435437,
+    "samples": 777817
+   },
+   "small/128/anatomy_humanbody_4_1001_librivox_64kb_mp3/anatomy4_03_gray_64kb.flac": {
+    "sha256": "def714b7584edc03aade77b90174df37653a8dbccee02b7107d93fa4d8b24c30",
+    "bytes": 22487166,
+    "samples": 19139832
+   },
+   "small/1280/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_tjm_64kb.flac": {
+    "sha256": "7c047d99281cebec0635a1396399ef9046b96522eef4bb8dc8e01f40f9ae68f2",
+    "bytes": 594790,
+    "samples": 565076
+   },
+   "small/1281/shortpoetry_028_librivox_64kb_mp3/beatrice_teasdale_sv_64kb.flac": {
+    "sha256": "d31d41fec67d0940307ea96f7ce3a443ff615257d5656f327b66b4a663e4c316",
+    "bytes": 5080207,
+    "samples": 4572049
+   },
+   "small/1286/im_nobody_librivox_64kb_mp3/im_nobody_dickinson_hfd_64kb.flac": {
+    "sha256": "53a1949562d97f9f7d8bc437cc13aac24032433d267992817d5d483ed368db75",
+    "bytes": 859536,
+    "samples": 880635
+   },
+   "small/1316/histofengch10_librivox_64kb_mp3/historyofengland02ch10_08_macaulay_64kb.flac": {
+    "sha256": "725a43d53624ebb2e6b6b021f724f609f73b869de54f7f298fd378710a7672c0",
+    "bytes": 20497748,
+    "samples": 17409667
+   },
+   "small/1335/shortpoetry_039_librivox_64kb_mp3/phantomwooer_beddoes_cjrg_64kb.flac": {
+    "sha256": "3fefca383b4ffdd3899e72836e0d9d6af1826417642d661dae64ab20b2a6ad4a",
+    "bytes": 1159410,
+    "samples": 1115110
+   },
+   "small/1345/man_property_librivox_64kb_mp3/manofproperty_15_galsworthy_64kb.flac": {
+    "sha256": "efa5147611a70c137611a2ca097905044df9274f1de4cf1438a4f162cc1e446a",
+    "bytes": 12718972,
+    "samples": 13227149
+   },
+   "small/1367/shortpoetry_028_librivox_64kb_mp3/mathematical_problem_banneker_jb_64kb.flac": {
+    "sha256": "38e404d006516e6b6fec585206774676f76d627609c6c8ea2d8fa906ee695cc3",
+    "bytes": 1782197,
+    "samples": 1469120
+   },
+   "small/1370/counterpane_fairy_le_librivox_64kb_mp3/counterpane_10_pyle_64kb.flac": {
+    "sha256": "41518e48d18c8087d2f4e4d72374c655d2bd3124dadfe90893168db79e3a9fdc",
+    "bytes": 4980681,
+    "samples": 5694271
+   },
+   "small/1377/shortpoetry_028_librivox_64kb_mp3/foreign_lands_stevenson_js_64kb.flac": {
+    "sha256": "4c74c7bead5f8bb05edaadf1c0d78dab64e55621833584f7d52538040241bedb",
+    "bytes": 1188412,
+    "samples": 1122215
+   },
+   "small/14/canterburytales_librivox_64kb_mp3/canterburytales_09_chaucer_64kb.flac": {
+    "sha256": "e283eda3da83018b535d10e0f580ee6cca58c81b82292b850ed3fe5ad1c82cab",
+    "bytes": 66014675,
+    "samples": 60853180
+   },
+   "small/1440/theo_roosevelt_autobiography_0810_librivox1_64kb_mp3/autobiography_00_troosevelt_64kb.flac": {
+    "sha256": "fad8e5063e4aed0956b4872aebb87e9f7e835ad2cc263023586ac28949d954af",
+    "bytes": 3841568,
+    "samples": 3402600
+   },
+   "small/147/canterburytales_librivox_64kb_mp3/canterburytales_26_chaucer_64kb.flac": {
+    "sha256": "2f1a31b50b848d9715972c9ab77ba17a4dd370d3796d04c6f03ba5cfba6e25f2",
+    "bytes": 18725568,
+    "samples": 16385249
+   },
+   "small/1474/againstindifference_0801_librivox_64kb_mp3/againstindifference_webbe_jcg_64kb.flac": {
+    "sha256": "8e26d243f948c65743486ee1d560b7a9f3179a880deeffed2b10d9b93926715c",
+    "bytes": 912946,
+    "samples": 978437
+   },
+   "small/1492/platos_republic_0902_librivox1_64kb_mp3/republic_04_plato_64kb.flac": {
+    "sha256": "3c5a013ccb0acaaceb52862c8cd90e2b66614b4825a6723692888bed1b4ef280",
+    "bytes": 20266115,
+    "samples": 20458679
+   },
+   "small/151/canterburytales_librivox_64kb_mp3/canterburytales_18_chaucer_64kb.flac": {
+    "sha256": "9b4843ffcfda92d208c0e111101c265362be9eb036e632b231d69a4f2d6c7333",
+    "bytes": 27180079,
+    "samples": 26505294
+   },
+   "small/1514/nippon_libriviox_64kb_mp3/nippon_noyes_mr_64kb.flac": {
+    "sha256": "b34e0facdbff23e5456f630e4f35e3be72ebf4ccb73baadd64027f23976193be",
+    "bytes": 1252275,
+    "samples": 1214584
+   },
+   "small/152/man_property_librivox_64kb_mp3/manofproperty_14_galsworthy_64kb.flac": {
+    "sha256": "5eec2795014f6ea849aa6c83ffd0534e6c23ae3b4b80e91ad59b2d65cd483759",
+    "bytes": 36744594,
+    "samples": 33522829
+   },
+   "small/153/canterburytales_librivox_64kb_mp3/canterburytales_23_chaucer_64kb.flac": {
+    "sha256": "7959529a2a209fb1ea23bb1df80716a5b734a5e41948156788f7aaa093216f25",
+    "bytes": 46865943,
+    "samples": 45235299
+   },
+   "small/1535/bed_time_001_0707_64kb_mp3/06_the_great_spirit_sa_zitkala_rs_64kb.flac": {
+    "sha256": "b4d8f97ba3cecbff596178dd1006844ac20de45275f4173ac5b275b93db8d412",
+    "bytes": 13202208,
+    "samples": 11582062
+   },
+   "small/154/canterburytales_librivox_64kb_mp3/canterburytales_27_chaucer_64kb.flac": {
+    "sha256": "197df69fd77425282dc37446a974574e771a663e99a3d76cbc36ad6cc2d701fd",
+    "bytes": 59891702,
+    "samples": 52766924
+   },
+   "small/1554/bed_time_001_0707_64kb_mp3/07_owl_and_the_pussy_cat_edward_lear_jumbly_64kb.flac": {
+    "sha256": "c6863e1130f95d2e922fc127c9ce50a559476a4d4606a81b12da2a1461775974",
+    "bytes": 1767194,
+    "samples": 1680191
+   },
+   "small/1572/dictionary_synonymes_0810_librivox_64kb_mp3/synonymes_008_soule_64kb.flac": {
+    "sha256": "e7d0a4bd55f1477f10854674ad00a6fca1494c8bcaf175fb753e8940d067c6af",
+    "bytes": 10617878,
+    "samples": 11638486
+   },
+   "small/1579/shortpoetry_037_librivox_64kb_mp3/frog_belloc_pw_64kb.flac": {
+    "sha256": "e4cdfbfeb4eea2168758a37bb3647d7f5a3cca01effe5b6e0abf6eafbd524024",
+    "bytes": 566516,
+    "samples": 848034
+   },
+   "small/1593/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_385_williams_64kb.flac": {
+    "sha256": "1772bdc9f2c80d482dac90651e8e6455ee321f222d5176007c7cc87a706a1957",
+    "bytes": 2299908,
+    "samples": 2191773
+   },
+   "small/16/little_lame_prince_librivox_64kb_mp3/little_lame_prince_01_64kb.flac": {
+    "sha256": "53743e3e55c0c2330d50e72f637ecb47c967e1a9720f9c8cea2b33a3cbe5a224",
+    "bytes": 16231274,
+    "samples": 13600766
+   },
+   "small/1614/insidious_dr_fumanchu_fnh_librivox_64kb_mp3/insidiousdrfu_03_rohmer_64kb.flac": {
+    "sha256": "544e70de2930a28ae3a5a47ad561b95cd0b16ec695810e09db809d0cc1cced7c",
+    "bytes": 12792940,
+    "samples": 11798402
+   },
+   "small/167/life_mediaeval_city_py_librivox_64kb_mp3/mediaevalyork_6_benson_64kb.flac": {
+    "sha256": "9d5c1e123cbe181cb23bc22f3a6b2fd4f69027f2e0a58db80e955d677dc604bf",
+    "bytes": 29049077,
+    "samples": 26162986
+   },
+   "small/17/spy_cooper_librivox_64kb_mp3/spy_00a_cooper_64kb.flac": {
+    "sha256": "6bae9c9ee589c02e882d8c2a24392e687fadaea724e3fbcc139da677141765bf",
+    "bytes": 37890636,
+    "samples": 32527668
+   },
+   "small/1724/anatomy_of_melancholy_1005_librivox_64kb_mp3/anatomyofmelancholy1_39_burton_64kb.flac": {
+    "sha256": "413d883bfb2aecd61be911fd83687c23954752015f980928b967c862fdfaf008",
+    "bytes": 17410444,
+    "samples": 16384645
+   },
+   "small/1743/shortpoetry_044_librivox_64kb_mp3/two_moods_benshimol_bn_64kb.flac": {
+    "sha256": "f39f06ae3af5e16a9ae58a6d698aa61d4cb532877c702f2f957ac8912b5947a0",
+    "bytes": 2845311,
+    "samples": 2653200
+   },
+   "small/1752/shortpoetry_044_librivox_64kb_mp3/greengrass_preston_jmm_64kb.flac": {
+    "sha256": "05a4792aa5408935a0c998ccff9c15e40c836bd01c042f3e6c85ddd4117cf25b",
+    "bytes": 992471,
+    "samples": 956703
+   },
+   "small/1759/short_poetry_067_librivox_64kb_mp3/rondeau_west_des_64kb.flac": {
+    "sha256": "f59964355601a46bea20462ac25a83d5ae3d055abb3abb54a5ee554834d22e44",
+    "bytes": 933474,
+    "samples": 932044
+   },
+   "small/1789/shakespeare_monologues_vol_5_librivox_64kb_mp3/08_nowisthewinterofourdiscontent_richardIII_01_01_64kb.flac": {
+    "sha256": "06a410e54390da6a1f06dd71df0e82ff4d67e713704308875e59d314414c2420",
+    "bytes": 2605591,
+    "samples": 2662813
+   },
+   "small/1841/western_united_states_lc_librivox_64kb_mp3/westernunitedstates_03_fairbanks_64kb.flac": {
+    "sha256": "bb74ef5206fbd817606f7b819fe5c17b24c6bbabdc6b8c6fcdf1ce40191e7e23",
+    "bytes": 17343584,
+    "samples": 14448008
+   },
+   "small/1844/shortpoetry_048_librivox_64kb_mp3/valediction_donne_ndy_64kb.flac": {
+    "sha256": "968eae0972aac1f7e06328547115484ec5ece39a346e3f92f8665efc043be64e",
+    "bytes": 1993743,
+    "samples": 2042560
+   },
+   "small/1845/againstindifference_0801_librivox_64kb_mp3/againstindifference_webbe_kg_64kb.flac": {
+    "sha256": "e6a9325be9c31af90d764eee9aa5bda7ed44ee0d98dfa625e30d29ba753115e8",
+    "bytes": 832868,
+    "samples": 799969
+   },
+   "small/1867/short_scifi_001_0711_64kb_mp3/warning_from_the_stars_cocking_rd_64kb.flac": {
+    "sha256": "c7e0f075d4b8075b6fb83fe3f5835a2fc3b6ee419a2a0fae98a1272e0b44860b",
+    "bytes": 48082345,
+    "samples": 40252808
+   },
+   "small/1870/charles_dickens_0802_librivox2_64kb_mp3/charlesdickens_01_chesterton_64kb.flac": {
+    "sha256": "4eeddde66b66cb4de070947f0fd7cac05f2b85148c87d11c45d34f5f38682c88",
+    "bytes": 37624993,
+    "samples": 33352720
+   },
+   "small/1878/shakespeare_monologues_vol_5_librivox_64kb_mp3/04_speakthespeechiprayyou_hamlet_act3_scene2_64kb.flac": {
+    "sha256": "f0d12576b85c2bd0b677201cbfa9a3b0ad86a6fd2d780d6ec07351177b805ef8",
+    "bytes": 3681859,
+    "samples": 3887015
+   },
+   "small/1881/hymns_of_the_christian_church_0805_librivox_64kb_mp3/hymns_01_eliot_64kb.flac": {
+    "sha256": "105c2f7f6cb288674aae66fc834372e5b4634c304cbfa76507fa11317cec50f8",
+    "bytes": 2299321,
+    "samples": 2352687
+   },
+   "small/19/spy_cooper_librivox_64kb_mp3/spy_03_cooper_64kb.flac": {
+    "sha256": "de2b717f7a718f616202c32b4b5c7a5a3e9397e75abc946f08896fc1c44c4ddb",
+    "bytes": 32440817,
+    "samples": 30531495
+   },
+   "small/1901/problems_american_democracy_ah_librivox1_64kb_mp3/democracy_19_williamson_64kb.flac": {
+    "sha256": "49487296a7a5b6b199b9e71c09f6fcc18411b6bac41cf2d75400a0f4ce340473",
+    "bytes": 24834612,
+    "samples": 22251724
+   },
+   "small/1903/shortpoetry_048_librivox_64kb_mp3/gradatim_holland_mtr_64kb.flac": {
+    "sha256": "4d781a958916c96bc56ae7cb89b64a613745a6e261b70031534c9da0f11a89c4",
+    "bytes": 2594346,
+    "samples": 2524468
+   },
+   "small/1905/shortpoetry_052_librivox_64kb_mp3/onafavoritecat_gray_jb_64kb.flac": {
+    "sha256": "42d0a450d1c8f39fdf068c75ecc262b289e202414e75c482096afac0a2209963",
+    "bytes": 2705205,
+    "samples": 2917768
+   },
+   "small/1938/the_beetle_0904_librivox_64kb_mp3/thebeetle_08_marsh_64kb.flac": {
+    "sha256": "726d09aae31e25abb1ac88d21e419a5f3c1f8083ae0df88be69acb75f774177e",
+    "bytes": 4777813,
+    "samples": 4988761
+   },
+   "small/1943/shortpoetry_048_librivox_64kb_mp3/gourmetslovesong_wodehouse_ca_64kb.flac": {
+    "sha256": "a63997473061eb33ccbc4564981a5137b8fd1add86abe735b4f516575794922b",
+    "bytes": 1827956,
+    "samples": 1808922
+   },
+   "small/1948/shortpoetry_052_librivox_64kb_mp3/to_virgins_herrick_db_64kb.flac": {
+    "sha256": "b7756a58efccac9bbf90a6e665e300bd265dba70a4f1ae62c744db48d96415cd",
+    "bytes": 1206117,
+    "samples": 1212912
+   },
+   "small/1961/short_scifi_001_0711_64kb_mp3/martianvfw_vandenburg_cy_64kb.flac": {
+    "sha256": "7e492fae46fc864f1d3e225148abebc92f1a494c510199ff2d2d96a6691374ab",
+    "bytes": 15606495,
+    "samples": 13187861
+   },
+   "small/198/shortpoetry_003_librivox_64kb_mp3/move_eastward_happy_earth_tennyson_hb_64kb.flac": {
+    "sha256": "c85f3729654cdf0069d39dfb357a5d783d625c9ff090d0be84ba42f269bb197d",
+    "bytes": 598252,
+    "samples": 567171
+   },
+   "small/2004/chronicle_louisbourg_0711_librivox_64kb_mp3/chronicle_louisbourg_04_wood_64kb.flac": {
+    "sha256": "8eb3a5705bc9ef07d3d1db786f40460b7fb594c21945c4ef8710bfa65b4cf137",
+    "bytes": 57417514,
+    "samples": 51120164
+   },
+   "small/2013/myths_legends_0805_librivox_64kb_mp3/mythsandlegends_01_marshall_64kb.flac": {
+    "sha256": "63510b72a53eebe54028015a9ce4c8e5d39df588b735a97da51b97a4cc70e450",
+    "bytes": 7573195,
+    "samples": 6623812
+   },
+   "small/203/history_of_holland__0707_librivox_64kb_mp3/historyofholland_02_gedmundson_64kb.flac": {
+    "sha256": "2896033ef0d6eb15edf64c2b4cf697ee8d5a9104e0a872de9811965d3a7f5b8b",
+    "bytes": 42001295,
+    "samples": 37032014
+   },
+   "small/2032/short_scifi_001_0711_64kb_mp3/pygmalionsspectacles_weinbaum_cml_64kb.flac": {
+    "sha256": "29a7b87770f63da9b8ff400694c02a98ca5225806636bef7c0cbc551d7110dda",
+    "bytes": 44572797,
+    "samples": 42916880
+   },
+   "small/2039/short_scifi_001_0711_64kb_mp3/outaroundrigel_wilson_ae_64kb.flac": {
+    "sha256": "2f3d75c4956ed6a09ea19c857b800dd984d71e988a671a97fa91a8e993528e17",
+    "bytes": 46025277,
+    "samples": 41734473
+   },
+   "small/204/lone_star_ranger_ms_librivox_64kb_mp3/lone_star_ranger_05_grey_64kb.flac": {
+    "sha256": "c641727af1dc36ac67ad90febc063fa2cdd61c7116ef995b0b80b392a71d69f3",
+    "bytes": 33697177,
+    "samples": 29494120
+   },
+   "small/205/myths_legends_0805_librivox_64kb_mp3/mythsandlegends_24_marshall_64kb.flac": {
+    "sha256": "fd7e72aaf632116ae4e8c41367809a5cac19bd9c9f2654af5cd461a1e0325848",
+    "bytes": 13935296,
+    "samples": 11693239
+   },
+   "small/2052/short_scifi_001_0711_64kb_mp3/4ddoodler_waldeyer_edm_64kb.flac": {
+    "sha256": "830ed10115b3f53b5af13d4b598415f567ac31461d8bc3f870ba8400214398ef",
+    "bytes": 35099730,
+    "samples": 32670192
+   },
+   "small/2061/chronicle_louisbourg_0711_librivox_64kb_mp3/chronicle_louisbourg_02_wood_64kb.flac": {
+    "sha256": "471cab035a76fc8735108191166aa180d03f9b7218f1d29ebb0e8a6980de59f7",
+    "bytes": 65557526,
+    "samples": 56801902
+   },
+   "small/2074/againstindifference_0801_librivox_64kb_mp3/againstindifference_webbe_ty_64kb.flac": {
+    "sha256": "aa77b6918bea4ae0e0d74cdcf36c3bfab3023ef003f4809abdb22a1cdd069fc2",
+    "bytes": 955299,
+    "samples": 1047400
+   },
+   "small/2090/les_mis_vol01_0810_librivox_64kb_mp3/lesmiserables_vol1_05_hugo_64kb.flac": {
+    "sha256": "86fbdc81ee176cca074767f30f3856526706f015195b7db52bd30b20b4b8b247",
+    "bytes": 6978386,
+    "samples": 6526427
+   },
+   "small/2136/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_gp_64kb.flac": {
+    "sha256": "4fea9329bab4ae9bf771a2eb42b574b8cd39416b3e657c2b990775b302f6d25a",
+    "bytes": 945037,
+    "samples": 954613
+   },
+   "small/2144/shortpoetry_055_librivox_64kb_mp3/chilly_night_rossetti_dt_64kb.flac": {
+    "sha256": "057d72e665e961a61523f9fd31a9a7e233ebb0e2a03d02387a82f2fc43620507",
+    "bytes": 2705834,
+    "samples": 2617673
+   },
+   "small/2149/bible_ylt_02_exodus_mp_0909_librivox_64kb_mp3/exodus_1_ylt_64kb.flac": {
+    "sha256": "653fc8d299ffe2e089c83fc75d9945895121e8ccce2ec7202f159c12aab95cb0",
+    "bytes": 25391248,
+    "samples": 19787761
+   },
+   "small/2157/short_poetry_067_librivox_64kb_mp3/whenmybiermoves_rumi_ctc_64kb.flac": {
+    "sha256": "6e50731846aa2fa5ac89764f338545aabc9603fd7cdbb5289d7c9a66aca823a3",
+    "bytes": 1458191,
+    "samples": 1459508
+   },
+   "small/2162/superstition_of_divorce_the_0901_rc_librivox1_64kb_mp3/divorce_03_gkchesterton_64kb.flac": {
+    "sha256": "5c0058d9c6049a271511d961cdb04af25d2836887665c96eb6df5ede480b7c91",
+    "bytes": 10835763,
+    "samples": 11040804
+   },
+   "small/2182/outlaw_of_torn_1003_librivox_64kb_mp3/outlawoftorn_04_burroughs_64kb.flac": {
+    "sha256": "751dee75cf7a2d1f566000b8af31f017e8cfa9b61343a41368945a171cd2bba3",
+    "bytes": 11570140,
+    "samples": 10526529
+   },
+   "small/2192/shortpoetry_057_librivox_64kb_mp3/meeting_longfellow_mds_64kb.flac": {
+    "sha256": "046a26c4e95f55c4952e335a3608727f6421cc3214d343d7d9b58de1c6f6635b",
+    "bytes": 1307299,
+    "samples": 1220853
+   },
+   "small/2196/majesty_calmness_af_librivox_64kb_mp3/majestyofcalmness_4_jordan_64kb.flac": {
+    "sha256": "2c9c9a2b7a3d96858bddcd2dab0e9e192af32a0196990f4fc8ced6898a33669e",
+    "bytes": 12578701,
+    "samples": 10943420
+   },
+   "small/2205/short_story_029_0805_librivox_64kb_mp3/shortstory029_mouse_cth_64kb.flac": {
+    "sha256": "e6b07a5a36a9a5d9f2c96ad76fce339895825e436269017a020ab11c523eb61c",
+    "bytes": 9288701,
+    "samples": 8651750
+   },
+   "small/2214/esperanto_teacher_0808_librivox_64kb_mp3/esperanto_teacher_58_fryer_64kb.flac": {
+    "sha256": "875194accedf6eba997320fdbc59c1687b8f9ff87e4228484ba9a38b16f9c14d",
+    "bytes": 865866,
+    "samples": 1042385
+   },
+   "small/2262/myths_legends_0805_librivox_64kb_mp3/mythsandlegends_22_marshall_64kb.flac": {
+    "sha256": "60697750f791807c9e123b3e2a8f0c0872576d96147dd88a419c47cfce9fcfec",
+    "bytes": 3652375,
+    "samples": 3304798
+   },
+   "small/2269/way_of_all_flesh_rf_librivox1_64kb_mp3/wayofallflesh_02_butler_64kb.flac": {
+    "sha256": "68eb3766c64e80f05c8da4c4b619a3cb83b14bbff0cb3683c3eb8e934813dc92",
+    "bytes": 21695732,
+    "samples": 19191844
+   },
+   "small/2274/againstindifference_0801_librivox_64kb_mp3/againstindifference_webbe_kc_64kb.flac": {
+    "sha256": "4d4d7f14aa684a005caa30b6e726190f179b25019f70880fd28831261a16ff78",
+    "bytes": 1026751,
+    "samples": 962137
+   },
+   "small/2283/shakespeare_monologues_vol_5_librivox_64kb_mp3/16_rebellioussubjectsenemiestopeace_romeoandjuliet_act1_scene1_64kb.flac": {
+    "sha256": "8e9c97cd491bc3612dd92144d861794f28977840b8048540b275a61cdbf76f02",
+    "bytes": 1941382,
+    "samples": 1566924
+   },
+   "small/2289/myths_legends_0805_librivox_64kb_mp3/mythsandlegends_04_marshall_64kb.flac": {
+    "sha256": "33bd5aa428b8b48066eeb2b6004e3a82a390ac6411bbecb2bb3ff3d412660040",
+    "bytes": 7913608,
+    "samples": 7048040
+   },
+   "small/2294/gulliver_of_mars_0905_librivox_64kb_mp3/gulliverofmars_01_arnold_64kb.flac": {
+    "sha256": "0c7dffaf74ae2d591e9e0de007e4e4914fcf254129b21202ab588989be49e508",
+    "bytes": 12640708,
+    "samples": 11727934
+   },
+   "small/2351/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_16_eliot_64kb.flac": {
+    "sha256": "2af06bd1b5b132c46b406d5a35d478ce04c34e986f7f232b6aead7b546f809eb",
+    "bytes": 16755131,
+    "samples": 14089399
+   },
+   "small/2374/blackfeet_indian_stories_0805_librivox_64kb_mp3/blackfeetindianstories_03_grinnell_64kb.flac": {
+    "sha256": "423c1c31bd20ea6ef344fbfa54682ee06da29705e600404bb01e4e3a52404625",
+    "bytes": 23561342,
+    "samples": 24941709
+   },
+   "small/240/shortpoetry_028_librivox_64kb_mp3/what_think_you_whitman_stl_64kb.flac": {
+    "sha256": "04f69227f214b512b2df75e983ed550807fb3aacc58e1ada3057456a60219f53",
+    "bytes": 626398,
+    "samples": 800804
+   },
+   "small/246/shortpoetry_003_librivox_64kb_mp3/the_little_peach_field_bd_64kb.flac": {
+    "sha256": "65fa03b95f2a2f67daf33db64a244f5253d040004a66bcbfca7cc7878283d23f",
+    "bytes": 1665284,
+    "samples": 1343452
+   },
+   "small/2474/blackfeet_indian_stories_0805_librivox_64kb_mp3/blackfeetindianstories_12_grinnell_64kb.flac": {
+    "sha256": "a0988ec37ecfb4de0743cf2b1b909b622c1d19e83ac6601da62e020ae50be5c9",
+    "bytes": 6690640,
+    "samples": 6823596
+   },
+   "small/2498/les_mis_vol01_0810_librivox_64kb_mp3/lesmiserables_vol1_26_hugo_64kb.flac": {
+    "sha256": "4d66f2cadb4976b00b4703a9250e9705a8290509d206a24a8f0841421676232c",
+    "bytes": 10901233,
+    "samples": 8690202
+   },
+   "small/250/life_ofthe_spirit_mr_librivox_64kb_mp3/life_spirit_today_00_underhill_64kb.flac": {
+    "sha256": "9cd57cb2bc795cd485f52697c4f79f54a49225cac20d25476c70219c9eefc1cf",
+    "bytes": 7373428,
+    "samples": 7392439
+   },
+   "small/2544/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_10_eliot_64kb.flac": {
+    "sha256": "ac91ac94b8f476fe1ea6b142f78c4266f27f2da5659aeb2c89ee5de024ba0fc0",
+    "bytes": 15438853,
+    "samples": 14322202
+   },
+   "small/2573/turmoil_0908_librivox_64kb_mp3/turmoil_20_tarkington_64kb.flac": {
+    "sha256": "8a6b01f92c3a4c53f144b50726c34b027a7f83030ba61ef55771f2c13bef12bb",
+    "bytes": 13306584,
+    "samples": 11920469
+   },
+   "small/2587/short_poetry_068_librivox_64kb_mp3/augustmidnight_hardy_ac_64kb.flac": {
+    "sha256": "77c2811f22e64215184b5107f1ddbe6660c3d57750859e3a195c5b86576e3765",
+    "bytes": 1120160,
+    "samples": 1046564
+   },
+   "small/26/sea_hawk_0710_librivox_64kb_mp3/sea_hawk_09_sabatini_64kb.flac": {
+    "sha256": "7c95c79ea3a8088fb572bbc16b591d31850fc94cbab0b934c64d7399c061ca3c",
+    "bytes": 28632737,
+    "samples": 24672125
+   },
+   "small/2623/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_sac_64kb.flac": {
+    "sha256": "149fc530b3c7e12d97432fdc8ea4a31e49d663ba43f68fdd17a05c045d870643",
+    "bytes": 1367027,
+    "samples": 1337464
+   },
+   "small/263/nippon_libriviox_64kb_mp3/nippon_noyes_mks_64kb.flac": {
+    "sha256": "f2d399c5d3299f9954233f5ff98db80e13b9f95cf2fadf74a42b11bc96308aff",
+    "bytes": 783454,
+    "samples": 940821
+   },
+   "small/2647/bible_web_old_testament_0901_librivox2_64kb_mp3/oldtestament_004_worldenglishbible_64kb.flac": {
+    "sha256": "21c5c3ad56185aabd519005c699a362f1bb82b36e2e28fc5096318dab6821892",
+    "bytes": 36421969,
+    "samples": 31087799
+   },
+   "small/2673/shortlifelincoln_0809_librivox_64kb_mp3/shortlifeoflincoln_22_nicolay_64kb.flac": {
+    "sha256": "c8c99ca9359cc4442b929d6ac28e7f7b1bca4300bdc20e752624fbed9cda1908",
+    "bytes": 27519446,
+    "samples": 28820788
+   },
+   "small/2685/short_story_029_0805_librivox_64kb_mp3/shortstory029_talejeremyfisher_jd_64kb.flac": {
+    "sha256": "aafb448b409757283f06ed5c155f1502f5b48172a28d1197876aa317d57539b5",
+    "bytes": 4781535,
+    "samples": 4763476
+   },
+   "small/2689/short_poetry_067_librivox_64kb_mp3/waste_land_eliot_gb_64kb.flac": {
+    "sha256": "f08429c2247d369685fed1608a3eacb1cb1591fbe326c540db82b9994f27b207",
+    "bytes": 23748927,
+    "samples": 23952400
+   },
+   "small/2724/short_poetry_068_librivox_64kb_mp3/greatspirits_keats_mtd_64kb.flac": {
+    "sha256": "1974d20810315c134c9976ec8de7cb689fbdd26ee736c28f4c7cdede8d93e132",
+    "bytes": 1167420,
+    "samples": 1023995
+   },
+   "small/2733/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_cd_64kb.flac": {
+    "sha256": "a9c3c9024d2a26fe7a7484fe8cbca8796f22ae68fe7dd41218d9da6dce955975",
+    "bytes": 1157357,
+    "samples": 1214770
+   },
+   "small/2748/short_poetry_067_librivox_64kb_mp3/meadowsinspring_fitzgerald_rpc_64kb.flac": {
+    "sha256": "2f59134f1da3fdfddc1a20664258d838c81a889465b153e9a72d1cfb41e78702",
+    "bytes": 2162251,
+    "samples": 2009960
+   },
+   "small/2757/short_poetry_collection_073_librivox_64kb_mp3/threequatrains_robinson_sbs_64kb.flac": {
+    "sha256": "87f3f84ab04dc06ccabdb5f0d0ee02000fc880e01c6154e32496ef5bca8d2d7d",
+    "bytes": 1597473,
+    "samples": 1553131
+   },
+   "small/2769/the_beetle_0904_librivox_64kb_mp3/thebeetle_41_marsh_64kb.flac": {
+    "sha256": "26e39430aaa39c9fd360b9792cdb6996b48d6a40e2f53be7ab3bebbba7afe474",
+    "bytes": 13498558,
+    "samples": 14359424
+   },
+   "small/2775/short_poetry_065_librivox_64kb_mp3/cargoes_masefield_sw_64kb.flac": {
+    "sha256": "33d492593956e7fe20d681570809a3f5b6f0024c147dc0cf704f8583e0b98bbd",
+    "bytes": 1061024,
+    "samples": 980945
+   },
+   "small/279/shortpoetry_003_librivox_64kb_mp3/to_thomas_butts_blake_ya_64kb.flac": {
+    "sha256": "302b7cc103dedfd34ae76a0019445c90426f2ee36e0cac803117e30557186226",
+    "bytes": 3628946,
+    "samples": 3084252
+   },
+   "small/28/amateur_cracksman_librivox_64kb_mp3/amateur_cracksman_04_hornung_64kb.flac": {
+    "sha256": "d307974d394db54dfcf66c5564d4b6ae431d8c642be27896b4b0ea7f3fb93e96",
+    "bytes": 30592520,
+    "samples": 35266137
+   },
+   "small/2800/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_25_eliot_64kb.flac": {
+    "sha256": "d02b70e3999a7e55dc579997df0a719f2c082a0650455e847f187ae714599c6d",
+    "bytes": 29698574,
+    "samples": 24733565
+   },
+   "small/2812/paradise_regained_0810_librivox_64kb_mp3/paradiseregained_02_milton_64kb.flac": {
+    "sha256": "011fabe6835192907118e199c30278fbb44b4b44adcb00e1a4f1050e2e0d71c6",
+    "bytes": 23913971,
+    "samples": 21505667
+   },
+   "small/2815/paradise_regained_0810_librivox_64kb_mp3/paradiseregained_03_milton_64kb.flac": {
+    "sha256": "44e35cdcff628793bd63763858f65784085571dcdc1f57658ae2836a11214b2a",
+    "bytes": 25601332,
+    "samples": 23418248
+   },
+   "small/2825/short_poetry_067_librivox_64kb_mp3/doverbeach_arnold_eep_64kb.flac": {
+    "sha256": "fa78e6c2e05da2a476b7990e0b6777398649b9858d0a214c086f9939dc6a9f66",
+    "bytes": 2746057,
+    "samples": 2287485
+   },
+   "small/2827/soldierlife_n-virginia_0808_librivox_64kb_mp3/soldier_life_02_mccarthy_64kb.flac": {
+    "sha256": "7ba29490ca3f6eb5e2d79a7210aae0808f5894a6d6aa2c92660aaf7a96ee4f57",
+    "bytes": 16288765,
+    "samples": 15790493
+   },
+   "small/2842/short_poetry_067_librivox_64kb_mp3/marchintovirginia_melville_aem_64kb.flac": {
+    "sha256": "59ec964a60320f266aebc54929ce929da874d551fafcf3e99de8876286800320",
+    "bytes": 2032373,
+    "samples": 2073072
+   },
+   "small/2845/shirley_1006_librivox_64kb_mp3/shirley_15_bronte_64kb.flac": {
+    "sha256": "54a5a4eb9d9b28aa5fb25b64572aa320c50ba5b80b9139588692e61cf3dfacce",
+    "bytes": 30579970,
+    "samples": 27420044
+   },
+   "small/2854/germania_tacitus_0906_librivox1_64kb_mp3/germania_01_tacitus_64kb.flac": {
+    "sha256": "33f230f693ed31f300ce672aca8f1d8a9d3c5adb5e636352096a004f11a00021",
+    "bytes": 27577427,
+    "samples": 26980375
+   },
+   "small/286/short_story_008_64kb_mp3/his_worship_the_goosedriver_bennett_wsc_64kb.flac": {
+    "sha256": "dc395f3672058fede4acb28510f4398cae91bf002c379568feed9f63d696e2fe",
+    "bytes": 40680465,
+    "samples": 40132853
+   },
+   "small/2910/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_33_eliot_64kb.flac": {
+    "sha256": "9ae3c04979889f5e68644001a267ae0d614b1f88f10c02d06dc13a2f717af9e8",
+    "bytes": 29062030,
+    "samples": 27719884
+   },
+   "small/2940/short_poetry_068_librivox_64kb_mp3/iknownotwhy_rosenfeld_sel_64kb.flac": {
+    "sha256": "33a773eadf366df121ff7322199b8dd33eecd701c0cc60cd78f050dc67385d92",
+    "bytes": 660520,
+    "samples": 838839
+   },
+   "small/2942/short_poetry_068_librivox_64kb_mp3/business_foss_mjl_64kb.flac": {
+    "sha256": "e6c1ad31c9d42eea8dc52658a2b8438c2273b39364a93fce313828a864146e57",
+    "bytes": 5363455,
+    "samples": 5349454
+   },
+   "small/2948/short_poetry_068_librivox_64kb_mp3/inversnaid_hopkins_jt_64kb.flac": {
+    "sha256": "50f467d5cbe7a28f5c720d108f399fc8dbdcb6386292cb3845806bcd6719d691",
+    "bytes": 1234495,
+    "samples": 1148964
+   },
+   "small/296/lords_0901_librivox_64kb_mp3/lords_1945_russell_64kb.flac": {
+    "sha256": "70951d387d5fea9b4443b5c1265d3cf6b04eb204f21484b5f7889addd7a50907",
+    "bytes": 11971312,
+    "samples": 12496556
+   },
+   "small/2990/mozart_in_his_own_words_0905_librivox_64kb_mp3/mozartownwords_13_kerst_64kb.flac": {
+    "sha256": "ffede7813dd4d45fe84edf7f8ddfcb204a4898c477e6275d5992de6d56aad4c0",
+    "bytes": 22168045,
+    "samples": 17775613
+   },
+   "small/3020/canadas_hundred_days_2_1002_librivox_64kb_mp3/canadashundreddays_2_03_livesay_64kb.flac": {
+    "sha256": "8083c51e395f012e5b0ca64fc90ca415e42e051b5d935f2f177c5a9caaa76905",
+    "bytes": 24476663,
+    "samples": 22221956
+   },
+   "small/3032/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_261_williams_64kb.flac": {
+    "sha256": "869bdcda003466c382026b5b651bda39578ee9634edbd6810980febaea86487e",
+    "bytes": 1226637,
+    "samples": 1151889
+   },
+   "small/3058/short_poetry_collection_071_0810_librivox_64kb_mp3/iam_clare_mwf_64kb.flac": {
+    "sha256": "747b0ce6d107c3d81dee4fbf53f221000c74993ad677e2a05f81caca6a636b39",
+    "bytes": 1326373,
+    "samples": 1338718
+   },
+   "small/309/shortpoetry_005_librivox_64kb_mp3/to_e_teasdale_db_64kb.flac": {
+    "sha256": "128f3ba1ee38c0c6254c18581d679fcec11a7131b29b8470f30998616e5c3b3a",
+    "bytes": 1027194,
+    "samples": 1015223
+   },
+   "small/3093/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_274_williams_64kb.flac": {
+    "sha256": "bfd7e989b3f3ea1028a6cc33515f14b83d66e69c0ac95a21e304103075f81a86",
+    "bytes": 971276,
+    "samples": 909056
+   },
+   "small/3098/short_poetry_collection_073_librivox_64kb_mp3/onasoldierfalleninthephillipines_moody_jcd_64kb.flac": {
+    "sha256": "406cbc2e08ff409aacd7985a627c4018daa92776728cc06ed6fb0c62818ebf0e",
+    "bytes": 1921093,
+    "samples": 1592419
+   },
+   "small/3134/short_poetry_collection_071_0810_librivox_64kb_mp3/bellbirds_kendall_ab.mp3_64kb.flac": {
+    "sha256": "9177e1f8f8755e9f4f9276b5c0e3ab1f6a8f0c5f49a43e73c730ee52bfb274be",
+    "bytes": 3807070,
+    "samples": 3319427
+   },
+   "small/3171/religious_experience_1008_librivox_64kb_mp3/religiousexperience_10_james-part2_64kb.flac": {
+    "sha256": "ed95b863f92a59485103e71ce23c4f854d74f0b15c6a94b76030909f59cff185",
+    "bytes": 49688968,
+    "samples": 49782533
+   },
+   "small/3196/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_28_eliot_64kb.flac": {
+    "sha256": "22ab3e4c772bf7733499105b35d6b0ba67239922721c7506b26e9f767603ad1c",
+    "bytes": 14405716,
+    "samples": 14879760
+   },
+   "small/32/dictionary_synonymes_0810_librivox_64kb_mp3/synonymes_001_soule_64kb.flac": {
+    "sha256": "579e9a4448907f6c49092cb66f112f20f91e91bfcc1c3e6d9ae7a5b64b3e8a23",
+    "bytes": 8669522,
+    "samples": 7913216
+   },
+   "small/3211/mill_on_the_floss_0812_librivox_64kb_mp3/millonthefloss_35_eliot_64kb.flac": {
+    "sha256": "202e70f8e7e289da588932fcab66e1b58c6181ee0c974754b01f7ffffb941085",
+    "bytes": 13845887,
+    "samples": 13392243
+   },
+   "small/3234/institutes_christian_religion2_1003_librivox_64kb_mp3/institutesofchristianreligion2_29_calvin_64kb.flac": {
+    "sha256": "956bb99bf5e300aa5d9c8d8a034f6c46e74523a09a6633d3563e67f009d0c8a9",
+    "bytes": 20209117,
+    "samples": 20768572
+   },
+   "small/3288/ode_bards_of_passion_0905_librivox_64kb_mp3/ode_keats_ejb_64kb.flac": {
+    "sha256": "4896260772829f685b6300226043216666960cac1935371a637bccb12b211458",
+    "bytes": 1985570,
+    "samples": 2433353
+   },
+   "small/3296/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_leb_64kb.flac": {
+    "sha256": "7bf538853cd3fdfb95b8c9e13ee1ccf464ee5cc277d6f1d63f0ae22abc7980a6",
+    "bytes": 1030707,
+    "samples": 1003933
+   },
+   "small/3314/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_327_williams_64kb.flac": {
+    "sha256": "4ddc871071bfce80ac414dd41aa8954c45b591f99486bf4afcd05921a014ad99",
+    "bytes": 2143183,
+    "samples": 1949774
+   },
+   "small/3327/short_poetry_collection_073_librivox_64kb_mp3/iloved_seeger_ln_64kb.flac": {
+    "sha256": "b2f7057c37db239aeca4a529ccd25d28ab7caee39af6a75daa73207ab9417dd9",
+    "bytes": 1062190,
+    "samples": 928282
+   },
+   "small/3339/short_poetry_collection_073_librivox_64kb_mp3/raven_poe_pw_64kb.flac": {
+    "sha256": "0f96cf3560da3973ee1cfd2ebbaac68d3685bbafc4fa30c3509238721ceb957a",
+    "bytes": 11383164,
+    "samples": 10283044
+   },
+   "small/3366/book_1001_nights2_0908_librivox_64kb_mp3/thousand_nights_vol02_22_burton_64kb.flac": {
+    "sha256": "91ac620294705b0d5df592a9f534067bf53033598223b47102e4defa1940b622",
+    "bytes": 19703017,
+    "samples": 17448467
+   },
+   "small/3368/platos_republic_0902_librivox1_64kb_mp3/republic_09_plato_64kb.flac": {
+    "sha256": "100c118fb7063b0fd7f17e7465056fc6c07017b0a7992a8a549d874590068c89",
+    "bytes": 10595292,
+    "samples": 10963900
+   },
+   "small/3371/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_296_williams_64kb.flac": {
+    "sha256": "8bc7a4f8543f4513371966a9035aedbd966fd5c6d22b74cccf6bda7a33bd4432",
+    "bytes": 1263074,
+    "samples": 1279786
+   },
+   "small/3374/nonfiction014_librivox_64kb_mp3/whenamancomestohimself_wilson_cc_64kb.flac": {
+    "sha256": "258955f6673ce416cc686dc22ce18a02ca9ae83241c361cab95ea0ad79bb9cbd",
+    "bytes": 30909268,
+    "samples": 30000082
+   },
+   "small/3381/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_368_williams_64kb.flac": {
+    "sha256": "64c1ae30cd3ec8c20853ece801f95bbf7e284b4c7ae5ca250efaee968f79ed27",
+    "bytes": 3446737,
+    "samples": 2837938
+   },
+   "small/3398/inthedesert_0812_librivox_64kb_mp3/inthedesert_crane_jmv_64kb.flac": {
+    "sha256": "5949de0f72d4f3efb3a743f204883ec31105b2da89340ee65ea4ec458d0ad782",
+    "bytes": 683543,
+    "samples": 632785
+   },
+   "small/3436/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_avl_64kb.flac": {
+    "sha256": "ee69013712f9c4d5bcd5e10559cae4dd7eb30b819693c36d77f9c2e24e10e448",
+    "bytes": 941936,
+    "samples": 1016471
+   },
+   "small/3445/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_277_williams_64kb.flac": {
+    "sha256": "7b6923d3921466484f8a4a5492c9bad686a6a37ad10193cd2f93448f3b9d72ec",
+    "bytes": 2828829,
+    "samples": 2616000
+   },
+   "small/3470/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_jcm_64kb.flac": {
+    "sha256": "fd4f760c83d830df067dd8bd5346f50a0b1aa3b0ba94f9af830ee8596d2d3d06",
+    "bytes": 984453,
+    "samples": 1140187
+   },
+   "small/3483/the_beetle_0904_librivox_64kb_mp3/thebeetle_16_marsh_64kb.flac": {
+    "sha256": "981b3b37e6320385e49f553915e22939c05c29acded0cb808c4ffa7f5ed9c037",
+    "bytes": 17745024,
+    "samples": 18065450
+   },
+   "small/3488/jungle_tw_0908_librivox_64kb_mp3/thejungle_05_sinclair_64kb.flac": {
+    "sha256": "567a5a5b473884f4f26fd3c6ec05d0feb4a178c747408ba564c3a9269a19c589",
+    "bytes": 22750165,
+    "samples": 26501858
+   },
+   "small/3490/security_0912_librivox_64kb_mp3/security_02_anderson_64kb.flac": {
+    "sha256": "747b6e238203c619597f087253f4ded841b3259f75d527731597bf50ab481837",
+    "bytes": 32754984,
+    "samples": 33171163
+   },
+   "small/3496/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_291_williams_64kb.flac": {
+    "sha256": "7a58cf852b7c8a81b401466ba2c0eb48e267e865f18ad1fb70e1be01012babf8",
+    "bytes": 2301877,
+    "samples": 2660305
+   },
+   "small/3511/lincoln_story_book2_0902_librivox_64kb_mp3/lincolnstorybook_319_williams_64kb.flac": {
+    "sha256": "4f184d4da6292dcf435e706c6910fda55b3253c1094447d87fb0dde312ce9c99",
+    "bytes": 1703478,
+    "samples": 1992824
+   },
+   "small/3537/evening_star_0901_librivox_64kb_mp3/eveningstar_poe_tad_64kb.flac": {
+    "sha256": "99acc761410e0610890e654a49e1a48baf05313ab5ef611349aae61ed1e248d5",
+    "bytes": 1221073,
+    "samples": 1167773
+   },
+   "small/3546/shirley_1006_librivox_64kb_mp3/shirley_11_bronte_64kb.flac": {
+    "sha256": "f87bfa3c30f407a006f82c92316e4d4f027421f31ea395e11f4622a96fa2dcb7",
+    "bytes": 24333725,
+    "samples": 20976414
+   },
+   "small/3549/shirley_1006_librivox_64kb_mp3/shirley_35_bronte_64kb.flac": {
+    "sha256": "0aa7a81540d2fb25e4ac157fb6067c1572c684703618dd3946e67f9568903b95",
+    "bytes": 25604778,
+    "samples": 22498157
+   },
+   "small/3588/expedition_humphry_clinker_0908_librivox_64kb_mp3/expeditionofhumphryclinker_23_smollett_64kb.flac": {
+    "sha256": "03c767d75b8b54a9a2342b85a3518c9ff3505568289c81218ba990d4a33c248e",
+    "bytes": 3737433,
+    "samples": 4201576
+   },
+   "small/3595/tristramshandy4_1008_librivox_64kb_mp3/tristramshandy4_05_sterne_64kb.flac": {
+    "sha256": "47e1fc537541f93e6361a55c565eb52ffbe450df8a03c47e7b7723347585af9f",
+    "bytes": 23927274,
+    "samples": 21734522
+   },
+   "small/36/canterburytales_librivox_64kb_mp3/canterburytales_08_chaucer_64kb.flac": {
+    "sha256": "c6a6c2c034d125a75be6b764d455be5858dab7ce0298fcc63f246535bb85a251",
+    "bytes": 93105055,
+    "samples": 76659142
+   },
+   "small/3638/short_poetry_079_0906_librivox_64kb_mp3/psalm27_kjv_ag_64kb.flac": {
+    "sha256": "9fa5cb6b37b5c83309c4b62f5706f7aad2a37e67bbc892b2e6fb582e3dc415a9",
+    "bytes": 2334611,
+    "samples": 2186664
+   },
+   "small/3647/camille_0908_librivox_64kb_mp3/camille_18_dumas_64kb.flac": {
+    "sha256": "b8c5e12d3f55f5197cd9d7507fd1f4c6b6b86d2e4cebfbd912218a279f6743bb",
+    "bytes": 14519188,
+    "samples": 14746779
+   },
+   "small/3657/offshorepirate_bt_librivox_64kb_mp3/offshorepirate_05_fitzgerald_64kb.flac": {
+    "sha256": "db13c49dcd67589521a02cafcc00ad1480e87637ac424a129d267194b62e5d60",
+    "bytes": 9389858,
+    "samples": 8386578
+   },
+   "small/3681/shirley_1006_librivox_64kb_mp3/shirley_46_bronte_64kb.flac": {
+    "sha256": "dabffcffd5b0b6245d8583f8c62d065e49018f2fd634ac05f0c9a05357b1b682",
+    "bytes": 31210791,
+    "samples": 26599939
+   },
+   "small/3699/tristramshandy4_1008_librivox_64kb_mp3/tristramshandy4_13_sterne_64kb.flac": {
+    "sha256": "e81cc182fe1a9466af4bc92684127599d9480a9a430a384b7e7723cb3a7f084e",
+    "bytes": 13131610,
+    "samples": 11436008
+   },
+   "small/3744/turmoil_0908_librivox_64kb_mp3/turmoil_15_tarkington_64kb.flac": {
+    "sha256": "2c49b0189b8ded9115a6aae66282a1c5266d91bf7fc4b0cd32af8792241d2ed6",
+    "bytes": 16106011,
+    "samples": 10850494
+   },
+   "small/3771/short_poetry_079_0906_librivox_64kb_mp3/soup_sandburg_hc_64kb.flac": {
+    "sha256": "8a0ca1e7eff0fd633485de817fad920125ad447a4c88a6fbb37002a2661a2293",
+    "bytes": 531142,
+    "samples": 715448
+   },
+   "small/3821/institutes_christian_religion2_1003_librivox_64kb_mp3/institutesofchristianreligion2_24_calvin_64kb.flac": {
+    "sha256": "71231572b0038efce9a892125e45a32644f0546e426e2e70877a5419c49074ba",
+    "bytes": 22459133,
+    "samples": 19327078
+   },
+   "small/3840/turmoil_0908_librivox_64kb_mp3/turmoil_08_tarkington_64kb.flac": {
+    "sha256": "f80be4e12fa3c5fe05336501b21aea562f8fc060d20b30201cf5a4aea220e606",
+    "bytes": 13734005,
+    "samples": 15748604
+   },
+   "small/3845/short_poetry_079_0906_librivox_64kb_mp3/billsintrouble_adams_rls_64kb.flac": {
+    "sha256": "6daaaefa08322150123557eecab575af18c701aa10d08d388dd26316a4b24345",
+    "bytes": 2061681,
+    "samples": 1922143
+   },
+   "small/3860/buddhist_writings_0911_librivox_64kb_mp3/buddhistwritings_17_warren_64kb.flac": {
+    "sha256": "27f98e6f7154adea7722a72afb8d041badd0c29fe984ee9897c670f2db8939a6",
+    "bytes": 6235282,
+    "samples": 5729263
+   },
+   "small/3866/ode_bards_of_passion_0905_librivox_64kb_mp3/ode_keats_gnb_64kb.flac": {
+    "sha256": "0e150c65c001823fccb576f458e67afed7f2fa25f7fe62eebaece298d40632d1",
+    "bytes": 2879729,
+    "samples": 2237191
+   },
+   "small/3887/short_poetry_079_0906_librivox_64kb_mp3/mylifeclosedtwicebeforeitsclose_dickinson_sn_64kb.flac": {
+    "sha256": "7507a5619b45ae762da1457516116efcffd9afbb258bdead3ed32514c1417aff",
+    "bytes": 863535,
+    "samples": 896749
+   },
+   "small/3894/ode_bards_of_passion_0905_librivox_64kb_mp3/ode_keats_ig_64kb.flac": {
+    "sha256": "1cba8a3f4176f901c74c5108db204c17d17d9a8d940daf8ac854ed1581e81ca9",
+    "bytes": 2048654,
+    "samples": 1892421
+   },
+   "small/3928/ode_bards_of_passion_0905_librivox_64kb_mp3/ode_keats_mch_64kb.flac": {
+    "sha256": "975064b7730b52296248aa28dbc6c9d3c58e42dc3c24c447347205fee1918497",
+    "bytes": 2157288,
+    "samples": 2263940
+   },
+   "small/3929/short_poetry_079_0906_librivox_64kb_mp3/development_browning_ehb_64kb.flac": {
+    "sha256": "ade8a6f73a6998391f3864d623d5982486771d966b399f806e6ade234fb4d43a",
+    "bytes": 6814684,
+    "samples": 6656784
+   },
+   "small/3949/pantheisticon_0911_librivox_64kb_mp3/pantheisticon_07_toland_64kb.flac": {
+    "sha256": "d13a942bc5fe21c3acd9586719eecd537c89c379af8142c7af7bed0b08d050d5",
+    "bytes": 6826592,
+    "samples": 6222850
+   },
+   "small/3967/shirley_1006_librivox_64kb_mp3/shirley_51_bronte_64kb.flac": {
+    "sha256": "3075fba50662a28d4551a621262216208ebd15468c3a52bc8be45639bb711dfa",
+    "bytes": 42807846,
+    "samples": 38155674
+   },
+   "small/398/badge_courage_librivox_64kb_mp3/redbadgeofcourage_01_crane_64kb.flac": {
+    "sha256": "f7e9f99b4d173c0ce63d7230130b655015ae2814eeda2336e262b413b70d9db3",
+    "bytes": 21327627,
+    "samples": 21987156
+   },
+   "small/3982/turmoil_0908_librivox_64kb_mp3/turmoil_29_tarkington_64kb.flac": {
+    "sha256": "bd563eae67a753a5a5dcf04a5b24d9515d15bd14a274c58df2a2cf2fad65deb3",
+    "bytes": 14596630,
+    "samples": 15977251
+   },
+   "small/3996/westminster_larger_1005_librivox_64kb_mp3/westminsterlargercatechism_1_64kb.flac": {
+    "sha256": "5198f1bbeb8d9d5de68050790ab4f999824dfd17110e6d8dec582264f5d9a0e7",
+    "bytes": 1689064,
+    "samples": 1713883
+   },
+   "small/4015/canadas_hundred_days_2_1002_librivox_64kb_mp3/canadashundreddays_2_04_livesay_64kb.flac": {
+    "sha256": "660b1a2c1c595d91e98c7b7b68b8adca8b353a522a75a03df148f07c47b5501f",
+    "bytes": 17445349,
+    "samples": 23083880
+   },
+   "small/4034/institutes_christian_religion2_1003_librivox_64kb_mp3/institutesofchristianreligion2_10_calvin_64kb.flac": {
+    "sha256": "84d0981339afd79dad6c7780775a52f8aa200e4ebad6c1528b7f9a57f1cec2ce",
+    "bytes": 38195526,
+    "samples": 34389955
+   },
+   "small/4039/nonfiction014_librivox_64kb_mp3/meditation17_donne_scs_64kb.flac": {
+    "sha256": "f063367aa23d853c9892bf11b7588416489b37879fa79b6551b603506f8e6924",
+    "bytes": 6183675,
+    "samples": 5236094
+   },
+   "small/404/shortpoetry_005_librivox_64kb_mp3/jumblies_lear_mjv_64kb.flac": {
+    "sha256": "dbba136b4fa9d464a0e9ef4f74eea5025676c398e7ecdc88831f26bfa8395a83",
+    "bytes": 3663141,
+    "samples": 3176908
+   },
+   "small/4115/institutes_christian_religion2_1003_librivox_64kb_mp3/institutesofchristianreligion2_23_calvin_64kb.flac": {
+    "sha256": "45c4c0b6a5a7e3718a56d38e755c81cffcd44e89735e7a01c7ec28f7c43bd6e2",
+    "bytes": 34248529,
+    "samples": 29783116
+   },
+   "small/413/canadas_hundred_days_2_1002_librivox_64kb_mp3/canadashundreddays_2_06_livesay_64kb.flac": {
+    "sha256": "4ee546ff4582c545a73d14e595bb1f8af374e019bdd11475297fa034b25c82c9",
+    "bytes": 13737830,
+    "samples": 13792926
+   },
+   "small/4174/unbeaten_tracks_japan_ava_librivox_64kb_mp3/unbeatentracksjapan_51_bird_64kb.flac": {
+    "sha256": "a4d4f6f937abd580d79b9b9934b7fcc441ec75f8e2b3ebdbc4944905f27b39ab",
+    "bytes": 6720029,
+    "samples": 6534392
+   },
+   "small/4191/world_0908_librivox_64kb_mp3/world_vaughan_gh_64kb.flac": {
+    "sha256": "e057bd7ba9767707629123682d25fda58e727bf9cdcc4b097446cdc9a69799c4",
+    "bytes": 3047495,
+    "samples": 3018867
+   },
+   "small/4196/steep_trails_10-02_librivox_64kb_mp3/steeptrails_16_muir_64kb.flac": {
+    "sha256": "1d92c23c6dc65e2c61eb8da52a95bd81b5301514f462f879006ac8fffce2e421",
+    "bytes": 15857491,
+    "samples": 14868845
+   },
+   "small/4211/shirley_1006_librivox_64kb_mp3/shirley_27_bronte_64kb.flac": {
+    "sha256": "9d9061d308e2316163158d95de2e34fd2d470a586b21313e514e602fca7b873f",
+    "bytes": 38378182,
+    "samples": 35563956
+   },
+   "small/4218/voyage_south_pole_dc_librivox_64kb_mp3/voyage01_05_cook_64kb.flac": {
+    "sha256": "2844d7aae923d5aaac5bd39d5d0bb78c890e7c8a7d45d5596df6816c850279db",
+    "bytes": 31365093,
+    "samples": 34282957
+   },
+   "small/4226/american_housewife_0911_librivox_64kb_mp3/theamericanhousewife_01_anonymous_64kb.flac": {
+    "sha256": "3658151ee35ccbdb7148b070d0598fd98190dbf19071732f7185b995f62d25db",
+    "bytes": 17308618,
+    "samples": 16458740
+   },
+   "small/4229/shirley_1006_librivox_64kb_mp3/shirley_18_bronte_64kb.flac": {
+    "sha256": "092ce690b20ba23babd2fd4a9dd70ba2982d78d79f858de045894b9fbae300ed",
+    "bytes": 24265179,
+    "samples": 20958790
+   },
+   "small/4358/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_kts_64kb.flac": {
+    "sha256": "5101d3d219764c0b2e5f4444ad34cdd23fa472f10d22ebd86c9ad317c57ee1a9",
+    "bytes": 1221534,
+    "samples": 1199909
+   },
+   "small/4377/steep_trails_10-02_librivox_64kb_mp3/steeptrails_10_muir_64kb.flac": {
+    "sha256": "7477c16c3e04106e909af420cf91e76e867dd4a8471a43ccde91fd7635c786f4",
+    "bytes": 13900562,
+    "samples": 11783750
+   },
+   "small/4380/herodotus_histories_3_0912_librivox_64kb_mp3/histories3_02_herodotus_64kb.flac": {
+    "sha256": "d64f626449dde9e99adb73e6ccca34aba4eb9afbe1d8718de7144753ebe127b7",
+    "bytes": 21547535,
+    "samples": 19080180
+   },
+   "small/439/shortpoetry_005_librivox_64kb_mp3/creation_johnson_rg_64kb.flac": {
+    "sha256": "babb1d4029e6f170320a0d9208d016d034115a671bda71df71102344e041ec50",
+    "bytes": 4288618,
+    "samples": 4335909
+   },
+   "small/4397/steep_trails_10-02_librivox_64kb_mp3/steeptrails_09_muir_64kb.flac": {
+    "sha256": "2db8be896314d27ffbc9129aa6da1f6279b2448defae064583adef8c07a28380",
+    "bytes": 14020091,
+    "samples": 13201468
+   },
+   "small/441/sea_hawk_0710_librivox_64kb_mp3/sea_hawk_16_sabatini_64kb.flac": {
+    "sha256": "9e429b3b092301b21f92769b7978de3be0b9b47aaef8f254b9efa95289f81642",
+    "bytes": 25379493,
+    "samples": 23985000
+   },
+   "small/4443/commentary_galatians_1010_librivox_64kb_mp3/comment_galatians_13_luther_64kb.flac": {
+    "sha256": "ffaaaffa464160847013fe424382b3628bdfde140c1c137922724fa50afdbf30",
+    "bytes": 18657480,
+    "samples": 19766956
+   },
+   "small/447/shortpoetry_003_librivox_64kb_mp3/the_road_not_taken_frost_sw_64kb.flac": {
+    "sha256": "1428dd8067325b5990950efdcc18341571254570f249836172fa6e6137e5234f",
+    "bytes": 1028953,
+    "samples": 943752
+   },
+   "small/4519/female_quixote_vol2_1005_librivox_64kb_mp3/femalequixote2_34_lennox_64kb.flac": {
+    "sha256": "5f4ac5abebce5a3b8d01e56f61aa9cdce0b386b7d61d6d0c8d9601db538c9d13",
+    "bytes": 15824019,
+    "samples": 13329061
+   },
+   "small/453/shortpoetry_016_librivox_64kb_mp3/face_barroomfloor_darcy_gmh_64kb.flac": {
+    "sha256": "b50595659d01f0c4492d91b937bfb681d2f0139ea92918a0aa162c8efe9402d8",
+    "bytes": 4479953,
+    "samples": 4514790
+   },
+   "small/455/shortpoetry_005_librivox_64kb_mp3/sigh_hardy_gp_64kb.flac": {
+    "sha256": "7c8fde95638cd6f98ba12378eebe7b1e982701bc2395cd4a136f86d0d85e9364",
+    "bytes": 1742026,
+    "samples": 1472183
+   },
+   "small/4606/institutes_christian_religion2_1003_librivox_64kb_mp3/institutesofchristianreligion2_05_calvin_64kb.flac": {
+    "sha256": "5d5f356ddd0aba1a5e7dd0058b5351d3cb6a20994faa53ef682c6d72e4662abb",
+    "bytes": 32372107,
+    "samples": 29218198
+   },
+   "small/466/bible_2samuel_kjv_jc_librivox_64kb_mp3/2samuel_04_kjv_64kb.flac": {
+    "sha256": "b7f48e72860e02df292f49767292926fe3a6069c5aa54a2df7906d61937e210c",
+    "bytes": 2515653,
+    "samples": 2858000
+   },
+   "small/4738/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_llw_64kb.flac": {
+    "sha256": "4beda90832f07e006b8275e4746fe8b7df764df6cd40434a8024c989ecc06f0c",
+    "bytes": 1318101,
+    "samples": 1351489
+   },
+   "small/4744/toysofpeace_1204_librivox_64kb_mp3/toysofpeace_26_saki_64kb.flac": {
+    "sha256": "52975d0106aa2b931b1ed00bc5f2c798992f57a005b0295d83533ad598b5f420",
+    "bytes": 9954854,
+    "samples": 9649842
+   },
+   "small/4788/extermination_american_bison_1503_librivox_64kb_mp3/exterminationamericanbison_23_hornaday_64kb.flac": {
+    "sha256": "236a81e9478517070b2a271983adecb70d1ae7c77955025fa6b42a09dc7c35f9",
+    "bytes": 36240447,
+    "samples": 34734516
+   },
+   "small/479/world_0908_librivox_64kb_mp3/world_vaughan_kr_64kb.flac": {
+    "sha256": "a22071047b4eb75ae5258a113ab9454d0e483312174ba6f2f8e4267ac93535b3",
+    "bytes": 2964127,
+    "samples": 2448214
+   },
+   "small/4792/shirley_1006_librivox_64kb_mp3/shirley_10_bronte_64kb.flac": {
+    "sha256": "94a0abcaa956726226c7824615bd7d531adc6f010ef4a07972e49753870c9c19",
+    "bytes": 17253588,
+    "samples": 16455768
+   },
+   "small/4855/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_aw_64kb.flac": {
+    "sha256": "d68814a442b7dbe8db8ff91248aa752ad67ad5d6845380764b5cf8691bd45541",
+    "bytes": 1150794,
+    "samples": 1232394
+   },
+   "small/4864/canadas_hundred_days_2_1002_librivox_64kb_mp3/canadashundreddays_2_07_livesay_64kb.flac": {
+    "sha256": "f92968d416d749e53f122d6a8e757d573c45bad453697872ac7716794ccf1e8b",
+    "bytes": 21245899,
+    "samples": 20055255
+   },
+   "small/4867/shirley_1006_librivox_64kb_mp3/shirley_41_bronte_64kb.flac": {
+    "sha256": "3371709ff05233cfcef161d2f5563744e0f3e0079313be38f93dc7c8636a18ad",
+    "bytes": 27732293,
+    "samples": 22845899
+   },
+   "small/5082/told_in_a_french_garden_1010_librivox_64kb_mp3/toldinafrenchgarden_04_aldrich_64kb.flac": {
+    "sha256": "ef4c51f41121c0de3024a6abbb9f5d8ccf1610dfdff94ef803553273e9e9a06a",
+    "bytes": 11287328,
+    "samples": 15103646
+   },
+   "small/510/badge_courage_librivox_64kb_mp3/redbadgeofcourage_09_crane_64kb.flac": {
+    "sha256": "ab750c49bbff6df057226dec1299fc0c20307836b99f8600671d0cd2c62086eb",
+    "bytes": 13696415,
+    "samples": 12194372
+   },
+   "small/5118/told_in_a_french_garden_1010_librivox_64kb_mp3/toldinafrenchgarden_10_aldrich_64kb.flac": {
+    "sha256": "f7fe450d2b41879d5efafe3b1e67432501f7c5304ef72e36cddb77818e0b4272",
+    "bytes": 20888433,
+    "samples": 19020737
+   },
+   "small/5192/tristramshandy4_1008_librivox_64kb_mp3/tristramshandy4_08_sterne_64kb.flac": {
+    "sha256": "e9ae759f16d5bd13eba55baa6fd52794bfa0b5335898264182987b874dbf528f",
+    "bytes": 11267124,
+    "samples": 9783490
+   },
+   "small/5245/commentary_galatians_1010_librivox_64kb_mp3/comment_galatians_05_luther_64kb.flac": {
+    "sha256": "24835cc90d85665a6cccb49670fa566ddce2a2fce064b92f1277f90b8ba4f710",
+    "bytes": 18933463,
+    "samples": 27717260
+   },
+   "small/5261/pioneersofscience_1008_librivox_64kb_mp3/pioneersofscience_15_lodge_64kb.flac": {
+    "sha256": "21e18fff44d886d620dc491afb9b013dc0f4cc78ec12046ee39b7f7a6689488f",
+    "bytes": 24734302,
+    "samples": 22519171
+   },
+   "small/5299/told_in_a_french_garden_1010_librivox_64kb_mp3/toldinafrenchgarden_08_aldrich_64kb.flac": {
+    "sha256": "109c7e1899773297b43b17b30cf5cbe526d3d6c092681acce6368aca742d6021",
+    "bytes": 18877525,
+    "samples": 17576270
+   },
+   "small/54/short_story_008_64kb_mp3/winds_tale_andersen_sdw_64kb.flac": {
+    "sha256": "62b50a221953b1fca9cdae2dd3491e0804c9794f448010ad29837d64ec923010",
+    "bytes": 31361713,
+    "samples": 27453226
+   },
+   "small/5417/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_wl_64kb.flac": {
+    "sha256": "08f8d73ab6dd3a30ac9501dce6c6477f4152a1be6d4c8341c72e6a1857d86580",
+    "bytes": 1122456,
+    "samples": 1241519
+   },
+   "small/5423/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_mac_64kb.flac": {
+    "sha256": "f434eb5f74f5d3ec777ee69e053c066e1c9c3dd373edcdde05d250f341f6886f",
+    "bytes": 963505,
+    "samples": 1116689
+   },
+   "small/5435/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_nk_64kb.flac": {
+    "sha256": "7b3f6cdd269524935046ab39e3e222c07ae4fbb985f00d04b91d7f8b2ec69c41",
+    "bytes": 991836,
+    "samples": 974025
+   },
+   "small/5436/fidele_1007_librivox_64kb_mp3/fidele_shakespeare_ks_64kb.flac": {
+    "sha256": "754a0c63023cb1b1bd04ccf03f5f76aa8fd31b16c7c4e8c6242061a938bdcd81",
+    "bytes": 1396595,
+    "samples": 1612830
+   },
+   "small/55/les_mis_vol01_0810_librivox_64kb_mp3/lesmiserables_vol1_21_hugo_64kb.flac": {
+    "sha256": "2649ba859e6cd514322061a61a4ee91e176fde7a776b7ce22eca2d0c6d38b0cf",
+    "bytes": 17128521,
+    "samples": 17648739
+   },
+   "small/613/short_poetry_068_librivox_64kb_mp3/gods_and_the_people_de_cleyre_dw_64kb.flac": {
+    "sha256": "de636200f32df4bdaeec289243fb43f6306251ecf7a38551790b9caff3e25c57",
+    "bytes": 8114193,
+    "samples": 8941396
+   },
+   "small/618/shortpoetry_005_librivox_64kb_mp3/absolution_sassoon_wts_64kb.flac": {
+    "sha256": "63cf11c5e0bd7150a9a9beff8bae593583028d0fa184c2d6ecaf07bdbbec065c",
+    "bytes": 977626,
+    "samples": 854264
+   },
+   "small/6246/toysofpeace_1204_librivox_64kb_mp3/toysofpeace_24_saki_64kb.flac": {
+    "sha256": "5b06f2a9a587d8803cbde974c61b94f714a49e024256556105e7dbf99766332f",
+    "bytes": 10782645,
+    "samples": 11885924
+   },
+   "small/64/shortpoetry_016_librivox_64kb_mp3/be_a_friend_guest_rc_64kb.flac": {
+    "sha256": "b9bb993035df1fe9dc7985a55d724825e9629f54b6a010fdfc652f4b51eab61f",
+    "bytes": 1650842,
+    "samples": 1376334
+   },
+   "small/66/canterburytales_librivox_64kb_mp3/canterburytales_06_chaucer_64kb.flac": {
+    "sha256": "105cb77d81f895e2603c1d75db54cdbd3e5037384345a71dc7a86d58d528b944",
+    "bytes": 23864231,
+    "samples": 22502080
+   },
+   "small/695/short_scifi_001_0711_64kb_mp3/oneshot_blish_r_64kb.flac": {
+    "sha256": "c81a6e209db792d29f069a95000d7203fc0c160affb1450acc93e01ea0154f4f",
+    "bytes": 31761969,
+    "samples": 31811704
+   },
+   "small/696/short_story_008_64kb_mp3/schoolmasters_progress_kirkland_trs_64kb.flac": {
+    "sha256": "785cafd29831fbb4a5f1005abcae8d018297c6b93c3b3e55a2e6873d52814a9c",
+    "bytes": 35273520,
+    "samples": 36014702
+   },
+   "small/6965/toysofpeace_1204_librivox_64kb_mp3/toysofpeace_30_saki_64kb.flac": {
+    "sha256": "222b218de14d3ba6adc28aacba255499933f18fdb1387d8cfff6600934050e0f",
+    "bytes": 6197539,
+    "samples": 6160301
+   },
+   "small/705/man_property_librivox_64kb_mp3/manofproperty_11_galsworthy_64kb.flac": {
+    "sha256": "75b5124adac1b939ff3086bcdccf94f8e4c9f5d2173060c9851308c7882dfd45",
+    "bytes": 18950236,
+    "samples": 20064960
+   },
+   "small/7342/extermination_american_bison_1503_librivox_64kb_mp3/exterminationamericanbison_09_hornaday_64kb.flac": {
+    "sha256": "1fd20af6341681b7b2de488153a1c67a82b3e4086c9ad9929a9a3869f72d42fb",
+    "bytes": 12784037,
+    "samples": 12609846
+   },
+   "small/75/history_of_holland__0707_librivox_64kb_mp3/historyofholland_20_gedmundson_64kb.flac": {
+    "sha256": "583f4f717cf3e1612b99b2fac7477bda2723e91ba6b6bd3bf61680131e2ea616",
+    "bytes": 39769059,
+    "samples": 35054649
+   },
+   "small/77/ode_bards_of_passion_0905_librivox_64kb_mp3/ode_keats_jb_64kb.flac": {
+    "sha256": "47ecc616655000bf5cb3140e9a555a01a2faa49299db9dd3b599b9c4a2b28ab9",
+    "bytes": 2093245,
+    "samples": 2037848
+   },
+   "small/78/spy_cooper_librivox_64kb_mp3/spy_08_cooper_64kb.flac": {
+    "sha256": "58154e793400b72c2dc19cf05268c595319ede0bef25aced6f607cc36d835a0d",
+    "bytes": 33916623,
+    "samples": 31580991
+   },
+   "small/809/richard_cory_librivox_64kb_mp3/richard_cory_robinson_esl_64kb.flac": {
+    "sha256": "8594ad70ec71b6568a0fa49e7006b6fceb196f3c8a05a5da2f86250d93cba61f",
+    "bytes": 1417078,
+    "samples": 1238826
+   },
+   "small/810/badge_courage_librivox_64kb_mp3/redbadgeofcourage_03_crane_64kb.flac": {
+    "sha256": "16e20844e96280403d62ed35bf03a74873856ba8c7cce3c5f9b74d78c94a3aa5",
+    "bytes": 21486937,
+    "samples": 19568008
+   },
+   "small/814/badge_courage_librivox_64kb_mp3/redbadgeofcourage_12_crane_64kb.flac": {
+    "sha256": "179f19b30a689b0ed18df2d9d186e039bf8d9b0afd3b5d4babaeb8f0a59a3f38",
+    "bytes": 13145661,
+    "samples": 11513307
+   },
+   "small/815/badge_courage_librivox_64kb_mp3/redbadgeofcourage_13_crane_64kb.flac": {
+    "sha256": "e67702d8ba3f40d76f46d7d0bd3cbadda76dc29d4ec217bb4babacac10fcdbec",
+    "bytes": 13855386,
+    "samples": 13243867
+   },
+   "small/816/badge_courage_librivox_64kb_mp3/redbadgeofcourage_17_crane_64kb.flac": {
+    "sha256": "48f3b4080cbe608c42fdeb00dcce3ce53b81ebce8d47db776e349b7899e6113d",
+    "bytes": 8955205,
+    "samples": 9009941
+   },
+   "small/842/short_story_008_64kb_mp3/on_love_shelley_eg_64kb.flac": {
+    "sha256": "9b30af6dbbbe2f933e35a7c48087abe076044ea8504c96834116004aa7a36a96",
+    "bytes": 5753345,
+    "samples": 5116233
+   },
+   "small/867/tiger_librivox_64kb_mp3/tiger_blake_bl_64kb.flac": {
+    "sha256": "5d7bd349419d4f907f37b46d225f5253106ff9adf2a63cdc612e9d9902467906",
+    "bytes": 1097199,
+    "samples": 1170704
+   },
+   "small/868/book_of_tea_librivox_64kb_mp3/bookoftea_5_kakuzo_64kb.flac": {
+    "sha256": "772c7cbb08b05449b07ee433ca3604736feff450e0d408d4b8781bfb118f7de4",
+    "bytes": 16390927,
+    "samples": 14653226
+   },
+   "small/873/euthyphro_librivox_64kb_mp3/euthyphro_plato_64kb.flac": {
+    "sha256": "5e7abbe926f7fda46fd122847f9801445d904c305078816c06ac8562df9bb693",
+    "bytes": 46979606,
+    "samples": 38714718
+   },
+   "small/92/history_of_holland__0707_librivox_64kb_mp3/historyofholland_12_gedmundson_64kb.flac": {
+    "sha256": "e1ec8824106437783412849b380e832989bd5fba8cffd54ee928caed8aa03443",
+    "bytes": 51158654,
+    "samples": 47595933
+   },
+   "small/925/greatestthing_1112_librivox_64kb_mp3/greatestthing_02_drummond_64kb.flac": {
+    "sha256": "3b7b6daa602ee79929bbf3c856172800ba968beac4efe7146e428641c5bbb29b",
+    "bytes": 6783413,
+    "samples": 5536288
+   },
+   "small/94/revelations_of_divine_love_drb_librivox_64kb_mp3/revelations_54_julian_64kb.flac": {
+    "sha256": "b47f6c6db3e50f59ef82515e38795af8b3d70399d65b1f9484cd032a78c7bde4",
+    "bytes": 4501117,
+    "samples": 3914182
+   },
+   "small/949/platos_republic_0902_librivox1_64kb_mp3/republic_02_plato_64kb.flac": {
+    "sha256": "8cfdca324ddf674dd9d66f2bc4ba56e0afbacaf1b1233e0881207f47f0b0b278",
+    "bytes": 22246107,
+    "samples": 21431270
+   },
+   "small/96/shortpoetry_016_librivox_64kb_mp3/it_may_not_always_cummings_cz_64kb.flac": {
+    "sha256": "a1868bc5352f72b819e8eae43977cc96f7773d4c0c8f323c84696289d05c8faf",
+    "bytes": 1606728,
+    "samples": 1258888
+   },
+   "small/960/history_of_holland__0707_librivox_64kb_mp3/historyofholland_18_gedmundson_64kb.flac": {
+    "sha256": "7c08b8a255b6c27fb7d793d6f090d816fa910bac64797df2af1ac8cfd8c974cf",
+    "bytes": 44881612,
+    "samples": 37037448
+   },
+   "small/9774/extermination_american_bison_1503_librivox_64kb_mp3/exterminationamericanbison_12_hornaday_64kb.flac": {
+    "sha256": "33cabec140b3e3a7e31cc9d86768329e6cac1cd20a9ce1553fa40dbf32959960",
+    "bytes": 27841449,
+    "samples": 32486313
+   },
+   "small/994/histofengch10_librivox_64kb_mp3/historyofengland02ch10_01_macaulay_64kb.flac": {
+    "sha256": "19df630474f484a4ff66b7d5cd632e9fabd8399779f5ebea6121a36ad25f912d",
+    "bytes": 16766594,
+    "samples": 15586947
+   }
+  },
+  "candidate_chunks": 12927,
+  "fetched_flac_members": 300
+ },
+ "references": "none (Libri-Light is unlabelled); the Q5b metric is gated-vs-twin added words",
+ "utterances": 3559,
+ "speakers": 271,
+ "speech_s": 40208.378,
+ "total_samples": 1267578353,
+ "total_s": 79223.6470625,
+ "speech_to_noise_junctions": 1779,
+ "gap_s_by_type": {
+  "brown_-20": 2209.275,
+  "brown_-30": 2073.203,
+  "brown_-40": 2202.346,
+  "pink_-20": 2045.564,
+  "pink_-30": 2198.447,
+  "pink_-40": 2042.967,
+  "silence": 19562.411,
+  "white_-20": 2179.366,
+  "white_-30": 2214.151,
+  "white_-40": 2287.538
+ },
+ "gaps_by_type": {
+  "brown_-20": 197,
+  "brown_-30": 197,
+  "brown_-40": 198,
+  "pink_-20": 197,
+  "pink_-30": 198,
+  "pink_-40": 198,
+  "silence": 1780,
+  "white_-20": 198,
+  "white_-30": 198,
+  "white_-40": 198
+ },
+ "parts": [
+  {
+   "file": "part-1.wav",
+   "start": 0,
+   "end": 316874895,
+   "seconds": 19804.6809375,
+   "pcm_sha256": "de9103b0b5c4cea60a737faca246f9622250d5da86491e1bf1d418cd1c06ed28",
+   "wav_sha256": "ad016c395ca010ff1abaef445c17a824d0473537ccfa15aed6a1b810ebf23f6b"
+  },
+  {
+   "file": "part-2.wav",
+   "start": 316874895,
+   "end": 633927685,
+   "seconds": 19815.799375,
+   "pcm_sha256": "882815472582218d03daa55f7b4357c30a34ab1709bcef126eb3366b8c3dcbd7",
+   "wav_sha256": "815ffa6d94ca2dfddb8273ab4c3afa825c85d8ca32a08f6e316f71e45faaeec6"
+  },
+  {
+   "file": "part-3.wav",
+   "start": 633927685,
+   "end": 950639319,
+   "seconds": 19794.477125,
+   "pcm_sha256": "e266c10cedeb006384886cde34e3df34a1d49471e0ffa38daf510a956f8cfd79",
+   "wav_sha256": "58067246496052aafb8c84650dce573ce1e6088693308c700c7f5658c739652c"
+  },
+  {
+   "file": "part-4.wav",
+   "start": 950639319,
+   "end": 1267578353,
+   "seconds": 19808.689625,
+   "pcm_sha256": "4ec2286ca027f82fd40f662572bcd5ac5150947f00a21f1482bf85cd07d92d93",
+   "wav_sha256": "b17e5e3af82a19393cc25712c142e2c006a739709a7ddee7fb5f5b9509d7b5ff"
+  }
+ ],
+ "files": {
+  "index.jsonl": "279dfc3de7c6f9db0eec1ec4a7b91fd17767d4b07901370aa619884ba97045f1",
+  "refs.jsonl": "0b80a27d265212464aa371c048bcdb4a2874b25c04307d0141c7090aa74c68ff",
+  "words.jsonl": "4534437405aef0a1a2a843af227c20644b6b33ec957156cf9bc23d0d5d91bf6b"
+ }
+}

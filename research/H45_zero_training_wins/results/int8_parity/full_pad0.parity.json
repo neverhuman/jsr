@@ -1,0 +1,31 @@
+{
+ "name": "full_pad0",
+ "utterances": 5567,
+ "rows_seen_twice": 429,
+ "rows_seen_twice_identical_text": 429,
+ "revised_pct": 30.73,
+ "provisional_wer": 8.2722,
+ "evallane_int8_wer": 8.2722,
+ "prov_minus_evallane_int8": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "committed_wer": 7.7187,
+ "pytorch_c16_wer": 7.7027,
+ "committed_minus_pytorch_c16": [
+  0.016,
+  -0.0126,
+  0.0448
+ ],
+ "committed_minus_provisional": [
+  -0.5535,
+  -0.6501,
+  -0.4609
+ ],
+ "commit_ms_p50_p95": [
+  578.0,
+  5435.3
+ ],
+ "commit_cpu_s_per_audio_s": 0.241
+}

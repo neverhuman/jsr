@@ -1,0 +1,57 @@
+diff -ruN a/python/ultra/tests/test_h53_encoder_blocks_a1l.py b/python/ultra/tests/test_h53_encoder_blocks_a1l.py
+--- a/python/ultra/tests/test_h53_encoder_blocks_a1l.py	1970-01-01 00:00:00.000000000 +0000
++++ b/python/ultra/tests/test_h53_encoder_blocks_a1l.py	2026-11-23 07:10:13.657747918 +0000
+@@ -0,0 +1,31 @@
++"""H53 on A1L's tree (d5f231e): encoder_blocks override. Default 0 leaves the model config unchanged."""
++from __future__ import annotations
++
++import dataclasses
++
++import pytest
++
++from train.asr import PRESETS
++from train.errors import ShapeError
++from train.trainer import TrainConfig, model_config_for
++
++
++def _cfg(**kw):
++    return TrainConfig(preset="S", rnnt_pieces=500, ctc_pieces=500, rnnt_loss="pruned", **kw)
++
++
++def test_default_unchanged():
++    base = PRESETS["S"]
++    want = dataclasses.replace(base, vocab_rnnt=501, vocab_ctc=501, rnnt_loss="pruned", prune_range=5)
++    assert model_config_for(_cfg()) == want
++
++
++def test_override_sets_depth_only():
++    got = model_config_for(_cfg(encoder_blocks=32))
++    assert got.encoder.n_blocks == 32
++    assert dataclasses.replace(got.encoder, n_blocks=16) == PRESETS["S"].encoder
++
++
++def test_override_refuses_multirate():
++    with pytest.raises(ShapeError):
++        model_config_for(TrainConfig(preset="S_MR", rnnt_pieces=500, ctc_pieces=500, encoder_blocks=24))
+diff -ruN a/python/ultra/train/trainer.py b/python/ultra/train/trainer.py
+--- a/python/ultra/train/trainer.py	2026-11-23 07:10:13.636747642 +0000
++++ b/python/ultra/train/trainer.py	2026-11-23 07:10:13.654747879 +0000
+@@ -60,6 +60,7 @@
+     dev_split: str = "dev-clean"
+     dev_limit: int = 200
+     chunk: int = 0  # 0 = model default
++    encoder_blocks: int = 0  # H53 depth growth: dense block count (0 = preset); a grown seed sets it
+     # Per-step attention chunk drawn from this comma list (e.g. "4,8,16" = 160/320/640 ms), the same
+     # on every rank; "" = off (bit-exact). After runtime-lane's chunk_modes (PR #30), with its own
+     # RNG stream so SpecAugment masks stay those of the fixed-chunk run (paired replay gates).
+@@ -795,6 +796,10 @@
+     base = PRESETS[cfg.preset]
+     if cfg.chunk:  # the exported config must carry the trained attention chunk (H14), not the preset's
+         base = dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, chunk=cfg.chunk))
++    if cfg.encoder_blocks:  # H53: a depth-grown seed (h53 grow_depth); dense only
++        if base.encoder.family != "dense":
++            raise ShapeError(f"encoder_blocks applies to the dense family, not {base.encoder.family}")
++        base = dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, n_blocks=cfg.encoder_blocks))
+     return dataclasses.replace(base, vocab_rnnt=cfg.rnnt_pieces + 1,
+                                vocab_ctc=cfg.ctc_pieces + 1, rnnt_loss=cfg.rnnt_loss,
+                                prune_range=cfg.prune_range)

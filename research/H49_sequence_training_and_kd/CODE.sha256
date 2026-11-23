@@ -1,0 +1,8 @@
+# H49 code as committed (h49-seqkd; records, not run by CI). Originals stay at /mnt/xbabe3-external/jsr/h49-seqkd/research_bundle/H49_sequence_training_and_kd/.
+f098d9516dd02dde139bbb310d3bb3bf644334e4940a63f5bc99aafe01e4cf17  ./results/bitexact/bitexact.py
+98d8412f73679126e7759cfe5d8e226e80b66090153cc30badc76da73ffd02ba  ./results/smoke/gradscale.py
+0bd747ef96f1cb46f76c0391503401acb5f43fbbd49a199595353bb1d9193fd1  ./results/smoke/smoke_real.py
+46ec736dbd26b67ea75a43b51ca9019243bdbb3f17819dda1cc4ae692102b98f  ./results/tools/h49_build_seqkd_store.py
+bf70d057dd2c8bafb483a2f8598b6324d406e2dc34c2a6aa18770f89518006af  ./results/tools/h49_dev_nbest.py
+974b222b586c8187696ef977a72106d0f50a168850555d965d3ff06e7bd48da6  ./results/tools/h49_headroom.py
+5f30f198abd020e64354d283068ce18637ccac2d4b31bb1b7fda43792da5d1ee  ./results/tools/h49_student_train_gate.py

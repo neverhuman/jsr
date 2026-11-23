@@ -1,0 +1,29 @@
+{
+ "schema": "alwayson-bench.ao-nonspeech/v1",
+ "blocks": [
+  {
+   "block": "brown_-30dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "pink_-20dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "white_-30dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  }
+ ],
+ "words": 0,
+ "hours": 3.0,
+ "per_hour": 0.0,
+ "upper95_poisson_per_hour": 0.9986,
+ "upper95_block_bootstrap_per_hour": 0.0,
+ "upper95_per_hour": 0.9986
+}

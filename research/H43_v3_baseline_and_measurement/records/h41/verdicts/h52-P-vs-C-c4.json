@@ -1,0 +1,37 @@
+{
+ "name": "H52 P vs C c4 (primary)",
+ "kind": "superiority",
+ "base": [
+  "h41/H41_chunk-8000.ema.c4.ms8.score-input.jsonl",
+  "h41/H41_chunk_s4321-8000.ema.c4.ms8.score-input.jsonl",
+  "h41/H41_chunk_s5678-8000.ema.c4.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H52_P_dp0_s1234-8000.ema.c4.ms8.score-input.jsonl",
+  "h41/H52_P_dp0_s4321-8000.ema.c4.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.0,
+ "margin_registry_entry": {
+  "endpoint": "h52-amend1-P-vs-C-primary-superiority-ema-pooled-fulldev-c4",
+  "margin_pp": 0.0,
+  "direction": "lower_is_better",
+  "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. PRIMARY chunk 4 (160 ms): PASS iff point mean(P) - mean(C) <= -0.17 pp AND one-sided 95% upper < 0 AND both P seeds alone better than C's mean; FAIL if point >= 0; INCONCLUSIVE otherwise (incl. seeds disagree).",
+  "registered_utc": "2026-11-23T08:25:13Z"
+ },
+ "delta_pp": -0.0957,
+ "alpha": 0.05,
+ "lower_pp": -0.1583,
+ "upper_pp": -0.0334,
+ "p_one_sided": 0.0050023731056918,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/H41_chunk-8000.ema.c4.ms8.score-input.jsonl": "090ec8ca2eabcd2d5318529fd2b31f6ddec40ad7b0642f30fbfd1fdea455a9f0",
+  "h41/H41_chunk_s4321-8000.ema.c4.ms8.score-input.jsonl": "9c124238c1a27cfc05493e3750ffe5fad497ba3f85786d4ed31ac6b45b796e87",
+  "h41/H41_chunk_s5678-8000.ema.c4.ms8.score-input.jsonl": "ac47718e30be7471ebce9e89df4429d215b3975fe88e3ea8e43bcc26e3b5d12c",
+  "h41/H52_P_dp0_s1234-8000.ema.c4.ms8.score-input.jsonl": "0462cfed6058985068ad3100cb723998c91aacade95d17b27ec8d111d4d701fe",
+  "h41/H52_P_dp0_s4321-8000.ema.c4.ms8.score-input.jsonl": "7eba37b53283aae79391cd267a3b244863b45dd45eb82d8dcc2f9abd7f65fc4a"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

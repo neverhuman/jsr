@@ -1,0 +1,58 @@
+# H52 MANIFEST (data provenance only; no audio, no weights). Generated 2026-11-23T08:00:50Z by h52-librilight.
+# archives (streamed hashes, pass 1 ll_index.py)
+small.tar  bytes=35135006720  md5=c49207eb86a8e8ac895561c37232041e  sha256=cbd68b0998c7742ca45302cd653c914f4b1eb1c12bddbfb7064c69c7f2fc91b2  url=https://dl.fbaipublicfiles.com/librilight/data/small.tar
+medium.tar bytes=320792217600 md5=c75e7ac62471bfbf2db77528d62a9b74  sha256=3987255ff3b0fa278f36478037bbc8e8ed6ad60779a9b7749cfef64a2774295a  url=https://dl.fbaipublicfiles.com/librilight/data/medium.tar
+librispeech dev-clean.tar.gz md5=42e2234ba48799c1f50f24a7926300a1 (metadata TXT only kept)
+# index / overlap / LibriSpeech id lists (sha256  path relative to /mnt/xbabe3-external/jsr/librilight/)
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  meta/idx_small/anomalies.txt
+7e13e8c5ebc760e000a9d84e349b0592132f46f5935ee45d4c7010421fdd62ae  meta/idx_small/json_meta.jsonl
+a9fd3c179c2b68420934f5817c41288d3e4e5c963eb0bcf720f47ade44257000  meta/idx_small/members.tsv
+ebae1839ed470696e1a7bb98ff31a617186a4c06721cfcc87456f5338eef5b5f  meta/idx_small/receipt.json
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  meta/idx_medium/anomalies.txt
+df6837e84549735281f4d07154ddc1470dab753f3e0e8c9be9353295bfffc661  meta/idx_medium/json_meta.jsonl
+c58fd737dcda0644a373b7b1f53959199c386d8722dd635941621768feec7bd2  meta/idx_medium/members.tsv
+5053ef3e340b9926fe8f611ff77781b53edb1a6702deb371fceb182dc31a3852  meta/idx_medium/receipt.json
+2e5a277207aeecad9f85db53f97e46320419c3d80e330d6524193b283ff5edb0  meta/librispeech/BOOKS.TXT
+2e9db25c250a143b031ca003180acfce84b364e31fbc79250e306303e6f25306  meta/librispeech/CHAPTERS.TXT
+908b0b565ae9bf61b7b41447cb0b83564f320375723bcc884ec30e5537a0d5dc  meta/librispeech/LICENSE.TXT
+596ea41ecf75d10a0393f086d863d46d1a0b0afd6670717c352b8a46f42650bf  meta/librispeech/README.TXT
+3350f093382f8baa1d589c9f5a5cee8ec3705e656f521d6eafbaa31a5fcd8f76  meta/librispeech/SPEAKERS.TXT
+4ff3574c6528efbfc711f707c2162997faa562638180c370c9d6ade53b75a2bb  meta/librispeech/fetch_receipt.json
+45fb08e17bdc7dd84c95060b7a7d651c4999f04c2110c6f997a34635f239cef7  analysis/overlap_small/excluded_small.tsv
+053c3b8fb0077d7ff62b3fb9ae54bca8f748204f4cce9614ad5156a6453186cf  analysis/overlap_small/overlap_verdict.json
+9730aa2286bea9a6c31e83f4f8dda2acd122c2928ed02359396226f13e26943e  analysis/overlap_small/skip_small.tsv
+43c15854062b7dc5af2345d6d36b4ac3ae55e8df2f6955e41f83ed5f7344ea2b  analysis/overlap_small/train_dup_small.tsv
+6c19049b2f5397e9397164e51b712d77114b26071c1b57a6cbb7c8c4ec1738e6  analysis/overlap_medium/excluded_medium.tsv
+942514449ff29ef9f474a8772c792502a8eb4c1c1089d4ad5c291d8ba2db8689  analysis/overlap_medium/overlap_verdict.json
+c9617172a587eee6d1628c68ba837ac8a3c65e77c5b588b4ff182d7c7c950fbf  analysis/overlap_medium/skip_medium.tsv
+dadbb109de0d6e2ebf8621e58f28cdaf57fba16fd8aea98efcb1300c8bf76baf  analysis/overlap_medium/train_dup_medium.tsv
+# code (bin/)
+485aa84ec3c9ffbf15a7bde06a7370e4462903e9384acc6e79bc74d67836997b  bin/ll_index.py
+a1145a23974675ae4151ad66e28b61864e34cf5580e8a3368a54fb8c190d994b  bin/ll_overlap.py
+917e28c35add6fa22538a56ad946e1274c08bf7c410e54003ff4f5f6276bc0ed  bin/ll_segment.py
+af45353ec9b1b4a5366696e0deb8e5c1728c3303e84f2bc06a058964f4af2583  bin/ll_pass2.py
+845aa33cafacd10254956d6e92bb8307c8fdf3b36ee1fecb12a8c67be9f4ac44  bin/ll_uploader.py
+ec0fa1e5dc46a38a2182effe604cf7cbf80ac6d9271712022c5fd0abaa1072fd  bin/ll_student.py
+fb3a071cbffc5559fc4845b7f812c0dd1b1cdc49e06f555c04fe75c6bb7d9a53  bin/ll_student_src.py
+cefd37d2c4fc8ec319490851cc7bcf810ee96522539602180f0a808cbb1be734  bin/ll_guard.py
+ed33b157060539d61dfcce565c6876b378be961f78a34e130e692090f6bdb9e1  bin/ll_finalize.py
+643b48d0488e67276676caee0faf3c68738f7d1786484665241db7ff6ec315ca  bin/fetch_ls_meta.py
+# engine for student hyps
+968d3ea766d93fdd5e3698c71e877020ec45001898ec21d530e919c4dbc86ca0  ultra-engine-eval (origin/main e61121e, unmodified; copy of /mnt/xbabe3-external/jsr/h51-pq/bench/ultra-engine-eval)
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  A1-49000-ema-int8/weights.int8.safetensors (= B0 manifest)
+0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe  A1-49000-ema-int8/weights.safetensors (= B0 manifest)
+# shards: per-directory SHA256SUMS on xbabe5
+raw:   xbabe5:~/jsr-data/librilight/shards/raw/librilight.{small,medium}/SHA256SUMS (+ NNNN.ready per shard)
+final: xbabe5:~/jsr-data/librilight/shards/r0/librilight.{small,medium}/SHA256SUMS + FILTER_REPORT.json
+# final small shards: SHA256SUMS sha256 25e283f43fe7e9e8dd272c493b9747567ede9f035700c90fe3e857fe63672c0a (x5 and x7 copies verified; x7 r0_small_tl mirror byte-identical)
+# code added / updated 2026-11-23T09:36:55Z (bin/)
+6caa5c760098ec4e9c56fc727affe4689fcc60637777c57a773981f5a2e8a79a  bin/ll_index_par.py
+2f6afed1604e72b6827bce2f90f4273085c341cb1691256b55225e26c536653b  bin/ll_select_large.py
+6334672c75327a3e8abf05c9a99c8718a40375a05f10a5ad069ebfebff659710  bin/ll_guard2.py
+2bde7920e04e7b2e806bd1a834217dd702e80494557c96df4ac277ae8cac58be  bin/coverage_medium.py
+2efb1309fdd1a13c495dcf293b683ae083747c64f5105825ed3bbcd2a16bbb0e  bin/ll_finalize.py
+f7699a787bc13ea83197e5a7a7767640a99fd98f366f0aa1c63d9fb9d5ab5d3e  bin/ll_pass2.py
+8eb204c784df183dc52bb8b805526c54e0897ddc402ad71be5ff0bdec19f58ae  bin/ll_student_src.py
+3c233370cdb67d967a3aa2862e29bd9a4c972dfd5ebfdf582a553c27973877ba  bin/launch_large_x6.sh
+b0860eb771a81d848f807e53d5a955c1ca459b929387244ba5e4953f9a695823  bin/finalize_medium_x5.sh
+# large (insurance): url=https://dl.fbaipublicfiles.com/librilight/data/large.tar bytes=3055377274880 official md5=4dfbac018f50b99797ece101fc9f0c30; our sha256 + selection list sha256: pending (index on xbabe6)

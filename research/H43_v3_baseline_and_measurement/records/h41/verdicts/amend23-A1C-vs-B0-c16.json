@@ -1,0 +1,31 @@
+{
+ "name": "amend23 A1C vs B0 c16 (conf)",
+ "kind": "superiority",
+ "base": [
+  "curve/A1-49000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": "h43/dev_split_v2.json:confirmation",
+ "margin_pp": 0.0,
+ "margin_registry_entry": {
+  "endpoint": "h48-amend23-A1C-vs-B0-superiority-ema-pooled-conf-c16",
+  "margin_pp": 0.0,
+  "direction": "lower_is_better",
+  "note": "amendment 23: A1C (B0 + 8,000 replay steps, dp 0) vs B0 = A1-49000, EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, SUPERIORITY (margin 0). PASS iff one-sided 95% upper < 0; FAIL iff point >= 0; else INCONCLUSIVE. 'Continuation helps' claimed iff PASS at chunks 4, 8 AND 16 (intersection-union).",
+  "registered_utc": "2026-11-23T07:07:09Z"
+ },
+ "delta_pp": 0.2247,
+ "alpha": 0.05,
+ "lower_pp": 0.0998,
+ "upper_pp": 0.3559,
+ "p_one_sided": 1.0,
+ "decision": "FAIL",
+ "inputs_sha256": {
+  "curve/A1-49000.ema.c16.ms8.score-input.jsonl": "4311df038e063d51533492425c8f2a8791a6fc4aebe8e7b1d440cd803b29ca22",
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl": "2c08be28e84752ca4a35501566289bdc02944d3ff06b74db24221972640bb537"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

@@ -1,0 +1,149 @@
+{
+ "utts": 19330,
+ "beams": [
+  8
+ ],
+ "spread_pp": 0.087,
+ "systems": {
+  "b8_oracle": {
+   "all": {
+    "N": 665302,
+    "S": 352,
+    "D": 56,
+    "I": 23,
+    "wer": 0.0648,
+    "headroom_pp": 0.1793,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0215,
+     "content": 0.0062,
+     "convention": 0.0059,
+     "function": 0.0684,
+     "near": 0.0624,
+     "rare": 0.015
+    }
+   },
+   "clean": {
+    "N": 421098,
+    "S": 205,
+    "D": 32,
+    "I": 16,
+    "wer": 0.0601,
+    "headroom_pp": 0.1703,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0188,
+     "content": 0.0064,
+     "convention": 0.0066,
+     "function": 0.0625,
+     "near": 0.0606,
+     "rare": 0.0154
+    }
+   },
+   "other": {
+    "N": 244204,
+    "S": 147,
+    "D": 24,
+    "I": 7,
+    "wer": 0.0729,
+    "headroom_pp": 0.1949,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0262,
+     "content": 0.0057,
+     "convention": 0.0045,
+     "function": 0.0786,
+     "near": 0.0655,
+     "rare": 0.0143
+    }
+   }
+  },
+  "student_1best": {
+   "all": {
+    "N": 665302,
+    "S": 1271,
+    "D": 188,
+    "I": 165,
+    "wer": 0.2441,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   },
+   "clean": {
+    "N": 421098,
+    "S": 767,
+    "D": 108,
+    "I": 95,
+    "wer": 0.2304,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   },
+   "other": {
+    "N": 244204,
+    "S": 504,
+    "D": 80,
+    "I": 70,
+    "wer": 0.2678,
+    "headroom_pp": 0.0,
+    "by_category_headroom_pp": {
+     "acoustic": 0.0,
+     "content": 0.0,
+     "convention": 0.0,
+     "function": 0.0,
+     "near": 0.0,
+     "rare": 0.0
+    }
+   }
+  }
+ },
+ "recall": {
+  "b8": {
+   "all": {
+    "positions": 1459,
+    "recall": 0.7395,
+    "by_category": {
+     "acoustic": 0.6211,
+     "content": 0.717,
+     "convention": 0.8478,
+     "function": 0.7374,
+     "near": 0.8178,
+     "rare": 0.6375
+    }
+   },
+   "clean": {
+    "positions": 875,
+    "recall": 0.7497,
+    "by_category": {
+     "acoustic": 0.6371,
+     "content": 0.7143,
+     "convention": 0.8485,
+     "function": 0.7323,
+     "near": 0.8254,
+     "rare": 0.6768
+    }
+   },
+   "other": {
+    "positions": 584,
+    "recall": 0.7243,
+    "by_category": {
+     "acoustic": 0.6019,
+     "content": 0.7222,
+     "convention": 0.8462,
+     "function": 0.7447,
+     "near": 0.806,
+     "rare": 0.5738
+    }
+   }
+  }
+ }
+}

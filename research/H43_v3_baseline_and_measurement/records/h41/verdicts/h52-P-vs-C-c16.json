@@ -1,0 +1,37 @@
+{
+ "name": "H52 P vs C c16 (guard)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/H41_chunk-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H41_chunk_s4321-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H41_chunk_s5678-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H52_P_dp0_s1234-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H52_P_dp0_s4321-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.36,
+ "margin_registry_entry": {
+  "endpoint": "h52-amend1-P-vs-C-guard-ni-ema-pooled-fulldev-c16",
+  "margin_pp": 0.36,
+  "direction": "lower_is_better",
+  "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. GUARD chunk 16 (640 ms): non-inferiority at its own four-run spread 0.360; v3 rule, PASS iff one-sided 95% upper <= 0.360.",
+  "registered_utc": "2026-11-23T08:25:14Z"
+ },
+ "delta_pp": -0.0363,
+ "alpha": 0.05,
+ "lower_pp": -0.0947,
+ "upper_pp": 0.0215,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/H41_chunk-8000.ema.c16.ms8.score-input.jsonl": "24b4ec2e9ce9ba5959a435872f9e983654b3b32576603fcbb0312f8136e42748",
+  "h41/H41_chunk_s4321-8000.ema.c16.ms8.score-input.jsonl": "cd7a79113baad08b317e8fd665ebad486912f8c5287779ccbbc1b8d396440788",
+  "h41/H41_chunk_s5678-8000.ema.c16.ms8.score-input.jsonl": "3788ba4284f54959f95adaf9ce8a40dece74faccdd8f016e0d7da943ca3be70f",
+  "h41/H52_P_dp0_s1234-8000.ema.c16.ms8.score-input.jsonl": "921fed034c2d2f9230ef84c5d2109d0217038895ad233533c0fe75c857a653e5",
+  "h41/H52_P_dp0_s4321-8000.ema.c16.ms8.score-input.jsonl": "f2ae023d31ccb142c09f0f6e2dc7d448e3fb74f7ef2241592c0a23e3a07c83b6"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

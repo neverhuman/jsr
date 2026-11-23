@@ -1,0 +1,29 @@
+{"kind":"exact_hot","reps":200}
+{"shape":"ff_w1 384->1536","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":11413,"k1_ns":14404,"k2_ns":7811,"i8_gmacs":51.7,"k1_gmacs":40.9,"k2_gmacs":75.5}
+{"shape":"ff_w1 384->1536","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":20806,"k1_ns":24297,"k2_ns":12626,"i8_gmacs":56.7,"k1_gmacs":48.6,"k2_gmacs":93.4}
+{"shape":"ff_w1 384->1536","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":40972,"k1_ns":48458,"k2_ns":24400,"i8_gmacs":57.6,"k1_gmacs":48.7,"k2_gmacs":96.7}
+{"shape":"ff_w2 1536->384","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":10681,"k1_ns":14293,"k2_ns":7790,"i8_gmacs":55.2,"k1_gmacs":41.3,"k2_gmacs":75.7}
+{"shape":"ff_w2 1536->384","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":20354,"k1_ns":23566,"k2_ns":12045,"i8_gmacs":58.0,"k1_gmacs":50.1,"k2_gmacs":97.9}
+{"shape":"ff_w2 1536->384","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":39481,"k1_ns":46721,"k2_ns":22940,"i8_gmacs":59.8,"k1_gmacs":50.5,"k2_gmacs":102.8}
+{"shape":"qkv 384->1152","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":8245,"k1_ns":10802,"k2_ns":5822,"i8_gmacs":53.7,"k1_gmacs":41.0,"k2_gmacs":76.0}
+{"shape":"qkv 384->1152","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":15851,"k1_ns":18463,"k2_ns":9548,"i8_gmacs":55.8,"k1_gmacs":47.9,"k2_gmacs":92.7}
+{"shape":"qkv 384->1152","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":30804,"k1_ns":36470,"k2_ns":18461,"i8_gmacs":57.4,"k1_gmacs":48.5,"k2_gmacs":95.8}
+{"shape":"att_out 384->384","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":2731,"k1_ns":3641,"k2_ns":1976,"i8_gmacs":54.0,"k1_gmacs":40.5,"k2_gmacs":74.6}
+{"shape":"att_out 384->384","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":5191,"k1_ns":6175,"k2_ns":3142,"i8_gmacs":56.8,"k1_gmacs":47.8,"k2_gmacs":93.9}
+{"shape":"att_out 384->384","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":10055,"k1_ns":12098,"k2_ns":6133,"i8_gmacs":58.7,"k1_gmacs":48.8,"k2_gmacs":96.2}
+{"shape":"pw1 384->768","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":5482,"k1_ns":7265,"k2_ns":4015,"i8_gmacs":53.8,"k1_gmacs":40.6,"k2_gmacs":73.4}
+{"shape":"pw1 384->768","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":10351,"k1_ns":12192,"k2_ns":6302,"i8_gmacs":57.0,"k1_gmacs":48.4,"k2_gmacs":93.6}
+{"shape":"pw1 384->768","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":20336,"k1_ns":24050,"k2_ns":12296,"i8_gmacs":58.0,"k1_gmacs":49.0,"k2_gmacs":95.9}
+{"shape":"pw2 384->384","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":2852,"k1_ns":3795,"k2_ns":1930,"i8_gmacs":51.7,"k1_gmacs":38.9,"k2_gmacs":76.4}
+{"shape":"pw2 384->384","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":5093,"k1_ns":6045,"k2_ns":3056,"i8_gmacs":57.9,"k1_gmacs":48.8,"k2_gmacs":96.5}
+{"shape":"pw2 384->384","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":10038,"k1_ns":11966,"k2_ns":6119,"i8_gmacs":58.8,"k1_gmacs":49.3,"k2_gmacs":96.4}
+{"shape":"stem_out 2432->384","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":18100,"k1_ns":23125,"k2_ns":12452,"i8_gmacs":51.6,"k1_gmacs":40.4,"k2_gmacs":75.0}
+{"shape":"stem_out 2432->384","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":31749,"k1_ns":37289,"k2_ns":18186,"i8_gmacs":58.8,"k1_gmacs":50.1,"k2_gmacs":102.7}
+{"shape":"stem_out 2432->384","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":63061,"k1_ns":74044,"k2_ns":36019,"i8_gmacs":59.2,"k1_gmacs":50.5,"k2_gmacs":103.7}
+{"shape":"enc_proj 384->320","m":1,"exact_k1":true,"exact_k2":true,"i8_ns":2256,"k1_ns":3015,"k2_ns":1623,"i8_gmacs":54.5,"k1_gmacs":40.8,"k2_gmacs":75.7}
+{"shape":"enc_proj 384->320","m":2,"exact_k1":true,"exact_k2":true,"i8_ns":4343,"k1_ns":5142,"k2_ns":2579,"i8_gmacs":56.6,"k1_gmacs":47.8,"k2_gmacs":95.3}
+{"shape":"enc_proj 384->320","m":4,"exact_k1":true,"exact_k2":true,"i8_ns":8362,"k1_ns":10071,"k2_ns":5084,"i8_gmacs":58.8,"k1_gmacs":48.8,"k2_gmacs":96.7}
+{"kind":"sweep","matrices":129,"int8_mb":55.2,"int4_mb":27.6}
+{"kind":"sweep_step","m":1,"i8_ms":20.060,"k1_ms":10.322,"k2_ms":8.821,"k1_speedup":1.943,"k2_speedup":2.274}
+{"kind":"sweep_step","m":2,"i8_ms":28.356,"k1_ms":15.832,"k2_ms":15.023,"k1_speedup":1.791,"k2_speedup":1.887}
+{"kind":"sweep_step","m":4,"i8_ms":43.891,"k1_ms":24.331,"k2_ms":25.337,"k1_speedup":1.804,"k2_speedup":1.732}

@@ -1,0 +1,23 @@
+[
+ {
+  "layer": "encoder.blocks.8.ff1.w2",
+  "s4R2_kmeans_nolut": 0.0661,
+  "s4R2_gptq_nolut": 0.0593,
+  "s4R1_kmeans_nolut": 0.2345,
+  "s4R1_gptq_nolut": 0.2053
+ },
+ {
+  "layer": "encoder.blocks.8.ff2.w1",
+  "s4R2_kmeans_nolut": 0.0729,
+  "s4R2_gptq_nolut": 0.0521,
+  "s4R1_kmeans_nolut": 0.2559,
+  "s4R1_gptq_nolut": 0.1836
+ },
+ {
+  "layer": "encoder.blocks.8.conv.pw2",
+  "s4R2_kmeans_nolut": 0.0708,
+  "s4R2_gptq_nolut": 0.0605,
+  "s4R1_kmeans_nolut": 0.2472,
+  "s4R1_gptq_nolut": 0.2098
+ }
+]

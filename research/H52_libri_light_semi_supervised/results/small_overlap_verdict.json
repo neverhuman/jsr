@@ -1,0 +1,159 @@
+{
+ "tool": "ll_overlap.py",
+ "librispeech_lists": {
+  "SPEAKERS.TXT": "3350f093382f8baa1d589c9f5a5cee8ec3705e656f521d6eafbaa31a5fcd8f76",
+  "CHAPTERS.TXT": "2e9db25c250a143b031ca003180acfce84b364e31fbc79250e306303e6f25306",
+  "BOOKS.TXT": "2e5a277207aeecad9f85db53f97e46320419c3d80e330d6524193b283ff5edb0"
+ },
+ "librispeech_counts": {
+  "speakers": 2484,
+  "chapters": 5831,
+  "books": 1564,
+  "dev-clean": {
+   "speakers": 40,
+   "chapters": 97,
+   "projects": 63,
+   "gutenberg_books": 63,
+   "titles": 85
+  },
+  "dev-other": {
+   "speakers": 33,
+   "chapters": 91,
+   "projects": 66,
+   "gutenberg_books": 62,
+   "titles": 88
+  },
+  "test-clean": {
+   "speakers": 40,
+   "chapters": 87,
+   "projects": 54,
+   "gutenberg_books": 54,
+   "titles": 74
+  },
+  "test-other": {
+   "speakers": 33,
+   "chapters": 90,
+   "projects": 50,
+   "gutenberg_books": 48,
+   "titles": 71
+  }
+ },
+ "librispeech_eval_chapters_with_reader_not_in_subset": 0,
+ "test_audio_or_transcripts_read": false,
+ "librilight_statement": "Kahn et al. 2020 (arXiv 1912.07875) sec. 2: 'We then removed corrupted files, files with unknown or multiple speakers, and speakers appearing in LibriSpeech dev and test sets.' and 'All dev or test set audio has been removed from training sets.' (books are not mentioned)",
+ "subsets": {
+  "small": {
+   "json_meta": "meta/idx_small/json_meta.jsonl",
+   "json_meta_sha256": "7e13e8c5ebc760e000a9d84e349b0592132f46f5935ee45d4c7010421fdd62ae",
+   "files": 2588,
+   "bad_json": 0,
+   "vad_hours": 526.47,
+   "speakers": 489,
+   "projects": 202,
+   "files_without_gutenberg_id": 875,
+   "speaker_dir_vs_json_mismatch": 0,
+   "overlap": {
+    "dev-clean": {
+     "speaker": [],
+     "project": [
+      "1037",
+      "3592"
+     ],
+     "gutenberg": [
+      "135",
+      "2981",
+      "326",
+      "6634"
+     ],
+     "title": [
+      "memoirs of jacques casanova vol 1",
+      "steep trails"
+     ]
+    },
+    "dev-other": {
+     "speaker": [],
+     "project": [],
+     "gutenberg": [
+      "1079"
+     ],
+     "title": []
+    },
+    "test-clean": {
+     "speaker": [],
+     "project": [
+      "2319",
+      "825"
+     ],
+     "gutenberg": [
+      "1041",
+      "135",
+      "1549",
+      "20019",
+      "2981"
+     ],
+     "title": [
+      "commentary on st paul s epistle to the galatians",
+      "lectures on landscape",
+      "shakespeare s sonnets"
+     ]
+    },
+    "test-other": {
+     "speaker": [],
+     "project": [
+      "1894",
+      "2447",
+      "3133"
+     ],
+     "gutenberg": [
+      "135",
+      "1477",
+      "1608",
+      "3436"
+     ],
+     "title": [
+      "book of a thousand nights and a night volume 02",
+      "camille",
+      "toys of peace"
+     ]
+    }
+   },
+   "speaker_overlap_any_eval": [],
+   "excluded_files": 178,
+   "excluded_vad_hours": 40.064,
+   "excluded_reason_counts": {
+    "project": 94,
+    "gutenberg": 228,
+    "title": 109
+   },
+   "info_librispeech_train_overlap": {
+    "speakers": 324,
+    "files_by_train_speaker": 2316,
+    "vad_hours_by_train_speaker": 491.83,
+    "reader_project_pairs": 78,
+    "files_same_reader_and_project": 315,
+    "vad_hours_same_reader_and_project": 80.72
+   }
+  }
+ },
+ "dev_parquet_crosscheck": {
+  "dev-clean": {
+   "speakers_equal_SPEAKERS.TXT": true,
+   "chapters_equal_CHAPTERS.TXT": true,
+   "n_speakers": 40,
+   "n_chapters": 97
+  },
+  "dev-other": {
+   "speakers_equal_SPEAKERS.TXT": true,
+   "chapters_equal_CHAPTERS.TXT": true,
+   "n_speakers": 33,
+   "n_chapters": 91
+  }
+ },
+ "verdict": {
+  "speaker_overlap_with_dev_test": "NONE",
+  "book_overlap_with_dev_test": "FOUND (those files are excluded)",
+  "excluded_files": {
+   "small": 178
+  }
+ }
+}

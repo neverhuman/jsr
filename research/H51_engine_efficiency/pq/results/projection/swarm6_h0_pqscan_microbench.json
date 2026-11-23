@@ -1,0 +1,26 @@
+{
+  "receipt_schema": "ultra.h51.pqscan-microbench/v1",
+  "recorded_utc": "2026-11-23T07:32Z",
+  "host_role": "h0-zen2-avx2-host",
+  "cpu_model": "AMD Ryzen Threadripper PRO 3995WX 64-Cores",
+  "measurement_status": "preliminary_non_quiet_h0_single_core",
+  "quiet_cpu_authority": "official quiet CPU timings go via bench-open on xbabe0",
+  "arch": "x86_64",
+  "isa": "avx2fma",
+  "kernel": "staged_2bit_4centroid_group4_vpshufb",
+  "parity_ulp": 0,
+  "results": [
+    {"m": 4, "k": 384, "n": 1536, "stages": 1, "bpw": 0.5, "i8_ns": 39943.8, "small_m_ns": 40043.1, "small_m_speedup": 0.9975, "lut_ns": 5241.0, "scan_ns": 3963.8, "total_ns": 9204.8, "lut_pct": 56.94, "speedup_vs_i8": 4.3394, "speedup_vs_small_m": 4.3502, "scan_only_speedup_vs_i8": 10.0771, "parity_exact": true},
+    {"m": 4, "k": 384, "n": 1536, "stages": 2, "bpw": 1.0, "i8_ns": 39943.8, "small_m_ns": 40043.1, "small_m_speedup": 0.9975, "lut_ns": 10508.7, "scan_ns": 7671.3, "total_ns": 18180.0, "lut_pct": 57.80, "speedup_vs_i8": 2.1971, "speedup_vs_small_m": 2.2026, "scan_only_speedup_vs_i8": 5.2069, "parity_exact": true},
+    {"m": 4, "k": 384, "n": 1536, "stages": 4, "bpw": 2.0, "i8_ns": 39943.8, "small_m_ns": 40043.1, "small_m_speedup": 0.9975, "lut_ns": 20859.4, "scan_ns": 15131.2, "total_ns": 35990.7, "lut_pct": 57.96, "speedup_vs_i8": 1.1098, "speedup_vs_small_m": 1.1126, "scan_only_speedup_vs_i8": 2.6398, "parity_exact": true},
+    {"m": 4, "k": 1536, "n": 384, "stages": 1, "bpw": 0.5, "i8_ns": 39051.0, "small_m_ns": 38928.1, "small_m_speedup": 1.0032, "lut_ns": 21631.5, "scan_ns": 3203.9, "total_ns": 24835.4, "lut_pct": 87.10, "speedup_vs_i8": 1.5724, "speedup_vs_small_m": 1.5674, "scan_only_speedup_vs_i8": 12.1887, "parity_exact": true},
+    {"m": 4, "k": 1536, "n": 384, "stages": 2, "bpw": 1.0, "i8_ns": 39051.0, "small_m_ns": 38928.1, "small_m_speedup": 1.0032, "lut_ns": 42544.8, "scan_ns": 6259.7, "total_ns": 48804.5, "lut_pct": 87.17, "speedup_vs_i8": 0.8002, "speedup_vs_small_m": 0.7976, "scan_only_speedup_vs_i8": 6.2385, "parity_exact": true},
+    {"m": 4, "k": 1536, "n": 384, "stages": 4, "bpw": 2.0, "i8_ns": 39051.0, "small_m_ns": 38928.1, "small_m_speedup": 1.0032, "lut_ns": 121183.8, "scan_ns": 12449.9, "total_ns": 133633.7, "lut_pct": 90.68, "speedup_vs_i8": 0.2922, "speedup_vs_small_m": 0.2913, "scan_only_speedup_vs_i8": 3.1366, "parity_exact": true},
+    {"m": 1, "k": 384, "n": 1536, "stages": 1, "bpw": 0.5, "i8_ns": 11030.4, "small_m_ns": 11124.6, "small_m_speedup": 0.9915, "lut_ns": 1376.7, "scan_ns": 1420.5, "total_ns": 2797.2, "lut_pct": 49.22, "speedup_vs_i8": 3.9434, "speedup_vs_small_m": 3.9771, "scan_only_speedup_vs_i8": 7.7653, "parity_exact": true},
+    {"m": 1, "k": 384, "n": 1536, "stages": 2, "bpw": 1.0, "i8_ns": 11030.4, "small_m_ns": 11124.6, "small_m_speedup": 0.9915, "lut_ns": 2670.2, "scan_ns": 2753.8, "total_ns": 5424.0, "lut_pct": 49.23, "speedup_vs_i8": 2.0336, "speedup_vs_small_m": 2.0510, "scan_only_speedup_vs_i8": 4.0055, "parity_exact": true},
+    {"m": 1, "k": 384, "n": 1536, "stages": 4, "bpw": 2.0, "i8_ns": 11030.4, "small_m_ns": 11124.6, "small_m_speedup": 0.9915, "lut_ns": 5276.1, "scan_ns": 5432.7, "total_ns": 10708.8, "lut_pct": 49.27, "speedup_vs_i8": 1.0300, "speedup_vs_small_m": 1.0388, "scan_only_speedup_vs_i8": 2.0304, "parity_exact": true},
+    {"m": 1, "k": 1536, "n": 384, "stages": 1, "bpw": 0.5, "i8_ns": 10360.7, "small_m_ns": 10249.7, "small_m_speedup": 1.0108, "lut_ns": 5215.5, "scan_ns": 1214.4, "total_ns": 6429.9, "lut_pct": 81.11, "speedup_vs_i8": 1.6113, "speedup_vs_small_m": 1.5941, "scan_only_speedup_vs_i8": 8.5317, "parity_exact": true},
+    {"m": 1, "k": 1536, "n": 384, "stages": 2, "bpw": 1.0, "i8_ns": 10360.7, "small_m_ns": 10249.7, "small_m_speedup": 1.0108, "lut_ns": 10422.1, "scan_ns": 2370.9, "total_ns": 12793.0, "lut_pct": 81.47, "speedup_vs_i8": 0.8099, "speedup_vs_small_m": 0.8012, "scan_only_speedup_vs_i8": 4.3700, "parity_exact": true},
+    {"m": 1, "k": 1536, "n": 384, "stages": 4, "bpw": 2.0, "i8_ns": 10360.7, "small_m_ns": 10249.7, "small_m_speedup": 1.0108, "lut_ns": 20632.9, "scan_ns": 4657.6, "total_ns": 25290.5, "lut_pct": 81.58, "speedup_vs_i8": 0.4097, "speedup_vs_small_m": 0.4053, "scan_only_speedup_vs_i8": 2.2245, "parity_exact": true}
+  ]
+}

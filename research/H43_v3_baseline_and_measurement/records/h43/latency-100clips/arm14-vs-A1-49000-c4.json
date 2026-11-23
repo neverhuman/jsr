@@ -1,0 +1,138 @@
+{
+ "schema": "ultra.h43.latency-compare/v1",
+ "a": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-100clips/A1-49000-c4.utts.jsonl",
+ "b": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-100clips/arm14-c4.utts.jsonl",
+ "shared_utterances": 100,
+ "b_minus_a_95": {
+  "ftl_end_mean_ms": {
+   "point": -52.8,
+   "lo95": -68.8,
+   "hi95": -38.4
+  },
+  "ftl_onset_mean_ms": {
+   "point": -52.8,
+   "lo95": -68.8,
+   "hi95": -38.4
+  },
+  "fcw_coverage": {
+   "point": 0.01,
+   "lo95": -0.02,
+   "hi95": 0.04
+  },
+  "fcw_end_mean_ms": {
+   "point": -53.57447,
+   "lo95": -65.29173,
+   "hi95": -41.54234
+  },
+  "fcw_onset_mean_ms": {
+   "point": -59.47704,
+   "lo95": -68.26044,
+   "hi95": -49.4269
+  },
+  "revised_per_100_final": {
+   "point": -0.049,
+   "lo95": -0.17146,
+   "hi95": 0.00027
+  },
+  "cq_stable_150": {
+   "point": 0.08407,
+   "lo95": 0.07204,
+   "hi95": 0.09757
+  },
+  "cq_prov_150": {
+   "point": 0.08407,
+   "lo95": 0.07204,
+   "hi95": 0.09757
+  },
+  "cq_stable_300": {
+   "point": 0.20747,
+   "lo95": 0.19066,
+   "hi95": 0.22921
+  },
+  "cq_prov_300": {
+   "point": 0.20747,
+   "lo95": 0.19066,
+   "hi95": 0.22921
+  },
+  "cq_stable_500": {
+   "point": -0.00492,
+   "lo95": -0.01231,
+   "hi95": 0.00302
+  },
+  "cq_prov_500": {
+   "point": -0.00492,
+   "lo95": -0.01231,
+   "hi95": 0.00302
+  },
+  "first_cq_end_150": {
+   "point": 0.09,
+   "lo95": 0.05,
+   "hi95": 0.13
+  },
+  "first_cq_end_250": {
+   "point": 0.19,
+   "lo95": 0.14,
+   "hi95": 0.24
+  },
+  "first_cq_end_300": {
+   "point": 0.19,
+   "lo95": 0.11,
+   "hi95": 0.27
+  },
+  "first_cq_end_500": {
+   "point": 0.01,
+   "lo95": -0.02,
+   "hi95": 0.04
+  },
+  "first_cq_end_1000": {
+   "point": 0.01,
+   "lo95": -0.02,
+   "hi95": 0.04
+  },
+  "first_cq_onset_300": {
+   "point": 0.01,
+   "lo95": 0.0,
+   "hi95": 0.03
+  },
+  "first_cq_onset_500": {
+   "point": 0.18,
+   "lo95": 0.13,
+   "hi95": 0.24
+  },
+  "first_cq_onset_1000": {
+   "point": 0.03,
+   "lo95": -0.01,
+   "hi95": 0.07
+  },
+  "ftl_end_p50_ms": {
+   "point": -50.0,
+   "lo95": -80.0,
+   "hi95": -20.0
+  },
+  "ftl_end_p95_ms": {
+   "point": -50.0,
+   "lo95": -80.0,
+   "hi95": -10.0
+  },
+  "fcw_end_p50_ms": {
+   "point": -40.0,
+   "lo95": -80.0,
+   "hi95": -20.0
+  },
+  "fcw_end_p95_ms": {
+   "point": -50.0,
+   "lo95": -60.0,
+   "hi95": -10.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": -70.0,
+   "lo95": -90.0,
+   "hi95": -30.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": -90.0,
+   "lo95": -160.0,
+   "hi95": 0.0
+  }
+ }
+}

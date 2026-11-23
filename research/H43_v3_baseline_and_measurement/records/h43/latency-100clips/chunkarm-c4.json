@@ -1,0 +1,225 @@
+{
+ "schema": "ultra.h43.latency/v1",
+ "name": "chunkarm-c4-100clips",
+ "label": "exploratory",
+ "clock": "design (audio sample clock); paced numbers are from the trace host, not quiet",
+ "normaliser_id": "ultra-en-wer-norm/v1",
+ "normaliser_rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "mfa_sha256": {
+  "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+  "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+ },
+ "traces": {
+  "chunkarm-c4-compact.trace.jsonl": "56884ddcf3acc69fd35e13195cb176f78b466efcfb62cf05f5ca94c4ff2c4a78"
+ },
+ "aggregate": {
+  "utterances": 100,
+  "ref_words": 2034,
+  "timed_ref_words": 2034,
+  "utterances_with_text": 100,
+  "ftl_end": {
+   "n": 100,
+   "mean_ms": 242.3,
+   "p50_ms": 310.0,
+   "p95_ms": 440.0
+  },
+  "ftl_onset": {
+   "n": 100,
+   "mean_ms": 548.2,
+   "p50_ms": 550.0,
+   "p95_ms": 660.0
+  },
+  "ftl_paced_end_trace_host": null,
+  "fcw_coverage": 0.94,
+  "fcw_end": {
+   "n": 94,
+   "mean_ms": 312.6,
+   "p50_ms": 330.0,
+   "p95_ms": 440.0
+  },
+  "fcw_onset": {
+   "n": 94,
+   "mean_ms": 618.3,
+   "p50_ms": 590.0,
+   "p95_ms": 930.0
+  },
+  "first_cq_end": {
+   "150": 0.08,
+   "250": 0.21,
+   "300": 0.31,
+   "500": 0.94,
+   "1000": 0.94
+  },
+  "first_cq_onset": {
+   "300": 0.0,
+   "500": 0.25,
+   "1000": 0.91
+  },
+  "cq_stable": {
+   "150": 0.0851,
+   "300": 0.4356,
+   "500": 0.9508
+  },
+  "cq_provisional": {
+   "150": 0.0851,
+   "300": 0.4356,
+   "500": 0.9508
+  },
+  "stable_lag": {
+   "n": 1942,
+   "mean_ms": 298.2,
+   "p50_ms": 310.0,
+   "p95_ms": 440.0
+  },
+  "revision": {
+   "revised_words_per_100_final": 0.049,
+   "partial_word_completions_per_100_final": 50.0,
+   "utterances_with_any_revision": 0.01,
+   "mean_flicker_ms": 160.0
+  },
+  "finalization": {
+   "n": 100,
+   "mean_ms": 406.4,
+   "p50_ms": 435.0,
+   "p95_ms": 535.0
+  }
+ },
+ "bootstrap_95": {
+  "ftl_end_mean_ms": {
+   "point": 242.3,
+   "lo95": 199.5,
+   "hi95": 286.5
+  },
+  "ftl_onset_mean_ms": {
+   "point": 548.2,
+   "lo95": 523.5,
+   "hi95": 569.6
+  },
+  "fcw_coverage": {
+   "point": 0.94,
+   "lo95": 0.91,
+   "hi95": 0.97
+  },
+  "fcw_end_mean_ms": {
+   "point": 312.55319,
+   "lo95": 292.58065,
+   "hi95": 332.3913
+  },
+  "fcw_onset_mean_ms": {
+   "point": 618.29787,
+   "lo95": 566.77083,
+   "hi95": 664.89583
+  },
+  "revised_per_100_final": {
+   "point": 0.04902,
+   "lo95": 0.0,
+   "hi95": 0.14299
+  },
+  "cq_stable_150": {
+   "point": 0.08505,
+   "lo95": 0.07168,
+   "hi95": 0.10047
+  },
+  "cq_prov_150": {
+   "point": 0.08505,
+   "lo95": 0.07168,
+   "hi95": 0.10047
+  },
+  "cq_stable_300": {
+   "point": 0.43559,
+   "lo95": 0.40874,
+   "hi95": 0.46998
+  },
+  "cq_prov_300": {
+   "point": 0.43559,
+   "lo95": 0.40874,
+   "hi95": 0.46998
+  },
+  "cq_stable_500": {
+   "point": 0.95084,
+   "lo95": 0.94359,
+   "hi95": 0.95731
+  },
+  "cq_prov_500": {
+   "point": 0.95084,
+   "lo95": 0.94359,
+   "hi95": 0.95731
+  },
+  "first_cq_end_150": {
+   "point": 0.08,
+   "lo95": 0.04,
+   "hi95": 0.13
+  },
+  "first_cq_end_250": {
+   "point": 0.21,
+   "lo95": 0.12,
+   "hi95": 0.3
+  },
+  "first_cq_end_300": {
+   "point": 0.31,
+   "lo95": 0.22,
+   "hi95": 0.4
+  },
+  "first_cq_end_500": {
+   "point": 0.94,
+   "lo95": 0.91,
+   "hi95": 0.97
+  },
+  "first_cq_end_1000": {
+   "point": 0.94,
+   "lo95": 0.91,
+   "hi95": 0.97
+  },
+  "first_cq_onset_300": {
+   "point": 0.0,
+   "lo95": 0.0,
+   "hi95": 0.0
+  },
+  "first_cq_onset_500": {
+   "point": 0.25,
+   "lo95": 0.13,
+   "hi95": 0.4
+  },
+  "first_cq_onset_1000": {
+   "point": 0.91,
+   "lo95": 0.86,
+   "hi95": 0.95
+  },
+  "ftl_end_p50_ms": {
+   "point": 310.0,
+   "lo95": 260.0,
+   "hi95": 330.0
+  },
+  "ftl_end_p95_ms": {
+   "point": 440.0,
+   "lo95": 430.0,
+   "hi95": 480.0
+  },
+  "fcw_end_p50_ms": {
+   "point": 330.0,
+   "lo95": 310.0,
+   "hi95": 360.0
+  },
+  "fcw_end_p95_ms": {
+   "point": 440.0,
+   "lo95": 430.0,
+   "hi95": 480.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": 590.0,
+   "lo95": 530.0,
+   "hi95": 620.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": 930.0,
+   "lo95": 780.0,
+   "hi95": 1050.0
+  }
+ },
+ "bootstrap": {
+  "replicates": 500,
+  "seed": 20261122,
+  "clusters": "speaker",
+  "strata": "dataset"
+ }
+}

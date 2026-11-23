@@ -1,0 +1,34 @@
+{
+ "schema": "ultra.h43.rules/v1",
+ "label": "exploratory",
+ "registered_utc": "2026-11-23T09:08:33Z",
+ "asked_by": "claude-lead 2026-11-23T09:07:28Z (independent strategy audit), items 1 and 2",
+ "h53_amendment_4": {
+  "question": "dp 0.005 for S2 on B0's lineage: A1L (dp 0.005) vs A1C (dp 0), both B0 + 8,000 replay steps with the same re-warm and data",
+  "a": {
+   "endpoint": "h53-amend4-a-A1L-vs-A1C-c16-final-text-ni-conf",
+   "rule": "chunk-16 final text: one-sided 95% upper <= +0.10 pp (confirmation half; full dev reported)",
+   "blind": false,
+   "disclosure": "registered after the A1L - A1C WER results were posted at 09:01:14Z; the threshold was set with that data in view"
+  },
+  "b": {
+   "rule": "first token at chunk 4, END-of-first-word design clock, FULL dev, paired per utterance: mean(A1L) - mean(A1C) <= -40 ms (point estimate; paired speaker-cluster 95% interval reported); the 100-clip panel subset reported beside it",
+   "blind": true,
+   "note": "A1C's latency has not been measured at registration time"
+  },
+  "c": {
+   "endpoint": "h53-amend4-c-A1L-vs-A1C-c4-provisional-ni-conf",
+   "rule": "provisional chunk-4 WER: one-sided 95% upper <= +0.15 pp (confirmation half; full dev reported)",
+   "blind": false,
+   "disclosure": "registered after the A1L - A1C WER results were posted at 09:01:14Z"
+  },
+  "decision": "dp 0.005 adopted for S2 iff (a) AND (b) AND (c). A new decision with new criteria, not a re-reading of amendment 22."
+ },
+ "future_gate_rules": {
+  "a_decode_only": "A deterministic decode-only change (same weights: beam, LM weights, final-pass mode, tail pad, ...) is judged on its PAIRED dev_split_v2 CONFIRMATION-half one-sided 95% bound against its own control (choices made on the selection half only) plus its measured cost (CPU-s per audio-s, peak RSS, first-correct latency), not on the training-seed spread. Gain claims: upper < 0. No-harm claims: upper <= the endpoint's margin. First re-evaluation under this rule: h45's beam 8 + CTC final pass.",
+  "b_chunk16_final_text_margin": "Where chunk 16 produces the FINAL text (commit pass), the non-inferiority margin at chunk 16 is 0.20 pp, not the 0.360 four-run spread.",
+  "c_133ms_population": "The 133 ms latency gate (mean first token, end-of-first-word design clock, 80 ms chunks) is read on FULL dev (5,567); the 100-clip panel is reported beside it, never instead.",
+  "d_commit_pass_control": "Every commit-pass comparison uses a B0 control decoded with the same 320 ms tail pad (and the same commit chunk) as the candidate.",
+  "e_lm_row": "The +LM row is always shown as a separate row, never as B0 meeting the release gate on its own (v3-scoreboard)."
+ }
+}

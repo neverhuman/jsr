@@ -1,0 +1,26 @@
+{
+ "tuned_on": "uids_selection.txt",
+ "nbest": "/dev/shm/h45-wins/nbest/B0.c4.ms8.b8",
+ "d1": {
+  "lam": 0.3,
+  "beta": -0.5,
+  "wer": 8.1865
+ },
+ "d2a": {
+  "T": 4.0,
+  "wer": 8.2765
+ },
+ "d2b": {
+  "T": 0.5,
+  "lam": 0.3,
+  "beta": -0.5,
+  "wer": 8.1903
+ },
+ "base": {
+  "greedy": 8.397195187370679,
+  "beam1": 8.295654839451299,
+  "oracle": 6.274427159169285,
+  "mean_nbest": 7.208483105679368,
+  "ctc_null_share": 0.0
+ }
+}

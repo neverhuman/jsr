@@ -1,0 +1,110 @@
+[
+ {
+  "chunk": 4,
+  "arm": "all int8",
+  "t_other_ms": 0.9,
+  "t_gemm_ms": 4.278,
+  "compute_ms": 4.273,
+  "bytes_mb": 55.32,
+  "working_set_mb": 59.62,
+  "l3_resident": false,
+  "t_step_ms": 5.178,
+  "speedup": 1.085
+ },
+ {
+  "chunk": 4,
+  "arm": "all s4R2 (2 bpw)",
+  "t_other_ms": 0.9,
+  "t_gemm_ms": 3.839,
+  "compute_ms": 3.839,
+  "bytes_mb": 16.67,
+  "working_set_mb": 20.97,
+  "l3_resident": false,
+  "t_step_ms": 4.739,
+  "speedup": 1.186
+ },
+ {
+  "chunk": 4,
+  "arm": "all s4R1 (1 bpw)",
+  "t_other_ms": 0.9,
+  "t_gemm_ms": 1.919,
+  "compute_ms": 1.919,
+  "bytes_mb": 8.34,
+  "working_set_mb": 12.64,
+  "l3_resident": false,
+  "t_step_ms": 2.819,
+  "speedup": 1.993
+ },
+ {
+  "chunk": 2,
+  "arm": "all int8",
+  "t_other_ms": 0.6,
+  "t_gemm_ms": 4.278,
+  "compute_ms": 2.666,
+  "bytes_mb": 55.32,
+  "working_set_mb": 59.62,
+  "l3_resident": false,
+  "t_step_ms": 4.878,
+  "speedup": 0.992
+ },
+ {
+  "chunk": 2,
+  "arm": "all s4R2 (2 bpw)",
+  "t_other_ms": 0.6,
+  "t_gemm_ms": 2.299,
+  "compute_ms": 2.299,
+  "bytes_mb": 16.67,
+  "working_set_mb": 20.97,
+  "l3_resident": false,
+  "t_step_ms": 2.899,
+  "speedup": 1.67
+ },
+ {
+  "chunk": 2,
+  "arm": "all s4R1 (1 bpw)",
+  "t_other_ms": 0.6,
+  "t_gemm_ms": 1.149,
+  "compute_ms": 1.149,
+  "bytes_mb": 8.34,
+  "working_set_mb": 12.64,
+  "l3_resident": false,
+  "t_step_ms": 1.749,
+  "speedup": 2.767
+ },
+ {
+  "chunk": 1,
+  "arm": "all int8",
+  "t_other_ms": 0.45,
+  "t_gemm_ms": 4.278,
+  "compute_ms": 1.888,
+  "bytes_mb": 55.32,
+  "working_set_mb": 59.62,
+  "l3_resident": false,
+  "t_step_ms": 4.728,
+  "speedup": 1.005
+ },
+ {
+  "chunk": 1,
+  "arm": "all s4R2 (2 bpw)",
+  "t_other_ms": 0.45,
+  "t_gemm_ms": 1.527,
+  "compute_ms": 1.527,
+  "bytes_mb": 16.67,
+  "working_set_mb": 20.97,
+  "l3_resident": false,
+  "t_step_ms": 1.977,
+  "speedup": 2.402
+ },
+ {
+  "chunk": 1,
+  "arm": "all s4R1 (1 bpw)",
+  "t_other_ms": 0.45,
+  "t_gemm_ms": 0.764,
+  "compute_ms": 0.764,
+  "bytes_mb": 8.34,
+  "working_set_mb": 12.64,
+  "l3_resident": false,
+  "t_step_ms": 1.214,
+  "speedup": 3.914
+ }
+]

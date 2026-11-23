@@ -1,0 +1,1124 @@
+{
+ "wave": "H50",
+ "kind": "network_map",
+ "measured_utc": "2026-11-23T06:00Z-06:50Z",
+ "by": "h50-fleet",
+ "tools": {
+  "tcp": "bin/tcpbench.py (stdlib; iperf3 absent)",
+  "nccl": "bin/nccl_bench.py (torch 2.7.0+cu128, NCCL 2.26.2; nccl-tests binary lacks libmpi)",
+  "ddp": "bin/ddp_step_probe.py (S model 56.7M, synthetic batches)"
+ },
+ "cloud_private_rtt": [
+  {
+   "src": "xbabe5",
+   "dst": "xbabe7",
+   "rtt_min_ms": 0.199,
+   "rtt_avg_ms": 0.298
+  },
+  {
+   "src": "xbabe5",
+   "dst": "xbabe8",
+   "rtt_min_ms": 0.231,
+   "rtt_avg_ms": 0.421
+  },
+  {
+   "src": "xbabe5",
+   "dst": "xbabe9",
+   "rtt_min_ms": 0.203,
+   "rtt_avg_ms": 0.416
+  },
+  {
+   "src": "xbabe7",
+   "dst": "xbabe5",
+   "rtt_min_ms": 0.212,
+   "rtt_avg_ms": 0.264
+  },
+  {
+   "src": "xbabe7",
+   "dst": "xbabe8",
+   "rtt_min_ms": 0.136,
+   "rtt_avg_ms": 0.413
+  },
+  {
+   "src": "xbabe7",
+   "dst": "xbabe9",
+   "rtt_min_ms": 0.212,
+   "rtt_avg_ms": 0.366
+  },
+  {
+   "src": "xbabe8",
+   "dst": "xbabe5",
+   "rtt_min_ms": 0.198,
+   "rtt_avg_ms": 0.243
+  },
+  {
+   "src": "xbabe8",
+   "dst": "xbabe7",
+   "rtt_min_ms": 0.176,
+   "rtt_avg_ms": 0.281
+  },
+  {
+   "src": "xbabe8",
+   "dst": "xbabe9",
+   "rtt_min_ms": 0.201,
+   "rtt_avg_ms": 0.287
+  },
+  {
+   "src": "xbabe9",
+   "dst": "xbabe5",
+   "rtt_min_ms": 0.236,
+   "rtt_avg_ms": 0.398
+  },
+  {
+   "src": "xbabe9",
+   "dst": "xbabe7",
+   "rtt_min_ms": 0.197,
+   "rtt_avg_ms": 0.283
+  },
+  {
+   "src": "xbabe9",
+   "dst": "xbabe8",
+   "rtt_min_ms": 0.119,
+   "rtt_avg_ms": 0.219
+  }
+ ],
+ "cloud_private_tcp_gbps": [
+  {
+   "pair": "xbabe7-to-xbabe5",
+   "streams": 1,
+   "gbps": 21.394,
+   "retrans": 0,
+   "time": "2026-11-23T06:02:34Z"
+  },
+  {
+   "pair": "xbabe7-to-xbabe5",
+   "streams": 4,
+   "gbps": 80.065,
+   "retrans": 0,
+   "time": "2026-11-23T06:02:42Z"
+  },
+  {
+   "pair": "xbabe7-to-xbabe5",
+   "streams": 8,
+   "gbps": 88.175,
+   "retrans": 1,
+   "time": "2026-11-23T06:02:50Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe5",
+   "streams": 1,
+   "gbps": 19.681,
+   "retrans": 1277,
+   "time": "2026-11-23T06:02:58Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe5",
+   "streams": 4,
+   "gbps": 56.266,
+   "retrans": 11540,
+   "time": "2026-11-23T06:03:06Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe5",
+   "streams": 8,
+   "gbps": 79.414,
+   "retrans": 37575,
+   "time": "2026-11-23T06:03:14Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe5",
+   "streams": 1,
+   "gbps": 15.953,
+   "retrans": 1321,
+   "time": "2026-11-23T06:03:21Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe5",
+   "streams": 4,
+   "gbps": 61.726,
+   "retrans": 18388,
+   "time": "2026-11-23T06:03:29Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe5",
+   "streams": 8,
+   "gbps": 106.851,
+   "retrans": 7908,
+   "time": "2026-11-23T06:03:37Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe7",
+   "streams": 1,
+   "gbps": 21.99,
+   "retrans": 0,
+   "time": "2026-11-23T06:03:48Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe7",
+   "streams": 4,
+   "gbps": 85.598,
+   "retrans": 0,
+   "time": "2026-11-23T06:03:56Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe7",
+   "streams": 8,
+   "gbps": 107.103,
+   "retrans": 0,
+   "time": "2026-11-23T06:04:04Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe7",
+   "streams": 1,
+   "gbps": 16.36,
+   "retrans": 1,
+   "time": "2026-11-23T06:04:12Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe7",
+   "streams": 4,
+   "gbps": 63.255,
+   "retrans": 7625,
+   "time": "2026-11-23T06:04:19Z"
+  },
+  {
+   "pair": "xbabe8-to-xbabe7",
+   "streams": 8,
+   "gbps": 84.655,
+   "retrans": 28658,
+   "time": "2026-11-23T06:04:27Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe7",
+   "streams": 1,
+   "gbps": 20.49,
+   "retrans": 9,
+   "time": "2026-11-23T06:04:35Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe7",
+   "streams": 4,
+   "gbps": 76.946,
+   "retrans": 7228,
+   "time": "2026-11-23T06:04:43Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe7",
+   "streams": 8,
+   "gbps": 108.703,
+   "retrans": 13947,
+   "time": "2026-11-23T06:04:51Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe8",
+   "streams": 1,
+   "gbps": 22.78,
+   "retrans": 522,
+   "time": "2026-11-23T06:05:03Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe8",
+   "streams": 4,
+   "gbps": 77.795,
+   "retrans": 9437,
+   "time": "2026-11-23T06:05:10Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe8",
+   "streams": 8,
+   "gbps": 108.31,
+   "retrans": 21925,
+   "time": "2026-11-23T06:05:18Z"
+  },
+  {
+   "pair": "xbabe7-to-xbabe8",
+   "streams": 1,
+   "gbps": 21.37,
+   "retrans": 315,
+   "time": "2026-11-23T06:05:26Z"
+  },
+  {
+   "pair": "xbabe7-to-xbabe8",
+   "streams": 4,
+   "gbps": 77.08,
+   "retrans": 8986,
+   "time": "2026-11-23T06:05:34Z"
+  },
+  {
+   "pair": "xbabe7-to-xbabe8",
+   "streams": 8,
+   "gbps": 109.01,
+   "retrans": 18819,
+   "time": "2026-11-23T06:05:42Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe8",
+   "streams": 1,
+   "gbps": 21.562,
+   "retrans": 310,
+   "time": "2026-11-23T06:05:50Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe8",
+   "streams": 4,
+   "gbps": 80.144,
+   "retrans": 12805,
+   "time": "2026-11-23T06:05:58Z"
+  },
+  {
+   "pair": "xbabe9-to-xbabe8",
+   "streams": 8,
+   "gbps": 106.802,
+   "retrans": 19801,
+   "time": "2026-11-23T06:06:05Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe9",
+   "streams": 1,
+   "gbps": 20.781,
+   "retrans": 320,
+   "time": "2026-11-23T06:06:17Z"
+  },
+  {
+   "pair": "xbabe5-to-xbabe9",
+   "streams": 4,
+   "gbps": 76.849,
+   "retrans": 6260,
+   "time": "2026-11-23T06:06:24Z"
+  }
+ ],
+ "cloud_private_tcp_summary": {
+  "1": [
+   15.953,
+   22.78
+  ],
+  "4": [
+   56.266,
+   85.598
+  ],
+  "8": [
+   79.414,
+   109.01
+  ]
+ },
+ "cloud_nic": {
+  "eno1_mtu": 9000,
+  "reported_speed_mbps": 100000,
+  "rdma": "mlx5_0 RoCE v2, PORT_ACTIVE, GID 3 = IPv4-mapped eno1, nvidia_peermem loaded",
+  "ib_write_bw_x5_to_x7_gbps": 111.08,
+  "ib_send_lat_us_typical": 1.37,
+  "tcp_buffers": "rmem/wmem_max 212992; tcp_rmem max 6 MB, tcp_wmem max 4 MB; cubic"
+ },
+ "site_wan": {
+  "onprem_egress": "NAT (single public IP)",
+  "cloud_inbound": "only :22 (x5:5301 from H0 timed out)",
+  "rtt_ms": {
+   "H0->cloud A100 hosts (tcp connect)": [
+    28.35,
+    29.3
+   ],
+   "H0->xbabe6": 23.1,
+   "H0->wireguard hub": 22.4
+  },
+  "ssh_bulk_mbps": {
+   "H0 cloud->site": [
+    109.9,
+    125.2
+   ],
+   "H0 site->cloud": [
+    243.2,
+    249.6
+   ],
+   "xbabe2 cloud->site": 114.2,
+   "xbabe2 site->cloud": 233.2
+  },
+  "ssh_tunnel_tcpbench_gbps": [
+   {
+    "dir": "send",
+    "streams": 1,
+    "gbps": 0.272
+   },
+   {
+    "dir": "send",
+    "streams": 4,
+    "gbps": 0.498
+   },
+   {
+    "dir": "recv",
+    "streams": 1,
+    "gbps": 0.102
+   },
+   {
+    "dir": "recv",
+    "streams": 4,
+    "gbps": 0.04
+   }
+  ]
+ },
+ "onprem_lan": {
+  "nic": "1 GbE, MTU 1500",
+  "tcp_gbps": [
+   {
+    "tag": "lan-xbabe1-to-H0",
+    "dir": "send",
+    "gbps": 0.74
+   },
+   {
+    "tag": "lan-H0-to-xbabe1",
+    "dir": "recv",
+    "gbps": 0.773
+   },
+   {
+    "tag": "lan-xbabe2-to-H0",
+    "dir": "send",
+    "gbps": 0.662
+   },
+   {
+    "tag": "lan-H0-to-xbabe2",
+    "dir": "recv",
+    "gbps": 0.792
+   }
+  ]
+ },
+ "name_resolution": {
+  "cloud_hosts": "resolve no xbabe* name",
+  "onprem_etc_hosts": "xbabe4/5/6/7 -> stale public addresses (redacted); xbabe8/9 unresolved",
+  "only_correct_source": "H0 ~/.ssh/config (public addresses, redacted)"
+ },
+ "nccl_intra_x5": [
+  {
+   "tag": "local-default",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 5.81,
+     "busbw_GBs": 2.887
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 22.159,
+     "busbw_GBs": 3.028
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 39.944,
+     "busbw_GBs": 3.045
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 78.885,
+     "busbw_GBs": 3.084
+    }
+   ]
+  },
+  {
+   "tag": "local-p2p-off",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 5.792,
+     "busbw_GBs": 2.897
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 22.119,
+     "busbw_GBs": 3.034
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 39.659,
+     "busbw_GBs": 3.067
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 78.65,
+     "busbw_GBs": 3.093
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t1s1",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.652,
+     "busbw_GBs": 3.607
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.603,
+     "busbw_GBs": 4.042
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.457,
+     "busbw_GBs": 4.129
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.56,
+     "busbw_GBs": 4.226
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t2s2",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.609,
+     "busbw_GBs": 3.64
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.498,
+     "busbw_GBs": 4.068
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 28.985,
+     "busbw_GBs": 4.197
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.231,
+     "busbw_GBs": 4.251
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t4s4",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.611,
+     "busbw_GBs": 3.638
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.519,
+     "busbw_GBs": 4.062
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.311,
+     "busbw_GBs": 4.15
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.561,
+     "busbw_GBs": 4.226
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t8s2",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.643,
+     "busbw_GBs": 3.614
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.825,
+     "busbw_GBs": 3.989
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 30.226,
+     "busbw_GBs": 4.024
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 60.13,
+     "busbw_GBs": 4.046
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t4s8",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.593,
+     "busbw_GBs": 3.652
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.559,
+     "busbw_GBs": 4.053
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.52,
+     "busbw_GBs": 4.12
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 58.362,
+     "busbw_GBs": 4.168
+    }
+   ]
+  },
+  {
+   "tag": "net-loop-t4s4-buf16m",
+   "rows": [
+    {
+     "size_mb": 16.0,
+     "time_ms": 4.563,
+     "busbw_GBs": 3.677
+    },
+    {
+     "size_mb": 64.0,
+     "time_ms": 16.338,
+     "busbw_GBs": 4.108
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.349,
+     "busbw_GBs": 4.144
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.999,
+     "busbw_GBs": 4.194
+    }
+   ]
+  },
+  {
+   "tag": "shm-default",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.594,
+     "busbw_GBs": 2.853
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.909,
+     "busbw_GBs": 2.943
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 39.967,
+     "busbw_GBs": 3.043
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 79.141,
+     "busbw_GBs": 3.074
+    }
+   ]
+  },
+  {
+   "tag": "shm-cudamemcpy",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 1.575,
+     "busbw_GBs": 8.325
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 2.731,
+     "busbw_GBs": 9.598
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 7.977,
+     "busbw_GBs": 15.249
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 15.198,
+     "busbw_GBs": 16.007
+    }
+   ]
+  },
+  {
+   "tag": "shm-cudamemcpy-mode3",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 1.576,
+     "busbw_GBs": 8.314
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 2.677,
+     "busbw_GBs": 9.794
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 7.215,
+     "busbw_GBs": 16.86
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 13.754,
+     "busbw_GBs": 17.687
+    }
+   ]
+  },
+  {
+   "tag": "shm-minch8",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.681,
+     "busbw_GBs": 2.8
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 9.007,
+     "busbw_GBs": 2.911
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 39.861,
+     "busbw_GBs": 3.052
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 79.238,
+     "busbw_GBs": 3.07
+    }
+   ]
+  },
+  {
+   "tag": "shm-cudamemcpy-minch8",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 1.623,
+     "busbw_GBs": 8.078
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 2.625,
+     "busbw_GBs": 9.987
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 9.117,
+     "busbw_GBs": 13.341
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 15.254,
+     "busbw_GBs": 15.948
+    }
+   ]
+  },
+  {
+   "tag": "shm-buf16m-minch4",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.592,
+     "busbw_GBs": 2.854
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.876,
+     "busbw_GBs": 2.954
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 39.527,
+     "busbw_GBs": 3.077
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 78.665,
+     "busbw_GBs": 3.092
+    }
+   ]
+  },
+  {
+   "tag": "ib-loop",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 3.703,
+     "busbw_GBs": 3.54
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 7.085,
+     "busbw_GBs": 3.7
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.271,
+     "busbw_GBs": 4.155
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.293,
+     "busbw_GBs": 4.246
+    }
+   ]
+  },
+  {
+   "tag": "ib-loop-gid3",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 3.645,
+     "busbw_GBs": 3.596
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 6.911,
+     "busbw_GBs": 3.793
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 29.364,
+     "busbw_GBs": 4.142
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 57.752,
+     "busbw_GBs": 4.212
+    }
+   ]
+  },
+  {
+   "tag": "sock-loop-minch4-t4s4",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 3.779,
+     "busbw_GBs": 3.468
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 7.092,
+     "busbw_GBs": 3.696
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 30.951,
+     "busbw_GBs": 3.93
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 60.781,
+     "busbw_GBs": 4.002
+    }
+   ]
+  }
+ ],
+ "nccl_intra_x5_note": "P2P disabled in the VM; default SHM 3.0 GB/s; NCCL_SHM_USE_CUDA_MEMCPY=1 + MODE=3 16.9 GB/s; 'net-loop'/'sock-loop' rows ran over the IBext RDMA plugin, not sockets",
+ "nccl_xhost_x5g0_x9g0": [
+  {
+   "tag": "2r-sock-default",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.362,
+     "busbw_GBs": 3.005
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.481,
+     "busbw_GBs": 3.091
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 35.486,
+     "busbw_GBs": 3.428
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 69.471,
+     "busbw_GBs": 3.502
+    }
+   ]
+  },
+  {
+   "tag": "2r-ib",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.304,
+     "busbw_GBs": 3.045
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.086,
+     "busbw_GBs": 3.242
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 36.0,
+     "busbw_GBs": 3.379
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 69.873,
+     "busbw_GBs": 3.482
+    }
+   ]
+  },
+  {
+   "tag": "2r-sock-t4s4",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.378,
+     "busbw_GBs": 2.994
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.147,
+     "busbw_GBs": 3.218
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 35.786,
+     "busbw_GBs": 3.399
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 70.071,
+     "busbw_GBs": 3.472
+    }
+   ]
+  },
+  {
+   "tag": "2r-ib-ch8",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.586,
+     "busbw_GBs": 2.858
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.869,
+     "busbw_GBs": 2.956
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 38.903,
+     "busbw_GBs": 3.127
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 77.371,
+     "busbw_GBs": 3.144
+    }
+   ]
+  },
+  {
+   "tag": "2r-sock-t8s8",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 4.288,
+     "busbw_GBs": 3.057
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 8.406,
+     "busbw_GBs": 3.119
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 35.519,
+     "busbw_GBs": 3.425
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 70.656,
+     "busbw_GBs": 3.443
+    }
+   ]
+  },
+  {
+   "tag": "2r-ib-gdr",
+   "rows": [
+    {
+     "size_mb": 12.5,
+     "time_ms": 3.277,
+     "busbw_GBs": 4.0
+    },
+    {
+     "size_mb": 25.0,
+     "time_ms": 5.681,
+     "busbw_GBs": 4.615
+    },
+    {
+     "size_mb": 116.0,
+     "time_ms": 19.451,
+     "busbw_GBs": 6.253
+    },
+    {
+     "size_mb": 232.0,
+     "time_ms": 37.753,
+     "busbw_GBs": 6.444
+    }
+   ]
+  }
+ ],
+ "nccl_xhost_second_sweep_flagged": {
+  "note": "overlapped the first 28 s of H48b s1234 on x5 GPU0",
+  "rows": [
+   {
+    "tag": "2r-gdr-ch4",
+    "rows": [
+     {
+      "size_mb": 12.5,
+      "time_ms": 3.216,
+      "busbw_GBs": 4.075
+     },
+     {
+      "size_mb": 25.0,
+      "time_ms": 5.915,
+      "busbw_GBs": 4.432
+     },
+     {
+      "size_mb": 116.0,
+      "time_ms": 19.426,
+      "busbw_GBs": 6.262
+     },
+     {
+      "size_mb": 232.0,
+      "time_ms": 37.974,
+      "busbw_GBs": 6.406
+     }
+    ]
+   },
+   {
+    "tag": "2r-gdr-qps4",
+    "rows": [
+     {
+      "size_mb": 12.5,
+      "time_ms": 3.448,
+      "busbw_GBs": 3.801
+     },
+     {
+      "size_mb": 25.0,
+      "time_ms": 6.65,
+      "busbw_GBs": 3.942
+     },
+     {
+      "size_mb": 116.0,
+      "time_ms": 19.921,
+      "busbw_GBs": 6.106
+     },
+     {
+      "size_mb": 232.0,
+      "time_ms": 57.669,
+      "busbw_GBs": 4.218
+     }
+    ]
+   },
+   {
+    "tag": "2r-gdr-buf8m",
+    "rows": [
+     {
+      "size_mb": 12.5,
+      "time_ms": 3.367,
+      "busbw_GBs": 3.893
+     },
+     {
+      "size_mb": 25.0,
+      "time_ms": 6.034,
+      "busbw_GBs": 4.344
+     },
+     {
+      "size_mb": 116.0,
+      "time_ms": 23.568,
+      "busbw_GBs": 5.161
+     },
+     {
+      "size_mb": 232.0,
+      "time_ms": 42.031,
+      "busbw_GBs": 5.788
+     }
+    ]
+   },
+   {
+    "tag": "2r-true-socket",
+    "rows": [
+     {
+      "size_mb": 12.5,
+      "time_ms": 5.546,
+      "busbw_GBs": 2.363
+     },
+     {
+      "size_mb": 25.0,
+      "time_ms": 21.004,
+      "busbw_GBs": 1.248
+     },
+     {
+      "size_mb": 116.0,
+      "time_ms": 59.956,
+      "busbw_GBs": 2.029
+     },
+     {
+      "size_mb": 232.0,
+      "time_ms": 134.398,
+      "busbw_GBs": 1.81
+     }
+    ]
+   }
+  ]
+ },
+ "nccl_xhost_note": "every config negotiates NET/IBext_v10 (external RDMA plugin) even with NCCL_IB_DISABLE=1; NCCL_NET_GDR_LEVEL=SYS enables GDRDMA (1.8x); NCCL_NET=Socket is slower",
+ "ddp_step_probe_x5": [
+  {
+   "tag": "fp32-default-375",
+   "per_rank_s": 375.0,
+   "t_sync_ms": 177.3,
+   "t_nosync_ms": 112.9,
+   "exposed_comm_ms": 64.3,
+   "exposed_pct": 36.3
+  },
+  {
+   "tag": "fp32-cudamemcpy-375",
+   "per_rank_s": 375.0,
+   "t_sync_ms": 119.8,
+   "t_nosync_ms": 113.4,
+   "exposed_comm_ms": 6.4,
+   "exposed_pct": 5.3
+  },
+  {
+   "tag": "bf16-default-375",
+   "per_rank_s": 375.0,
+   "t_sync_ms": 149.1,
+   "t_nosync_ms": 113.1,
+   "exposed_comm_ms": 35.9,
+   "exposed_pct": 24.1
+  },
+  {
+   "tag": "bf16-cudamemcpy-375",
+   "per_rank_s": 375.0,
+   "t_sync_ms": 120.0,
+   "t_nosync_ms": 113.0,
+   "exposed_comm_ms": 7.0,
+   "exposed_pct": 5.8
+  },
+  {
+   "tag": "fp32-default-1040",
+   "per_rank_s": 1037.5,
+   "t_sync_ms": 331.2,
+   "t_nosync_ms": 276.7,
+   "exposed_comm_ms": 54.5,
+   "exposed_pct": 16.5
+  },
+  {
+   "tag": "fp32-cudamemcpy-1040",
+   "per_rank_s": 1037.5,
+   "t_sync_ms": 281.7,
+   "t_nosync_ms": 277.5,
+   "exposed_comm_ms": 4.2,
+   "exposed_pct": 1.5
+  }
+ ]
+}

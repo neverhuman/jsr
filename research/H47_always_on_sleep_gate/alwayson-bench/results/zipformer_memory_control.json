@@ -1,0 +1,71 @@
+{
+ "schema": "alwayson-bench.memory-control/v1",
+ "host": "xbabe2",
+ "exploratory": true,
+ "question": "Does the Zipformer's process memory grow because of the recogniser's own state, or because the client reads the whole (ever longer) hypothesis after every chunk?",
+ "audio": "first 2,400 s of stream part-1.wav",
+ "runs": {
+  "iv0": {
+   "reads_hypothesis": "after every decoded chunk (the endless run's setting)",
+   "get_result_calls": 7499,
+   "get_result_cpu_s": 8.699371212003312,
+   "cpu_s": 492.004643531,
+   "audio_s": 2400.0,
+   "words": 2640,
+   "anon_start_mb": 136.6328125,
+   "anon_end_mb": 191.05078125,
+   "anon_peak_mb": 191.05078125,
+   "rss_start_mb": 170.94921875,
+   "rss_end_mb": 205.171875,
+   "anon_mb_every_600_audio_s": {
+    "0": 141.29,
+    "600": 147.56,
+    "1200": 165.52,
+    "1800": 191.02,
+    "2400": 191.05
+   }
+  },
+  "iv60": {
+   "reads_hypothesis": "at most once per 60 s of audio",
+   "get_result_calls": 39,
+   "get_result_cpu_s": 0.07240146100026479,
+   "cpu_s": 696.611218073,
+   "audio_s": 2400.0,
+   "words": 2640,
+   "anon_start_mb": 136.91796875,
+   "anon_end_mb": 141.53125,
+   "anon_peak_mb": 141.53125,
+   "rss_start_mb": 171.33203125,
+   "rss_end_mb": 155.734375,
+   "anon_mb_every_600_audio_s": {
+    "0": 141.53,
+    "600": 141.53,
+    "1200": 141.53,
+    "1800": 141.53,
+    "2400": 141.53
+   }
+  },
+  "iv100000": {
+   "reads_hypothesis": "only at the end",
+   "get_result_calls": 0,
+   "get_result_cpu_s": 0.0,
+   "cpu_s": 638.932622314,
+   "audio_s": 2400.0,
+   "words": 2640,
+   "anon_start_mb": 136.8203125,
+   "anon_end_mb": 141.77734375,
+   "anon_peak_mb": 141.77734375,
+   "rss_start_mb": 171.23828125,
+   "rss_end_mb": 155.91796875,
+   "anon_mb_every_600_audio_s": {
+    "0": 141.41,
+    "600": 141.41,
+    "1200": 141.41,
+    "1800": 141.41,
+    "2400": 141.78
+   }
+  }
+ },
+ "same_words_iv0_iv60": true,
+ "same_words_iv0_iv100000": true
+}

@@ -1,0 +1,8 @@
+5a07473c396938fcd486b719544c255aedd1892d3194073215a480f9e68f8fa5  h51_int4_bench (binary, data drive only; run 1 used build 2bafd36d8721684424e4c82d2ecf2d2cdce5240a0e1f97adb0c19213c563cc96 from source 48775527bf005f24b2c84ab41a4f56b751155aecda9bc82bb8d98922889e3224, identical except the scalar-reference check)
+2cc2f9c323117ce27e02ce3f0f798330759a533bec1528e8a118cafc19d3ebb3  h51_int4_bench.rs
+8179cd63f0658c60128b836a2d37260f538a5c84b75db934111bed041cd3a5f1  h51_int4g_bench (binary, data drive only)
+730b0977e4ed016ab502cc365570883032fc14e35fcf831348325a346dfc6dd0  h51_int4g_bench.rs
+421b8c28ceaba2807ebbea75d22231c0f4c60ad934cd24a6f0ff0e699f21970f  h51_int4.sh (role label instead of hostname; never run through this wrapper)
+438ff29ba5d672a96dec6d68c0e14eed9517b88bcf1ab5477940275de91efcd5  h51_prof.sh (receipt line now writes a role label; bench-open ran it as 14h at 6974c6c08cdeae3260f2155569032c4fd7fc0dd16046d20e33f4d060ac12dbb2, which wrote hostname output)
+edfc06acd49726ff37973fc6a77e3cfdfc2bf74788212ddd651c69f32b91748f  panel73.npz
+968d3ea766d93fdd5e3698c71e877020ec45001898ec21d530e919c4dbc86ca0  ultra-engine-eval

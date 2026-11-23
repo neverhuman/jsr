@@ -1,0 +1,89 @@
+{
+ "schema": "alwayson-bench.gain-agc/v1",
+ "system": "B0 A1-49000 EMA INT8, ultra-engine-endless, chunk 4, continuous (C0), always-on",
+ "rule": "lag-compensated tolerant (shift 0.305 s, tail 3.5 s)",
+ "rows": {
+  "0": {
+   "raw_wer": 8.133,
+   "agc_wer": 8.05,
+   "raw_first_word_error": 0.1014,
+   "agc_first_word_error": 0.1014,
+   "items": 730,
+   "wer_loss_recovered": null,
+   "first_word_loss_recovered": null
+  },
+  "-10": {
+   "raw_wer": 8.056,
+   "agc_wer": 8.077,
+   "raw_first_word_error": 0.1055,
+   "agc_first_word_error": 0.1014,
+   "items": 730,
+   "wer_loss_recovered": null,
+   "first_word_loss_recovered": 1.0
+  },
+  "-20": {
+   "raw_wer": 8.762,
+   "agc_wer": 8.091,
+   "raw_first_word_error": 0.111,
+   "agc_first_word_error": 0.1,
+   "items": 730,
+   "wer_loss_recovered": 1.066,
+   "first_word_loss_recovered": 1.146
+  },
+  "-30": {
+   "raw_wer": 10.202,
+   "agc_wer": 8.174,
+   "raw_first_word_error": 0.126,
+   "agc_first_word_error": 0.1027,
+   "items": 730,
+   "wer_loss_recovered": 0.98,
+   "first_word_loss_recovered": 0.947
+  }
+ },
+ "paired_speaker_bootstrap_pooled": {
+  "0": {
+   "a": "AGC",
+   "b": "raw",
+   "delta_b_minus_a": 0.0008305647840531477,
+   "ci95": [
+    -0.0004283266704740163,
+    0.0021330230754314505
+   ],
+   "replicates": 5000,
+   "seed": 20261123
+  },
+  "-10": {
+   "a": "AGC",
+   "b": "raw",
+   "delta_b_minus_a": -0.00020764119601328346,
+   "ci95": [
+    -0.002413572797614824,
+    0.001971830985915482
+   ],
+   "replicates": 5000,
+   "seed": 20261123
+  },
+  "-20": {
+   "a": "AGC",
+   "b": "raw",
+   "delta_b_minus_a": 0.006713732004429679,
+   "ci95": [
+    0.004080171796707235,
+    0.00934642280796126
+   ],
+   "replicates": 5000,
+   "seed": 20261123
+  },
+  "-30": {
+   "a": "AGC",
+   "b": "raw",
+   "delta_b_minus_a": 0.020279623477297906,
+   "ci95": [
+    0.016100301452452725,
+    0.02472586540528919
+   ],
+   "replicates": 5000,
+   "seed": 20261123
+  }
+ }
+}

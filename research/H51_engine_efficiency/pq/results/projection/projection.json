@@ -1,0 +1,205 @@
+{
+ "quiet_profile": {
+  "4": {
+   "m": 4,
+   "step": 5.475472911602864,
+   "gemm8": 4.190177618072712,
+   "other": 1.2852952935301518
+  },
+  "2": {
+   "m": 2,
+   "step": 4.744165740155826,
+   "gemm8": 3.879477278100743,
+   "other": 0.8646884620550832
+  },
+  "1": {
+   "m": 1,
+   "step": 4.729737340469381,
+   "gemm8": 4.062581055051818,
+   "other": 0.6671562854175628
+  }
+ },
+ "bytes_int8": 55320576,
+ "rows": [
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "all INT8",
+   "chunk1_step_ms": 4.73,
+   "chunk1_speedup": 1.0,
+   "chunk2_step_ms": 4.744,
+   "chunk2_speedup": 1.0,
+   "chunk4_step_ms": 5.475,
+   "chunk4_speedup": 1.0
+  },
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "all 2 bpw",
+   "chunk1_step_ms": 2.442,
+   "chunk1_speedup": 1.94,
+   "chunk2_step_ms": 4.576,
+   "chunk2_speedup": 1.04,
+   "chunk4_step_ms": 8.708,
+   "chunk4_speedup": 0.63
+  },
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "all 1 bpw",
+   "chunk1_step_ms": 1.592,
+   "chunk1_speedup": 2.97,
+   "chunk2_step_ms": 2.425,
+   "chunk2_speedup": 1.96,
+   "chunk4_step_ms": 4.406,
+   "chunk4_speedup": 1.24
+  },
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "LN-input 2 bpw, rest INT8",
+   "chunk1_step_ms": 3.115,
+   "chunk1_speedup": 1.52,
+   "chunk2_step_ms": 3.689,
+   "chunk2_speedup": 1.29,
+   "chunk4_step_ms": 5.504,
+   "chunk4_speedup": 0.99
+  },
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "LN-input 1 bpw, rest INT8",
+   "chunk1_step_ms": 2.736,
+   "chunk1_speedup": 1.73,
+   "chunk2_step_ms": 3.06,
+   "chunk2_speedup": 1.55,
+   "chunk4_step_ms": 4.247,
+   "chunk4_speedup": 1.29
+  },
+  {
+   "kernel": "swarm_scalar_lut",
+   "assignment": "LN-input 1 bpw, post-SiLU 2 bpw",
+   "chunk1_step_ms": 2.064,
+   "chunk1_speedup": 2.29,
+   "chunk2_step_ms": 3.947,
+   "chunk2_speedup": 1.2,
+   "chunk4_step_ms": 7.45,
+   "chunk4_speedup": 0.73
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "all INT8",
+   "chunk1_step_ms": 4.73,
+   "chunk1_speedup": 1.0,
+   "chunk2_step_ms": 4.744,
+   "chunk2_speedup": 1.0,
+   "chunk4_step_ms": 5.475,
+   "chunk4_speedup": 1.0
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "all 2 bpw",
+   "chunk1_step_ms": 1.984,
+   "chunk1_speedup": 2.38,
+   "chunk2_step_ms": 2.422,
+   "chunk2_speedup": 1.96,
+   "chunk4_step_ms": 4.138,
+   "chunk4_speedup": 1.32
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "all 1 bpw",
+   "chunk1_step_ms": 1.372,
+   "chunk1_speedup": 3.45,
+   "chunk2_step_ms": 1.604,
+   "chunk2_speedup": 2.96,
+   "chunk4_step_ms": 2.569,
+   "chunk4_speedup": 2.13
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "LN-input 2 bpw, rest INT8",
+   "chunk1_step_ms": 3.053,
+   "chunk1_speedup": 1.55,
+   "chunk2_step_ms": 3.187,
+   "chunk2_speedup": 1.49,
+   "chunk4_step_ms": 4.237,
+   "chunk4_speedup": 1.29
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "LN-input 1 bpw, rest INT8",
+   "chunk1_step_ms": 2.712,
+   "chunk1_speedup": 1.74,
+   "chunk2_step_ms": 2.839,
+   "chunk2_speedup": 1.67,
+   "chunk4_step_ms": 3.608,
+   "chunk4_speedup": 1.52
+  },
+  {
+   "kernel": "swarm_simd_lut_x4",
+   "assignment": "LN-input 1 bpw, post-SiLU 2 bpw",
+   "chunk1_step_ms": 1.643,
+   "chunk1_speedup": 2.88,
+   "chunk2_step_ms": 2.074,
+   "chunk2_speedup": 2.29,
+   "chunk4_step_ms": 3.509,
+   "chunk4_speedup": 1.56
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "all INT8",
+   "chunk1_step_ms": 4.73,
+   "chunk1_speedup": 1.0,
+   "chunk2_step_ms": 4.744,
+   "chunk2_speedup": 1.0,
+   "chunk4_step_ms": 5.475,
+   "chunk4_speedup": 1.0
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "all 2 bpw",
+   "chunk1_step_ms": 2.251,
+   "chunk1_speedup": 2.1,
+   "chunk2_step_ms": 3.163,
+   "chunk2_speedup": 1.5,
+   "chunk4_step_ms": 5.124,
+   "chunk4_speedup": 1.07
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "all 1 bpw",
+   "chunk1_step_ms": 1.496,
+   "chunk1_speedup": 3.16,
+   "chunk2_step_ms": 2.014,
+   "chunk2_speedup": 2.36,
+   "chunk4_step_ms": 3.205,
+   "chunk4_speedup": 1.71
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "LN-input 2 bpw, rest INT8",
+   "chunk1_step_ms": 3.057,
+   "chunk1_speedup": 1.55,
+   "chunk2_step_ms": 3.566,
+   "chunk2_speedup": 1.33,
+   "chunk4_step_ms": 4.976,
+   "chunk4_speedup": 1.1
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "LN-input 1 bpw, rest INT8",
+   "chunk1_step_ms": 2.712,
+   "chunk1_speedup": 1.74,
+   "chunk2_step_ms": 2.993,
+   "chunk2_speedup": 1.59,
+   "chunk4_step_ms": 3.97,
+   "chunk4_speedup": 1.38
+  },
+  {
+   "kernel": "h24_simd_table",
+   "assignment": "LN-input 1 bpw, post-SiLU 2 bpw",
+   "chunk1_step_ms": 1.907,
+   "chunk1_speedup": 2.48,
+   "chunk2_step_ms": 2.59,
+   "chunk2_speedup": 1.83,
+   "chunk4_step_ms": 4.118,
+   "chunk4_speedup": 1.33
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "schema": "ultra.h43.release-plan/v1",
+ "label": "exploratory",
+ "registered_utc": "2026-11-23T10:04:20Z",
+ "source": "H53 Amendments 5 (09:51:52Z) and 7 (09:58Z), h53-trunk's request 09:58:42Z; before any S2 evaluation exists",
+ "gate_a": "every S2a / S2b BP: EMA, chunk 4, PyTorch greedy, full dev vs B0 8.302; STOP iff point > +0.20 pp (registry h53-S2-gate-a-safety-every-BP-c4)",
+ "gate_b": "BP-m = S2b-BP1, on its fast cooldown: chunk 4 upper < 0, chunk 8 upper <= 0.094, chunk 16 upper <= 0.20 (registry h53-S2-gate-b-decisive-BPm-c{4,8,16}); FAIL -> stop, B0 ships; BP-m EMA reported",
+ "rc_candidate_rule": {
+  "weights": "the release cooldown RC1's EMA, unless its raw weights beat the EMA by >= 0.05 pp on the dev_split_v2 SELECTION half (pooled, chunk 4)",
+  "A6_confirmation_look": "ONE look on the CONFIRMATION half against B0 (Holm across RC looks, <= 2 if RC2 runs): upper < 0 there; plus on canonical full dev, native INT8 greedy 160 ms: pooled upper < 0 and split uppers <= +0.20 pp; latency (end clock, eval-lane pipeline, full dev): median not higher than B0, paired p95 <= +20 ms, first-word coverage / first-word error / correct-by-300 within 0.50 pp; quiet x0 CPU-s per audio-s <= 1.05x B0; INT8 - PyTorch within +/-0.05 pp pooled; chunk 16 no worse than B0's beyond +0.20 pp upper",
+  "release_decoder": "after A6: commit pass at chunk 16 + beam 16 + LM, scored for the H54 bar (<= 7,895 edits on 106,054 words; >= 10% relative), the +LM row shown separately",
+  "rc2": "optional; >= 20k audio-h after RC1, same recipe; the better on the selection half takes the last look; Holm over <= 2 looks"
+ },
+ "fallback": "if gate (b) FAILs or A6 fails, B0 (with the commit pass / LM rows) stays the release candidate"
+}

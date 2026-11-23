@@ -1,0 +1,102 @@
+{
+ "schema": "eval-lane.alwayson-nonspeech/v1",
+ "seed": 20261126,
+ "sample_rate": 16000,
+ "hours_each": 1.0,
+ "generator": {
+  "path": "/home/ubuntu/jsr-data/alwayson-bench/aobench-src/gen_alwayson.py",
+  "sha256": "8b96323102daf356d0d5123eb8043c940a7f2470734d631eb6b7a021da180f18",
+  "numpy": "1.26.4"
+ },
+ "files": {
+  "silence.wav": {
+   "type": "silence",
+   "colour": null,
+   "level_dbfs": null,
+   "pcm_sha256": "1d2879ec93ebb87ceb4f76618545004ac7b7ce172df5311443406e3b7870c9b6",
+   "wav_sha256": "291055293242ad5e301adabeb5a2621c05cce045383ae7cf9bd0fef78fdc2340",
+   "seconds": 3600.0
+  },
+  "white_-40dBFS.wav": {
+   "type": "noise",
+   "colour": "white",
+   "level_dbfs": -40,
+   "pcm_sha256": "18a51a1d133d063350de215e3454f4b38248631f8ce3b9936087e3c834342653",
+   "measured_rms_dbfs": -40.0,
+   "wav_sha256": "6d3054c1d9a69c298e8f7195ac6db0dc2624025913123b371dd39c2ffa06a456",
+   "seconds": 3600.0
+  },
+  "white_-30dBFS.wav": {
+   "type": "noise",
+   "colour": "white",
+   "level_dbfs": -30,
+   "pcm_sha256": "c4d1b460fd46324f3907ef456d273d056e93b8db0cfe43e066282e03a219dced",
+   "measured_rms_dbfs": -30.0,
+   "wav_sha256": "0e6f4a9b787c8ba3474045ddc59fe32387966b6b611bd284f314806babf07f50",
+   "seconds": 3600.0
+  },
+  "white_-20dBFS.wav": {
+   "type": "noise",
+   "colour": "white",
+   "level_dbfs": -20,
+   "pcm_sha256": "1b8e9557a36b3dd67530d311bbc0970f5303d9d8a61a9684c76f5fdbd97e5f37",
+   "measured_rms_dbfs": -20.0,
+   "wav_sha256": "31b0961520897f56bbf64a5bce09c8ee29e29b819def8ecbd09eaf43a6bb10f9",
+   "seconds": 3600.0
+  },
+  "pink_-40dBFS.wav": {
+   "type": "noise",
+   "colour": "pink",
+   "level_dbfs": -40,
+   "pcm_sha256": "a44a796c977e58d4d90d1f9960dbd92d410aa5838ed062c959d7a5424086fcc3",
+   "measured_rms_dbfs": -40.0,
+   "wav_sha256": "4a4d2f16907e097909d08dd461f77e2f2f1137fd81beb871d19daa4db7e4edd9",
+   "seconds": 3600.0
+  },
+  "pink_-30dBFS.wav": {
+   "type": "noise",
+   "colour": "pink",
+   "level_dbfs": -30,
+   "pcm_sha256": "90264f55d8c1ded22675ac49459a8c80125dc341d245f8efa64458b28eaa47ae",
+   "measured_rms_dbfs": -30.0,
+   "wav_sha256": "75df5ee95ed5490387c817f670a0a4768bbb972f3e65ec62bb0e94e95fddd6fd",
+   "seconds": 3600.0
+  },
+  "pink_-20dBFS.wav": {
+   "type": "noise",
+   "colour": "pink",
+   "level_dbfs": -20,
+   "pcm_sha256": "ce93c95d0a1d53245d2bfc0d2b2d7b8d7ade9886784fad5d9bb1ca92a19932f9",
+   "measured_rms_dbfs": -20.0,
+   "wav_sha256": "5befa9eb261cb72cdf71d6cd996d2dc1cd1d9e9acbfcd642b5b4269ec66c2af6",
+   "seconds": 3600.0
+  },
+  "brown_-40dBFS.wav": {
+   "type": "noise",
+   "colour": "brown",
+   "level_dbfs": -40,
+   "pcm_sha256": "a3bbe049531fcdfca284e7c55148f69cfe3f448fc76fee98b9d0d7dd152301b8",
+   "measured_rms_dbfs": -40.0,
+   "wav_sha256": "fd20df971d58fa75900720cec744c2fc5382ae6ae0f00b792c7f180476a9bd85",
+   "seconds": 3600.0
+  },
+  "brown_-30dBFS.wav": {
+   "type": "noise",
+   "colour": "brown",
+   "level_dbfs": -30,
+   "pcm_sha256": "0e8093a1d9e6262cf0319971c251669c9ad44f6c93f5e361258f84f9866b6c2d",
+   "measured_rms_dbfs": -30.0,
+   "wav_sha256": "8d02660af16afd3a787df8d54c3f20aa0d79f20c7e7de21675cce9c1b13aa70e",
+   "seconds": 3600.0
+  },
+  "brown_-20dBFS.wav": {
+   "type": "noise",
+   "colour": "brown",
+   "level_dbfs": -20,
+   "pcm_sha256": "18a1d6762d0887ef06650d85f09a3eea3d24a2fc3f316e52312eeca2122a11a2",
+   "measured_rms_dbfs": -20.0,
+   "wav_sha256": "d06284be0bcccace6fb062ce85e826515ca48af9d009087758c505caad9f75c8",
+   "seconds": 3600.0
+  }
+ }
+}

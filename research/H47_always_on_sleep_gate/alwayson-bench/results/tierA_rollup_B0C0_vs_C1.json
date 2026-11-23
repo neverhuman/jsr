@@ -1,0 +1,501 @@
+{
+ "schema": "alwayson-bench.ao-rollup/v1",
+ "rule": "lag-compensated tolerant rule (assignment time = emission - the system's own median lag, measured on the gapped duty cells of the plain pass; 3.5 s tail)",
+ "shifts": {
+  "B0-C0": {
+   "schema": "alwayson-bench.shift/v1",
+   "shift_s": 0.305,
+   "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+   "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c0/scored",
+   "source_cells_lag_p50_ms": {
+    "duty05_r1_N20": 278.5999999998694,
+    "duty05_r1_Q": 306.39999999999645,
+    "duty05_r6_N20": 77.99999999997453,
+    "duty05_r6_Q": 133.1000000000131,
+    "duty20_r1_N20": 302.9999999998836,
+    "duty20_r1_Q": 318.2000000001608,
+    "duty20_r6_N20": 293.200000000013,
+    "duty20_r6_Q": 318.0999999999585,
+    "duty50_r1_N20": 306.3000000001921,
+    "duty50_r1_Q": 309.1999999999189,
+    "duty50_r6_N20": 302.0000000001346,
+    "duty50_r6_Q": 311.59999999999854
+   }
+  },
+  "B0-C1": {
+   "schema": "alwayson-bench.shift/v1",
+   "shift_s": 0.336,
+   "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+   "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c1/scored",
+   "source_cells_lag_p50_ms": {
+    "duty05_r1_N20": 336.400000000026,
+    "duty05_r1_Q": 333.10000000005857,
+    "duty05_r6_N20": 231.40000000000782,
+    "duty05_r6_Q": 241.80000000023938,
+    "duty20_r1_N20": 341.20000000029904,
+    "duty20_r1_Q": 333.0000000000837,
+    "duty20_r6_N20": 348.19999999990614,
+    "duty20_r6_Q": 341.0999999998694,
+    "duty50_r1_N20": 319.39999999997326,
+    "duty50_r6_N20": 345.299999999952,
+    "duty50_r6_Q": 338.4000000000924
+   }
+  }
+ },
+ "systems": {
+  "B0-C0": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c0/scored-comp",
+  "B0-C1": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c1/scored-comp"
+ },
+ "coverage": {
+  "B0-C0": 21,
+  "B0-C1": 20
+ },
+ "matched_cells": [
+  "T1_g30_Q",
+  "T1_g3_N20",
+  "T1_g3_Q",
+  "T2_g30_Q",
+  "T2_g3_N20",
+  "T2_g3_Q",
+  "T3_g8_N20",
+  "duty05_r1_N20",
+  "duty05_r1_Q",
+  "duty05_r6_N20",
+  "duty05_r6_Q",
+  "duty100_panel_N20",
+  "duty100_panel_Q",
+  "duty20_r1_N20",
+  "duty20_r1_Q",
+  "duty20_r6_N20",
+  "duty20_r6_Q",
+  "duty50_r1_N20",
+  "duty50_r6_N20",
+  "duty50_r6_Q"
+ ],
+ "groups": {
+  "duty_Q": {
+   "cells": [
+    "duty05_r1_Q",
+    "duty05_r6_Q",
+    "duty20_r1_Q",
+    "duty20_r6_Q",
+    "duty50_r6_Q"
+   ],
+   "B0-C0": {
+    "cells": 5,
+    "wer": 13.17,
+    "first_word_recall": 0.766,
+    "first_correct_by_300ms": 0.399,
+    "first_word_items": 1200,
+    "gap_words": 1,
+    "gap_hours": 3.984,
+    "gap_per_hour": 0.25,
+    "gap_upper95_per_hour": 1.19,
+    "lag_p50_ms_median_of_cells": 312
+   },
+   "B0-C1": {
+    "cells": 5,
+    "wer": 10.89,
+    "first_word_recall": 0.853,
+    "first_correct_by_300ms": 0.3,
+    "first_word_items": 1200,
+    "gap_words": 0,
+    "gap_hours": 3.984,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.75,
+    "lag_p50_ms_median_of_cells": 333
+   }
+  },
+  "duty_N20": {
+   "cells": [
+    "duty05_r1_N20",
+    "duty05_r6_N20",
+    "duty20_r1_N20",
+    "duty20_r6_N20",
+    "duty50_r1_N20",
+    "duty50_r6_N20"
+   ],
+   "B0-C0": {
+    "cells": 6,
+    "wer": 17.02,
+    "first_word_recall": 0.648,
+    "first_correct_by_300ms": 0.359,
+    "first_word_items": 1260,
+    "gap_words": 4,
+    "gap_hours": 4.485,
+    "gap_per_hour": 0.89,
+    "gap_upper95_per_hour": 2.04,
+    "lag_p50_ms_median_of_cells": 298
+   },
+   "B0-C1": {
+    "cells": 6,
+    "wer": 12.9,
+    "first_word_recall": 0.803,
+    "first_correct_by_300ms": 0.25,
+    "first_word_items": 1260,
+    "gap_words": 0,
+    "gap_hours": 4.485,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.67,
+    "lag_p50_ms_median_of_cells": 339
+   }
+  },
+  "short_items_r6": {
+   "cells": [
+    "duty05_r6_N20",
+    "duty05_r6_Q",
+    "duty20_r6_N20",
+    "duty20_r6_Q"
+   ],
+   "B0-C0": {
+    "cells": 4,
+    "wer": 23.08,
+    "first_word_recall": 0.669,
+    "first_correct_by_300ms": 0.381,
+    "first_word_items": 1440,
+    "gap_words": 5,
+    "gap_hours": 3.466,
+    "gap_per_hour": 1.44,
+    "gap_upper95_per_hour": 3.03,
+    "lag_p50_ms_median_of_cells": 213
+   },
+   "B0-C1": {
+    "cells": 4,
+    "wer": 14.49,
+    "first_word_recall": 0.81,
+    "first_correct_by_300ms": 0.326,
+    "first_word_items": 1440,
+    "gap_words": 0,
+    "gap_hours": 3.466,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.86,
+    "lag_p50_ms_median_of_cells": 291
+   }
+  },
+  "panel": {
+   "cells": [
+    "duty100_panel_N20",
+    "duty100_panel_Q"
+   ],
+   "B0-C0": {
+    "cells": 2,
+    "wer": 9.44,
+    "first_word_recall": 0.886,
+    "first_correct_by_300ms": 0.426,
+    "first_word_items": 1460,
+    "gap_words": 0,
+    "gap_hours": 0.0,
+    "gap_per_hour": null,
+    "gap_upper95_per_hour": null,
+    "lag_p50_ms_median_of_cells": 302
+   },
+   "B0-C1": {
+    "cells": 2,
+    "wer": 9.42,
+    "first_word_recall": 0.888,
+    "first_correct_by_300ms": 0.416,
+    "first_word_items": 1460,
+    "gap_words": 0,
+    "gap_hours": 0.0,
+    "gap_per_hour": null,
+    "gap_upper95_per_hour": null,
+    "lag_p50_ms_median_of_cells": 305
+   }
+  },
+  "torture_Q": {
+   "cells": [
+    "T1_g30_Q",
+    "T1_g3_Q",
+    "T2_g30_Q",
+    "T2_g3_Q"
+   ],
+   "B0-C0": {
+    "cells": 4,
+    "wer": 9.42,
+    "first_word_recall": 0.853,
+    "first_correct_by_300ms": 0.375,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 2.611,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 1.15,
+    "lag_p50_ms_median_of_cells": 315
+   },
+   "B0-C1": {
+    "cells": 4,
+    "wer": 8.49,
+    "first_word_recall": 0.9,
+    "first_correct_by_300ms": 0.245,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 2.611,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 1.15,
+    "lag_p50_ms_median_of_cells": 333
+   }
+  },
+  "torture_N20": {
+   "cells": [
+    "T1_g3_N20",
+    "T2_g3_N20",
+    "T3_g8_N20"
+   ],
+   "B0-C0": {
+    "cells": 3,
+    "wer": 14.52,
+    "first_word_recall": 0.762,
+    "first_correct_by_300ms": 0.388,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 1.389,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 2.16,
+    "lag_p50_ms_median_of_cells": 305
+   },
+   "B0-C1": {
+    "cells": 3,
+    "wer": 11.58,
+    "first_word_recall": 0.851,
+    "first_correct_by_300ms": 0.21,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 1.389,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 2.16,
+    "lag_p50_ms_median_of_cells": 340
+   }
+  },
+  "all": {
+   "cells": [
+    "T1_g30_Q",
+    "T1_g3_N20",
+    "T1_g3_Q",
+    "T2_g30_Q",
+    "T2_g3_N20",
+    "T2_g3_Q",
+    "T3_g8_N20",
+    "duty05_r1_N20",
+    "duty05_r1_Q",
+    "duty05_r6_N20",
+    "duty05_r6_Q",
+    "duty100_panel_N20",
+    "duty100_panel_Q",
+    "duty20_r1_N20",
+    "duty20_r1_Q",
+    "duty20_r6_N20",
+    "duty20_r6_Q",
+    "duty50_r1_N20",
+    "duty50_r6_N20",
+    "duty50_r6_Q"
+   ],
+   "B0-C0": {
+    "cells": 20,
+    "wer": 12.19,
+    "first_word_recall": 0.783,
+    "first_correct_by_300ms": 0.392,
+    "first_word_items": 5520,
+    "gap_words": 5,
+    "gap_hours": 12.469,
+    "gap_per_hour": 0.4,
+    "gap_upper95_per_hour": 0.84,
+    "lag_p50_ms_median_of_cells": 305
+   },
+   "B0-C1": {
+    "cells": 20,
+    "wer": 10.47,
+    "first_word_recall": 0.857,
+    "first_correct_by_300ms": 0.298,
+    "first_word_items": 5520,
+    "gap_words": 0,
+    "gap_hours": 12.469,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.24,
+    "lag_p50_ms_median_of_cells": 335
+   }
+  }
+ },
+ "own_coverage": {
+  "duty_Q": {
+   "B0-C0": {
+    "cells": 6,
+    "wer": 11.52,
+    "first_word_recall": 0.764,
+    "first_correct_by_300ms": 0.394,
+    "first_word_items": 1260,
+    "gap_words": 1,
+    "gap_hours": 4.485,
+    "gap_per_hour": 0.22,
+    "gap_upper95_per_hour": 1.06,
+    "lag_p50_ms_median_of_cells": 310
+   },
+   "B0-C1": {
+    "cells": 5,
+    "wer": 10.89,
+    "first_word_recall": 0.853,
+    "first_correct_by_300ms": 0.3,
+    "first_word_items": 1200,
+    "gap_words": 0,
+    "gap_hours": 3.984,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.75,
+    "lag_p50_ms_median_of_cells": 333
+   }
+  },
+  "duty_N20": {
+   "B0-C0": {
+    "cells": 6,
+    "wer": 17.02,
+    "first_word_recall": 0.648,
+    "first_correct_by_300ms": 0.359,
+    "first_word_items": 1260,
+    "gap_words": 4,
+    "gap_hours": 4.485,
+    "gap_per_hour": 0.89,
+    "gap_upper95_per_hour": 2.04,
+    "lag_p50_ms_median_of_cells": 298
+   },
+   "B0-C1": {
+    "cells": 6,
+    "wer": 12.9,
+    "first_word_recall": 0.803,
+    "first_correct_by_300ms": 0.25,
+    "first_word_items": 1260,
+    "gap_words": 0,
+    "gap_hours": 4.485,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.67,
+    "lag_p50_ms_median_of_cells": 339
+   }
+  },
+  "short_items_r6": {
+   "B0-C0": {
+    "cells": 4,
+    "wer": 23.08,
+    "first_word_recall": 0.669,
+    "first_correct_by_300ms": 0.381,
+    "first_word_items": 1440,
+    "gap_words": 5,
+    "gap_hours": 3.466,
+    "gap_per_hour": 1.44,
+    "gap_upper95_per_hour": 3.03,
+    "lag_p50_ms_median_of_cells": 213
+   },
+   "B0-C1": {
+    "cells": 4,
+    "wer": 14.49,
+    "first_word_recall": 0.81,
+    "first_correct_by_300ms": 0.326,
+    "first_word_items": 1440,
+    "gap_words": 0,
+    "gap_hours": 3.466,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.86,
+    "lag_p50_ms_median_of_cells": 291
+   }
+  },
+  "panel": {
+   "B0-C0": {
+    "cells": 2,
+    "wer": 9.44,
+    "first_word_recall": 0.886,
+    "first_correct_by_300ms": 0.426,
+    "first_word_items": 1460,
+    "gap_words": 0,
+    "gap_hours": 0.0,
+    "gap_per_hour": null,
+    "gap_upper95_per_hour": null,
+    "lag_p50_ms_median_of_cells": 302
+   },
+   "B0-C1": {
+    "cells": 2,
+    "wer": 9.42,
+    "first_word_recall": 0.888,
+    "first_correct_by_300ms": 0.416,
+    "first_word_items": 1460,
+    "gap_words": 0,
+    "gap_hours": 0.0,
+    "gap_per_hour": null,
+    "gap_upper95_per_hour": null,
+    "lag_p50_ms_median_of_cells": 305
+   }
+  },
+  "torture_Q": {
+   "B0-C0": {
+    "cells": 4,
+    "wer": 9.42,
+    "first_word_recall": 0.853,
+    "first_correct_by_300ms": 0.375,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 2.611,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 1.15,
+    "lag_p50_ms_median_of_cells": 315
+   },
+   "B0-C1": {
+    "cells": 4,
+    "wer": 8.49,
+    "first_word_recall": 0.9,
+    "first_correct_by_300ms": 0.245,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 2.611,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 1.15,
+    "lag_p50_ms_median_of_cells": 333
+   }
+  },
+  "torture_N20": {
+   "B0-C0": {
+    "cells": 3,
+    "wer": 14.52,
+    "first_word_recall": 0.762,
+    "first_correct_by_300ms": 0.388,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 1.389,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 2.16,
+    "lag_p50_ms_median_of_cells": 305
+   },
+   "B0-C1": {
+    "cells": 3,
+    "wer": 11.58,
+    "first_word_recall": 0.851,
+    "first_correct_by_300ms": 0.21,
+    "first_word_items": 800,
+    "gap_words": 0,
+    "gap_hours": 1.389,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 2.16,
+    "lag_p50_ms_median_of_cells": 340
+   }
+  },
+  "all": {
+   "B0-C0": {
+    "cells": 21,
+    "wer": 11.95,
+    "first_word_recall": 0.782,
+    "first_correct_by_300ms": 0.391,
+    "first_word_items": 5580,
+    "gap_words": 5,
+    "gap_hours": 12.97,
+    "gap_per_hour": 0.39,
+    "gap_upper95_per_hour": 0.81,
+    "lag_p50_ms_median_of_cells": 305
+   },
+   "B0-C1": {
+    "cells": 20,
+    "wer": 10.47,
+    "first_word_recall": 0.857,
+    "first_correct_by_300ms": 0.298,
+    "first_word_items": 5520,
+    "gap_words": 0,
+    "gap_hours": 12.469,
+    "gap_per_hour": 0.0,
+    "gap_upper95_per_hour": 0.24,
+    "lag_p50_ms_median_of_cells": 335
+   }
+  }
+ }
+}

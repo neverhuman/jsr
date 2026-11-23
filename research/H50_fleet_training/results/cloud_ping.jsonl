@@ -1,0 +1,12 @@
+{"kind":"ping","src":"xbabe5","dst":"xbabe7","ip":"xbabe7-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6022ms rtt min/avg/max/mdev = 0.199/0.298/1.178/0.172 ms "}
+{"kind":"ping","src":"xbabe5","dst":"xbabe8","ip":"xbabe8-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6025ms rtt min/avg/max/mdev = 0.231/0.421/3.580/0.598 ms "}
+{"kind":"ping","src":"xbabe5","dst":"xbabe9","ip":"xbabe9-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6020ms rtt min/avg/max/mdev = 0.203/0.416/3.721/0.618 ms "}
+{"kind":"ping","src":"xbabe7","dst":"xbabe5","ip":"xbabe5-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6029ms rtt min/avg/max/mdev = 0.212/0.264/0.583/0.089 ms "}
+{"kind":"ping","src":"xbabe7","dst":"xbabe8","ip":"xbabe8-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6017ms rtt min/avg/max/mdev = 0.136/0.413/3.752/0.871 ms "}
+{"kind":"ping","src":"xbabe7","dst":"xbabe9","ip":"xbabe9-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6012ms rtt min/avg/max/mdev = 0.212/0.366/3.160/0.519 ms "}
+{"kind":"ping","src":"xbabe8","dst":"xbabe5","ip":"xbabe5-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6030ms rtt min/avg/max/mdev = 0.198/0.243/0.681/0.092 ms "}
+{"kind":"ping","src":"xbabe8","dst":"xbabe7","ip":"xbabe7-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6028ms rtt min/avg/max/mdev = 0.176/0.281/0.808/0.126 ms "}
+{"kind":"ping","src":"xbabe8","dst":"xbabe9","ip":"xbabe9-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6032ms rtt min/avg/max/mdev = 0.201/0.287/0.678/0.089 ms "}
+{"kind":"ping","src":"xbabe9","dst":"xbabe5","ip":"xbabe5-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6026ms rtt min/avg/max/mdev = 0.236/0.398/2.738/0.444 ms "}
+{"kind":"ping","src":"xbabe9","dst":"xbabe7","ip":"xbabe7-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6028ms rtt min/avg/max/mdev = 0.197/0.283/0.512/0.079 ms "}
+{"kind":"ping","src":"xbabe9","dst":"xbabe8","ip":"xbabe8-private","out":"30 packets transmitted, 30 received, 0% packet loss, time 6026ms rtt min/avg/max/mdev = 0.119/0.219/0.561/0.081 ms "}

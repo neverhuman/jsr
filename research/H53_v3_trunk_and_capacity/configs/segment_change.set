@@ -1,0 +1,3 @@
+# H53 segment change (S1 -> S2 -> S3) at a branch point: a NEW run that --init-from's the branch point's raw weights.
+# Same as v3_trunk_s1.set except these keys; splits gain the gated Libri-Light dirs (README A3), LS weight 3 in S3.
+warmup=500

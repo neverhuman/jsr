@@ -1,0 +1,188 @@
+{
+ "schema": "alwayson-bench.tier-streams/v1",
+ "tier": "G",
+ "location": "/mnt/xbabe3-external/jsr/alwayson-bench/aobench/tierG/",
+ "index_sha256": "ed3a04cd5392b70c22bb4cb3ceff6f2a84a615ba3ddfa288a68d8aaaacc8ab93",
+ "streams": {
+  "panel_gain-10_Q": {
+   "pcm_sha256": "e0e9b26d6fe03b96e635f0083be3d448654d2049747827168b75796d630ad29b",
+   "wav_sha256": "fbd427cbefe7a92a0177282bd45e13d36224f77e5d87f49bc790d57104e87985",
+   "manifest_sha256": "29a674c456fd2a428dc28f580a4f02fde18626f323cec989a7a6f514aaeb352c",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -10.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7"
+  },
+  "panel_gain-10_Q_agc": {
+   "pcm_sha256": "f52d9f0a6b90713293e90d393ca68d915530f5a5d537171b5dccda00f6675ba3",
+   "wav_sha256": "a803d3e61d6a735226626415e026f5cd5d3b34b5cdf4b822ed2916301fce24f9",
+   "manifest_sha256": "29eae23797485a8a90265d9759b6fcc55cfb81c90f01aa8f84db52fb2da931c4",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -10.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7",
+   "agc": {
+    "design": "causal 10 ms frames; gated power-domain level tracker; gain = clamp(target - level)",
+    "target_dbfs": -19.249,
+    "attack_s": 0.3,
+    "release_s": 3.0,
+    "gate_rel_db": 30.0,
+    "gate_abs_dbfs": -85.0,
+    "gain_bounds_db": [
+     -10.0,
+     40.0
+    ],
+    "input_manifest_sha256": "29a674c456fd2a428dc28f580a4f02fde18626f323cec989a7a6f514aaeb352c",
+    "gain_db_on_gated_frames": {
+     "p5": 5.28,
+     "p50": 9.99,
+     "p95": 16.12
+    },
+    "clipped_samples": 120,
+    "script": "/home/ubuntu/jsr-data/alwayson-bench/aobench/agc_stream.py",
+    "script_sha256": "f7bb67ef19cf0ddf2c35b3d588a81d713e017c1f4caf7b310834bc6beb132316"
+   }
+  },
+  "panel_gain-20_Q": {
+   "pcm_sha256": "3e43a27c9472c39af8364d4e1aaf8477c37f8e742524d6cc4297019e5fde2a09",
+   "wav_sha256": "1ccb83f4a1968444db43e6114abe02ca255a0f898f80cfd8c1d7fb52baca55dc",
+   "manifest_sha256": "bfecb04ee1734dd1a9b04d05773f1824f45d35464f08c61ec392f2ccc1b01ea9",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -20.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7"
+  },
+  "panel_gain-20_Q_agc": {
+   "pcm_sha256": "0e580f32b77f87e083d6c6ee857e4ee57919e4c5873a0d50ea32051fd8842456",
+   "wav_sha256": "6c934e2edb73b3594d6679bcbcd62d7bdf8a638f0aeabe191f3d5ba02bfd3522",
+   "manifest_sha256": "9a97ef62e52c1ea39c8dcbc5ecaf0a96c490e5688311cc4beb9cc214692b4254",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -20.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7",
+   "agc": {
+    "design": "causal 10 ms frames; gated power-domain level tracker; gain = clamp(target - level)",
+    "target_dbfs": -19.249,
+    "attack_s": 0.3,
+    "release_s": 3.0,
+    "gate_rel_db": 30.0,
+    "gate_abs_dbfs": -85.0,
+    "gain_bounds_db": [
+     -10.0,
+     40.0
+    ],
+    "input_manifest_sha256": "bfecb04ee1734dd1a9b04d05773f1824f45d35464f08c61ec392f2ccc1b01ea9",
+    "gain_db_on_gated_frames": {
+     "p5": 15.21,
+     "p50": 19.99,
+     "p95": 26.08
+    },
+    "clipped_samples": 103,
+    "script": "/home/ubuntu/jsr-data/alwayson-bench/aobench/agc_stream.py",
+    "script_sha256": "f7bb67ef19cf0ddf2c35b3d588a81d713e017c1f4caf7b310834bc6beb132316"
+   }
+  },
+  "panel_gain-30_Q": {
+   "pcm_sha256": "fe4b7bb1de8cc7add972ae0a2db0f398fd3a3622691dd18dcd46ce43c8f83df9",
+   "wav_sha256": "da0598f2c765802413252b1297cbba11d5ae0dd8388d84a03808d2c7c43f97da",
+   "manifest_sha256": "f21c5c961156922537c5f42aea28f9b59781c788c64a072708a13cdcd7dec98d",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -30.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7"
+  },
+  "panel_gain-30_Q_agc": {
+   "pcm_sha256": "ff5d4004a087d95eb947a93051920dbf78f86f6b023465de1b7b8954ffb06e3a",
+   "wav_sha256": "dab1a4ac1c2760f21018901d5617bb6a18640fc73b5447abea662c80c5b6045e",
+   "manifest_sha256": "081fc5a4c3f0adeed091662855dab905abbd0dfb1910d9f22e62ca3bb9969bc2",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": -30.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7",
+   "agc": {
+    "design": "causal 10 ms frames; gated power-domain level tracker; gain = clamp(target - level)",
+    "target_dbfs": -19.249,
+    "attack_s": 0.3,
+    "release_s": 3.0,
+    "gate_rel_db": 30.0,
+    "gate_abs_dbfs": -85.0,
+    "gain_bounds_db": [
+     -10.0,
+     40.0
+    ],
+    "input_manifest_sha256": "f21c5c961156922537c5f42aea28f9b59781c788c64a072708a13cdcd7dec98d",
+    "gain_db_on_gated_frames": {
+     "p5": 25.13,
+     "p50": 29.99,
+     "p95": 35.84
+    },
+    "clipped_samples": 47,
+    "script": "/home/ubuntu/jsr-data/alwayson-bench/aobench/agc_stream.py",
+    "script_sha256": "f7bb67ef19cf0ddf2c35b3d588a81d713e017c1f4caf7b310834bc6beb132316"
+   }
+  },
+  "panel_gain0_Q": {
+   "pcm_sha256": "8edce625d09df4740019ace2e437cb901178695ff9e9f49c0cddcc194fa2e0f0",
+   "wav_sha256": "b8e29ac4ccabbe2621681616a335e4d94f058a957a5457d7f8892d5c0385e528",
+   "manifest_sha256": "9425b7ca59bc1ae46ea59fa2ad8fdd7f06dc908515555a14ddac7af7842352fe",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": 0.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7"
+  },
+  "panel_gain0_Q_agc": {
+   "pcm_sha256": "b0be4f33360494fbc5041ea1a1d07911d37537539529f0ad20ff12e6f723f3e7",
+   "wav_sha256": "427c28d62fec7333e5edb68d2ab0676a3112de71ddb69b56aacf7f58c7d7ad53",
+   "manifest_sha256": "223f480ab9a3d55c5f7a3a15297b1c580ab96c3e8163e23c83dec18aa7e8fb63",
+   "items": 730,
+   "total_s": 5259.5599375,
+   "occupancy_items": 1.0,
+   "onsets_per_min": 8.328,
+   "background": "Q",
+   "gain_db": 0.0,
+   "generator_sha256": "962330833705f58b2b7f24d16fcba4a317174daa3d89e5fbe2211e6eb02a0ee7",
+   "agc": {
+    "design": "causal 10 ms frames; gated power-domain level tracker; gain = clamp(target - level)",
+    "target_dbfs": -19.249,
+    "attack_s": 0.3,
+    "release_s": 3.0,
+    "gate_rel_db": 30.0,
+    "gate_abs_dbfs": -85.0,
+    "gain_bounds_db": [
+     -10.0,
+     40.0
+    ],
+    "input_manifest_sha256": "9425b7ca59bc1ae46ea59fa2ad8fdd7f06dc908515555a14ddac7af7842352fe",
+    "gain_db_on_gated_frames": {
+     "p5": -4.68,
+     "p50": 0.0,
+     "p95": 6.12
+    },
+    "clipped_samples": 120,
+    "script": "/home/ubuntu/jsr-data/alwayson-bench/aobench/agc_stream.py",
+    "script_sha256": "f7bb67ef19cf0ddf2c35b3d588a81d713e017c1f4caf7b310834bc6beb132316"
+   }
+  }
+ }
+}
