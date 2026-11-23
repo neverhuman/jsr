@@ -333,7 +333,7 @@ class ParquetBatches:
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
                  base_weight: float = 0.0, anchors=None, dur_tables: str = "",
                  node_shards: str = "", bpe_dropout_p: float = 0.0,
-                 bpe_dropout_alpha: float = 0.1):
+                 bpe_dropout_alpha: float = 0.1, collate_ahead: int = 0):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -416,6 +416,9 @@ class ParquetBatches:
         self.anchors = anchors  # H48c train.mfa_anchors.MfaAnchors (None = off)
         self.bpe_dropout_p, self.bpe_dropout_alpha = float(bpe_dropout_p), float(bpe_dropout_alpha)
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
+        if int(collate_ahead) < 0:
+            raise DataError(f"collate_ahead must be >= 0, got {collate_ahead}")
+        self.collate_ahead = int(collate_ahead)  # >0: next N batches collated off the consumer's thread
         if loader not in ("thread", "process"):
             raise DataError(f"unknown loader {loader!r}")
         self.loader = loader
@@ -793,8 +796,21 @@ class ParquetBatches:
             self._ctx_bank = ContextBank(self.feat.logmel)
         return add_context(exs, self._ctx_bank, self.seed, epoch, self.stream_ctx_s, self.stream_ctx_cap)
 
+    def _collate_group(self, group, epoch: int) -> Batch:
+        """One packed group -> Batch: stream context (if any), then collate(); DDP-global groups carry `active`."""
+        if self.ddp_global_batches and self.world > 1:
+            examples, active = group
+            batch = collate(self._with_context(examples, epoch), self.pad_frames, self.pad_tokens)
+            batch.active = active
+            return batch
+        return collate(self._with_context(group, epoch), self.pad_frames, self.pad_tokens)
+
     def iterate(self, start: Position):
-        """Yield (position after this batch, Batch) forever, from `start`; one window prefetched."""
+        """Yield (position after this batch, Batch) forever, from `start`; one window prefetched.
+
+        With collate_ahead = N > 0, one collator thread runs the same per-batch context + collate() calls, in
+        the same order, up to N batches ahead of the consumer, so the trainer's step overlaps the next batch's
+        collation instead of waiting on it. The batches are identical; N = 0 (the default) collates inline."""
         q: queue.Queue = queue.Queue(maxsize=2)
         stop = threading.Event()
 
@@ -838,13 +854,13 @@ class ParquetBatches:
                     ep, w = ep + 1, 0
 
         # The producer runs as a future: a failure is kept on the future (never swallowed) and
-        # re-raised here as a DataError as soon as the queue runs dry.
+        # re-raised as a DataError as soon as the queue runs dry.
         from concurrent.futures import ThreadPoolExecutor
 
         runner = ThreadPoolExecutor(1, thread_name_prefix="batch-producer")
         fut = runner.submit(producer)
-        first, step_idx = True, start.batch
-        try:
+
+        def windows():
             while True:
                 try:
                     item = q.get(timeout=1.0)
@@ -852,24 +868,59 @@ class ParquetBatches:
                     if fut.done() and fut.exception() is not None:
                         err = fut.exception()
                         raise DataError(f"batch producer failed: {err!r}") from err
+                    if stop.is_set():  # only once the consumer has closed this iterator
+                        return
                     continue
-                ep, w, batches = item
+                yield item
+
+        def batches():
+            first, step_idx = True, start.batch
+            for ep, w, groups in windows():
                 skip = (0 if self._node_plan is not None else start.batch) if first else 0
                 first = False
-                for bi in range(skip, len(batches)):
+                for bi in range(skip, len(groups)):
                     step_idx += 1
                     nxt = Position(0, 0, step_idx) if self._node_plan is not None else Position(ep, w, bi + 1)
-                    group = batches[bi]
-                    if self.ddp_global_batches and self.world > 1:
-                        examples, active = group
-                        batch = collate(self._with_context(examples, ep), self.pad_frames, self.pad_tokens)
-                        batch.active = active
-                    else:
-                        batch = collate(self._with_context(group, ep), self.pad_frames, self.pad_tokens)
-                    yield nxt, batch
+                    yield nxt, self._collate_group(groups[bi], ep)
+
+        crunner, ahead = None, int(getattr(self, "collate_ahead", 0) or 0)
+        try:
+            if ahead <= 0:
+                yield from batches()
+                return
+            cq: queue.Queue = queue.Queue(maxsize=ahead)
+
+            def collator():
+                for item in batches():
+                    while True:
+                        if stop.is_set():
+                            return
+                        try:
+                            cq.put(item, timeout=1.0)
+                            break
+                        except queue.Full:
+                            continue
+
+            crunner = ThreadPoolExecutor(1, thread_name_prefix="batch-collator")
+            cfut = crunner.submit(collator)
+            while True:
+                try:
+                    item = cq.get(timeout=1.0)
+                except queue.Empty:
+                    if cfut.done():  # the collator stops only on an error (the stream is endless)
+                        err = cfut.exception()
+                        if isinstance(err, DataError):
+                            raise err
+                        if err is None:
+                            raise DataError("batch collator stopped without an error") from None
+                        raise DataError(f"batch collator failed: {err!r}") from err
+                    continue
+                yield item
         finally:
             stop.set()
             runner.shutdown(wait=False)
+            if crunner is not None:
+                crunner.shutdown(wait=False)
 
 
 class FixedBatches:

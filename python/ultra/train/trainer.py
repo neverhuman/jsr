@@ -109,6 +109,7 @@ class TrainConfig:
     extra_base_weight: float = 0.0  # >0: the LibriSpeech share of each epoch (extras split the rest by size)
     dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off)
     node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off)
+    collate_ahead: int = 0  # >0: collate the next N batches off the main thread (identical batches; 0 = inline)
     # Data-parallel options (0/"" = off).
     ddp_util_target: float = 0.0
     ddp_global_batches: bool = False
@@ -911,7 +912,8 @@ def main(argv=None) -> int:
                                 extra=parse_extra_splits(cfg.extra_splits), min_conf=cfg.extra_min_conf,
                                 base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r),
                                 dur_tables=cfg.dur_tables, node_shards=cfg.node_shards,
-                                bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha)
+                                bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha,
+                                collate_ahead=cfg.collate_ahead)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
