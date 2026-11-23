@@ -485,7 +485,7 @@ def fake_repetition(runs, group, arm, round_id, cpu_s, wall_s, service, hyps, rs
              "finished": f"2026-11-22T22:0{round_id}:00Z", "command": "cmd", "config.sha256": "0  /x",
              "runtime-libraries.sha256": "0  /lib", "host.before": "0.5 0.5 0.5 1/1 1\nschedutil\n1",
              "host.after": "1.0 0.5 0.5 1/1 1", "service.stderr": "", "artifact.bytes": "1000000",
-             "trace.sha256": "0  trace.jsonl", "panel": "p73" if p73 else "full",
+             "trace.sha256": "0  trace.jsonl", "panel": "p73" if p73 else "full", "harness.commit": "c0e8fc1",
              "audio.seconds": str(P73_SECONDS if p73 else WORKLOAD["audio_seconds"]),
              "workload.sha256": f"{P73_DIGEST if p73 else WORKLOAD['digest']}  /panel/audio.json",
              "host.freq.tsv": "1\t4000000\t0.5 0.5 0.5\n2\t4200000\t0.6 0.5 0.5"}
@@ -583,6 +583,7 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
     assert "CPUs 4; 24; 28" in one["hardware"] and one["session"] == "2026-11-22 xbabe0 test"
     assert one["n_busy_cores_reps"] == [2, 2, 2] and one["service_mhz"] == [4100, 4100, 4100]
     assert one["recogniser_s_per_audio_s"] is None and len(one["repetition_windows"]) == 3
+    assert one["harness_commits"] == ["c0e8fc1"]  # each receipt's deployed harness commit reaches the row
     slow = rows["whispercpp-stream-tiny-zen2-t1"]
     assert slow["timing_panel"] == "p73" and slow["workload_digest"] == WORKLOAD["digest"]
     assert slow["timing_workload_digest"] == P73_DIGEST and slow["timing_audio_seconds"] == pytest.approx(P73_SECONDS)

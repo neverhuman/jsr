@@ -38,7 +38,7 @@ RECEIPT_FILES = (
     "arm", "panel", "audio.seconds", "command", "config.sha256", "runtime-libraries.sha256", "workload.sha256",
     "host", "host.before", "host.after", "round", "started", "finished", "measurement.json", "service.stderr",
     "score.json", "host.cpu.json", "host.freq.tsv", "host.gate.json", "artifact.bytes", "trace.sha256",
-    "trace.summary.json",
+    "trace.summary.json", "harness.commit",
 )
 WER_PASS_FILES = (
     "command", "config.sha256", "workload.sha256", "host", "host.before", "host.after", "started", "finished",
