@@ -10,9 +10,13 @@ the block ends); the agent appends `DONE N <UTC> <agent>` when its entry is fini
 
 PLAN lines (`#` starts a comment):
     ENTRY PANEL ARM ROUND SERVICE_CPUS OBSERVER_CPU EST_MIN   one repetition through open-run.sh
-    anchor ARM EST_MIN_FULL EST_MIN_P73                       run ARM once at the start of every
-                                                              hold, on the panel and the first CPU
-                                                              of the hold's first repetition
+    anchor ARM EST_MIN_FULL EST_MIN_P73 [ENTRIES]             run ARM once at the start of every
+                                                              hold (of the listed entries only, if a
+                                                              comma-separated list is given; an entry's
+                                                              own anchor wins over the general one), on
+                                                              the panel of the hold's first repetition
+                                                              and on its first CPU (or on its whole CPU
+                                                              list for a multi-core anchor: -t8/-w8/-s8)
 ARM may be `A|B`: the one of the two with the shorter wall time in round 1 of this plan (both
 clean); if neither has such a round-1 receipt, A.
 
@@ -47,24 +51,39 @@ def utc(moment=None):
     return (moment or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+MULTI_CORE = ("-t8", "-w8", "-s8")
+
+
 def read_plan(text):
-    """`(jobs, anchor)` from the plan text; anchor is None or `{arm, est_s: {panel: seconds}}`."""
-    jobs, anchor = [], None
+    """`(jobs, anchors)`: anchors maps an entry (or None, for every entry) to `{arm, est_s: {panel: seconds}}`."""
+    jobs, anchors = [], {}
     for line in text.splitlines():
         fields = line.split("#", 1)[0].split()
         if not fields:
             continue
         if fields[0] == "anchor":
-            if len(fields) != 4:
-                raise ValueError(f"expected anchor ARM EST_MIN_FULL EST_MIN_P73: {line!r}")
-            anchor = {"arm": fields[1], "est_s": {"full": 60 * float(fields[2]), "p73": 60 * float(fields[3])}}
+            if len(fields) not in (4, 5):
+                raise ValueError(f"expected anchor ARM EST_MIN_FULL EST_MIN_P73 [ENTRIES]: {line!r}")
+            spec = {"arm": fields[1], "est_s": {"full": 60 * float(fields[2]), "p73": 60 * float(fields[3])}}
+            for entry in (fields[4].split(",") if len(fields) == 5 else [None]):
+                anchors[None if entry is None else int(entry)] = spec
             continue
         if len(fields) != 7:
             raise ValueError(f"expected ENTRY PANEL ARM ROUND SERVICE_CPUS OBSERVER_CPU EST_MIN: {line!r}")
         entry, panel, arm, round_id, service, observer, minutes = fields
         jobs.append({"entry": int(entry), "panel": panel, "arm": arm, "round": int(round_id), "service": service,
                      "observer": int(observer), "est_s": 60 * float(minutes), "status": "pending"})
-    return jobs, anchor
+    return jobs, anchors
+
+
+def anchor_for(anchors, entry):
+    """The anchor of an entry: its own, else the general one, else None."""
+    return anchors.get(entry, anchors.get(None))
+
+
+def anchor_service(arm, service):
+    """A one-core anchor runs on the first CPU of the hold's first repetition, a multi-core one on all of them."""
+    return service if arm.endswith(MULTI_CORE) else service.split(",")[0].split("-")[0]
 
 
 def finished_entries(text, agent=None):
@@ -180,7 +199,7 @@ class Host:
 def main():
     plan, log_dir = Path(sys.argv[1]), Path(sys.argv[2])
     log_dir.mkdir(parents=True, exist_ok=True)
-    jobs, anchor = read_plan(plan.read_text())
+    jobs, anchors = read_plan(plan.read_text())
     root = Path(os.environ.get("PAPER_OPPONENTS_ROOT",
                                Path(os.environ.get("JSR_DATA", Path.home() / "jsr-data")) / "opponents"))
     runs = Path(os.environ.get("OPEN_RUNS", root / "bench-open" / "runs"))
@@ -248,9 +267,10 @@ def main():
                 save()
                 hold["acquired_utc"] = host.acquire(entry)
                 began = time.monotonic()
+                anchor = anchor_for(anchors, entry)
                 if anchor is not None:
                     first = pending[0]
-                    service = first["service"].split(",")[0].split("-")[0]
+                    service = anchor_service(anchor["arm"], first["service"])
                     marker = {"entry": entry, "panel": first["panel"], "arm": anchor["arm"], "service": service,
                               "observer": first["observer"], "anchor": True,
                               "est_s": anchor["est_s"][first["panel"]], "status": "pending"}

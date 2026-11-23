@@ -98,7 +98,7 @@ def workload():
 
 def split_arm(arm):
     """`(variant, threads, parallel)` of an arm name."""
-    for suffix, parallel in (("-t8", "intra_op"), ("-w8", None)):
+    for suffix, parallel in (("-t8", "intra_op"), ("-w8", None), ("-s8", "workers")):
         if arm.endswith(suffix):
             variant = arm[:-len(suffix)]
             return variant, 8, parallel or ("workers" if variant.startswith(SHARED_MODEL) else "processes")

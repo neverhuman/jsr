@@ -15,6 +15,8 @@
 #   r0-zipformer-int8                   R0 Zipformer INT8 through sherpa-onnx (same-session anchor)
 #   <system>-t8                         eight intra-op threads in one recogniser
 #   <system>-w8                         eight single-thread recognisers side by side
+#   <anchor>-s8                         our engine as one process with eight shared-weights workers
+#                                       (ultra-cold-wav --workers 8, the build in $anchor/ultra-cold-wav-workers)
 # Models, virtualenvs and the anchors live under $PAPER_OPPONENTS_ROOT (default $data/opponents).
 # shellcheck disable=SC2034,SC2154  # sourced: cmd, files, artifacts go back to the caller; wav, run, data come from it
 
@@ -25,7 +27,12 @@ open_arm() {
     case "$system" in
         *-t8) mode=(--threads 8); system=${system%-t8} ;;
         *-w8) mode=(--workers 8); system=${system%-w8} ;;
+        *-s8) mode=(--shared 8); system=${system%-s8} ;;
     esac
+    if [[ ${mode[0]:-} == --shared && $system != jsr-* ]]; then
+        printf 'shared-weights workers exist for our engine only: %s\n' "$1" >&2
+        exit 2
+    fi
     case "$system" in
         vosk-large|vosk-small)
             model="$opp/vosk/models/vosk-model-en-us-0.22"
@@ -84,8 +91,14 @@ open_arm() {
                     "$model/tokens.txt" "$model/mel_fbank.f32")
                 files=("${artifacts[@]}" "$model/weights.safetensors")
             fi
+            if [[ ${mode[0]:-} == --shared ]]; then
+                binary="$anchor/ultra-cold-wav-workers"
+                engine=("$binary" --workers "${mode[1]}" "${engine[@]:1}")
+            fi
             files+=("$binary")
-            if [[ ${mode[0]:-} == --workers ]]; then
+            if [[ ${mode[0]:-} == --shared ]]; then
+                cmd=("${engine[@]}" "$wav" "$run/predictions.jsonl")
+            elif [[ ${mode[0]:-} == --workers ]]; then
                 cmd=("$(command -v python3)" -I "$here/open_workers.py" "${mode[1]}" "$wav" "$run/predictions.jsonl"
                     -- "${engine[@]}")
                 files+=("$here/open_workers.py" "$here/open_common.py")

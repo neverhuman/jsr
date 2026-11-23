@@ -258,11 +258,15 @@ def test_active_cores_count_a_core_once_and_cpu_lists_expand(tmp_path):
 
 
 def test_turn_plan_parsing_and_turn_rules(tmp_path):
-    jobs, anchor = turn.read_plan("anchor ours 3.5 0.5\n5 full a 1 4 0 17\n5 full a 2 24 1 17  # second\n\n"
-                                  "12 p73 b 1 4 0 4.5\n")
+    jobs, anchors = turn.read_plan("anchor ours 3.5 0.5\n5 full a 1 4 0 17\n5 full a 2 24 1 17  # second\n\n"
+                                   "12 p73 b 1 4 0 4.5\nanchor ours-s8 1 0.3 12,20\n")
     assert [(job["entry"], job["panel"], job["arm"], job["round"], job["est_s"]) for job in jobs] == [
         (5, "full", "a", 1, 1020.0), (5, "full", "a", 2, 1020.0), (12, "p73", "b", 1, 270.0)]
-    assert anchor == {"arm": "ours", "est_s": {"full": 210.0, "p73": 30.0}}
+    assert turn.anchor_for(anchors, 5) == {"arm": "ours", "est_s": {"full": 210.0, "p73": 30.0}}
+    assert turn.anchor_for(anchors, 12)["arm"] == turn.anchor_for(anchors, 20)["arm"] == "ours-s8"
+    assert turn.anchor_for({}, 5) is None
+    assert turn.anchor_service("ours", "8-15") == "8" and turn.anchor_service("ours", "24") == "24"
+    assert turn.anchor_service("ours-s8", "8-15") == "8-15" and turn.anchor_service("x-w8", "0,2-3") == "0,2-3"
     for bad in ("5 full a 1 4 0", "anchor ours 3"):
         with pytest.raises(ValueError):
             turn.read_plan(bad)
@@ -319,7 +323,7 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     fake.write_text(FAKE_RUN)
     plan = tmp_path / "plan.txt"
     plan.write_text("anchor anc 0.001 0.001\n3 full a 1 4 0 0.004\n3 full a 2 24 1 0.004\n3 full flaky 3 28 2 0.004\n"
-                    "5 p73 b 1 8-15 3 0.004\n5 p73 c 1 8-15 3 0.004\n5 p73 b|c 2 8-15 3 0.004\n")
+                    "5 p73 b 1 8-15 3 0.004\n5 p73 c 1 8-15 3 0.004\n5 p73 b|c 2 8-15 3 0.004\nanchor anc-s8 0.001 0.001 5\n")
     env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
            "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.1", "OPEN_HOLD_S": "0.6", "OPEN_HOLD_MARGIN_S": "0.1",
            "FAKE_LOG": str(tmp_path / "calls.log"), "OPEN_AGENT": "bench-open",
@@ -350,9 +354,9 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
         "anc 2 24 1 full bench-open 3", "a 2 24 1 full bench-open 3",
         "anc 3 28 2 full bench-open 3", "flaky 3 28 2 full bench-open 3",
         "anc 4 28 2 full bench-open 3", "flaky 3 28 2 full bench-open 3",
-        "anc 1 8 3 p73 bench-open 5", "b 1 8-15 3 p73 bench-open 5",
-        "anc 2 8 3 p73 bench-open 5", "c 1 8-15 3 p73 bench-open 5",
-        "anc 3 8 3 p73 bench-open 5", "c 2 8-15 3 p73 bench-open 5"]
+        "anc-s8 1 8-15 3 p73 bench-open 5", "b 1 8-15 3 p73 bench-open 5",
+        "anc-s8 2 8-15 3 p73 bench-open 5", "c 1 8-15 3 p73 bench-open 5",
+        "anc-s8 3 8-15 3 p73 bench-open 5", "c 2 8-15 3 p73 bench-open 5"]
     done = (host / "TIMING.done").read_text().splitlines()
     assert [line.split()[:2] + line.split()[-1:] for line in done] == [
         ["DONE", "1", "energy"], ["DONE", "2", "runtime-lane"], ["DONE", "3", "bench-open"],
@@ -409,7 +413,10 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")
     assert ours[0].endswith("opponents/bench-open/anchor/ultra-cold-wav-457a4db7") and ours[1] == "r1-engine-int8"
     assert ours[2].endswith("opponents/models/H22ctl-79800-ema/int8") and ours[3] == "/panel/wav"
-    for bad in ("vosk-small-t8", "jsr-d2e-16457-int8-t8", "r0-zipformer-int8-t8", "nonesuch"):
+    shared = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8-s8").stdout.split("\n")
+    assert shared[0].endswith("bench-open/anchor/ultra-cold-wav-workers") and shared[1:4] == ["--workers", "8", "r1-engine-int8"]
+    assert shared[4].endswith("models/H22ctl-79800-ema/int8") and shared[5:7] == ["/panel/wav", "/run/predictions.jsonl"]
+    for bad in ("vosk-small-t8", "jsr-d2e-16457-int8-t8", "r0-zipformer-int8-t8", "nonesuch", "vosk-small-s8"):
         assert open_arm(tmp_path, bad).returncode == 2
 
 
@@ -606,6 +613,15 @@ def test_receipts_collect_compactly_expand_exactly_and_export_rows(tmp_path):
         schema.check_row(dict(row), row["id"])
     table = summary("table", raw)
     assert "| vosk-small | full | 2 | 24 | 0.1000 |" in table and "| vosk-small-w8 | p73 | 3 | 1.5000 |" in table
+
+
+def test_arm_names_map_to_threads_and_parallel_modes():
+    import open_summary
+    assert open_summary.split_arm("vosk-small") == ("vosk-small", 1, "intra_op")
+    assert open_summary.split_arm("vosk-small-w8") == ("vosk-small", 8, "workers")  # one process, one shared model
+    assert open_summary.split_arm("parakeet-v3-onnxasr-int8-w8") == ("parakeet-v3-onnxasr-int8", 8, "processes")
+    assert open_summary.split_arm("parakeet-v3-onnxasr-int8-t8") == ("parakeet-v3-onnxasr-int8", 8, "intra_op")
+    assert open_summary.split_arm("jsr-h22ctl-79800-ema-int8-s8") == ("jsr-h22ctl-79800-ema-int8", 8, "workers")
 
 
 def test_loaded_cross_checks_never_become_rows(tmp_path):
