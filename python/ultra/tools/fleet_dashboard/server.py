@@ -389,11 +389,20 @@ async def api_snapshot(req: web.Request) -> web.Response:
     return web.json_response(req.app["fleet"].snapshot())
 
 
+async def api_v3_scoreboard(req: web.Request) -> web.Response:
+    sc = read_v3_scorecard(req.app["fleet"].scorecard_path)
+    if sc is None:
+        return web.json_response({"error": "v3 scoreboard unavailable"}, status=503,
+                                 headers={"Cache-Control": "no-cache"})
+    return web.json_response(sc, headers={"Cache-Control": "no-cache"})
+
+
 def make_app(*, fleet: Fleet | None = None, start_background_tasks: bool = True) -> web.Application:
     app = web.Application()
     app["fleet"] = fleet or Fleet()
     app.router.add_get("/", index)
     app.router.add_get("/api/snapshot", api_snapshot)
+    app.router.add_get("/v3/scoreboard.json", api_v3_scoreboard)
     app.router.add_get("/ws", ws_handler)
     if start_background_tasks:
         app.on_startup.append(start_background)

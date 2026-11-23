@@ -170,16 +170,42 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
     from aiohttp.test_utils import TestServer
 
     scorecard_file = tmp_path / "scoreboard.json"
-    scorecard_file.write_text(json.dumps({"schema": "ultra.v3.scoreboard/v1", "rows": [{
-        "name": "B0", "wer": 7.39, "ftl_audio_ms": 310.0, "ftl_wall_ms": 320.0,
-        "x_real_time": 28.45, "watts_per_stream_core_register": 0.348, "evidence": "measured",
-    }]}))
+    scorecard_file.write_text(json.dumps({
+        "schema": "ultra.v3.scoreboard/v1", "version": 20, "generated_utc": "2026-11-23T07:48:27Z",
+        "checked_utc": "2026-11-23T07:52:37Z", "label": "Exploratory, LibriSpeech DEV only",
+        "evidence_classes": {"measured": "receipt", "estimated": "basis", "pending": "owner"},
+        "columns": [
+            {"key": "wer_pooled", "label": "WER pooled", "unit": "%", "better": "lower", "group": "accuracy"},
+            {"key": "wer_clean", "label": "WER dev-clean", "unit": "%", "better": "lower", "group": "accuracy"},
+            {"key": "wer_other", "label": "WER dev-other", "unit": "%", "better": "lower", "group": "accuracy"},
+            {"key": "ftl_end_ms", "label": "First token, end clock", "unit": "ms", "better": "lower", "group": "latency"},
+            {"key": "ftl_onset_ms", "label": "First token, onset clock", "unit": "ms", "better": "lower", "group": "latency"},
+            {"key": "x_rt", "label": "× real time", "unit": "×", "better": "higher", "group": "cost"},
+            {"key": "w_per_stream", "label": "W per stream", "unit": "W", "better": "lower", "group": "cost"},
+        ],
+        "headline": {"best_wer_native_engine": {"row": "b0", "name": "B0 continuous", "value": 8.272, "display": "8.272", "unit": "%", "evidence": "measured", "row_wer_display": "8.272"}},
+        "release_gate": {"target_edits": 7895, "best_native_candidate": {"row": "b0", "status": "PASS", "progress_pct": 100.0}},
+        "rows": [{"id": "b0", "name": "B0 continuous", "labels": ["exploratory, DEV only"], "wer_guard": "baseline", "cells": {
+            "wer_pooled": {"value": 8.272, "display": "8.272", "evidence": "measured"},
+            "wer_clean": {"value": 4.26, "display": "4.26", "evidence": "measured"},
+            "wer_other": {"value": 11.86, "display": "11.86", "evidence": "measured"},
+            "ftl_end_ms": {"value": 312.2, "display": "312", "evidence": "measured"},
+            "ftl_onset_ms": {"value": 581.1, "display": "581", "evidence": "measured"},
+            "x_rt": {"value": 28.45, "display": "28.45×", "evidence": "estimated", "range_display": "27–29×", "basis": "scaled"},
+            "w_per_stream": {"value": None, "display": "pending", "evidence": "pending", "owner": "bench-lane", "eta_utc": "2026-11-23T08:00Z"},
+        }}],
+    }))
+    bad_sc = tmp_path / "bad_scoreboard.json"
+    bad_sc.write_text(json.dumps({"schema": "ultra.v3.scoreboard/v99", "version": 1, "rows": []}))
+    assert read_v3_scorecard(bad_sc) is None
     opp = tmp_path / "opponents"
     (opp / "TIMING.lock").mkdir(parents=True)
     (opp / "TIMING.lock" / "owner").write_text("bench-open 14d\n")
     (opp / "TIMING.quiet").write_text("quiet cpu=1%\n")
     assert read_timing_status(opp) == {"status": "held", "owner": "bench-open 14d", "quiet": "quiet cpu=1%"}
-    assert read_v3_scorecard(scorecard_file)["rows"][0]["x_real_time"] == 28.45
+    sc_loaded = read_v3_scorecard(scorecard_file)
+    assert sc_loaded["schema"] == "ultra.v3.scoreboard/v1" and sc_loaded["version"] == 20
+    assert sc_loaded["rows"][0]["cells"]["ftl_end_ms"]["display"] == "312" and sc_loaded["rows"][0]["cells"]["w_per_stream"]["evidence"] == "pending"
     assert "cotenant-worker" in parse_other_load("OTHER_GPU 24000 cotenant-worker\n", [], set())["label"]
     assert parse_timing_lock("TIMING_LOCK held bench-open\nTIMING_QUIET quiet\n")["status"] == "held"
 
@@ -196,7 +222,7 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
         hub_app.router.add_get("/status", hub_status)
         async with TestServer(hub_app) as hub_srv:
             hub_url = str(hub_srv.make_url("/")).rstrip("/")
-            args = arguments(["--hosts", "xbabe0", "xbabe5", "--scorecard-path", str(scorecard_file), "--diloco-hub", hub_url])
+            args = arguments(["--hosts", "xbabe0", "xbabe5", "--scoreboard", str(scorecard_file), "--diloco-hub", hub_url])
             app8766 = make_app_8766(args, start_collectors=False, run_root=tmp_path)
             f65 = Fleet8765(scorecard_path=scorecard_file, diloco_hub=hub_url, run_root=tmp_path)
             app8765 = make_app_8765(fleet=f65, start_background_tasks=False)
@@ -207,15 +233,21 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
                 app8766["fleet"].pulse()
                 assert "ULTRA v3 Best-Model Scorecard" in await (await cli.get(s66.make_url("/"))).text()
                 snap66 = await (await cli.get(s66.make_url("/api/snapshot"))).json()
+                sc66 = await (await cli.get(s66.make_url("/v3/scoreboard.json"))).json()
                 assert snap66["schema"] == SCHEMA_VERSION and snap66["fleet"]["active_runs"] == 0
-                assert snap66["v3_scorecard"]["rows"][0]["name"] == "B0" and snap66["diloco"][0]["cohort"] == "V3_Sync"
+                assert sc66["schema"] == "ultra.v3.scoreboard/v1" and sc66["version"] == 20 and sc66["checked_utc"] == "2026-11-23T07:52:37Z"
+                assert sc66["rows"][0]["cells"]["wer_pooled"]["display"] == "8.272" and snap66["diloco"][0]["cohort"] == "V3_Sync"
                 assert "ULTRA v3 Best-Model Scorecard" in await (await cli.get(s65.make_url("/"))).text()
                 snap65 = await (await cli.get(s65.make_url("/api/snapshot"))).json()
+                sc65 = await (await cli.get(s65.make_url("/v3/scoreboard.json"))).json()
                 assert snap65["schema"] == SCHEMA_VERSION and snap65["global"]["live_runs"] == 0
-                assert snap65["v3_scorecard"]["rows"][0]["name"] == "B0" and snap65["diloco"][0]["cohort"] == "V3_Sync"
+                assert sc65 == sc66 and snap65["v3_scorecard"]["evidence_classes"]["measured"] == "receipt"
+                app8766["fleet"].scorecard_path = tmp_path / "missing.json"
+                assert (await cli.get(s66.make_url("/v3/scoreboard.json"))).status == 503
                 async with cli.ws_connect(s66.make_url("/ws")) as ws66, cli.ws_connect(s65.make_url("/ws")) as ws65:
                     m66, m65 = await ws66.receive_json(timeout=2), await ws65.receive_json(timeout=2)
                     assert m66["schema"] == m65["schema"] == SCHEMA_VERSION
+                    assert m66["v3_scorecard"]["version"] == m65["v3_scorecard"]["version"] == 20
                     assert m66["diloco"][0]["mode_label"] == m65["diloco"][0]["mode_label"] == "Sync-FP32 Roster"
 
     asyncio.run(check())

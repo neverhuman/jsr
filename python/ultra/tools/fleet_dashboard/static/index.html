@@ -171,17 +171,31 @@ function bandPill(b){
   const cls=b==="TARGET 80-85%"?"running":b==="OVER >90%"?"stalled":(b==="OTHER PROJECT"||b==="QUIET TIMING")?"stopped":"other-load";
   return `<span class="pill ${cls}">${esc(b)}</span>`;
 }
+let lastScVer=null;
+function scCellTip(c){if(!c)return "";if(c.evidence==="estimated")return [c.range_display,c.basis].filter(Boolean).join(" · ");if(c.evidence==="pending")return ["owner: "+(c.owner||"?"),c.eta_utc?"ETA "+c.eta_utc:""].filter(Boolean).join(" · ");return [c.scope,c.source,c.inherited_from?"inherited from "+c.inherited_from:"",c.pairing_note].filter(Boolean).join(" · ");}
 function renderScorecard(){
   const sc=S.scorecard;
-  const rows=(sc&&(sc.rows||sc.models||sc.progression))||[];
-  if(!rows.length){
-    $("scorecard").innerHTML=sc&&sc.release_gate
-      ? `Release gate active: ≤${fmtInt(sc.release_gate.max_edits)} edits / ${fmtInt(sc.release_gate.ref_words)} ref words`
-      : "No /mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json yet (graceful standby).";
-    return;
-  }
-  $("scorecard").innerHTML=`<table><thead><tr><th>Model</th><th>WER</th><th>FTL (Audio)</th><th>FTL (Wall)</th><th>×RT</th><th>Watts</th><th>Evidence</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(r.name||r.id||r.row||"?")}</td><td>${esc(r.wer??r.pooled_wer??"–")}</td><td>${esc(r.ftl_audio_ms??r.ftl_end_p50_ms??"–")}</td><td>${esc(r.ftl_wall_ms??r.ftl_paced_ms??"–")}</td><td>${esc(r.x_real_time??r.xrt??"–")}</td><td>${esc(r.always_on_watts??r.watts_per_stream_core_register??r.watts??"–")}</td><td>${esc(r.evidence||r.status||"–")}</td></tr>`).join("")+`</tbody></table>`;
+  if(!sc){$("scorecard").textContent="No /mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json yet (graceful standby).";lastScVer=null;return;}
+  const verKey=String(sc.version??"")+"|"+String(sc.checked_utc??sc.generated_utc??"");
+  if(verKey===lastScVer)return;
+  lastScVer=verKey;
+  const ts=sc.checked_utc||sc.generated_utc,stale=ts&&(Date.now()-Date.parse(ts)>7200*1000);
+  const rg=sc.release_gate,cand=rg&&(rg.best_native_candidate||rg.best_candidate);
+  const meta=`<div style="margin-bottom:6px;color:var(--muted)">${sc.version!=null?"v"+esc(sc.version)+" · ":""}${ts?esc(ts)+" · ":""}${esc(sc.label||"")}${stale?' <span class="pill other-load">STALE</span>':""}${cand?` <span class="pill ${cand.status==="PASS"?"running":"other-load"}">Gate: ${esc(cand.status)} (${esc(cand.progress_pct??"–")}%)</span>`:""}</div>`;
+  const hl=sc.headline||{};
+  const picks=[["Best WER",hl.best_wer],["Best Native WER",hl.best_wer_native_engine],["Fastest 1st Token (default WER)",hl.fastest_first_token_default_wer],["Lowest W (default WER)",hl.lowest_watts_default_wer],["Highest ×RT",hl.highest_x_rt_measured]].filter(([,p])=>p);
+  const hlHtml=picks.length?`<div class="kpis" style="margin-bottom:8px">${picks.map(([t,p])=>`<div class="kpi"><div class="l">${esc(t)}</div><div class="v">${esc(p.display)}${p.unit&&!String(p.display).endsWith(p.unit)?esc(p.unit):""}</div><div class="s">${esc(p.name||p.row)}${p.row_wer_display?" · WER "+esc(p.row_wer_display)+"%":""}</div></div>`).join("")}</div>`:"";
+  const cols=Array.isArray(sc.columns)&&sc.columns.length?sc.columns:[{key:"wer_pooled",label:"WER pooled"},{key:"wer_clean",label:"WER clean"},{key:"wer_other",label:"WER other"},{key:"ftl_end_ms",label:"FTL end"},{key:"ftl_onset_ms",label:"FTL onset"},{key:"x_rt",label:"×RT"},{key:"w_per_stream",label:"W"}];
+  const rows=Array.isArray(sc.rows)?sc.rows:[];
+  if(!rows.length){$("scorecard").innerHTML=meta+hlHtml;return;}
+  $("scorecard").innerHTML=meta+hlHtml+`<table><thead><tr><th>Model</th><th>Guard</th>${cols.map(c=>`<th title="${esc(c.definition||"")}">${esc(c.label||c.key)}</th>`).join("")}</tr></thead><tbody>`+
+    rows.map(r=>{const cs=r.cells||{};const lbl=(r.labels||[]).map(l=>`<span class="pill stopped">${esc(l)}</span>`).join(" ");
+      const tds=cols.map(c=>{const cell=cs[c.key];if(!cell)return `<td>${esc(r[c.key]??"–")}</td>`;
+        const cls=cell.evidence==="estimated"?"warn":cell.evidence==="pending"?"":"";
+        const sty=cell.evidence==="estimated"?' style="font-style:italic"':cell.evidence==="pending"?' style="color:var(--dim)"':"";
+        const txt=cell.evidence==="pending"?"pending":(cell.display??cell.value??"–");
+        return `<td class="${cls}"${sty} title="${esc(scCellTip(cell))}">${esc(txt)}${cell.inherited_from?"†":""}</td>`;}).join("");
+      return `<tr><td><b>${esc(r.name||r.id)}</b><div>${lbl}</div></td><td>${esc(r.wer_guard||"–")}</td>${tds}</tr>`;}).join("")+`</tbody></table>`;
 }
 function hostBadges(n){
   const b=[];

@@ -44,10 +44,12 @@ V3_OVERLAY_HTML = """
 .v3-track{height:7px;background:#0d131e;border-radius:4px;position:relative;overflow:hidden}
 .v3-band{position:absolute;left:80%;width:5%;top:0;bottom:0;background:rgba(101,224,181,.32)}
 .v3-fill{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
-.v3-table{width:100%;border-collapse:collapse;font-size:.82rem}.v3-table th,.v3-table td{padding:.38rem .5rem;border-bottom:1px solid #263143;text-align:right;font-family:var(--numbers)}.v3-table th:first-child,.v3-table td:first-child{text-align:left}
+.v3-table{width:100%;border-collapse:collapse;font-size:.8rem}.v3-table th,.v3-table td{padding:.34rem .45rem;border-bottom:1px solid #263143;text-align:right;font-family:var(--numbers);white-space:nowrap}.v3-table th:first-child,.v3-table td:first-child{text-align:left;white-space:normal}
+.v3-est{color:#f8bb76;font-style:italic}.v3-pend{color:#7a889e}.v3-hl{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.5rem;margin:.5rem 0}
+.v3-tile{background:#121824;border:1px solid #263143;border-radius:.55rem;padding:.5rem .65rem}
 </style>
 <section class="v3-wrap" id="ultra-v3-panels" aria-label="ULTRA v3 Unified Fleet & Scorecard">
-  <article class="v3-card" id="v3-scorecard-card"><h3>ULTRA v3 Best-Model Scorecard (WER · FTL Both Clocks · ×RT · Always-On Watts)</h3><div id="v3-scorecard-body" class="secondary" style="margin-top:.45rem">Waiting for @v3-scoreboard/scoreboard.json…</div></article>
+  <article class="v3-card" id="v3-scorecard-card"><h3>ULTRA v3 Best-Model Scorecard <span id="v3-scorecard-meta" class="secondary"></span></h3><div id="v3-scorecard-body" class="secondary" style="margin-top:.45rem">Waiting for @v3-scoreboard/scoreboard.json…</div></article>
   <article class="v3-card" id="v3-diloco-card"><h3>Live Cross-Node DiLoCo Hub (127.0.0.1:8768)</h3><div id="v3-diloco-body" class="secondary" style="margin-top:.45rem">Waiting for DiLoCo cohorts…</div></article>
   <article class="v3-card" id="v3-fleet-card"><h3>Full Fleet Hardware (xbabe0–xbabe9 · Per-GPU 80–85% Target Band · CPU load/nproc · TIMING.lock · Other Project)</h3><div id="v3-fleet-grid" class="v3-grid" style="margin-top:.55rem"></div></article>
 </section>
@@ -55,9 +57,20 @@ V3_OVERLAY_HTML = """
 (()=>{const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const bandCls=b=>b==="TARGET 80-85%"?"v3-ok":b==="OVER >90%"?"v3-bad":(b==="OTHER PROJECT"||b==="QUIET TIMING")?"v3-muted":"v3-warn";
 const fillCol=b=>b==="TARGET 80-85%"?"#65e0b5":b==="OVER >90%"?"#ffa29b":b==="OTHER PROJECT"?"#6f7d95":"#f8bb76";
-function renderV3(snap){if(!snap)return;const sc=snap.v3_scorecard||(snap.fleet&&snap.fleet.v3_scorecard);
-  const rows=(sc&&(sc.rows||sc.models||sc.progression))||[];
-  $("v3-scorecard-body").innerHTML=rows.length?`<table class="v3-table"><thead><tr><th>Model</th><th>WER</th><th>FTL (Audio)</th><th>FTL (Wall)</th><th>×RT</th><th>Watts</th><th>Evidence</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.name||r.id||r.row||"?")}</td><td>${esc(r.wer??r.pooled_wer??"–")}</td><td>${esc(r.ftl_audio_ms??r.ftl_end_p50_ms??"–")}</td><td>${esc(r.ftl_wall_ms??r.ftl_paced_ms??"–")}</td><td>${esc(r.x_real_time??r.xrt??"–")}</td><td>${esc(r.always_on_watts??r.watts_per_stream_core_register??r.watts??"–")}</td><td>${esc(r.evidence||r.status||"–")}</td></tr>`).join("")}</tbody></table>`:(sc&&sc.release_gate?`Release gate active: ≤${esc(sc.release_gate.max_edits)} edits / ${esc(sc.release_gate.ref_words)} ref words`:"No /mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json yet (graceful standby).");
+let lastScVer=null;
+function cellTip(c){if(!c)return "";if(c.evidence==="estimated")return [c.range_display,c.basis].filter(Boolean).join(" · ");if(c.evidence==="pending")return ["owner: "+(c.owner||"?"),c.eta_utc?"ETA "+c.eta_utc:""].filter(Boolean).join(" · ");return [c.scope,c.source,c.inherited_from?"inherited from "+c.inherited_from:"",c.pairing_note].filter(Boolean).join(" · ");}
+function renderScorecard(sc){if(!sc){$("v3-scorecard-meta").textContent="";$("v3-scorecard-body").textContent="No /mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json yet (graceful standby).";lastScVer=null;return;}
+  const verKey=String(sc.version??"")+"|"+String(sc.checked_utc??sc.generated_utc??"");if(verKey===lastScVer)return;lastScVer=verKey;
+  const ts=sc.checked_utc||sc.generated_utc,stale=ts&&(Date.now()-Date.parse(ts)>7200*1000);
+  const rg=sc.release_gate,cand=rg&&(rg.best_native_candidate||rg.best_candidate);
+  $("v3-scorecard-meta").innerHTML=`${sc.version!=null?"v"+esc(sc.version)+" · ":""}${ts?esc(ts)+" · ":""}${esc(sc.label||"")}${stale?' <span class="v3-badge v3-warn">STALE</span>':""}${cand?` <span class="v3-badge ${cand.status==="PASS"?"v3-ok":"v3-warn"}">Gate: ${esc(cand.status)} (${esc(cand.progress_pct??"–")}%)</span>`:""}`;
+  const hl=sc.headline||{};const picks=[["Best WER",hl.best_wer],["Best Native WER",hl.best_wer_native_engine],["Fastest 1st Token (default WER)",hl.fastest_first_token_default_wer],["Lowest W (default WER)",hl.lowest_watts_default_wer],["Highest ×RT",hl.highest_x_rt_measured]].filter(([,p])=>p);
+  const hlHtml=picks.length?`<div class="v3-hl">${picks.map(([t,p])=>`<div class="v3-tile"><div class="secondary">${esc(t)}</div><div class="numeric" style="font-size:1.1rem;font-weight:700">${esc(p.display)}${p.unit&&!String(p.display).endsWith(p.unit)?esc(p.unit):""}</div><div class="secondary">${esc(p.name||p.row)}${p.row_wer_display?" · WER "+esc(p.row_wer_display)+"%":""}</div></div>`).join("")}</div>`:"";
+  const cols=Array.isArray(sc.columns)&&sc.columns.length?sc.columns:[{key:"wer_pooled",label:"WER pooled"},{key:"wer_clean",label:"WER clean"},{key:"wer_other",label:"WER other"},{key:"ftl_end_ms",label:"FTL end"},{key:"ftl_onset_ms",label:"FTL onset"},{key:"x_rt",label:"×RT"},{key:"w_per_stream",label:"W"}];
+  const rows=Array.isArray(sc.rows)?sc.rows:[];
+  if(!rows.length){$("v3-scorecard-body").innerHTML=hlHtml||"Scoreboard feed empty.";return;}
+  $("v3-scorecard-body").innerHTML=hlHtml+`<div style="overflow-x:auto"><table class="v3-table"><thead><tr><th>Model</th><th>Guard</th>${cols.map(c=>`<th title="${esc(c.definition||"")}">${esc(c.label||c.key)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>{const cs=r.cells||{};const lbl=(r.labels||[]).map(l=>`<span class="v3-badge v3-muted">${esc(l)}</span>`).join("");const tds=cols.map(c=>{const cell=cs[c.key];if(!cell)return `<td>${esc(r[c.key]??"–")}</td>`;const cls=cell.evidence==="estimated"?"v3-est":cell.evidence==="pending"?"v3-pend":"";const txt=cell.evidence==="pending"?"pending":(cell.display??cell.value??"–");const mk=cell.inherited_from?"†":"";return `<td class="${cls}" title="${esc(cellTip(cell))}">${esc(txt)}${mk}</td>`;}).join("");return `<tr><td><b>${esc(r.name||r.id)}</b><div>${lbl}</div></td><td>${esc(r.wer_guard||"–")}</td>${tds}</tr>`;}).join("")}</tbody></table></div>`;}
+function renderV3(snap){if(!snap)return;renderScorecard(snap.v3_scorecard||(snap.fleet&&snap.fleet.v3_scorecard));
   const dl=snap.diloco||(snap.fleet&&snap.fleet.diloco)||[];
   $("v3-diloco-body").innerHTML=dl.length?dl.map(c=>`<div style="margin:.35rem 0"><span class="v3-badge ${c.mode==="sync_roster"?"v3-ok":"v3-warn"}">${esc(c.mode_label||c.mode)}</span> <b>${esc(c.cohort)}</b> · Round #${esc(c.round)} · workers ${esc(c.worker_count)} (pending ${esc(c.pending_count)}/${esc(c.quorum_k)}) · eff ${esc(c.effective_audio_h_per_h)} ah/h · cos ${esc(c.mean_cos??"–")}</div>`).join(""):"No active DiLoCo cohort on 127.0.0.1:8768 yet.";
   const hs=Array.isArray(snap.hosts)?snap.hosts:[];
@@ -367,6 +380,13 @@ def application(args, *, start_collectors=True, run_root=None):
     async def api_snapshot(_request):
         return web.json_response(fleet.snapshot_payload(), headers={"Cache-Control": "no-cache"})
 
+    async def api_v3_scoreboard(_request):
+        sc = read_v3_scorecard(fleet.scorecard_path)
+        if sc is None:
+            return web.json_response({"error": "v3 scoreboard unavailable"}, status=503,
+                                     headers={"Cache-Control": "no-cache"})
+        return web.json_response(sc, headers={"Cache-Control": "no-cache"})
+
     async def websocket(request):
         return await handle_websocket(request, fleet, args.allow_origin)
 
@@ -389,6 +409,7 @@ def application(args, *, start_collectors=True, run_root=None):
     app.router.add_get("/", index)
     app.router.add_get("/training-dashboard.html", index)
     app.router.add_get("/api/snapshot", api_snapshot)
+    app.router.add_get("/v3/scoreboard.json", api_v3_scoreboard)
     app.router.add_get("/ws", websocket)
     app.cleanup_ctx.append(background)
     app.on_shutdown.append(close_clients)
@@ -404,7 +425,8 @@ def arguments(argv=None):
     parser.add_argument("--run-dir", action="append", default=[], help="also inspect this run directory on the local host")
     parser.add_argument("--stdin", metavar="HOST", help="read this host's probe JSON lines from a pipe")
     parser.add_argument("--allow-origin", action="append", default=[], help="exact additional WebSocket origin")
-    parser.add_argument("--scorecard-path", default=None, help="path to @v3-scoreboard scoreboard.json")
+    parser.add_argument("--scorecard-path", "--scoreboard", dest="scorecard_path", default=None,
+                        help="path to @v3-scoreboard scoreboard.json")
     parser.add_argument("--diloco-hub", default=os.environ.get("JSR_DILOCO_HUB", DEFAULT_DILOCO_HUB),
                         help="DiLoCoHub HTTP URL (default http://127.0.0.1:8768)")
     args = parser.parse_args(argv)

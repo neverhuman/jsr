@@ -14,6 +14,7 @@ DEFAULT_MEASUREMENT_DOMAIN = "ultra-en-wer-norm/v1"
 LEGACY_MEASUREMENT_DOMAIN = "legacy"
 GATE_STATES = frozenset({"PASS", "FAIL", "INCONCLUSIVE", "RUNNING"})
 STALE_STATES = frozenset({"live", "stale", "offline"})
+SCOREBOARD_SCHEMA = "ultra.v3.scoreboard/v1"
 DEFAULT_SCORECARD_PATH = Path("/mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json")
 DEFAULT_DILOCO_HUB = "http://127.0.0.1:8768"
 _TERMINAL = {"diverged": "diverged", "div": "diverged", "done": "done", "don": "done", "finished": "done", "fin": "done"}
@@ -251,7 +252,9 @@ def read_timing_status(opponents_dir: Path | str | None = None) -> dict | None:
     return {"status": status, "owner": owner, "quiet": quiet.strip() if isinstance(quiet, str) else None}
 def read_v3_scorecard(path: Path | str | None = None) -> dict | None:
     target = Path(path) if path is not None else Path(os.environ.get("JSR_V3_SCOREBOARD") or os.environ.get("JSR_V3_SCORECARD") or str(DEFAULT_SCORECARD_PATH))
-    if not target.is_file(): return None
-    try: raw = json.loads(target.read_text(encoding="utf-8"))
+    try:
+        if not target.is_file() or target.stat().st_size > 4 * 1024 * 1024: return None
+        raw = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, ValueError): return None
-    return raw if isinstance(raw, dict) else None
+    if not isinstance(raw, dict): return None
+    return raw if raw.get("schema") in (None, SCOREBOARD_SCHEMA) else None
