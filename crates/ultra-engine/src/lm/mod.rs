@@ -13,7 +13,13 @@
 
 mod arpa;
 mod bitvec;
+pub mod ffnn;
+mod ffnn_io;
 mod io;
+pub mod traits;
+
+pub use ffnn::{FfnnActivation, FfnnLm};
+pub use traits::TokenLm;
 
 use std::path::Path;
 
