@@ -1,0 +1,1 @@
+/home/ubuntu/jsr-data/opponents/bench-open/anchor-v300/ultra-cold-wav r1-engine-int8 /home/ubuntu/jsr-data/opponents/models/candidate-rc/int8 /home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c/panel/wav /home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c/cold/round-3/jsr-rc1-ema-int8/predictions.jsonl 

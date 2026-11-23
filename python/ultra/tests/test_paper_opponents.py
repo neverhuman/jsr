@@ -635,7 +635,7 @@ def test_run_cold_dispatches_the_open_arms_to_their_definitions():
     assert set(case.strip().rstrip(")").split("|")) == {
         "vosk-large", "vosk-small", "whispercpp-stream-base", "whispercpp-stream-tiny",
         "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-a1-30000-ema-int8", "jsr-a1-49000-ema-int8",
-        "jsr-f1-60000-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
+        "jsr-f1-60000-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8", "jsr-rc1-ema-int8"}
     assert 'source "$PWD/docs/paper/opponents/open-arms.sh"' in script
 
 

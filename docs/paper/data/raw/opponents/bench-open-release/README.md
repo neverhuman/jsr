@@ -1,7 +1,7 @@
 # bench-open: xbabe0 release holds (2026-11-23)
 
 Quiet single-host measurements of the v3.0.0 release decoders on xbabe0 (AMD Threadripper PRO 3995WX, Zen 2), run by
-bench-open's TIMING runner (`docs/paper/opponents/open_turn.py`, plan `open-plan-xbabe0.txt`, entries 14g-14p). Every hold
+bench-open's TIMING runner (`docs/paper/opponents/open_turn.py`, plan `open-plan-xbabe0.txt`, entries 14g-14q). Every hold
 ran under TIMING.lock with the owner-approved timer pause (the owner's timers and CI runner units paused, the host reported
 quiet), one measured process on one core (CPUs 4 / 24 / 28 for rounds 1 / 2 / 3, meter on 0 / 1 / 2), and bench-open's host
 guard (alone on its CCX, SMT siblings idle, at most 2 other active cores). Watts are CPU-reported (RAPL core register of the
@@ -9,7 +9,8 @@ service core and the package) from energy's continuous 1 Hz log, never wall powe
 between holds, stopped by process group at least 5 minutes before the next hold.
 
 Receipts are compact copies of `xbabe0:~/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-N/<arm>/` (traces
-gzipped). `joins/` holds the H0-side joins; `release-eval/` the full-dev release-decoder rows.
+gzipped); 14q's are `runs-v3/1c/cold/round-N/<arm>/` in `open_summary.py`'s compact form. `joins/` holds the H0-side
+joins; `release-eval/` the full-dev release-decoder rows.
 
 **Incident (disclosed):** at 12:30:44Z bench-open's runner exited (a window script renamed the runner's gap file), the lock
 lapsed for 108 s and the timer-pause hook resumed the owner's timers and CI runner units; four CI job VMs ran 12:31:11-12:32:32Z,
@@ -40,6 +41,36 @@ Variants in Latin-square order over 3 rounds (CPUs 4 / 24 / 28); all repetitions
 - Session length: the cost per audio-s is flat over each 87.7-min session (per 10-min window 0.0696-0.0701 for beam 16;
   slope +0.1% per hour), because the stream resets at every endpoint.
 - Join: `joins/14m.jsonl` (every repetition with its hashes).
+
+## 14q: the v3.0.0 live point (RC1-EMA INT8 stream only, cold)
+
+The release weights (RC1-EMA INT8, **weights.int8 edac19d8...**, the same staged copy as 14p) as the greedy chunk-4 live
+stream only (160 ms chunks, 20 ms packets; no final pass, no LM), timed exactly like the paper's other cold rows (6b / 14b /
+the anchors): `open-run.sh` -> `run-cold.sh`, process tree from launch to exit with the model load, one pinned core per round
+(CPUs 4 / 24 / 28), the 730-utterance panel scored in the same run with the canonical `ultra-score` d784f8ca. The binary is
+`ultra-cold-wav` built at the **v3.0.0 tag** (9c8c05e; `cargo build --locked --release -p ultra-bridge --bin ultra-cold-wav`,
+rustc 1.95.0, clean tree; sha256 bc0729578eebce8b..., provenance on xbabe0 in `bench-open/anchor-v300/`), because the
+e2ef608 cold binary of the earlier rows predates the release engine. Harness 2b74653 (arm `jsr-rc1-ema-int8`, added in
+8366eaa; row `rc1-ema-live-zen2-t1`). The hold opened with one H22ctl anchor repetition on CPU 4, as every hold does.
+
+| row (730 panel, one core, cold process tree with the model load) | CPU-s per audio-s (rounds 1 / 2 / 3) | x real time (1 / CPU; wall) | peak RSS | W per stream, core_msr_active (rounds) | WER pooled / clean / other |
+|---|---|---|---|---|---|
+| **`rc1-ema-live-zen2-t1`**, v3.0.0 live | **0.03434** (0.03420 / 0.03434 / 0.03453) | **29.1**; 29.1 | **74.2 MB** | **0.3445** (0.3328 / 0.3481 / 0.3445) | **6.845** / 4.116 / 10.749 |
+
+All three rounds clean and alone on the host (no other busy core), at 4,149 / 4,153 / 4,168 MHz, 2026-11-23 20:16:59 -
+20:26:09Z. The text is identical in the three rounds and identical (730 / 730) to 14p's provisional (live) stream from the
+release binary 9a142e8e, so the live WER is the same number by either route. The evidence row is `14q/rows.jsonl`
+(`open_summary.py rows`; receipt = round 2's measurement.json d2658af7..., the median round), the table `14q/table.md`.
+Energy: `joins/14q-energy.jsonl`, the same join as every cold row (`energy_report.join_run` / `join_lines` over the timed
+process window, started + 0.5 s .. + measurement wall_seconds, widened by 1.5 s): the core draws 9.96 W while decoding, the
+package 95.1 W, idle 0.054 W; 3.02 kWh per stream-year. The join emits no `core_msr_dynamic` line, because round 1's idle
+window before the run is the anchor running on the same core (the tool's rule).
+
+The anchor (H22ctl, `jsr-h22ctl-79800-ema-int8/round-11` and `round-12`) read 0.0349 and 0.0345 CPU-s per audio-s, against
+0.0354 in the earlier sessions: this session ran about 1.5-2.5% faster on our engine. Round 11 is the anchor of 14q's first
+hold (20:03:30-20:07:00Z), whose three RC1 repetitions exited at once with "unknown cold comparison arm": `run-cold.sh`
+routes only listed arms to `open-arms.sh`, and harness 8366eaa had not listed the new arm. Harness 2b74653 lists it, and 14q
+ran again as 14qr; nothing of the failed hold is in the row.
 
 ## 14p: the v3.0.0 candidate on the release decoder (one artifact)
 
