@@ -1,0 +1,1 @@
+{"utterances": 730, "audio_s": 5259.56, "cpu_on_s": 180.1918, "cpu_off_s": 179.5863, "added_cpu_pct": 0.3372, "added_cpu_pct_95": [0.2633, 0.411], "cpu_per_audio_s_on": 0.03426, "cpu_per_audio_s_off": 0.034145, "texts_differ": 69}
