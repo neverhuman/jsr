@@ -1,10 +1,66 @@
 # Release process
 
-No release has been made. A release is a model bundle plus a runtime build that pass
-the release gates of spec v1.0-B §38.2 on H0
-(`docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_SPEC_v1.0-B.md`). JSR ships a
-library and a command-line tool that run on the user's own CPU; there is no hosted
-service, account system or server to operate.
+A release is a model bundle plus a runtime build that pass the release gates of
+spec v1.0-B §38.2 on H0 (`docs/ultra/specs/ULTRA_ASR_MASTER_ENGINEERING_SPEC_v1.0-B.md`).
+JSR ships a library and a command-line tool that run on the user's own CPU; there is
+no hosted service, account system or server to operate.
+
+**Releases so far:**
+- **v3.0.1** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)). It is the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
+- **v3.0.0** is the same artifact, with an unsigned tag. Record: [`v3.0.0.md`](ultra/releases/v3.0.0.md).
+
+## Signing
+- **Tags:** release tags are SSH-signed annotated tags. The tagger is `NeverHuman <219957145+neverhumanbot@users.noreply.github.com>`.
+  ```bash
+  git -c user.name=NeverHuman -c user.email=219957145+neverhumanbot@users.noreply.github.com \
+      -c gpg.format=ssh -c user.signingkey=<private key path> tag -s vX.Y.Z <commit> -F <message>
+  ```
+  Never tag with a placeholder identity. v3.0.0's tag used one and stays unsigned.
+- **Files:**
+  - `SHA256SUMS` lists every release file;
+  - `SHA256SUMS` and each large file get `ssh-keygen -Y sign -n file` signatures (`.sig`).
+- **The key:**
+  - ed25519, fingerprint `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`;
+  - the trust anchor is [`docs/ultra/releases/allowed_signers`](ultra/releases/allowed_signers);
+  - the private key never enters the repository.
+- **To publish:**
+  1. Create the GitHub release as a draft with every file.
+  2. Check each uploaded size.
+  3. Verify `SHA256SUMS` and its signature from a fresh download.
+  4. Only then publish.
+
+## Install the pinned release
+Run from the repository root. Release files go to `models/sha256-<SHA256SUMS digest>/`, which git ignores.
+The example runs in a subshell with `set -eu`. It stops at the first failed check, so nothing is unpacked or run after a bad signature, digest or hash, and your own shell is left as it was.
+```bash
+(
+  set -eu
+  P=docs/ultra/releases/pinned.json
+  TAG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$P")
+  DIR=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["install_dir"])' "$P")
+  mkdir -p "$DIR"
+  gh release download "$TAG" -R neverhuman/jsr -D "$DIR" --skip-existing
+  cd "$DIR"
+  # 1. The signature, against the committed trust anchor
+  ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
+    -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
+  # 2. The checksum list is the pinned one: its digest names this directory
+  test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")"
+  # 3. Every file matches the checksum list
+  sha256sum -c SHA256SUMS
+  # 4. Unpack the model bundle and check its contents
+  tar -xf ultra-v3.0.1-int8-bundle.tar
+  sha256sum -c ultra-v3.0.1-int8-bundle.SHA256SUMS
+  chmod +x ultra-engine-commit ultra-score
+  # 5. Run: utts.jsonl in this directory has one {"uid", "wav"} row per utterance (16 kHz mono WAV)
+  ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
+    --commit-chunk 16 --tail-pad-ms 320 --threads 1 \
+    --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
+)
+```
+- **Output:** each row holds the live stream text (`provisional`) and the final text (`committed`).
+- **Without `gh`:** download each file from the `download_base` URL in `pinned.json`.
+- **Rollback:** point at the previous install directory. v3.0.1 is the first release with files.
 
 ## Steps
 
