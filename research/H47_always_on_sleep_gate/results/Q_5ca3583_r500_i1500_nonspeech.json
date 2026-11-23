@@ -1,0 +1,142 @@
+{
+ "brown_-20dBFS/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "brown_-20dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "brown_-30dBFS/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "brown_-30dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "brown_-40dBFS/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "brown_-40dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-20dBFS/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-20dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-30dBFS/G": {
+  "duty": 0.000575,
+  "wakes": 1,
+  "segments": 1,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-30dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-40dBFS/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "pink_-40dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "silence/G": {
+  "duty": 0.0,
+  "wakes": 0,
+  "segments": 0,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "silence/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-20dBFS/G": {
+  "duty": 0.001725,
+  "wakes": 3,
+  "segments": 3,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-20dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-30dBFS/G": {
+  "duty": 0.000575,
+  "wakes": 1,
+  "segments": 1,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-30dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-40dBFS/G": {
+  "duty": 0.00345,
+  "wakes": 6,
+  "segments": 6,
+  "tokens": 0,
+  "mismatches": 0
+ },
+ "white_-40dBFS/U": {
+  "duty": 1.3183333333333334,
+  "wakes": 0,
+  "segments": 2293,
+  "tokens": 0,
+  "mismatches": 0
+ }
+}

@@ -1,0 +1,329 @@
+{
+ "schema": "h47.oracle-report/v1",
+ "arms": {
+  "C1": {
+   "pooled_wer": 8.377,
+   "dev-clean": {
+    "wer": 4.489,
+    "S": 1988,
+    "D": 233,
+    "I": 234,
+    "N": 54691,
+    "utts": 2703
+   },
+   "dev-other": {
+    "wer": 12.517,
+    "S": 5109,
+    "D": 694,
+    "I": 626,
+    "N": 51363,
+    "utts": 2864
+   },
+   "gap_false_words": 5,
+   "gap_hours": 17.0551,
+   "gap_false_words_upper95_per_h": 0.6164159054324827,
+   "lag_ms_all": {
+    "n": 97332,
+    "p50": 328.6000000007334,
+    "p90": 430.899999999383,
+    "p95": 456.98750000155997,
+    "p99": 509.09999999566935
+   },
+   "words_outside_scored_range": 0,
+   "first_word_recall": 0.8891683132746542,
+   "first3_recall": 0.7670199389258128,
+   "after_sleep_utts": 5257,
+   "first_word_recall_after_sleep": 0.8881491344873502,
+   "duty": {
+    "decoded": 1.0,
+    "encoder_with_replay": 1.378715519816793,
+    "resets": 39146
+   },
+   "run": {
+    "cpu_s": 1807.060419,
+    "wall_s": 1807.114525666,
+    "cpu_s_per_audio_s": 0.018210721453073564,
+    "cpu_s_per_on_s": null,
+    "rss_peak_mb": 0.0,
+    "words": 105336,
+    "tokens": 203429,
+    "segments": null
+   }
+  },
+  "Qg_r500_i800": {
+   "pooled_wer": 8.337,
+   "dev-clean": {
+    "wer": 4.48,
+    "S": 2001,
+    "D": 231,
+    "I": 218,
+    "N": 54691,
+    "utts": 2703
+   },
+   "dev-other": {
+    "wer": 12.445,
+    "S": 5124,
+    "D": 671,
+    "I": 597,
+    "N": 51363,
+    "utts": 2864
+   },
+   "gap_false_words": 2,
+   "gap_hours": 17.0551,
+   "gap_false_words_upper95_per_h": 0.369144339339669,
+   "lag_ms_all": {
+    "n": 97326,
+    "p50": 336.4000000001397,
+    "p90": 438.60000000859145,
+    "p95": 464.59999999933643,
+    "p99": 517.2999999922467
+   },
+   "words_outside_scored_range": 0,
+   "first_word_recall": 0.892401652595653,
+   "first3_recall": 0.772408837794144,
+   "after_sleep_utts": 5257,
+   "first_word_recall_after_sleep": 0.8910024728932852,
+   "duty": {
+    "decoded": 0.5011537361601751,
+    "segments": 12831,
+    "wakes_per_hour": 465.49764038177017
+   },
+   "run": {
+    "cpu_s": null,
+    "wall_s": null,
+    "cpu_s_per_audio_s": null,
+    "cpu_s_per_on_s": null,
+    "rss_peak_mb": null,
+    "words": null,
+    "tokens": null,
+    "segments": null
+   }
+  },
+  "Qg_r500_i1500": {
+   "pooled_wer": 8.127,
+   "dev-clean": {
+    "wer": 4.385,
+    "S": 1954,
+    "D": 223,
+    "I": 221,
+    "N": 54691,
+    "utts": 2703
+   },
+   "dev-other": {
+    "wer": 12.112,
+    "S": 5007,
+    "D": 636,
+    "I": 578,
+    "N": 51363,
+    "utts": 2864
+   },
+   "gap_false_words": 2,
+   "gap_hours": 17.0551,
+   "gap_false_words_upper95_per_h": 0.369144339339669,
+   "lag_ms_all": {
+    "n": 97519,
+    "p50": 334.2999999999847,
+    "p90": 436.5999999936321,
+    "p95": 462.79999999387655,
+    "p99": 515.1000000041677
+   },
+   "words_outside_scored_range": 0,
+   "first_word_recall": 0.899766481049039,
+   "first3_recall": 0.7786958864738638,
+   "after_sleep_utts": 5257,
+   "first_word_recall_after_sleep": 0.8982309301883203,
+   "duty": {
+    "decoded": 0.5083715213739896,
+    "segments": 6992,
+    "wakes_per_hour": 253.6637441781106
+   },
+   "run": {
+    "cpu_s": null,
+    "wall_s": null,
+    "cpu_s_per_audio_s": null,
+    "cpu_s_per_on_s": null,
+    "rss_peak_mb": null,
+    "words": null,
+    "tokens": null,
+    "segments": null
+   }
+  },
+  "Qu_r500_i1500": {
+   "pooled_wer": 8.285,
+   "dev-clean": {
+    "wer": 4.485,
+    "S": 1966,
+    "D": 252,
+    "I": 235,
+    "N": 54691,
+    "utts": 2703
+   },
+   "dev-other": {
+    "wer": 12.332,
+    "S": 5061,
+    "D": 681,
+    "I": 592,
+    "N": 51363,
+    "utts": 2864
+   },
+   "gap_false_words": 3,
+   "gap_hours": 17.0551,
+   "gap_false_words_upper95_per_h": 0.4546239264462082,
+   "lag_ms_all": {
+    "n": 97383,
+    "p50": 334.49999999720603,
+    "p90": 436.90000000060536,
+    "p95": 462.29999999923166,
+    "p99": 514.6000000095228
+   },
+   "words_outside_scored_range": 0,
+   "first_word_recall": 0.8938386922938746,
+   "first3_recall": 0.7733069876055326,
+   "after_sleep_utts": 5257,
+   "first_word_recall_after_sleep": 0.8925242533764505,
+   "duty": {
+    "decoded": 1.198717173276372,
+    "segments": 39837,
+    "wakes_per_hour": 1445.2520847859541
+   },
+   "run": {
+    "cpu_s": null,
+    "wall_s": null,
+    "cpu_s_per_audio_s": null,
+    "cpu_s_per_on_s": null,
+    "rss_peak_mb": null,
+    "words": null,
+    "tokens": null,
+    "segments": null
+   }
+  }
+ },
+ "comparisons": {
+  "q_pass2:Qg_r500_i1500-Qu_r500_i1500": {
+   "family": "q_pass2",
+   "family_size": 5,
+   "wer_alpha_0.05": {
+    "observed_a": 0.08285401776453505,
+    "observed_b": 0.0812699190978181,
+    "delta": -0.0015840986667169515,
+    "lower": -0.0024579780294579218,
+    "upper": -0.0007080107692164356,
+    "replicates": 10000,
+    "alpha": 0.05
+   },
+   "wer_bonferroni": {
+    "observed_a": 0.08285401776453505,
+    "observed_b": 0.0812699190978181,
+    "delta": -0.0015840986667169515,
+    "lower": -0.002851546748084563,
+    "upper": -0.00034100125341000875,
+    "replicates": 20000,
+    "alpha": 0.01
+   },
+   "first_word_recall": {
+    "a": 0.8938386922938746,
+    "b": 0.899766481049039,
+    "delta": 0.00592778875516442,
+    "lower95": 0.0017107013875689032,
+    "upper95": 0.010065949323151684,
+    "lower_bonf": -0.00018040772145047808,
+    "upper_bonf": 0.011737911702873161,
+    "replicates": 10000
+   },
+   "first_word_recall_after_sleep": {
+    "a": 0.8925242533764505,
+    "b": 0.8982309301883203,
+    "delta": 0.005706676811869871,
+    "lower95": 0.0015046078615760768,
+    "upper95": 0.009842116054951815,
+    "lower_bonf": -0.00037348272642390287,
+    "upper_bonf": 0.011392160648773894,
+    "replicates": 10000
+   }
+  },
+  "q_pass2:Qg_r500_i800-C1": {
+   "family": "q_pass2",
+   "family_size": 5,
+   "wer_alpha_0.05": {
+    "observed_a": 0.08376864616138949,
+    "observed_b": 0.08337262149471024,
+    "delta": -0.0003960246666792483,
+    "lower": -0.0012865903477550372,
+    "upper": 0.000511416908958312,
+    "replicates": 10000,
+    "alpha": 0.05
+   },
+   "wer_bonferroni": {
+    "observed_a": 0.08376864616138949,
+    "observed_b": 0.08337262149471024,
+    "delta": -0.0003960246666792483,
+    "lower": -0.0016854422348576703,
+    "upper": 0.0009152680641085625,
+    "replicates": 20000,
+    "alpha": 0.01
+   },
+   "first_word_recall": {
+    "a": 0.8891683132746542,
+    "b": 0.892401652595653,
+    "delta": 0.003233339320998785,
+    "lower95": -0.003144072498612909,
+    "upper95": 0.009645705805972918,
+    "lower_bonf": -0.0055288032816122705,
+    "upper_bonf": 0.012324546388223211,
+    "replicates": 10000
+   },
+   "first_word_recall_after_sleep": {
+    "a": 0.8881491344873502,
+    "b": 0.8910024728932852,
+    "delta": 0.0028533384059349354,
+    "lower95": -0.003464203233256351,
+    "upper95": 0.009281603861147207,
+    "lower_bonf": -0.005898617511520737,
+    "upper_bonf": 0.012066085019491368,
+    "replicates": 10000
+   }
+  },
+  "q_pass2:Qg_r500_i1500-C1": {
+   "family": "q_pass2",
+   "family_size": 5,
+   "wer_alpha_0.05": {
+    "observed_a": 0.08376864616138949,
+    "observed_b": 0.0812699190978181,
+    "delta": -0.0024987270635713904,
+    "lower": -0.0034151685031252044,
+    "upper": -0.0016278013325257412,
+    "replicates": 10000,
+    "alpha": 0.05
+   },
+   "wer_bonferroni": {
+    "observed_a": 0.08376864616138949,
+    "observed_b": 0.0812699190978181,
+    "delta": -0.0024987270635713904,
+    "lower": -0.003794790170425874,
+    "upper": -0.0012909814349162246,
+    "replicates": 20000,
+    "alpha": 0.01
+   },
+   "first_word_recall": {
+    "a": 0.8891683132746542,
+    "b": 0.899766481049039,
+    "delta": 0.010598167774384826,
+    "lower95": 0.0060530532312622395,
+    "upper95": 0.015207035544155369,
+    "lower_bonf": 0.0044231478068558795,
+    "upper_bonf": 0.017026505178163946,
+    "replicates": 10000
+   },
+   "first_word_recall_after_sleep": {
+    "a": 0.8881491344873502,
+    "b": 0.8982309301883203,
+    "delta": 0.01008179570097012,
+    "lower95": 0.005725567620927937,
+    "upper95": 0.014495671431447555,
+    "lower_bonf": 0.003948852952237684,
+    "upper_bonf": 0.016264521894548703,
+    "replicates": 10000
+   }
+  }
+ }
+}

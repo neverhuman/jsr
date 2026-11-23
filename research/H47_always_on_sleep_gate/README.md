@@ -239,3 +239,17 @@ Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with iden
 - **One-pass wake replay, verified in the session:** in the gated stream ledger every pre-roll replay is one batched decode call (5,535 wakes and 1,457 hot-at-close reopenings, `wake_decode_calls = 1`), and every segment equals its standalone chunk-by-chunk decode (Q1). Batched replay is therefore bit-exact with chunked replay at session scale, which is the property this wave's original item 2 asked to test.
 - **Ten 1 h non-speech blocks** (eval-lane's, sha256-checked copies; gated vs ungated twin, identity on): the gated session decodes 0.063% of the audio on average (11 wakes in 10 h: white −40 6, white −20 3, white −30 1, pink −30 1; none in silence or brown noise) and emits **0 words**. The twin decodes 131.8% (its hot-close replays) and also emits 0 words. Recogniser-duty ratio gated ÷ twin ≈ 0.05%, a proxy for Q2 until xbabe0 measures CPU. Ten zero-event hours bound the false-word rate only at ≤ 0.30 / h (Garwood); Q5 needs 30 h.
 - **ACK for merge posted on #77 at a871f8b** (its session code equals 5ca3583's at (500, 1500); the engine crates are unchanged since e61121e), scoped to exactness and stream accuracy. Q7 at (500, 1500), the AO cells at (500, 1500), and every CPU / energy claim (Q2 / Q3 / Q6 on xbabe0, bench-open 14i; uclamp, H47-U) remain open.
+
+### Q at (500, 1500): Q7 on the stream, and the AO tier-A cells (exploratory)
+**Stream, gated vs its ungated twin (5ca3583 = a871f8b's arithmetic):** gated 8.127% vs twin 8.285%: **−0.158 pp** (one-sided 95% [−0.246, −0.071]; Bonferroni [−0.285, −0.034]). **Q7: PASS** (≤ +0.10 pp point, ≤ +0.20 pp upper). First word after sleep gated − twin +0.57 pp [+0.15, +0.98]. Twin: 3 gap words, 0 / 39,837 identity and re-decode mismatches, recogniser duty 120.1%. Report `results/Q_5ca3583_stream_report.json`.
+
+**AO tier A, gated vs ungated twin** (21 cells, 42 runs, 0 identity and 0 re-decode token mismatches; first-word intervals bootstrap over 73 speakers; `results/Q_5ca3583_r500_i1500_ao_cells.json`, `results/Q_5ca3583_r500_i1500_ao_pooled.json`):
+
+| pooled cells | items | WER gated vs twin, Δ [one-sided 95%] | first word gated vs twin, Δ [95%] |
+|---|---:|---|---|
+| 12 duty cells | 2,520 | 11.017 vs 11.145%, −0.128 [−0.340, +0.070] | 83.73 vs 82.54%, +1.19 [+0.39, +2.00] |
+| 7 torture sets | 1,600 | 9.916 vs 10.116%, −0.200 [−0.357, −0.046] | 87.38 vs 86.19%, +1.19 [+0.41, +2.01] |
+| 2 panel cells (100% speech) | 1,460 | 9.482 vs 9.430%, +0.052 [−0.086, +0.194] | 88.70 vs 88.77%, −0.07 [−0.62, +0.48] |
+- **Recogniser duty, gated / twin:** 8.4 / 130% at 5% speech (1 onset/min), 27 / 129% (6/min); 23 / 126% and 39 / 125% at 20%; 52 / 116% and 67 / 115% at 50%; 100.1–100.2 / 100.1–100.2% at 100%. Gap false words: gated 14, twin 23.
+- **g15 (measured duty):** gated duty at 15% speech ≈ 18% (1 onset/min) and ≈ 35% (6/min), so about 0.13× and 0.26× C1's CPU with A0's rates. This is an estimate until xbabe0 (14i).
+- **Q4 against C1, partial:** alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000) have finished on 8 of 21 cells, and I scored them with the same scorer. On the 5 finished torture sets (T1 g3 Q / N20, T2 g3 Q / N20, T3 g8 N20; 1,400 items): WER gated − C1 −0.116 pp [−0.317, +0.071]; first word **−0.43 pp [−1.25, +0.40]**, **INCONCLUSIVE** by the pre-registered rule (point ≥ −0.5, bound below). On the stream, Q4 passes against C1 (+1.01 pp [+0.57]). Re-scored when T1 / T2 g30 finish (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`).
