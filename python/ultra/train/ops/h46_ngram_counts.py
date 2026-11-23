@@ -20,14 +20,19 @@ from train.errors import LmEvalError
 V = 501
 
 
-def counts(path: str, chunk: int = 1 << 27) -> tuple[np.ndarray, np.ndarray]:
+def counts(path: str, chunk: int = 1 << 22) -> tuple[np.ndarray, np.ndarray]:
+    """Exact bigram and trigram counts. Bigrams are counted per chunk (a 2 MB table); trigram
+    codes go into one int32 array (501^3 < 2^31) counted by a single bincount, so no large
+    temporary is allocated per chunk (fresh multi-GB allocations page-fault slowly on loaded
+    hosts). Chunks of 4 M tokens keep every temporary small enough to be reused."""
     data = np.memmap(path, dtype=np.uint16, mode="r")
-    c2 = np.zeros(V * V, dtype=np.int64)
-    c3 = np.zeros(V * V * V, dtype=np.int64)
     n = data.shape[0]
-    for s in range(0, n - 2, chunk):
+    c2 = np.zeros(V * V, dtype=np.int64)
+    skip = V * V * V  # sentinel bin for windows whose middle token is a sentence break
+    codes3 = np.empty(max(n - 2, 0), dtype=np.int32)
+    for s in range(0, n - 1, chunk):
         e = min(n, s + chunk + 2)
-        x = np.asarray(data[s:e], dtype=np.int64)
+        x = np.asarray(data[s:e]).astype(np.int32)
         if int(x.max(initial=0)) >= V:
             raise LmEvalError(f"{path}: token >= {V} in [{s}, {e})")
         last = e == n
@@ -35,12 +40,14 @@ def counts(path: str, chunk: int = 1 << 27) -> tuple[np.ndarray, np.ndarray]:
         a, b = (x[:-1], x[1:]) if last else (x[:-2], x[1:-1])
         ok2 = ~((a == 0) & (b == 0))
         c2 += np.bincount((a * V + b)[ok2], minlength=V * V)
-        if e - s >= 3:
-            p, q, r = x[:-2], x[1:-1], x[2:]
-            ok3 = q != 0
-            c3 += np.bincount(((p * V + q) * V + r)[ok3], minlength=V * V * V)
+        p, q, r = x[:-2], x[1:-1], x[2:]
+        k = len(p) if last else min(len(p), chunk)
+        code = (p[:k] * V + q[:k]) * V + r[:k]
+        code[q[:k] == 0] = skip
+        codes3[s:s + k] = code
         if last:
             break
+    c3 = np.bincount(codes3, minlength=skip + 1)[:skip]
     return c2, c3
 
 
