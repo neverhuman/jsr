@@ -1,0 +1,9 @@
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /dev/shm/bench-open/anchor/ultra-cold-wav-457a4db7
+4a02420b0d283c4579f3138e552aeb433d6382d7dc3d9f0dbb8e53ae64d4b992  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/arch.json
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/bpe.model
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/mel_fbank.f32
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/tokens.txt
+aad3dbc2f1c69c0e391f185a7692247ffe53e6c338906583b785db0d1d89400a  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/weights.int8.safetensors
+29a6c60885272b684cd250a40ce4e42b146cfce2120fec65f9535fc7b8abdcec  /mnt/xbabe3-external/jsr/opponents/bench-open/derived/arm13a-ema-c1/int8/weights.safetensors
+f397eca4e81d584eabcbc432439a6d5698621c032030836dee6b4d7833712e59  docs/paper/opponents/open_workers.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  docs/paper/opponents/open_common.py
