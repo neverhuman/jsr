@@ -34,7 +34,7 @@ pub mod workload;
 
 pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
-pub use lm::{LmConfig, NgramLm};
+pub use lm::{FfnnActivation, FfnnLm, LmConfig, NgramLm, TokenLm};
 pub use model::{Arch, Model};
 
 /// Errors from loading an engine weight directory or running a chunk.
