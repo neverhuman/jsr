@@ -70,10 +70,13 @@ class LmEvalError(TrainError, ValueError):
     reason: the split file lists an utterance twice or not exactly the cache's utterances; a
     derived checkpoint records another source sha256 or non-EMA weights; an engine run decodes
     an utterance twice or misses one; a test split was passed to the shard tool;
-    `train.ffnn_lm_export` (runtime-lane's PR #79) is not importable.
+    `train.ffnn_lm_export` (runtime-lane's PR #79) is not importable; a token stream for the
+    n-gram tools (h46_ngram_counts, h46_u16_to_text) holds a token >= 501 or does not end with a
+    sentence break.
     common_fixes: pass eval-lane's `dev_split_v2.json` for the full-dev cache; re-cut the decode
     copy from the derived file of the named checkpoint; rerun the missing engine shards; use dev
-    splits only; merge or check out PR #79 before `train.nlm export`.
+    splits only; merge or check out PR #79 before `train.nlm export`; rebuild the stream with
+    `train.nlm tokens` (it writes a 0 after every sentence).
     docs_url: research/H46_lm_and_text/README.md
     repair_hint: cd python/ultra && python -m pytest -q tests/test_h46_tune.py
     """

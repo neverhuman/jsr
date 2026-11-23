@@ -48,94 +48,96 @@ ARCHS = {
 
 # ---------------------------------------------------------------- tokenisation
 
-def _encode_lines(args):
-    lines, tokenizer = args
+def _encode_batch(args):
+    """(first line number, lines, tokenizer path) -> (lines, train bytes, valid bytes, stats):
+    word-by-word encoding (as train.lm_decode.token_line), uint16 tokens with a 0 after each
+    sentence; line n goes to the validation stream when n % 1000 == 0."""
+    first, lines, tokenizer = args
     import sentencepiece as spm
 
-    sp = _encode_lines.sp if getattr(_encode_lines, "path", None) == tokenizer else None
-    if sp is None:
-        sp = spm.SentencePieceProcessor(model_file=tokenizer)
-        _encode_lines.sp, _encode_lines.path, _encode_lines.cache = sp, tokenizer, {}
-    cache = _encode_lines.cache
-    out = []
-    for line in lines:
+    if getattr(_encode_batch, "path", None) != tokenizer:
+        _encode_batch.sp = spm.SentencePieceProcessor(model_file=tokenizer)
+        _encode_batch.path, _encode_batch.cache = tokenizer, {}
+    sp, cache = _encode_batch.sp, _encode_batch.cache
+    out = {"train": [], "valid": []}
+    st = {"train_tokens": 0, "valid_tokens": 0, "train_lines": 0, "valid_lines": 0}
+    for i, line in enumerate(lines):
         toks = []
         for w in line.split():
             got = cache.get(w)
             if got is None:
-                got = cache[w] = [i + 1 for i in sp.encode(w)]
+                got = cache[w] = [t + 1 for t in sp.encode(w)]
             toks.extend(got)
-        out.append(toks)  # aligned with `lines`; an empty list for a line without tokens
-    return out
+        if not toks:
+            continue
+        part = "valid" if (first + i) % 1000 == 0 else "train"
+        out[part].extend(toks)
+        out[part].append(0)
+        st[f"{part}_tokens"] += len(toks)
+        st[f"{part}_lines"] += 1
+    return (len(lines), np.asarray(out["train"], dtype=np.uint16).tobytes(),
+            np.asarray(out["valid"], dtype=np.uint16).tobytes(), st)
 
 
 def tokens(a) -> None:
-    """Tokenise the LM text into DATA/{train,valid}.u16 (uint16 token streams, 0 between
-    sentences) + DATA/meta.json. Lines containing an excluded string are dropped."""
+    """Tokenise the LM text into DATA/{train,valid}.u16 (uint16 token streams, 0 after every
+    sentence) + DATA/meta.json. Lines containing an excluded string are removed first by
+    `grep -F -v -f` (fixed strings, the way H42 found them); the rest is upper-cased and encoded
+    by `--procs` workers in order."""
+    import shlex
+    import subprocess
     from multiprocessing import Pool
 
-    excl = []
-    if a.exclude:
-        with open(a.exclude) as fh:
-            for raw in fh:
+    os.makedirs(a.out, exist_ok=True)
+    pat = os.path.join(a.out, "exclude.patterns")
+    n_excl = 0
+    with open(pat, "w") as fh:
+        if a.exclude:
+            for raw in open(a.exclude):
                 parts = raw.strip().split(None, 1)  # "<count> <transcript>" (uniq -c format)
                 if len(parts) == 2 and parts[0].isdigit():
-                    excl.append(parts[1])
-    os.makedirs(a.out, exist_ok=True)
-    fold = str.upper  # the R0 BPE is upper case, as the LibriSpeech LM text
-    stats = {"lines": 0, "dropped_lines": 0, "train_tokens": 0, "valid_tokens": 0,
-             "train_lines": 0, "valid_lines": 0}
-    files = {k: open(os.path.join(a.out, f"{k}.u16"), "wb") for k in ("train", "valid")}
+                    fh.write(parts[1] + "\n")
+                    n_excl += 1
+    cat = "zcat" if a.text.endswith(".gz") else "cat"
+    src = f"{cat} {shlex.quote(a.text)}"
+    dropped = int(subprocess.run(["bash", "-c", f"{src} | grep -c -F -f {shlex.quote(pat)} || true"],
+                                 check=True, capture_output=True, text=True).stdout.strip() or 0) \
+        if n_excl else 0
+    cmd = f"{src} | grep -v -F -f {shlex.quote(pat)}" if n_excl else src
+    proc = subprocess.Popen(["bash", "-c", cmd], stdout=subprocess.PIPE, text=True,
+                            encoding="utf-8", errors="strict")
 
     def batches():
-        buf, n = [], 0
-        opener = gzip.open if a.text.endswith(".gz") else open
-        with opener(a.text, "rt") as fh:
-            for line in fh:
-                line = fold(line.strip())
-                n += 1
-                if excl and any(e in line for e in excl):
-                    stats["dropped_lines"] += 1
-                    continue
-                buf.append((n, line))
-                if len(buf) == a.chunk:
-                    yield buf
-                    buf = []
+        n, buf = 1, []  # line numbers from 1: every 1000th line is held out
+        for line in proc.stdout:
+            buf.append(line.strip().upper())
+            if len(buf) == a.chunk:
+                yield (n, buf, a.tokenizer)
+                n += len(buf)
+                buf = []
         if buf:
-            yield buf
+            yield (n, buf, a.tokenizer)
 
-    sep = np.zeros(1, dtype=np.uint16)
-    with Pool(a.procs) as pool:
-        pending = []
-        for b in batches():
-            pending.append((b, pool.apply_async(_encode_lines, (([x for _, x in b], a.tokenizer),))))
-            while len(pending) > 2 * a.procs or (pending and pending[0][1].ready()):
-                b0, res = pending.pop(0)
-                _write_batch(b0, res.get(), files, stats, sep)
-        for b0, res in pending:
-            _write_batch(b0, res.get(), files, stats, sep)
-    for f in files.values():
-        f.close()
+    stats = {"lines": 0, "dropped_lines": dropped, "train_tokens": 0, "valid_tokens": 0,
+             "train_lines": 0, "valid_lines": 0}
+    with open(os.path.join(a.out, "train.u16"), "wb") as ft, \
+            open(os.path.join(a.out, "valid.u16"), "wb") as fv, Pool(a.procs) as pool:
+        for nl, tb, vb, st in pool.imap(_encode_batch, batches(), chunksize=1):
+            ft.write(tb)
+            fv.write(vb)
+            stats["lines"] += nl
+            for k, v in st.items():
+                stats[k] += v
+    if proc.wait() != 0:
+        raise LmEvalError(f"text pipeline failed: {cmd}")
     with open(a.tokenizer, "rb") as fh:
         tok_sha = hashlib.sha256(fh.read()).hexdigest()
     stats.update({"tokenizer_sha256": tok_sha, "text": a.text, "exclude": a.exclude,
-                  "excluded_strings": len(excl), "valid_every": 1000})
+                  "excluded_strings": n_excl, "valid_every": 1000,
+                  "line_numbering": "after exclusion, from 1"})
     with open(os.path.join(a.out, "meta.json"), "w") as fh:
         json.dump(stats, fh, indent=1)
     print(json.dumps(stats))
-
-
-def _write_batch(batch, encoded, files, stats, sep) -> None:
-    for (n, _), toks in zip(batch, encoded, strict=True):
-        if not toks:
-            continue
-        part = "valid" if n % 1000 == 0 else "train"
-        arr = np.asarray(toks, dtype=np.uint16)
-        files[part].write(arr.tobytes())
-        files[part].write(sep.tobytes())
-        stats[f"{part}_tokens"] += len(toks)
-        stats[f"{part}_lines"] += 1
-    stats["lines"] += len(batch)
 
 
 # ---------------------------------------------------------------- model

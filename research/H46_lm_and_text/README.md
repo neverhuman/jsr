@@ -401,6 +401,61 @@ What existed when this was written:
    - ≤ +5% CPU. A MAC / lookup count per audio second against the encoder is reported now; the
      measured CPU comes later on xbabe0 through bench-open.
 
+## Amendment 3 (2026-11-23, 08:15Z): item 4 design ("+text" predictor tables), written before any training run
+This fixes the design. The training patch is written in this lane, under the exception in
+`python/ultra/EXCEPTION.md`, and handed to trainer-lane, which owns `trainer.py`, launches every
+training run, and fixes seeds and steps in its own amendment. Engine support is a design note for
+Codex (`decoder.rs` / `beam.rs`); no engine code comes from this lane.
+
+1. **What B0 lacks.** The stateless predictor sees only the last 2 tokens, its "language model"
+   trained on 9.4 M transcript words.
+   - The error analysis (05:47Z) puts 20.5% of substitutions on function-word swaps: in↔and
+     197, a↔the 133.
+   - Item 1 shows a token 5-gram over 800 M words removes 16% of all edits.
+   - +text moves part of that context into the model itself, so it costs no external LM pass.
+2. **Tables.** For n ∈ {2, 3, 4}, the exact id of the last n emitted tokens (oldest first,
+   0-padded before the utterance start) is g_n = Σ c_i · 501^(n−1−i) (< 501⁴ < 2⁶³, so no
+   overflow). It indexes a table T_n with P_n rows of d = 64 by i_n = g_n mod P_n, where P_n is
+   a prime:
+   - P₂ = 16,381; P₃ = 16,369; P₄ = 16,363.
+
+   The three rows are concatenated and projected by a **zero-initialised** W_t (192 → 320, no
+   bias), and the result is added to the predictor output:
+   - pred_p' = proj(E[c₃], E[c₄]) + W_t · [T₂; T₃; T₄].
+   - At initialisation pred_p' equals B0's pred_p bit for bit, so every arm starts at B0
+     exactly.
+   - Size: 3 × 16,37x × 64 + 61,440 ≈ 3.2 M parameters (3.2 MB as int8 rows).
+3. **Losses.**
+   - **Audio:** B0's recipe, unchanged (pruned RNN-T + CTC 0.3 + the adopted delay penalty).
+     It trains all parameters, the tables included.
+   - **Text:** batches of 256 × 64-token windows from the leak-free OpenSLR 11 stream
+     (`train.nlm tokens`, sha256 `8e249254…`).
+     - Logits: z = joiner.out(act(ē + pred_p')), where ē is the mean `joiner.enc_proj` output
+       over 2,000 TRAIN utterances' frames, computed once from B0 and frozen.
+     - Loss: cross-entropy over the 500 non-blank tokens (log-softmax renormalised without
+       blank), weight λ_text.
+     - Gradient: only into T₂₋₄ and W_t. The predictor embedding / projection and the joiner
+       see the text loss through a stop-gradient, so the acoustic calibration and the blank
+       margin are trained by audio alone.
+4. **Arms**, for trainer-lane's amendment; seeds 1234 and 4321:
+   - **T0:** continuation control. B0 → +N steps on A1's recipe + dp 0.005; no tables, no text.
+   - **T1:** tables + text loss (λ_text 0.3).
+   - **T1a (ablation):** tables, audio only.
+   - N = the H48a A1L budget (8k steps), so T0 = A1L's recipe.
+5. **Rows.** DEV only, labelled "+text": full-dev greedy and beam 4, canonical scorer, paired
+   against T0 on both seeds. Also "+text +LM": T1 with item 1's M5 + LODR (weights re-chosen on
+   the selection half), against T0 + LM.
+6. **Gate:** > 2× the four-run spread (0.17 pp) against T0, with both seeds agreeing. Also a
+   function-word swap count against T0, so the stated mechanism is checked.
+7. **Kill rule:** after 2k steps, T1's dev-clean400 greedy WER above T0's by more than 0.3 pp on
+   both seeds.
+8. **Engine note for Codex.** The predictor context grows from `[usize; 2]` to `[usize; 4]` for
+   the table ids only; the dense path still reads the last 2.
+   - Per new hypothesis context: three exact ids, three `mod` operations, three 64-byte
+     (int8) row loads, and one 192 × 320 product added to `pred_p`.
+   - Beam state carries 4 tokens.
+   - The H44 beam-reset fix must clear all 4.
+
 ## Results
 All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
 
