@@ -1,9 +1,9 @@
-//! H45 dual-pass endpoint commit pass: fast provisional streaming (`c=4`, 160 ms) paired with
-//! an endpoint commit re-decode (`c=16`, 640 ms) over bounded buffered PCM using either a single
-//! shared `Arc<Model>` or a hybrid `(live_model, final_model)` pair, optional `320 ms` trailing
-//! silence pad, real `ultra_core::events::Emitter` ledger events, exact SentencePiece CTC
-//! rescoring, and word-level MBR.
+//! H45 dual-pass endpoint commit pass: fast greedy provisional streaming paired with an endpoint
+//! commit re-decode over bounded buffered PCM using either a shared `Arc<Model>` or a hybrid
+//! `(live_model, final_model)` pair, optional endpoint-only LM+LODR beam decoding, real
+//! `ultra_core::events::Emitter` ledger events, exact SentencePiece CTC rescoring, and MBR.
 
+mod lm;
 mod rescore;
 mod spm;
 mod spm_proto;
@@ -17,6 +17,7 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
+pub use lm::CommitLmConfig;
 pub use rescore::{
     combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, word_edit_distance,
 };
@@ -27,7 +28,7 @@ pub use types::{
 };
 pub use vocab::CtcVocab;
 
-/// Alias for [`CommitPassSession`] supporting single-model and hybrid `(live, final)` commit.
+/// Alias for [`CommitPassSession`] supporting single-model, hybrid, and endpoint LM commit.
 pub type CommitPassEngine = CommitPassSession;
 
 fn drain_stream(eng: &Engine, s: &mut EngineStream, ws: &mut Workspace) -> Result<(), EngineError> {
@@ -36,11 +37,11 @@ fn drain_stream(eng: &Engine, s: &mut EngineStream, ws: &mut Workspace) -> Resul
 }
 
 /// Stateful dual-pass streaming session sharing one `Arc<Model>` (or a validated hybrid
-/// `(live, final)` pair) across provisional and endpoint commit passes.
+/// `(live, final)` pair) with optional endpoint-only LM beam decoding.
 #[derive(Debug)]
 pub struct CommitPassSession {
     provisional_engine: Engine,
-    commit_engine: Engine,
+    pub(crate) commit_engine: Engine,
     cfg: CommitConfig,
     stream_id: String,
     model_config_id: String,
@@ -256,13 +257,7 @@ impl CommitPassSession {
             .map_err(|e| EngineError::Lifecycle(e.to_string()))?;
         self.segment_open = false;
         let revised = committed.trim() != provisional.trim();
-        let trimmed = committed.trim();
-        if !trimmed.is_empty() {
-            if !self.committed_prefix.is_empty() {
-                self.committed_prefix.push(' ');
-            }
-            self.committed_prefix.push_str(trimmed);
-        }
+        types::append_prefix(&mut self.committed_prefix, &committed);
         let committed_prefix = self.committed_prefix.clone();
         self.reset_segment();
         Ok((

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::{json, Value};
-use ultra_engine::commit::{CommitConfig, CommitPassEngine, DEFAULT_SAMPLE_RATE};
+use ultra_engine::commit::{CommitConfig, CommitLmConfig, CommitPassEngine, DEFAULT_SAMPLE_RATE};
 use ultra_engine::panel::Panel;
 use ultra_engine::workload::Workload;
 use ultra_engine::{Engine, Isa, Model, Precision};
@@ -26,6 +26,12 @@ struct Args {
     precision: Precision,
     limit: usize,
     cache_dir: Option<PathBuf>,
+    commit_lm: Option<PathBuf>,
+    commit_beam: Option<usize>,
+    lm_scale: f32,
+    lodr_scale: f32,
+    token_bonus: f32,
+    max_sym_per_frame: usize,
 }
 
 fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
@@ -41,6 +47,12 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
         precision: Precision::Int8,
         limit: 0,
         cache_dir: None,
+        commit_lm: None,
+        commit_beam: None,
+        lm_scale: 0.8,
+        lodr_scale: 0.6,
+        token_bonus: 0.0,
+        max_sym_per_frame: 1,
     };
     while let Some(k) = it.next() {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
@@ -55,6 +67,14 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
             "--limit" => a.limit = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--cache-dir" => a.cache_dir = Some(v()?.into()),
+            "--commit-lm" => a.commit_lm = Some(v()?.into()),
+            "--commit-beam" => a.commit_beam = Some(v()?.parse().map_err(|e| format!("{k}: {e}"))?),
+            "--lm-scale" => a.lm_scale = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            "--lodr-scale" => a.lodr_scale = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            "--token-bonus" => a.token_bonus = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            "--max-sym-per-frame" => {
+                a.max_sym_per_frame = v()?.parse().map_err(|e| format!("{k}: {e}"))?
+            }
             o => return Err(format!("unknown argument {o}")),
         }
     }
@@ -166,18 +186,38 @@ fn load_engine(dir: &Path, isa: Isa, prec: Precision, threads: usize) -> Result<
 fn run(a: &Args) -> Result<Value, String> {
     let isa = Isa::detect();
     let live_eng = load_engine(&a.model, isa, a.precision, a.threads)?;
+    let beam = a
+        .commit_beam
+        .unwrap_or(if a.commit_lm.is_some() { 4 } else { 1 });
     let cfg = CommitConfig {
         commit_chunk: a.commit_chunk,
         tail_pad_samples: a.tail_pad_ms * DEFAULT_SAMPLE_RATE / 1000,
+        beam_size: beam,
         ..CommitConfig::default()
     };
-    let mut sess = match &a.final_model {
+    let lm_cfg = a
+        .commit_lm
+        .as_ref()
+        .map(|p| {
+            CommitLmConfig::from_file(
+                p,
+                beam,
+                a.lm_scale,
+                a.lodr_scale,
+                a.token_bonus,
+                a.max_sym_per_frame,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .transpose()?;
+    let sess = match &a.final_model {
         Some(fm) => {
             let final_eng = load_engine(fm, isa, a.precision, a.threads)?;
             CommitPassEngine::new_hybrid(live_eng, final_eng, cfg).map_err(|e| e.to_string())?
         }
         None => CommitPassEngine::new(live_eng, cfg).map_err(|e| e.to_string())?,
     };
+    let mut sess = sess.with_commit_lm(lm_cfg).map_err(|e| e.to_string())?;
     let items = load_manifest(a)?;
     if items.is_empty() {
         return Err("empty manifest".into());
@@ -209,7 +249,7 @@ fn run(a: &Args) -> Result<Value, String> {
             .map_err(|e| e.to_string())?;
     }
     cms.sort_by(f64::total_cmp);
-    let summary = json!({"summary": true, "hybrid": sess.is_hybrid(), "utterances": items.len(), "revised_count": revised, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
+    let summary = json!({"summary": true, "hybrid": sess.is_hybrid(), "utterances": items.len(), "revised_count": revised, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name(), "commit_lm_path": a.commit_lm, "commit_beam": beam, "lm_scale": a.lm_scale, "lodr_scale": a.lodr_scale, "token_bonus": a.token_bonus});
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;
     out.flush().map_err(|e| e.to_string())?;
     Ok(summary)
@@ -233,10 +273,15 @@ mod tests {
     use super::*;
     #[test]
     fn commit_eval_cli_args_and_percentiles() {
-        let s = "--model m --final-model fm --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --threads 2";
+        let s = "--model m --final-model fm --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --threads 2 --commit-lm M5.ulm --commit-beam 8 --lm-scale 0.7 --lodr-scale 0.525 --token-bonus 0.1";
         let a = parse_args(s.split_whitespace().map(String::from)).expect("parse");
         assert_eq!((a.commit_chunk, a.tail_pad_ms, a.threads), (16, 320, 2));
         assert_eq!(a.final_model, Some(PathBuf::from("fm")));
+        assert_eq!(a.commit_lm, Some(PathBuf::from("M5.ulm")));
+        assert_eq!(
+            (a.commit_beam, a.lm_scale, a.lodr_scale, a.token_bonus),
+            (Some(8), 0.7, 0.525, 0.1)
+        );
         assert!(parse_args(["--model".into(), "m".into()]).is_err());
         let xs = [10.0, 20.0, 30.0, 40.0, 50.0];
         assert_eq!((pct(&xs, 0.50), pct(&xs, 0.95)), (30.0, 50.0));

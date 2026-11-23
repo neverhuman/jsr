@@ -175,6 +175,16 @@ impl SegmentPcm {
     }
 }
 
+pub(crate) fn append_prefix(prefix: &mut String, segment: &str) {
+    let trimmed = segment.trim();
+    if !trimmed.is_empty() {
+        if !prefix.is_empty() {
+            prefix.push(' ');
+        }
+        prefix.push_str(trimmed);
+    }
+}
+
 /// Push `pcm` into `buf` without exceeding `cap`, returning the count of dropped oldest samples.
 pub(crate) fn push_bounded_pcm(buf: &mut Vec<i16>, pcm: &[i16], cap: usize) -> u64 {
     if pcm.len() >= cap {
