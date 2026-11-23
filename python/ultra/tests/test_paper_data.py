@@ -183,3 +183,23 @@ def test_figures_compile_standalone_within_column(tmp_path):
         assert float(widths[name]) <= 516.0, f"{name} is {widths[name]}pt wide; the IEEE text width is 516pt"
     for fig1 in ("money", "frontier_warm"):
         assert float(widths[fig1]) <= 243.0, f"Figure 1 candidate {fig1} must fit 243pt"
+
+
+def test_every_manifest_file_is_committed():
+    """A file the manifest pins must be in git, not just on the writer's disk: an ignored file (e.g. *.log) would
+    pass here and fail on every clean checkout with "MANIFEST lists missing file"."""
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None or not (pd.REPO / ".git").exists():
+        return
+    tracked = set(subprocess.run(["git", "ls-files", "--", str(pd.RAW)], cwd=pd.REPO, check=True, capture_output=True,
+                                 text=True).stdout.splitlines())
+    listed = [line.split()[1] for line in (pd.REPO / pd.RAW / "MANIFEST.txt").read_text().splitlines()
+              if line.strip() and not line.startswith("#")]
+    ignored = subprocess.run(["git", "check-ignore", "--no-index", "--stdin"], cwd=pd.REPO, capture_output=True, text=True,
+                             input="".join(f"{pd.RAW}/{rel}\n" for rel in listed)).stdout.split()
+    assert not ignored, f"MANIFEST pins files that git ignores: {ignored}"
+    untracked = [rel for rel in listed if f"{pd.RAW}/{rel}" not in tracked]
+    assert len(untracked) < len(listed), "no manifest file is tracked: run this test from a checkout"
+    assert all(not rel.endswith(".log") for rel in listed), "a .log file is never evidence, and docs/paper ignores it"
