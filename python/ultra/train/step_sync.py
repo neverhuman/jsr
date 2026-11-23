@@ -7,10 +7,13 @@ import collections
 import math
 import os
 import subprocess
+import threading
 import time
 from typing import Callable, NamedTuple, Sequence
 
-MIN_SAMPLE_INTERVAL_S, SUM_SLICE, MAX_SLICE = 2.0, slice(0, 3), slice(3, 5)
+DEFAULT_PERIOD_S = 1.13
+MIN_PERIOD_S = 0.01
+SUM_SLICE, MAX_SLICE = slice(0, 3), slice(3, 5)
 
 
 class StepScalars(NamedTuple):
@@ -45,24 +48,104 @@ def read_nvidia_smi_util(gpu_index: int | str = 0) -> float | None:
 
 
 class SoloStepThrottle:
-    """Smooth step-boundary GPU-util controller for world == 1 trainers and DiLoCo islands."""
+    """Smooth step-boundary GPU-util controller for world == 1 trainers and DiLoCo islands.
 
-    def __init__(self, target: float, gpu_index: int | str = 0, *, sample_interval_s: float = 2.0,
-                 max_sleep_s: float = 2.0, ema_alpha: float = 0.4, window_s: float = 300.0,
-                 live_dir: str | None = None, util_reader: Callable[[], float | None] | None = None,
-                 clock: Callable[[], float] = time.monotonic,
-                 sleep_fn: Callable[[float], None] = time.sleep) -> None:
+    Uses a time-uniform background sampler (long-lived ``nvidia-smi -lms`` stream in production,
+    matching ``train.dist.StepThrottle``) decoupled from step boundaries so rolling means cover
+    active compute and sleeps alike without step-boundary bias or duty ratcheting.
+    """
+
+    def __init__(
+        self,
+        target: float,
+        gpu_index: int | str = 0,
+        *,
+        period_s: float = DEFAULT_PERIOD_S,
+        window_s: float = 300.0,
+        control_window_s: float = 30.0,
+        update_interval_s: float = 20.0,
+        floor: float = 0.5,
+        max_sleep_s: float = 2.0,
+        live_dir: str | None = None,
+        util_reader: Callable[[], float | None] | None = None,
+        start_sampler: bool | None = None,
+        sleep_fn: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.target, self.gpu = float(target), _physical_gpu(gpu_index)
-        self.sample_interval_s = max(MIN_SAMPLE_INTERVAL_S, float(sample_interval_s))
+        self.period_s = max(MIN_PERIOD_S, float(period_s))
+        self.floor = max(0.05, min(1.0, float(floor)))
         self.max_sleep_s = max(0.0, float(max_sleep_s))
-        self.ema_alpha = max(0.05, min(1.0, float(ema_alpha)))
         self.live = os.path.join(live_dir, "UTIL_TARGET") if live_dir else None
-        self._util_reader = util_reader or (lambda: read_nvidia_smi_util(self.gpu))
-        self._clock, self._sleep = clock, sleep_fn
-        self.samples: collections.deque[float] = collections.deque(maxlen=max(1, int(round(window_s / self.sample_interval_s))))
+        self._util_reader = util_reader
+        self._sleep = sleep_fn
+        self._ctrl_len = max(1, int(round(control_window_s / self.period_s)))
+        self._upd_every = max(1, int(round(update_interval_s / self.period_s)))
+        self._min_samples = max(1, int(round(min(20.0, control_window_s) / self.period_s)))
+        maxlen = max(self._ctrl_len, int(round(window_s / self.period_s)))
+        self.samples: collections.deque[float] = collections.deque(maxlen=maxlen)
         self.duty, self.step_s, self.slept_s, self._slept_mark = 1.0, 0.0, 0.0, 0.0
-        self._active_util = self._last_sample_t = None
-        self._win_compute_s, self._win_slept_s = 0.0, 0.0
+        self._sample_count, self._last_ctrl_sample = 0, 0
+        self._stop = threading.Event()
+        self._proc: subprocess.Popen[str] | None = None
+        self._thread: threading.Thread | None = None
+        auto_start = (self.target > 0.0) if start_sampler is None else bool(start_sampler)
+        if auto_start and self.target > 0.0:
+            self._thread = threading.Thread(target=self._sample_loop, name="solo-gpu-util", daemon=True)
+            self._thread.start()
+
+    def __enter__(self) -> SoloStepThrottle:
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Stop the background time-uniform sampler thread and any nvidia-smi child cleanly."""
+        self._stop.set()
+        proc = self._proc
+        if proc is not None:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+        if self._thread is not None and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+    def record_sample(self, util: float | None) -> bool:
+        """Ingest one time-uniform GPU utilisation sample in [0.0, 1.0]."""
+        if util is None or not math.isfinite(util):
+            return False
+        self.samples.append(max(0.0, min(1.0, float(util))))
+        self._sample_count += 1
+        return True
+
+    def _sample_loop(self) -> None:
+        if self._util_reader is not None:
+            while not self._stop.is_set():
+                self.record_sample(self._util_reader())
+                self._stop.wait(self.period_s)
+            return
+        cmd = ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits",
+               "-i", self.gpu, "-lms", str(max(100, int(round(self.period_s * 1000))))]
+        while not self._stop.is_set():
+            try:
+                with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                      text=True) as proc:
+                    self._proc = proc
+                    assert proc.stdout is not None
+                    for line in proc.stdout:
+                        if self._stop.is_set():
+                            break
+                        try:
+                            self.record_sample(float(line.split()[0]) / 100.0)
+                        except (IndexError, ValueError):
+                            continue
+            except OSError:
+                pass
+            finally:
+                self._proc = None
+            if not self._stop.is_set():
+                self._stop.wait(5.0)
 
     def _live_target(self) -> None:
         if self.live and os.path.exists(self.live):
@@ -76,41 +159,32 @@ class SoloStepThrottle:
         vals = list(self.samples)[-last:] if last else list(self.samples)
         return sum(vals) / len(vals) if vals else None
 
-    def _sample(self, now: float) -> None:
-        self._live_target()
-        self._last_sample_t = now
-        u = self._util_reader()
-        if u is None or not math.isfinite(u):
-            return
-        u = max(0.0, min(1.0, float(u)))
-        self.samples.append(u)
-        total = self._win_compute_s + self._win_slept_s
-        duty = self._win_compute_s / total if total > 0.0 else 1.0
-        self._win_compute_s, self._win_slept_s = 0.0, 0.0
-        active_u = u / max(duty, 0.1)
-        a = self.ema_alpha
-        self._active_util = active_u if self._active_util is None else (1.0 - a) * self._active_util + a * active_u
-
     def sleep_for(self, step: int, step_seconds: float) -> float:
         del step  # signature parity with train.dist.StepThrottle.sleep_for
         if self.target <= 0.0 or step_seconds <= 0.0:
             self.duty = 1.0
             return 0.0
         self.step_s = 0.9 * self.step_s + 0.1 * step_seconds if self.step_s else step_seconds
-        self._win_compute_s += step_seconds
-        now = self._clock()
-        if self._last_sample_t is None or (now - self._last_sample_t) >= self.sample_interval_s:
-            self._sample(now)
-        if self.target <= 0.0 or self._active_util is None or self._active_util <= self.target:
-            self.duty = 1.0
-            return 0.0
-        nap = min(self.max_sleep_s, max(0.0, self.step_s * (self._active_util - self.target) / self.target))
-        self.duty = self.step_s / (self.step_s + nap) if (self.step_s + nap) > 0.0 else 1.0
-        return nap
+        if (self._sample_count - self._last_ctrl_sample >= self._upd_every
+                and len(self.samples) >= self._min_samples):
+            self._live_target()
+            self._last_ctrl_sample = self._sample_count
+            if self.target <= 0.0:
+                self.duty = 1.0
+                return 0.0
+            m = self.util_mean(self._ctrl_len)
+            if m is not None:
+                if m > self.target:
+                    delta = min(0.03, max(0.005, 0.5 * (m - self.target)))
+                    self.duty = max(self.floor, self.duty - delta)
+                elif m < self.target - 0.01:
+                    delta = min(0.03, max(0.005, 0.5 * (self.target - 0.01 - m)))
+                    self.duty = min(1.0, self.duty + delta)
+        return min(self.max_sleep_s, max(0.0, self.step_s * (1.0 / self.duty - 1.0)))
 
     def pause(self, seconds: float) -> None:
         if seconds > 0.0:
-            self.slept_s, self._win_slept_s = self.slept_s + seconds, self._win_slept_s + seconds
+            self.slept_s += seconds
             self._sleep(seconds)
 
     def stats(self) -> dict:

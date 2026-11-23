@@ -1,4 +1,4 @@
-"""Torch-free unit and closed-loop tests for SoloStepThrottle and coalesced step scalars."""
+"""Torch-free unit and realistic-reader witness tests for SoloStepThrottle & step_sync."""
 from __future__ import annotations
 
 import ast
@@ -6,18 +6,77 @@ import math
 import os
 import pathlib
 import sys
+import time
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from train.step_sync import (  # noqa: E402
-    MIN_SAMPLE_INTERVAL_S,
+    DEFAULT_PERIOD_S,
     SoloStepThrottle,
     StepScalars,
     coalesce_all_reduce_scalars,
     pack_step_scalars,
     unpack_step_scalars,
 )
+
+
+def _run_realistic_1s_reader_sim(
+    *, step_s: float, target: float, active_u: float, total_s: float = 1200.0,
+    max_sleep_s: float = 2.0,
+) -> dict[str, float]:
+    """Simulate a real training loop with an instantaneous last-1s GPU-util reader (like NVML).
+
+    During each step the GPU is busy for ``step_s`` at ``active_u``, then idle (0.0) for ``nap``.
+    The time-uniform sampler polls ``last_1s_util(t)`` at uniform wall-clock ticks ``k * period_s``
+    across BOTH busy and nap intervals, while we also record what a step-boundary read would see.
+    """
+    th = SoloStepThrottle(target, max_sleep_s=max_sleep_s, start_sampler=False, sleep_fn=lambda _: None)
+    busy_intervals: list[tuple[float, float]] = []
+    naps: list[float] = []
+    step_boundary_reads: list[float] = []
+    t, next_tick, step = 0.0, th.period_s, 0
+
+    def last_1s_util(now: float) -> float:
+        lo, hi = max(0.0, now - 1.0), now
+        if hi <= lo:
+            return 0.0
+        busy = 0.0
+        for a, b in reversed(busy_intervals):
+            if b <= lo:
+                break
+            if a < hi:
+                busy += min(b, hi) - max(a, lo)
+        return active_u * busy / (hi - lo)
+
+    while t < total_s:
+        step += 1
+        a, b = t, t + step_s
+        busy_intervals.append((a, b))
+        while next_tick <= b:
+            th.record_sample(last_1s_util(next_tick))
+            next_tick += th.period_s
+        t = b
+        step_boundary_reads.append(last_1s_util(t))
+        nap = th.sleep_for(step, step_s)
+        th.pause(nap)
+        naps.append(nap)
+        t_end = t + nap
+        while next_tick <= t_end:
+            th.record_sample(last_1s_util(next_tick))
+            next_tick += th.period_s
+        t = t_end
+
+    lo, hi = total_s - 300.0, total_s
+    true_busy = sum(max(0.0, min(b, hi) - max(a, lo)) for a, b in busy_intervals if b > lo and a < hi)
+    return {
+        "true_5min": active_u * true_busy / 300.0,
+        "est_5min": th.util_mean() or 0.0,
+        "duty": th.duty,
+        "max_nap": max(naps),
+        "last_nap": naps[-1],
+        "step_boundary_mean": sum(step_boundary_reads[-100:]) / 100.0,
+    }
 
 
 def test_import_is_torch_free():
@@ -27,80 +86,50 @@ def test_import_is_torch_free():
             assert all(not a.name.startswith("torch") for a in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert not (node.module or "").startswith("torch")
-    assert MIN_SAMPLE_INTERVAL_S >= 2.0
+    assert DEFAULT_PERIOD_S > 1.0
 
 
-def test_solo_throttle_zero_sleep_below_or_at_target():
-    now, reads = [0.0], [0]
+def test_realistic_1s_reader_witness_no_ratchet_at_1s_steps():
+    """Witness for D2c bug: last-1s reader reads 1.0 at every 1 s step boundary, yet true 5-min
+    util tracks target=0.86 cleanly (never ratchets to max_sleep_s / 0.32 util)."""
+    r1 = _run_realistic_1s_reader_sim(step_s=1.0, target=0.86, active_u=1.0)
+    assert r1["step_boundary_mean"] > 0.99  # confirms step-boundary polling would see ~100%
+    assert 0.83 <= r1["true_5min"] <= 0.88
+    assert abs(r1["est_5min"] - r1["true_5min"]) < 0.01
+    assert r1["max_nap"] < 0.40  # never ratchets toward max_sleep_s=2.0
 
-    def reader():
-        reads[0] += 1
-        return 0.85
+    r_fast = _run_realistic_1s_reader_sim(step_s=0.45, target=0.86, active_u=0.96)
+    assert 0.83 <= r_fast["true_5min"] <= 0.88
 
-    th = SoloStepThrottle(0.86, util_reader=reader, clock=lambda: now[0], sleep_fn=lambda _: None)
-    for step in range(1, 20):
-        now[0] += 0.4
-        assert th.sleep_for(step, 0.4) == 0.0
-    assert reads[0] <= 5 and th.stats()["duty"] == 1.0
-
-
-def test_solo_throttle_proportional_sleep_and_max_clamp():
-    th = SoloStepThrottle(0.85, max_sleep_s=0.10, util_reader=lambda: 0.935,
-                          clock=lambda: 0.0, sleep_fn=lambda _: None)
-    assert math.isclose(th.sleep_for(1, 0.5), 0.05, rel_tol=1e-9)
-    clamped = SoloStepThrottle(0.85, max_sleep_s=0.04, util_reader=lambda: 0.99,
-                               clock=lambda: 0.0, sleep_fn=lambda _: None)
-    assert math.isclose(clamped.sleep_for(1, 1.0), 0.04, rel_tol=1e-9)
+    r_below = _run_realistic_1s_reader_sim(step_s=1.0, target=0.86, active_u=0.75)
+    assert r_below["max_nap"] == 0.0 and r_below["duty"] == 1.0
 
 
-def test_solo_throttle_bounded_sampling_and_telemetry(tmp_path):
-    now, reads = [0.0], [0]
-
-    def reader():
-        reads[0] += 1
-        return 0.95
-
-    th = SoloStepThrottle(0.86, sample_interval_s=0.1, live_dir=str(tmp_path),
-                          util_reader=reader, clock=lambda: now[0], sleep_fn=lambda _: None)
-    assert th.sample_interval_s >= 2.0
-    for step in range(1, 16):
-        now[0] += 0.25  # 3.75 s total -> at most 2 reads
-        th.pause(th.sleep_for(step, 0.25))
-    assert reads[0] == 2
+def test_solo_throttle_max_sleep_clamp_telemetry_and_live_thread(tmp_path):
+    # Max sleep clamp & trainer.py telemetry schema
+    th = SoloStepThrottle(0.85, max_sleep_s=0.04, live_dir=str(tmp_path),
+                          start_sampler=False, sleep_fn=lambda _: None)
+    for _ in range(30):
+        th.record_sample(1.0)
+    nap = th.sleep_for(1, 2.0)
+    assert 0.0 < nap <= 0.04
+    th.pause(nap)
     tel = th.telemetry()
     assert set(tel) >= {"rank_throttle_sleep_s", "rank_gpu_util_5min", "rank_duty", "util_target"}
-    assert len(tel["rank_throttle_sleep_s"]) == 1 and tel["rank_throttle_sleep_s"][0] > 0.0
-    assert len(tel["rank_gpu_util_5min"]) == 1 and 0.0 < tel["rank_gpu_util_5min"][0] <= 1.0
+    assert tel["rank_throttle_sleep_s"] == [round(nap, 2)]
+    assert tel["rank_gpu_util_5min"] == [1.0]
     assert th.telemetry()["rank_throttle_sleep_s"] == [0.0]
 
-
-def test_solo_throttle_closed_loop_5min_mean_tracks_target_without_freeze():
-    target, step_s = 0.86, 0.45
-    now, win_active, win_total = [0.0], [0.0], [0.0]
-    observed: list[float] = []
-
-    def sim_util():
-        u = 0.96 if win_total[0] <= 0.0 else win_active[0] / win_total[0]
-        win_active[0] = win_total[0] = 0.0
-        observed.append(u)
-        return u
-
-    def sim_sleep(s: float):
-        now[0] += s
-        win_total[0] += s
-
-    th = SoloStepThrottle(target, sample_interval_s=2.0, max_sleep_s=0.5,
-                          util_reader=sim_util, clock=lambda: now[0], sleep_fn=sim_sleep)
-    for step in range(1, 900):  # > 400 s simulated (> full 5-min window)
-        active_u = 0.96 + 0.02 * math.sin(step * 0.13)
-        now[0] += step_s
-        win_active[0] += active_u * step_s
-        win_total[0] += step_s
-        th.pause(th.sleep_for(step, step_s))
-
-    mean_5min = th.util_mean()
-    assert mean_5min is not None and target - 0.03 <= mean_5min <= target + 0.02
-    assert min(observed) > 0.75  # never oscillates to 0% like SIGSTOP
+    # Live background daemon thread samples uniformly and shuts down cleanly on close()
+    busy = [True]
+    with SoloStepThrottle(0.86, period_s=0.01, util_reader=lambda: 1.0 if busy[0] else 0.0,
+                          start_sampler=True) as live:
+        time.sleep(0.05)
+        busy[0] = False
+        time.sleep(0.05)
+        samples = list(live.samples)
+    assert len(samples) >= 4 and 1.0 in samples and 0.0 in samples
+    assert live._thread is not None and not live._thread.is_alive()
 
 
 def test_pack_unpack_and_coalesced_multi_rank_parity():
