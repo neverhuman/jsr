@@ -1,0 +1,19 @@
+{
+  "audio_h": 27.564049496527776,
+  "audio_s": 99230.5781875,
+  "cpu_s": 11086.448234886,
+  "cpu_s_per_audio_s": 0.11172411203669226,
+  "endpoint_replay_ms": 1000,
+  "endpoint_reset_ms": 1500,
+  "endpoint_resets": 39169,
+  "rss_delta_mb": 5.26953125,
+  "rss_end_mb": 67.61328125,
+  "rss_out": "/home/ubuntu/jsr/target/paper-evidence/alwayson-ablation/endless-27h/endless27h.t1500_r1000.rss.jsonl",
+  "rss_peak_mb": 69.56640625,
+  "rss_start_mb": 62.34375,
+  "rtfx": 8.950619358438773,
+  "tokens": 203258,
+  "trace_out": "/home/ubuntu/jsr/target/paper-evidence/alwayson-ablation/endless-27h/endless27h.t1500_r1000.trace.jsonl",
+  "wall_s": 11255.527908288,
+  "words": 105208
+}

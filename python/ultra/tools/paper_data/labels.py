@@ -15,6 +15,7 @@ import random
 
 LINE_PT, PAD, GAP = 7.4, 0.8, 1.4  # label height, clearance between labels, clearance from the marker
 HARD = 1000.0                       # cost of one collision
+DIAGONAL_MAX = 3 * LINE_PT          # pt: only labels this short may sit at a marker's corner
 NEAREST = 1.0                       # pt: a label is this much nearer its own point than any other, or it collides
 _NEAR = [(1, 0, 0.0), (-1, 0, 0.3), (0, 1, 0.6), (0, -1, 0.6), (1, 1, 0.9), (1, -1, 0.9), (-1, 1, 1.1), (-1, -1, 1.1)]
 _REACH = (9.0, 18.0, 30.0, 46.0, 64.0)  # leader lengths in pt
@@ -50,9 +51,11 @@ def segs_cross(a, b) -> bool:
 
 
 def candidates(p: dict) -> list[dict]:
-    hw, hh, r = p["w"] / 2, LINE_PT / 2, p["clear"]
+    hw, hh, r = p["w"] / 2, p.get("h", LINE_PT) / 2, p["clear"]
     out = []
     for sx, sy, pen in _NEAR:
+        if sx and sy and p["w"] > DIAGONAL_MAX and not p["bold"]:
+            pen = 400.0  # a long label at a corner reads as the label of whatever it runs under: beside or a leader first
         reach = r + GAP if 0 in (sx, sy) else 0.72 * r + GAP
         cx, cy = p["px"] + sx * (hw + reach), p["py"] + sy * (hh + reach)
         out.append({"box": (cx - hw, cy - hh, cx + hw, cy + hh), "leader": None, "pen": pen})
@@ -84,6 +87,11 @@ def _static(i: int, cand: dict, pts: list[dict], fixed: list, lines: list, size:
     if box[0] < 1 or box[1] < 1 or box[2] > size[0] - 1 or box[3] > size[1] - 1:
         return math.inf
     own = gap(box, pts[i]["px"], pts[i]["py"])  # a label nearer another point reads as that point's label
+    corners = {v for seg in lines for v in seg}  # nor may another label sit right under or over a frontier system
+    for q in ([] if pts[i]["bold"] else pts):
+        on = any(math.hypot(q["px"] - x, q["py"] - y) < 0.5 for x, y in corners)
+        if on and q is not pts[i] and box[0] <= q["px"] <= box[2] and not box[1] <= q["py"] <= box[3]:
+            cost += HARD * (min(abs(q["py"] - box[1]), abs(q["py"] - box[3])) < 2 * LINE_PT)
     wrong = HARD if pts[i].get("number") is None else 500.0  # a number in a dense cluster may have no clear spot
     cost += wrong * sum(gap(box, q["px"], q["py"]) < own + NEAREST for q in pts
                         if math.hypot(q["px"] - pts[i]["px"], q["py"] - pts[i]["py"]) >= 2.5)

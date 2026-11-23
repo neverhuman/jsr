@@ -58,7 +58,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     subset = [r for r in group if r["timing_panel"] != "full"]
     say("ColdSubsetSentence", NOTHING if not subset else f"{len(subset)} slow system"
         f"{'s are' if len(subset) != 1 else ' is'} timed on a 73-utterance subset of the panel "
-        f"({_names([_name(r) for r in subset])}); their WER is from the full panel.", "rows timed on the subset")
+        f"({_names([_name(r) for r in subset])}); {'their' if len(subset) != 1 else 'its'} WER is from the full panel.",
+        "rows timed on the subset")
     if not ours or not others:
         for rid in ("ColdPackageSentence", "ColdSubtitle", "ColdAbstractSentence", "ColdAbstractAccuracy",
                     "ColdHeadSentence", "ColdSpeedSentence", "ColdAccuracySentence",

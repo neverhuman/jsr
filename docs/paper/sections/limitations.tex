@@ -11,9 +11,9 @@ and no row in our tables uses it. Its training text contains \LmOverlapCount{} o
 
 \para{Always on, as far as shown.} The capacity, silence and endless-stream tests ran on
 \AoCheckpoint, not on our Fig.~\ref{fig:money} checkpoint, and the watts we quote come from the newest
-checkpoint with a same-run energy line, which the text names. The endless stream ran without a reset over all of its
-\AoStreamHours\,h; reset-with-replay is shown on the stream's first hour only, and its full-length run
-was still going when this draft was built. The non-speech audio is digital silence and
+checkpoint with a same-run energy line, which the text names. The endless stream ran over all of its \AoStreamHours\,h twice,
+with reset-with-replay (the always-on configuration) and without a reset, on a shared host, so its CPU
+times are comparable with each other but not with the quiet-host rows. The non-speech audio is digital silence and
 synthetic noise, not music, television or babble. The capacity test fed every stream the same
 short excerpt of the panel, and its ceilings come from CPU cost, not from a run at that load.
 
