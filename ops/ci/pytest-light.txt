@@ -16,6 +16,7 @@ tests/test_paper_claims.py
 tests/test_paper_data.py
 tests/test_paper_evidence.py
 tests/test_power_bench.py
+tests/test_skip_gate_sim.py
 tests/test_sp_a_fleet.py
 tests/test_sp_a_sim.py
 tests/test_train_diagnose.py

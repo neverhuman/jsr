@@ -1,0 +1,134 @@
+{
+  "schema": "ultra.h47.stream_segments_summary.v1",
+  "producer": "python/ultra/tools/sentinel0_segments.py",
+  "gate_constants": {
+    "hop": 160,
+    "v": 25,
+    "u": 5,
+    "kf": 2,
+    "ks": 8,
+    "theta_f": 640,
+    "theta_s": 256,
+    "nabs_f": 3943,
+    "nabs_s": 4455,
+    "preroll_ms": 1000,
+    "idle_ms": 1500
+  },
+  "artifacts_dir": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments",
+  "sha256sums_path": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/SHA256SUMS",
+  "streams": {
+    "endless_27h": {
+      "stream_dir": "/mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream",
+      "duration_s": 99230.578187,
+      "duration_h": 27.56405,
+      "total_samples": 1587689251,
+      "total_hops": 9923057,
+      "inputs": [
+        {
+          "filename": "part-1.wav",
+          "samples": 396872239,
+          "wav_sha256": "977c3fe23aef64a8b3e0ae4728632e3fef8d36a6d025942fa3c5341fcebab052",
+          "pcm_sha256": "d3fb6b9d7f40586bf21f85c70c033065e23b1af376cdc8c3d886f1e6d7146c71"
+        },
+        {
+          "filename": "part-2.wav",
+          "samples": 396930908,
+          "wav_sha256": "01abe4747593325852e59650e428d9de7392664702fdf7677934757b06b32fb2",
+          "pcm_sha256": "986978dda3b4feb3cee1cd497ae9f062549ef9f9217bf24caf791afe98b72230"
+        },
+        {
+          "filename": "part-3.wav",
+          "samples": 397080197,
+          "wav_sha256": "fdc4c05ed83b7c302cfc63a48f79f1dbf881a7fe55aa63b3a86bfb29d83c1580",
+          "pcm_sha256": "f6286cbad31444614ce97911a11d84a3acd07c65be68f9e426fe97e2a5240656"
+        },
+        {
+          "filename": "part-4.wav",
+          "samples": 396805907,
+          "wav_sha256": "1a3a6c89022d16c30fb88e5a3c04f1019cc00bc034eb040e1dfe7d203975a84a",
+          "pcm_sha256": "111cd696e926ed674ef5a713aff6dec36b808663118254bf74a39f41a2be0d8d"
+        }
+      ],
+      "hot_u8": {
+        "path": "/mnt/xbabe3-external/jsr/h47-sleep/qual/sentinel/stream-mac/hot.u8",
+        "sha256": "c9a515198b98383c66468be5b2408384d19e9ac5a4ba542a612a77760669bb82",
+        "part1_100k_hop_wav_parity_mismatches": 0
+      },
+      "output": {
+        "segments_jsonl": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/endless_27h_sentinel0.segments.jsonl",
+        "segments_sha256": "3a969cd867748863cf24d54493579c8f6a0dcee34641e30a90f7a399fa5b6ead",
+        "summary_json": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/endless_27h_sentinel0.summary.json",
+        "summary_sha256": "953acf773c204ca6a19036625b11689e972e2953d475f290bd626fe68e3e72f1"
+      },
+      "metrics": {
+        "segment_count": 5318,
+        "raw_wake_count": 5484,
+        "merged_wake_count": 166,
+        "hot_hops": 3662147,
+        "hot_hop_fraction": 0.369054,
+        "awake_samples": 852721440,
+        "awake_s": 53295.09,
+        "awake_duty_fraction": 0.537083,
+        "awake_duty_pct": 53.7083,
+        "wakes_per_hour": 192.932,
+        "segment_duration_s": {
+          "min": 2.5,
+          "mean": 10.0216,
+          "p50": 8.6,
+          "p95": 19.94,
+          "max": 65.03
+        },
+        "utterances_total": 5567,
+        "utterances_full_mfa_covered": 5567,
+        "utterances_full_utt_covered": 5567,
+        "utterance_full_coverage_pct": 100.0,
+        "oracle_decode_invariants_ok": true
+      }
+    },
+    "duty05_r1_Q": {
+      "stream_dir": "/mnt/xbabe3-external/jsr/alwayson-bench/aobench/tierA/duty05_r1_Q",
+      "duration_s": 3600.0,
+      "duration_h": 1.0,
+      "total_samples": 57600000,
+      "total_hops": 360000,
+      "inputs": [
+        {
+          "filename": "part-1.wav",
+          "samples": 57600000,
+          "wav_sha256": "8eb010c70a9f3ce896445c12772359087328c4f4c9676613010cd9bb68da64b8",
+          "pcm_sha256": "35a3a3734db013e579fefb2733fb4c938f2c643ca145690429d0fec78230aefc"
+        }
+      ],
+      "output": {
+        "segments_jsonl": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/duty05_r1_Q_sentinel0.segments.jsonl",
+        "segments_sha256": "c0ec87d670fe554088ab5826570f7baf1835e980a4e05411dd6ca40139fff6fc",
+        "summary_json": "/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/duty05_r1_Q_sentinel0.summary.json",
+        "summary_sha256": "7773c95cc4cde0032e5ac5a847c6b10867093b0c7a2ec775134b042c38213c41"
+      },
+      "metrics": {
+        "segment_count": 58,
+        "raw_wake_count": 59,
+        "merged_wake_count": 1,
+        "hot_hops": 16222,
+        "hot_hop_fraction": 0.045061,
+        "awake_samples": 5077440,
+        "awake_s": 317.34,
+        "awake_duty_fraction": 0.08815,
+        "awake_duty_pct": 8.815,
+        "wakes_per_hour": 58.0,
+        "segment_duration_s": {
+          "min": 4.65,
+          "mean": 5.4714,
+          "p50": 5.395,
+          "p95": 5.5715,
+          "max": 10.12
+        },
+        "utterances_total": 60,
+        "utterances_full_mfa_covered": 60,
+        "utterances_full_utt_covered": 60,
+        "utterance_full_coverage_pct": 100.0,
+        "oracle_decode_invariants_ok": true
+      }
+    }
+  }
+}
