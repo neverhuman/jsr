@@ -210,10 +210,16 @@ def train(a) -> None:
     if dev.type == "cuda" and a.max_vram_gb:
         total = torch.cuda.get_device_properties(dev).total_memory / 2 ** 30
         torch.cuda.set_per_process_memory_fraction(min(1.0, a.max_vram_gb / total), dev)
-    data = np.fromfile(os.path.join(a.data, "train.u16"), dtype=np.uint16)
-    valid = np.fromfile(os.path.join(a.data, "valid.u16"), dtype=np.uint16)
-    stream = torch.from_numpy(data.astype(np.int16))
-    vstream = torch.from_numpy(valid.astype(np.int16))
+    # Tokens are < 501, so the uint16 file read as int16 holds the same values: a read-only
+    # memory map shares the page cache instead of holding private copies of the 3.2 GB stream.
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # torch: the mapped array is not writable
+        stream = torch.from_numpy(np.memmap(os.path.join(a.data, "train.u16"), dtype=np.int16,
+                                            mode="r"))
+        vstream = torch.from_numpy(np.fromfile(os.path.join(a.data, "valid.u16"),
+                                               dtype=np.int16))
     vpos = torch.nonzero(vstream > 0).flatten()
     model = make_model(a.arch).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=a.wd, betas=(0.9, 0.98))
@@ -372,20 +378,27 @@ def export(a) -> None:
     except ImportError as e:
         raise LmEvalError("train.ffnn_lm_export (runtime-lane's PR #79) is needed to export") from e
     model, p = load_run(a.run)
-    model.qat = False  # the exporter quantises the fp32 weights itself
-    raw = export_ffnn_v1(model, a.out, ctx=model.ctx, activation=model.activation)
-    qlm = load_ffnn_v1(raw)
     rng = np.random.default_rng(0)
     hist = [list(rng.integers(1, VOCAB, size=int(n))) for n in rng.integers(0, 12, size=200)]
+    ctx = torch.tensor([[0] * (model.ctx - min(len(h), model.ctx)) + h[-model.ctx:]
+                        if h else [0] * model.ctx for h in hist])
     with torch.no_grad():
-        ref = model(torch.tensor([[0] * (model.ctx - min(len(h), model.ctx)) + h[-model.ctx:]
-                                  if h else [0] * model.ctx for h in hist])).numpy()
+        model.qat = True   # the trained model as the beam scores it (int8 round trip)
+        ref_q = model(ctx).numpy()
+        model.qat = False  # the exporter quantises the fp32 weights itself
+        ref_f = model(ctx).numpy()
+    raw = export_ffnn_v1(model, a.out, ctx=model.ctx, activation=model.activation)
+    qlm = load_ffnn_v1(raw)
     q = np.stack([qlm.score_all(h) for h in hist])
+
+    def cmp(ref):
+        return {"max_abs_logp": float(np.abs(q[:, 1:] - ref[:, 1:]).max()),
+                "top1_agreement": float((q[:, 1:].argmax(1) == ref[:, 1:].argmax(1)).mean())}
+
     man = {"schema": SCHEMA, "arch": p["arch"], "file": a.out, "file_bytes": len(raw),
            "sha256": hashlib.sha256(raw).hexdigest(), "source_run": a.run,
            "qat_steps": p["steps"] - p["qat_from"],
-           "int8_vs_model_max_abs_logp": float(np.abs(q[:, 1:] - ref[:, 1:]).max()),
-           "int8_vs_model_top1_agreement": float((q[:, 1:].argmax(1) == ref[:, 1:].argmax(1)).mean())}
+           "int8_file_vs_qat_model": cmp(ref_q), "int8_file_vs_fp32_model": cmp(ref_f)}
     with open(a.out + ".json", "w") as fh:
         json.dump(man, fh, indent=1)
     print(json.dumps(man))
