@@ -203,3 +203,17 @@ All arms: PR #75's segmenter (gate-driven close after `idle` ms of gate-cold hop
 | (300, 1000) | 8.143% | −0.234 [−0.320, −0.148] | +1.05 [+0.54] | 3 (0.46) | 47.1% |
 - **Reading (pre-registered rule): (500, 700) is recommended.** Every arm with a pre-roll ≤ 500 ms passes, with WER below C1 and positive first-word lower bounds; (500, 700) has the lowest decoded duty. A shorter idle also lowers the gap false words (8 → 3), because the session decodes less noise after each utterance. A 300 ms pre-roll is not needed: 500 ms already covers the measured wake delays (max 450 ms), and 300 ms gains nothing measurable.
 - **Caveat for #77:** these segments close on the gate (cold hops), while #77's session closes on recogniser blanks (T_idle). The pre-roll result carries over directly; the idle result says that a shorter hangover costs nothing on this stream, and Q measures #77's own T_idle.
+
+### Q pass 1: PR #77's session at 3410004 (defaults R 1000 ms, T_idle 1500 ms), before the settings changed (exploratory)
+Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with identity verification on; each ledger segment then re-decoded by `h47-oracle-decode` v3 (`--allow-overlap`) for emission times, with token counts checked against every session segment (0 mismatches everywhere). Compact results: `results/Q_pass1_3410004_ao_cells.json`, `results/Q_pass1_3410004_ao_pooled.json`.
+- **Q1 exactness: PASS.** 0 identity mismatches in the 6,986 gated segments of the 27.56 h stream and in all 42 runs (21 AO cells × gated / ungated twin); sample conservation OK, no ring underflow.
+- **Stream, gated:** WER 8.283% (C1 8.377%: −0.094 pp, one-sided 95% [−0.180, −0.012]); first word after sleep 88.91% (C1 88.81%: +0.10 pp [−0.36, +0.56]); 2 gap false words (C1: 5); recogniser duty 54.3%, 5,532 wakes, 52.7% of hops asleep. Against the ideal oracle O3n: −0.014 pp WER, −0.46 pp first words. The ungated twin of the stream run is still decoding (Q7).
+- **AO tier A, gated vs ungated twin** (pooled with cell-prefixed ids; first-word intervals bootstrap over cells):
+
+| pooled cells | items | WER gated vs twin, Δ [one-sided 95%] | first word gated vs twin, Δ [95%] |
+|---|---:|---|---|
+| 12 duty cells | 2,520 | 11.141 vs 11.311%, −0.169 [−0.356, +0.017] | 83.10 vs 82.30%, +0.79 [+0.21, +1.31] |
+| 7 torture sets | 1,600 | 9.949 vs 10.054%, −0.105 [−0.260, +0.054] | 87.50 vs 87.38%, +0.13 [−0.90, +1.00] |
+| 2 panel cells (100% speech) | 1,460 | 9.385 vs 9.333%, +0.052 [−0.080, +0.185] | 88.84 vs 89.11%, −0.27 [−0.55, 0.00] |
+- Recogniser duty, gated / twin: 9.3 / 161% at 5% speech and 1 onset/min, 31 / 158% at 6/min; 23 / 152% and 44 / 150% at 20%; 53 / 133% and 72 / 131% at 50%; 100.4 / 100.3% at 100%. Gap false words: gated 14, twin 25 (21 cells).
+- **Readings so far:** Q4 (first word after sleep) passes on the stream (lower bound −0.36 ≥ −0.5) and on the pooled duty cells; the torture sets alone are INCONCLUSIVE at this sample size (lower bound −0.90, point +0.13). Q7 waits for the stream twin. Q2 / Q3 / Q6 (CPU, energy, overhead) need xbabe0; the duty ratios above are proxies only. These pass-1 numbers describe 3410004; the final head is qualified in pass 2.
