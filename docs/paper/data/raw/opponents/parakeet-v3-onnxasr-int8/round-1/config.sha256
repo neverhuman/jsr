@@ -1,0 +1,12 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/venv/bin/python
+6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/models/parakeet-tdt-0.6b-v3-onnx/encoder-model.int8.onnx
+eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/models/parakeet-tdt-0.6b-v3-onnx/decoder_joint-model.int8.onnx
+d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/models/parakeet-tdt-0.6b-v3-onnx/vocab.txt
+666903c76b9798caf2c210afd4f6cd60b08a8dbf9800ec8d7a3bc0d2148ac466  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/models/parakeet-tdt-0.6b-v3-onnx/config.json
+8ef51f6bf2c621fc129f625b22241fa6f9a5870bc08eaf2fdd279169ec40d09a  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/venv/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime_providers_shared.so
+6c1585d1bbf45b0712ea4a21b705c5fcb4ba04ff2e30f1fbf81a49faf658638f  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/venv/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime.so.1.32.0
+1ca3cb099256894edeedbce570fd7c2450608c1cdec5ca5bc56db4b8a240be53  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/venv/lib/python3.12/site-packages/onnxruntime/capi/onnxruntime_pybind11_state.cpython-312-x86_64-linux-gnu.so
+91d067bd19c45e54f287a546c4df812f95f069f768dde755ef3bb7c279f7bd96  /home/ubuntu/jsr-data/opponents/parakeet-onnx-asr/venv.freeze.txt
+4cd894505f575749662118d4302fe913545e77f9a1217866f918b3359e6e4eda  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/onnxasr_whole.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_common.py
