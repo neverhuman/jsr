@@ -271,23 +271,26 @@ f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zi
 8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-5/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/service.stderr
 bbfab7f9cdaf582d5f1d5526bf6faa456729cd7a438bdaa6ba8b48cc93bc8093  energy/cold/zipformer-int8/round-5/started  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/started
 87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-5/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/workload.sha256
-271d9f08e5559074df8375678a8f69d94be01cbd1eadc5c46e46d18287099134  energy/derived/capacity-test-entry4b.jsonl  energy commit 221cf5a docs/paper/data/raw/energy/derived/capacity-test-entry4b.jsonl (TIMING entry 4b, xbabe0)
+271d9f08e5559074df8375678a8f69d94be01cbd1eadc5c46e46d18287099134  energy/derived/capacity-test-entry4b.jsonl  energy_report.py paced-lag over the entry-4b receipts and their events
 92cf4fed11754fb4145398ae3f46aa1b87939eafd394f759ddb58ed3a84836a0  energy/derived/cold-rounds-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 f38daf0ffb38ba3d36c8481c7389a2cfce87dd01e8dd0722ba2c7e7dd9d5ec09  energy/derived/engine-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 485266bc008c9698bbc256f011951f5b2687278bbad52468170c2ced99a7be9a  energy/derived/entry2-h22ctl-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+94646b07d97cb74ec44bb17872309dadf1aa207f7e10f9cf1a2329cb1f113b03  energy/derived/entry3-moonshine-tiny-energy.jsonl  power-log join of runtime-lane's timing entry 3 receipts
+9ae4b9e2410e2a6a3f12d378432a16346840ec72e28d03ab8f953ae3192eb658  energy/derived/entry4-parakeet-tdt-v3-energy.jsonl  power-log join of runtime-lane's timing entry 4 receipts
 483b90a031217de212512f9b607b25833856cbd974138dce6f61d6896749bd7a  energy/derived/idle-against-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 df7d0c44a8c224ecc1ddd17150447bdb3b2d7f1258b70be75603f4d254e09ed2  energy/derived/v2-spin-fit.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 cc429824aeb844d2007fc57e02fc7d529de7a029ecd4a1eb8d23524fea911377  energy/derived/zipformer-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 8a3213722a67f12e3190902bb78005deadc2d69e0b5123ff969361b90484a523  energy/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
+3647134762ce650c3c7f237936098afa9312e7fff6f8958e355f5dc9cff65e86  energy/evidence/xbabe0-energy-joins.jsonl  energy lines for rows other agents timed (joined with the xbabe0 power log); copy once each row is admitted
 0ce510219967d911e7b0618a7f127373dd0be14f4c17ccd852ff59870055cc84  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
-b9aac134b95a4eb98ea4d78b22ba1eca2c79c1b931c096c548938916cf8b7efa  energy/paced/paced-h22ctl-n1.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n1.json (TIMING entry 4b, xbabe0)
-e2e87953f1bb208b7692466db139222032771c1de1ec645d5bf1492bc60ef90e  energy/paced/paced-h22ctl-n16.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n16.json (TIMING entry 4b, xbabe0)
-031685ac5c038137c9c81300be7a2b4e42572211975a300a49ec456d104651e9  energy/paced/paced-h22ctl-n4.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n4.json (TIMING entry 4b, xbabe0)
-86b34acf8a4b85f65d3a4837adf6a448c73c70c7fefb39bf74614e6e002b7620  energy/paced/paced-h22ctl-n8.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n8.json (TIMING entry 4b, xbabe0)
-b0b2df5dd20f69d4710f5198e2bf8de53aaab10d26c3af9e2f76c07f944815b1  energy/paced/paced-zipformer-n1.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n1.json (TIMING entry 4b, xbabe0)
-3b044332411406dbc47e1cc0a0e0ef5277b339378361fd3441489512edb6e824  energy/paced/paced-zipformer-n2.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n2.json (TIMING entry 4b, xbabe0)
-f8601fb9be73850f11e301850bfa70a8e8683cffbb17732ae30993656253bba1  energy/paced/paced-zipformer-n4.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n4.json (TIMING entry 4b, xbabe0)
-040f3436a1664c95e2ad411a53dbbcea7cad5bd7836467781103fc75205ff669  energy/paced/paced-zipformer-n8.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n8.json (TIMING entry 4b, xbabe0)
+b9aac134b95a4eb98ea4d78b22ba1eca2c79c1b931c096c548938916cf8b7efa  energy/paced/paced-h22ctl-n1.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+e2e87953f1bb208b7692466db139222032771c1de1ec645d5bf1492bc60ef90e  energy/paced/paced-h22ctl-n16.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+031685ac5c038137c9c81300be7a2b4e42572211975a300a49ec456d104651e9  energy/paced/paced-h22ctl-n4.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+86b34acf8a4b85f65d3a4837adf6a448c73c70c7fefb39bf74614e6e002b7620  energy/paced/paced-h22ctl-n8.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+b0b2df5dd20f69d4710f5198e2bf8de53aaab10d26c3af9e2f76c07f944815b1  energy/paced/paced-zipformer-n1.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+3b044332411406dbc47e1cc0a0e0ef5277b339378361fd3441489512edb6e824  energy/paced/paced-zipformer-n2.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+f8601fb9be73850f11e301850bfa70a8e8683cffbb17732ae30993656253bba1  energy/paced/paced-zipformer-n4.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
+040f3436a1664c95e2ad411a53dbbcea7cad5bd7836467781103fc75205ff669  energy/paced/paced-zipformer-n8.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
 683b9b8ec5d9dd6d6d8a078a446061062db36b32f3514b97c02da56110590567  energy/series/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 2f93f046017525c9ce09a1cefa7e6262551fb2694f69625061e85c844a3806fa  energy/series/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 7820892f07f681b39b25a3d18ed4c8f4bb84952b76e846aff5e5d4586db2a23e  energy/v1-idle-vs-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md

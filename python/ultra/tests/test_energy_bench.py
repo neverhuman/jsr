@@ -512,3 +512,21 @@ def test_stable_word_lag_from_bounded_snapshot_windows():
     # A cut first word ("ister" of "mister") is not mistaken for a different word.
     counts = er.confirmed_counts([(1.0, "ister quilter has")], ["mister", "quilter", "has", "missed"])
     assert counts == [3]
+
+
+def test_stitching_bounded_windows_rebuilds_the_whole_hypothesis_across_segments():
+    def event(t, seg, text, kind="Preview"):
+        return {"t_s": t, "event": {"event_type": kind, "segment_id": seg, "snapshot_utf8": text}}
+    # Windows of at most 12 characters; "SHARK" is revised to "SHARP"; a second segment starts at 5 s.
+    events = [event(1.0, 0, "WE LOOK"), event(2.0, 0, "WE LOOK SHAR"), event(2.5, 0, "LOOK SHARK W"),
+              event(3.0, 0, "LOOK SHARP W"), event(3.5, 0, "SHARP WE MAY"), event(4.0, 0, "SHARP WE MAY", "Final"),
+              {"t_s": 4.1, "event": {"event_type": "SegmentIncomplete", "segment_id": 0}},
+              event(5.0, 1, "BE ABLE"), event(6.0, 1, "BE ABLE TO GO", "Final")]
+    texts = er.stitched_texts(events)
+    assert texts[-1][1] == "WE LOOK SHARP WE MAY BE ABLE TO GO"
+    ref = "we look sharp we may be able to go".split()
+    ends = [0.5, 0.9, 1.4, 1.6, 1.9, 4.2, 4.6, 5.5, 5.9]
+    lags, total, final = er.stable_lags_from_events(events, ref, ends)
+    assert total == 9 and len(lags) == 9 and final.startswith("WE LOOK SHARP")
+    assert lags[2] == pytest.approx(3.0 - 1.4)          # "sharp" counts from 3.0 s, after "SHARK" was revised
+    assert lags[-1] == pytest.approx(6.0 - 5.9)
