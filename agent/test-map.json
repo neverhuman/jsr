@@ -344,6 +344,14 @@
     "python/ultra/tests/test_dashboard_unified_contract.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_dashboard_unified_contract.py",
       "purpose": "verify adversarial dashboard contract fixtures across both :8766 and :8765"
+    },
+    "python/ultra/train/vram_pack.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_vram_pack.py",
+      "purpose": "verify CUDA memory-fraction guard (<= 0.90) and 80-88% VRAM co-packing planner"
+    },
+    "python/ultra/tests/test_vram_pack.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_vram_pack.py",
+      "purpose": "torch-free tests for per-process CUDA memory cap and VRAM co-packing planner"
     }
   }
 }
