@@ -1,5 +1,5 @@
 # sha256  path-under-raw  origin (copied 2026-11-22; exploratory rehearsal + trainer sweeps)
-ed805414246b59b9569baa5ac4e6bfdae92603f489d4d734319b18a25686f2d4  REDACTIONS.md  redaction record written by v3-integrator, 2026-11-23 (public repository)
+f60a2a776f3c24d7de5c4ff611bf4eb2d446627a9f903ef04ce2f01ecba0215c  REDACTIONS.md  redaction record written by v3-integrator, 2026-11-23 (public repository)
 121ace057ebc6fab497adfd206fc1368cb1bc7b4ac3f877532ec0397e86728d2  abab_manifests/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.job_manifest.json
 84d4d34737846322c405c55373f414a9af84978fc5fbbc1fc50fa0de59ce8f47  abab_manifests/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/_home_ubuntu_jsr-data_runs_engine_d2-45000_weights-int8prep.receipt.json
 0789fe2c9afe2b0c2b0e1c8461d29254bc94deabc7f29877e4e6be8e4c1af966  abab_manifests/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json

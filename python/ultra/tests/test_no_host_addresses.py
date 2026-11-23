@@ -18,7 +18,9 @@ ALLOWED = {"127.0.0.1", "0.0.0.0"}
 DOC_NETS = tuple(ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24"))
 OCTET = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
 DOTTED = re.compile(rf"(?<![\d.]){OCTET}(?:\.{OCTET}){{3}}(?!\d|\.\d)")
-DASHED = re.compile(rf"(?<![\w.-]){OCTET}(?:-{OCTET}){{3}}(?![\w-]|\.\d)")
+# A dashed address may follow a `word-` prefix (cloud defaults such as `ip-a-b-c-d`), but not a word
+# character, a dot or `digit-` directly, so names like `avg3-45-50-55` and dashed number runs do not match.
+DASHED = re.compile(rf"(?<![\w.])(?<!\d-){OCTET}(?:-{OCTET}){{3}}(?![\w-]|\.\d)")
 ROLE = re.compile(r"[A-Za-z][A-Za-z0-9._-]{0,63}")
 WRITES_HOSTNAME = re.compile(r"^[ \t]*hostname\b[^\n|;&]*>[ \t]*\S*host\b", re.M)
 
@@ -84,6 +86,8 @@ def test_detector_flags_addresses_and_allows_loopback_any_and_documentation_netw
     assert address_literals(f"MASTER_ADDR={private} MASTER_PORT=29710") == [private]
     assert address_literals(f"end of a sentence {lan}.") == [lan]
     assert address_literals(f"cloud host {dashed} in a receipt") == [dashed]
+    assert address_literals(f"aws default ip-{dashed}.ec2.internal") == [dashed]
+    assert address_literals("chunk list 1-2-4-8-16 and 4-8-16-32-64, checkpoint d2-avg3-45-50-55") == []
     assert address_literals("bind 127.0.0.1:8765, listen 0.0.0.0") == []
     assert address_literals("fixtures 192.0.2.10 198.51.100.7 203.0.113.9 203-0-113-9") == []
     assert address_literals("kernel 6.8.0-149, versions 1.2.3.4.5, dates 2026-11-23, ranges 33.2-33.3") == []
