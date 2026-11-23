@@ -23,6 +23,8 @@
 #                                       sha256 bc072957; TIMING entry 14q)
 #   jsr-d2e-16457-int8                  our engine, D2e 16457 INT8 (earlier cross-session anchor)
 #   r0-zipformer-int8                   R0 Zipformer INT8 through sherpa-onnx (same-session anchor)
+#   nemotron-560|nemotron-160           Nemotron Speech Streaming EN 0.6B, NeMo-Speech.cpp Q8_0 GGUF, chunk 560 / 160 ms:
+#                                       run-cold.sh's own command, here for the panels run-cold.sh does not run (TIMING 14t)
 #   <system>-t8                         eight intra-op threads in one recogniser
 #   <system>-w8                         eight single-thread recognisers side by side
 #   <anchor>-s8                         our engine as one process with eight shared-weights workers
@@ -136,6 +138,22 @@ open_arm() {
             else
                 cmd=("${engine[@]}" "$wav" "$run/predictions.jsonl")
             fi
+            return
+            ;;
+        nemotron-560|nemotron-160)
+            # run-cold.sh's Nemotron command (the H0 rotation's rows), for panel73 and other listed panels
+            local nemo="$data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech" context=1
+            [[ $system == nemotron-560 ]] && context=6
+            model="$data/models/nemotron-0.6b/nemotron-speech-streaming-en-0.6b.q8_0.gguf"
+            if [[ ${#mode[@]} != 0 ]]; then
+                printf 'nemotron arms are single-stream, single-thread here: %s\n' "$1" >&2
+                exit 2
+            fi
+            cmd=("$nemo" --json bench asr "$wav" --model "$model" --device cpu --mode stream
+                --asr.backend.threads 1 --asr.streaming.rnnt_right_context "$context"
+                --concurrency 1 --repetitions 1 --warmup 0 --save "$run/outputs")
+            artifacts=("$model")
+            files=("$model" "$data/models/nemotron-0.6b/tokenizer.json")
             return
             ;;
         *)

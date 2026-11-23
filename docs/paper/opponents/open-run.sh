@@ -200,6 +200,9 @@ run_listed() {
     python3 "$tool" verify-panel "$root/panel"
     mkdir -p "${run%/*}"
     mkdir "$run"
+    if [[ $arm == nemotron-* ]]; then  # nemo-speech --save writes into an existing folder (as run-cold.sh does)
+        mkdir "$run/outputs"
+    fi
     printf '%q ' "${cmd[@]}" > "$run/command"
     printf '\n' >> "$run/command"
     sha256sum "$measure" "${cmd[0]}" "${files[@]}" > "$run/config.sha256"
