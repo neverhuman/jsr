@@ -1,0 +1,6 @@
+# H48 scripts as committed (trainer-lane's H48c launch / decode chain; records, not run by CI). Originals: /mnt/xbabe3-external/jsr/trainer-lane/h48c/.
+f01e88b6ccb152aef30367722da21a28791758643f2124a0f9821c562199e29e  scripts/decode_17r_after.sh
+7ca95144e9e0f6e67157b0a2f45c0cecbaca1beaf1988336f852d860863b4674  scripts/h48c_after.sh
+902351d57bacd04222fa23207a4b9c8b5a1e7d4448919c563a35ec72b80e7dbb  scripts/h48c_launch.sh
+3117e36a1a284ed358e2d995b4550cf89b9f6d1eb29c8498dead604c33588816  scripts/rerun_cells_after.sh
+f6c8389baa8a7cac344da366ea860671f975331517fe84960b53b8f30ea3ea40  scripts/unpark_after.sh

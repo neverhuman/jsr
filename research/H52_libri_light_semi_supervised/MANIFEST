@@ -56,3 +56,10 @@ f7699a787bc13ea83197e5a7a7767640a99fd98f366f0aa1c63d9fb9d5ab5d3e  bin/ll_pass2.p
 3c233370cdb67d967a3aa2862e29bd9a4c972dfd5ebfdf582a553c27973877ba  bin/launch_large_x6.sh
 b0860eb771a81d848f807e53d5a955c1ca459b929387244ba5e4953f9a695823  bin/finalize_medium_x5.sh
 # large (insurance): url=https://dl.fbaipublicfiles.com/librilight/data/large.tar bytes=3055377274880 official md5=4dfbac018f50b99797ece101fc9f0c30; our sha256 + selection list sha256: pending (index on xbabe6)
+# medium final (sealed 2026-11-23T11:43:43Z; x5:~/jsr-data/librilight/shards/r0_v11/librilight.medium/, 444 shards)
+7e87f000be40a0d028db8b83fa0229c39cff7c2698fee9fa8383a25f98e25892  shards/r0_v11/librilight.medium/SHA256SUMS
+26b79dac05833868f4ce3995e4c4b50a192214790da69d0db0b90d4adc4c0e7b  shards/r0_v11/librilight.medium/FILTER_REPORT.json
+202b53dd19fea203de9327b3ba6b56c9c8a298196b96476f0ba5a788aa3a9795  bin/ll_finalize.py (amendment 4)
+461b54d545f002ca7f1f9ca77cf1fe33a0b3d4d0d668425ca75b6bc2c51995fe  bin/ll_finalize_par.py (the medium run)
+25560587d8fa9bef5924fdbc3a93a96eb3b4333c7a0e2bc2e34ff97d40d124ec  bin/finalize_par_x5.sh
+# small v1.1 final (09:57Z; adopted for S2): x5:~/jsr-data/librilight/shards/r0_v11/librilight.small/SHA256SUMS sha256 8f371a650591ff0663712f3b2603d963abeb69798636f008eb7fcadd5a5d59f3 (reproduced byte for byte by ll_finalize_par.py at 11:06Z)

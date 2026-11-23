@@ -1,0 +1,31 @@
+{
+ "name": "H48c-b vs A1L c16 (conf)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/A1L_dp0.005-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H48c_b_s1234-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": "h43/dev_split_v2.json:confirmation",
+ "margin_pp": 0.36,
+ "margin_registry_entry": {
+  "endpoint": "h48c-b-anchor-dp-vs-A1L-ni-ema-pooled-conf-c16",
+  "margin_pp": 0.36,
+  "direction": "lower_is_better",
+  "note": "H48c-b (anchor kappa 0.01 + dp 0.005) vs A1L (dp 0.005, same fork / 8k schedule / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread. 'Anchored loss on top of dp costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. Requested by h48-latency 07:19Z.",
+  "registered_utc": "2026-11-23T07:20:07Z"
+ },
+ "delta_pp": 0.0241,
+ "alpha": 0.05,
+ "lower_pp": -0.0582,
+ "upper_pp": 0.1068,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/A1L_dp0.005-8000.ema.c16.ms8.score-input.jsonl": "774190b3cb00691b1bfbdb7a2e42b5dd1bff3e35adec36714aae8f8e0f10dfb6",
+  "h41/H48c_b_s1234-8000.ema.c16.ms8.score-input.jsonl": "723a444770065b3cab9397293892d1ba3cfd2565375e2f59a480ff19adc72432"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

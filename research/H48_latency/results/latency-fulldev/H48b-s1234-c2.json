@@ -1,0 +1,252 @@
+{
+ "schema": "ultra.h43.latency/v1",
+ "name": "H48b-s1234-c2-fulldev",
+ "label": "exploratory",
+ "clock": "design (audio sample clock); paced numbers are from the trace host, not quiet",
+ "normaliser_id": "ultra-en-wer-norm/v1",
+ "normaliser_rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "mfa_sha256": {
+  "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+  "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+ },
+ "traces": {
+  "rem-00.trace.jsonl": "895b999d69f6b653504858d06533e6508357ab767bbe0ea34103be688ba16e88",
+  "rem-01.trace.jsonl": "861e7979f9a49c049ffb216f3446fa27dfaf0667089cd2fd5ecde6384bc4daf1",
+  "x5-complete.trace.jsonl": "3d987b3cf6d2ad6751720971bf60c21b37c7dbfa46c0a2ea75b175f309530851"
+ },
+ "aggregate": {
+  "utterances": 5567,
+  "ref_words": 106054,
+  "timed_ref_words": 106054,
+  "utterances_with_text": 5567,
+  "ftl_end": {
+   "n": 5567,
+   "mean_ms": 164.9,
+   "p50_ms": 170.0,
+   "p95_ms": 380.0
+  },
+  "ftl_onset": {
+   "n": 5567,
+   "mean_ms": 433.8,
+   "p50_ms": 440.0,
+   "p95_ms": 630.0
+  },
+  "ftl_paced_end_trace_host": {
+   "n": 5567,
+   "mean_ms": 213.9,
+   "p50_ms": 203.5,
+   "p95_ms": 501.3
+  },
+  "paced_capture_clock_trace_host": {
+   "ftl_end": {
+    "n": 5567,
+    "mean_ms": 183.7,
+    "p50_ms": 182.8,
+    "p95_ms": 421.0
+   },
+   "fcw_end": {
+    "n": 5010,
+    "mean_ms": 225.2,
+    "p50_ms": 227.9,
+    "p95_ms": 420.0
+   },
+   "fcw_onset": {
+    "n": 5010,
+    "mean_ms": 495.4,
+    "p50_ms": 468.5,
+    "p95_ms": 860.2
+   }
+  },
+  "fcw_coverage": 0.8999,
+  "fcw_end": {
+   "n": 5010,
+   "mean_ms": 205.4,
+   "p50_ms": 220.0,
+   "p95_ms": 380.0
+  },
+  "fcw_onset": {
+   "n": 5010,
+   "mean_ms": 467.1,
+   "p50_ms": 450.0,
+   "p95_ms": 780.0
+  },
+  "first_cq_end": {
+   "150": 0.2969,
+   "250": 0.5538,
+   "300": 0.684,
+   "500": 0.8965,
+   "1000": 0.8999
+  },
+  "first_cq_onset": {
+   "300": 0.1645,
+   "500": 0.5603,
+   "1000": 0.8949
+  },
+  "cq_stable": {
+   "150": 0.2441,
+   "300": 0.7633,
+   "500": 0.9189
+  },
+  "cq_provisional": {
+   "150": 0.2443,
+   "300": 0.7634,
+   "500": 0.9189
+  },
+  "stable_lag": {
+   "n": 97530,
+   "mean_ms": 207.1,
+   "p50_ms": 220.0,
+   "p95_ms": 350.0
+  },
+  "revision": {
+   "revised_words_per_100_final": 0.135,
+   "partial_word_completions_per_100_final": 73.199,
+   "utterances_with_any_revision": 0.0239,
+   "mean_flicker_ms": 133.7
+  },
+  "finalization": {
+   "n": 5567,
+   "mean_ms": 329.5,
+   "p50_ms": 335.0,
+   "p95_ms": 515.0
+  }
+ },
+ "bootstrap_95": {
+  "ftl_end_mean_ms": {
+   "point": 164.87067,
+   "lo95": 156.15768,
+   "hi95": 174.12595
+  },
+  "ftl_onset_mean_ms": {
+   "point": 433.81444,
+   "lo95": 424.90711,
+   "hi95": 442.84968
+  },
+  "fcw_coverage": {
+   "point": 0.89995,
+   "lo95": 0.88366,
+   "hi95": 0.91592
+  },
+  "fcw_end_mean_ms": {
+   "point": 205.43613,
+   "lo95": 199.88737,
+   "hi95": 210.89778
+  },
+  "fcw_onset_mean_ms": {
+   "point": 467.13872,
+   "lo95": 455.83207,
+   "hi95": 478.23577
+  },
+  "revised_per_100_final": {
+   "point": 0.1349,
+   "lo95": 0.10019,
+   "hi95": 0.17281
+  },
+  "cq_stable_150": {
+   "point": 0.2441,
+   "lo95": 0.23315,
+   "hi95": 0.25517
+  },
+  "cq_prov_150": {
+   "point": 0.24426,
+   "lo95": 0.23333,
+   "hi95": 0.25532
+  },
+  "cq_stable_300": {
+   "point": 0.76329,
+   "lo95": 0.74719,
+   "hi95": 0.78018
+  },
+  "cq_prov_300": {
+   "point": 0.76343,
+   "lo95": 0.74735,
+   "hi95": 0.78031
+  },
+  "cq_stable_500": {
+   "point": 0.91895,
+   "lo95": 0.90707,
+   "hi95": 0.93029
+  },
+  "cq_prov_500": {
+   "point": 0.91895,
+   "lo95": 0.90707,
+   "hi95": 0.93029
+  },
+  "first_cq_end_150": {
+   "point": 0.29693,
+   "lo95": 0.27576,
+   "hi95": 0.31724
+  },
+  "first_cq_end_250": {
+   "point": 0.5538,
+   "lo95": 0.52925,
+   "hi95": 0.57866
+  },
+  "first_cq_end_300": {
+   "point": 0.68403,
+   "lo95": 0.66197,
+   "hi95": 0.70756
+  },
+  "first_cq_end_500": {
+   "point": 0.89653,
+   "lo95": 0.87973,
+   "hi95": 0.91252
+  },
+  "first_cq_end_1000": {
+   "point": 0.89995,
+   "lo95": 0.88366,
+   "hi95": 0.91592
+  },
+  "first_cq_onset_300": {
+   "point": 0.16454,
+   "lo95": 0.14806,
+   "hi95": 0.18262
+  },
+  "first_cq_onset_500": {
+   "point": 0.56027,
+   "lo95": 0.53116,
+   "hi95": 0.59245
+  },
+  "first_cq_onset_1000": {
+   "point": 0.89492,
+   "lo95": 0.87778,
+   "hi95": 0.91123
+  },
+  "ftl_end_p50_ms": {
+   "point": 170.0,
+   "lo95": 160.0,
+   "hi95": 180.0
+  },
+  "ftl_end_p95_ms": {
+   "point": 380.0,
+   "lo95": 370.0,
+   "hi95": 390.0
+  },
+  "fcw_end_p50_ms": {
+   "point": 220.0,
+   "lo95": 210.0,
+   "hi95": 220.0
+  },
+  "fcw_end_p95_ms": {
+   "point": 380.0,
+   "lo95": 370.0,
+   "hi95": 390.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": 450.0,
+   "lo95": 440.0,
+   "hi95": 460.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": 780.0,
+   "lo95": 760.0,
+   "hi95": 800.0
+  }
+ },
+ "bootstrap": {
+  "replicates": 1000,
+  "seed": 20261122,
+  "clusters": "speaker",
+  "strata": "dataset"
+ }
+}

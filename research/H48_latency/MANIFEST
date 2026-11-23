@@ -1,0 +1,44 @@
+# H48 MANIFEST (assembled by v3-integrator on 2026-11-23 from h48-latency's, trainer-lane's and eval-lane's
+# data-drive folders; results and small scripts only, never weights). sha256 and origin of every committed copy:
+1f99beffadf8a4cbe924caea203c1c9c554a84d20c75511050b4c756eb83d38d  H48c_prereg.md  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/H48c_prereg.md
+74fe21a60b09c499beb060b3dccfc8776dc0eb946184deb51e31e334ca116c78  MANIFEST.h48c  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/MANIFEST.h48c
+696138833e923741ea22d597bdf40dea5b4743142458993e42a6ac62c3f792d5  configs/H48c-a.json  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/configs/H48c-a.json
+583cd91ed563f61035e15063e67232cdbe4e362f9cb9f1898cffeb914e5d648f  configs/H48c-b.json  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/configs/H48c-b.json
+3c45e7bf21e3325b2fe616a814d8a8a2ab0a6031b67c1fba6ce662c275da4160  onset_peek_design.md  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/onset_peek_design.md
+1cca71a98080108f10c4754a837090cff8939237f778fab445fa4c167e51244f  results/anchor_overhead_cpu.json  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/results/anchor_overhead_cpu.json
+781a86b5ac8ba21296e7ad5b9c7db14fb9dd4ed01d469f848c5a5e520870354d  results/h48c_tests.txt  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/results/h48c_tests.txt
+8ba373d0ba6e0ea2f841c761dd3ba87c4c138b62307f75b433b0820b75b81ce8  results/latency-fulldev/H48b-s1234-c2-vs-B0-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s1234-c2-vs-B0-c2.json
+df1d94517a9824c39b58ab5304d10644f5430cbf2fd259a015359e81613c2e7d  results/latency-fulldev/H48b-s1234-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s1234-c2.json
+f1ac5f52c25c0fd0d72aa76e485951ab79eea4205b5dab5628d176899c239846  results/latency-fulldev/H48b-s1234-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s1234-c4.json
+4e068e5ad80391115cd1014d21631a443805b37e1aa7f439486dc4218244b19d  results/latency-fulldev/H48b-s4321-c2-vs-B0-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s4321-c2-vs-B0-c2.json
+c7f25f604e756793bc375ec5456d9f98b4c34a36df7ae43e8b483ff834b57413  results/latency-fulldev/H48b-s4321-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s4321-c2.json
+4ba366e0a54b442efc8904694c1b12ef0b66839db6d234b0b09531e7fa8daa31  results/latency-fulldev/H48b-s4321-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s4321-c4.json
+8bc826a77575ae9f0cfba078aa6b693bdfe5db13a7a86d239975b63b03d522ff  results/latency-fulldev/H48c-a-c2-vs-B0-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c2-vs-B0-c2.json
+fb20d6a73b8138beecf8c2fa31546afa6db13e08cd445b156a12da875aab3213  results/latency-fulldev/H48c-a-c2.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c2.json
+6bd4d7687be9b821932d23796ee8add6f9e210b0535dad5571d310408b155998  results/latency-fulldev/H48c-a-c4-vs-A1C-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c4-vs-A1C-c4.json
+1a82b3bb1a7c6a44886d97e486da666a378b1ff39e5df98f9f95e34dc0e534eb  results/latency-fulldev/H48c-a-c4-vs-B0-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c4-vs-B0-c4.json
+2636fe7b107c8dbc9b3c513067294db52f1c3cf0b80070225b0d73e485473c55  results/latency-fulldev/H48c-a-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c4.json
+d4603ea469c0934a6c251e811a2f29068e06a35c7b355d3be10d3ea425d2d9c5  results/mfa_train960_v1_coverage.json  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/results/mfa_train960_v1_coverage.json
+ce57cfa8ddaefc2b2a52bc86bfceb62085fac5896aa6d48d1832de171b44f4f6  results/side_file_check_tc100_shard0.json  <- /mnt/xbabe3-external/jsr/h48-latency/research/H48_latency/results/side_file_check_tc100_shard0.json
+de7aa41c49dec0e96edf519b9f372cfda812dd3363b5721f142bf5c8441cfb0b  results/verdicts/h48b-pair-vs-A1L-c16.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48b-pair-vs-A1L-c16.json
+e3e88bd42e367e744634bdcc990a354f62bef6d3049f5c3ba661ddd6fd38ff39  results/verdicts/h48b-pair-vs-A1L-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48b-pair-vs-A1L-c4.json
+0d6cc3eeed2fdc40068ddbe4d87693b9016f063ee3979035767124acc3da8910  results/verdicts/h48b-pair-vs-A1L-c8.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48b-pair-vs-A1L-c8.json
+3ab90f2083abc56bc59e54db8562c22d7524d1e47fe66b3ed19783b0ab3e6031  results/verdicts/h48c-a-vs-A1C-c16.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-a-vs-A1C-c16.json
+cfe965ee1505ac0feeb58344112fdf1d03a3810cddbd01bf44e061e2a998c0ef  results/verdicts/h48c-a-vs-A1C-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-a-vs-A1C-c4.json
+06a64d52bab294df9bb054088463c322984c69bd863212f8f82cfd07058d7ddd  results/verdicts/h48c-a-vs-A1C-c8.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-a-vs-A1C-c8.json
+ab1f275384e51d11d84b073f13ee6aa6a54f025bfbb29b395636582aff37cc2d  results/verdicts/h48c-b-vs-A1L-c16.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-b-vs-A1L-c16.json
+4a76a838935bf2d6ab8ec061da15c99878d1c8193e92780cabbf2e8cb1412eae  results/verdicts/h48c-b-vs-A1L-c4.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-b-vs-A1L-c4.json
+08a54a72e2826c1d5434cfe85be34e1b122221398510ca05f6cee7de539c6b56  results/verdicts/h48c-b-vs-A1L-c8.json  <- /mnt/xbabe3-external/jsr/evals/eval-lane/h41/verdicts/h48c-b-vs-A1L-c8.json
+f01e88b6ccb152aef30367722da21a28791758643f2124a0f9821c562199e29e  scripts/decode_17r_after.sh  <- /mnt/xbabe3-external/jsr/trainer-lane/h48c/decode_17r_after.sh
+7ca95144e9e0f6e67157b0a2f45c0cecbaca1beaf1988336f852d860863b4674  scripts/h48c_after.sh  <- /mnt/xbabe3-external/jsr/trainer-lane/h48c/h48c_after.sh
+902351d57bacd04222fa23207a4b9c8b5a1e7d4448919c563a35ec72b80e7dbb  scripts/h48c_launch.sh  <- /mnt/xbabe3-external/jsr/trainer-lane/h48c/h48c_launch.sh
+3117e36a1a284ed358e2d995b4550cf89b9f6d1eb29c8498dead604c33588816  scripts/rerun_cells_after.sh  <- /mnt/xbabe3-external/jsr/trainer-lane/h48c/rerun_cells_after.sh
+f6c8389baa8a7cac344da366ea860671f975331517fe84960b53b8f30ea3ea40  scripts/unpark_after.sh  <- /mnt/xbabe3-external/jsr/trainer-lane/h48c/unpark_after.sh
+# Kept on the data drive (per-utterance rows ~4.1 MB each, and the training-tree git bundle), with sha256:
+3f4d48055fd81d558c2da457b14b69dd65031bc2f168aeb9cbad551a12c56e85  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s1234-c2.utts.jsonl
+ccf15c7633cc131c68f843b36d07513d97179e1a0484c032886b1785e7c51c8e  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s1234-c4.utts.jsonl
+a2683237820850c675749f55e7fbce5ed7ae19d3d0bcdb917905e36809120111  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s4321-c2.utts.jsonl
+0b4d85984d9313a29ede6d62e9691023ef89654f85e93a81bcd309276923dca5  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48b-s4321-c4.utts.jsonl
+8ee4419378f61d62b6f6f447a68ca39a99dc1de4575537a0907109c3ae1499cd  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c2.utts.jsonl
+7b000416713e5dc671011c384c29c0981ed731885335075804604b4e132c4476  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/H48c-a-c4.utts.jsonl
+d5c50daea26b4978ce080f25592788656f9365de60f59cc5e0d3389339811295  /mnt/xbabe3-external/jsr/trainer-lane/h48c/fd0f64f.bundle  (git bundle of trainer-lane's H48c tree at fd0f64f, 5.4 MB)

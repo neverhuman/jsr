@@ -118,6 +118,7 @@ Details:
 - It pauses only if a live trainer's rate (median of its last 3 step records) falls more than 5% below its 10-min pre-start baseline, or its data wait exceeds 8%. It resumes on recovery.
 - This replaces the generic ≤ 5% data-wait gate, because S2's own loader sits at ~5.5% with no co-tenant.
 - Guard events are logged and relayed to AGENT_CHAT. No data rule changes.
+- **Change (11:25Z, lead decision):** S2a is about to end at the S2b boundary, and S2b waits on this seal, so the S2-rate trigger is dropped. Only the safety triggers stay: x5 free disk < 65 GB, or S2 data wait > 15%. No data rule changes.
 
 **Operations note 2 (11:07Z; no data-rule change).** Medium is finalised by `ll_finalize_par.py` (sha256 88fb42f19e0d7fc9…).
 - It imports `ll_finalize.py` (sha256 fe65601234ed1212…) unchanged for the input checks, the label policy, the filter, `conf`, the bucket assignment and the per-bucket permutation.
@@ -205,6 +206,13 @@ Details:
 - Student hyps: from source on x7 / x6 / x8 / x5 / x9 into `student_src/`.
 - Final shards follow with the same finaliser.
 
+**medium, final shards** (finalised 2026-11-23T11:41:38Z on x5 with `ll_finalize_par.py`; 444 shards; SHA256SUMS verified):
+- R0 labels: 100% of 1,003,623 rows (v1.1 only, amendment 3). A1 student hyps: 343,783 rows (amendment 2: `--allow-missing-student`).
+- **Kept 888,265 / 1,003,623 utterances (88.5%) = 3,395.81 / 3,809.42 h (89.1%).**
+- Drops: S1 98,671; H4 14,729; H5 925; H3 486; H1 468; H2 42; S2 37 (S1 threshold -0.1764; 8 NaN log-prob rows ranked lowest, amendment 4).
+- Path `x5:~/jsr-data/librilight/shards/r0_v11/librilight.medium/` (same v1.1 root as small); trainer-lane copies it to x7 / x8 / x9 at the same path.
+- **Manifest SHA256SUMS sha256 7e87f000be40a0d028db8b83fa0229c39cff7c2698fee9fa8383a25f98e25892.**
+
 ## 8. Changes / runs / results
 
 - 2026-11-23 06:37Z: pass 1 small + medium started on xbabe5.
@@ -226,6 +234,8 @@ Details:
 - 09:57Z: small re-finalised from v1.1 labels (manifest 8f371a65…).
 - 11:01Z: medium R0 coverage 100% under the v1.1 policy.
 - 11:07Z: medium finaliser started on x5 (`ll_finalize_par.py`, 8 processes, guard v2 + disk floor).
+- 11:13Z: stopped at the filter step (S1 threshold NaN; amendment 4); clean relaunches at 11:17Z and, with the S2-rate trigger dropped (lead), 11:25Z.
+- 11:43Z: medium sealed (444 shards, manifest 7e87f000…).
 
 ## MANIFEST
 
