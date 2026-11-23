@@ -84,6 +84,12 @@
     "python/ultra/train/vram_pack.py": "training",
     "python/ultra/tests/test_vram_pack.py": "training",
     "python/ultra/train/train_ffnn_lm.py": "training",
-    "python/ultra/tests/test_train_ffnn_lm.py": "training"
+    "python/ultra/tests/test_train_ffnn_lm.py": "training",
+    "python/ultra/train/diloco_hub.py": "training",
+    "python/ultra/train/diloco_http.py": "training",
+    "python/ultra/train/diloco_client.py": "training",
+    "python/ultra/train/diloco_promote.py": "training",
+    "python/ultra/tests/test_diloco_hub.py": "training",
+    "python/ultra/tests/test_diloco_faults.py": "training"
   }
 }
