@@ -60,7 +60,6 @@
     "python/ultra/tools/export_curves.py": "lead",
     "python/ultra/tools/fleet_dashboard/": "lead",
     "training-dashboard.html": "training",
-    "docs/paper/opponents/": "lead",
     "python/ultra/tests/test_paper_opponents.py": "lead",
     "python/ultra/tools/energy_bench.py": "eval",
     "python/ultra/tests/test_energy_bench.py": "eval",
