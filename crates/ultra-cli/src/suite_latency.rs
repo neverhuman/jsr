@@ -11,6 +11,7 @@ use ultra_eval::delay::{delay_report, quantile_nearest_rank, word_delays, DelayR
 use ultra_eval::finalize::{
     episodes_from_finals, finalization_report, Episode, FinalizationReport, RefEpisode,
 };
+use ultra_eval::first_word::{first_word_report, FirstWordObservation, FirstWordReport};
 use ultra_eval::pace::PacedReplay;
 use ultra_eval::stream::{replay, StreamScore, TimedEvent};
 use ultra_frontend::npz::{load_npz_audio_only, load_npz_references};
@@ -109,6 +110,8 @@ pub struct SuiteLatencySummary {
     pub population_scope: String,
     pub word_timing_available: bool,
     pub first_partial_p50_s: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_word: Option<FirstWordReport>,
     pub delay: Option<DelayReport>,
     pub finalization: FinalizationReport,
 }
@@ -124,7 +127,7 @@ pub fn measure_paced_latency(
     let loaded_identity = backend.capabilities().name;
     let utts = load_npz_audio_only(npz_path, 0, Some(limit))
         .map_err(|e| CliError::Unavailable(e.to_string()))?;
-    let mut scorecards: Vec<StreamScore> = Vec::with_capacity(utts.len());
+    let mut scorecards: Vec<(StreamScore, Option<u64>)> = Vec::with_capacity(utts.len());
     let mut first_partials: Vec<f64> = Vec::with_capacity(utts.len());
     let mut durs_s: Vec<f64> = Vec::with_capacity(utts.len());
 
@@ -140,6 +143,7 @@ pub fn measure_paced_latency(
         let inner = backend.create_stream_with_clock(&cfg, shared_clock.clone())?;
         let mut coord = StreamCoordinator::with_clock(cfg.clone(), inner, shared_clock.clone());
         let mut timed = Vec::new();
+        let mut captured_through = Vec::new();
 
         for pkt in
             PacedReplay::new(&u.pcm, 20, 1.0).map_err(|e| CliError::Internal(e.to_string()))?
@@ -149,15 +153,22 @@ pub fn measure_paced_latency(
             if due_ns > now_ns {
                 std::thread::sleep(Duration::from_nanos(due_ns - now_ns));
             }
-            coord.push_pcm(pkt.start_sample, pkt.pcm)?;
+            let push = coord.push_pcm(pkt.start_sample, pkt.pcm)?;
+            if push.start_sample != pkt.start_sample || push.accepted_samples != pkt.pcm.len() {
+                return Err(CliError::Internal(
+                    "paced replay did not deliver the complete packet".into(),
+                ));
+            }
             while let PollResult::Event(ev) = coord.poll_event()? {
                 let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
+                captured_through.push(pkt.start_sample + pkt.pcm.len() as u64);
                 timed.push(TimedEvent { t_s, event: *ev });
             }
         }
         coord.finish_input()?;
         while let PollResult::Event(ev) = coord.poll_event()? {
             let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
+            captured_through.push(u.pcm.len() as u64);
             timed.push(TimedEvent { t_s, event: *ev });
         }
 
@@ -165,7 +176,25 @@ pub fn measure_paced_latency(
         if let Some(fp) = sc.snapshots.iter().find(|s| !s.text.trim().is_empty()) {
             first_partials.push(fp.t_s);
         }
-        scorecards.push(sc);
+        // The historical design clock counts captured samples at the first
+        // displayed lexical text. It includes the packet but excludes compute.
+        let first_text_sample = sc
+            .snapshots
+            .iter()
+            .find(|s| {
+                s.text
+                    .bytes()
+                    .any(|b| b.is_ascii_alphanumeric() || b == b'\'')
+            })
+            .and_then(|s| {
+                timed
+                    .iter()
+                    .zip(&captured_through)
+                    .find_map(|(event, &sample)| {
+                        (event.event.event_sequence == s.event_sequence).then_some(sample)
+                    })
+            });
+        scorecards.push((sc, first_text_sample));
         durs_s.push(u.pcm.len() as f64 / 16_000.0);
     }
 
@@ -178,14 +207,23 @@ pub fn measure_paced_latency(
     let mut all_episodes: Vec<Episode> = Vec::new();
     let mut timing_unavailable_ids: Vec<String> = Vec::new();
     let mut utterances_timed = 0usize;
+    let mut first_words = Vec::new();
 
-    for ((u, r), sc) in utts.iter().zip(&refs).zip(&scorecards) {
+    for ((u, r), (sc, first_text_sample)) in utts.iter().zip(&refs).zip(&scorecards) {
         let dur_samples = u.pcm.len() as u64;
         if has_mfa {
             let Some(mu) = mfa.get(&r.uid) else {
                 timing_unavailable_ids.push(r.uid.clone());
                 continue;
             };
+            first_words.push(FirstWordObservation::measure(
+                r.uid.clone(),
+                r.speaker.to_string(),
+                &mu.timed_words[0],
+                mu.start_s,
+                *first_text_sample,
+                sc,
+            ));
             all_word_delays.extend(word_delays(&mu.timed_words, &sc.words, &sc.stable_t_s));
             let s0 = ((mu.start_s * 16_000.0).round() as u64).min(dur_samples);
             let s1 = ((mu.end_s * 16_000.0).round() as u64)
@@ -244,6 +282,7 @@ pub fn measure_paced_latency(
         population_scope,
         word_timing_available: has_mfa && utterances_timed > 0,
         first_partial_p50_s,
+        first_word: first_word_report(first_words),
         delay,
         finalization,
     })
