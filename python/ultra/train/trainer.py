@@ -146,8 +146,7 @@ class TrainConfig:
     zloss: float = 0.0
     # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
     cr_ctc_weight: float = 0.0
-    # H41 arm 11 stream-context augmentation (train/stream_ctx.py; 0 = off).
-    stream_ctx_s: float = 0.0
+    stream_ctx_s: float = 0.0  # H41 arm 11 stream-context augmentation (train/stream_ctx.py; 0 = off)
     stream_ctx_cap: float = 1.5
     # H41 full-form CR-CTC (needs cr_ctc_weight > 0): two SpecAugment views per step, CTC and
     # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
@@ -607,11 +606,11 @@ class Trainer:
             return
         if self.best_ema is None or self.loss_ema < self.best_ema:
             self.best_ema = self.loss_ema
-        if self.loss_ema > (1 + c.diverge_ratio) * self.best_ema:
+        if self.loss_ema > self.best_ema + c.diverge_ratio * abs(self.best_ema):  # |best|: loss can be < 0
             self.over_since = self.over_since or self.step
             if self.step - self.over_since >= c.diverge_patience:
-                self._diverged(f"train-loss EMA {self.loss_ema:.3f} > (1 + {c.diverge_ratio}) x "
-                               f"best {self.best_ema:.3f} for {c.diverge_patience} steps",
+                self._diverged(f"train-loss EMA {self.loss_ema:.3f} > best {self.best_ema:.3f} + "
+                               f"{c.diverge_ratio} x |best| for {c.diverge_patience} steps",
                                {"grad_norm": r["grad_norm"]})
         else:
             self.over_since = None
