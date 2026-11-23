@@ -189,6 +189,23 @@ require 14q bench-open/anchor-v300/ultra-cold-wav
 14q full jsr-rc1-ema-int8           1 4  0 3.5
 14q full jsr-rc1-ema-int8           2 24 1 3.5
 14q full jsr-rc1-ema-int8           3 28 2 3.5
+# Entry 14s (lead 19:20:13Z item 3, the v3.0.0 always-on rows): the v3.0.0 live stream's always-on capacity on one core,
+# energy's capacity test (entry 4b, H22ctl) repeated on the release: N = 1, 4, 8, 16 live streams of `ultra stream` built at
+# the v3.0.0 tag (9c8c05e, sha256 6d8ae087) on RC1-EMA INT8, each paced at 1x on paced120.wav (energy's file: DEV panel
+# u00000-u00021, 128 s), all N on the assay's one CPU (assays/capacity-v300/run.sh); watts from energy's 1 Hz power log,
+# stable-word lag from each stream's own events (H0-side join).
+require 14s bench-open/assays/capacity-v300/run.sh
+require 14s bench-open/assays/capacity-v300/ultra
+require 14s bench-open/assays/capacity-v300/paced120.wav
+require 14s models/candidate-rc/int8/weights.int8.safetensors
+14s assay capacity-v300              1 4  0 14
+# Entry 14t (lead 19:20:13Z item 3): Nemotron Speech Streaming EN 0.6B at 560 ms (NeMo-Speech.cpp, Q8_0; run-cold.sh's
+# nemotron-560 arm with the H0 rotation's binary 41b19d48 and model d9a01898, energy's hash-checked copies on xbabe0) on the
+# quiet host: one repetition on panel73, as the lead asked (a full-panel repetition, ~40 min, would outrun the 30-minute
+# hold); its WER stays the full-panel pass.
+require 14t ../ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
+require 14t ../models/nemotron-0.6b/nemotron-speech-streaming-en-0.6b.q8_0.gguf
+14t p73  nemotron-560                1 4  0 6
 20 p73  whispercpp-stream-base-t8    1 8-15 3 6
 20 p73  whispercpp-stream-base-w8    1 8-15 3 7
 20 p73  whispercpp-stream-tiny-t8    1 8-15 3 3
