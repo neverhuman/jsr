@@ -35,7 +35,8 @@
   ylabel={dev-clean WER (\%), 400 utterances},
   xlabel style={yshift=1pt, align=center}, ylabel style={yshift=-3pt},
   legend columns=2, legend cell align=left,
-  legend style={at={(0.5,-0.235)}, anchor=north, font=\scriptsize, /tikz/every even column/.append style={column sep=8pt}},
+  legend style={at={(0.5,0)}, yshift=-31pt, anchor=north, name=moneylegend, font=\scriptsize,
+    /tikz/every even column/.append style={column sep=8pt}},
   money/watts,
 ]
 % slower than one live stream per core
@@ -93,11 +94,12 @@
 \ifnum\MoneyWattsOn>0
 \node[font=\footnotesize, anchor=south, inner sep=0pt] at ([yshift=13pt] rel axis cs:0.5,1) {Watts per live stream};
 \fi
+\end{axis}
+% the key of numbered labels sits right under the legend, however many rows the legend has
 \ifx\MoneyKey\empty\else
 \node[font=\scriptsize, anchor=north, inner sep=0pt, text width=\MoneyAxisW, align=center]
-  at ([yshift=-64pt] rel axis cs:0.5,0) {\MoneyKey};
+  at ([yshift=-3pt] moneylegend.south) {\MoneyKey};
 \fi
-\end{axis}
 \else
 \begin{axis}[ultra/base, width=0.87\columnwidth, height=5.2cm, xmode=log, xmin=0.5, xmax=64, ymin=0, ymax=18,
   xlabel={Speed on one CPU core ($\times$ real time, log scale)}, ylabel={dev-clean WER (\%), 400 utterances}]

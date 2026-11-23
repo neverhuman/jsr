@@ -20,7 +20,7 @@ from .evidence import HEADLINE, derived
 from .labels import place
 from .records import Records
 
-AXIS_W, AXIS_H = 197.0, 124.0  # pt; with tick and axis labels the figure stays under 243 pt
+AXIS_W, AXIS_H = 197.0, 180.0  # pt; with tick and axis labels the figure stays under 243 pt wide
 FONT_PT = 7.0  # \scriptsize labels
 MARK_R = {"ours": 3.3, "comparator": 2.3}  # half-extent of the drawn marker
 BETTER = (AXIS_W - 47.0, 3.0, AXIS_W - 3.0, 14.0)  # the "better" arrow, bottom right
@@ -99,6 +99,7 @@ def _layout(spec: tuple, lines: tuple) -> tuple:
         fresh = [p for p in bad if p["number"] is None]
         if not fresh:
             break
+        fresh = [p for p in fresh if not p["bold"]] or fresh  # our point keeps its name while any other can give way
         fresh.sort(key=lambda p: (-sum(math.hypot(q["px"] - p["px"], q["py"] - p["py"]) < 25 for q in pts), -p["w"], p["id"]))
         for p in fresh[:max(1, (len(fresh) + 1) // 2)]:  # the most crowded half first
             numbered.append(p)
@@ -209,7 +210,7 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records) -> str:
         if number is not None:
             key.append((number, p["tex"]))
     body.append("}%")
-    body.append("\\def\\MoneyKey{" + "\\quad ".join(f"\\textbf{{{n}}}~{name}" for n, name in sorted(key)) + "}%")
+    body.append("\\def\\MoneyKey{" + "\\quad ".join(f"\\mbox{{\\textbf{{{n}}}~{name}}}" for n, name in sorted(key)) + "}%")
     out["money_layout.tex"] = "\n".join(body) + "\n"
     out["money_frontier.csv"] = csv_text(["speed", "wer_clean"], [[f"{x:.4f}", f"{y:.3f}"] for x, y in line])
     return _note(rec, rows, pts, axis)

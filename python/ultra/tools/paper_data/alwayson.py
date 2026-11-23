@@ -2,10 +2,10 @@
 pinned in raw/MANIFEST.txt; a missing receipt returns None, and the sentence built on it says "pending".
 
 capacity    energy's paced capacity test: N live streams on one core (TIMING entry 4b, quiet host)
-silence     eval-lane's ten 1-hour non-speech blocks, and the pauses of the endless stream's first hour
+silence     eval-lane's ten 1-hour non-speech blocks, and the pauses of the whole endless stream
 stream      that first hour as one continuous stream against the same utterances decoded one by one,
             with no reset and with reset-with-replay (eval-lane's paired reports, its own scorer)
-endless     runtime-lane's 1 Hz memory samples of the endless run (a snapshot of a run still going)
+endless     runtime-lane's whole endless run without a reset: memory, word lag, WER (its scored summary)
 int8        FP32 PyTorch against the INT8 engine on full dev (eval-lane's paired report)
 same_words  one checkpoint's panel transcripts on Zen 2 (AVX2), Xeon (AVX-512) and Apple M3 (NEON)
 m3          bench-cross's one-core Apple M3 Ultra row of that checkpoint
@@ -25,6 +25,8 @@ FLAT_PCT = 5.0  # a p95 lag whose spread over N stays within this share of its l
 REPLAY = {"t_s": 1.5, "r_s": 1.0, "report": AO / "stream/replay/p.isolated-v-T1500R1000.json",
           "summary": AO / "stream/replay/hour1-replay-t1500_r1000.summary.json"}
 WARM_S = 10.0  # memory samples before this much audio include the model load and the first chunks
+ENDLESS = {k: AO / f"endless/endless27h.t0.{v}" for k, v in (("run", "run.json"), ("summary", "scored.summary.json"),
+                                                            ("rss", "rss.jsonl"))}
 INT8 = {"a1-20000-ema-int8": "A1-20000-ema", "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
 XISA = (("Zen 2 (AVX2)", RAW / "crossisa/xbabe0-h22ctl-entry2.predictions.jsonl"),
         ("Xeon (AVX-512)", RAW / "opponents/xeon8358/jsr-h22ctl-int8-t1/predictions.6ac85d6ff9dc.jsonl"),
@@ -74,19 +76,22 @@ def capacity(root: Path) -> dict | None:
 
 
 def silence(root: Path) -> dict | None:
-    man, hour = AO / "nonspeech/MANIFEST.json", AO / "stream/hour1/hour1.A0.5.summary.json"
+    """The ten 1-hour non-speech blocks, and the pauses of the whole endless stream (no reset)."""
+    man, full = AO / "nonspeech/MANIFEST.json", ENDLESS["summary"]
     blocks = sorted(p for p in (root / AO / "nonspeech/h22ctl").glob("*") if p.is_dir()) if _have(root, man) else []
-    if not blocks or not _have(root, hour):
+    if not blocks or not _have(root, full):
         return None
     files = _json(root, man)["files"]
     if sorted(files) != sorted(f"{b.name}.wav" for b in blocks):
         raise PaperDataError(f"{AO}/nonspeech: decoded blocks {[b.name for b in blocks]} differ from the manifest")
     words = sum(len(json.loads(x)["hyp"].split()) for b in blocks
                 for x in (b / "predictions.jsonl").read_text(encoding="utf-8").splitlines() if x.strip())
-    gaps = _json(root, hour)["gap_false_words_total"]
+    summ = _json(root, full)
+    gaps, quiet = summ["gap_false_words_total"], summ["gap_false_words"]["silence"]
     return {"blocks": len(blocks), "hours": sum(f["seconds"] for f in files.values()) / 3600.0, "words": words,
             "levels": sorted({f["level_dbfs"] for f in files.values() if f["level_dbfs"] is not None}),
-            "gap_words": gaps["words"], "gap_hours": gaps["hours"], **_src(root, man, hour)}
+            "gap_words": gaps["words"], "gap_hours": gaps["hours"], "silence_words": quiet["words"],
+            "silence_hours": quiet["hours"], **_src(root, man, full)}
 
 
 def stream(root: Path) -> dict | None:
@@ -102,13 +107,22 @@ def stream(root: Path) -> dict | None:
 
 
 def endless(root: Path) -> dict | None:
-    rss, man = AO / "endless/endless27h.t0.rss.jsonl", AO / "stream/MANIFEST.json"
-    if not _have(root, rss, man):
+    """The whole endless stream without a reset: memory, word lag, WER by half (runtime-lane's run, its scorer)."""
+    run, summ, rss = ENDLESS["run"], ENDLESS["summary"], ENDLESS["rss"]
+    if not _have(root, run, summ, rss):
         return None
-    s = _jsonl(root, rss)
-    warm = [x for x in s if x["audio_s"] >= WARM_S]
-    return {"hours": s[-1]["audio_s"] / 3600.0, "total": _json(root, man)["total_s"] / 3600.0,
-            "lo": min(x["rss_mb"] for x in warm), "hi": max(x["hwm_mb"] for x in s), **_src(root, rss, man)}
+    r, s = _json(root, run), _json(root, summ)
+    warm = next(x["rss_mb"] for x in _jsonl(root, rss) if x["audio_s"] >= WARM_S)
+    hours = [s["wer_per_hour"][k] for k in sorted(s["wer_per_hour"], key=int)]
+    half = len(hours) // 2
+
+    def wer(part: list[dict]) -> float:
+        return sum(h["pooled_wer"] * h["utts"] for h in part) / sum(h["utts"] for h in part)
+
+    return {"hours": r["audio_h"], "start": r["rss_start_mb"], "warm": warm, "peak": r["rss_peak_mb"],
+            "end": r["rss_end_mb"], "resets": r["endpoint_resets"], "utts": s["utterances"],
+            "words": s["lag_ms"]["all"]["n"], "lag50": s["lag_ms"]["all"]["p50"], "lag95": s["lag_ms"]["all"]["p95"],
+            "wer": s["pooled_wer"], "first": wer(hours[:half]), "second": wer(hours[half:]), **_src(root, run, summ, rss)}
 
 
 def int8(root: Path, variant: str) -> dict | None:

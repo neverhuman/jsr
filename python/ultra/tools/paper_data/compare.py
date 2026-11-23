@@ -13,6 +13,7 @@ from .cold import ENERGY_WORDS, speed_text
 from .common import HOST_NAMES, MACHINES, PaperDataError, fmt
 from .evidence import HEADLINE, derived
 from .records import Records
+from .words import checkpoint
 
 NOTHING = "\\relax"  # an empty sentence: prints nothing
 
@@ -72,12 +73,14 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     if head is None:
         raise PaperDataError(f"systems.json names the headline row {want!r}, which is not drawn in Figure 1")
     h, n = head["_d"], len(others)
-    aon = head if head["watts"] is not None else next(
-        (r for r in rows if r["variant"] == headline.get("always_on") and not r.get("anchor")
-         and (r["machine"], r["threads"]) == HEADLINE), head)  # the row the always-on tests ran on
+    mine = sorted((r for r in rows if r["role"] == "ours" and r.get("watts") is not None and not r.get("anchor")
+                   and (r["machine"], r["threads"]) == HEADLINE and r["host"] == head["host"]),
+                  key=lambda r: (r is not head, r.get("order", 999)))  # our own energy line, else the newest one
+    aon = mine[0] if mine else next((r for r in rows if r["variant"] == headline.get("always_on")
+                                      and not r.get("anchor") and (r["machine"], r["threads"]) == HEADLINE), head)
 
     def ckname(r: dict) -> str:
-        return "\\ultra{}" if r is head else f"\\ultra{{}} ({(r.get('detail') or r['short']).split(',')[0]})"
+        return "\\ultra{}" if r is head else f"\\ultra{{}} ({checkpoint(r)})"
 
     def src(*rs: dict) -> dict:
         return dict(label=head["label"], workload=head["workload"], workload_digest=head["workload_digest"],
@@ -211,7 +214,9 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
         say("ColdPackageSentence", NOTHING, "no energy rows yet")
         say("ColdWattsSentence", "Energy per audio-second (the watts one always-on stream costs) is being measured; no "
             "value has been admitted yet.", "no energy row is admitted yet")
-    lh = head if head.get("lag_p50_ms") is not None else aon
+    lagged = sorted((r for r in rows if r["role"] == "ours" and r.get("lag_p50_ms") is not None and not r.get("anchor")
+                     and (r["machine"], r["threads"]) == HEADLINE), key=lambda r: (r is not head, r.get("order", 999)))
+    lh = lagged[0] if lagged else aon  # our own lag, else the newest checkpoint of ours with one
     where = lh.get("lag_host")
     lag = [r for r in group if r.get("lag_p50_ms") is not None and r.get("lag_host") == where and r["role"] != "ours"]
     if lh.get("lag_p50_ms") is not None and lag:

@@ -36,7 +36,8 @@ ENERGY_FIELDS = ("joules_per_audio_s", "energy_method", "energy_receipt_sha256")
 # A slow system is timed on a 73-utterance subset; its WER then comes from a full-panel pass elsewhere.
 TIMING_PANELS = ("full", "p73")
 # What data/systems.json may set per variant: names and order for the paper, never a number.
-PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail", "segmenter")
+PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail", "segmenter",
+                "checkpoint")
 MIN_REPS = 3
 SHORT_MAX = 22
 MAX_OTHER_BUSY = 2  # a primary row has at most this many other busy cores on the host in every repetition

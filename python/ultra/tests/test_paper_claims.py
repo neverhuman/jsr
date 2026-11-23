@@ -126,20 +126,26 @@ def test_page_one_facts_print_the_receipts_numbers_with_their_checkpoint():
 
     rec = _records()
     cap = alwayson.capacity(pd.REPO)["systems"]["h22ctl-79800-ema-int8"]
-    assert f"{cap['n']} such streams" in rec["AbsCapacity"]["value"]
+    assert f"{cap['n']} live streams" in rec["AbsCapacity"]["value"]
     assert rec["AoCapacityStreams"]["raw"] == cap["n"] and cap["flat"]
     sil = alwayson.silence(pd.REPO)
     assert sil["blocks"] == 10 and sil["words"] == 0 and "no word" in rec["AbsSilence"]["value"]
+    assert f"{sil['gap_words']} in the" in rec["AbsSilence"]["value"], "the stream's own pauses must be reported too"
     end = alwayson.endless(pd.REPO)
-    assert end["hi"] - end["lo"] < 0.05 * end["lo"], "memory over the endless run is no longer flat; rewrite the claim"
+    assert end["resets"] == 0 and end["utts"] == 5567, "the endless run is no longer one unbroken stream"
+    assert end["end"] <= end["peak"] < 1.05 * end["warm"], "memory grew over the endless run; rewrite the claim"
+    assert abs(end["second"] - end["first"]) < 0.5, "WER drifted over the endless run; rewrite the claim"
     st = alwayson.stream(pd.REPO)
     assert abs(st["replay"]["delta"]) < 0.2 and st["replay"]["lower"] < 0 < st["replay"]["upper"]
     assert st["penalty"]["lower"] > 0, "the continuous-stream penalty is no longer outside its bounds"
     head = json.loads((DATA / "systems.json").read_text())["headline"]
     aon = rec["AoCheckpoint"]["value"]
     if head["ours"] != head["always_on"]:  # the always-on tests ran on another checkpoint: every fact says so
-        assert aon in rec["AbsWatts"]["value"] and aon in rec["AoCapacity"]["value"] and aon in rec["AoEndless"]["value"]
-        assert aon in rec["MoneyOursWatts"]["value"], "Figure 1 must say whose watts the text quotes"
+        assert aon in rec["AbsCapacity"]["value"] and aon in rec["AoCapacity"]["value"] and aon in rec["AoEndless"]["value"]
+    if rec["MoneyOursWatts"]["value"] != "\\relax":  # no energy line of our point: Figure 1 says whose watts are quoted
+        quoted = rec["AoWatts"]["source"].split("id=")[1].split("-zen2")[0]
+        assert "an earlier" in rec["MoneyOursWatts"]["value"] and rec["AoWatts"]["value"] in rec["MoneyOursWatts"]["value"]
+        assert quoted != head["ours"], "the text quotes watts of a row it says has none"
     readme = (DATA / "money_readme.md").read_text()
     for rid in ("AbsCost", "AbsWatts", "AbsCapacity", "AbsSilence", "AbsEndless", "AbsAccuracy"):
         assert "pending" not in rec[rid]["value"], rid

@@ -213,10 +213,10 @@ reads, all copied verbatim under `raw/` and pinned in `raw/MANIFEST.txt`:
 | Receipt (under `raw/`) | Fact |
 |---|---|
 | `energy/derived/capacity-test-entry4b.jsonl`, `energy/paced/*.json` | live streams on one core, word lag at each load, W per stream (energy, TIMING entry 4b) |
-| `alwayson/nonspeech/MANIFEST.json`, `alwayson/nonspeech/h22ctl/*/predictions.jsonl` | words emitted in ten 1-hour blocks of silence and noise (eval-lane) |
+| `alwayson/nonspeech/MANIFEST.json`, `alwayson/nonspeech/h22ctl/*/predictions.jsonl` | words emitted in ten 1-hour blocks of silence and noise (eval-lane). Never pin a `*.log`: `docs/paper/.gitignore` ignores it, and a test refuses it |
 | `alwayson/stream/MANIFEST.json`, `alwayson/stream/hour1/*` | the endless stream's length; its first hour as one stream against the utterances one by one, the pauses' false words, the left-context share (eval-lane) |
 | `alwayson/stream/replay/*` | the first hour with no reset and with reset-with-replay, rescored by eval-lane |
-| `alwayson/endless/endless27h.t0.rss.jsonl` | memory over the endless run so far (runtime-lane; a snapshot of a run that continues: copy a newer one and re-pin it) |
+| `alwayson/endless/endless27h.t0.{run.json,scored.summary.json,rss.jsonl}` | the whole endless run without a reset (runtime-lane, scored with eval-lane's `score_alwayson.py`): memory, word lag, WER by half, and the false words in its pauses |
 | `export/*.fulldev.pytorch-v-engine.json` | INT8 engine against FP32 PyTorch on full dev (eval-lane) |
 | `crossisa/*.predictions.jsonl` with `opponents/{xeon8358,m3ultra}/jsr-h22ctl-*/predictions.*.jsonl` | the same transcripts on AVX2, AVX-512 and NEON |
 | `opponents/rows/m3ultra-bench-cross.jsonl` | one-core speed on the Apple M3 Ultra (bench-cross) |
@@ -235,9 +235,11 @@ measured one system at a time on an otherwise idle host, and the hardware table 
 ## Figure 1 labels
 
 `money.py` and `labels.py` place every label box in points inside the fixed plot box. A label first tries the eight
-positions around its marker, then positions reached by a leader line. If the figure is too crowded for a label, it
-becomes a number and its name goes into a key under the plot (`\MoneyKey`). A build never ships overlapping labels:
-the generator refuses instead. The legend lists a mark only when it is on the plot (`\MoneyHasFrontier`,
+positions around its marker, then positions reached by a leader line. A label must sit at least `labels.NEAREST`
+(1 pt) nearer its own point than any other point, and never on the frontier line, so no reader pairs a name with the
+wrong point (a leader alone does not make that safe). If the figure is too crowded for a label, it becomes a number
+and its name goes into a key under the legend (`\MoneyKey`); our own point keeps its name while any other label can
+give way. A build never ships overlapping labels: the generator refuses instead. The legend lists a mark only when it is on the plot (`\MoneyHasFrontier`,
 `\MoneyHasStream`, `\MoneyHasWhole`, `\MoneyHasFaded`). A system with a same-run energy line gets its watts beside
 its name. A watts axis appears on top once every drawn system has an energy value and one
 power per busy core fits them all within 15% (`\MoneyWattsCaption` says which state applies).

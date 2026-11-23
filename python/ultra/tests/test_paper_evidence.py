@@ -371,3 +371,29 @@ def test_a_crowded_figure_falls_back_to_numbers_and_a_key():
     for a in range(len(boxes)):
         assert not any(hit(boxes[a], boxes[b]) for b in range(a + 1, len(boxes))), a
         assert not any(hit(boxes[a], (px - r, py - r, px + r, py + r)) for _, _, _, px, py, r in spec), a
+
+
+# Figure 1 as refresh 4 drew it: its Zipformer label sat above Moonshine Tiny's point, nearer that point than its own
+FIG1_R4 = (("a1-20000-ema-int8-zen2-t1", "ULTRA-S (ours)", True, 162.56, 57.75, 3.3),
+           ("r0-int8-zen2-t1", "Zipformer (baseline) - 0.59 W", False, 136.58, 37.62, 2.3),
+           ("moonshine-tiny-zen2-t1", "Moonshine Tiny - 1.08 W", False, 113.56, 81.08, 2.3),
+           ("moonshine-small-zen2-t1-xbabe3", "Moonshine Small", False, 56.66, 49.29, 2.3),
+           ("nemotron-en-560-zen2-t1-xbabe3", "Nemotron 560 ms", False, 60.47, 32.37, 2.3),
+           ("nemotron-en-160-zen2-t1-xbabe3", "Nemotron 160 ms", False, 38.14, 36.02, 2.3),
+           ("nemotron-35-zen2-t1-xbabe3", "Nemotron 3.5", False, 21.21, 51.33, 2.3),
+           ("parakeet-tdt-v3-int8-zen2-t1", "Parakeet TDT v3 - 1.71 W", False, 100.32, 30.19, 2.3))
+FIG1_R4_LINES = (((136.58, 37.62), (136.58, 57.75)), ((136.58, 57.75), (162.56, 57.75)))
+
+
+def test_every_label_sits_nearest_the_point_it_names():
+    """A label (or the number that replaces it) is nearer its own point than any other point, by labels.NEAREST,
+    and never lies on the frontier line, so no reader can pair a name with the wrong point."""
+    money._layout.cache_clear()
+    placed = money._layout(FIG1_R4, FIG1_R4_LINES)
+    where = {i: (px, py) for i, _, _, px, py, _ in FIG1_R4}
+    for i, _number, box, _leader in placed:
+        own = labels_mod.gap(box, *where[i])
+        for j, (x, y) in where.items():
+            if j != i:
+                assert labels_mod.gap(box, x, y) >= own + labels_mod.NEAREST, f"{i}'s label is nearer {j}"
+        assert not any(labels_mod.seg_hits_box(seg, box) for seg in FIG1_R4_LINES), f"{i}'s label is on the frontier"

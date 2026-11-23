@@ -4,20 +4,24 @@
 \multicolumn{13}{@{}l}{\textbf{AMD Threadripper PRO 3995WX (Zen 2, AVX2)}} \\
 \midrule
 \multicolumn{13}{@{}l}{\textit{Live streaming systems (words arrive while the audio does)}} \\
-\textbf{ULTRA-S, A1 20,000 EMA, INT8} & ours & \ColdAoneWerClean & \ColdAoneWerOther & \ColdAoneWer & \ColdAoneSpeed & -- & -- & -- & -- & \ColdAoneRss & \ColdAoneModel & -- \\
+\textbf{ULTRA-S, A1 30,000 EMA, INT8} & ours & \ColdAoneThirtyWerClean & \ColdAoneThirtyWerOther & \ColdAoneThirtyWer & \ColdAoneThirtySpeed & -- & -- & -- & -- & \ColdAoneThirtyRss & \ColdAoneThirtyModel & \ColdAoneThirtyWatts \\
 \textbf{ULTRA dense S, D2e step 16,457, INT8}$^{\dagger}$ & ours & \ColdDtwoEWerClean & \ColdDtwoEWerOther & \ColdDtwoEWer & \ColdDtwoESpeed & -- & -- & -- & -- & \ColdDtwoERss & \ColdDtwoEModel & \ColdDtwoEWatts \\
 \textbf{ULTRA-S, H22ctl 79,800 EMA, INT8}$^{\dagger}$ & ours & \ColdHctlWerClean & \ColdHctlWerOther & \ColdHctlWer & \ColdHctlSpeed & -- & \ColdHctlLagPfifty$^{*}$ & \ColdHctlLagPninetyFive & \ColdHctlLagDesignPfifty & \ColdHctlRss & \ColdHctlModel & \ColdHctlWatts \\
+\textbf{ULTRA-S, A1 20,000 EMA, INT8}$^{\dagger}$ & ours & \ColdAoneWerClean & \ColdAoneWerOther & \ColdAoneWer & \ColdAoneSpeed & -- & -- & -- & -- & \ColdAoneRss & \ColdAoneModel & \ColdAoneWatts \\
 \textbf{ULTRA multirate S, step 50k, INT8}$^{\ddagger}$$^{\dagger}$ & ours & \ColdMRWerClean & \ColdMRWerOther & \ColdMRWer & \ColdMRSpeed & -- & \ColdMRLagPfifty & \ColdMRLagPninetyFive & \ColdMRLagDesignPfifty & \ColdMRRss & \ColdMRModel & -- \\
 \textbf{ULTRA dense S, avg. 50/55/60k, INT8}$^{\ddagger}$$^{\dagger}$ & ours & \ColdDenseWerClean & \ColdDenseWerOther & \ColdDenseWer & \ColdDenseSpeed & -- & -- & -- & -- & \ColdDenseRss & \ColdDenseModel & -- \\
 Zipformer, INT8 (baseline)~\cite{yao2024zipformer,sherpaonnx} & sherpa-onnx & \ColdZipWerClean & \ColdZipWerOther & \ColdZipWer & \ColdZipSpeed & -- & \ColdZipLagPfifty$^{*}$ & \ColdZipLagPninetyFive & \ColdZipLagDesignPfifty & \ColdZipRss & \ColdZipModel & \ColdZipWatts \\
 Moonshine Tiny Streaming~\cite{kudlur2026moonshinev2} & Moonshine Voice & \ColdMoonTinyWerClean & \ColdMoonTinyWerOther & \ColdMoonTinyWer & \ColdMoonTinySpeed & -- & \ColdMoonTinyLagPfifty$^{*}$ & \ColdMoonTinyLagPninetyFive & \ColdMoonTinyLagDesignPfifty & \ColdMoonTinyRss & \ColdMoonTinyModel & \ColdMoonTinyWatts \\
+Vosk Small (en-us 0.15)~\cite{vosk} & Vosk 0.3.45 & \ColdVoskSmallWerClean & \ColdVoskSmallWerOther & \ColdVoskSmallWer & \ColdVoskSmallSpeed & -- & -- & -- & -- & \ColdVoskSmallRss & \ColdVoskSmallModel & -- \\
+Vosk Large (en-us 0.22)~\cite{vosk}$^{\S}$ & Vosk 0.3.45 & \ColdVoskLargeWerClean & \ColdVoskLargeWerOther & \ColdVoskLargeWer & \ColdVoskLargeSpeed & -- & -- & -- & -- & \ColdVoskLargeRss & \ColdVoskLargeModel & -- \\
 Nemotron Streaming EN 0.6B, 560 ms~\cite{nemotron,nemospeechcpp}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoFiveSixtyWerClean & \ColdNemoFiveSixtyWerOther & \ColdNemoFiveSixtyWer & \ColdNemoFiveSixtySpeed & -- & -- & -- & \ColdNemoFiveSixtyLagDesignPfifty & \ColdNemoFiveSixtyRss & \ColdNemoFiveSixtyModel & -- \\
 Moonshine Small Streaming~\cite{kudlur2026moonshinev2}$^{\ddagger}$ & Moonshine Voice & \ColdMoonSmallWerClean & \ColdMoonSmallWerOther & \ColdMoonSmallWer & \ColdMoonSmallSpeed & -- & -- & -- & \ColdMoonSmallLagDesignPfifty & \ColdMoonSmallRss & \ColdMoonSmallModel & -- \\
 Nemotron Streaming EN 0.6B, 160 ms~\cite{nemotron}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoOneSixtyWerClean & \ColdNemoOneSixtyWerOther & \ColdNemoOneSixtyWer & \ColdNemoOneSixtySpeed & -- & -- & -- & \ColdNemoOneSixtyLagDesignPfifty & \ColdNemoOneSixtyRss & \ColdNemoOneSixtyModel & -- \\
 Nemotron 3.5 Streaming 0.6B, 80 ms~\cite{nvidia2026nemotron35}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoThreeFiveWerClean & \ColdNemoThreeFiveWerOther & \ColdNemoThreeFiveWer & \ColdNemoThreeFiveSpeed & -- & -- & -- & \ColdNemoThreeFiveLagDesignPfifty & \ColdNemoThreeFiveRss & \ColdNemoThreeFiveModel & -- \\
 \midrule
 \multicolumn{13}{@{}l}{\textit{Whole-utterance systems (the whole clip first; lag columns: wait for the end of the clip, then infer)}} \\
-Parakeet TDT v3 0.6B, INT8~\cite{nvidia2025parakeettdtv3,sherpaonnx} & sherpa-onnx & \ColdParakeetTdtWerClean & \ColdParakeetTdtWerOther & \ColdParakeetTdtWer & \ColdParakeetTdtSpeed & -- & -- & -- & n/a & \ColdParakeetTdtRss & \ColdParakeetTdtModel & \ColdParakeetTdtWatts \\
+Parakeet TDT v3 (onnx-asr)~\cite{nvidia2025parakeettdtv3,onnxasr} & onnx-asr & \ColdParakeetOnnxAsrWerClean & \ColdParakeetOnnxAsrWerOther & \ColdParakeetOnnxAsrWer & \ColdParakeetOnnxAsrSpeed & -- & -- & -- & n/a & \ColdParakeetOnnxAsrRss & \ColdParakeetOnnxAsrModel & -- \\
+Parakeet TDT v3 (sherpa)~\cite{nvidia2025parakeettdtv3,sherpaonnx} & sherpa-onnx & \ColdParakeetTdtWerClean & \ColdParakeetTdtWerOther & \ColdParakeetTdtWer & \ColdParakeetTdtSpeed & -- & -- & -- & n/a & \ColdParakeetTdtRss & \ColdParakeetTdtModel & \ColdParakeetTdtWatts \\
 \midrule
 \multicolumn{13}{@{}l}{\textit{Our weights in other runtimes (not drawn in Fig.~1)}} \\
 ULTRA dense S (avg. 50/55/60k), FP32$^{\ddagger}$ & ours & \ColdDenseFPWerClean & \ColdDenseFPWerOther & \ColdDenseFPWer & \ColdDenseFPSpeed & -- & -- & -- & -- & \ColdDenseFPRss & \ColdDenseFPModel & -- \\

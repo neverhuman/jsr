@@ -43,8 +43,9 @@ system under one protocol.
 
 \subsection{Always on}\label{sec:alwayson}
 
-The tests of this subsection ran on \AoCheckpoint, the checkpoint before our Fig.~\ref{fig:money}
-point (same architecture and engine; its rows are in \cref{tab:measured,tab:alwayson}).
+The capacity, silence and endless-stream tests of this subsection ran on \AoCheckpoint, an earlier
+checkpoint than our Fig.~\ref{fig:money} point (same architecture and engine; its rows are in
+\cref{tab:measured,tab:alwayson}).
 
 \para{The cost of one always-on stream.} \Cref{tab:alwayson} restates the quiet-host rows as the
 cost of keeping one stream listening without a pause. \ColdWattsSentence{} \ColdLagSentence{}
@@ -57,8 +58,8 @@ registers in the same run. \ColdPackageSentence{} kWh: per stream-year (W times 
 year). RSS: peak memory in MB. Lag: word lag p50 / p95 in ms with the input paced at real time
 ($^{*}$measured on the shared host H0). 1-core: keeps up on one core. Seg.: needs a separate
 voice-activity segmenter to cut an endless stream (from each system's documentation; ours: the
-endless stream below). $^{\dagger}$Not drawn in Fig.~\ref{fig:money}: the checkpoint the always-on
-tests ran on. Exploratory.}
+endless stream below). $^{\dagger}$Not drawn in Fig.~\ref{fig:money}: earlier checkpoints of ours, with
+their own energy lines (the always-on tests ran on \AoCheckpoint). Exploratory.}
 \label{tab:alwayson}
 \footnotesize
 \setlength{\tabcolsep}{2pt}
@@ -98,6 +99,12 @@ with seeded pauses of digital silence or synthetic noise between them: \AoStream
 in one piece. \AoEndless{}
 
 \para{The same words on every machine.} \AoSameWords{}
+
+\para{First words sooner, a training arm we did not adopt.} A delay-penalty fine-tune (H41 arm 13a)
+emits its first word \FtlDelayFortyMs, \FtlDelayEightyMs{} and \FtlDelayOneSixtyMs\,ms (mean, compute
+unbounded) after the first spoken word ends, with 40, 80 and 160\,ms chunks, against
+\FtlParentOneSixtyMs\,ms for its parent at 160\,ms. It costs \FtlDelayWerCost\,pp of pooled DEV WER,
+more than its pre-registered guard allows, so it is reported here and not carried forward. Exploratory.
 
 \begin{table*}[t]
 \centering

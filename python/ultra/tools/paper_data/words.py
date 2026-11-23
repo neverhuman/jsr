@@ -39,5 +39,5 @@ def name(r: dict) -> str:
 
 
 def checkpoint(r: dict) -> str:
-    """The checkpoint's own name, e.g. "A1" from "A1, step 20,000 of 49,000; training continues"."""
-    return (r.get("detail") or r["short"]).split(",")[0]
+    """The checkpoint's own name: systems.json `checkpoint` (e.g. "A1 step 30,000"), else the start of `detail`."""
+    return r.get("checkpoint") or (r.get("detail") or r["short"]).split(",")[0]
