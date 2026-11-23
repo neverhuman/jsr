@@ -3,6 +3,10 @@
 # Round r of a one-core arm runs on CPU 4, 24 or 28 (CCX 1, 6, 7), meter on CPU 0, 1 or 2.
 # Every hold starts with one repetition of our engine (the anchor) on the hold's panel and core.
 anchor jsr-h22ctl-79800-ema-int8 3.5 0.6
+# Entry 20's holds start with our engine as eight shared-weights workers on the same eight CPUs
+# (ultra-cold-wav --workers 8, build 6040330c from main 0921408), so the eight-core rows share a
+# session with an eight-core row of ours.
+anchor jsr-h22ctl-79800-ema-int8-s8 0.5 0.3 20
 5  full parakeet-v3-onnxasr-int8   1 4  0 16
 5  full parakeet-v3-onnxasr-int8   2 24 1 16
 5  full parakeet-v3-onnxasr-int8   3 28 2 16
