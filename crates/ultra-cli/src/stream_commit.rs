@@ -16,6 +16,7 @@ pub struct StreamCommitCliOptions {
     pub enabled: bool,
     pub hangover_ms: u32,
     pub preroll_ms: u32,
+    pub deadline_ms: u32,
     pub commit_chunk: usize,
     pub tail_pad_ms: usize,
     pub commit_lm: Option<PathBuf>,
@@ -33,6 +34,7 @@ impl Default for StreamCommitCliOptions {
             enabled: false,
             hangover_ms: 300,
             preroll_ms: 300,
+            deadline_ms: 800,
             commit_chunk: 16,
             tail_pad_ms: 320,
             commit_lm: None,
@@ -65,6 +67,9 @@ impl StreamCommitCliOptions {
             }
             "--commit-preroll-ms" => {
                 self.preroll_ms = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
+            }
+            "--commit-deadline-ms" => {
+                self.deadline_ms = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
             }
             "--commit-chunk" => {
                 self.commit_chunk = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
@@ -133,6 +138,7 @@ impl StreamCommitCliOptions {
             },
             hangover_ms: self.hangover_ms,
             preroll_ms: self.preroll_ms,
+            deadline_ms: self.deadline_ms,
             commit_lm,
             session_bias,
         };
