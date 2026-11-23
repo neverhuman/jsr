@@ -109,6 +109,10 @@ class TrainConfig:
     loader: str = "thread"
     # Row groups sorted together per window before packing (more = less padding per batch).
     window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
+    # H52: extra parquet splits "/abs/dir[@weight],..." (pseudo-label text) and their conf floor.
+    extra_splits: str = ""
+    extra_min_conf: float = 0.0
+    extra_base_weight: float = 0.0  # >0: the LibriSpeech share of each epoch (extras split the rest by size)
     # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
     ddp_util_target: float = 0.0
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
@@ -734,6 +738,7 @@ class Trainer:
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
                           "dropped_long": getattr(self.source, "dropped_long", 0),
+                          **({"dropped_conf": self.source.dropped_conf} if getattr(self.source, "min_conf", 0) else {}),
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
@@ -865,7 +870,7 @@ def main(argv=None) -> int:
         cur = getattr(cfg, k)
         setattr(cfg, k, type(cur)(json.loads(v)) if not isinstance(cur, str) else v)
 
-    from train.data import Featurizer, ParquetBatches
+    from train.data import Featurizer, ParquetBatches, parse_extra_splits
     from train.tokenizer import Tokenizer, tokenizer_path
 
     tok_r = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.rnnt_pieces))
@@ -893,7 +898,9 @@ def main(argv=None) -> int:
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
                                 teacher=_teacher(cfg, tok_r), loader=cfg.loader,
-                                window_groups=cfg.window_groups, synth_aug=cfg.synth_aug)
+                                window_groups=cfg.window_groups, synth_aug=cfg.synth_aug,
+                                extra=parse_extra_splits(cfg.extra_splits), min_conf=cfg.extra_min_conf,
+                                base_weight=cfg.extra_base_weight)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
