@@ -107,10 +107,26 @@ Details:
 - Enforced by `ll_finalize.py --label-policy` (sha256 1e94ed9e…): units outside the policy are ignored, and their rows count as unlabelled.
 - Audit at 09:25Z: of 510 units, 381 were v1 before 09:11Z (H0 259, xbabe2 78, xbabe1 44) and 129 were v1.1.
 
+**Amendment 4 (2026-11-23T11:16Z, recorded before any medium result is used): an undefined (NaN) mean log-prob ranks lowest, so S1 drops it.**
+- **Found:** at 11:13Z, medium's filter step logged a NaN S1 threshold and zero S1 drops. The run was stopped before any final shard was written.
+- **Cause:** 8 of 1,003,623 medium labels have `tok_lp_mean` = NaN. All are 12-17 s utterances where R0 looped ("… AND AND AND …"), on 6 different cards / hosts. A NaN poisons the quantile, and `lp < NaN` is never true.
+- **Rule:** NaN → −∞ before S1, in `ll_finalize.py` and `ll_finalize_par.py` alike. FILTER_REPORT counts the rows as `checks.lp_nan_as_lowest`.
+  - The 468 rows with no mean log-prob are empty hyps, which H1 drops (unchanged).
+  - Small is unaffected: its S1 threshold was finite.
+
 **Operations note (lead's scoped exception, 10:15Z).** Medium's finaliser on xbabe5 runs at nice 19 + `ionice -c3`.
 - It pauses only if a live trainer's rate (median of its last 3 step records) falls more than 5% below its 10-min pre-start baseline, or its data wait exceeds 8%. It resumes on recovery.
 - This replaces the generic ≤ 5% data-wait gate, because S2's own loader sits at ~5.5% with no co-tenant.
 - Guard events are logged and relayed to AGENT_CHAT. No data rule changes.
+
+**Operations note 2 (11:07Z; no data-rule change).** Medium is finalised by `ll_finalize_par.py` (sha256 88fb42f19e0d7fc9…).
+- It imports `ll_finalize.py` (sha256 fe65601234ed1212…) unchanged for the input checks, the label policy, the filter, `conf`, the bucket assignment and the per-bucket permutation.
+- Only the verify, bucket and write passes are spread over 8 processes. Each worker takes a contiguous block of raw shards, so every bucket keeps the single-process row order.
+- **Proof before use:** re-running small v1.1 with it reproduced the shipped manifest byte for byte (SHA256SUMS sha256 8f371a65…59f3). FILTER_REPORT is identical except `finished_utc`.
+- It adds a disk floor (pause below 65 GB free on x5). It also re-opens each final shard and checks its row count before deleting that bucket's parts, so the disk peak is one copy of the kept rows.
+- **Label collection:** 8 units (U00826, U00841, U00843, U00936, R00218, R00245, R00247, R00291) were labelled on H0 at 10:17-10:40Z but stuck in collection after the ssh-master fault. At 10:59Z they were collected through the driver's own path; every label file's sha256 equals the worker's receipt.
+  - U00881 has no pass-2 segment rows: its output has 0 rows, and there is nothing to label.
+- **Coverage at 11:01Z:** 1,003,623 / 1,003,623 rows carry an accepted v1.1 label (959 v1.1 units; the 381 v1 units are rejected and superseded by their R re-labels).
 
 **How the student hyps are made.**
 - Engine: A1-49000 EMA INT8 (bundle sha256 = B0 manifest), `ultra-engine-eval` e61121e (968d3ea7…), greedy, single thread per process.
@@ -207,6 +223,9 @@ Details:
 - 08:34Z: small finalised on x5 (pausing while a trainer's data wait was > 5%).
 - 08:59Z: full verified set on x7.
 - 08:58Z: host guards v2 (auto-discover live trainers; cap 0 until a trainer has step records; data wait > 5% halves at once).
+- 09:57Z: small re-finalised from v1.1 labels (manifest 8f371a65…).
+- 11:01Z: medium R0 coverage 100% under the v1.1 policy.
+- 11:07Z: medium finaliser started on x5 (`ll_finalize_par.py`, 8 processes, guard v2 + disk floor).
 
 ## MANIFEST
 

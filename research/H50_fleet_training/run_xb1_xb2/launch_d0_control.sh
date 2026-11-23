@@ -16,7 +16,7 @@ done
 SET_ARGS=""
 while IFS= read -r line; do
   [[ -z "$line" || "$line" =~ ^# ]] && continue
-  SET_ARGS+=" --set $line"
+  SET_ARGS+=" $line"
 done < "$DIR/common_d0d1_24g.set"
 
 RUN_DIR="\$HOME/jsr-data/runs/h50_d0d1/D0_sync_s${SEED}_xbabe1"
@@ -28,9 +28,9 @@ cd ~/jsr-d0d1; PYTHONPATH=python/ultra nohup ~/jsr/.venv/bin/python -m train.tra
   --run-dir $RUN_DIR --preset S --device cuda --threads 4 --max-steps $MAX_STEPS \
   --init-from $INIT \
   --splits train-clean-100 train-clean-360 train-other-500 \
-  $SET_ARGS \
-  --set tokenizer=$TOK \
-  --set seed=$SEED --set data_rank=0 --set data_world=0 \
+  --set $SET_ARGS \
+    tokenizer=$TOK \
+    seed=$SEED data_rank=0 data_world=0 \
   > $RUN_DIR/train.out 2>&1 < /dev/null & echo \$! > $RUN_DIR/train.pid && cat $RUN_DIR/train.pid"
 
 if [[ "$DRY_RUN" == "1" ]]; then

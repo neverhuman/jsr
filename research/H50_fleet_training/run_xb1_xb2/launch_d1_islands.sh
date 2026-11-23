@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Launch D1 two-island synchronous DiLoCo on xbabe1 (data_rank=0) + xbabe2 (data_rank=1).
-# Usage: launch_d1_islands.sh --seed 1234 [--every 250] [--max-steps 4000] [--port 8768] [--dry-run]
+# Usage: launch_d1_islands.sh --seed 1234 [--every 250] [--max-steps 4000] [--port 8778] [--dry-run]
 set -euo pipefail
-SEED=1234; EVERY=250; MAX_STEPS=4000; PORT=8768; DRY_RUN=0
+SEED=1234; EVERY=250; MAX_STEPS=4000; PORT=8778; DRY_RUN=0
 DIR="$(cd "$(dirname "$0")" && pwd)"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -18,7 +18,7 @@ done
 SET_ARGS=""
 while IFS= read -r line; do
   [[ -z "$line" || "$line" =~ ^# ]] && continue
-  SET_ARGS+=" --set $line"
+  SET_ARGS+=" $line"
 done < "$DIR/common_d0d1_24g.set"
 
 TOKEN_FILE="\$HOME/jsr-data/runs/h50_d0d1/.diloco_token"
@@ -34,11 +34,11 @@ cd ~/jsr-d0d1; PYTHONPATH=python/ultra nohup ~/jsr/.venv/bin/python -m train.tra
   --run-dir $RUN_DIR --preset S --device cuda --threads 4 --max-steps $MAX_STEPS \
   --init-from $INIT \
   --splits train-clean-100 train-clean-360 train-other-500 \
-  $SET_ARGS \
-  --set tokenizer=$TOK \
-  --set seed=$SEED --set data_rank=$RANK --set data_world=2 \
-  --set diloco_hub=http://127.0.0.1:${PORT} --set diloco_worker=$WID \
-  --set diloco_every=$EVERY --set diloco_dtype=float32 \
+  --set $SET_ARGS \
+    tokenizer=$TOK \
+    seed=$SEED data_rank=$RANK data_world=2 \
+    diloco_hub=http://127.0.0.1:${PORT} diloco_worker=$WID \
+    diloco_every=$EVERY diloco_dtype=float32 \
   > $RUN_DIR/train.out 2>&1 < /dev/null & echo \$! > $RUN_DIR/train.pid && cat $RUN_DIR/train.pid"
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "[DRY-RUN] ssh $HOST \"$CMD\""

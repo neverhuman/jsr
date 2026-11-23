@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Launch hardened safetensors+HMAC DiLoCoHub on xbabe2 (loopback 127.0.0.1:8768 ONLY).
-# Usage: launch_hub_xb2.sh --seed 1234 [--every 250] [--port 8768] [--dry-run]
+# Launch hardened safetensors+HMAC DiLoCoHub on xbabe2 (loopback 127.0.0.1:8778 ONLY).
+# Usage: launch_hub_xb2.sh --seed 1234 [--every 250] [--port 8778] [--dry-run]
 set -euo pipefail
-SEED=1234; EVERY=250; PORT=8768; DRY_RUN=0
+SEED=1234; EVERY=250; PORT=8778; DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --seed) SEED="$2"; shift 2 ;;
@@ -16,7 +16,7 @@ done
 HUB_EMA=$(python3 -c "print(f'{0.9995 ** int($EVERY):.6f}')")
 WORK_DIR="\$HOME/jsr-data/runs/h50_d0d1/hub_D1_H${EVERY}_s${SEED}"
 TOKEN_FILE="\$HOME/jsr-data/runs/h50_d0d1/.diloco_token"
-INIT_ANCHOR="\$HOME/jsr-data/seeds/H41/model-00060000.pt"
+INIT_ANCHOR="\$HOME/jsr-data/seeds/H41/model-00060000.safetensors"
 
 CMD="mkdir -p $WORK_DIR && if [ ! -f $TOKEN_FILE ]; then openssl rand -hex 32 > $TOKEN_FILE && chmod 600 $TOKEN_FILE; fi; \
 cd ~/jsr-d0d1; PYTHONPATH=python/ultra nohup ~/jsr/.venv/bin/python -m train.diloco_http \

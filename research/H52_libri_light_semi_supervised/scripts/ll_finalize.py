@@ -335,8 +335,12 @@ def main():
             hyp = norm(r["hyp"])
             dur = t1 - t0
             cut_len = int(round(t1 * 16000)) - int(round(t0 * 16000))
+            lp = float(r["tok_lp_mean"]) if r.get("tok_lp_mean") is not None else float("-inf")
+            if math.isnan(lp):  # H52 amendment 4: an undefined (NaN) mean log-prob ranks lowest, so S1 drops it
+                lp = float("-inf")
+                checks["lp_nan_as_lowest"] = checks.get("lp_nan_as_lowest", 0) + 1
             f = {"hyp": hyp, "nw": len(hyp.split()), "dur": dur, "ok_len": r["n_samples"] == cut_len,
-                 "lp": float(r["tok_lp_mean"]) if r.get("tok_lp_mean") is not None else float("-inf"),
+                 "lp": lp,
                  "lp_min": r.get("tok_lp_min"), "m_mean": r.get("margin_mean"), "m_min": r.get("margin_min"),
                  "a1": norm(stu[uid]) if uid in stu else None}
             f["agree"] = wer(hyp, f["a1"]) if f["a1"] is not None else float("nan")
