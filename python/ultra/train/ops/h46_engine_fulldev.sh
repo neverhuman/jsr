@@ -8,7 +8,8 @@
 #
 # runs.tsv columns: name, beam, lm pack ("-" for none), lm_weight, lodr_weight, blank_penalty.
 # Each job writes <OUT>/<name>/<split>.<shard>/engine_eval.json; worker pids go to <OUT>/pids.
-# SHARD_GLOB (default s*) limits the shards (e.g. "s0[0-3]" for amendment 4's cost subset). Every
+# SHARD_GLOB (default s*) limits the shards (e.g. "s0[0-3]" for amendment 4's cost subset) and LIMIT
+# (default all) the utterances per shard (the first LIMIT of each npz). Every
 # job runs under /usr/bin/time -v, whose report (process user + sys CPU, max RSS) goes to
 # <OUT>/<name>/<split>.<shard>.time.
 set -euo pipefail
@@ -40,7 +41,7 @@ worker() {
     mkdir -p "$OUT/$name"
     taskset -c "$core" nice -n 10 /usr/bin/time -v -o "$OUT/$name/$split.$shard.time" \
       "$BIN/ultra-engine-eval" --weights "$WEIGHTS" --precision int8 \
-      --npz "$npz" --limit 1000000 --streams 16 --beam "$beam" --beam-max-symbols 1 \
+      --npz "$npz" --limit "${LIMIT:-1000000}" --streams 16 --beam "$beam" --beam-max-symbols 1 \
       "${lmargs[@]}" --out "$out" > "$OUT/$name/$split.$shard.log" 2>&1 \
       || echo "FAILED $name $split $shard" >> "$OUT/FAILED"
   done

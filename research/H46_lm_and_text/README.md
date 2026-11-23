@@ -1,6 +1,6 @@
 # H46: language model and text for B0 ("+LM" and "+text" rows)
 
-**Status:** PRE-REGISTERED, 2026-11-23. This file is committed before any decode of this wave
+**Status:** RESULTS (exploratory; items 1, 2 and amendment 4 complete; item 3 stopped by the owner's wrap-up without a verdict; item 4 designed and handed off). PRE-REGISTERED, 2026-11-23. This file is committed before any decode of this wave
 that uses a language model, a beam, or a blank penalty. When it was written, the only results
 that existed for B0 were:
 - eval-lane's greedy and beam-4 full-dev decodes of A1-49000 EMA (canonical `ultra-score`
@@ -456,7 +456,7 @@ Codex (`decoder.rs` / `beam.rs`); no engine code comes from this lane.
    - Beam state carries 4 tokens.
    - The H44 beam-reset fix must clear all 4.
 
-## Amendment 4 (2026-11-23, 08:38Z): beams 12 and 16 with M5 + LODR (the lead's 08:29Z ask), written before any beam-12 / 16 decode
+## Amendment 4 (2026-11-23, 08:34Z): beams 12 and 16 with M5 + LODR (the lead's 08:29Z ask), written before any beam-12 / 16 decode
 The question is the owner's: does beam 12 or 16 beat beam 8 once the CPU cost is counted?
 
 1. **Arms:** beam 12 and beam 16, M5 + LODR only.
@@ -494,6 +494,7 @@ All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
     a top-2 log-prob margin of 0.0016. The next smallest margin on that utterance is 0.064.
   - The cache matches the reference transcript there. eval-lane's curve passes run on H0's
     GPU queue, so a near-tie flip is expected (`results/item1_encoder_check.json`).
+- **Checkpoint:** the source checkpoint copied from xbabe5 hashes to `2a3dd9fb…`, and its 471 EMA tensors are bit-equal to the decode copy's (`results/item1_source_ema_check.json`).
 - **Search:** `FastBeam` = `train.beam` without an LM on 5,567 / 5,567 at beam 4 and beam 8.
   Every finalist's `train.beam` re-decode equals its sweep twin on 5,567 / 5,567.
 - **Scorers:** the canonical `ultra-score` (h46 build `f5596785…`, eval-lane's `d784f8ca…`)
@@ -540,6 +541,35 @@ All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
 - Engine cost (non-quiet xbabe2, decode thread): 0.213 → 0.247 CPU-s per audio-s; peak RSS
   224 → 686 MiB.
 
+**Beam 8 (L8)** (`results/item1_confirm_M5_b8_vs_b8.json`, `..._vs_b4.json`):
+- **Sweep:** converged at 07:47Z with 51 configs, on xbabe1 under fleet_guard.
+- **Finalist:** λ1 0.7, λ2 0.525, penalty 0. Its `train.beam` re-decode is the reported row.
+
+| row | dev-clean | dev-other | full dev | Δ vs b8 [95%] | Δ confirmation vs b8 [95%] |
+|---|---:|---:|---:|---|---|
+| beam 8, no LM (`b8`) | | | 8.218 | | |
+| **L8: beam 8 + M5 + LODR** | **3.598** | **10.058** | **6.727** | **−1.491 [−1.704, −1.281]** | **−1.459 [−1.755, −1.175]** |
+
+- **Against `b4`:** L8 is −1.497 pp (−18.2%) on full dev, 7,134 edits (S / D / I 5,658 / 791 / 685).
+- **Beam width:** beam 8 adds −0.21 pp over L4, as on H22ctl (−0.24). Without an LM, beam 8 changes nothing (8.218 against 8.224).
+- **LM work:** 21.0 distinct LM contexts per audio second, against 12.5 at beam 4.
+
+**Engine at L4's weights: the all-native, held-out row** (`results/item1_engine_L4.json`, H0):
+
+| full dev, beam 4 | no LM | + M5 + LODR (λ1 0.8, λ2 0.6) | Δ [95%] | Δ confirmation [95%] |
+|---|---:|---:|---|---|
+| engine INT8 | 8.211 | 6.951 (7,372 edits) | −1.260 [−1.451, −1.073] | −1.251 [−1.535, −0.981] |
+| Python FP32 (L4) | 8.224 | 6.932 (7,352 edits) | −1.292 [−1.482, −1.108] | −1.328 [−1.619, −1.053] |
+
+- The engine's LM change is within 0.03 pp of Python's. Identical tokens: 5,167 / 5,567.
+- The run's CPU (0.537 CPU-s per audio-s, contended H0) is not comparable with the xbabe2 no-LM run. Engine cost per beam is in amendment 4's table.
+
+**H42-protocol secondary** (two-fold CV, beam 4; the chosen configs' `train.beam` re-decodes equal the sweep on 5,567 / 5,567):
+- **fusion + LODR:** 6.966 canonical (8.224 → −1.258 [−1.445, −1.073], −15.3%).
+  - Fold A chose λ1 0.8, λ2 0.6, penalty 0.25; fold B chose λ1 0.7, λ2 0.525, penalty 0.
+  - On `ultra.wer` it reads 7.022 against 8.270 (−15.1%). H42's H22ctl row was −16.1%.
+- **fusion:** 7.084 (−1.140).
+
 ### Item 2: v1 / v2 pack parity (2026-11-23, 06:58Z): PASSED
 730-utterance panel, `--qualifying`, beam 4, A1-49000 EMA INT8
 (`results/item2_pack_parity.json`):
@@ -553,3 +583,61 @@ All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
 - v2 sha256: M5 `58ef726b…`, S5 `185381f1…`, S4 `3a9b6885…`.
 - Panel WER without an LM is 7.316%. With M5 + LODR at the ship weights it is 6.478%
   (−0.84 pp).
+
+### Amendment 4: beams 12 and 16 with M5 + LODR, the beam Pareto (2026-11-23, 09:58Z)
+Each beam's weights were chosen on the selection half; the beam-12 / 16 sweep (72 configs) converged at 09:14Z. WER comes from the reference search, full dev, canonical. Receipts:
+- `results/beams_*.json`;
+- adjacent-beam paired reports in `results/beams_adjacent/`;
+- search statistics in `results/beams_search_stats/`;
+- hypotheses in `results/hyps/` (gzip; uncompressed sha256 in `SHA256SUMS.uncompressed`).
+
+| beam | weights λ1 / λ2 / penalty | full dev | edits | Δ vs `b4`, confirmation [95%] | Δ vs next narrower beam, confirmation [95%] | live hyps per frame, mean / max | new LM contexts per audio-s | engine CPU-s per audio-s, LM / no LM (H0 rounds) |
+|---|---|---:|---:|---|---|---|---:|---|
+| 4 | 0.8 / 0.6 / 0 | 6.932 | 7,352 | −1.328 [−1.619, −1.053] | | 3.3 / 4 | 12.5 | 0.717 / 0.696 |
+| 8 | 0.7 / 0.525 / 0 | 6.727 | 7,134 | −1.487 [−1.791, −1.198] | **−0.160 [−0.254, −0.069]** | 6.4 / 8 | 21.2 | 0.708 / 0.695 |
+| 12 | 0.9 / 0.675 / 0 | 6.652 | 7,055 | −1.573 [−1.913, −1.250] | −0.085 [−0.212, +0.029] | 9.7 / 12 | 29.4 | 0.708 / 0.696 |
+| 16 | 0.9 / 0.675 / 0 | **6.595** | **6,994** | −1.639 [−1.995, −1.302] | −0.067 [−0.103, −0.033]; against beam 8: −0.152 [−0.293, −0.023] | 12.9 / 16 | 37.6 | 0.710 / 0.695 |
+
+- **Without the LM** the beam changes nothing: `b8` / `b12` / `b16` give 8.218 / 8.215 / 8.212 against `b4` 8.224.
+- **Worth it?** By the pre-registered reading, beam 8 is worth it over beam 4, and beam 16 over beam 8. The single step from 8 to 12 is not resolved on the confirmation half.
+- **CPU.** The engine cost runs differ from amendment 4. A first single queue of 64 jobs (shards s00-s03, first 50 utterances each) mixed host-load phases between configs: beam 16 + LM came out cheaper than beam 4 + LM. Seeing that confound, I discarded those numbers (`results/beams_engine_cost_queue_discarded.json`) and replaced the run with rounds:
+  - each round ran all 8 configs at once, one core each, on the same 50 utterances;
+  - 4 rounds (s00 / s01 × clean / other) covered 200 utterances, 1,256 s of audio (`train/ops/h46_engine_rounds.sh`).
+  - The search statistics use the same 200 utterances. The amendment named shards s00-s03 in full, 1,600 utterances.
+- **On loaded H0 the encoder dominates:** beam and LM add ≤ 2% (+0.014 CPU-s per audio-s from beam 4 without the LM to beam 16 with it). On xbabe2 the LM at beam 4 measured +16% over no LM. The quiet xbabe0 measurement belongs in H54.
+- **Peak RSS:** 189 MiB without an LM; 686 MiB with the M5 v1 pack at every beam. The v2 pack saves ~100 MiB.
+
+### Item 3: compact LM byte ladder: STOPPED by the owner's wrap-up (09:5xZ), no gate verdict
+What exists when it stopped:
+- **Token stream** (`train.nlm tokens`): 40,418,211 lines kept, 50 lines with H42's 42 dev-leak transcripts removed; 1,576,271,317 training and 1,573,512 held-out tokens (`results/item3_token_stream_meta.json`).
+- **Exact counts** (`train/ops/h46_ngram_counts.py`): 194,848 bigram and 14,342,462 trigram types. The `lmplz` thresholds chosen from them by amendment 2's rule are in `results/item3_ngram_thresholds.json`:
+  - 0.5 MiB fusion: `0 1000 3000`;
+  - 2 MiB: `0 0 400` (fusion) and `0 0 600` (+LODR);
+  - 8 MiB: `0 0 25`.
+
+  The n-gram builds were stopped before any finished.
+- **FFNNs** (`train.nlm`, runtime-lane's `ultra.lm-ffnn/v1` shape, `results/item3_ffnn/`):
+
+| model | INT8 file | held-out LM-text PPL | INT8 file vs QAT model (200 histories) |
+|---|---:|---:|---|
+| 0.5m (ctx 6, d_e 96, d_h 384, ReLU) | 470,812 B | 24.48 | top-1 100%, max abs Δ log P 0.052 |
+| 2.0m (ctx 6, d_e 192, d_h 1120, SiLU) | 1,962,588 B | 19.54 | top-1 100%, max abs Δ log P 0.011 |
+| 4m (ctx 8, d_e 192, d_h 2048, SiLU) | – | 21.6 at step 2k | stopped at step 9.4k / 30k |
+
+- **No beam decode of any compact candidate ran,** so there is no retention number and no promotion verdict.
+- The trained files are kept for runtime-lane's FFNN runtime (#79) at `/mnt/xbabe3-external/jsr/h46-lm/nlm/` (`SHA256SUMS`); #79's exporter round-trips them.
+- `train.h46_nlm_decode` and `train/ops/h46_beam_grid.sh` are ready to sweep them (smoke-tested).
+
+### Item 4: +text: designed and handed off, not trained
+- **Design:** amendment 3.
+- **Code:** `train/text_tables.py` with tests (B0-exact at initialisation).
+- **Integration:** `patches/plus_text_integration.patch` for trainer-lane. It also checks, on a small config, that `pred_p` and the losses equal B0's exactly at initialisation.
+- **Engine note:** posted for Codex.
+- **Training:** never launched. Under the owner's wrap-up, any +text arm is trainer-lane's to schedule in the final train.
+
+### Decision and hand-off (2026-11-23)
+- **The LM branch delivered its gain on B0:**
+  - −15.7% at beam 4 (6.932%), −18.2% at beam 8 (6.727%), −19.8% at beam 16 (6.595%), Python, weights from the selection half;
+  - −15.3% native INT8 at L4's weights (6.951%, 7,372 edits).
+- **Release LM (the lead's ruling):** M5 + LODR in the endpoint commit pass, beam 16, λ1 0.80 / λ2 0.60 (runtime-lane-h45 / Codex).
+  - Packs: v1 `/mnt/xbabe3-external/jsr/lm/models/engine/M5.ulm` (72a621c2…), or the identical-output v2 `/mnt/xbabe3-external/jsr/h46-lm/packs/M5.v2.ulm` (58ef726b…).

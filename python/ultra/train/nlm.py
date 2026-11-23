@@ -276,7 +276,8 @@ def train(a) -> None:
             log.flush()
             print(json.dumps(rec), flush=True)
     torch.save({"arch": a.arch, "state": {k: v.cpu() for k, v in model.state_dict().items()},
-                "args": vars(a), "steps": steps, "qat_from": qat_from},
+                "args": {k: v for k, v in vars(a).items() if k != "fn"}, "steps": steps,
+                "qat_from": qat_from},
                os.path.join(a.out, "model.pt"))
 
 
@@ -298,8 +299,14 @@ def _ppl(model, stream, pos, ctx: int, batch: int = 1 << 15, device=None) -> flo
 
 
 def load_run(run: str, device: str = "cpu"):
+    import __main__
+
     import torch
 
+    # model.pt files written before the args fix pickle the CLI's `fn` as __main__.train; give the
+    # loading process a stand-in so they still load (the function itself is not used).
+    if not hasattr(__main__, "train"):
+        __main__.train = train
     p = torch.load(os.path.join(run, "model.pt"), map_location=device, weights_only=False)
     model = make_model(p["arch"])
     model.load_state_dict(p["state"])

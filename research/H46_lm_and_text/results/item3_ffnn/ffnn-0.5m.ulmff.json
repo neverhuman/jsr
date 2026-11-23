@@ -1,0 +1,17 @@
+{
+ "schema": "ultra.lm-ffnn/v1",
+ "arch": "0.5m",
+ "file": "/dev/shm/h46-lm/nlm/export/ffnn-0.5m.ulmff",
+ "file_bytes": 470812,
+ "sha256": "1188a4cfb5430c11ccc9068718fc3b7a6bec2c0d0c1f230d3646acd6708650f3",
+ "source_run": "/dev/shm/h46-lm/nlm/runs/0.5m",
+ "qat_steps": 2000,
+ "int8_file_vs_qat_model": {
+  "max_abs_logp": 0.05153322219848633,
+  "top1_agreement": 1.0
+ },
+ "int8_file_vs_fp32_model": {
+  "max_abs_logp": 0.694488525390625,
+  "top1_agreement": 0.96
+ }
+}

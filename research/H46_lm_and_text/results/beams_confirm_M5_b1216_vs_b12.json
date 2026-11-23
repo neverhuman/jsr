@@ -1,0 +1,809 @@
+{
+ "protocol": "eval-lane dev split v2: finalist chosen on the selection half, scored on the confirmation half (decision) and on full dev (endpoint)",
+ "split_sha256": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac",
+ "select": "/dev/shm/h46-lm/work/results/select_M5_b1216.json",
+ "baseline": "b12",
+ "scorer": "/mnt/xbabe3-external/jsr/cargo-target/h46/release/ultra-score",
+ "scorer_sha256": "f55967857ced4e2899972b62a7ec7014b1e8889d0c73cddd98229e8b23fcdbb8",
+ "exploratory": true,
+ "rows": {
+  "M5_b12_fusion_lodr": {
+   "finalist": {
+    "name": "M5_b12_l0.90_r0.75_p0.00",
+    "lm_weight": 0.9,
+    "lodr_weight": 0.675,
+    "blank_penalty": 0.0
+   },
+   "run": "ref_M5_b12_l0.90_r0.75_p0.00",
+   "confirmation": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.153,
+      "macro_wer": 8.17,
+      "substitutions": 3539,
+      "deletions": 417,
+      "insertions": 435,
+      "ref_words": 53858,
+      "errors": 4391,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.538,
+        "substitutions": 983,
+        "deletions": 118,
+        "insertions": 127,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 11.803,
+        "substitutions": 2556,
+        "deletions": 299,
+        "insertions": 308,
+        "ref_words": 26799
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.597,
+      "macro_wer": 6.611,
+      "substitutions": 2774,
+      "deletions": 461,
+      "insertions": 318,
+      "ref_words": 53858,
+      "errors": 3553,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.636,
+        "substitutions": 791,
+        "deletions": 100,
+        "insertions": 93,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 9.586,
+        "substitutions": 1983,
+        "deletions": 361,
+        "insertions": 225,
+        "ref_words": 26799
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.556,
+      "relative_pct": -19.08,
+      "lo_pp": -1.892,
+      "hi_pp": -1.239,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.559,
+      "relative_pct": -19.08,
+      "lo_pp": -1.897,
+      "hi_pp": -1.239,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.902,
+       "relative_pct": -19.87,
+       "lo_pp": -1.241,
+       "hi_pp": -0.629,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.217,
+       "relative_pct": -18.78,
+       "lo_pp": -2.822,
+       "hi_pp": -1.665,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.62,
+      "sub": 2796,
+      "del": 440,
+      "ins": 307,
+      "ref_words": 53516,
+      "utts": 2785
+     },
+     "baseline": {
+      "wer": 8.145,
+      "sub": 3549,
+      "del": 383,
+      "ins": 427,
+      "ref_words": 53516,
+      "utts": 2785
+     },
+     "rel_change_pct": -18.72,
+     "bootstrap": {
+      "diff_pp": -1.525,
+      "lo": -1.706,
+      "hi": -1.348,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.525,
+      "lo": -1.859,
+      "hi": -1.211,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "full": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.215,
+      "macro_wer": 8.336,
+      "substitutions": 7038,
+      "deletions": 802,
+      "insertions": 872,
+      "ref_words": 106054,
+      "errors": 8712,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.478,
+        "substitutions": 1993,
+        "deletions": 218,
+        "insertions": 238,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 12.194,
+        "substitutions": 5045,
+        "deletions": 584,
+        "insertions": 634,
+        "ref_words": 51363
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.652,
+      "macro_wer": 6.75,
+      "substitutions": 5544,
+      "deletions": 869,
+      "insertions": 642,
+      "ref_words": 106054,
+      "errors": 7055,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.64,
+        "substitutions": 1605,
+        "deletions": 208,
+        "insertions": 178,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 9.859,
+        "substitutions": 3939,
+        "deletions": 661,
+        "insertions": 464,
+        "ref_words": 51363
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.562,
+      "relative_pct": -19.02,
+      "lo_pp": -1.809,
+      "hi_pp": -1.324,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.586,
+      "relative_pct": -19.03,
+      "lo_pp": -1.839,
+      "hi_pp": -1.345,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.837,
+       "relative_pct": -18.7,
+       "lo_pp": -1.041,
+       "hi_pp": -0.66,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.334,
+       "relative_pct": -19.14,
+       "lo_pp": -2.809,
+       "hi_pp": -1.89,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.717,
+      "sub": 5579,
+      "del": 862,
+      "ins": 635,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "baseline": {
+      "wer": 8.258,
+      "sub": 7057,
+      "del": 763,
+      "ins": 880,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "rel_change_pct": -18.66,
+     "bootstrap": {
+      "diff_pp": -1.542,
+      "lo": -1.67,
+      "hi": -1.416,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.542,
+      "lo": -1.786,
+      "hi": -1.307,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "selection": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.278,
+      "macro_wer": 8.519,
+      "substitutions": 3499,
+      "deletions": 385,
+      "insertions": 437,
+      "ref_words": 52196,
+      "errors": 4321,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.419,
+        "substitutions": 1010,
+        "deletions": 100,
+        "insertions": 111,
+        "ref_words": 27632
+       },
+       "dev-other": {
+        "wer": 12.62,
+        "substitutions": 2489,
+        "deletions": 285,
+        "insertions": 326,
+        "ref_words": 24564
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.709,
+      "macro_wer": 6.901,
+      "substitutions": 2770,
+      "deletions": 408,
+      "insertions": 324,
+      "ref_words": 52196,
+      "errors": 3502,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.644,
+        "substitutions": 814,
+        "deletions": 108,
+        "insertions": 85,
+        "ref_words": 27632
+       },
+       "dev-other": {
+        "wer": 10.157,
+        "substitutions": 1956,
+        "deletions": 300,
+        "insertions": 239,
+        "ref_words": 24564
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.569,
+      "relative_pct": -18.95,
+      "lo_pp": -1.942,
+      "hi_pp": -1.229,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.619,
+      "relative_pct": -19.0,
+      "lo_pp": -2.002,
+      "hi_pp": -1.271,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.774,
+       "relative_pct": -17.53,
+       "lo_pp": -0.992,
+       "hi_pp": -0.556,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.463,
+       "relative_pct": -19.52,
+       "lo_pp": -3.21,
+       "hi_pp": -1.781,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.816,
+      "sub": 2783,
+      "del": 422,
+      "ins": 328,
+      "ref_words": 51834,
+      "utts": 2782
+     },
+     "baseline": {
+      "wer": 8.375,
+      "sub": 3508,
+      "del": 380,
+      "ins": 453,
+      "ref_words": 51834,
+      "utts": 2782
+     },
+     "rel_change_pct": -18.61,
+     "bootstrap": {
+      "diff_pp": -1.559,
+      "lo": -1.742,
+      "hi": -1.374,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.559,
+      "lo": -1.924,
+      "hi": -1.221,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "cost": {
+    "decode_seconds": 2212.1,
+    "baseline_decode_seconds": 348.0,
+    "lm_contexts_per_audio_s": 29.22
+   },
+   "identical_tokens_to_baseline": 3158
+  },
+  "M5_b16_fusion_lodr": {
+   "finalist": {
+    "name": "M5_b16_l0.90_r0.75_p0.00",
+    "lm_weight": 0.9,
+    "lodr_weight": 0.675,
+    "blank_penalty": 0.0
+   },
+   "run": "ref_M5_b16_l0.90_r0.75_p0.00",
+   "confirmation": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.153,
+      "macro_wer": 8.17,
+      "substitutions": 3539,
+      "deletions": 417,
+      "insertions": 435,
+      "ref_words": 53858,
+      "errors": 4391,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.538,
+        "substitutions": 983,
+        "deletions": 118,
+        "insertions": 127,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 11.803,
+        "substitutions": 2556,
+        "deletions": 299,
+        "insertions": 308,
+        "ref_words": 26799
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.53,
+      "macro_wer": 6.544,
+      "substitutions": 2740,
+      "deletions": 460,
+      "insertions": 317,
+      "ref_words": 53858,
+      "errors": 3517,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.618,
+        "substitutions": 786,
+        "deletions": 102,
+        "insertions": 91,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 9.471,
+        "substitutions": 1954,
+        "deletions": 358,
+        "insertions": 226,
+        "ref_words": 26799
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.623,
+      "relative_pct": -19.9,
+      "lo_pp": -1.974,
+      "hi_pp": -1.288,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.626,
+      "relative_pct": -19.9,
+      "lo_pp": -1.983,
+      "hi_pp": -1.293,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.92,
+       "relative_pct": -20.28,
+       "lo_pp": -1.273,
+       "hi_pp": -0.634,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.332,
+       "relative_pct": -19.76,
+       "lo_pp": -2.968,
+       "hi_pp": -1.749,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.553,
+      "sub": 2764,
+      "del": 439,
+      "ins": 304,
+      "ref_words": 53516,
+      "utts": 2785
+     },
+     "baseline": {
+      "wer": 8.145,
+      "sub": 3549,
+      "del": 383,
+      "ins": 427,
+      "ref_words": 53516,
+      "utts": 2785
+     },
+     "rel_change_pct": -19.55,
+     "bootstrap": {
+      "diff_pp": -1.592,
+      "lo": -1.771,
+      "hi": -1.414,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.592,
+      "lo": -1.939,
+      "hi": -1.265,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "full": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.215,
+      "macro_wer": 8.336,
+      "substitutions": 7038,
+      "deletions": 802,
+      "insertions": 872,
+      "ref_words": 106054,
+      "errors": 8712,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.478,
+        "substitutions": 1993,
+        "deletions": 218,
+        "insertions": 238,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 12.194,
+        "substitutions": 5045,
+        "deletions": 584,
+        "insertions": 634,
+        "ref_words": 51363
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.595,
+      "macro_wer": 6.691,
+      "substitutions": 5485,
+      "deletions": 870,
+      "insertions": 639,
+      "ref_words": 106054,
+      "errors": 6994,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.617,
+        "substitutions": 1596,
+        "deletions": 206,
+        "insertions": 176,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 9.766,
+        "substitutions": 3889,
+        "deletions": 664,
+        "insertions": 463,
+        "ref_words": 51363
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.62,
+      "relative_pct": -19.72,
+      "lo_pp": -1.88,
+      "hi_pp": -1.369,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.645,
+      "relative_pct": -19.73,
+      "lo_pp": -1.911,
+      "hi_pp": -1.39,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.861,
+       "relative_pct": -19.23,
+       "lo_pp": -1.072,
+       "hi_pp": -0.675,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.428,
+       "relative_pct": -19.91,
+       "lo_pp": -2.929,
+       "hi_pp": -1.961,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.659,
+      "sub": 5522,
+      "del": 863,
+      "ins": 630,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "baseline": {
+      "wer": 8.258,
+      "sub": 7057,
+      "del": 763,
+      "ins": 880,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "rel_change_pct": -19.36,
+     "bootstrap": {
+      "diff_pp": -1.599,
+      "lo": -1.73,
+      "hi": -1.473,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.599,
+      "lo": -1.857,
+      "hi": -1.355,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "selection": {
+    "canonical": {
+     "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+     "baseline": {
+      "pooled_wer": 8.278,
+      "macro_wer": 8.519,
+      "substitutions": 3499,
+      "deletions": 385,
+      "insertions": 437,
+      "ref_words": 52196,
+      "errors": 4321,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.419,
+        "substitutions": 1010,
+        "deletions": 100,
+        "insertions": 111,
+        "ref_words": 27632
+       },
+       "dev-other": {
+        "wer": 12.62,
+        "substitutions": 2489,
+        "deletions": 285,
+        "insertions": 326,
+        "ref_words": 24564
+       }
+      }
+     },
+     "arm": {
+      "pooled_wer": 6.661,
+      "macro_wer": 6.852,
+      "substitutions": 2745,
+      "deletions": 410,
+      "insertions": 322,
+      "ref_words": 52196,
+      "errors": 3477,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.615,
+        "substitutions": 810,
+        "deletions": 104,
+        "insertions": 85,
+        "ref_words": 27632
+       },
+       "dev-other": {
+        "wer": 10.088,
+        "substitutions": 1935,
+        "deletions": 306,
+        "insertions": 237,
+        "ref_words": 24564
+       }
+      }
+     },
+     "pooled_delta": {
+      "delta_pp": -1.617,
+      "relative_pct": -19.53,
+      "lo_pp": -2.011,
+      "hi_pp": -1.259,
+      "limited": false
+     },
+     "macro_delta": {
+      "delta_pp": -1.668,
+      "relative_pct": -19.58,
+      "lo_pp": -2.077,
+      "hi_pp": -1.303,
+      "limited": false
+     },
+     "per_set_delta": {
+      "dev-clean": {
+       "delta_pp": -0.803,
+       "relative_pct": -18.18,
+       "lo_pp": -1.032,
+       "hi_pp": -0.579,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -2.532,
+       "relative_pct": -20.06,
+       "lo_pp": -3.325,
+       "hi_pp": -1.827,
+       "limited": false
+      }
+     },
+     "bootstrap": {
+      "unit": "speaker",
+      "replicates": 10000,
+      "seed": 20261122,
+      "interval": "two-sided 95% (alpha 0.025 per side)"
+     }
+    },
+    "ultra_wer": {
+     "arm": {
+      "wer": 6.768,
+      "sub": 2758,
+      "del": 424,
+      "ins": 326,
+      "ref_words": 51834,
+      "utts": 2782
+     },
+     "baseline": {
+      "wer": 8.375,
+      "sub": 3508,
+      "del": 380,
+      "ins": 453,
+      "ref_words": 51834,
+      "utts": 2782
+     },
+     "rel_change_pct": -19.19,
+     "bootstrap": {
+      "diff_pp": -1.607,
+      "lo": -1.794,
+      "hi": -1.419,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.607,
+      "lo": -1.996,
+      "hi": -1.257,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "cost": {
+    "decode_seconds": 1348.4,
+    "baseline_decode_seconds": 348.0,
+    "lm_contexts_per_audio_s": 37.37
+   },
+   "identical_tokens_to_baseline": 3151
+  }
+ }
+}

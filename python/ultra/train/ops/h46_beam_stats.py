@@ -17,10 +17,12 @@ import time
 import numpy as np
 
 
-def subset_uids(shards: str, pattern: str) -> set[str]:
+def subset_uids(shards: str, pattern: str, limit: int | None = None) -> set[str]:
+    """The uids of the matching shard files: the first `limit` of each (as `--limit` gives the
+    engine), or all."""
     uids: set[str] = set()
     for f in glob.glob(os.path.join(shards, pattern, "dev-*.npz")):
-        uids.update(str(u) for u in np.load(f)["uids"])
+        uids.update(str(u) for u in np.load(f)["uids"][:limit])
     return uids
 
 
@@ -71,6 +73,7 @@ def main(argv=None) -> None:
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--shards", required=True)
     ap.add_argument("--shard-glob", default="s0[0-3]")
+    ap.add_argument("--limit", type=int, default=None, help="first N utterances of each shard")
     ap.add_argument("--config", required=True, help="JSON: name, beam, blank_penalty[, lm, "
                     "lm_weight, lodr, lodr_weight]")
     ap.add_argument("--out", required=True)
@@ -83,7 +86,7 @@ def main(argv=None) -> None:
         lodr = TokenNgram(cfg["lodr"], tok.num_outputs) if cfg.get("lodr") else None
         fusion = NgramFusion(TokenNgram(cfg["lm"], tok.num_outputs), cfg["lm_weight"], lodr,
                              cfg.get("lodr_weight", 0.0))
-    keep = subset_uids(a.shards, a.shard_glob)
+    keep = subset_uids(a.shards, a.shard_glob, a.limit)
     rec = {"frames": 0, "hyps_sum": 0, "hyps_max": 0, "ctx_sum": 0, "ctx_max": 0}
     n_utt, audio, t0, tokens = 0, 0.0, time.time(), 0
     for split in ("dev-clean", "dev-other"):
@@ -107,7 +110,8 @@ def main(argv=None) -> None:
            "new_lm_contexts_per_frame_max": rec["ctx_max"],
            "new_lm_contexts_per_audio_s": round(rec["ctx_sum"] / max(audio, 1e-9), 2),
            "full_row_lookups_per_audio_s": round(500 * rec["ctx_sum"] / max(audio, 1e-9), 1),
-           "python_search_s": round(time.time() - t0, 1), "shard_glob": a.shard_glob}
+           "python_search_s": round(time.time() - t0, 1), "shard_glob": a.shard_glob,
+           "limit_per_shard": a.limit}
     with open(a.out, "w") as fh:
         json.dump(out, fh, indent=1)
     print(json.dumps(out))

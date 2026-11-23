@@ -1,0 +1,38 @@
+{
+ "0.5_fusion": {
+  "prune": "0 1000 3000",
+  "bigrams": 65097,
+  "trigrams": 71854,
+  "est_bytes_incl_lodr_if_used": 415474,
+  "budget": 498073
+ },
+ "0.5_lodr": null,
+ "2.0_fusion": {
+  "prune": "0 0 400",
+  "bigrams": 194848,
+  "trigrams": 442510,
+  "est_bytes_incl_lodr_if_used": 1796243,
+  "budget": 1992294
+ },
+ "2.0_lodr": {
+  "prune": "0 0 600",
+  "bigrams": 194848,
+  "trigrams": 317074,
+  "est_bytes_incl_lodr_if_used": 1769949,
+  "budget": 1992294
+ },
+ "8.0_fusion": {
+  "prune": "0 0 25",
+  "bigrams": 194848,
+  "trigrams": 2764043,
+  "est_bytes_incl_lodr_if_used": 7600075,
+  "budget": 7969177
+ },
+ "8.0_lodr": {
+  "prune": "0 0 25",
+  "bigrams": 194848,
+  "trigrams": 2764043,
+  "est_bytes_incl_lodr_if_used": 7887371,
+  "budget": 7969177
+ }
+}

@@ -72,7 +72,7 @@ class LmEvalError(TrainError, ValueError):
     an utterance twice or misses one; a test split was passed to the shard tool;
     `train.ffnn_lm_export` (runtime-lane's PR #79) is not importable; a token stream for the
     n-gram tools (h46_ngram_counts, h46_u16_to_text) holds a token >= 501 or does not end with a
-    sentence break.
+    sentence break; h46_ngram_thresholds got a file that is not an h46_ngram_counts output.
     common_fixes: pass eval-lane's `dev_split_v2.json` for the full-dev cache; re-cut the decode
     copy from the derived file of the named checkpoint; rerun the missing engine shards; use dev
     splits only; merge or check out PR #79 before `train.nlm export`; rebuild the stream with

@@ -10,6 +10,8 @@
 #   CODE=<frozen python/ultra> CORES="16 ..." LM_CACHE=<enc cache> LM_CKPT=<slim .pt> RUNS=<dir> \
 #   SPLIT=<dev_split_v2.json> h46_sweep.sh <name> <grid.json> <work-dir>
 #
+# GRID_RUNNER (default train/ops/lm_beam_grid.sh) may name train/ops/h46_beam_grid.sh with
+# DECODE_MODULE=train.h46_nlm_decode for neural token LMs (item 3).
 # PROTOCOL=cv runs H42's two-fold speaker cross-validation instead (train.lm_tune fusion drives
 # the edge rule; results/fusion_<name>.json, held-out hypotheses in results/hyps): the secondary
 # protocol, run on a copy of a finished selection-half grid under its own name.
@@ -28,8 +30,8 @@ lm_tune() { (cd "$CODE" && "$PY" -m train.lm_tune "$@"); }
 batch_file=$grid
 round=0
 while :; do
-  PY="$PY" LM_BEAM_ARGS=--fast bash "$CODE/train/ops/lm_beam_grid.sh" "$batch_file" "$RUNS" \
-    "$WORK/logs/$NAME.r$round"
+  PY="$PY" LM_BEAM_ARGS=--fast bash "${GRID_RUNNER:-$CODE/train/ops/lm_beam_grid.sh}" \
+    "$batch_file" "$RUNS" "$WORK/logs/$NAME.r$round"
   if [ "${PROTOCOL:-split}" = cv ]; then
     res="$WORK/results/fusion_$NAME.json"
     lm_tune fusion --cache "$LM_CACHE" --runs "$RUNS" --baseline "${BASELINE:-b4}" --grid "$grid" \

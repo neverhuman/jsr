@@ -1,0 +1,14 @@
+{
+ "lines": 40418211,
+ "dropped_lines": 50,
+ "train_tokens": 1576271317,
+ "valid_tokens": 1573512,
+ "train_lines": 40377792,
+ "valid_lines": 40418,
+ "tokenizer_sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5",
+ "text": "/dev/shm/h46-lm/nlm/librispeech-lm-norm.txt.gz",
+ "exclude": "/dev/shm/h46-lm/nlm/leak_matches.txt",
+ "excluded_strings": 42,
+ "valid_every": 1000,
+ "line_numbering": "after exclusion, from 1"
+}
