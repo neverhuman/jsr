@@ -1,7 +1,7 @@
 # bench-open: xbabe0 release holds (2026-11-23)
 
 Quiet single-host measurements of the v3.0.0 release decoders on xbabe0 (AMD Threadripper PRO 3995WX, Zen 2), run by
-bench-open's TIMING runner (`docs/paper/opponents/open_turn.py`, plan `open-plan-xbabe0.txt`, entries 14g-14q). Every hold
+bench-open's TIMING runner (`docs/paper/opponents/open_turn.py`, plan `open-plan-xbabe0.txt`, entries 14g-14t). Every hold
 ran under TIMING.lock with the owner-approved timer pause (the owner's timers and CI runner units paused, the host reported
 quiet), one measured process on one core (CPUs 4 / 24 / 28 for rounds 1 / 2 / 3, meter on 0 / 1 / 2), and bench-open's host
 guard (alone on its CCX, SMT siblings idle, at most 2 other active cores). Watts are CPU-reported (RAPL core register of the
@@ -71,6 +71,41 @@ The anchor (H22ctl, `jsr-h22ctl-79800-ema-int8/round-11` and `round-12`) read 0.
 hold (20:03:30-20:07:00Z), whose three RC1 repetitions exited at once with "unknown cold comparison arm": `run-cold.sh`
 routes only listed arms to `open-arms.sh`, and harness 8366eaa had not listed the new arm. Harness 2b74653 lists it, and 14q
 ran again as 14qr; nothing of the failed hold is in the row.
+
+## 14s: the v3.0.0 live stream's always-on capacity on one core
+
+Energy's capacity test (TIMING 4b, run on H22ctl) repeated on the release: N = 1, 4, 8, 16 live streams of `ultra stream`
+built at the v3.0.0 tag (9c8c05e; `cargo build --locked --release -p ultra-cli --bin ultra`, sha256 6d8ae087...) on the
+release weights (RC1-EMA INT8, weights.int8 edac19d8...), one process per stream, all N pinned to one core (CPU 4, meter on
+CPU 0), each stream paced at 1x (`--pace 1.0`, 20 ms packets, the release's default per-packet wakes) on energy's
+`paced120.wav` (DEV panel u00000-u00021 joined, 127.98 s, sha256 37035776..., byte-identical to energy's file), with 60 s
+idle phases before and after every N (assay `capacity-v300`, harness 2b74653; one hold, 20:29:12-20:43:37Z). Watts come from
+energy's continuous 1 Hz log: the core register over the N-stream run (12 s trimmed at both ends, as 4b did) against the
+idle floor interpolated between the idle phases around it; N streams at 1x decode N audio-s per second, so W per stream =
+net W / N (gross = run W / N). The lag is the stable-word lag of every matched reference word (when a word last stops
+changing, minus its forced-aligned end in the audio; `energy_report.stable_lags_from_events`, the paced-lag tool's
+function), from each stream's own events against `timestamps_100.json` (first 22 utterances, sha256 e0856c92...).
+Join: `joins/14s.jsonl` (`watts-join/join_14s.py` on H0).
+
+| streams on one core | core busy | CPU-s per audio-s per stream | W per stream, net / gross (core) | stable-word lag p50 / p95 / max | words matched | last text after the audio ends |
+|---:|---:|---:|---|---|---:|---:|
+| 1 | 6.2% | 0.0619 | 0.487 / 0.579 | 190 / 420 / 545 ms | 328 / 342 | 0.008 s |
+| 4 | 14.7% | 0.0375 | 0.387 / 0.426 | 200 / 430 / 559 ms | 1,312 / 1,368 | 0.020 s |
+| 8 | 30.1% | 0.0388 | 0.366 / 0.382 | 215 / 438 / 579 ms | 2,624 / 2,736 | 0.040 s |
+| **16** | **53.2%** | **0.0354** | **0.358 / 0.364** | **242 / 457 / 608 ms** | 5,248 / 5,472 | 0.087 s |
+
+The round was clean and alone on the host (guard verdict clean, no other busy core), 20:29:48-20:43:35Z; every stream
+finished, with the release's default per-packet wakes. Sixteen live streams fill 53% of one core with the p95 lag within 37 ms
+of one stream's, so one core holds them with room to spare. One stream costs more per stream (0.0619 CPU-s per audio-s,
+0.49 W net) than the cold unpaced row (14q: 0.0343, 0.34 W), because a lone paced stream wakes the otherwise idle core 50
+times a second and its model load is spread over only 128 s of audio; from 4 streams on, the cost per stream approaches the
+cold row's. Peak RSS per stream process: 78.5 MB. The package draws 72 W idle and 89 W at 16 streams (about 1.1 W per stream
+above the floor). The old H22ctl capacity rows (energy, entry 4b, flagged for foreign load) read 61.8% busy at 16 streams,
+0.368 / 0.375 W, lag p50 / p95 303 / 429 ms.
+
+The one-stream line also gives the live row a paced lag: `joins/14s-lag.jsonl` (row `rc1-ema-live-zen2-t1`: p50 190 ms,
+p95 420 ms). Its workload is one continuous 128 s stream of 22 clips, not the per-clip lag100 workload of the H0 lag rows, as
+its `lag_method` says; the two are not the same measurement.
 
 ## 14p: the v3.0.0 candidate on the release decoder (one artifact)
 
