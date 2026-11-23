@@ -224,3 +224,13 @@ Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with iden
 | 2 panel cells (100% speech) | 1,460 | 9.385 vs 9.333%, +0.052 [−0.080, +0.185] | 88.84 vs 89.11%, −0.27 [−0.55, 0.00] |
 - Recogniser duty, gated / twin: 9.3 / 161% at 5% speech and 1 onset/min, 31 / 158% at 6/min; 23 / 152% and 44 / 150% at 20%; 53 / 133% and 72 / 131% at 50%; 100.4 / 100.3% at 100%. Gap false words: gated 14, twin 25 (21 cells).
 - **Readings so far:** Q4 (first word after sleep) passes on the stream (lower bound −0.36 ≥ −0.5) and on the pooled duty cells; the torture sets alone are INCONCLUSIVE at this sample size (lower bound −0.90, point +0.13). Q7 waits for the stream twin. Q2 / Q3 / Q6 (CPU, energy, overhead) need xbabe0; the duty ratios above are proxies only. These pass-1 numbers describe 3410004; the final head is qualified in pass 2.
+
+### Q pass 2: PR #77's session at 5ca3583 (R 500 ms) on the 27.56 h stream, idle 800 vs 1500 (exploratory)
+| gated session | WER | vs C1 [one-sided 95%] | first word after sleep vs C1 [95%] | segments | words repeated across hot-close overlaps | gap false words | duty | identity / re-decode mismatches |
+|---|---:|---|---|---:|---:|---:|---:|---|
+| **(500, 1500)** | **8.127%** | **−0.250** [−0.342, −0.163] | **+1.01** [+0.57, +1.45] | 6,992 | **0 / 48** | 2 | 50.9% | 0 / 0 |
+| (500, 800) | 8.337% | −0.040 [−0.129, +0.051] | +0.29 [−0.35, +0.93] | 12,831 | 7 / 1,359 | 2 | 50.2% | 0 / 0 |
+| pass 1 (1000, 1500), 3410004 | 8.283% | −0.094 [−0.180, −0.012] | +0.10 [−0.36, +0.56] | 6,986 | 0 / 109 | 2 | 54.3% | 0 / 0 |
+- **(500, 1500) is the configuration to ship.** With #77's recogniser-blank close, an 800 ms idle closes at ordinary pauses inside utterances: 1.8× the segments, so more restarts that lose context (+0.21 pp WER against 1500). The gate is still hot at those closes, so they reopen with the 500 ms replay, and 7 of those replays re-emitted the previous segment's last word ("IT TO YOU | YOU ARE MY", "WHEN I | I DO MY", "ENOUGH | ENOUGH FOR ALL" …), against a 0.18% chance rate of the same word at non-overlapping boundaries. That is a duplication under codex-lead's integrity gate, even though R ≤ idle − 300 holds. The B-6 sweep's short idle (amendment 6) came from PR #75's gate-driven close, which closes only in non-speech, and does not transfer.
+- **#77's 2edee89 (500, 700) is the same session as (500, 800) at chunk 4:** the close counts blank frames in whole 160 ms chunks, so 700 ms closes after 800 ms; the two gated ledgers are byte-identical (`a20102d1…`). The −300 bound still matters at chunks 1 and 2.
+- The ungated twins for both idles and the AO cells at (500, 1500) are still running (Q7, Q4 on AO).
