@@ -1,0 +1,43 @@
+{
+  "receipt_schema": "ultra.h51.vnni-verify/v1",
+  "recorded_utc": "2026-11-23T07:32Z",
+  "host_role": "xeon-8358-vnni-host",
+  "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+  "vcpus": 30,
+  "loadavg_5m_pre_run": 8.86,
+  "loadavg_5m_gate_limit": 21.0,
+  "arch": "x86_64",
+  "detected_isa": "avx512vnni",
+  "binary_target": "x86_64-unknown-linux-musl",
+  "unit_tests": {
+    "passed": 25,
+    "failed": 0,
+    "ignored": 0,
+    "duration_s": 0.05,
+    "parity_ulp": 0,
+    "highlights": [
+      "kernels::tests::gemm_i8_simd_is_bit_exact_including_extremes",
+      "kernels::tests::small_m_is_bit_exact_across_all_available_isas_and_extremes",
+      "kernels::tests::gemm_i8_u7_equals_act7_and_scalar_including_extremes",
+      "kernels::tests::gemm_f32_simd_is_bit_exact_with_scalar"
+    ]
+  },
+  "cleanup_verified": true,
+  "kernel_bench_results": [
+    {"label": "hot_1536x384", "n": 1536, "k": 384, "copies": 1, "m": 1, "isas": {"avx512vnni": {"gmac_s": 48.551, "ns": 12148.5, "small_m_gmac_s": 73.307, "small_m_ns": 8045.9, "small_m_speedup": 1.5099}, "avx2fma": {"gmac_s": 54.852, "ns": 10753.1, "small_m_gmac_s": 60.221, "small_m_ns": 9794.3, "small_m_speedup": 1.0979}, "scalar": {"gmac_s": 0.938, "ns": 629075.5}}},
+    {"label": "hot_1536x384", "n": 1536, "k": 384, "copies": 1, "m": 2, "isas": {"avx512vnni": {"gmac_s": 86.019, "ns": 13713.8, "small_m_gmac_s": 123.933, "small_m_ns": 9518.4, "small_m_speedup": 1.4408}, "avx2fma": {"gmac_s": 58.672, "ns": 20105.9, "small_m_gmac_s": 62.606, "small_m_ns": 18842.5, "small_m_speedup": 1.0671}, "scalar": {"gmac_s": 0.916, "ns": 1288463.4}}},
+    {"label": "hot_1536x384", "n": 1536, "k": 384, "copies": 1, "m": 4, "isas": {"avx512vnni": {"gmac_s": 146.374, "ns": 16118.3, "small_m_gmac_s": 200.022, "small_m_ns": 11795.2, "small_m_speedup": 1.3665}, "avx2fma": {"gmac_s": 59.194, "ns": 39857.0, "small_m_gmac_s": 59.074, "small_m_ns": 39937.8, "small_m_speedup": 0.9980}, "scalar": {"gmac_s": 0.937, "ns": 2517921.0}}},
+    {"label": "hot_1536x384", "n": 1536, "k": 384, "copies": 1, "m": 8, "isas": {"avx512vnni": {"gmac_s": 170.543, "ns": 27668.1}, "avx2fma": {"gmac_s": 59.480, "ns": 79330.7}}},
+    {"label": "hot_1536x384", "n": 1536, "k": 384, "copies": 1, "m": 16, "isas": {"avx512vnni": {"gmac_s": 170.842, "ns": 55239.3}, "avx2fma": {"gmac_s": 59.275, "ns": 159211.3}}},
+    {"label": "hot_384x1536", "n": 384, "k": 1536, "copies": 1, "m": 1, "isas": {"avx512vnni": {"gmac_s": 41.476, "ns": 14220.7, "small_m_gmac_s": 94.513, "small_m_ns": 6240.7, "small_m_speedup": 2.2787}, "avx2fma": {"gmac_s": 57.949, "ns": 10178.4, "small_m_gmac_s": 65.404, "small_m_ns": 9018.1, "small_m_speedup": 1.1287}, "scalar": {"gmac_s": 0.967, "ns": 609772.9}}},
+    {"label": "hot_384x1536", "n": 384, "k": 1536, "copies": 1, "m": 2, "isas": {"avx512vnni": {"gmac_s": 80.968, "ns": 14569.3, "small_m_gmac_s": 189.610, "small_m_ns": 6221.4, "small_m_speedup": 2.3418}, "avx2fma": {"gmac_s": 60.255, "ns": 19577.7, "small_m_gmac_s": 64.242, "small_m_ns": 18362.7, "small_m_speedup": 1.0662}, "scalar": {"gmac_s": 0.966, "ns": 1220578.3}}},
+    {"label": "hot_384x1536", "n": 384, "k": 1536, "copies": 1, "m": 4, "isas": {"avx512vnni": {"gmac_s": 149.663, "ns": 15764.1, "small_m_gmac_s": 243.885, "small_m_ns": 9673.8, "small_m_speedup": 1.6296}, "avx2fma": {"gmac_s": 60.489, "ns": 39003.8, "small_m_gmac_s": 60.444, "small_m_ns": 39032.9, "small_m_speedup": 0.9993}, "scalar": {"gmac_s": 0.969, "ns": 2434609.4}}},
+    {"label": "hot_384x1536", "n": 384, "k": 1536, "copies": 1, "m": 8, "isas": {"avx512vnni": {"gmac_s": 176.696, "ns": 26704.5}, "avx2fma": {"gmac_s": 60.353, "ns": 78183.7}}},
+    {"label": "hot_384x1536", "n": 384, "k": 1536, "copies": 1, "m": 16, "isas": {"avx512vnni": {"gmac_s": 176.897, "ns": 53348.6}, "avx2fma": {"gmac_s": 60.495, "ns": 156000.1}}},
+    {"label": "stream_64x1536x384", "n": 1536, "k": 384, "copies": 64, "m": 1, "isas": {"avx512vnni": {"gmac_s": 29.861, "ns": 1264148.8, "small_m_gmac_s": 30.435, "small_m_ns": 1240291.6, "small_m_speedup": 1.0192}, "avx2fma": {"gmac_s": 29.727, "ns": 1269840.1, "small_m_gmac_s": 29.854, "small_m_ns": 1264450.5, "small_m_speedup": 1.0043}}},
+    {"label": "stream_64x1536x384", "n": 1536, "k": 384, "copies": 64, "m": 2, "isas": {"avx512vnni": {"gmac_s": 58.384, "ns": 1293122.6, "small_m_gmac_s": 60.233, "small_m_ns": 1253426.9, "small_m_speedup": 1.0317}, "avx2fma": {"gmac_s": 53.806, "ns": 1403135.9, "small_m_gmac_s": 49.942, "small_m_ns": 1511700.0, "small_m_speedup": 0.9282}}},
+    {"label": "stream_64x1536x384", "n": 1536, "k": 384, "copies": 64, "m": 4, "isas": {"avx512vnni": {"gmac_s": 111.412, "ns": 1355281.2, "small_m_gmac_s": 116.128, "small_m_ns": 1300241.7, "small_m_speedup": 1.0423}, "avx2fma": {"gmac_s": 57.743, "ns": 2614947.9, "small_m_gmac_s": 57.471, "small_m_ns": 2627339.6, "small_m_speedup": 0.9953}}},
+    {"label": "stream_64x1536x384", "n": 1536, "k": 384, "copies": 64, "m": 8, "isas": {"avx512vnni": {"gmac_s": 159.424, "ns": 1894253.4}, "avx2fma": {"gmac_s": 58.748, "ns": 5140416.8}}},
+    {"label": "stream_64x1536x384", "n": 1536, "k": 384, "copies": 64, "m": 16, "isas": {"avx512vnni": {"gmac_s": 163.376, "ns": 3696875.7}, "avx2fma": {"gmac_s": 58.907, "ns": 10253049.0}}}
+  ]
+}

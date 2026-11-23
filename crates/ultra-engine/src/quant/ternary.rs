@@ -60,7 +60,7 @@ pub fn linear_t(
     if q.acc.len() < rows * n {
         q.acc.resize(rows * n, 0);
     }
-    let backend = if isa == Isa::Avx2Fma {
+    let backend = if matches!(isa, Isa::Avx2Fma | Isa::Avx512Vnni) {
         ultra_kernels::Backend::Avx2
     } else {
         ultra_kernels::Backend::Scalar

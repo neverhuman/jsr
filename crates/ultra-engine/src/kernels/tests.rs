@@ -214,7 +214,9 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
     for &(rows, n, k) in &[
         (1, 16, 4),
         (5, 33, 30),
+        (8, 48, 64),
         (9, 320, 384),
+        (15, 64, 128),
         (4, 4097, 8),
         (7, 17, 1536),
     ] {
@@ -529,4 +531,62 @@ fn fold_input_affine_matches_unfolded_layernorm_linear() {
         .zip(&y_folded)
         .fold(0.0f32, |a, (&u, &v)| a.max((u - v).abs()));
     assert!(mx < 1e-4, "folded prenorm max diff = {mx}");
+}
+
+#[test]
+fn small_m_is_bit_exact_across_all_available_isas_and_extremes() {
+    use crate::quant::PackedI8;
+    let mut rng = Rng::new(51);
+    let isas: Vec<Isa> = [Isa::Scalar, Isa::Avx2Fma, Isa::Avx512Vnni, Isa::Neon]
+        .into_iter()
+        .filter(|i| i.is_available())
+        .collect();
+    for &(rows, n, k) in &[
+        (1usize, 16usize, 4usize),
+        (1, 33, 30),
+        (1, 131, 384),
+        (2, 65, 384),
+        (2, 17, 1536),
+        (3, 49, 128),
+        (4, 1536, 384),
+        (4, 384, 1536),
+    ] {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 0.5);
+        let mut p = PackedI8::quantize(&w, n, k, Some(&b));
+        if n == 17 {
+            for (i, v) in p.data.iter_mut().enumerate() {
+                *v = if i % 2 == 0 { 127 } else { -127 };
+            }
+            p.rebuild_mm();
+        }
+        let mut a = vec![0i8; rows * p.kp];
+        for (i, v) in a.iter_mut().enumerate() {
+            *v = if n == 17 {
+                if i % 2 == 0 {
+                    -128
+                } else {
+                    127
+                }
+            } else {
+                (rng.next_u32() % 256) as i8
+            };
+        }
+        for r in 0..rows {
+            a[r * p.kp + k..(r + 1) * p.kp].fill(0);
+        }
+        let a7: Vec<i8> = a.iter().map(|&v| (v / 2).clamp(-63, 63)).collect();
+        let sa = rng.vec(rows, 0.1);
+        let ca = rng.vec(rows, 1.0);
+        let (mut want, mut want_a7) = (vec![0.0; rows * n], vec![0.0; rows * n]);
+        scalar::gemm_i8(&p, &a, &sa, &ca, rows, &mut want);
+        scalar::gemm_i8(&p, &a7, &sa, &ca, rows, &mut want_a7);
+        for &isa in &isas {
+            let (mut got, mut got_a7) = (vec![1.0; rows * n], vec![1.0; rows * n]);
+            small_m::gemm_i8_small_m(isa, &p, &a, &sa, &ca, rows, &mut got);
+            small_m::gemm_i8_small_m(isa, &p, &a7, &sa, &ca, rows, &mut got_a7);
+            assert_eq!(got, want, "small_m {isa:?} {rows}x{n}x{k}");
+            assert_eq!(got_a7, want_a7, "small_m_a7 {isa:?} {rows}x{n}x{k}");
+        }
+    }
 }
