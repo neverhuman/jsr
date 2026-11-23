@@ -1,0 +1,11 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /usr/bin/python3
+89916a6b6089566691310804c11a28749a0aeb06b15bb2b328802e4056fafd89  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/arch.json
+5633a93e1979a70a313a3c68490f6b57ef6ab1027d88d9b28d65e874f76fbd7c  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/weights.int8.safetensors
+2a68ffc23cd02333d3b3445721d7e0300f37f4376ca92ff610ffe8ab43d62d56  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/bpe.model
+61984bb878111fa36fb333036bf49126d6bb19fcae736e40e881dc85e41c40b3  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/tokens.txt
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/mel_fbank.f32
+14a7c3e8bc375f4c8f7d2a45d21e1b39566bb72dc5684fcb37e462ebbb4fc7be  /home/ubuntu/jsr-data/opponents/bench-open/anchor/d2e-16457-int8/weights.safetensors
+9bfedb5eddeff47b6c6d13473e7a949501a66f2a2149d8b1c9c89a3fcc8dd0a7  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav
+f397eca4e81d584eabcbc432439a6d5698621c032030836dee6b4d7833712e59  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_workers.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_common.py
