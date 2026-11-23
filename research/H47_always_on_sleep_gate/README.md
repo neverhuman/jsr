@@ -25,7 +25,8 @@
 - **Q5, added false words:** 0 words in 30 h of non-speech for both arms. One added word on the stream's gaps puts the bound at 0.1008/h against 0.10/h, so Q5 misses by a hair.
 - **Q4 against C1:** passes on the stream. INCONCLUSIVE on the AO torture sets at their size (−0.27 pp, bound −1.08).
 - **Low input levels (amendment 8):** the gate misses 0.5% / 1.2% / 3.5% of onsets at −20 / −30 / −40 dB. These are mostly items the recogniser fails on anyway: the misses cost 0 / 6 / 9 words over 600 items, while the recogniser's own WER rises from 8.4% to 21.3%. Gated stays ≥ twin at every level.
-- **Open for default-on:** Q5b and Q4b on fresh data (amendment 9), and the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i). C1 is byte-identical after #72.
+- **Q4b (tier B torture, gated vs C1): FAIL**, first word −0.81 pp [−1.40, −0.22]. The loss is in whole-stream white noise at 10 dB SNR (−2.3 pp); quiet backgrounds gain (+0.3 pp). Default-on is blocked; the gate can still merge behind its flag.
+- **Open:** Q5b (running), and the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i). C1 is byte-identical after #72.
 
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
@@ -375,3 +376,21 @@ The intervals in both tables are one-sided 95% bounds. Results: `results/Q_5ca35
 - **x86 vs NEON:** the x86 AVX2 runs of C0 and C1 on H0 matched the Mac's NEON traces byte for byte over the first 54,507 lines (C0, to 51,516 s) and 49,029 lines (C1, to 46,094 s). They were stopped at the wrap-up (09:55Z), at 52% and 46% of the stream.
 - **#77's rebased head `cd7f831`:** of the PR's 22 files, only `agent/owner-map.json` and `agent/test-map.json` differ from the ACKed `a871f8b`, so the qualification above applies to it unchanged.
 - **Still to run for default-on (lead 09:53Z):** Q5b and Q4b (amendment 9), and the CPU / watts hold on quiet xbabe0 (bench-open 14i: Q2 / Q3 / Q6). The uclamp pacing experiment (H47-U) is dropped with the wrap-up unless the lead reinstates it.
+
+### Q4b: tier B torture sets, gated vs C1 (amendment 9; exploratory, DEV only): FAIL
+- **Data:** tier B's 29 torture cells (13,400 items, 53.78 h). I built them on the Mac with alwayson-bench's pinned generator. All 29 PCM sha256 equal alwayson-bench's x86 build (its 10:09:27Z list; my list `inputs/tierB_torture_sha256.txt`, sha256 4de7fd0b…).
+  - Because the generator draws torture items per tag with tier A's seed, 6,695 items (50.0%) are new relative to tier A's torture cells.
+- **Arms:** gated is #77 at (500, 1500) with identity on: 0 identity and 0 re-decode mismatches, 13,584 wakes. C1 is `ultra-engine-endless` e61121e at T=1500 / R=1000.
+- **Registered result:** first-word recall gated − C1 = **−0.81 pp** (75.32 vs 76.13%; one-sided 95% bounds [−1.40, −0.22]). The point is below −0.5, so **Q4b FAILS**.
+  - WER: 22.73 vs 22.49%, +0.24 pp [+0.12, +0.36].
+  - Items not in tier A: first word −1.26 pp [−1.98, −0.52].
+- **Where it is (post hoc, first word gated − C1):**
+  - By background: N10 −2.26 pp, N20 −0.37, Q +0.31.
+  - By gap: g0.4 −1.63, g3 −0.39, g30 −0.44, g8 +1.12.
+  - By onset: T1v −2.00, T2 −0.57, T1 −0.21.
+  - Worst cells: T1v_g0.4_N10 −9.5, T1v_g3_N10 −4.0, T2_g0.4_N10 −3.0.
+- **Not the wake:** only 78 onsets (0.58%; N10 59, N20 19, Q 0) fall outside every session segment, and on them the gate lost 2 first words that C1 got.
+  - The loss comes from decoding each segment fresh with a 500 ms pre-roll, under noise that covers the speech too (10 dB SNR).
+  - The stream and tier A, where speech was clean and noise sat only in the gaps, favoured the gate.
+- **Consequence:** default-on is blocked (lead 09:39Z). The gate can still merge behind its flag. A design change, such as a longer pre-roll or warm context when the noise floor is high, would need a fresh test; it is deferred to v3.1 by the wrap-up.
+- Results: `results/Q4b_tierB_torture.json`.
