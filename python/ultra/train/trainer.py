@@ -499,43 +499,11 @@ class Trainer:
         return all_reduce_sum([seconds], self.device)[0]
 
     def _global_loss(self, out: dict, active: bool = True):
-        """Rescale each loss component by world * N_rank / N_total (all-reduced token / frame
-        counts) so the averaged gradient equals one process on the concatenated batch; the
-        reported scalars become the global per-token values (identical on every rank)."""
-        from train.dist import all_reduce_sum
+        """Each objective over its own global denominator (train/ddp_loss.py)."""
+        from train.ddp_loss import global_loss
 
-        c, w = self.model.cfg, self.world
-        nr, nc, nk = float(out["rnnt_tokens"]), float(out["ctc_tokens"]), float(out.get("kd_frames", 0))
-        tr, tc, tk = all_reduce_sum([nr * active, nc * active, nk * active], self.device)
-        fr = w * active * max(1.0, nr) / max(1.0, tr)
-        fc = w * active * max(1.0, nc) / max(1.0, tc)
-        fk = w * active * nk / max(1.0, tk)
-        if "rnnt_simple" in out:
-            rn = self._pruned_scale() * out["rnnt"] + c.simple_loss_scale * out["rnnt_simple"]
-        else:
-            rn = out["rnnt"]
-        loss = fr * rn + c.ctc_weight * fc * out["ctc"]
-        if "kd" in out:
-            loss = loss + self.cfg.kd_weight * fk * out["kd"]
-        if "zloss" in out:  # H23 joiner z-loss: a per-rank mean, averaged across active ranks
-            loss = loss + self.cfg.zloss * float(active) * out["zloss"]
-        if "cr_ctc" in out:  # H26 CR-CTC consistency KL: per-rank mean over valid frames
-            loss = loss + self.cfg.cr_ctc_weight * float(active) * out["cr_ctc"]
-        if "inter_ctc" in out:  # H28 Self-Conditioned InterCTC: same token weighting as CTC
-            loss = loss + self.cfg.inter_ctc_weight * fc * out["inter_ctc"]
-        if "balancer" in out:  # H28 Activation Balancer: per-rank mean
-            loss = loss + self.cfg.balancer_weight * float(active) * out["balancer"]
-        if self.cfg.kd_weight > 0 and "kd" not in out:
-            out["kd"] = out["rnnt"].new_zeros(())
-        keys = ["rnnt", "ctc"]
-        if "rnnt_simple" in out:
-            keys.append("rnnt_simple")
-        if self.cfg.kd_weight > 0:
-            keys.append("kd")
-        scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
-        vals = all_reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], self.device)
-        out = dict(out, **{k: torch.tensor(v) for k, v in zip(keys, vals[:-1], strict=True)})
-        return loss, dict(out, loss_global=vals[-1])
+        return global_loss(out, self.cfg, self.model.cfg, self.world, self.device,
+                           self._pruned_scale(), active)
 
     def _diverged(self, detail: str, extra: dict) -> None:
         diag = os.path.join(self.run_dir, "DIVERGED.json")
@@ -645,7 +613,8 @@ class Trainer:
         with eval_weights(self.opt):
             return self._evaluate(max_batch_s)
 
-    def _evaluate(self, max_batch_s: float, chunk: int | None = None) -> dict:
+    def _evaluate(self, max_batch_s: float, chunk: int | str | None = None) -> dict:
+        from train.chunks import resolve as resolve_chunk
         from ultra.wer import corpus_wer
 
         self.model.eval()
@@ -657,7 +626,7 @@ class Trainer:
             while j < len(exs) and exs[j].seconds * (j - i + 1) <= max_batch_s:
                 j += 1
             b = collate(exs[i:j]).to(self.device)
-            toks, f = self.model.greedy(b.feats, b.feat_lens, chunk or self.cfg.chunk or None)
+            toks, f = self.model.greedy(b.feats, b.feat_lens, resolve_chunk(chunk, self.cfg.chunk))
             forced += f
             refs.extend(b.texts)
             hyps.extend(self.tok.decode(t) for t in toks)
@@ -673,16 +642,18 @@ class Trainer:
         out: dict = {}
         if not self.cfg.eval_chunks or not self.dev or self.tok is None:
             return out
-        for c in [int(v) for v in self.cfg.eval_chunks.split(",") if v.strip()]:
+        from train.chunks import key, parse_list
+
+        for c in parse_list(self.cfg.eval_chunks):  # positive chunks and the explicit 'offline'
             with eval_weights(self.opt):
-                out[f"wer_c{c}"] = self._evaluate(300.0, c).get("wer")
+                out[f"wer_{key(c)}"] = self._evaluate(300.0, c).get("wer")
             ema = self._evaluate_ema(c).get("ema_wer")
             if ema is not None:
-                out[f"ema_wer_c{c}"] = ema
+                out[f"ema_wer_{key(c)}"] = ema
         return out
 
     @torch.no_grad()
-    def _evaluate_ema(self, chunk: int | None = None) -> dict:
+    def _evaluate_ema(self, chunk: int | str | None = None) -> dict:
         """Dev WER of the EMA weights (swapped in, then the live weights restored)."""
         if self.ema is None or not self.dev or self.tok is None:
             return {}
@@ -690,7 +661,7 @@ class Trainer:
         self.model.load_state_dict(self.ema)
         try:
             # as loaded: no Schedule-Free x swap over the EMA weights
-            ev = self._evaluate(300.0, chunk) if chunk else self._evaluate(300.0)
+            ev = self._evaluate(300.0, chunk)  # None inherits; 'offline' is explicit (train/chunks.py)
         finally:
             self.model.load_state_dict(live)
         return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
@@ -766,6 +737,8 @@ class Trainer:
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
+                          **({"kd_counts": dict(self.source.teacher.counts)}
+                             if getattr(self.source, "teacher", None) else {}),
                           **({"zloss": acc["zloss"] / acc["n"]} if "zloss" in acc else {}),
                           **({"cr_ctc": acc["cr_ctc"] / acc["n"]} if "cr_ctc" in acc else {}),
                           **({"inter_ctc": acc["inter_ctc"] / acc["n"]} if "inter_ctc" in acc
@@ -842,13 +815,14 @@ def load_dev(split: str, limit: int, feat) -> list[Example]:
     return [feat.example(u.uid, u.text, u.pcm) for u in load_split(split, limit)]
 
 
-def _teacher(cfg: TrainConfig):
+def _teacher(cfg: TrainConfig, tok=None):
     if not cfg.kd_dir:
         return None
     from train.kd import TeacherStore
 
-    store = TeacherStore(cfg.kd_dir)
-    print(json.dumps({"kind": "teacher", "entries": len(store), "topk": store.topk}), flush=True)
+    store = TeacherStore(cfg.kd_dir, tokenizer_sha256=getattr(tok, "sha256", None))
+    print(json.dumps({"kind": "teacher", "entries": len(store), "topk": store.topk, **store.identity}),
+          flush=True)
     return store
 
 
@@ -899,6 +873,9 @@ def main(argv=None) -> int:
     if cfg.kd_weight > 0 and not cfg.kd_dir:
         raise ValueError("kd_weight > 0 needs kd_dir (the R0 teacher cache)")
     model_cfg = model_config_for(cfg)
+    from train.chunks import check_plan
+
+    check_plan(cfg, model_cfg)  # illegal chunks fail before step 0, not at their first draw
     if tok_r.num_outputs != model_cfg.vocab_rnnt or tok_c.num_outputs != model_cfg.vocab_ctc:
         raise ShapeError(f"tokenizer sizes {tok_r.num_outputs}/{tok_c.num_outputs} != model heads "
                          f"{model_cfg.vocab_rnnt}/{model_cfg.vocab_ctc}")
@@ -915,7 +892,7 @@ def main(argv=None) -> int:
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
                                                     if v.strip()),
                                 pad_frames=cfg.pad_frames, pad_tokens=cfg.pad_tokens,
-                                teacher=_teacher(cfg), loader=cfg.loader,
+                                teacher=_teacher(cfg, tok_r), loader=cfg.loader,
                                 window_groups=cfg.window_groups, synth_aug=cfg.synth_aug)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env

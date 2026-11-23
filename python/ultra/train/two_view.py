@@ -17,6 +17,10 @@ def ctc_view(self, x, b, chunk, cr_target) -> dict:
 
     m = self.model
     enc, enc_lens = m.encoder(x, b.feat_lens, chunk)
+    if getattr(b, "ctx", None) is not None:  # stream context: CTC on the utterance frames only (H44)
+        from train.stream_ctx import shift_rows
+
+        enc, enc_lens = shift_rows(enc.float(), enc_lens, b.ctx)
     with torch.autocast(device_type=enc.device.type, enabled=False):
         lp = torch.log_softmax(m.ctc_head(enc.float()).float(), dim=-1)
         total, tokens, _ = ctc_loss(lp, enc_lens, b.ctc, b.ctc_lens, None)
@@ -51,7 +55,8 @@ def two_view_step(self, batch, b, gen: torch.Generator) -> dict:
     args = (b.feats, b.feat_lens, b.rnnt, b.rnnt_lens, b.ctc, b.ctc_lens)
     kw = {"chunk": self._step_chunk(), "pruned_scale": self._pruned_scale(),
           "simple_detach": self.step < c.prune_hold, "cr_ctc_weight": c.cr_ctc_weight,
-          **({"delay_penalty": c.delay_penalty} if c.delay_penalty else {})}
+          **({"delay_penalty": c.delay_penalty} if c.delay_penalty else {}),
+          **({"ctx": b.ctx} if getattr(b, "ctx", None) is not None else {})}
     cuda = self.device.type == "cuda"
     ac = {"device_type": self.device.type, "dtype": torch.bfloat16, "enabled": cuda}
 
