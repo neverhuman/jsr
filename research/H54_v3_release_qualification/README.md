@@ -32,6 +32,8 @@ Does one frozen artifact (weights + decoder + scorer) pass every registered v3 r
 ## Results: qualification receipts
 Paths are on the data drive unless they start with `research/` or `docs/`. Full sha256 values are in [`MANIFEST`](MANIFEST).
 
+bench-open's x0 receipts are also committed in the repo, byte-identical to the files cited below, under [`docs/paper/data/raw/opponents/bench-open-release/`](../../docs/paper/data/raw/opponents/bench-open-release/README.md) (PR #109). That covers the 14g / 14i / 14k / 14m runs, their joins (`joins/14m.jsonl`, `joins/14i_q_cpu_summary.json`, `joins/14k.jsonl`, `joins/14fg_power_holds.jsonl`) and the release-eval rows.
+
 | # | Check | Registered rule | Artifact | Result | Verdict | Receipt (sha256 prefix) | Posted |
 |---:|---|---|---|---|---|---|---|
 | 1 | **E1, WER** | ≤ 7,895 edits; pooled upper < 0; dev-clean and dev-other uppers ≤ +0.20 pp | A (binary 9a142e8e, 40 s cap) | **Final text, utterance-segmented: 6,455 edits = 6.087%** (3.236 / 9.121). The live stream is B0 INT8 text for text: 8,773 edits = 8.272%. Pooled −2.186 [−2.435, −1.943]; dev-clean −1.225 [−1.427, −1.043]; dev-other −3.209 [−3.702, −2.747] | **PASS** | `evals/eval-lane/h41/verdicts/release-row-B0-CP-LM-pad320-bb1071a.json` (0c11b857). Input `runtime-lane/release_bb1071a_pad320_fulldev/…committed.score-input.jsonl` (65fb4ddd). Run receipt `…/release_bb1071a_pad320_fulldev.receipt.json` (d860ea86) | eval-lane 12:08:17Z |
