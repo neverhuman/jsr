@@ -52,3 +52,38 @@ d12cf94a7aa5686bd662b50f29f4974319ed274f68e653c181536ac587b9a2ff  test-clean.npz
 | VoxPopuli EN test | cluster = plenary session (`<date>-<time>-PLENARY`) | 1,842 | 275 | `cache/ood_pcm/voxpopuli.clusters.json` | `41b33521760949f9b306e9d5e1e414f57bbc94796b56f3d97e87be8f3a46df69` |
 
 - **Caveat:** AMI has only 16 clusters, so its intervals will be wide. That is honest, not a defect.
+
+## Libri-Light small + medium: TRAIN audio, pseudo-labelled (ULTRA v3.0.0 / v3.0.1), recorded 2026-11-23
+- **Source:** the Libri-Light `small` and `medium` archives (facebookresearch/libri-light, `data_preparation/README.md`), which are LibriVox audiobook recordings.
+- **Rights:**
+  - Libri-Light's code is MIT, and its data-preparation README states no separate terms for the audio.
+  - LibriVox releases its recordings into the public domain (USA). That statement was not re-fetched on 2026-11-23: the LibriVox site returned HTTP 522.
+- **Use:**
+  - Training audio only (TRAIN), never used for evaluation.
+  - The labels are R0 pseudo-labels (next section).
+  - Speaker and book overlap with all four LibriSpeech dev / test sets was checked (`data-overlap-check` lines in `LOOKS.jsonl`). Overlapping files and probable duplicates of 960 h chapters were excluded (H52).
+- **Label manifests that v3.0.0 trained on (v1.1 R0 labels):**
+  - small: 99,109 utterances, 378.65 h, `SHA256SUMS` `8f371a650591ff0663712f3b2603d963abeb69798636f008eb7fcadd5a5d59f3`;
+  - medium: 888,265 utterances, 3,395.81 h, `SHA256SUMS` `7e87f000be40a0d028db8b83fa0229c39cff7c2698fee9fa8383a25f98e25892`.
+
+## R0 pseudo-labels: derived labels (ULTRA v3.0.0 / v3.0.1), recorded 2026-11-23
+- **Labeller:** R0, the sherpa-onnx streaming Zipformer EN 2023-06-26 (candidate `zipformer-en-2023-06-26` in `CANDIDATES.lock`).
+- **Rights:**
+  - Its Hugging Face model card declares `apache-2.0`, though no page names which repository's licence covers the weights.
+  - Its training code (k2-fsa/icefall) is Apache-2.0.
+- **Distribution:** the labels themselves are not distributed. The weights trained on them are (see "Distribution of the v3 artifact").
+
+## LM text: OpenSLR 11 (LibriSpeech LM corpus), recorded 2026-11-23
+- **Source:** https://www.openslr.org/11/, `librispeech-lm-norm.txt.gz` ("14500 public domain books"). OpenSLR lists the resource as "License: Public domain".
+- **Use:**
+  - the M5 token 5-gram (KenLM) in `M5.ulm`, sha256 `72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982`;
+  - the LODR bigram in the same file, which is trained on the LibriSpeech 960 h transcripts (CC BY 4.0, above).
+- **Known overlap:** 42 of the 3,719 long DEV transcripts appear verbatim in this text. H42 found no measurable effect on the LM gain.
+
+## Distribution of the v3 artifact (2026-11-23)
+- **Cleared by the owner (2026-11-23)** as GitHub release files:
+  - the v3 INT8 weights;
+  - the `M5.ulm` LM pack;
+  - the release decoder and the scorer.
+  - They are attached to `v3.0.0` (unsigned) and `v3.0.1` (signed; [`releases/pinned.json`](releases/pinned.json)).
+- **Attribution in the release notes:** LibriSpeech (CC BY 4.0): V. Panayotov, G. Chen, D. Povey, S. Khudanpur, "LibriSpeech: an ASR corpus based on public domain audio books", ICASSP 2015.
