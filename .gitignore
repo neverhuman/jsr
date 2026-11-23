@@ -14,3 +14,13 @@ __pycache__/
 /agent_paper.md
 /agent_paper.lock
 /fleet_chat.md
+
+# research record: results only, never model weights (owner convention 2026-11-23)
+research/**/*.pt
+research/**/*.pth
+research/**/*.ckpt
+research/**/*.safetensors
+research/**/*.onnx
+research/**/*.ulm
+research/**/*.bin
+research/**/*.npz

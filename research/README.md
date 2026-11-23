@@ -13,6 +13,8 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
   5. **Decision / consequence**: what changed in the plan or code.
   6. **Pointers**: commits, docs, reviews, and data-drive paths for large artifacts.
 - **What may be committed:** small summaries only (tables, small JSON). **No models, checkpoints, audio or large logs.** Those stay on `/mnt/xbabe3-external/jsr/...` and are referenced by path and sha256.
+- **Pre-registration first (v3 onward):** the README's hypothesis, arms, seeds, gates, kill rules and compute are committed **before** any run. A wave folder may also hold `configs/` (run configs), `results/` (metrics JSON/JSONL, score summaries, latency and power receipts) and a `MANIFEST` of checkpoint and data paths with sha256.
+- **Enforced by CI:** `python/ultra/tests/test_research_record.py` (in the pytest-light lane) fails on any tracked file under `research/` that looks like weights (`.pt`, `.ckpt`, `.safetensors`, `.onnx`, `.ulm`, `.bin`, `.npz`) or is larger than 5 MB.
 - **Status labels:** `EXPLORATORY` (shared host, not pre-registered), `QUALIFYING` (FREEZE protocol, quiet host), `FAILED` (kept on purpose), `SUPERSEDED`.
 - **Where the authorities live:** `docs/ultra/` holds the plans, freeze, decisions and ledgers (`EXPERIMENTS.jsonl`, `LOOKS.jsonl`). `docs/ultra/reviews/` holds the independent reviews. Waves summarise and link to them; they don't replace them.
 
@@ -58,5 +60,17 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H41](H41_replay_gates/README.md) | **Replay gates:** fork H22ctl step 60,000, replay 8k steps; control, A/A, Muon, chunk sampling | PRE-REGISTERED (running) | Adopt only above 2× the A/A spread on full dev-clean + dev-other |
 | [H39](H39_energy/README.md) | Energy per live stream: independent check of the per-core method, core register against the package counter, paced against unpaced | EXPLORATORY, ongoing | Protocol fixed before measuring; results in the wave README |
 | [H42](H42_ngram_lm/README.md) | **n-gram LM for the streaming transducer (ruling O17, "+LM" rows):** word 4-gram N-best rescoring; token n-gram shallow fusion in the beam with LODR; size classes under 50 / 200 MB | EXPLORATORY (pre-registered) | Rescoring −0.37 pp pooled; token 5-gram fusion + LODR about −1.4 pp pooled (−16%), held-out weights |
+| [H43](H43_v3_baseline_and_measurement/README.md) | **v3 baseline and measurement:** B0 = A1 step 49,000; canonical scorer; two latency clocks; correct-by-deadline; statistics; WER error anatomy. [v3 plan](H43_v3_baseline_and_measurement/PLAN.md) | PRE-REGISTERED | B0 full dev 8.272% INT8 (8.302 EMA greedy); 81% of errors are substitutions; end-of-stream truncation found |
+| H44 | **v3 correctness fixes:** the ten confirmed defects (KD guard, causal chunk legality, beam reset, final-text splice, bounded output, minimal INT8 bundle, scorer parity, end padding) | PLANNED | Each fix lands with a witness test |
+| H45 | **v3 zero-training wins:** soups / post-hoc EMA, task-arithmetic bundle, endpoint commit pass (chunk 16 + LM), CTC / MBR | PLANNED | Gate: > 2× spread (0.17 pp) |
+| H46 | **v3 LM and text:** LM gain on B0, compact LM ladder (0.5 / 2 / 8 MiB), text-trained predictor tables (+text) | PLANNED | Keep ≥ 70% of the full LM gain at ≤ 8 MiB |
+| H47 | **v3 always-on sleep gate:** one-pass replay, oracle gate, skip-gate simulation, Rust gate, standard always-on benchmark, uclamp | PLANNED | Silence CPU ≤ 2% of ungated; first-word recall within 0.5 pp |
+| H48 | **v3 latency modes:** A1L (dp 0.005), low-latency mode (≤ 133 ms end-of-word clock), MFA-anchored latency loss, onset peek | PLANNED | No WER loss beyond the spread |
+| H49 | **v3 sequence training and KD:** MWER (canonical scorer), sequence KD on candidate unions, frame KD with the fixed guard | PLANNED | > 2× spread, both seeds |
+| H50 | **v3 fleet training:** A100 island tuning, rank stratification, synchronous DiLoCo proof (fixed roster, exact FP32 deltas) → islands, elastic ops, dashboard v3 | PLANNED | D1 non-inferior to D0 within the spread |
+| H51 | **v3 engine efficiency:** minimal bundle, bounded output, small-M kernels, staged PQ | PLANNED | PQ go / no-go before QAT |
+| H52 | **v3 Libri-Light (semi-supervised, R0 labels; owner-approved):** download, hash, dev/test overlap check, labels on GPU, data-scaling gate | PLANNED | > 2× spread at matched compute |
+| H53 | **v3 trunk and capacity:** adopted recipe + Libri-Light on the full fleet; larger model at fixed gated watts | PLANNED | Release candidate |
+| H54 | **v3 release qualification:** final matrix, metered-device watts, quiet holds, soak, paper, tag v3.0.0 | PLANNED | One artifact passes every gate |
 
-H14 is the chunk-2 fine-tune; dual-mode / 3-mask tier training is executed in H27. Next free: **H43**.
+H14 is the chunk-2 fine-tune; dual-mode / 3-mask tier training is executed in H27. H27–H33 were placeholders from an earlier plan and are superseded by the v3 waves. Next free: **H55**.
