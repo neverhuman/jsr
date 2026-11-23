@@ -22,6 +22,7 @@ tests/test_sp_a_fleet.py
 tests/test_sp_a_sim.py
 tests/test_train_diagnose.py
 tests/test_training_dashboard.py
+tests/test_vram_pack.py
 tests/test_wer.py
 tests/test_word_timing.py
 tests/test_research_record.py

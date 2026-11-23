@@ -80,6 +80,8 @@
     "research/H42_ngram_lm/": "lead",
     "python/ultra/train/lm_parity.py": "training",
     "python/ultra/tools/dashboard_events.py": "training",
-    "python/ultra/tests/test_dashboard_unified_contract.py": "training"
+    "python/ultra/tests/test_dashboard_unified_contract.py": "training",
+    "python/ultra/train/vram_pack.py": "training",
+    "python/ultra/tests/test_vram_pack.py": "training"
   }
 }
