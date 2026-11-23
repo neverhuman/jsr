@@ -18,7 +18,7 @@
   - Use a 500 ms pre-roll, not 1 s: 1 s mostly feeds stationary noise ahead of clean speech and costs first words. Sentinel-0's measured wake delay on the stream is ≤ 450 ms.
 - **Sentinel-0 (PR #75's reference) on the real stream:** wakes before the ring would overflow on 5,567 / 5,567 onsets. Its real segments pass the simulation's criterion 2 (WER −0.036 pp vs C1 at R 1 s; −0.192 pp at R 500).
 - **PR #77's Rust session at the shipping defaults (R 500 ms, idle 1500 ms):**
-  - Q1 exactness passes: 0 identity mismatches across ~90,000 segments (stream, AO tier A, 30 h of non-speech).
+  - Q1 exactness passes: 0 identity mismatches in every run (the stream gated and ungated, 46,829 segments; all 42 AO tier-A runs; the non-speech blocks).
   - Stream WER 8.127%: C1 −0.250 pp, ungated twin −0.158 pp. First words after sleep +1.01 pp vs C1. 0 duplicated words, 2 gap words. Recogniser duty 50.9%.
   - AO tier A: gated ≥ twin in every pooled group. Non-speech: 0.06% duty and 0 words.
   - An 800 ms idle was rejected: it restarts mid-utterance and duplicated 7 words at hot closes.
