@@ -1,5 +1,5 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short and segmenter (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that Figure 1 draws and the abstract and the text quote; `headline.always_on` names the row of ours the always-on tests (energy, capacity, silence, endless stream) ran on, which the text names wherever it quotes them.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short, segmenter and checkpoint (its name in prose) (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that Figure 1 draws and the abstract and the text quote; `headline.always_on` names the row of ours the always-on tests (energy, capacity, silence, endless stream) ran on, which the text names wherever it quotes them.",
   "variants": {
     "dense-r1-int8": {
       "system": "ULTRA dense S, avg. 50/55/60k, INT8",
@@ -42,7 +42,7 @@
     },
     "r0-int8": {
       "system": "Zipformer, INT8 (baseline)",
-      "short": "Zipformer (baseline)",
+      "short": "Zipformer",
       "macro": "Zip",
       "order": 20,
       "text": "Zipformer",
@@ -131,21 +131,24 @@
       "detail": "H22ctl, step 79,800, EMA weights, INT8",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": false
+      "plot": false,
+      "checkpoint": "H22ctl"
     },
     "a1-20000-ema-int8": {
       "system": "ULTRA-S, A1 20,000 EMA, INT8",
-      "short": "ULTRA-S (ours)",
+      "short": "ULTRA-S A1 20k",
       "macro": "Aone",
       "order": 3,
       "text": "\\ultra{}-S",
-      "detail": "A1, step 20,000 of 49,000; training continues",
+      "detail": "A1, step 20,000 of 49,000",
       "runtime_short": "ours",
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": false,
+      "checkpoint": "A1 step 20,000"
     },
     "parakeet-tdt-v3-int8": {
-      "system": "Parakeet TDT v3 0.6B, INT8",
-      "short": "Parakeet TDT v3",
+      "system": "Parakeet TDT v3 (sherpa)",
+      "short": "Parakeet v3 sherpa",
       "macro": "ParakeetTdt",
       "order": 50,
       "runtime_short": "sherpa-onnx",
@@ -153,11 +156,47 @@
         "nvidia2025parakeettdtv3",
         "sherpaonnx"
       ],
-      "segmenter": "yes"
+      "segmenter": "yes",
+      "text": "Parakeet TDT v3 on sherpa-onnx"
+    },
+    "parakeet-v3-onnxasr-int8": {
+      "system": "Parakeet TDT v3 (onnx-asr)",
+      "short": "Parakeet v3 onnx-asr",
+      "macro": "ParakeetOnnxAsr",
+      "order": 51,
+      "runtime_short": "onnx-asr",
+      "cite": [
+        "nvidia2025parakeettdtv3",
+        "onnxasr"
+      ],
+      "segmenter": "yes",
+      "text": "Parakeet TDT v3 on onnx-asr"
+    },
+    "vosk-small": {
+      "system": "Vosk Small (en-us 0.15)",
+      "short": "Vosk Small",
+      "macro": "VoskSmall",
+      "order": 60,
+      "runtime_short": "Vosk 0.3.45",
+      "cite": [
+        "vosk"
+      ],
+      "segmenter": "no"
+    },
+    "a1-30000-ema-int8": {
+      "system": "ULTRA-S, A1 30,000 EMA, INT8",
+      "short": "ULTRA-S (ours)",
+      "macro": "AoneThirty",
+      "order": 2,
+      "text": "\\ultra{}-S",
+      "detail": "A1, step 30,000 of 49,000; training continues",
+      "checkpoint": "A1 step 30,000",
+      "runtime_short": "ours",
+      "segmenter": "no"
     }
   },
   "headline": {
-    "ours": "a1-20000-ema-int8",
+    "ours": "a1-30000-ema-int8",
     "always_on": "h22ctl-79800-ema-int8"
   }
 }

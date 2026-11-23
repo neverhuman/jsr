@@ -235,9 +235,11 @@ measured one system at a time on an otherwise idle host, and the hardware table 
 ## Figure 1 labels
 
 `money.py` and `labels.py` place every label box in points inside the fixed plot box. A label first tries the eight
-positions around its marker, then positions reached by a leader line. If the figure is too crowded for a label, it
-becomes a number and its name goes into a key under the plot (`\MoneyKey`). A build never ships overlapping labels:
-the generator refuses instead. The legend lists a mark only when it is on the plot (`\MoneyHasFrontier`,
+positions around its marker, then positions reached by a leader line. A label must sit at least `labels.NEAREST`
+(1 pt) nearer its own point than any other point, and never on the frontier line, so no reader pairs a name with the
+wrong point (a leader alone does not make that safe). If the figure is too crowded for a label, it becomes a number
+and its name goes into a key under the legend (`\MoneyKey`); our own point keeps its name while any other label can
+give way. A build never ships overlapping labels: the generator refuses instead. The legend lists a mark only when it is on the plot (`\MoneyHasFrontier`,
 `\MoneyHasStream`, `\MoneyHasWhole`, `\MoneyHasFaded`). A system with a same-run energy line gets its watts beside
 its name. A watts axis appears on top once every drawn system has an energy value and one
 power per busy core fits them all within 15% (`\MoneyWattsCaption` says which state applies).

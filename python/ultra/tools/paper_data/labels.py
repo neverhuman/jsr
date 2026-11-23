@@ -1,7 +1,9 @@
 """Collision-free label placement for a scatter plot whose plot box is known in points.
 
 Each label picks one of a fixed set of candidate boxes: eight that touch its marker, and rings of
-positions reached by a leader line. A deterministic search (coordinate descent, then seeded annealing)
+positions reached by a leader line. A box nearer another point than its own (by less than NEAREST) counts
+as a collision, so a name is never read as another point's, whatever its leader; a number that replaces a
+name in a dense cluster pays a large cost for it instead, so a crowded figure still gets its key. A deterministic search (coordinate descent, then seeded annealing)
 looks for a choice without collisions; `place` reports which labels still collide, so the caller can
 replace them by short numbers and a key.
 """
@@ -13,6 +15,7 @@ import random
 
 LINE_PT, PAD, GAP = 7.4, 0.8, 1.4  # label height, clearance between labels, clearance from the marker
 HARD = 1000.0                       # cost of one collision
+NEAREST = 1.0                       # pt: a label is this much nearer its own point than any other, or it collides
 _NEAR = [(1, 0, 0.0), (-1, 0, 0.3), (0, 1, 0.6), (0, -1, 0.6), (1, 1, 0.9), (1, -1, 0.9), (-1, 1, 1.1), (-1, -1, 1.1)]
 _REACH = (9.0, 18.0, 30.0, 46.0, 64.0)  # leader lengths in pt
 _ANGLES = 12
@@ -71,12 +74,21 @@ def candidates(p: dict) -> list[dict]:
     return out
 
 
+def gap(box, x: float, y: float) -> float:
+    """Distance from a point to the nearest edge of a box (0 inside it)."""
+    return math.hypot(max(box[0] - x, 0.0, x - box[2]), max(box[1] - y, 0.0, y - box[3]))
+
+
 def _static(i: int, cand: dict, pts: list[dict], fixed: list, lines: list, size: tuple) -> float:
     box, cost = cand["box"], cand["pen"]
     if box[0] < 1 or box[1] < 1 or box[2] > size[0] - 1 or box[3] > size[1] - 1:
         return math.inf
+    own = gap(box, pts[i]["px"], pts[i]["py"])  # a label nearer another point reads as that point's label
+    wrong = HARD if pts[i].get("number") is None else 500.0  # a number in a dense cluster may have no clear spot
+    cost += wrong * sum(gap(box, q["px"], q["py"]) < own + NEAREST for q in pts
+                        if math.hypot(q["px"] - pts[i]["px"], q["py"] - pts[i]["py"]) >= 2.5)
     cost += HARD * sum(overlap(box, f) or bool(cand["leader"] and seg_hits_box(cand["leader"], f)) for f in fixed)
-    cost += 150 * sum(seg_hits_box(seg, box) for seg in lines)
+    cost += HARD * sum(seg_hits_box(seg, box) for seg in lines)  # a label never sits on the frontier line
     for j, q in enumerate(pts):
         near = math.hypot(q["px"] - pts[i]["px"], q["py"] - pts[i]["py"]) < 2.5  # the point itself or a twin on it
         mark = (q["px"] - q["r"], q["py"] - q["r"], q["px"] + q["r"], q["py"] + q["r"])

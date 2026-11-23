@@ -55,10 +55,14 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         share, x = fmt(100.0 * h["cpu"], 1), speed_text(h["speed"])
         tail = f", against {_names(vs)}" if vs else ""
         m3 = ao.m3(root) if aon and aon["variant"] == ao.XISA_VARIANT else None
+        best = [max((r for r in peers if r["class"] == c), key=lambda r: derived(r)["speed"], default=None)
+                for c in ("streaming", "whole_utterance")]  # the abstract names the fastest of each class
+        short = [f"{fmt(h['speed'] / derived(r)['speed'], 1)}\u00d7 the fastest {kind} system there ({_name(r)}, "
+                 f"{speed_text(derived(r)['speed'])}\u00d7)" for r, kind in zip(best, ("other streaming", "whole-clip")) if r]
         fact("Cost", "Cost", f"One live stream of ULTRA costs {share}% of one CPU core: {x}\u00d7 real time on one "
-             f"quiet Zen\u00a02 core{tail}.",
+             f"quiet Zen\u00a02 core" + (f", {_names(short)}" if short else "") + ".",
              f"{share}% of one CPU core per live stream: {_name(head)} ({_ck(head)}) runs at {x}\u00d7 real time "
-             f"on one quiet Zen 2 core{tail}." + (f" {'The previous checkpoint, ' + _ck(aon) + ',' if aon is not head else _ck(aon)}"
+             f"on one quiet Zen 2 core{tail}." + (f" {'An earlier checkpoint, ' + _ck(aon) + ',' if aon is not head else _ck(aon)}"
                                                   f" runs at {speed_text(m3['speed'])}\u00d7 on one Apple M3 Ultra core."
                                                   if m3 else ""), rowsrc(head, *peers),
              "share of one core and speed of the headline row and of every other system on its host", panel)
@@ -68,26 +72,32 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
     else:
         fact("Cost", "Cost", None, None, {}, "pending", panel)
     # ---- 2. watts: the always-on row against every other system with a same-run energy line on its host
-    wrows = sorted((r for r in others if r.get("watts") is not None and aon and r["host"] == aon["host"]),
+    mine = sorted((r for r in group if r["role"] == "ours" and r.get("watts") is not None and head
+                   and r["host"] == head["host"]), key=lambda r: (r is not head, r.get("order", 999)))
+    wr = mine[0] if mine else aon  # our own energy line first, then the newest checkpoint of ours that has one
+    wrows = sorted((r for r in others if r.get("watts") is not None and wr and r["host"] == wr["host"]),
                    key=lambda r: r["watts"])
-    if aon and aon.get("watts") is not None and wrows:
-        w = aon["watts"]
+    tests = "Our always-on tests" if wr is aon else "Our capacity, silence and endless-stream tests"
+    intro = ("" if aon is head or not head else f"{tests} ran on an earlier checkpoint, {_ck(aon)} (same "
+             f"architecture; speed within {max(1, math.ceil(100.0 * abs(derived(aon)['speed'] / derived(head)['speed'] - 1.0)))}"
+             f"% of {_ck(head)}): ")
+    if wr and wr.get("watts") is not None and wrows:
+        w = wr["watts"]
         ratio = [(fmt(r["watts"] / w, 1), r) for r in wrows]
         kwh = fmt(w * HOURS_PER_YEAR / 1000.0, 1)
-        same = abs(derived(aon)["speed"] / derived(head)["speed"] - 1.0) if head else 0.0
-        who = ("" if aon is head else f"Our always-on tests ran on the previous checkpoint, {_ck(aon)} (same "
-               f"architecture; speed within {max(1, math.ceil(100.0 * same))}% of {_ck(head)}): ")
+        who, intro = (intro, "") if wr is aon else ("", intro)  # the clause opens the first fact measured on aon
+        who = who or ("" if wr is head else f"{_ck(wr)}, an earlier checkpoint ({_ck(head)} is not measured yet): ")
         ends = [ratio[0], ratio[-1]] if len(ratio) > 1 else ratio[:1]
         fact("Watts", "Watts", f"{who}{'one' if who else 'One'} stream draws {fmt(w, 2)}\u2009W, "
              + " and ".join(f"{q}\u00d7 less than {_name(r)}" for q, r in ends) + ".",
-             f"{fmt(w, 2)} W per always-on stream ({_ck(aon)}; core energy registers, same run), about {kwh} kWh per "
+             f"{fmt(w, 2)} W per always-on stream ({_ck(wr)}; core energy registers, same run), about {kwh} kWh per "
              "stream-year: " + _names([f"{q}× less than {_name(r)} ({fmt(r['watts'], 2)} W)" for q, r in ratio]) + ".",
-             rowsrc(aon, *wrows), "watts per always-on stream of the always-on row against the other systems", panel)
-        put("AoWatts", fmt(w, 2), rowsrc(aon), f"W per always-on stream, {_ck(aon)}", panel, raw=w, unit="W")
-        put("MoneyOursWatts", "\\relax" if aon is head else tex(
-            f"No watts are drawn for ours: {_ck(head)} has no energy measurement yet; {_ck(aon)}, the previous "
-            f"checkpoint, draws {fmt(w, 2)}\u2009W."), rowsrc(aon), "Figure 1 caption: watts of ours", panel)
-        put("AoKwh", kwh, rowsrc(aon), f"kWh per stream-year, {_ck(aon)} (W x 8766 h)", panel,
+             rowsrc(wr, *wrows), "watts per always-on stream of our row against the other systems", panel)
+        put("AoWatts", fmt(w, 2), rowsrc(wr), f"W per always-on stream, {_ck(wr)}", panel, raw=w, unit="W")
+        put("MoneyOursWatts", "\\relax" if wr is head else tex(
+            f"No watts are drawn for ours: {_ck(head)} has no energy measurement yet; {_ck(wr)}, an earlier "
+            f"checkpoint, draws {fmt(w, 2)}\u2009W."), rowsrc(wr), "Figure 1 caption: watts of ours", panel)
+        put("AoKwh", kwh, rowsrc(wr), f"kWh per stream-year, {_ck(wr)} (W x 8766 h)", panel,
             raw=w * HOURS_PER_YEAR / 1000.0, unit="kWh")
     else:
         fact("Watts", "Watts", None, None, {}, "pending", panel)
@@ -99,7 +109,7 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         zlag = f"{fmt(z['lo'], 0)}\u2013{fmt(z['hi'], 0)}\u2009ms"
         flat = f"flat from {o['n_min']} to {o['n']} streams" if o["flat"] else f"over {o['n_min']} to {o['n']} streams"
         wl = "the first 22 panel utterances (128 s) per stream, paced at real time, all streams on one core"
-        fact("Capacity", "Capacity", f"One core carries {o['n']} such streams at a 95th-percentile word lag of {lag}, "
+        fact("Capacity", "Capacity", f"{intro}{'one' if intro else 'One'} core carries {o['n']} live streams at a 95th-percentile word lag of {lag}, "
              f"{flat}; Zipformer carries {z['n']} at {zlag}.",
              f"{o['n']} live streams on one core ({_ck(aon)}), 95th-percentile word lag {lag}, {flat}; Zipformer holds "
              f"{z['n']} streams at {zlag}. Measured on one core; from the CPU cost the ceilings are about "
@@ -169,10 +179,12 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
     else:
         fact("Endless", "Endless", None, None, {}, "pending", "pending")
     # ---- 6. the same words on three instruction sets, and INT8 against FP32 on full dev
-    sw, i8 = ao.same_words(root), (ao.int8(root, head["variant"]) if head else None)
+    i8row = next((r for r in sorted((r for r in group if r["role"] == "ours"), key=lambda r: (r is not head,
+                  r.get("order", 999))) if ao.int8(root, r["variant"])), None)  # the newest checkpoint with a report
+    sw, i8 = ao.same_words(root), (ao.int8(root, i8row["variant"]) if i8row else None)
     if sw and i8 and aon and aon["variant"] == ao.XISA_VARIANT:
         isas = _names(sw["isas"])
-        i8s = (f"on full dev ({i8['utts']:,} utterances) {_ck(head)} scores {fmt(i8['observed_b'], 2)}% pooled WER in "
+        i8s = (f"on full dev ({i8['utts']:,} utterances) {_ck(i8row)} scores {fmt(i8['observed_b'], 2)}% pooled WER in "
                f"the INT8 engine against {fmt(i8['observed_a'], 2)}% in FP32 PyTorch ({_sg(i8['delta'], 2)}\u2009pp, "
                f"bounds {_sg(i8['lower'], 2)} to {_sg(i8['upper'], 2)})")
         src = {"source": f"{sw['source']}; {i8['source']}", "digest": sw["digest"]}
