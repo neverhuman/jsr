@@ -15,13 +15,16 @@ from train.transducer import BLANK, Joiner, StatelessPredictor
 @torch.no_grad()
 def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: torch.Tensor,
                          lens: torch.Tensor, beam: int = 4, blank_penalty: float = 0.0,
-                         length_norm: bool = False, nbest: list | None = None) -> list[list[int]]:
+                         length_norm: bool = False, nbest: list | None = None,
+                         fusion=None) -> list[list[int]]:
     """enc_p (B, T, J) already projected; returns the best token list per utterance.
 
     blank_penalty is subtracted from the blank log-probability at every frame (> 0 favours
     emitting tokens, countering deletions). length_norm picks the final hypothesis by score per
     token instead of total score (as icefall's get_best(length_norm=True)). If `nbest` is a list,
-    each utterance's final beam is appended to it as [(tokens, score), ...], best first."""
+    each utterance's final beam is appended to it as [(tokens, score), ...], best first.
+    `fusion` (train.lm_fusion.NgramFusion or any callable) maps the live hypotheses to a
+    (len, vocab) tensor that is added to their log-probabilities (shallow fusion); None = no LM."""
     if beam < 1:
         raise ValueError("beam must be >= 1")
     if blank_penalty < 0:
@@ -37,6 +40,8 @@ def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: t
                 joiner.logits(enc_p[b, t].expand(len(seqs), -1), predictor(ctx)).float(), dim=-1)
             if blank_penalty:
                 logp[:, BLANK] -= blank_penalty
+            if fusion is not None:
+                logp = logp + fusion(seqs).to(logp.device)
             scores = torch.tensor([hyps[s] for s in seqs], device=enc_p.device)[:, None] + logp
             top = torch.topk(scores.flatten(), min(beam, scores.numel()))
             new: dict[tuple[int, ...], float] = {}

@@ -53,4 +53,30 @@ candidates:
     status: TRAINING  # selection on DEV after D2 completes; the ETA depends on the guard (GPU shared with other projects)
   - candidate_id: r1-mr
     status: TRAINING_OUTSIDE_INITIAL_FREEZE  # D1MR (xbabe1, 100 h) and D2MR (xbabe2, 960 h, 5 epochs); add-on block only
+  # Decoding language-model data, owner ruling O17 (docs/ultra/RULINGS.md): LibriSpeech LM resources from OpenSLR 11,
+  # used only for the exploratory "+LM" rows of research/H42_ngram_lm. Downloaded 2026-11-22 from the EU mirror
+  # (openslr.elda.org/resources/11/, same sizes and Last-Modified as www.openslr.org), each into its own directory under
+  # /mnt/xbabe3-external/jsr/lm/downloads/openslr11/<file>.d/. OpenSLR publishes no checksum list for resource 11
+  # (md5sum.txt and variants return 404), so the pin is our own sha256 plus size; the md5 is recorded for comparison
+  # with other mirrors. The three ARPA archives pass gzip -t.
+  - candidate_id: lm-openslr11-4-gram-arpa
+    status: RESEARCH_UNQUALIFIED  # O17; word 4-gram for N-best rescoring ("+LM" rows only)
+    source: https://openslr.elda.org/resources/11/4-gram.arpa.gz  # bytes 1355172078, Last-Modified 2017-10-03T20:30:55Z
+    file_sha256: f2b2d1507637ddf459d3579159f7e8099ed7d77452ff1059aeeeaea33d274613
+    file_md5: 6abdcd5b055bd482e4f9defe91d40408
+  - candidate_id: lm-openslr11-3-gram-pruned-1e-7-arpa
+    status: RESEARCH_UNQUALIFIED  # O17; pruned word 3-gram ("+LM" rows only)
+    source: https://openslr.elda.org/resources/11/3-gram.pruned.1e-7.arpa.gz  # bytes 34094057, Last-Modified 2017-10-03T20:30:15Z
+    file_sha256: 71dd880667cb6ea3942bb1982988c91fb1208839a21911eeec7e31c857c4bdfb
+    file_md5: 9a0f1325bcaf3a0f7b7be4be10823c2a
+  - candidate_id: lm-openslr11-3-gram-pruned-3e-7-arpa
+    status: RESEARCH_UNQUALIFIED  # O17; pruned word 3-gram ("+LM" rows only)
+    source: https://openslr.elda.org/resources/11/3-gram.pruned.3e-7.arpa.gz  # bytes 13654242, Last-Modified 2017-10-03T20:30:15Z
+    file_sha256: 0e704566429c26e1557f5c4cff922c44655b4a39190bdfde08d71df363b856fe
+    file_md5: 8f67ec741827742eee05799ab7605b50
+  - candidate_id: lm-openslr11-librispeech-lm-norm-txt
+    status: RESEARCH_UNQUALIFIED  # O17; LM training text for the token-level n-gram ("+LM" rows only)
+    source: https://openslr.elda.org/resources/11/librispeech-lm-norm.txt.gz  # bytes 1507274412, Last-Modified 2017-10-03T20:32:48Z
+    file_sha256: 927d47656638c2ca93566640e56bcbeb2aa4ca237b8490fe1eff7d6e610a53c7
+    file_md5: c83c64c726a1aedfe65f80aa311de402
   - note: nothing planned enters the freeze. Only frozen, measured identities with validated manifests do.

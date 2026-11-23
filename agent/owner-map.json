@@ -65,6 +65,18 @@
     "research/H39_energy/": "eval",
     "docs/paper/data/raw/energy/": "eval",
     "python/ultra/tools/energy_report.py": "eval",
-    "docs/paper/run-energy.sh": "eval"
+    "docs/paper/run-energy.sh": "eval",
+    "python/ultra/train/lm_fusion.py": "training",
+    "python/ultra/train/lm_decode.py": "training",
+    "python/ultra/train/lm_tune.py": "training",
+    "python/ultra/tests/test_train_lm.py": "training",
+    "python/ultra/train/ops/lm_build_kenlm.sh": "training",
+    "python/ultra/train/ops/lm_build_token_lm.sh": "training",
+    "python/ultra/train/ops/lm_beam_grid.sh": "training",
+    "python/ultra/train/ops/lm_sweep.sh": "training",
+    "python/ultra/train/ops/lm_reference.sh": "training",
+    "python/ultra/train/ops/lm_engine_parity.sh": "training",
+    "research/H42_ngram_lm/": "lead",
+    "python/ultra/train/lm_parity.py": "training"
   }
 }

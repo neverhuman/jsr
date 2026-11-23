@@ -284,6 +284,54 @@
     "docs/paper/run-energy.sh": {
       "command": "shellcheck -x -S warning docs/paper/run-energy.sh",
       "purpose": "validate the energy driver (quiet lock handling and one case per arm)"
+    },
+    "python/ultra/train/lm_fusion.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/train/lm_decode.py": {
+      "command": "just pytest",
+      "purpose": "verify encoder-cache parts, shard sets and the LM-text tokeniser"
+    },
+    "python/ultra/train/lm_tune.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/tests/test_train_lm.py": {
+      "command": "just pytest",
+      "purpose": "verify n-gram fusion rows, the beam hook, FastBeam parity, folds, bootstrap and the edge rule"
+    },
+    "python/ultra/train/ops/lm_build_kenlm.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_build_kenlm.sh",
+      "purpose": "validate the user-space KenLM build"
+    },
+    "python/ultra/train/ops/lm_build_token_lm.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_build_token_lm.sh",
+      "purpose": "validate the token n-gram LM build"
+    },
+    "python/ultra/train/ops/lm_beam_grid.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_beam_grid.sh",
+      "purpose": "validate the pinned shard launcher of beam decodes"
+    },
+    "python/ultra/train/ops/lm_sweep.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_sweep.sh",
+      "purpose": "validate the fusion sweep driver (grid, decode, tune, edge rule)"
+    },
+    "python/ultra/train/ops/lm_reference.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_reference.sh",
+      "purpose": "validate the reference re-decode of the chosen configs"
+    },
+    "python/ultra/train/ops/lm_engine_parity.sh": {
+      "command": "shellcheck -x -S warning python/ultra/train/ops/lm_engine_parity.sh",
+      "purpose": "validate the engine-side fusion parity runs"
+    },
+    "research/H42_ngram_lm/": {
+      "command": "just score",
+      "purpose": "H42 n-gram LM wave (summary only) stays visible to the audit"
+    },
+    "python/ultra/train/lm_parity.py": {
+      "command": "just pytest",
+      "purpose": "verify the engine-versus-Python fusion parity comparison"
     }
   }
 }
