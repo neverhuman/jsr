@@ -24,3 +24,6 @@ research/**/*.onnx
 research/**/*.ulm
 research/**/*.bin
 research/**/*.npz
+
+# Installed release files (docs/release.md "Install the pinned release")
+/models/
