@@ -100,6 +100,11 @@ What existed when this was written: all arms of amendments 3 and 4 decoded and s
 - **S2n:** PR #75's `python/ultra/tools/sentinel0_segments.py` (main d72169c) with `--preroll-ms 500 --idle-ms 1500` on this wave's Sentinel-0 trace (`hot.u8` `c9a51519…`), decoded by `h47-oracle-decode` v2 with `--no-flush`.
 - **Readings fixed now:** the same as amendment 4's against C1 (WER ≤ +0.10 pp, one-sided 95% upper ≤ +0.20 pp; first-word recall after sleep, lower bound ≥ −0.5 pp; gap false words); S2n − S1n is descriptive. If S2n passes and is no worse than S1n, the recommendation to the swarm is R = 500 ms with a no-flush close.
 
+## Amendment 6 (2026-11-23, written before the runs it names): the designs' B-6 sweep (shorter idle and pre-roll) on the real Sentinel-0 segments
+What existed when this was written: everything above, S2n (R 500 ms, idle 1500 ms) still decoding, Q pass 1 on PR #77 (3410004) running. Post-hoc and descriptive.
+- **Arms:** PR #75's `sentinel0_segments.py` (main d72169c) on `hot.u8` `c9a51519…` with (pre-roll, idle) = (500, 1000), (500, 700), (300, 1500) and (300, 1000) ms, each decoded by `h47-oracle-decode` with `--no-flush`. Together with S1n (1000, 1500) and S2n (500, 1500) they span the designs' B-6 grid around our measured wake delays (p99 90 ms, max 450 ms).
+- **Rule fixed now** (the designs' B-6 rule, with C1 as the reference): among the arms whose WER is within +0.05 pp of C1 (one-sided 95% upper bound ≤ +0.15 pp) and whose first-word recall after sleep has a one-sided 95% lower bound ≥ −0.5 pp against C1, the recommended setting is the one with the **lowest decoded duty**. Gap false words are reported for each arm. These are recommendations to the swarm's session, not gates.
+
 ## Results
 
 ### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
