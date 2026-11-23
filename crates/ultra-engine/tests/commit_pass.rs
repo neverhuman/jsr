@@ -285,3 +285,40 @@ fn commit_real_weights_smoke_when_data_drive_present() {
     let res = sess.commit_endpoint().expect("commit");
     assert!(!res.committed.trim().is_empty() && res.commit_wall_ms > 0.0);
 }
+
+#[test]
+fn commit_default_cap_is_40s_and_boundary_is_exact() {
+    use ultra_engine::commit::{DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE};
+
+    assert_eq!(DEFAULT_MAX_PCM_SAMPLES, 40 * DEFAULT_SAMPLE_RATE);
+    assert_eq!(CommitConfig::default().max_pcm_samples, 640_000);
+
+    let eng = Engine::new(synthetic_model(1), Isa::Scalar, Precision::F32).expect("engine");
+    let cap = 3_200usize;
+    let cfg = CommitConfig {
+        commit_chunk: 16,
+        tail_pad_samples: 0,
+        max_pcm_samples: cap,
+        ..CommitConfig::default()
+    };
+
+    // Exactly `cap` samples must NOT truncate and must execute the commit pass.
+    let mut sess_ok = CommitPassSession::new(eng.clone(), cfg).expect("session ok");
+    sess_ok.accept_i16(&vec![0i16; cap]).expect("accept exact");
+    assert!(!sess_ok.pcm_truncated());
+    assert_eq!(sess_ok.buffered_samples(), cap);
+    let r_ok = sess_ok.commit_endpoint().expect("commit exact");
+    assert!(!r_ok.pcm_truncated);
+
+    // `cap + 1` samples must set `pcm_truncated` and fall back to provisional text.
+    let mut sess_over = CommitPassSession::new(eng, cfg).expect("session over");
+    sess_over
+        .accept_i16(&vec![0i16; cap + 1])
+        .expect("accept over");
+    assert!(sess_over.pcm_truncated());
+    assert_eq!(sess_over.buffered_samples(), cap);
+    assert_eq!(sess_over.dropped_pcm_samples(), 1);
+    let r_over = sess_over.commit_endpoint().expect("commit over");
+    assert!(r_over.pcm_truncated);
+    assert_eq!(r_over.committed, r_over.provisional);
+}
