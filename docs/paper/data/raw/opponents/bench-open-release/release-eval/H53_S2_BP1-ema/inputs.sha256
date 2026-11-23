@@ -1,0 +1,11 @@
+9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/bin-9a142e8e/ultra-engine-commit
+72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/bin/M5.ulm
+ffd30d962b0adaa1682333476164b6d64da9c6392937784f6dcd82b342592290  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/arch.json
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/bpe.model
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/mel_fbank.f32
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/tokens.txt
+0f35bfb1caa914a9aa58c466d652ec2240df5b6fae1820cbe656325721ad9990  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/weights.int8.safetensors
+78408b188da1dc029f80f815fc0ce61efa26585e1343d132b2ac8e0444d89623  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/models/H53_S2_BP1-ema/weights.safetensors
+4fb67d7e4b933729dbafa0df5a9ac9856369594ec75e9782c8beb041ad57245e  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/fulldev/index.json
+27b1f8c7b5facce2e856588793fd1881d402b69293e6f177bd7cb019c44f28d7  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/fulldev/audio.json
+d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-score

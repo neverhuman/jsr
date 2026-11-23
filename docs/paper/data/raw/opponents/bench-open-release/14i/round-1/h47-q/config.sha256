@@ -1,0 +1,11 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+f163af3b45fa37815870ecc7dc209ff43636f8c2e83478904ee35acfdc643a23  ./h47_q_cpu.sh
+ec403e6b7adf87c79fe058634600a1bacd091ef1242a860c7883ed0655a59efd  ./inputs/MANIFEST.json
+e5fd7952b20615f08789ca85ecb8f189805a879e6a2f1353cf7c991e8572ffbe  ./inputs/panel900.wav
+9b34e683a1136bf99e7511db9e6785d0257a47c7fed2e5675f3c9c7711b5cd12  ./inputs/pink-30_900.wav
+643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc  ./inputs/silence1s.wav
+1e1d45c54c3261cb6da4f64181c5584e4aa3e9fba1ef6faca799f392a49e9d99  ./inputs/silence900.wav
+8eb010c70a9f3ce896445c12772359087328c4f4c9676613010cd9bb68da64b8  ./inputs/tierA/duty05_r1_Q/part-1.wav
+f08fdc305ea5770e7048f06a6e09248698a8b16c96cd2ccb8e8825ea8f0418d7  ./inputs/white-20_900.wav
+363e964cc83615069fe25540a0e14bd68be7a439de140415ef01c1dff755ed2c  ./run.sh
+b6bc7fbd285eb55545b8b9f655251f97ff5dfd49020e3d29e9b4a8499f1a7875  ./ultra-alwayson-check.5ca3583.x86

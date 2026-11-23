@@ -1,0 +1,11 @@
+d441b4e14322d50503b860701500716d9dfc32561f683c54f4ab886bd18700be  /home/ubuntu/jsr-data/opponents/bench-open/assays/commit-pass/run.sh
+9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2  /home/ubuntu/jsr-data/opponents/bench-open/assays/commit-kit/ultra-engine-commit
+72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982  /home/ubuntu/jsr-data/opponents/bench-open/assays/l4-kit/M5.ulm
+b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/arch.json
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/bpe.model
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/mel_fbank.f32
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/tokens.txt
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.int8.safetensors
+0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.safetensors
+010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963  /home/ubuntu/jsr-data/opponents/panel/audio.json
+73743d0da1106401065cd71b3accd05149b17265675bcf5140259e1088bc4640  /home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-1/commit-lm16/out/panel730.manifest.jsonl

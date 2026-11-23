@@ -1,0 +1,5 @@
+f4c1c751498e6c1ea967c14d2c23edff769588cc1a823b8504b926f14d07ce74  /home/ubuntu/jsr-data/opponents/energy/bin/ultra
+b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/arch.json
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.int8.safetensors
+dc6c26037ea356c1f50cde59e6e4e28f53c15f143fd48ad8c60844d4c04e134f  /home/ubuntu/jsr-data/opponents/bench-open/assays/h47-a0/pink-30_600.wav
+618daf194ce813b36df5e53033a3c2f176c1496f6d663e151a0b55acf6c22051  /home/ubuntu/jsr-data/opponents/bench-open/assays/b0-power-p2/reader.py

@@ -1,0 +1,2 @@
+{"beam":1,"blank_gate":false,"capabilities":{"chunk_samples":2560,"cpu_only_verified":true,"name":"ultra-engine-dense-int8-b1581cbb1f22","right_context_samples":0,"supports_batch_step":true,"supports_commit_policy":true,"supports_partial_push":false},"fusion":{"blank_penalty":0.0,"lm":0.0,"lodr":0.0},"lm_bundle":null,"runtime_libraries":{}}
+{"peak_rss_mib":67.68359375}

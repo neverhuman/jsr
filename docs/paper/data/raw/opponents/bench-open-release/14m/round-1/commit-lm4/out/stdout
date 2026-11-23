@@ -1,0 +1,23 @@
+{
+  "commit_beam": 4,
+  "commit_chunk": 16,
+  "commit_lm_path": "/home/ubuntu/jsr-data/opponents/bench-open/assays/l4-kit/M5.ulm",
+  "commit_max_audio_s": 40.0,
+  "isa": "avx2fma",
+  "lm_scale": 0.6499999761581421,
+  "lodr_scale": 0.44999998807907104,
+  "p50_commit_ms": 186.7559,
+  "p95_commit_ms": 514.973197,
+  "pcm_truncated_count": 0,
+  "precision": "Int8",
+  "revised_count": 268,
+  "revised_pct": 36.71232876712329,
+  "summary": true,
+  "tail_pad_ms": 320,
+  "threads": 1,
+  "token_bonus": 0.0,
+  "total_audio_s": 5259.559937500001,
+  "total_commit_ms": 166703.9151530001,
+  "total_prov_ms": 177488.678725,
+  "utterances": 730
+}

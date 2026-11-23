@@ -1,0 +1,38 @@
+{
+ "name": "B0-A1-49000",
+ "decoder": "ultra-engine-commit fb8a95e5: chunk-4 greedy provisional; chunk-16 commit, beam 16 + M5 / LODR 0.80 / 0.60, tail pad 320 ms, 1 thread",
+ "inputs_sha256": [
+  "fb8a95e54f311a6efc2d6a5f95e48a8cd912d7132ea26ada23637b9b6558d361  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/bin106/ultra-engine-commit",
+  "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/bin/M5.ulm",
+  "b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/arch.json",
+  "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/bpe.model",
+  "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/mel_fbank.f32",
+  "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/tokens.txt",
+  "4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.int8.safetensors",
+  "0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.safetensors",
+  "4fb67d7e4b933729dbafa0df5a9ac9856369594ec75e9782c8beb041ad57245e  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/fulldev/index.json",
+  "27b1f8c7b5facce2e856588793fd1881d402b69293e6f177bd7cb019c44f28d7  /home/ubuntu/jsr-data/opponents/bench-open/release-eval/fulldev/audio.json",
+  "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-score"
+ ],
+ "committed": {
+  "wer_clean": 3.256477299738531,
+  "wer_other": 9.131086579833731,
+  "wer_pooled": 6.101608614479416,
+  "edits": 6471,
+  "ref_words": 106054
+ },
+ "provisional": {
+  "wer_clean": 4.461428754274012,
+  "wer_other": 12.329887272939665,
+  "wer_pooled": 8.272200954230865,
+  "edits": 8773,
+  "ref_words": 106054
+ },
+ "cost": {
+  "cpu_s": 48897.6,
+  "max_rss_kb": 702708,
+  "audio_s": 37832.386125,
+  "shards": 279,
+  "revised": 2498
+ }
+}
