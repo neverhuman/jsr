@@ -64,6 +64,10 @@ class TrainConfig:
     # Batches behind the initial CMVN statistics of a from-scratch run. 8 keeps new runs comparable
     # with every earlier one (PR #32 raised the default to 32; set 32 here to opt in).
     cmvn_batches: int = 8
+    pred_ctx: int = 0  # H41 arms 16-18 (train/recipe_opts.py; 0 = preset / built-in value)
+    left_context: int = 0
+    specaug_time_masks: int = 0
+    specaug_time_width: int = 0
     # Per-step attention chunk drawn from this comma list (e.g. "4,8,16" = 160/320/640 ms), the same
     # on every rank; "" = off (bit-exact). After runtime-lane's chunk_modes (PR #30), with its own
     # RNG stream so SpecAugment masks stay those of the fixed-chunk run (paired replay gates).
@@ -208,7 +212,9 @@ class Trainer:
         self.step = 0
         self.pos = Position()
         self.stats = FeasibilityStats()
-        self.augment = SpecAugConfig(enabled=cfg.specaug)
+        from train.recipe_opts import specaug
+
+        self.augment = specaug(cfg)
         self.log_enabled = log
         self.stop_requested = False
         self.saver = checkpoint.AsyncSaver()
@@ -852,10 +858,9 @@ def model_config_for(cfg: TrainConfig) -> ModelConfig:
 
     if cfg.rnnt_pieces < 2 or cfg.ctc_pieces < 2:
         raise ShapeError("rnnt_pieces and ctc_pieces must be >= 2")
-    base = PRESETS[cfg.preset]
-    if cfg.chunk:  # the exported config must carry the trained attention chunk (H14), not the preset's
-        base = dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, chunk=cfg.chunk))
-    return dataclasses.replace(base, vocab_rnnt=cfg.rnnt_pieces + 1,
+    from train.recipe_opts import model_overrides
+
+    return dataclasses.replace(model_overrides(PRESETS[cfg.preset], cfg), vocab_rnnt=cfg.rnnt_pieces + 1,
                                vocab_ctc=cfg.ctc_pieces + 1, rnnt_loss=cfg.rnnt_loss,
                                prune_range=cfg.prune_range)
 
@@ -950,15 +955,11 @@ def main(argv=None) -> int:
             tr.reset_watch()  # and the divergence guard re-arms on the new weights
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
-        import dataclasses
+        from train.recipe_opts import check_init_compatible, widen_state
 
         src = ModelConfig.from_dict(p["model_config"])
-        # the attention chunk only shapes the mask (no weights): a checkpoint may seed another chunk
-        src = dataclasses.replace(src, encoder=dataclasses.replace(src.encoder, chunk=tr.model_cfg.encoder.chunk))
-        if dataclasses.replace(src, qat="none", qat_stem="none") != \
-                dataclasses.replace(tr.model_cfg, qat="none", qat_stem="none"):
-            raise CheckpointError("--init-from checkpoint has a different model config")
-        tr.model.load_state_dict(p["model"])
+        check_init_compatible(src, tr.model_cfg)
+        tr.model.load_state_dict(widen_state(p["model"], src, tr.model_cfg))
         tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],
                 "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})

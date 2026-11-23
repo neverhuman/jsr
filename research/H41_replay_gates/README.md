@@ -126,3 +126,27 @@ Written and posted in the chat before arm 12 started; committed here afterwards.
 - The guard now uses best + ratio x |best| (identical for a positive best) with a test for a negative best. Arm 13b resumed from its step-1,300 checkpoint at 02:08Z with the fixed guard (`DIVERGED.json` kept as `DIVERGED.json.false-positive-0207Z`). Nothing else changed.
 - Arms 13a and 13c have positive total losses (about 1.02-1.13 EMA) and were not at risk; the fix is on their hosts' trees for any later restart.
 
+
+### Arm 13b outcome (recorded 2026-11-23)
+- Arm 13b **collapsed at 0.03** (transducer WER ~94% from step 2,000; CTC healthy). Its kill rule was not re-armed after the guard restart, so ~50 min of the 3090 were lost. Every later arm has an automated kill rule armed from the start that reads the run's `train.jsonl`, so it survives restarts (`train/ops/h41_killrule.sh`).
+
+## Amendments 12-17 (2026-11-23, each posted in AGENT_CHAT before its arm started; committed here afterwards)
+Common to all: fork H22ctl step 60,000, 200 warmup steps to 2.476e-4, cosine to 3.0e-5 at step 8,000, batch 650 s / 144, seed 1234 unless stated, launcher `train/ops/h41_replay.sh`, guard at 0.87. Kill rules are automated from the start: stop by recorded PID if the step-2,000 dev-clean400 EMA at chunk 4 is more than 1.5 pp worse than the comparator's (6.605 vs arm 10, 6.592 vs the chunk arm), or if raw chunk-4 WER exceeds 20% at any eval.
+- **Amendment 12 (02:37Z): arm 13a-r** = arm 13a's settings (`chunk_modes=1,2,4,8,16 eval_chunks=1,2,8 delay_penalty=0.01`) with `seed=4321` (xbabe1). It replicates 13a's latency result (93 / 105 / 146 ms at chunks 1 / 2 / 4, against arm 10's 176 / 199 / 239 ms), since a latency claim needs a seed pair. Reading as for 13a: latency per seed and the pair's mean; WER against arm 10 at chunks 4 and 8 with the four-run spread as the guard.
+- **Amendment 13 (02:54Z): arm 13d** = arm 10's recipe with `delay_penalty=0.0075` (xbabe2), the midpoint between 13c (0.005) and 13a (0.01). Outcome: latency at chunks 1 / 2 / 4. WER guard against arm 10 at chunks 4 and 8.
+- **Amendment 14 (03:03Z): arm 14** = the adopted chunk-arm recipe (`chunk_modes=4,8,16`, A1's) with `delay_penalty=0.005` and `eval_chunks=8,16` (xbabe6, A10). WER gate against the chunk arm at chunks 4 / 8 / 16: no loss beyond the four-run spread at any of them. Reported outcome: latency at chunks 4 and 8. It is a candidate for A1's successor if it holds WER and cuts latency.
+- **Amendment 15 (03:06Z): five arms on A1's recipe**, one per A100 freed by A1, compared with the chunk arm at chunks 4 / 8 / 16. Accuracy arms (16-18) are adopted only on a win of more than 2× the four-run spread. Latency arms (14-r, 15) must not lose more than the spread.
+  - **14-r:** `delay_penalty=0.005`, `seed=4321` (arm 14's seed pair).
+  - **15:** `delay_penalty=0.0025`.
+  - **16:** stateless predictor context 4 instead of 2 (`pred_ctx=4`). The fork's predictor projection is widened function-preservingly (zero weights for the two older positions), so step 0 equals the fork.
+  - **17:** left attention context 256 frames (10.24 s) instead of 128 (`left_context=256`). Reported with the always-on interaction noted, since a longer window holds more of a preceding gap. Not an always-on candidate on its own.
+  - **18:** stronger SpecAugment: time masks 4 per 10 s (was 2) of up to 60 frames (was 40), frequency masks unchanged. About 12% of frames are masked on average (was about 4%).
+  - Code: `train/recipe_opts.py` (config keys `pred_ctx`, `left_context`, `specaug_time_masks`, `specaug_time_width`, and the predictor widening), with a test.
+- **Amendment 16 (03:20Z): arm 19** = the chunk arm with `seed=4321` (xbabe8). This is the comparator's own seed pair, so eval-lane can see how much of each amendment-15 difference is the comparator's seed noise. Not a candidate itself. The pre-registered primary comparator stays the seed-1234 chunk arm; the pair's mean is a secondary reading.
+- **Amendment 17 (03:25Z): arm 20** = the chunk arm's recipe with `chunk_modes=2,4,8,16` (80 ms added) and `delay_penalty=0.01`, `eval_chunks=2,8,16`. Placed on xbabe2's 3090 after arm 13d (a start on xbabe1 was stopped at step 50 and set aside unread when the lead moved that card to eval-lane). The question: can one model on the adopted recipe family serve both an 80 ms low-latency mode (target first token < 133 ms) and the 160 / 320 ms normal modes? Outcome: first-token latency at chunks 2 and 4. WER guard against the chunk arm at chunks 4 / 8 / 16 under the spread rule. WER at chunk 2 is reported.
+
+### Burst verdict decodes (2026-11-23, lead 03:26Z)
+For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU as soon as it ends (`train/ops/h41_after_end.sh` → `train/ops/h41_burst_decode.sh`):
+- They use eval-lane's pinned d5f231e evaluator and its command lines and file layout: greedy, max 8 symbols, batch 8, chunks 4 / 8 / 16, dev-clean + dev-other.
+- The six decodes run at once, under the GPU lease and the fleet guard.
+- eval-lane computes the verdicts from those files.
