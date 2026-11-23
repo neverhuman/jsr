@@ -198,14 +198,22 @@ def contexts(stream, pos, ctx: int):
 
 
 def train(a) -> None:
+    """Train one architecture. The token stream stays in host memory; each step draws `batch`
+    random positions (those whose target is a sentence break are dropped), builds their contexts
+    on the CPU and runs `accum` micro-batches on the device, so device memory stays small."""
     import torch
 
     torch.manual_seed(a.seed)
     dev = torch.device(a.device)
+    if dev.type == "cuda" and dev.index is None:
+        dev = torch.device("cuda", torch.cuda.current_device())
+    if dev.type == "cuda" and a.max_vram_gb:
+        total = torch.cuda.get_device_properties(dev).total_memory / 2 ** 30
+        torch.cuda.set_per_process_memory_fraction(min(1.0, a.max_vram_gb / total), dev)
     data = np.fromfile(os.path.join(a.data, "train.u16"), dtype=np.uint16)
     valid = np.fromfile(os.path.join(a.data, "valid.u16"), dtype=np.uint16)
-    stream = torch.from_numpy(data.astype(np.int16)).to(dev)
-    vstream = torch.from_numpy(valid.astype(np.int16)).to(dev)
+    stream = torch.from_numpy(data.astype(np.int16))
+    vstream = torch.from_numpy(valid.astype(np.int16))
     vpos = torch.nonzero(vstream > 0).flatten()
     model = make_model(a.arch).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=a.wd, betas=(0.9, 0.98))
@@ -213,43 +221,72 @@ def train(a) -> None:
     os.makedirs(a.out, exist_ok=True)
     log = open(os.path.join(a.out, "train.jsonl"), "a")  # noqa: SIM115
     n = stream.shape[0]
-    gen = torch.Generator(device=dev).manual_seed(a.seed)
+    gen = torch.Generator().manual_seed(a.seed)
+    micro = a.batch // a.accum
+
+    def batches():
+        """(contexts, targets) of each step, drawn in step order from one generator."""
+        for _ in range(steps):
+            pos = torch.randint(1, n, (a.batch,), generator=gen)
+            tgt = stream[pos].long()
+            keep = tgt > 0
+            pos, tgt = pos[keep], tgt[keep]
+            yield contexts(stream, pos, model.ctx), tgt
+
+    import queue
+    import threading
+
+    q: queue.Queue = queue.Queue(maxsize=4)  # CPU batch building overlaps the device step
+
+    def producer():
+        for item in batches():
+            q.put(item)
+
+    threading.Thread(target=producer, daemon=True).start()
     t0 = time.time()
     for step in range(steps):
         lr = a.lr * min(1.0, (step + 1) / a.warmup) * 0.5 * (1 + math.cos(math.pi * step / steps))
         for g in opt.param_groups:
             g["lr"] = lr
         model.qat = step >= qat_from
-        pos = torch.randint(1, n, (a.batch,), device=dev, generator=gen)
-        tgt = stream[pos].long()
-        keep = tgt > 0
-        pos, tgt = pos[keep], tgt[keep]
-        lp = model(contexts(stream, pos, model.ctx))
-        loss = -lp.gather(1, tgt[:, None]).mean()
+        ctx, tgt = q.get()
         opt.zero_grad(set_to_none=True)
-        loss.backward()
+        tot, cnt = 0.0, int(tgt.shape[0])
+        for i in range(0, cnt, micro):
+            c, y = ctx[i:i + micro].to(dev, non_blocking=True), tgt[i:i + micro].to(dev)
+            lp = model(c)
+            part = -lp.gather(1, y[:, None]).sum() / cnt
+            part.backward()
+            tot += float(part.detach())
         opt.step()
         if step % a.log_every == 0 or step == steps - 1:
-            rec = {"step": step, "loss": round(float(loss), 4), "lr": lr, "qat": model.qat,
+            rec = {"step": step, "loss": round(tot, 4), "lr": lr, "qat": model.qat,
                    "sec": round(time.time() - t0, 1)}
+            if dev.type == "cuda":
+                rec["vram_peak_gb"] = round(torch.cuda.max_memory_allocated(dev) / 2 ** 30, 3)
             if step % (10 * a.log_every) == 0 or step == steps - 1:
-                rec["valid_ppl"] = round(_ppl(model, vstream, vpos, model.ctx), 3)
+                rec["valid_ppl"] = round(_ppl(model, vstream, vpos, model.ctx, device=dev), 3)
             log.write(json.dumps(rec) + "\n")
             log.flush()
             print(json.dumps(rec), flush=True)
-    torch.save({"arch": a.arch, "state": model.state_dict(), "args": vars(a), "steps": steps,
-                "qat_from": qat_from}, os.path.join(a.out, "model.pt"))
+    torch.save({"arch": a.arch, "state": {k: v.cpu() for k, v in model.state_dict().items()},
+                "args": vars(a), "steps": steps, "qat_from": qat_from},
+               os.path.join(a.out, "model.pt"))
 
 
-def _ppl(model, stream, pos, ctx: int, batch: int = 1 << 16) -> float:
+def _ppl(model, stream, pos, ctx: int, batch: int = 1 << 15, device=None) -> float:
     import torch
 
     tot, cnt = 0.0, 0
     with torch.no_grad():
         for i in range(0, pos.shape[0], batch):
             p = pos[i:i + batch]
-            lp = model(contexts(stream, p, ctx))
-            tot += float(-lp.gather(1, stream[p].long()[:, None]).sum())
+            c = contexts(stream, p, ctx)
+            y = stream[p].long()
+            if device is not None:
+                c, y = c.to(device), y.to(device)
+            lp = model(c)
+            tot += float(-lp.gather(1, y[:, None]).sum())
             cnt += p.shape[0]
     return math.exp(tot / max(cnt, 1))
 
@@ -425,7 +462,10 @@ def main(argv=None) -> None:
     r.add_argument("--arch", default="2.0m", choices=sorted(ARCHS))
     r.add_argument("--out", required=True)
     r.add_argument("--steps", type=int, default=40000)
-    r.add_argument("--batch", type=int, default=1 << 16)
+    r.add_argument("--batch", type=int, default=1 << 16, help="positions per optimizer step")
+    r.add_argument("--accum", type=int, default=1, help="micro-batches per step (same math)")
+    r.add_argument("--max-vram-gb", type=float, default=0.0,
+                   help="cap this process's CUDA memory (torch per-process fraction); 0 = none")
     r.add_argument("--lr", type=float, default=2e-3)
     r.add_argument("--wd", type=float, default=0.01)
     r.add_argument("--warmup", type=int, default=1000)

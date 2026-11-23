@@ -456,6 +456,33 @@ Codex (`decoder.rs` / `beam.rs`); no engine code comes from this lane.
    - Beam state carries 4 tokens.
    - The H44 beam-reset fix must clear all 4.
 
+## Amendment 4 (2026-11-23, 08:38Z): beams 12 and 16 with M5 + LODR (the lead's 08:29Z ask), written before any beam-12 / 16 decode
+The question is the owner's: does beam 12 or 16 beat beam 8 once the CPU cost is counted?
+
+1. **Arms:** beam 12 and beam 16, M5 + LODR only.
+   - Grid: λ1 ∈ {0.5, 0.6, 0.7, 0.8, 0.9} × λ2/λ1 ∈ {0.5, 0.75, 1.0} × penalty ∈ {0, 0.25},
+     centred on L8's choice, with the edge rule.
+   - No-LM comparators `b12` / `b16`, reference search.
+   - Weights are re-chosen per beam on the selection half; finalists are re-decoded with the
+     reference search.
+   - Reported: the confirmation half (against `b4` and against the same beam without the LM)
+     and full dev, canonical scorer, as in item 1.
+2. **Cost per beam (4 / 8 / 12 / 16, each at its own finalist's weights, plus no LM):**
+   - **Engine:** `ultra-engine-eval` on the same fixed subset, shards s00-s03 of both dev sets
+     (amendment 1's sharding, ≈ 1,600 utterances, ≈ 3 audio-h).
+     - Single-threaded, one process per shard, all beams in one batch on one host.
+     - Process CPU time (`/usr/bin/time` user + sys) and the engine's decode-thread schedstat,
+       both per audio second, and peak RSS.
+     - Non-quiet: quiet numbers can come later through bench-open on xbabe0.
+   - **Search statistics** from the Python search at the same weights, on the same subset:
+     - mean / max live hypotheses per frame;
+     - distinct new LM contexts per frame;
+     - and so n-gram rows per frame. The engine's exact upper-bound pruning looks up fewer
+       entries per row than the Python full rows.
+3. **Reading:** a Pareto table of WER (confirmation half and full dev) against engine CPU per
+   audio second. A wider beam is "worth it" only if its confirmation-half gain over the next
+   narrower beam has a 95% interval below zero. No new gate.
+
 ## Results
 All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
 
