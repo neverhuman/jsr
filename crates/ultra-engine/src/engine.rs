@@ -52,6 +52,15 @@ pub struct Engine {
     /// Optional pure-Rust token n-gram LM + LODR bigram for shallow fusion inside beam search
     /// (`None` default = 0-ULP bit-identical no-op).
     pub lm: Option<(Arc<crate::lm::NgramLm>, crate::lm::LmConfig)>,
+    /// Optional always-on endpoint-and-reset timeout in milliseconds (`0` default = off,
+    /// 0-ULP bit-identical). After `>= endpoint_reset_ms` of consecutive blank-only encoder frames,
+    /// encoder caches and predictor context are reset so subsequent speech starts from a fresh state.
+    pub endpoint_reset_ms: u32,
+    /// Optional audio replay window in milliseconds when `endpoint_reset_ms > 0`:
+    /// - `0` (default): reset ONCE per speech pause (re-arms only after the next emitted token).
+    /// - `> 0`: re-arms periodically every `endpoint_reset_ms` of blanks, re-encoding the last
+    ///   `endpoint_replay_ms` of features into the fresh encoder cache so speech onsets are never clipped.
+    pub endpoint_replay_ms: u32,
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -60,10 +69,16 @@ pub struct EngineStream {
     mel: TrainerLogMel,
     rows: Vec<[f32; MEL_BINS]>,
     ring: FeatureRing,
+    replay_rows: Vec<[f32; MEL_BINS]>,
+    replay_base: usize,
+    replay_cap: usize,
     finished: bool,
     /// Set when a chunk step failed after this stream's features or state were consumed;
     /// the stream is terminal (a retry could silently skip audio).
     failed: bool,
+    blank_frames: usize,
+    reset_armed: bool,
+    endpoint_resets: u64,
     pub enc: EncState,
     pub dec: DecState,
 }
@@ -81,11 +96,44 @@ impl EngineStream {
         Ok(())
     }
 
+    fn push_replay(&mut self, rows: &[[f32; MEL_BINS]]) {
+        if self.replay_cap == 0 || rows.is_empty() {
+            return;
+        }
+        self.replay_rows.extend_from_slice(rows);
+        if self.replay_rows.len() > self.replay_cap {
+            let drop_n = self.replay_rows.len() - self.replay_cap;
+            self.replay_rows.drain(..drop_n);
+            self.replay_base += drop_n;
+        }
+    }
+
+    fn extract_replay_chunk_into(&self, t0: usize, n: usize, dst: &mut [f32]) {
+        dst.fill(0.0);
+        let lo: isize = 4 * (t0 as isize) - 6;
+        let hi: isize = 4 * ((t0 + n) as isize) - 4;
+        let a = lo.max(self.replay_base as isize);
+        if a <= hi {
+            let dst_start = (a - lo) as usize;
+            let src_start = (a as usize) - self.replay_base;
+            let count =
+                ((hi - a) as usize + 1).min(self.replay_rows.len().saturating_sub(src_start));
+            for r in 0..count {
+                let d_off = (dst_start + r) * MEL_BINS;
+                dst[d_off..d_off + MEL_BINS].copy_from_slice(&self.replay_rows[src_start + r]);
+            }
+        }
+    }
+
     pub fn accept_i16(&mut self, pcm: &[i16]) -> Result<(), EngineError> {
         self.open()?;
         self.rows.clear();
         self.mel.push_i16_into(pcm, &mut self.rows);
         self.ring.push_rows(&self.rows);
+        if self.replay_cap > 0 {
+            let extra = self.rows.clone();
+            self.push_replay(&extra);
+        }
         Ok(())
     }
 
@@ -94,6 +142,10 @@ impl EngineStream {
         self.rows.clear();
         self.mel.push_f32_into(samples, &mut self.rows);
         self.ring.push_rows(&self.rows);
+        if self.replay_cap > 0 {
+            let extra = self.rows.clone();
+            self.push_replay(&extra);
+        }
         Ok(())
     }
 
@@ -101,6 +153,7 @@ impl EngineStream {
     pub fn accept_features(&mut self, rows: &[[f32; MEL_BINS]]) -> Result<(), EngineError> {
         self.open()?;
         self.ring.push_rows(rows);
+        self.push_replay(rows);
         Ok(())
     }
 
@@ -126,6 +179,10 @@ impl EngineStream {
 
     pub fn forced_advances(&self) -> u64 {
         self.dec.forced
+    }
+
+    pub fn endpoint_resets(&self) -> u64 {
+        self.endpoint_resets
     }
 }
 
@@ -198,6 +255,8 @@ impl Engine {
             beam_margin: 0.0,
             kv_int8: false,
             lm: None,
+            endpoint_reset_ms: 0,
+            endpoint_replay_ms: 0,
         })
     }
 
@@ -292,13 +351,42 @@ impl Engine {
         Ok(self)
     }
 
+    /// Enable optional always-on endpoint-and-reset after `ms` milliseconds of consecutive
+    /// blank-only frames (`0` = off, default, 0-ULP bit-identical).
+    pub fn with_endpoint_reset_ms(mut self, ms: u32) -> Self {
+        self.endpoint_reset_ms = ms;
+        self.endpoint_replay_ms = 0;
+        self
+    }
+
+    /// Enable always-on endpoint-and-reset with optional replay (`replay_ms > 0` re-arms every
+    /// `reset_ms` of blanks and re-encodes the last `replay_ms` of features into a fresh encoder
+    /// cache so speech onsets are preserved while stale silence/noise context is bounded).
+    pub fn with_endpoint_reset(mut self, reset_ms: u32, replay_ms: u32) -> Self {
+        self.endpoint_reset_ms = reset_ms;
+        self.endpoint_replay_ms = if reset_ms > 0 { replay_ms } else { 0 };
+        self
+    }
+
     pub fn create_stream(&self) -> EngineStream {
+        let replay_cap = if self.endpoint_reset_ms > 0 && self.endpoint_replay_ms > 0 {
+            let max_frames = (self.endpoint_replay_ms as usize / 40) + self.chunk * 2;
+            4 * max_frames + 32
+        } else {
+            0
+        };
         EngineStream {
             mel: TrainerLogMel::new(self.model.mel_cfg.clone()),
             rows: Vec::new(),
             ring: FeatureRing::new(),
+            replay_rows: Vec::with_capacity(replay_cap),
+            replay_base: 0,
+            replay_cap,
             finished: false,
             failed: false,
+            blank_frames: 0,
+            reset_armed: false,
+            endpoint_resets: 0,
             enc: EncState::new_with_kv_and_chunk(
                 &self.model,
                 self.max_chunks,
@@ -409,6 +497,11 @@ impl Engine {
         let split = self.pool.clone().map(|p| (p, self.model.clone()));
         ws.enc.q.split = split.clone();
         ws.dec.q.split = split;
+        let prev_tok_lens: Vec<usize> = if self.endpoint_reset_ms > 0 {
+            decs.iter().map(|d| d.tokens.len()).collect()
+        } else {
+            Vec::new()
+        };
         let m = &self.model;
         let result = encode_chunk(
             m,
@@ -465,6 +558,71 @@ impl Engine {
                 streams[i].failed = true;
             }
             return Err(e);
+        }
+        if self.endpoint_reset_ms > 0 {
+            let threshold_ms = self.endpoint_reset_ms as usize;
+            let replay_target_frames = if self.endpoint_replay_ms > 0 {
+                ((self.endpoint_replay_ms as usize) / 40 / self.chunk) * self.chunk
+            } else {
+                0
+            };
+            let periodic = self.endpoint_replay_ms > 0;
+            for (&(i, n), &prev_len) in ws.ready.iter().zip(&prev_tok_lens) {
+                let s = &mut *streams[i];
+                if s.dec.tokens.len() > prev_len {
+                    s.blank_frames = 0;
+                    s.reset_armed = true;
+                } else if periodic || s.reset_armed {
+                    s.blank_frames += n;
+                    if s.blank_frames * 40 >= threshold_ms && s.enc.kv_len > 0 {
+                        let saved_t = s.enc.t;
+                        let r_frames = if periodic && replay_target_frames > 0 {
+                            let avail = s.blank_frames.min(saved_t);
+                            (replay_target_frames.min(avail) / self.chunk) * self.chunk
+                        } else {
+                            0
+                        };
+                        s.enc.reset_caches();
+                        s.dec.reset_context(m);
+                        if r_frames > 0 {
+                            s.enc.t = saved_t - r_frames;
+                            s.enc.rope_origin = s.enc.t;
+                            let mut rem = r_frames;
+                            let step_c = self.chunk;
+                            let mut tmp_feats = vec![0.0f32; (4 * step_c + 3) * a.n_mels];
+                            let mut tmp_out = Vec::new();
+                            while rem > 0 {
+                                let cur_n = rem.min(step_c);
+                                let f_len = (4 * cur_n + 3) * a.n_mels;
+                                s.extract_replay_chunk_into(
+                                    s.enc.t,
+                                    cur_n,
+                                    &mut tmp_feats[..f_len],
+                                );
+                                let mut rjobs = [ChunkJob {
+                                    state: &mut s.enc,
+                                    feats: &tmp_feats[..f_len],
+                                    n: cur_n,
+                                }];
+                                encode_chunk(
+                                    m,
+                                    self.isa,
+                                    self.precision,
+                                    &mut rjobs,
+                                    &mut ws.enc,
+                                    &mut tmp_out,
+                                    None,
+                                )?;
+                                rem -= cur_n;
+                            }
+                            debug_assert_eq!(s.enc.t, saved_t);
+                        }
+                        s.blank_frames = 0;
+                        s.reset_armed = false;
+                        s.endpoint_resets += 1;
+                    }
+                }
+            }
         }
         Ok(ns.len())
     }

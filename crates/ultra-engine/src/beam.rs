@@ -63,6 +63,20 @@ impl BeamState {
         }
         &self.hyps[b].tokens
     }
+
+    /// Collapse the beam to a single hypothesis at the start of a fresh utterance segment,
+    /// preserving the emitted tokens while clearing stale predictor context.
+    pub fn reset_context(&mut self, m: &Model) {
+        let best_tokens = self.best().to_vec();
+        self.hyps.clear();
+        self.hyps.push(Hyp {
+            tokens: best_tokens,
+            score: 0.0,
+            dec: Arc::new(vec![0.0; m.arch.joiner]),
+            dec_ok: false,
+            lm_ctx: None,
+        });
+    }
 }
 
 fn grow(v: &mut Vec<f32>, n: usize) -> &mut [f32] {

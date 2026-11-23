@@ -226,13 +226,19 @@ pub(super) fn rope_table(m: &Model, spans: &[(usize, usize)], out: &mut Vec<f32>
     out.clear();
     for &(pos0, n) in spans {
         for i in 0..n {
-            let pos = (pos0 + i) as f32;
+            let pos_idx = pos0 + i;
+            let use_f64 = pos_idx >= 16_384;
+            let pos = pos_idx as f32;
             let base = out.len();
             out.resize(base + dh, 0.0);
             for f in 0..half {
-                let ang = pos * m.rope_inv[f];
-                out[base + f] = f64::from(ang).cos() as f32;
-                out[base + half + f] = f64::from(ang).sin() as f32;
+                let ang = if use_f64 {
+                    ((pos_idx as f64) * f64::from(m.rope_inv[f])).rem_euclid(std::f64::consts::TAU)
+                } else {
+                    f64::from(pos * m.rope_inv[f])
+                };
+                out[base + f] = ang.cos() as f32;
+                out[base + half + f] = ang.sin() as f32;
             }
         }
     }
