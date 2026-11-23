@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::{json, Value};
-use ultra_engine::commit::{CommitConfig, CommitPassSession, DEFAULT_SAMPLE_RATE};
+use ultra_engine::commit::{CommitConfig, CommitPassEngine, DEFAULT_SAMPLE_RATE};
 use ultra_engine::panel::Panel;
 use ultra_engine::workload::Workload;
 use ultra_engine::{Engine, Isa, Model, Precision};
@@ -17,6 +17,7 @@ use ultra_frontend::read_audio_16k_mono;
 
 struct Args {
     model: PathBuf,
+    final_model: Option<PathBuf>,
     manifest: PathBuf,
     out: PathBuf,
     commit_chunk: usize,
@@ -31,6 +32,7 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
     let mut it = args.into_iter();
     let mut a = Args {
         model: PathBuf::new(),
+        final_model: None,
         manifest: PathBuf::new(),
         out: PathBuf::new(),
         commit_chunk: 16,
@@ -44,6 +46,7 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
         match k.as_str() {
             "--model" | "--weights" => a.model = v()?.into(),
+            "--final-model" => a.final_model = Some(v()?.into()),
             "--manifest" => a.manifest = v()?.into(),
             "--out" => a.out = v()?.into(),
             "--commit-chunk" => a.commit_chunk = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
@@ -150,21 +153,31 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
     }
 }
 
-fn run(a: &Args) -> Result<Value, String> {
-    let mut model = Model::load(&a.model, true).map_err(|e| e.to_string())?;
-    if model.int8_prepared.is_none() && a.precision == Precision::Int8 {
+fn load_engine(dir: &Path, isa: Isa, prec: Precision, threads: usize) -> Result<Engine, String> {
+    let mut model = Model::load(dir, true).map_err(|e| e.to_string())?;
+    if model.int8_prepared.is_none() && prec == Precision::Int8 {
         model.quantize_int8();
     }
+    Engine::new(Arc::new(model), isa, prec)
+        .map_err(|e| e.to_string())
+        .map(|e| e.with_gemm_threads(threads))
+}
+
+fn run(a: &Args) -> Result<Value, String> {
     let isa = Isa::detect();
-    let eng = Engine::new(Arc::new(model), isa, a.precision)
-        .map_err(|e| e.to_string())?
-        .with_gemm_threads(a.threads);
+    let live_eng = load_engine(&a.model, isa, a.precision, a.threads)?;
     let cfg = CommitConfig {
         commit_chunk: a.commit_chunk,
         tail_pad_samples: a.tail_pad_ms * DEFAULT_SAMPLE_RATE / 1000,
         ..CommitConfig::default()
     };
-    let mut sess = CommitPassSession::new(eng, cfg).map_err(|e| e.to_string())?;
+    let mut sess = match &a.final_model {
+        Some(fm) => {
+            let final_eng = load_engine(fm, isa, a.precision, a.threads)?;
+            CommitPassEngine::new_hybrid(live_eng, final_eng, cfg).map_err(|e| e.to_string())?
+        }
+        None => CommitPassEngine::new(live_eng, cfg).map_err(|e| e.to_string())?,
+    };
     let items = load_manifest(a)?;
     if items.is_empty() {
         return Err("empty manifest".into());
@@ -196,7 +209,7 @@ fn run(a: &Args) -> Result<Value, String> {
             .map_err(|e| e.to_string())?;
     }
     cms.sort_by(f64::total_cmp);
-    let summary = json!({"summary": true, "utterances": items.len(), "revised_count": revised, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
+    let summary = json!({"summary": true, "hybrid": sess.is_hybrid(), "utterances": items.len(), "revised_count": revised, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;
     out.flush().map_err(|e| e.to_string())?;
     Ok(summary)
@@ -220,9 +233,10 @@ mod tests {
     use super::*;
     #[test]
     fn commit_eval_cli_args_and_percentiles() {
-        let s = "--model m --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --threads 2";
+        let s = "--model m --final-model fm --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --threads 2";
         let a = parse_args(s.split_whitespace().map(String::from)).expect("parse");
         assert_eq!((a.commit_chunk, a.tail_pad_ms, a.threads), (16, 320, 2));
+        assert_eq!(a.final_model, Some(PathBuf::from("fm")));
         assert!(parse_args(["--model".into(), "m".into()]).is_err());
         let xs = [10.0, 20.0, 30.0, 40.0, 50.0];
         assert_eq!((pct(&xs, 0.50), pct(&xs, 0.95)), (30.0, 50.0));

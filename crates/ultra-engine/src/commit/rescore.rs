@@ -2,7 +2,7 @@
 
 use super::types::CommitConfig;
 use super::vocab::CtcVocab;
-use crate::{Engine, EngineStream};
+use crate::{Engine, EngineError, EngineStream, Workspace};
 
 /// Exact word-level Levenshtein edit distance.
 pub fn word_edit_distance(a: &[String], b: &[String]) -> usize {
@@ -184,6 +184,23 @@ pub fn ctc_rescore_text(vocab: &CtcVocab, log_probs: &[f32], num_frames: usize, 
         vocab.blank_id(),
         &ids,
     )
+}
+
+pub(crate) fn run_commit_decode(
+    eng: &Engine,
+    pcm: &[i16],
+    cfg: CommitConfig,
+    ws: &mut Workspace,
+    ctc: Option<(&CtcVocab, &[f32], usize)>,
+) -> Result<(String, usize), EngineError> {
+    let mut cs = eng.create_stream();
+    cs.accept_i16(pcm)?;
+    if cfg.tail_pad_samples > 0 {
+        cs.accept_i16(&vec![0i16; cfg.tail_pad_samples])?;
+    }
+    cs.input_finished();
+    while eng.decode(&mut [&mut cs], ws)? > 0 {}
+    Ok(select_commit_hyp(eng, &cs, cfg, ctc))
 }
 
 pub(crate) fn select_commit_hyp(

@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::EngineError;
+use crate::{EngineError, Model};
 
 pub const DEFAULT_SAMPLE_RATE: usize = 16_000;
 pub const DEFAULT_TAIL_PAD_SAMPLES: usize = 5_120;
@@ -110,6 +110,69 @@ pub fn pad_tail_silence(pcm: &[i16], tail_pad_samples: usize) -> Vec<i16> {
     out.extend_from_slice(pcm);
     out.resize(pcm.len() + tail_pad_samples, 0);
     out
+}
+
+/// Validate that `live` and `final_m` share an identical tokenizer vocabulary and blank ID.
+/// Fast-paths with zero overhead when both engines share the same `Arc<Model>`.
+pub(crate) fn validate_hybrid_vocab(live: &Model, final_m: &Model) -> Result<(), EngineError> {
+    if std::ptr::eq(live, final_m) {
+        return Ok(());
+    }
+    if live.tokens.vocab_size() != final_m.tokens.vocab_size() {
+        return Err(EngineError::Format(format!(
+            "hybrid commit vocab size mismatch: live {} != final {}",
+            live.tokens.vocab_size(),
+            final_m.tokens.vocab_size()
+        )));
+    }
+    if live.arch.blank != final_m.arch.blank {
+        return Err(EngineError::Format(format!(
+            "hybrid commit blank_id mismatch: live {} != final {}",
+            live.arch.blank, final_m.arch.blank
+        )));
+    }
+    if live.tokens != final_m.tokens {
+        return Err(EngineError::Format(
+            "hybrid commit token table mismatch: live and final sp_pieces differ".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Bounded active-segment PCM buffer and monotonic sample-watermark state.
+#[derive(Debug, Default)]
+pub(crate) struct SegmentPcm {
+    pub pcm: Vec<i16>,
+    pub truncated: bool,
+    pub dropped: u64,
+    pub seg_samples: u64,
+    pub total_samples: u64,
+    pub seg_start: u64,
+}
+
+impl SegmentPcm {
+    pub fn push(&mut self, samples: &[i16], cap: usize) {
+        let d = push_bounded_pcm(&mut self.pcm, samples, cap);
+        if d > 0 {
+            self.dropped += d;
+            self.truncated = true;
+        }
+        self.seg_samples += samples.len() as u64;
+        self.total_samples += samples.len() as u64;
+    }
+
+    pub fn reset_segment(&mut self) {
+        self.pcm.clear();
+        self.truncated = false;
+        self.dropped = 0;
+        self.seg_samples = 0;
+        self.seg_start = self.total_samples;
+    }
+
+    pub fn reset_all(&mut self) {
+        self.total_samples = 0;
+        self.reset_segment();
+    }
 }
 
 /// Push `pcm` into `buf` without exceeding `cap`, returning the count of dropped oldest samples.
