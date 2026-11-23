@@ -1,8 +1,9 @@
 //! Pure-Rust token n-gram language model with LODR bigram subtraction for frame-synchronous
-//! RNN-T beam search (`ultra.lm-ngram/v1`).
+//! RNN-T beam search (`ultra.lm-ngram/v2`, backward-compatible with `v1`).
 //!
-//! - **Reverse-context Structure-of-Arrays (SoA) CSR trie:** sorted `tok: u16` keys stored
-//!   separately from values (32 keys per 64-byte cache line; 3 B/leaf with 8-bit quantile LUT).
+//! - **Bit-packed reverse-context SoA CSR trie:** sorted `tok` keys packed at exact
+//!   `ceil(log2(vocab + 1))` bits (9 bits for BPE-500 → 1.125 B/node, 2.125 B/leaf with 8-bit
+//!   quantile LUT) and bit-packed CSR `child_off` pointers.
 //! - **Single-walk hypothesis backoff cache:** each hypothesis computes `bow_sum[1..=order]`
 //!   once per token emission; scoring any candidate token `k` needs one reverse-trie walk plus
 //!   one addition.
@@ -11,11 +12,13 @@
 //! - **Zero C++ FFI, 100% safe Rust, bit-exact across x86 and ARM.**
 
 mod arpa;
+mod bitvec;
 mod io;
 
 use std::path::Path;
 
 use crate::EngineError;
+use bitvec::BitVec;
 
 /// Maximum supported n-gram order (`1..=8`).
 pub const MAX_ORDER: usize = 8;
@@ -80,9 +83,9 @@ pub(super) enum LevelVals {
 
 #[derive(Debug, Clone)]
 pub(super) struct TrieLevel {
-    pub(super) tok: Vec<u16>,
-    pub(super) vals: LevelVals,
-    pub(super) child_off: Vec<u32>,
+    pub(in crate::lm) tok: BitVec,
+    pub(in crate::lm) vals: LevelVals,
+    pub(in crate::lm) child_off: BitVec,
 }
 
 impl TrieLevel {
@@ -122,20 +125,15 @@ impl TrieLevel {
 
     #[inline]
     pub(super) fn find_child(&self, lo: usize, hi: usize, target: u16) -> Option<usize> {
-        let slice = &self.tok[lo..hi];
-        if slice.len() <= 16 {
-            for (i, &k) in slice.iter().enumerate() {
-                if k == target {
-                    return Some(lo + i);
-                }
-                if k > target {
-                    return None;
-                }
-            }
-            None
-        } else {
-            slice.binary_search(&target).ok().map(|off| lo + off)
-        }
+        self.tok.find_sorted_u16(lo, hi, target)
+    }
+
+    #[inline]
+    pub(super) fn child_range(&self, idx: usize) -> (usize, usize) {
+        (
+            self.child_off.get_u32(idx) as usize,
+            self.child_off.get_u32(idx + 1) as usize,
+        )
     }
 
     pub(super) fn memory_bytes(&self) -> usize {
@@ -143,7 +141,7 @@ impl TrieLevel {
             LevelVals::Q8 { q_prob, q_bow, .. } => 2048 + q_prob.len() + q_bow.len(),
             LevelVals::F32 { prob, bow } => (prob.len() + bow.len()) * 4,
         };
-        self.tok.len() * 2 + self.child_off.len() * 4 + vals_bytes
+        self.tok.memory_bytes() + self.child_off.memory_bytes() + vals_bytes
     }
 }
 
@@ -238,8 +236,7 @@ impl NgramLm {
                 if let Some(idx) = lv.find_child(lo, hi, ctx.rev[step]) {
                     *slot = lv.bow(idx);
                     if step + 1 < len && step < self.levels.len() {
-                        lo = lv.child_off[idx] as usize;
-                        hi = lv.child_off[idx + 1] as usize;
+                        (lo, hi) = lv.child_range(idx);
                     } else {
                         break;
                     }
@@ -282,8 +279,7 @@ impl NgramLm {
                     best_prob = lv.prob(idx);
                     matched = step + 2;
                     if step + 1 < clen && step + 1 < self.levels.len() {
-                        lo = lv.child_off[idx] as usize;
-                        hi = lv.child_off[idx + 1] as usize;
+                        (lo, hi) = lv.child_range(idx);
                     } else {
                         break;
                     }
@@ -315,6 +311,11 @@ impl NgramLm {
 
     pub fn save(&self, path: &Path) -> Result<(), EngineError> {
         io::save(self, path)
+    }
+
+    /// Save in legacy `ultra.lm-ngram/v1` unpacked format (for backward-compatibility tests).
+    pub fn save_v1(&self, path: &Path) -> Result<(), EngineError> {
+        io::save_v1(self, path)
     }
 
     pub fn load(path: &Path) -> Result<Self, EngineError> {
@@ -405,30 +406,43 @@ ngram 2=2
     #[test]
     fn binary_save_load_and_tamper_detection() {
         let lm = NgramLm::from_arpa_str(SAMPLE_LM, Some(SAMPLE_LODR), 8, true).expect("parse q8");
-        let tmp = std::env::temp_dir().join(format!("ultra_lm_test_{}.ulm", std::process::id()));
-        lm.save(&tmp).expect("save");
-        let loaded = NgramLm::load(&tmp).expect("load");
+        let tmp_v2 = std::env::temp_dir().join(format!("ultra_lm_v2_{}.ulm", std::process::id()));
+        let tmp_v1 = std::env::temp_dir().join(format!("ultra_lm_v1_{}.ulm", std::process::id()));
+        lm.save(&tmp_v2).expect("save v2");
+        lm.save_v1(&tmp_v1).expect("save v1");
+        let loaded_v2 = NgramLm::load(&tmp_v2).expect("load v2");
+        let loaded_v1 = NgramLm::load(&tmp_v1).expect("load v1");
         for hist in [&[][..], &[2][..], &[2, 3][..], &[4, 5][..]] {
-            let c1 = lm.ctx_state(hist);
-            let c2 = loaded.ctx_state(hist);
+            let c0 = lm.ctx_state(hist);
+            let c1 = loaded_v1.ctx_state(hist);
+            let c2 = loaded_v2.ctx_state(hist);
             for k in 1..8 {
                 assert_eq!(
-                    lm.lm_logp(&c1, k).to_bits(),
-                    loaded.lm_logp(&c2, k).to_bits()
+                    lm.lm_logp(&c0, k).to_bits(),
+                    loaded_v2.lm_logp(&c2, k).to_bits()
                 );
                 assert_eq!(
-                    lm.lodr_logp(&c1, k).to_bits(),
-                    loaded.lodr_logp(&c2, k).to_bits()
+                    lm.lm_logp(&c0, k).to_bits(),
+                    loaded_v1.lm_logp(&c1, k).to_bits()
+                );
+                assert_eq!(
+                    lm.lodr_logp(&c0, k).to_bits(),
+                    loaded_v2.lodr_logp(&c2, k).to_bits()
+                );
+                assert_eq!(
+                    lm.lodr_logp(&c0, k).to_bits(),
+                    loaded_v1.lodr_logp(&c1, k).to_bits()
                 );
             }
         }
-        let mut bytes = std::fs::read(&tmp).expect("read");
+        let mut bytes = std::fs::read(&tmp_v2).expect("read");
         bytes[10] ^= 0x55;
-        std::fs::write(&tmp, &bytes).expect("corrupt");
+        std::fs::write(&tmp_v2, &bytes).expect("corrupt");
         assert!(matches!(
-            NgramLm::load(&tmp),
+            NgramLm::load(&tmp_v2),
             Err(EngineError::Integrity(_))
         ));
-        let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(&tmp_v2);
+        let _ = std::fs::remove_file(&tmp_v1);
     }
 }

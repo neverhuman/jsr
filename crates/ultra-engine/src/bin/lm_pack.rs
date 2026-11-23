@@ -1,8 +1,10 @@
 //! `ultra-lm-pack`: pack token-level KenLM `.arpa` (+ optional LODR bigram `.arpa`) into a
-//! SHA-256 verified `ultra.lm-ngram/v1` pure-Rust reverse-trie binary.
+//! SHA-256 verified `ultra.lm-ngram/v2` pure-Rust bit-packed reverse-trie binary, or repack an
+//! existing `v1`/`v2` `.ulm` binary directly with `--repack`.
 //!
 //! ```text
 //! ultra-lm-pack --arpa model.arpa [--lodr lodr_2gram.arpa] --vocab 501 --out model.ulm [--fp32]
+//! ultra-lm-pack --repack old_v1.ulm --out new_v2.ulm
 //! ```
 
 use std::path::PathBuf;
@@ -23,6 +25,7 @@ fn run() -> Result<(), String> {
     let mut it = std::env::args().skip(1);
     let mut arpa: Option<PathBuf> = None;
     let mut lodr: Option<PathBuf> = None;
+    let mut repack: Option<PathBuf> = None;
     let mut out: Option<PathBuf> = None;
     let mut vocab: usize = 501;
     let mut quantize = true;
@@ -32,6 +35,7 @@ fn run() -> Result<(), String> {
         match k.as_str() {
             "--arpa" => arpa = Some(v()?.into()),
             "--lodr" => lodr = Some(v()?.into()),
+            "--repack" => repack = Some(v()?.into()),
             "--out" => out = Some(v()?.into()),
             "--vocab" => vocab = v()?.parse().map_err(|e| format!("--vocab: {e}"))?,
             "--fp32" => quantize = false,
@@ -39,16 +43,20 @@ fn run() -> Result<(), String> {
             o => return Err(format!("unknown argument {o}")),
         }
     }
-    let arpa = arpa.ok_or("--arpa is required")?;
     let out = out.ok_or("--out is required")?;
 
     let t0 = Instant::now();
-    let lm = NgramLm::from_arpa_files(&arpa, lodr.as_deref(), vocab, quantize)
-        .map_err(|e| e.to_string())?;
+    let lm = match (repack, arpa) {
+        (Some(src), None) => NgramLm::load(&src).map_err(|e| e.to_string())?,
+        (None, Some(arpa)) => NgramLm::from_arpa_files(&arpa, lodr.as_deref(), vocab, quantize)
+            .map_err(|e| e.to_string())?,
+        (Some(_), Some(_)) => return Err("pass either --arpa or --repack, not both".into()),
+        (None, None) => return Err("--arpa or --repack is required".into()),
+    };
     lm.save(&out).map_err(|e| e.to_string())?;
     let file_bytes = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
     println!(
-        "packed ultra.lm-ngram/v1: order={} vocab={} quantized={} lodr={} max_logp={:.5} mem={:.2}MB file={:.2}MB elapsed={:.2}s -> {}",
+        "packed ultra.lm-ngram/v2: order={} vocab={} quantized={} lodr={} max_logp={:.5} mem={:.2}MB file={:.2}MB elapsed={:.2}s -> {}",
         lm.order,
         lm.vocab,
         lm.quantized,
