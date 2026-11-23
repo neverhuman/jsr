@@ -1,0 +1,9 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav-457a4db7
+4a02420b0d283c4579f3138e552aeb433d6382d7dc3d9f0dbb8e53ae64d4b992  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/arch.json
+aad3dbc2f1c69c0e391f185a7692247ffe53e6c338906583b785db0d1d89400a  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/weights.int8.safetensors
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/bpe.model
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/tokens.txt
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/mel_fbank.f32
+29a6c60885272b684cd250a40ce4e42b146cfce2120fec65f9535fc7b8abdcec  /home/ubuntu/jsr-data/opponents/models/arm13a-ema-c1/int8/weights.safetensors
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav-457a4db7

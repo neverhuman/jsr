@@ -48,7 +48,8 @@ has taken and released it (or SECONDS passed without anyone taking it), then ren
 
 After taking the lock, OPEN_QUIET_CMD (if set) runs before anything is measured, for example
 xbabe0's `timing-quiet-wait.sh`, which waits until the owner's paused timers have no service still
-running. A repetition whose receipt folder already exists is not run blind: a finished, clean
+running. If it fails (the host could not be made quiet), nothing is measured: the lock is released
+and the hold is tried again after OPEN_QUIET_RETRY_S (300 s). A repetition whose receipt folder already exists is not run blind: a finished, clean
 receipt counts as done (a restart does not repeat it); any other folder is renamed
 `<folder>.aborted.<UTC>` first, so nothing is overwritten or deleted.
 """
@@ -70,6 +71,7 @@ POLL_S = float(os.environ.get("OPEN_POLL_S", 10))
 AFTER_HOLD = os.environ.get("OPEN_AFTER_HOLD")
 PREPARE = os.environ.get("OPEN_PREPARE")
 QUIET_CMD = os.environ.get("OPEN_QUIET_CMD")
+QUIET_RETRY_S = float(os.environ.get("OPEN_QUIET_RETRY_S", 300))
 GAP_MAX_S = float(os.environ.get("OPEN_GAP_MAX_S", 600))
 REQUEUE_MAX = int(os.environ.get("OPEN_REQUEUE_MAX", 3))
 ENTRY_ID = r"[0-9]+[a-z]*"  # 12, 6b, and re-queued ids such as 7r or 14br
@@ -464,6 +466,12 @@ def main():
                 hold["quiet_exit"] = hook(QUIET_CMD, "quiet.log", timeout=1200)
                 hold["quiet_s"] = round(time.monotonic() - quiet_began, 1)
                 save()
+                if hold["quiet_exit"] != 0:  # never measure on a host that is not quiet: release, retry later
+                    hold["outcome"] = f"host not quiet (exit {hold['quiet_exit']}); lock released, retry in {QUIET_RETRY_S:.0f} s"
+                    hold["released_utc"] = host.release()
+                    save()
+                    time.sleep(QUIET_RETRY_S)
+                    continue
             if not checked:
                 checked = True
                 if PREPARE:
@@ -479,9 +487,10 @@ def main():
             if anchor is not None:
                 first = pending[0]
                 service = anchor_service(anchor["arm"], first["service"])
-                marker = {"entry": active, "panel": first["panel"], "arm": anchor["arm"], "service": service,
+                panel = first["panel"] if first["panel"] in anchor["est_s"] else "p73"  # an assay hold: panel73
+                marker = {"entry": active, "panel": panel, "arm": anchor["arm"], "service": service,
                           "observer": first["observer"], "anchor": True,
-                          "est_s": anchor["est_s"][first["panel"]], "status": "pending"}
+                          "est_s": anchor["est_s"][panel], "status": "pending"}
                 marker["round"] = next_round(runs, marker["panel"], service, anchor["arm"])
                 jobs.append(marker)
                 run(marker, hold)

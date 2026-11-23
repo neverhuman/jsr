@@ -53,6 +53,40 @@ require 14d models/arm13a-ema-c2/int8/weights.int8.safetensors
 14d p73  jsr-arm13a-ema-int8-c2    2 24 1 1.2
 14d p73  jsr-arm13a-ema-int8-c1    3 28 2 2
 14d p73  jsr-arm13a-ema-int8-c2    3 28 2 1.2
+# Entry 14e (h47-sleep's request, 06:12Z; research/H47_always_on_sleep_gate/README.md section A0): what
+# non-speech costs the engine today. ultra-engine-endless (main e61121e, sha256 a067a307...) on the
+# A1-49000 INT8 export, arm A no reset and arm B reset-with-replay T=1500 / R=1000, on 600 s of digital
+# silence, 600 s of pink noise at -30 dBFS and 600 s of speech-only DEV audio; one repetition per CPU,
+# ABBA order inside it. Runs as an assay (open-run.sh OPEN_PANEL=assay): h47-sleep's script and inputs,
+# staged under the lock and hash-checked, with bench-open's meter, gate and guard around them.
+require 14e bench-open/assays/h47-a0/run.sh
+14e assay h47-a0                   1 4  0 3
+14e assay h47-a0                   2 24 1 3
+14e assay h47-a0                   3 28 2 3
+# Entries 14f and 14g (lead, 05:55Z): B0 power holds on xbabe0, read against energy's continuous 1 Hz power
+# log (core register of the service core and the package; CPU-reported, never wall power). One hold =
+# idle 3 min, X 10 min, Y 10 min, idle 3 min; odd rounds X first, even rounds Y first (ABBA), three holds
+# per pair on CPUs 4 / 24 / 28, every hold under the owner-approved timer pause.
+#   14f (b0-power-p1): B0 as one live stream paced at 1x on 600 s of speech (100% speech duty) against the
+#                      same on 600 s of pink noise at -30 dBFS (0% speech duty).
+#   14g (b0-power-p2): a capture-only proxy (20 ms packets read at 1x, no model) against B0 listening to that
+#                      pink noise: what the model costs while it only listens.
+require 14f bench-open/assays/b0-power-p1/run.sh
+14f assay b0-power-p1              1 4  0 26.5
+14f assay b0-power-p1              2 24 1 26.5
+14f assay b0-power-p1              3 28 2 26.5
+require 14g bench-open/assays/b0-power-p2/run.sh
+14g assay b0-power-p2              1 4  0 26.5
+14g assay b0-power-p2              2 24 1 26.5
+14g assay b0-power-p2              3 28 2 26.5
+# Entry 14h (h51-pq's request, 07:06Z / 07:12Z): the quiet Amdahl split of one stream for the H51 PQ
+# go / no-go: ultra-engine-eval --profile (main e61121e, sha256 968d3ea7...) on A1-49000 INT8, 73 DEV
+# utterances (panel73.npz, edfc06ac...), chunk 4, 2, 1 and chunk 1 with the INT8 KV cache; one call of
+# h51-pq's h51_prof.sh (6974c6c0...) per CPU, as an assay.
+require 14h bench-open/assays/h51-prof/run.sh
+14h assay h51-prof                 1 4  0 4
+14h assay h51-prof                 2 24 1 4
+14h assay h51-prof                 3 28 2 4
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.

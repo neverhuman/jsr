@@ -10,7 +10,11 @@
 # OBSERVER_CPU   CPU of the meter, the scorer and this script, outside the service CCX
 # OPEN_PANEL     full = the 730-utterance panel, timed and scored in the same run (default);
 #                p73  = every tenth utterance (cost only: slow systems take their WER from one
-#                       full-panel pass elsewhere, see open_summary.py)
+#                       full-panel pass elsewhere, see open_summary.py);
+#                assay = another lane's assay queued on the timing host: ARM names a staged folder
+#                       $PAPER_OPPONENTS_ROOT/bench-open/assays/ARM whose run.sh ROUND CPU OUT does the
+#                       work (its own inputs and outputs, written under OUT); this script adds the
+#                       meter, the quiet-host gate, the guard and the receipt around it.
 #
 # A full-panel one-core repetition goes through docs/paper/run-cold.sh unchanged. Every other
 # repetition follows the same steps here, with a CPU list and the chosen panel. Around either,
@@ -71,6 +75,10 @@ case "$panel" in
         panel_root=${OPEN_P73_ROOT:-"$opp/bench-cross/workloads/panel73"}
         group="$group-p73"
         ;;
+    assay)
+        panel_root=
+        group="$group-assay"
+        ;;
     *)
         printf 'unknown panel %s\n' "$panel" >&2
         exit 2
@@ -80,7 +88,7 @@ root="$runs/$group"
 run="$root/cold/round-$round/$arm"
 wav="$root/panel/wav"
 mkdir -p "$root/cold"
-if [[ ! -e $root/panel ]]; then
+if [[ -n $panel_root && ! -e $root/panel ]]; then
     ln -s "$panel_root" "$root/panel"
 fi
 if [[ -f $run/finished && -f $run/host.cpu.json ]]; then
@@ -157,6 +165,28 @@ sample_frequency() {
     done
 }
 
+# Another lane's assay: its staged run.sh under the meter, pinned to the service CPUs. Its folder is
+# hashed into config.sha256; its outputs go to $run/out (and $run/out.stdout).
+run_assay() {
+    local dir="$opp/bench-open/assays/$arm"
+    local -a cmd=(bash "$dir/run.sh" "$round" "${service_list[0]}" "$run/out")
+    [[ -f $dir/run.sh ]] || { printf 'no staged assay %s\n' "$dir" >&2; return 2; }
+    mkdir -p "${run%/*}"
+    mkdir "$run"
+    printf '%q ' "${cmd[@]}" > "$run/command"
+    printf '\n' >> "$run/command"
+    { sha256sum "$measure"; (cd "$dir" && find . -type f -print0 | sort -z | xargs -0 sha256sum); } > "$run/config.sha256"
+    host_role > "$run/host"
+    cat /proc/loadavg "/sys/devices/system/cpu/cpu${service_list[0]}/cpufreq/scaling_governor" \
+        /sys/devices/system/cpu/cpufreq/boost > "$run/host.before"
+    printf '%s\n' "$round" > "$run/round"
+    date -u +%FT%TZ > "$run/started"
+    taskset -c "$observer" "$measure" --interval-ms 200 --service-cpus "$service" --observer-cpus "$observer" \
+        -- "${cmd[@]}" > "$run/measurement.json" 2> "$run/service.stderr"
+    cat /proc/loadavg > "$run/host.after"
+    date -u +%FT%TZ > "$run/finished"
+}
+
 # The steps of run-cold.sh's run_arm with a CPU list in place of one CPU and any staged panel.
 # Only the full panel is scored here.
 run_listed() {
@@ -203,7 +233,9 @@ sample_frequency > "$side/host.freq.tsv" &
 sampler=$!
 # Not in an `||` list: errexit must stay in force inside the repetition.
 set +e
-if [[ $group == 1c ]]; then
+if [[ $panel == assay ]]; then
+    (set -e; run_assay)
+elif [[ $group == 1c ]]; then
     env JSR_DATA="$data" PAPER_OPPONENTS_ROOT="$opp" PAPER_RUN_ROOT="$root" PAPER_MEASURE="$measure" \
         PAPER_SCORER="$scorer" PAPER_SERVICE_CPU="$service" PAPER_OBSERVER_CPU="$observer" \
         bash docs/paper/run-cold.sh "$round" "$arm"
@@ -229,13 +261,15 @@ printf '%s\n' "$panel" > "$run/panel"
 if [[ -f $PWD/harness.commit ]]; then
     cp "$PWD/harness.commit" "$run/harness.commit"  # the deployed lane commit, when the deployment records it
 fi
-python3 "$tool" audio-seconds "$root/panel" > "$run/audio.seconds"
-(
-    # shellcheck source=docs/paper/opponents/open-arms.sh
-    source "$PWD/docs/paper/opponents/open-arms.sh"
-    open_arm "$arm"
-    find "${artifacts[@]}" -type f -printf '%s\n' | awk '{bytes += $1} END {print bytes}' > "$run/artifact.bytes"
-)
+if [[ $panel != assay ]]; then
+    python3 "$tool" audio-seconds "$root/panel" > "$run/audio.seconds"
+    (
+        # shellcheck source=docs/paper/opponents/open-arms.sh
+        source "$PWD/docs/paper/opponents/open-arms.sh"
+        open_arm "$arm"
+        find "${artifacts[@]}" -type f -printf '%s\n' | awk '{bytes += $1} END {print bytes}' > "$run/artifact.bytes"
+    )
+fi
 if [[ -f $run/trace.jsonl ]]; then
     python3 "$tool" trace-summary "$run/trace.jsonl" > "$run/trace.summary.json"
     (cd "$run" && sha256sum trace.jsonl > trace.sha256 && gzip trace.jsonl && sha256sum trace.jsonl.gz >> trace.sha256)

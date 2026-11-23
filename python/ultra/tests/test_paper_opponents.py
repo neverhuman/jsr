@@ -501,6 +501,48 @@ def test_turn_runner_serves_a_gap_waits_for_quiet_and_sets_aside_unfinished_rece
     assert (host / "TIMING.done").read_text().splitlines()[-1].startswith("DONE 2 ")
 
 
+def test_a_hold_that_cannot_be_made_quiet_measures_nothing_and_is_retried(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | bench-open | x\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    plan = tmp_path / "plan.txt"
+    plan.write_text("2 full m 1 4 0 0.004\n")
+    quiet = tmp_path / "quiet.sh"  # fails at the first hold (e.g. sudo missing), succeeds at the second
+    quiet.write_text(f'n=$(cat "{tmp_path}/tries" 2>/dev/null || echo 0); echo $((n + 1)) > "{tmp_path}/tries"; [ "$n" -ge 1 ]\n')
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
+           "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.05", "FAKE_LOG": str(tmp_path / "calls.log"),
+           "OPEN_AGENT": "bench-open", "OPEN_QUIET_CMD": f"bash {quiet}", "OPEN_QUIET_RETRY_S": "0.2"}
+    subprocess.run([sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")], env=env,
+                   timeout=60, check=True)
+    assert (tmp_path / "calls.log").read_text().splitlines() == ["m 1 4 0 full bench-open 2"]  # once, after quiet
+    state = json.loads((tmp_path / "logs/turn.json").read_text())
+    assert [h.get("quiet_exit") for h in state["holds"]] == [1, 0]
+    assert state["holds"][0]["outcome"].startswith("host not quiet") and state["holds"][0]["jobs"] == []
+    assert not (host / "TIMING.lock").exists() and "DONE 2 " in (host / "TIMING.done").read_text()
+
+
+def test_an_assay_hold_starts_with_the_panel73_anchor(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | bench-open | h47 assay\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    plan = tmp_path / "plan.txt"
+    plan.write_text("anchor anc 0.001 0.001\n2 assay h47-a0 1 4 0 0.004\n")
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
+           "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.05", "FAKE_LOG": str(tmp_path / "calls.log"),
+           "OPEN_AGENT": "bench-open"}
+    subprocess.run([sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")], env=env,
+                   timeout=60, check=True)
+    assert (tmp_path / "calls.log").read_text().splitlines() == [
+        "anc 1 4 0 p73 bench-open 2", "h47-a0 1 4 0 assay bench-open 2"]
+    assert (tmp_path / "runs/1c-assay/cold/round-1/h47-a0").is_dir()
+
+
 ARM_SCRIPT = """
 set -euo pipefail
 data=$1 wav=/panel/wav run=/run
