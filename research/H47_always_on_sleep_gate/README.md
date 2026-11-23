@@ -25,7 +25,7 @@
 - **Q5, added false words:** 0 words in 30 h of non-speech for both arms. One added word on the stream's gaps puts the bound at 0.1008/h against 0.10/h, so Q5 misses by a hair.
 - **Q4 against C1:** passes on the stream. INCONCLUSIVE on the AO torture sets at their size (−0.27 pp, bound −1.08).
 - **Low input levels (amendment 8):** the gate misses 0.5% / 1.2% / 3.5% of onsets at −20 / −30 / −40 dB. These are mostly items the recogniser fails on anyway: the misses cost 0 / 6 / 9 words over 600 items, while the recogniser's own WER rises from 8.4% to 21.3%. Gated stays ≥ twin at every level.
-- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), and uclamp pacing (H47-U).
+- **Open for default-on:** Q5b and Q4b on fresh data (amendment 9), and the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i). C1 is byte-identical after #72.
 
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
@@ -368,3 +368,9 @@ The intervals in both tables are one-sided 95% bounds. Results: `results/Q_5ca35
 - **The recogniser's own loss is much larger.** U's WER goes from 8.4% to 12.1% at −30 dB and 21.3% at −40 dB. That is the AGC's job, after the gate.
 - **Caveat:** the twin decodes continuously without resets, so G − U mixes the gate's misses with the gain from a fresh start at each wake. The direct cost of the misses is the hit-word column.
 - **Panel:** in contiguous speech the session seldom closes. The one extra close at −20 dB costs +0.08 pp of WER.
+
+### Verification records for the release (no new runs after the 09:53Z research wrap-up)
+- **C1 after #72:** C1 built at #72's head `0514443` (`ultra-engine-endless`, Mac sha256 `7f0e18b4…`) is byte-identical to the e61121e C1 trace over the whole 27.56 h stream: 105,324 trace lines, 203,429 tokens, 105,336 words. Every comparison against C1 above therefore stands after #72.
+- **x86 vs NEON:** the x86 AVX2 runs of C0 and C1 on H0 matched the Mac's NEON traces byte for byte over the first 54,507 lines (C0, to 51,516 s) and 49,029 lines (C1, to 46,094 s). They were stopped at the wrap-up (09:55Z), at 52% and 46% of the stream.
+- **#77's rebased head `cd7f831`:** of the PR's 22 files, only `agent/owner-map.json` and `agent/test-map.json` differ from the ACKed `a871f8b`, so the qualification above applies to it unchanged.
+- **Still to run for default-on (lead 09:53Z):** Q5b and Q4b (amendment 9), and the CPU / watts hold on quiet xbabe0 (bench-open 14i: Q2 / Q3 / Q6). The uclamp pacing experiment (H47-U) is dropped with the wrap-up unless the lead reinstates it.
