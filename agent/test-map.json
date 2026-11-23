@@ -400,6 +400,18 @@
     "python/ultra/tests/test_step_sync.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_step_sync.py",
       "purpose": "torch-free unit and closed-loop simulation tests for step_sync"
+    },
+    "crates/ultra-gate/": {
+      "command": "cargo test -p ultra-gate",
+      "purpose": "pure-integer Sentinel-0 golden trace, packet-size invariance, silence rejection, and Linux uclamp tests"
+    },
+    "crates/ultra-alwayson/": {
+      "command": "cargo test -p ultra-alwayson",
+      "purpose": "3 s PCM16 ring conservation, 5-state sleep ladder, one-pass wake replay, and isolated-segment identity tests"
+    },
+    "research/H47_always_on_sleep_gate/GATE_IMPLEMENTATION.md": {
+      "command": "just score",
+      "purpose": "H47 Rust sleep gate & ladder implementation contract stays visible to the audit"
     }
   }
 }

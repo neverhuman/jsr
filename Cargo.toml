@@ -13,6 +13,8 @@ members = [
   "crates/ultra-cli",
   "crates/ultra-bridge",
   "crates/ultra-engine",
+  "crates/ultra-gate",
+  "crates/ultra-alwayson",
 ]
 
 [workspace.package]
