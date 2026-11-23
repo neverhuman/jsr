@@ -172,7 +172,7 @@ function bandPill(b){
   return `<span class="pill ${cls}">${esc(b)}</span>`;
 }
 let lastScVer=null;
-function scCellTip(c){if(!c)return "";if(c.evidence==="estimated")return [c.range_display,c.basis].filter(Boolean).join(" · ");if(c.evidence==="pending")return ["owner: "+(c.owner||"?"),c.eta_utc?"ETA "+c.eta_utc:""].filter(Boolean).join(" · ");return [c.scope,c.source,c.inherited_from?"inherited from "+c.inherited_from:"",c.pairing_note].filter(Boolean).join(" · ");}
+function scCellTip(c){if(!c)return "";if(c.evidence==="estimated")return [c.range_display,c.basis].filter(Boolean).join(" · ");if(c.evidence==="pending")return ["owner: "+(c.owner||"?"),c.eta_utc?"ETA "+c.eta_utc:""].filter(Boolean).join(" · ");return [c.scope,c.source,c.inherited_from?"inherited from "+c.inherited_from:"",c.pairing_note,(c.receipts||[]).map(r=>r.path+" (sha256 "+String(r.sha256||"").slice(0,12)+"…)").join("; "),c.note].filter(Boolean).join(" · ");}
 function renderScorecard(){
   const sc=S.scorecard;
   if(!sc){$("scorecard").textContent="No /mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json yet (graceful standby).";lastScVer=null;return;}
@@ -194,8 +194,8 @@ function renderScorecard(){
         const cls=cell.evidence==="estimated"?"warn":cell.evidence==="pending"?"":"";
         const sty=cell.evidence==="estimated"?' style="font-style:italic"':cell.evidence==="pending"?' style="color:var(--dim)"':"";
         const txt=cell.evidence==="pending"?"pending":(cell.display??cell.value??"–");
-        return `<td class="${cls}"${sty} title="${esc(scCellTip(cell))}">${esc(txt)}${cell.inherited_from?"†":""}</td>`;}).join("");
-      return `<tr><td><b>${esc(r.name||r.id)}</b><div>${lbl}</div></td><td>${esc(r.wer_guard||"–")}</td>${tds}</tr>`;}).join("")+`</tbody></table>`;
+        return `<td class="${cls}"${sty} title="${esc(scCellTip(cell))}">${esc(txt)}${cell.inherited_from?"¹":""}</td>`;}).join("");
+      return `<tr><td><b>${esc(r.name||r.id)}</b><div>${lbl}</div></td><td>${esc(r.wer_guard||"–")}</td>${tds}</tr>`;}).join("")+`</tbody></table><div style="margin-top:6px;color:var(--dim);font-size:11px">¹ inherited from base row · † 100 MFA clips</div>`;
 }
 function hostBadges(n){
   const b=[];

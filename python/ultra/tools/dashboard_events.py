@@ -257,4 +257,4 @@ def read_v3_scorecard(path: Path | str | None = None) -> dict | None:
         raw = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, ValueError): return None
     if not isinstance(raw, dict): return None
-    return raw if raw.get("schema") in (None, SCOREBOARD_SCHEMA) else None
+    return raw if raw.get("schema") == SCOREBOARD_SCHEMA else None

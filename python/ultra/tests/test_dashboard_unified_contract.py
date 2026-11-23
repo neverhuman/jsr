@@ -186,10 +186,10 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
         "headline": {"best_wer_native_engine": {"row": "b0", "name": "B0 continuous", "value": 8.272, "display": "8.272", "unit": "%", "evidence": "measured", "row_wer_display": "8.272"}},
         "release_gate": {"target_edits": 7895, "best_native_candidate": {"row": "b0", "status": "PASS", "progress_pct": 100.0}},
         "rows": [{"id": "b0", "name": "B0 continuous", "labels": ["exploratory, DEV only"], "wer_guard": "baseline", "cells": {
-            "wer_pooled": {"value": 8.272, "display": "8.272", "evidence": "measured"},
+            "wer_pooled": {"value": 8.272, "display": "8.272", "evidence": "measured", "receipts": [{"path": "evals/b0.json", "sha256": FULL_SHA256}]},
             "wer_clean": {"value": 4.26, "display": "4.26", "evidence": "measured"},
             "wer_other": {"value": 11.86, "display": "11.86", "evidence": "measured"},
-            "ftl_end_ms": {"value": 312.2, "display": "312", "evidence": "measured"},
+            "ftl_end_ms": {"value": 312.2, "display": "312", "evidence": "measured", "inherited_from": "a1l", "note": "design clock"},
             "ftl_onset_ms": {"value": 581.1, "display": "581", "evidence": "measured"},
             "x_rt": {"value": 28.45, "display": "28.45×", "evidence": "estimated", "range_display": "27–29×", "basis": "scaled"},
             "w_per_stream": {"value": None, "display": "pending", "evidence": "pending", "owner": "bench-lane", "eta_utc": "2026-11-23T08:00Z"},
@@ -197,7 +197,9 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
     }))
     bad_sc = tmp_path / "bad_scoreboard.json"
     bad_sc.write_text(json.dumps({"schema": "ultra.v3.scoreboard/v99", "version": 1, "rows": []}))
-    assert read_v3_scorecard(bad_sc) is None
+    no_schema_sc = tmp_path / "no_schema_scoreboard.json"
+    no_schema_sc.write_text(json.dumps({"version": 1, "rows": []}))
+    assert read_v3_scorecard(bad_sc) is None and read_v3_scorecard(no_schema_sc) is None
     opp = tmp_path / "opponents"
     (opp / "TIMING.lock").mkdir(parents=True)
     (opp / "TIMING.lock" / "owner").write_text("bench-open 14d\n")
@@ -231,13 +233,18 @@ def test_http_ws_zero_runs_scorecard_timing_other_project_and_diloco_hub(tmp_pat
             async with TestServer(app8766) as s66, TestServer(app8765) as s65, aiohttp.ClientSession() as cli:
                 await app8766["fleet"].poll_v3(cli)
                 app8766["fleet"].pulse()
-                assert "ULTRA v3 Best-Model Scorecard" in await (await cli.get(s66.make_url("/"))).text()
+                html66 = await (await cli.get(s66.make_url("/"))).text()
+                assert "ULTRA v3 Best-Model Scorecard" in html66 and "(sha256 \"+String(r.sha256||\"\").slice(0,12)" in html66
+                assert "¹ inherited from base row · † 100 MFA clips" in html66 and "cell.inherited_from?\"¹\":\"\"" in html66
                 snap66 = await (await cli.get(s66.make_url("/api/snapshot"))).json()
                 sc66 = await (await cli.get(s66.make_url("/v3/scoreboard.json"))).json()
                 assert snap66["schema"] == SCHEMA_VERSION and snap66["fleet"]["active_runs"] == 0
                 assert sc66["schema"] == "ultra.v3.scoreboard/v1" and sc66["version"] == 20 and sc66["checked_utc"] == "2026-11-23T07:52:37Z"
+                assert sc66["rows"][0]["cells"]["wer_pooled"]["receipts"][0]["sha256"] == FULL_SHA256
                 assert sc66["rows"][0]["cells"]["wer_pooled"]["display"] == "8.272" and snap66["diloco"][0]["cohort"] == "V3_Sync"
-                assert "ULTRA v3 Best-Model Scorecard" in await (await cli.get(s65.make_url("/"))).text()
+                html65 = await (await cli.get(s65.make_url("/"))).text()
+                assert "ULTRA v3 Best-Model Scorecard" in html65 and "(sha256 \"+String(r.sha256||\"\").slice(0,12)" in html65
+                assert "¹ inherited from base row · † 100 MFA clips" in html65 and "cell.inherited_from?\"¹\":\"\"" in html65
                 snap65 = await (await cli.get(s65.make_url("/api/snapshot"))).json()
                 sc65 = await (await cli.get(s65.make_url("/v3/scoreboard.json"))).json()
                 assert snap65["schema"] == SCHEMA_VERSION and snap65["global"]["live_runs"] == 0
