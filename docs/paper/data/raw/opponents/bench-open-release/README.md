@@ -107,7 +107,7 @@ The one-stream line also gives the live row a paced lag: `joins/14s-lag.jsonl` (
 p95 420 ms). Its workload is one continuous 128 s stream of 22 clips, not the per-clip lag100 workload of the H0 lag rows, as
 its `lag_method` says; the two are not the same measurement.
 
-## 14t: Nemotron 560 ms on the quiet host (one panel73 repetition)
+## 14t / 14u: Nemotron 560 ms on the quiet host (three panel73 repetitions)
 
 Nemotron Speech Streaming EN 0.6B at 560 ms (NeMo-Speech.cpp, Q8_0 GGUF), the H0 rotation's exact binary (nemo-speech
 41b19d48...) and model (d9a01898...; energy's hash-checked copies on xbabe0, linked where `run-cold.sh` looks) with
@@ -117,16 +117,36 @@ as the lead asked: a full-panel repetition (~40 min) would outrun the 30-minute 
 
 | | CPU-s per audio-s | x real time | peak RSS | W per stream, core_msr_active |
 |---|---:|---:|---:|---:|
-| **quiet xbabe0, panel73, 1 rep (14tr)** | **0.4156** | **2.41** | 987 MB | **4.33** |
+| quiet xbabe0, panel73, round 1 (14tr) | 0.4156 | 2.41 | 987 MB | 4.33 |
+| **quiet xbabe0, panel73, 3 rounds (14tr + 14u), the row `nemotron-en-560-zen2-t1`** | **0.4204** (0.4156 / 0.4205 / 0.4204) | **2.38** | 987 MB | **4.51** (4.33 / 4.52 / 4.51) |
 | H0 rotation row `nemotron-en-560-zen2-t1-xbabe3` (full panel, 3 reps, shared host) | 0.4510 | 2.22 | 1,290 MB | 4.09 (core_msr_contended, separate run) |
 
-The quiet host runs it 7.9% faster than the shared-host row. Energy: `joins/14t-energy.json` (`energy_report.join_run` over the
+Rounds 2 and 3 ran as TIMING 14u (2026-11-23 21:30-21:40Z, CPUs 24 / 28, harness ca88c93; receipts
+`14t/round-2`, `14t/round-3`), so the quiet row has the three repetitions the evidence rules need: median 0.4204 CPU-s per
+audio-s (2.38x), the three transcripts identical, and all 73 equal to the H0 rotation's full-panel pass (same binary and
+model), whose WER (3.56%) the row takes. The row and its energy lines are `joins/nemotron-560-p73.jsonl`
+(`watts-join/row_14tu.py` on H0). The quiet host runs it 6.8% faster than the shared-host row. Energy: `joins/14t-energy.json` (`energy_report.join_run` over the
 timed process window; the core draws 10.4 W while decoding; one other core crossed 2 W during the run). A single subset
 repetition is a cross-check of the shared-host row, not a row of its own. Its first hold (14t, 20:46:37-20:47:15Z) ran only
 the anchor: one-core panel73 arms go through `open-arms.sh`, which had no Nemotron arm until harness 35eb5ce.
 
-The three panel73 anchor repetitions of 14s / 14t / 14tr (H22ctl, `anchors-p73/`) read 0.0355 / 0.0354 / 0.0352 CPU-s per
-audio-s.
+The four panel73 anchor repetitions of 14s / 14t / 14tr / 14u (H22ctl, `anchors-p73/`) read 0.0355 / 0.0354 / 0.0352 /
+0.0353 CPU-s per audio-s.
+
+## Full-730 WER of the two whole-clip unified models (untimed)
+
+The lead's review ask 4 (20:15:38Z): untimed full-panel WER passes for Parakeet Unified EN 0.6B (transcribe.cpp cfa237c,
+Q8_0 GGUF) and Nemotron Labs Unified ASR 0.6B (NeMo c02239a, FP32), whole utterance, through bench-cross's own runner and
+runtimes on xbabe0 outside every hold (2026-11-23 20:58-21:08Z, `run-opponent.sh <arm> w8 wer`, eight single-thread
+recognisers on CPUs 56-63, nice 19), scored by `collect.py score` with `ultra-score` d784f8ca on all 730 WAVs (workload
+010aa985...). Receipts in bench-cross's export layout: `opponents/zen2/<arm>-w8/round-wer/` and the hypotheses beside it.
+
+| system (whole utterance, untimed) | WER pooled / clean / other | edits (S / D / I) |
+|---|---|---|
+| Parakeet Unified EN 0.6B (`parakeet-unified-offline`) | 2.298 / 1.893 / 2.876 | 332 (273 / 32 / 27) |
+| Nemotron Labs Unified ASR 0.6B (`nemotron-labs-unified-offline`) | 2.416 / 1.882 / 3.179 | 349 (290 / 27 / 32) |
+
+Their CPU-seconds in these receipts are not a timing row (eight recognisers side by side, untimed, any load).
 
 ## 14p: the v3.0.0 candidate on the release decoder (one artifact)
 
