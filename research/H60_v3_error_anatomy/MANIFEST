@@ -1,0 +1,21 @@
+# H60 MANIFEST: receipts and sources for the v3.0.0 error anatomy, with full sha256 (no weights, no audio).
+# $D = /mnt/xbabe3-external/jsr. paper-lane checked every sha256 below against the file on 2026-11-23 (about 20:25Z),
+# and re-scored both inputs with the pinned scorer: the per-split counts are identical to the committed reports.
+
+# --- committed in this folder (method 1, the official counts)
+official.final    research/H60_v3_error_anatomy/results/official_committed.json  sha256 29c120552694cb5ce2713cfb5578565a76a747b7c04449d4f917b14e5f8539fd (5,808 edits = 5.476%)
+official.live     research/H60_v3_error_anatomy/results/official_provisional.json  sha256 f2af72ef956921ac23cffbc2f0819135824fb54bae90b97e6520bf9606b9577a (7,898 edits = 7.447%)
+
+# --- sources on the data drive ($D/claude-lead/sdi_v300/, its SHA256SUMS checks 5 / 5)
+script            $D/claude-lead/sdi_v300/sdi_analysis.py  sha256 87049b95037876b1338cb7eebdd317dd2e6f2471b61c6abca39e63c9dee3866a (method 2: raw-text alignment)
+report.md         $D/claude-lead/sdi_v300/v300_sdi.md  sha256 4c4dc41f903cb3c99ef60468e60828e044187f2945bf7072796693822fcaa66b (position / length / confusion / concentration tables)
+report.json       $D/claude-lead/sdi_v300/v300_sdi.json  sha256 86fde231a6cc7d5c1b1a13f3e39ed8faddbbb8a597dafa07a0ba4e7482095084 (method 2 totals: 5,826 / 7,883 edits over 105,350 words)
+official.final    $D/claude-lead/sdi_v300/official_committed.json  sha256 29c120552694cb5ce2713cfb5578565a76a747b7c04449d4f917b14e5f8539fd
+official.live     $D/claude-lead/sdi_v300/official_provisional.json  sha256 f2af72ef956921ac23cffbc2f0819135824fb54bae90b97e6520bf9606b9577a
+
+# --- inputs (eval-lane's RC1 release row) and pins
+input.final       $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.committed.score-input.jsonl  sha256 e293e4fdb2afa1ae4d953e446c16093ee34a2a5452763981c359fbbdadc6284f
+input.live        $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.provisional.score-input.jsonl  sha256 434803ddc1a66413ab8b01c0ba0b18a896cd5588b074cbd2a8bcf81cd7a68550
+scorer            $D/h45-wins/bin/ultra-score  sha256 d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1 (ultra-en-wer-norm/v1, rule table 988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8)
+weights.int8      $D/evals/eval-lane/export/H53_RC1-ema/int8/weights.int8.safetensors  sha256 edac19d8d6f6968994c4235362155b726c26b107b3d85f0b79405a2b90acd46a (v3.0.0 = RC1 EMA)
+binary            $D/runtime-lane/release_bb1071a/ultra-engine-commit  sha256 9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2

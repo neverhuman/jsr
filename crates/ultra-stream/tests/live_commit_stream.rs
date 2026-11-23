@@ -82,6 +82,7 @@ fn speech_or_silence_model() -> Arc<Model> {
         pair: None,
         restore: None,
         enc_proj: lin(4, 4, 0.5, 0.43, None),
+        ctc_head: None,
         emb: wave(32, 0.05, 0.37),
         pred_proj: lin(4, 8, 0.05, 0.53, None),
         pred_cache: None,

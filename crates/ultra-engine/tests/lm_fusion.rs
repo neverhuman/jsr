@@ -171,6 +171,7 @@ fn tiny_model() -> TinyWeights {
         rope_inv: Vec::new(),
         mel_cfg,
         tokens,
+        ctc_head: None,
         int8_prepared: None,
     };
     TinyWeights {

@@ -436,6 +436,34 @@
     "python/ultra/tests/test_shard_sidecar.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_shard_sidecar.py",
       "purpose": "parity, speed, disjointness, statistical balance, and lockstep resume proofs for shard_sidecar"
+    },
+    "python/ultra/train/wer_diag.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wer_diag_and_rescore_lm.py",
+      "purpose": "verify Wave 0 WER-0 train-vs-dev gap, k2 MI alignment entropy/edge occupancy, S-half guard and N-best oracle"
+    },
+    "python/ultra/train/nlm_rescore.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wer_diag_and_rescore_lm.py",
+      "purpose": "verify Wave 1B-2 ULTRA-LM-2M GRU and L-ref L2R/R2L Transformer training, INT8 export, compound alignment and N-best rescoring"
+    },
+    "python/ultra/tests/test_wer_diag_and_rescore_lm.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wer_diag_and_rescore_lm.py",
+      "purpose": "unit and smoke tests for Wave 0 WER diagnostics and Wave 1B-2 neural commit-pass rescorers"
+    },
+    "python/ultra/train/mcr_rnnt.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wave2_objectives.py",
+      "purpose": "verify chunk==0 bidirectional attention, symmetric shared-band MCR-RNNT KL, gradient flow, and DDP normalization"
+    },
+    "python/ultra/train/etm_kd.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wave2_objectives.py",
+      "purpose": "verify timing-shift invariance, zero blank gradient, token-level validity masking (>90% retention), and exact <= bound ETM-KD"
+    },
+    "python/ultra/train/loss_trunc.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wave2_objectives.py",
+      "purpose": "verify WER-7a per-utterance loss truncation, Cauchy/Tukey outlier capping, and warmup no-op"
+    },
+    "python/ultra/tests/test_wave2_objectives.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wave2_objectives.py",
+      "purpose": "Wave 2 unit tests and 4-step default-off bit-exactness witness"
     }
   }
 }

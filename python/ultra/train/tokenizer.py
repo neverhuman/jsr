@@ -83,8 +83,16 @@ class Tokenizer:
     def num_outputs(self) -> int:
         return self.vocab + 1
 
-    def encode(self, text: str) -> list[int]:
-        return [p + 1 for p in self.sp.encode(text.upper() if self.upper else text.lower())]
+    def encode(self, text: str, *, dropout_p: float = 0.0, alpha: float = 0.1, rng=None) -> list[int]:
+        s = text.upper() if self.upper else text.lower()
+        if dropout_p > 0.0:
+            import random
+
+            draw = rng.random() if rng is not None else random.random()
+            if dropout_p >= 1.0 or draw < dropout_p:
+                ids = self.sp.encode(s, enable_sampling=True, nbest_size=-1, alpha=float(alpha))
+                return [p + 1 for p in ids]
+        return [p + 1 for p in self.sp.encode(s)]
 
     def decode(self, ids: list[int]) -> str:
         return self.sp.decode([i - 1 for i in ids if i != BLANK])

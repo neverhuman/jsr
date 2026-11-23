@@ -3,6 +3,8 @@
 
 pub mod api;
 pub mod coalesce;
+mod commit_config;
+mod commit_queue;
 pub mod contrast;
 pub mod coordinator;
 pub mod delivery;

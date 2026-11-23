@@ -3,6 +3,8 @@
 //! `Arc<Model>` weights, optional `320 ms` trailing silence pad, real `ultra_core::events::Emitter`
 //! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
 
+pub(crate) mod ctc_head;
+mod live;
 mod lm;
 pub mod lm_gate;
 mod lm_gate_beam;
@@ -19,10 +21,13 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
+pub use ctc_head::aggregate_duplicate_hyps;
+pub use live::{run_commit_pcm, CommitSnapshot};
 pub use lm::{CommitLmConfig, CommitLmGateConfig};
 pub use lm_gate::{CommitTokenLm, InternalLm, LmGateConfig};
 pub use rescore::{
-    combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, word_edit_distance,
+    combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, mbr_select_with_temp,
+    word_edit_distance,
 };
 pub use session_bias::{SessionLexicalConfig, SessionLexicalMemory};
 pub use spm::{SpmModelType, SpmTokenizer};
@@ -69,6 +74,7 @@ pub struct CommitPassSession {
     pub(super) ws: Workspace,
     pub(super) emitter: Emitter,
     committed_prefix: String,
+    model_ctc_vocab: Option<CtcVocab>,
 }
 
 impl CommitPassSession {
@@ -90,6 +96,9 @@ impl CommitPassSession {
         ce.endpoint_reset_ms = 0;
         ce.endpoint_replay_ms = 0;
         let stream = engine.create_stream();
+        let model_ctc_vocab = (cfg.ctc_weight > 0.0)
+            .then(|| ctc_head::load_model_ctc_vocab(&engine.model))
+            .flatten();
         Ok(Self {
             provisional_engine: engine,
             commit_engine: ce,
@@ -101,6 +110,7 @@ impl CommitPassSession {
             ws: Workspace::default(),
             emitter: Emitter::new(stream_id, model_config_id),
             committed_prefix: String::new(),
+            model_ctc_vocab,
         })
     }
 
@@ -218,14 +228,14 @@ impl CommitPassSession {
         let (raw_committed, selected_hyp) = if pcm_truncated {
             (provisional.clone(), 0)
         } else {
-            let mut cs = self.commit_engine.create_stream();
-            cs.accept_i16(&self.seg.pcm_buf)?;
-            if self.cfg.tail_pad_samples > 0 {
-                cs.accept_i16(&vec![0i16; self.cfg.tail_pad_samples])?;
-            }
-            cs.input_finished();
-            drain_stream(&self.commit_engine, &mut cs, &mut self.ws)?;
-            rescore::select_commit_hyp(&self.commit_engine, &cs, self.cfg, ctc)
+            ctc_head::decode_commit_segment(
+                &self.commit_engine,
+                &self.seg.pcm_buf,
+                self.cfg,
+                &mut self.ws,
+                ctc,
+                self.model_ctc_vocab.as_ref(),
+            )?
         };
         let commit_wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
         let active_imm = self.active_immutable().to_owned();

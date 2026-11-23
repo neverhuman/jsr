@@ -194,6 +194,7 @@ fn score_tokens_matches_brute_force_with_predictor_and_joiner() {
         pair: None,
         restore: None,
         enc_proj: dummy,
+        ctc_head: None,
         emb: emb.clone(),
         pred_proj: Linear::from_fp32(&pred_w, joiner, 2 * pred_emb, Some(&pred_b)),
         pred_cache: None,

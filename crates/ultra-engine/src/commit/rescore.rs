@@ -1,8 +1,14 @@
-//! CTC forward log-probability and word-level Minimum Bayes Risk (MBR) selection for H45.
+//! CTC forward log-probability, duplicate-segmentation aggregation, and word-level Minimum
+//! Bayes Risk (MBR) selection with temperature scaling for H45 / H55 Wave 1A.
 
 use super::types::CommitConfig;
 use super::vocab::CtcVocab;
 use crate::{Engine, EngineStream};
+
+pub(crate) enum CtcInput<'a> {
+    External(&'a CtcVocab, &'a [f32], usize),
+    ModelHead(Option<&'a CtcVocab>, &'a [f32], usize, usize),
+}
 
 /// Exact word-level Levenshtein edit distance.
 pub fn word_edit_distance(a: &[String], b: &[String]) -> usize {
@@ -22,13 +28,24 @@ pub fn word_edit_distance(a: &[String], b: &[String]) -> usize {
     prev[m]
 }
 
-/// Exact word-level Levenshtein expected-WER Minimum Bayes Risk selector over log-prob weighted
-/// N-best hypotheses. Deterministic tie-break: finite score, lower risk, higher score, lower index.
+/// Exact word-level Levenshtein expected-WER Minimum Bayes Risk selector with `temp = 1.0`.
 pub fn mbr_select(candidates: &[(Vec<String>, f32)]) -> usize {
+    mbr_select_with_temp(candidates, 1.0)
+}
+
+/// Exact word-level Levenshtein expected-WER Minimum Bayes Risk selector over temperature-scaled
+/// posteriors `softmax(temp * score)`. Deterministic tie-break: finite score, lower risk, higher
+/// score, lower index.
+pub fn mbr_select_with_temp(candidates: &[(Vec<String>, f32)], temp: f32) -> usize {
     let n = candidates.len();
     if n <= 1 {
         return 0;
     }
+    let t = if temp.is_finite() && temp > 0.0 {
+        f64::from(temp)
+    } else {
+        1.0
+    };
     let max_s = candidates
         .iter()
         .map(|(_, s)| *s)
@@ -40,7 +57,7 @@ pub fn mbr_select(candidates: &[(Vec<String>, f32)]) -> usize {
     let (mut probs, mut sum_p) = (vec![0.0f64; n], 0.0f64);
     for (i, (_, s)) in candidates.iter().enumerate() {
         if s.is_finite() {
-            probs[i] = f64::from(*s - max_s).exp();
+            probs[i] = (t * f64::from(*s - max_s)).exp();
             sum_p += probs[i];
         }
     }
@@ -87,7 +104,7 @@ pub fn combine_ctc_rnnt_scores(rnnt_logp: f32, ctc_logp: f32, ctc_weight: f32) -
     rnnt_logp + ctc_weight * ctc_logp
 }
 
-fn logaddexp_f64(a: f64, b: f64) -> f64 {
+pub(super) fn logaddexp_f64(a: f64, b: f64) -> f64 {
     if a == f64::NEG_INFINITY {
         return b;
     }
@@ -190,7 +207,7 @@ pub(crate) fn select_commit_hyp(
     eng: &Engine,
     stream: &EngineStream,
     cfg: CommitConfig,
-    ctc: Option<(&CtcVocab, &[f32], usize)>,
+    ctc: Option<CtcInput<'_>>,
 ) -> (String, usize) {
     if eng.lm.is_some() && ctc.is_none() && !cfg.mbr_enabled {
         return (eng.text(stream), 0);
@@ -201,20 +218,39 @@ pub(crate) fn select_commit_hyp(
     if beam.hyps.len() <= 1 {
         return (eng.text(stream), 0);
     }
-    let mut texts = Vec::with_capacity(beam.hyps.len());
-    let mut cands = Vec::with_capacity(beam.hyps.len());
+    let mut raw_hyps = Vec::with_capacity(beam.hyps.len());
     for hy in &beam.hyps {
         let ids: Vec<i64> = hy.tokens.iter().map(|&t| i64::from(t)).collect();
         let text = eng.model.tokens.decode_ids(&ids);
-        let score = ctc.map_or(hy.score, |(vocab, lp, frames)| {
-            let ctc_lp = ctc_rescore_text(vocab, lp, frames, &text);
-            combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
-        });
-        texts.push(text.clone());
-        cands.push((text.split_whitespace().map(str::to_owned).collect(), score));
+        let score = match ctc {
+            None => hy.score,
+            Some(CtcInput::External(vocab, lp, frames)) => {
+                let ctc_lp = ctc_rescore_text(vocab, lp, frames, &text);
+                combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
+            }
+            Some(CtcInput::ModelHead(opt_vocab, lp, frames, ctc_v)) => {
+                let blank = eng.model.arch.blank;
+                let ctc_lp = opt_vocab
+                    .and_then(|v| v.retokenize_text(&text))
+                    .map(|ids| ctc_forward_logp(lp, frames, ctc_v, blank, &ids))
+                    .unwrap_or_else(|| {
+                        if ctc_v == eng.model.arch.vocab {
+                            let tids: Vec<usize> = hy.tokens.iter().map(|&t| t as usize).collect();
+                            ctc_forward_logp(lp, frames, ctc_v, blank, &tids)
+                        } else {
+                            f32::NEG_INFINITY
+                        }
+                    });
+                combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
+            }
+        };
+        raw_hyps.push((text, score));
     }
-    let idx = if cfg.mbr_enabled {
-        mbr_select(&cands)
+    let mut merged = super::ctc_head::aggregate_duplicate_hyps(&raw_hyps);
+    let cands: Vec<(Vec<String>, f32)> =
+        merged.iter().map(|(w, _, s, _)| (w.clone(), *s)).collect();
+    let best_g = if cfg.mbr_enabled {
+        mbr_select_with_temp(&cands, cfg.mbr_temp)
     } else {
         cands
             .iter()
@@ -222,5 +258,6 @@ pub(crate) fn select_commit_hyp(
             .max_by(|(ia, a), (ib, b)| a.1.total_cmp(&b.1).then_with(|| ib.cmp(ia)))
             .map_or(0, |(i, _)| i)
     };
-    (texts.swap_remove(idx), idx)
+    let (_, text, _, first_idx) = merged.swap_remove(best_g);
+    (text, first_idx)
 }

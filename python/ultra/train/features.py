@@ -79,3 +79,30 @@ class GlobalCMVN(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return (x - self.mean) * self.istd
+
+
+def time_warp(x: torch.Tensor, lens: torch.Tensor, max_warp: int, gen: torch.Generator) -> torch.Tensor:
+    """Piecewise-linear lhotse-style SpecAugment time warp (max_warp <= 0: bit-exact no-op)."""
+    if max_warp <= 0:
+        return x
+    out = x.clone()
+    B, T, _ = out.shape
+    for b in range(B):
+        n = int(lens[b])
+        w_lim = min(max_warp, (n - 1) // 2)
+        if w_lim < 1 or n < 3:
+            continue
+        center = int(torch.randint(w_lim, n - w_lim, (1,), generator=gen)) if (n - 2 * w_lim) > 0 else w_lim
+        delta = int(torch.randint(-w_lim, w_lim + 1, (1,), generator=gen))
+        if delta == 0:
+            continue
+        dst_c = max(1, min(n - 2, center + delta))
+        idx = torch.arange(n, device=out.device, dtype=torch.float32)
+        left = idx * (center / float(dst_c))
+        right = center + (idx - dst_c) * ((n - 1 - center) / float(max(1, n - 1 - dst_c)))
+        src = torch.where(idx <= dst_c, left, right).clamp(0.0, float(n - 1))
+        lo = src.floor().long()
+        hi = (lo + 1).clamp(max=n - 1)
+        alpha = (src - lo.float()).to(out.dtype)[:, None]
+        out[b, :n] = (1.0 - alpha) * out[b, lo] + alpha * out[b, hi]
+    return out

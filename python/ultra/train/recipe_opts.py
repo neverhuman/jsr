@@ -27,7 +27,48 @@ def specaug(cfg) -> SpecAugConfig:
     d = SpecAugConfig()
     return SpecAugConfig(enabled=cfg.specaug,
                          time_masks_per_10s=cfg.specaug_time_masks or d.time_masks_per_10s,
-                         time_width=cfg.specaug_time_width or d.time_width)
+                         time_width=cfg.specaug_time_width or d.time_width,
+                         time_warp=getattr(cfg, "specaug_time_warp", 0))
+
+
+def add_wave2_args(ap) -> None:
+    """Optional Wave 2 CLI flags (all default-off; mirror TrainConfig --set keys)."""
+    ap.add_argument("--mcr-weight", type=float, default=None)
+    ap.add_argument("--etm-kd-weight", type=float, default=None)
+    ap.add_argument("--etm-kd-mode", default=None, choices=("exact", "bound"))
+    ap.add_argument("--loss-trunc-q", type=float, default=None)
+    ap.add_argument("--loss-trunc-warmup", type=int, default=None)
+    ap.add_argument("--loss-trunc-mode", default=None, choices=("drop", "cauchy", "tukey"))
+    ap.add_argument("--specaug-time-warp", type=int, default=None)
+    ap.add_argument("--bpe-dropout-p", type=float, default=None)
+    ap.add_argument("--bpe-dropout-alpha", type=float, default=None)
+
+
+def apply_wave2_args(cfg, args) -> None:
+    for name in ("mcr_weight", "etm_kd_weight", "etm_kd_mode", "loss_trunc_q", "loss_trunc_warmup",
+                 "loss_trunc_mode", "specaug_time_warp", "bpe_dropout_p", "bpe_dropout_alpha"):
+        val = getattr(args, name, None)
+        if val is not None:
+            setattr(cfg, name, val)
+
+
+def make_loss_truncator(cfg):
+    if getattr(cfg, "loss_trunc_q", 0.0) <= 0.0:
+        return None
+    from train.loss_trunc import LossTruncator
+
+    return LossTruncator(cfg.loss_trunc_q, cfg.loss_trunc_warmup, cfg.loss_trunc_mode)
+
+
+def wave2_loss_kwargs(cfg, truncator, step: int) -> dict:
+    kw: dict = {}
+    if getattr(cfg, "mcr_weight", 0.0) > 0.0:
+        kw["mcr_weight"] = cfg.mcr_weight
+    if truncator is not None:
+        kw["loss_trunc"], kw["loss_trunc_step"] = truncator, step
+    if getattr(cfg, "etm_kd_weight", 0.0) > 0.0:
+        kw["etm_kd_weight"], kw["etm_kd_mode"] = cfg.etm_kd_weight, cfg.etm_kd_mode
+    return kw
 
 
 def check_init_compatible(src: ModelConfig, dst: ModelConfig) -> None:

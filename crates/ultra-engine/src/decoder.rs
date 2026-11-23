@@ -384,6 +384,7 @@ mod tests {
             ),
             pred_cache: None,
             joiner_out,
+            ctc_head: None,
             blank_cert_f32: None,
             blank_cert_i8: Some(fake_cert),
             rope_inv: Vec::new(),
