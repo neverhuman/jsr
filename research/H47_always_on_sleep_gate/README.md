@@ -95,6 +95,23 @@ What existed when this was written: O0–O3 results (below), the O3n / O3n-r500 
 - **Arms:** **S1n** = those segments decoded by `h47-oracle-decode` v2 with `--no-flush` (complete chunks only, the designs' close; primary). **S1f** = the same with the flush (diagnostic for finding 1).
 - **Readings fixed now** (codex-lead's wake gate, via the lead's 04:48Z criterion 2): WER(S1n) − WER(C1) ≤ +0.10 pp and one-sided 95% upper bound ≤ +0.20 pp (Bonferroni α/6 bounds reported beside the unadjusted ones); first-word recall after sleep, S1n − C1, one-sided 95% lower bound ≥ −0.5 pp; gap false words of S1n with the Garwood bound, and added over C1. S1f − S1n gives the cost of flushing at a close.
 
+## Amendment 5 (2026-11-23, written after amendments 3–4's results and before the run it names): real Sentinel-0 segments with a 500 ms pre-roll
+What existed when this was written: all arms of amendments 3 and 4 decoded and scored (results below). O3n-r500 beat O3n by −0.165 pp WER and +0.77 pp first-word recall, and S1n (real Sentinel-0 segments, R = 1 s) lost 0.61 pp of first words after noise gaps against C1. One more **post-hoc** arm tests the recommended configuration on the real gate's segments:
+- **S2n:** PR #75's `python/ultra/tools/sentinel0_segments.py` (main d72169c) with `--preroll-ms 500 --idle-ms 1500` on this wave's Sentinel-0 trace (`hot.u8` `c9a51519…`), decoded by `h47-oracle-decode` v2 with `--no-flush`.
+- **Readings fixed now:** the same as amendment 4's against C1 (WER ≤ +0.10 pp, one-sided 95% upper ≤ +0.20 pp; first-word recall after sleep, lower bound ≥ −0.5 pp; gap false words); S2n − S1n is descriptive. If S2n passes and is no worse than S1n, the recommendation to the swarm is R = 500 ms with a no-flush close.
+
+## Amendment 6 (2026-11-23, written before the runs it names): the designs' B-6 sweep (shorter idle and pre-roll) on the real Sentinel-0 segments
+What existed when this was written: everything above, S2n (R 500 ms, idle 1500 ms) still decoding, Q pass 1 on PR #77 (3410004) running. Post-hoc and descriptive.
+- **Arms:** PR #75's `sentinel0_segments.py` (main d72169c) on `hot.u8` `c9a51519…` with (pre-roll, idle) = (500, 1000), (500, 700), (300, 1500) and (300, 1000) ms, each decoded by `h47-oracle-decode` with `--no-flush`. Together with S1n (1000, 1500) and S2n (500, 1500) they span the designs' B-6 grid around our measured wake delays (p99 90 ms, max 450 ms).
+- **Rule fixed now** (the designs' B-6 rule, with C1 as the reference): among the arms whose WER is within +0.05 pp of C1 (one-sided 95% upper bound ≤ +0.15 pp) and whose first-word recall after sleep has a one-sided 95% lower bound ≥ −0.5 pp against C1, the recommended setting is the one with the **lowest decoded duty**. Gap false words are reported for each arm. These are recommendations to the swarm's session, not gates.
+
+## Amendment 7 (2026-11-23, written before any xbabe0 run it names): Q's CPU / energy protocol and the uclamp pacing experiment
+What existed when this was written: Q passes 1–2 on the Mac (exactness, accuracy), no CPU or energy measurement of #77's session.
+- **Q2 / Q3 / Q6 on xbabe0 (bench-open entry "H47-Q"):** `scripts/h47_q_cpu.sh` (sha256 `f163af3b…`), #77's `ultra-alwayson-check` at 5ca3583 with `--replay-ms 500 --idle-ms 1500 --no-verify-identity` (x86 build `b6bc7fbd…`; idle changed from 800 to 1500 at 08:46Z, before any xbabe0 run, after Q pass 2 showed duplicates and mid-utterance restarts at idle 800), gated (G) vs ungated twin (U), plus C1 (`ultra-engine-endless` a067a307…, T=1500 / R=1000) on the 5% cell. Inputs `inputs/q/MANIFEST.json` (`ec403e6b…`): 900 s of silence, pink −30 and white −20 dBFS, the whole duty05_r1_Q cell, 900 s of the 100%-speech panel cell, and 1 s of zeros. Three repetitions on CPUs 4 / 24 / 28, ABBA order, bench-open's meter, quiet gate and guard, energy's 1 Hz power log.
+  - CPU-s per audio-s of a run = (user + sys of the process − the same arm's mean on the 1 s input) / audio seconds; the subtraction removes model load and start-up.
+  - **Q2:** mean over the three non-speech inputs of G ÷ U ≤ 0.02. **Q3:** incremental core-register joules (net of the idle floor) on the 5% cell, U ÷ G ≥ 2 on the mean of 3 repetitions and ≥ 1.8 on each; C1 ÷ G reported beside it. **Q6:** G ÷ U on the panel excerpt ≤ 1.05 at the one-sided 95% upper bound over repetitions (with 3 repetitions, the max is reported beside the mean).
+- **uclamp pacing (bench-open entry "H47-U", the designs' C-1):** B0 paced at 1× (bench-open's 14f protocol) under `uclampset -M u` for u ∈ {1024, 512, 256}, interleaved; optional unpaced arm with `--uclamp-max` (at R 500 / idle 1500). **Pass (fixed now):** adopt a clamp if core-register J per audio-s falls ≥ 15% against u = 1024 while stable-word lag p95 rises ≤ 10 ms.
+
 ## Results
 
 ### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
@@ -141,3 +158,98 @@ Paired comparisons (B − A; speaker-cluster bootstrap; one-sided 95% bounds una
 - **Wake:** the first hot hop at or after the MFA first-word onset comes within the 1 s ring on **5,567 / 5,567** transitions; delay p50 / p95 / p99 / max = 10 / 60 / 90 / 450 ms (worst gap types pink −40 and white −30). Criterion 1 (≥ 99.8%) holds on the real gaps, not only on PR #75's synthetic pre-onset background.
 - **Sleep opportunity:** the gate is cold over the last 80 ms of 98.7% of the gaps; the exceptions are all brown noise (35 / 310 at −30 dBFS, 30 / 310 at −20, 4 / 309 at −40).
 - **Hot hops inside the gaps:** silence 0.15%, brown −40 0.7%, brown −30 / −20 7–11%, pink and white ~13% (mostly the ~1.5 s the floor needs to forget the utterance's quiet tail when a noise gap starts).
+
+### Amendments 3 and 4: the close, the pre-roll, and the real Sentinel-0 segments (exploratory; post-hoc arms labelled; report `results/O_oracle_report_all.json`)
+| Arm | WER | Gap false words (95% upper / h) | First word, all / after sleep / after noise gaps | Decoded duty |
+|---|---:|---:|---:|---:|
+| C1 continuous, T=1500 / R=1000 | 8.377% | 5 (0.62) | 88.92 / 88.81 / 88.72% | 100% |
+| O0 isolated | 8.273% | 1 (0.28) | 90.07 / 89.94 / 90.51% | 38.1% |
+| O3 (flush at close) | 8.297% | 10 (1.00) | 89.35 / 89.37 / 89.36% | 49.9% |
+| O3n (no flush) | 8.297% | **0** (0.18) | 89.35 / 89.37 / 89.36% | 49.9% |
+| O3n-r500 (pre-roll 500 ms) | **8.132%** | 0 (0.18) | 90.12 / 89.99 / 90.48% | 47.1% |
+| O3n-r300 (pre-roll 300 ms) | 8.115% | 2 (0.37) | 90.10 / 89.98 / 90.48% | 46.0% |
+| S1n real Sentinel-0 segments, R 1 s, no flush | 8.341% | 8 (0.85) | 88.70 / 88.85 / 88.11% | 53.7% |
+| S1f the same with flush | 8.342% | 20 (1.70) | 88.70 / 88.85 / 88.11% | 53.7% |
+
+| B − A | ΔWER pp | bounds | Bonferroni (family) | Δ first word, after sleep (bounds) |
+|---|---:|---|---|---|
+| O3n − O3 | 0.000 | [0.000, 0.000] | (5) | 0.00 |
+| O3n-r500 − O3n | −0.165 | [−0.248, −0.076] | [−0.284, −0.042] | +0.63 [+0.18, +1.07] |
+| O3n-r300 − O3n | −0.182 | [−0.277, −0.083] | [−0.316, −0.042] | +0.61 [0.00, +1.22] |
+| O3n − O0 | +0.024 | [−0.070, +0.116] | [−0.109, +0.156] | −0.57 [−1.06, −0.08] |
+| O3n-r500 − O0 | −0.141 | [−0.222, −0.064] | [−0.254, −0.034] | +0.06 [−0.33, +0.45] |
+| **S1n − C1** | **−0.036** | [−0.113, +0.041] | [−0.129, +0.054] (2) | +0.04 [−0.43, +0.51] |
+| S1f − S1n | +0.001 | [0.000, +0.003] | [0.000, +0.003] (2) | 0.00 |
+| O3n-r500 − C1 (descriptive) | −0.245 | [−0.340, −0.151] | [−0.369, −0.121] (3) | +1.18 [+0.67, +1.69] |
+
+**Readings (as pre-registered in amendments 3 and 4):**
+- **(3a) PASS: the close must not flush.** O3n has 0 gap false words where O3 had 10, at an identical WER (|Δ| = 0.000 ≤ 0.05 pp). On the real gate's segments, flushing adds 12 false words (S1f 20 vs S1n 8). The session must close on complete chunks only and never emit text at a close; Q checks this on #77's session.
+- **(3b) PASS: recommend a 500 ms pre-roll.** O3n-r500 recovers all of O3n's first-word loss against O0 (−0.57 → +0.06 pp after sleep; after noise gaps 89.36 → 90.48%, O0 90.51%) and also lowers WER by 0.165 pp (Bonferroni [−0.284, −0.042]). Sentinel-0's measured wake delay on this stream is ≤ 450 ms, so 500 ms covers every onset. O3n-r300 shows the same trend. Input to the swarm's B-6 sweep.
+- **(4) PASS: criterion 2 of the skip-gate simulation.** With the swarm's real Sentinel-0 segments (R 1 s, gate-driven close after 1.5 s cold, no flush), the stream WER is −0.036 pp against C1 (upper bound +0.041, ≤ +0.20) and first-word recall after sleep +0.04 pp (lower bound −0.43, ≥ −0.5). Gap false words: 8 against C1's 5. 2 are genuine last words emitted more than 0.5 s after the utterance end (a scorer-allowance artefact), 5 are "SH" / "W" decoded inside the 1.5 s hangover in loud white / pink noise, and 1 is a first word emitted less than 0.5 s after its utterance start (the same artefact). Added rate 3 / 17.06 h.
+- **Not yet passing on the real segments: first words after noise gaps.** S1n keeps 88.11% against C1's 88.72% there; S1n − O3n is −0.65 pp overall. Amendment 5 tests R = 500 ms on the real segments.
+- **The ideal configuration** (word-onset wake, 500 ms pre-roll, no-flush close) beats today's always-on configuration by 0.245 pp WER and 1.18 pp first-word recall, at 47.1% decoded duty.
+
+### Amendment 5: real Sentinel-0 segments with a 500 ms pre-roll (exploratory, post-hoc)
+| Arm | WER | Gap false words (95% upper / h) | First word, all / after sleep | Decoded duty |
+|---|---:|---:|---:|---:|
+| C1 | 8.377% | 5 (0.62) | 88.92 / 88.81% | 100% (+37.9% replayed) |
+| S1n (R 1 s) | 8.341% | 8 (0.85) | 88.70 / 88.85% | 53.7% |
+| **S2n (R 500 ms)** | **8.185%** | 7 (0.77) | 89.60 / 89.77% | **51.0%** |
+- S2n − C1: WER −0.192 pp (one-sided 95% [−0.280, −0.106]); first word after sleep +0.95 pp [+0.52, +1.39]. S2n − S1n (descriptive): −0.157 pp, +0.91 pp. Segments `oracle/segs/S2.segs.jsonl` (`00111435…`, 5,415 segments).
+- **Reading: PASS, recommend R = 500 ms with a no-flush close.** On the real gate's segments, the shorter pre-roll is more accurate than today's always-on configuration in both WER and first words, with about half the decoded audio.
+
+### Amendment 6: B-6 sweep of pre-roll and idle on the real Sentinel-0 segments (exploratory, post-hoc; report `results/O_oracle_report_all.json`)
+All arms: PR #75's segmenter (gate-driven close after `idle` ms of gate-cold hops) on this wave's Sentinel-0 trace, each segment decoded from a fresh engine stream, no flush.
+| (pre-roll, idle) ms | WER | ΔWER vs C1 [one-sided 95%] | first word after sleep, Δ vs C1 [lower 95%] | gap false words (95% upper / h) | decoded duty |
+|---|---:|---|---|---:|---:|
+| (1000, 1500) S1n | 8.341% | −0.036 [−0.113, +0.041] | +0.04 [−0.43] | 8 (0.85) | 53.7% |
+| (500, 1500) S2n | 8.185% | −0.192 [−0.280, −0.106] | +0.95 [+0.52] | 7 (0.77) | 51.0% |
+| (500, 1000) | 8.147% | −0.230 [−0.324, −0.140] | +1.01 [+0.57] | 4 (0.54) | 48.3% |
+| **(500, 700)** | **8.138%** | −0.239 [−0.330, −0.151] | +1.01 [+0.57] | 3 (0.46) | **46.6%** |
+| (300, 1500) | 8.160% | −0.217 [−0.302, −0.132] | +1.03 [+0.53] | 6 (0.69) | 49.9% |
+| (300, 1000) | 8.143% | −0.234 [−0.320, −0.148] | +1.05 [+0.54] | 3 (0.46) | 47.1% |
+- **Reading (pre-registered rule): (500, 700) is recommended for PR #75's gate-driven segmenter.** Every arm with a pre-roll ≤ 500 ms passes, with WER below C1 and positive first-word lower bounds; (500, 700) has the lowest decoded duty. A shorter idle also lowers the gap false words (8 → 3), because the session decodes less noise after each utterance. A 300 ms pre-roll is not needed: 500 ms already covers the measured wake delays (max 450 ms), and 300 ms gains nothing measurable.
+- **Caveat for #77 (corrected 08:50Z, review on #90):** (500, 700) applies to PR #75's gate-driven close only. #77's session closes on recogniser blanks and replays R from the ring (bound R ≤ idle − 300 ms). Its measured setting is (500, 1500) (Q pass 2, below): a short idle there splits utterances and re-emits words at hot closes.
+
+### Q pass 1: PR #77's session at 3410004 (defaults R 1000 ms, T_idle 1500 ms), before the settings changed (exploratory)
+Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with identity verification on; each ledger segment then re-decoded by `h47-oracle-decode` v3 (`--allow-overlap`) for emission times, with token counts checked against every session segment (0 mismatches everywhere). Compact results: `results/Q_pass1_3410004_ao_cells.json`, `results/Q_pass1_3410004_ao_pooled.json`.
+- **Q1 exactness: PASS.** 0 identity mismatches in the 6,986 gated segments of the 27.56 h stream and in all 42 runs (21 AO cells × gated / ungated twin); sample conservation OK, no ring underflow.
+- **Stream, gated:** WER 8.283% (C1 8.377%: −0.094 pp, one-sided 95% [−0.180, −0.012]); first word after sleep 88.91% (C1 88.81%: +0.10 pp [−0.36, +0.56]); 2 gap false words (C1: 5); recogniser duty 54.3%, 5,532 wakes, 52.7% of hops asleep. Against the ideal oracle O3n: −0.014 pp WER, −0.46 pp first words. The ungated twin of the stream run is still decoding (Q7).
+- **AO tier A, gated vs ungated twin** (pooled with cell-prefixed ids; first-word intervals bootstrap over cells):
+
+| pooled cells | items | WER gated vs twin, Δ [one-sided 95%] | first word gated vs twin, Δ [95%] |
+|---|---:|---|---|
+| 12 duty cells | 2,520 | 11.141 vs 11.311%, −0.169 [−0.356, +0.017] | 83.10 vs 82.30%, +0.79 [+0.21, +1.31] |
+| 7 torture sets | 1,600 | 9.949 vs 10.054%, −0.105 [−0.260, +0.054] | 87.50 vs 87.38%, +0.13 [−0.90, +1.00] |
+| 2 panel cells (100% speech) | 1,460 | 9.385 vs 9.333%, +0.052 [−0.080, +0.185] | 88.84 vs 89.11%, −0.27 [−0.55, 0.00] |
+- Recogniser duty, gated / twin: 9.3 / 161% at 5% speech and 1 onset/min, 31 / 158% at 6/min; 23 / 152% and 44 / 150% at 20%; 53 / 133% and 72 / 131% at 50%; 100.4 / 100.3% at 100%. Gap false words: gated 14, twin 25 (21 cells).
+- **Readings so far:** Q4 (first word after sleep) passes on the stream (lower bound −0.36 ≥ −0.5) and on the pooled duty cells; the torture sets alone are INCONCLUSIVE at this sample size (lower bound −0.90, point +0.13). Q7 waits for the stream twin. Q2 / Q3 / Q6 (CPU, energy, overhead) need xbabe0; the duty ratios above are proxies only. These pass-1 numbers describe 3410004; the final head is qualified in pass 2.
+
+### Q pass 2: PR #77's session at 5ca3583 (R 500 ms) on the 27.56 h stream, idle 800 vs 1500 (exploratory)
+| gated session | WER | vs C1 [one-sided 95%] | first word after sleep vs C1 [95%] | segments | words repeated across hot-close overlaps | gap false words | duty | identity / re-decode mismatches |
+|---|---:|---|---|---:|---:|---:|---:|---|
+| **(500, 1500)** | **8.127%** | **−0.250** [−0.342, −0.163] | **+1.01** [+0.57, +1.45] | 6,992 | **0 / 48** | 2 | 50.9% | 0 / 0 |
+| (500, 800) | 8.337% | −0.040 [−0.129, +0.051] | +0.29 [−0.35, +0.93] | 12,831 | 7 / 1,359 | 2 | 50.2% | 0 / 0 |
+| pass 1 (1000, 1500), 3410004 | 8.283% | −0.094 [−0.180, −0.012] | +0.10 [−0.36, +0.56] | 6,986 | 0 / 109 | 2 | 54.3% | 0 / 0 |
+- **(500, 1500) is the configuration to ship.** With #77's recogniser-blank close, an 800 ms idle closes at ordinary pauses inside utterances: 1.8× the segments, so more restarts that lose context (+0.21 pp WER against 1500). The gate is still hot at those closes, so they reopen with the 500 ms replay, and 7 of those replays re-emitted the previous segment's last word ("IT TO YOU | YOU ARE MY", "WHEN I | I DO MY", "ENOUGH | ENOUGH FOR ALL" …), against a 0.18% chance rate of the same word at non-overlapping boundaries. That is a duplication under codex-lead's integrity gate, even though R ≤ idle − 300 holds. The B-6 sweep's short idle (amendment 6) came from PR #75's gate-driven close, which closes only in non-speech, and does not transfer.
+- **#77's 2edee89 (500, 700) is the same session as (500, 800) at chunk 4:** the close counts blank frames in whole 160 ms chunks, so 700 ms closes after 800 ms; the two gated ledgers are byte-identical (`a20102d1…`). The −300 bound still matters at chunks 1 and 2.
+- The ungated twins for both idles and the AO cells at (500, 1500) are still running (Q7, Q4 on AO).
+
+### Q at the shipping defaults (500, 1500): one-pass replay, non-speech, and the ACK of PR #77's final head a871f8b (exploratory)
+- **One-pass wake replay, verified in the session:** in the gated stream ledger every pre-roll replay is one batched decode call (5,535 wakes and 1,457 hot-at-close reopenings, `wake_decode_calls = 1`), and every segment equals its standalone chunk-by-chunk decode (Q1). Batched replay is therefore bit-exact with chunked replay at session scale, which is the property this wave's original item 2 asked to test.
+- **Ten 1 h non-speech blocks** (eval-lane's, sha256-checked copies; gated vs ungated twin, identity on): the gated session decodes 0.063% of the audio on average (11 wakes in 10 h: white −40 6, white −20 3, white −30 1, pink −30 1; none in silence or brown noise) and emits **0 words**. The twin decodes 131.8% (its hot-close replays) and also emits 0 words. Recogniser-duty ratio gated ÷ twin ≈ 0.05%, a proxy for Q2 until xbabe0 measures CPU. Ten zero-event hours bound the false-word rate only at ≤ 0.30 / h (Garwood); Q5 needs 30 h.
+- **ACK for merge posted on #77 at a871f8b** (its session code equals 5ca3583's at (500, 1500); the engine crates are unchanged since e61121e), scoped to exactness and stream accuracy. Q7 at (500, 1500), the AO cells at (500, 1500), and every CPU / energy claim (Q2 / Q3 / Q6 on xbabe0, bench-open 14i; uclamp, H47-U) remain open.
+
+### Q at (500, 1500): Q7 on the stream, and the AO tier-A cells (exploratory)
+**Stream, gated vs its ungated twin (5ca3583 = a871f8b's arithmetic):** gated 8.127% vs twin 8.285%: **−0.158 pp** (one-sided 95% [−0.246, −0.071]; Bonferroni [−0.285, −0.034]). **Q7: PASS** (≤ +0.10 pp point, ≤ +0.20 pp upper). First word after sleep gated − twin +0.57 pp [+0.15, +0.98]. Twin: 3 gap words, 0 / 39,837 identity and re-decode mismatches, recogniser duty 120.1%. Report `results/Q_5ca3583_stream_report.json`.
+
+**AO tier A, gated vs ungated twin** (21 cells, 42 runs, 0 identity and 0 re-decode token mismatches; first-word intervals bootstrap over 73 speakers; `results/Q_5ca3583_r500_i1500_ao_cells.json`, `results/Q_5ca3583_r500_i1500_ao_pooled.json`):
+
+| pooled cells | items | WER gated vs twin, Δ [one-sided 95%] | first word gated vs twin, Δ [95%] |
+|---|---:|---|---|
+| 12 duty cells | 2,520 | 11.017 vs 11.145%, −0.128 [−0.340, +0.070] | 83.73 vs 82.54%, +1.19 [+0.39, +2.00] |
+| 7 torture sets | 1,600 | 9.916 vs 10.116%, −0.200 [−0.357, −0.046] | 87.38 vs 86.19%, +1.19 [+0.41, +2.01] |
+| 2 panel cells (100% speech) | 1,460 | 9.482 vs 9.430%, +0.052 [−0.086, +0.194] | 88.70 vs 88.77%, −0.07 [−0.62, +0.48] |
+- **Recogniser duty, gated / twin:** 8.4 / 130% at 5% speech (1 onset/min), 27 / 129% (6/min); 23 / 126% and 39 / 125% at 20%; 52 / 116% and 67 / 115% at 50%; 100.1–100.2 / 100.1–100.2% at 100%. Gap false words: gated 14, twin 23.
+- **g15 (measured duty):** gated duty at 15% speech ≈ 18% (1 onset/min) and ≈ 35% (6/min), so about 0.13× and 0.26× C1's CPU with A0's rates. This is an estimate until xbabe0 (14i).
+- **Q4 against C1, partial:** alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000) have finished on 8 of 21 cells, and I scored them with the same scorer. On the 5 finished torture sets (T1 g3 Q / N20, T2 g3 Q / N20, T3 g8 N20; 1,400 items): WER gated − C1 −0.116 pp [−0.317, +0.071]; first word **−0.43 pp [−1.25, +0.40]**, **INCONCLUSIVE** by the pre-registered rule (point ≥ −0.5, bound below). On the stream, Q4 passes against C1 (+1.01 pp [+0.57]). Re-scored when T1 / T2 g30 finish (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`).
