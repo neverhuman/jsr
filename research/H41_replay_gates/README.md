@@ -166,3 +166,9 @@ For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU 
 - **Trunk step A1L (04:44Z):** A1's final checkpoint (`ckpt-00049000.pt`) fine-tuned on A1's recipe plus `delay_penalty=0.005`, the H41 replay schedule (8,000 steps), seed 1234. The model starts from the raw weights and the EMA restarts from them. Launched with `INIT_FROM` / `RUN_NAME` on `train/ops/h41_replay.sh`.
   - Gate: full-dev EMA pooled at chunks 4 / 8 / 16 within the four-run spread of A1-49000's (8.302 / 7.961 / 7.703). First-token latency at chunks 4 / 8 is the reported outcome. It is promoted only if arm 14 (seed 1234) passes (it did, 04:42Z). Kill rule threshold 6.163 (A1's last dev-clean400 EMA 4.663 + 1.5 pp).
 - **Adopted (lead, 04:43Z):** `delay_penalty=0.005` joins the trunk recipe; arms 14 and 14-r both pass the latency arm's gate against the chunk-arm seed pair.
+
+## Amendment 21 (2026-11-23, posted in AGENT_CHAT at 06:18Z, before the arm started)
+- **Arm 14-s3** = arm 14 (A1's recipe + `delay_penalty=0.005`) with `seed=5678`, on xbabe9. It is the third seed for the dp 0.005 non-inferiority question.
+- Under the v3 rule, arms 14 + 14-r against the chunk-arm pair are +0.055 [−0.008, +0.120] at chunk 4 against margin 0.087 (eval-lane, 06:14Z): INCONCLUSIVE.
+- **Reading:** eval-lane's non-inferiority test on the three-seed set against the chunk-arm pair, chunks 4 / 8 / 16, margin 0.087. It is decided together with H48a (A1L against B0 on the confirmation half), per the lead's 06:15Z ruling.
+- **Pinned tree:** xbabe9's lane tree, content sha256 `8c45feda…` (`LC_ALL=C` sort).

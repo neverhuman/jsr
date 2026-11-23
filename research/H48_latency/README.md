@@ -36,6 +36,7 @@ Wave H48 covers A1L, the low-latency mode, onset peek and the MFA-anchored laten
   - The diff's sha256 is `bf9f3cadb66d1385048c9a54cdec7ed659782257d8123c23740643853829ec88`. It covers `kd.py`'s exact speed key and its test, which A1L doesn't use, and two ops scripts.
   - On xbabe9 that tree is the worktree `.agent/worktrees/trainer-a1l`. Its `python/ultra` `*.py` content sha256 is `99bce400e81fbd6748c11b4603950c85b7bfc730abb9d5c9909672201ce04ff9`, identical to xbabe8's.
   - The launcher refuses to start if the hash differs.
+  - The content hash sorts the file list with `LC_ALL=C` (`git ls-files -co --exclude-standard python/ultra | grep '\.py$' | LC_ALL=C sort | xargs sha256sum | sha256sum`). Locale collation differs between hosts.
 - **Launch command:** the original A1L command, unchanged. `h41_replay.sh`'s settings with `INIT_FROM=ckpt-00049000.pt`, run name `A1L_dp0.005`, plus `chunk_modes=4,8,16 eval_chunks=8,16 delay_penalty=0.005`. The trainer resumes from `LATEST` (`ckpt-00005907`) and does not re-initialise. Guard 0.87.
 
 **Gate** (unchanged from the 04:44Z pre-registration):
