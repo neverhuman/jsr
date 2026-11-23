@@ -252,14 +252,40 @@ def _decode_job(args):
     return uid, text, ex.feats.numpy(), ex.rnnt, ex.ctc, f
 
 
+def parse_extra_splits(spec: str) -> list[tuple[str, float | None]]:
+    """`/abs/dir[@weight],...` -> [(dir, weight or None)] (H52). An extra split is a directory of
+    parquet shards in the LibriSpeech schema (id, text, audio; optional conf), e.g. Libri-Light with
+    R0 pseudo-label text. Without a weight it joins at its natural share (every row group once per
+    epoch); a weight w in (0, 1) makes it w of each epoch's row groups instead."""
+    out: list[tuple[str, float | None]] = []
+    for item in (s.strip() for s in spec.split(",")):
+        if not item:
+            continue
+        path, _, w = item.partition("@")
+        if not os.path.isabs(path):
+            raise ValueError(f"extra split {path!r} must be an absolute directory")
+        weight = float(w) if w else None
+        if weight is not None and not 0.0 < weight < 1.0:
+            raise ValueError(f"extra split weight {weight} must be in (0, 1)")
+        out.append((path, weight))
+    if sum(w or 0.0 for _, w in out) >= 1.0:
+        raise ValueError("extra split weights must sum to less than 1")
+    return out
+
+
 class ParquetBatches:
-    """Endless, resumable batch stream over one or more LibriSpeech parquet splits."""
+    """Endless, resumable batch stream over one or more LibriSpeech parquet splits, plus optional
+    extra splits (`extra`, see parse_extra_splits) whose rows below `min_conf` are dropped.
+    `base_weight` > 0 fixes the LibriSpeech share of every epoch's row groups instead (e.g. 0.5, or
+    LS 3 : LL 1 by hours); the extra splits then share the rest in proportion to their row groups."""
 
     def __init__(self, splits: list[str], feat: Featurizer, seed: int, budget_s: float = 200.0,
                  max_batch: int = 64, max_seconds: float = 20.0, window_groups: int = 4,
                  parquet_root: str | None = None, workers: int = 4, teacher=None,
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
-                 pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False):
+                 pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False,
+                 extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
+                 base_weight: float = 0.0):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -271,8 +297,38 @@ class ParquetBatches:
             if not fs:
                 raise DataError(f"no parquet shards for {s} under {root}")
             self.files.extend(fs)
-        self.units = [(fi, rg) for fi, f in enumerate(self.files)
-                      for rg in range(pq.ParquetFile(f).metadata.num_row_groups)]
+        self._first_extra, self.min_conf, self.dropped_conf = len(self.files), float(min_conf), 0
+        spans = []  # (first file, end file, weight or None) per extra split
+        for d, w in extra:
+            fs = sorted(glob.glob(os.path.join(d, "*.parquet")))
+            if not fs:
+                raise DataError(f"no parquet shards in extra split {d}")
+            for f in fs:
+                if self.min_conf > 0 and "conf" not in pq.ParquetFile(f).schema_arrow.names:
+                    raise DataError(f"{f}: min_conf {self.min_conf} needs a conf column")
+            spans.append((len(self.files), len(self.files) + len(fs), w))
+            self.files.extend(fs)
+        units = [(fi, rg) for fi, f in enumerate(self.files)
+                 for rg in range(pq.ParquetFile(f).metadata.num_row_groups)]
+        if base_weight:  # the base splits' share of each epoch; extras split the rest by row groups
+            if not 0.0 < base_weight < 1.0 or not spans or any(w is not None for _, _, w in spans):
+                raise DataError("base_weight needs 0 < w < 1 and extra splits without their own weights")
+            size = [sum(1 for fi, _ in units if a <= fi < b) for a, b, _ in spans]
+            spans = [(a, b, (1.0 - base_weight) * n / sum(size)) for (a, b, _), n in zip(spans, size, strict=True)]
+        tags = [""] * self._first_extra
+        for a, b, w in spans:
+            tag = (f"@{w:.6g}" if w is not None else "") + (f"?conf>={self.min_conf}" if self.min_conf else "")
+            tags += [tag] * (b - a)
+        weighted = [s for s in spans if s[2] is not None]
+        in_weighted = [any(a <= fi < b for a, b, _ in weighted) for fi, _ in units]
+        self.units = [u for u, x in zip(units, in_weighted, strict=True) if not x]
+        share = sum(w for _, _, w in weighted)
+        # (row groups, draws per epoch) per weighted split: draws / epoch total = its weight.
+        self._weighted = [([u for u in units if a <= u[0] < b], round(w * len(self.units) / (1.0 - share)))
+                          for a, b, w in weighted]
+        if any(not g for g, _ in self._weighted):
+            raise DataError("a weighted extra split has no row groups")
+        self.n_epoch_units = len(self.units) + sum(n for _, n in self._weighted)
         self.feat, self.seed = feat, seed
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
@@ -302,12 +358,12 @@ class ParquetBatches:
                 initargs=(feat.tok_rnnt.path, feat.tok_ctc.path, os.environ.get("JSR_DATA", "")))
         else:
             self._pool = ThreadPoolExecutor(workers) if workers > 1 else None
-        self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}"
-                         for f in self.files]
+        self.manifest = [f"{os.path.basename(os.path.dirname(f))}/{os.path.basename(f)}{t}"
+                         for f, t in zip(self.files, tags, strict=True)]
 
     @property
     def windows_per_epoch(self) -> int:
-        return (len(self.units) + self.window_groups - 1) // self.window_groups
+        return (self.n_epoch_units + self.window_groups - 1) // self.window_groups
 
     def _width(self, epoch: int) -> int:
         if self.carry_width is not None and epoch == self.carry_width[1]:
@@ -316,13 +372,42 @@ class ParquetBatches:
 
     def _windows(self, epoch: int) -> int:
         wg = self._width(epoch)
-        return (len(self.units) + wg - 1) // wg
+        return (self.n_epoch_units + wg - 1) // wg
+
+    def _epoch_units(self, epoch: int) -> list[tuple[int, int]]:
+        """One epoch's row groups: every unweighted group once, then each weighted extra split's
+        draws for this epoch, read in order from an endless chain of seeded permutations of its
+        groups (a down-weighted split rotates through all of them across epochs; an up-weighted
+        one repeats them evenly). Without weighted splits this is `self.units`, unchanged."""
+        if not self._weighted:
+            return self.units
+        out = list(self.units)
+        for k, (groups, draws) in enumerate(self._weighted):
+            first, n = epoch * draws, len(groups)
+            for cyc in range(first // n, (first + draws - 1) // n + 1):
+                perm = np.random.default_rng([self.seed, 52, k, cyc]).permutation(n)
+                lo, hi = max(first, cyc * n) - cyc * n, min(first + draws, (cyc + 1) * n) - cyc * n
+                out.extend(groups[i] for i in perm[lo:hi])
+        return out
 
     def _window_units(self, epoch: int, window: int):
-        perm = np.random.default_rng([self.seed, epoch]).permutation(len(self.units))
+        units = self._epoch_units(epoch)
+        perm = np.random.default_rng([self.seed, epoch]).permutation(len(units))
         wg = self._width(epoch)
         sel = perm[window * wg:(window + 1) * wg]
-        return [self.units[i] for i in sorted(sel)]
+        return [units[i] for i in sorted(sel)]
+
+    def _read_rows(self, fi: int, rg: int) -> list[dict]:
+        """One row group's rows. In an extra split under min_conf > 0, rows whose conf is below it
+        (or missing) are dropped and counted in dropped_conf; LibriSpeech rows are never filtered."""
+        filt = self.min_conf > 0 and fi >= self._first_extra
+        cols = ["id", "text", "audio", "conf"] if filt else ["id", "text", "audio"]
+        rows = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=cols).to_pylist()
+        if filt:
+            kept = [r for r in rows if r["conf"] is not None and r["conf"] >= self.min_conf]
+            self.dropped_conf += len(rows) - len(kept)
+            rows = kept
+        return rows
 
     def _decode(self, row: dict, epoch: int = 0) -> Example | None:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
@@ -375,8 +460,7 @@ class ParquetBatches:
     def _load_window(self, epoch: int, window: int) -> list[list[Example]]:
         rows: list[dict] = []
         for fi, rg in self._window_units(epoch, window):
-            t = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"])
-            rows.extend(t.to_pylist())
+            rows.extend(self._read_rows(fi, rg))
         if self.world > 1:
             return self._load_window_sharded(rows, epoch, window)
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.

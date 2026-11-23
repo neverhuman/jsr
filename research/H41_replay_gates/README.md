@@ -172,3 +172,15 @@ For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU 
 - Under the v3 rule, arms 14 + 14-r against the chunk-arm pair are +0.055 [−0.008, +0.120] at chunk 4 against margin 0.087 (eval-lane, 06:14Z): INCONCLUSIVE.
 - **Reading:** eval-lane's non-inferiority test on the three-seed set against the chunk-arm pair, chunks 4 / 8 / 16, margin 0.087. It is decided together with H48a (A1L against B0 on the confirmation half), per the lead's 06:15Z ruling.
 - **Pinned tree:** xbabe9's lane tree, content sha256 `8c45feda…` (`LC_ALL=C` sort).
+
+## Amendments 22-24 and the co-tenancy test (2026-11-23, each posted in AGENT_CHAT before its arm started)
+- **Amendment 22 (06:58Z; lead GO 06:59Z): arm 19-s3** = the chunk arm (A1's recipe, no delay penalty) with `seed=5678`, on x5 GPU1, same pinned tree as 14-s3 (`8c45feda…`). With it the dp 0.005 non-inferiority test is three seeds of arm 14 against three of the chunk arm. Kill rules 6.592 / 20%.
+- **Amendment 23 (07:03Z): A1C** = B0 (A1-49000, `ckpt-00049000.pt` 2a3dd9fb…) fine-tuned exactly like A1L but with `delay_penalty=0`, seed 1234, on A1L's pinned tree (`99bce400…`). Its config differs from A1L's only in `delay_penalty` (checked).
+  - Readings: A1L − A1C is the penalty's own effect, without the re-warm confound in A1L's +0.12 pp; A1C − B0 says whether continuing B0 alone helps.
+  - A1C is also H53 P1's control and H48c's replay-only control. Kill rules 6.163 / 20%.
+- **Amendment 24 (07:03Z): arm 17-r** = arm 17 (A1's recipe + `left_context=256`) with `seed=4321`, on 14-s3's tree. It gives arm 17's seed pair for eval-lane's Holm family. Kill rules 6.592 / 20%.
+- **Co-tenancy test (lead 07:00Z: two runs per A100, revert if the combined gain is < 10%).** 19-s3, 17-r and A1C started at 07:04Z beside 14-s3 / H48b s1234 / H48b s4321.
+  - Each run had a 0.45 CUDA memory fraction (a `sitecustomize` hook outside the pinned tree), expandable segments and disjoint cores.
+  - Combined audio-h/h against solo: **−4.9% / 0.0% / −2.6%**. Memory was 69-72%, but the card's 5-min utilisation reached the 0.85 guard target, and two contexts time-slice without MPS.
+  - **Reverted at 07:13Z.** The three second runs stopped by PID with SIGTERM checkpoints (steps 1,043 / 704 / 642). Each resumes solo, bit-exact in data order, once its card is free.
+  - Co-tenancy changes wall-clock only, not results.
