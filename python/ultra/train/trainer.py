@@ -78,26 +78,14 @@ class TrainConfig:
     eval_chunks: str = ""
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
-    # Divergence guard (D3MR 2026-11-21 diverged at lr 8e-4: attention qkv weights of one block
-    # grew 10x, loss rose for ~3k steps, then the model collapsed). The run stops, writes
-    # DIVERGED.json and refuses to resume when, after `diverge_after` steps, the train-loss EMA
-    # stays above (1 + diverge_ratio) x its best value for `diverge_patience` steps, or a dev
-    # eval is worse than the best one by more than `diverge_wer_points`. 0 disables a rule.
+    # Divergence guard (DIVERGED.json on train-loss EMA / dev-WER collapse; 0 disables).
     diverge_after: int = 3000
     diverge_ratio: float = 0.3
     diverge_patience: int = 300
     diverge_wer_points: float = 5.0
-    # Attention-weight constraint (D3MR/D3MRb: one block's qkv norm ran away, 70 -> 426, until
-    # the model collapsed). From step qkv_cap_from, every row of each attention qkv weight and
-    # every element of its pre-attention LayerNorm gain is held at <= qkv_cap_ratio x its value
-    # at that step (projection after each optimiser step; the inference graph is unchanged).
-    # qkv_guard_ratio: stop as diverged if max_qkv_norm exceeds that multiple of its value at
-    # qkv_cap_from. 0 disables each.
-    # Weight EMA (training-only; 0 disables): ema = d*ema + (1-d)*weights after every optimiser
-    # step. Saved in checkpoints and in the eval-only model-<step>.pt snapshots under "ema";
-    # score it with `train.evaluate --ema`.
+    # Weight EMA (0 disables); ema_half_life_h > 0 indexes decay by audio-hours.
     ema_decay: float = 0.0
-    ema_half_life_h: float = 0.0  # exposure-indexed EMA half-life in audio-hours (0 = use ema_decay)
+    ema_half_life_h: float = 0.0
     data_rank: int = 0  # H50 DiLoCo island shard (data_world 0 = use DDP rank/world)
     data_world: int = 0
     stratify_chunks: bool = False  # rank r: modes[(draw + data_rank) % len] when data_world > 1
@@ -119,41 +107,29 @@ class TrainConfig:
     extra_splits: str = ""
     extra_min_conf: float = 0.0
     extra_base_weight: float = 0.0  # >0: the LibriSpeech share of each epoch (extras split the rest by size)
-    dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off, default path)
-    node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off, default path)
-    # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
+    dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off)
+    node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off)
+    # Data-parallel options (0/"" = off).
     ddp_util_target: float = 0.0
-    # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
     ddp_global_batches: bool = False
-    # Throughput-weighted shards: one relative speed per rank (e.g. "1,1,0.6"); each rank takes
-    # that share of the seconds of every global batch, so a slow (shared) GPU stops making the
-    # others wait. "" = equal shares (unchanged split). ops/rank_weights.py suggests values.
     ddp_rank_weights: str = ""
-    ddp_native: bool = False  # overlap gradient communication with backward
-    ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
-    # H22 KD from R0: teacher-cache dir and KL weight; tokenizer overrides both heads' model (R0's bpe.model).
-    # RNN-T loss "exact" | "pruned" (k2, H13b), band width, pruned weight ramped 0.1 -> 1 over prune_warmup.
-    kd_dir: str = ""
+    ddp_native: bool = False
+    ddp_bf16_comm: bool = False
+    kd_dir: str = ""  # H22 R0 teacher cache & KL weight
     kd_weight: float = 0.0
     tokenizer: str = ""
-    rnnt_loss: str = "exact"
+    rnnt_loss: str = "exact"  # exact | pruned (k2)
     prune_range: int = 5
     prune_warmup: int = 0
-    # Warm starts into the pruned loss (D2c): for the first prune_hold steps the pruned-loss weight
-    # is 0 and the new simple-joiner heads train on detached encoder/predictor outputs, so an
-    # untrained band cannot push gradients into the pretrained model; the ramp starts after it.
     prune_hold: int = 0
     qkv_cap_from: int = 0
     qkv_cap_ratio: float = 1.5
     qkv_guard_ratio: float = 0.0
     speed_perturb: str = ""
-    pad_frames: int = 0  # round batch time axis up to this multiple (MPS: fewer shapes)
-    pad_tokens: int = 0  # round target axes up to this multiple  # e.g. "0.9,1.0,1.1" (train batches only)
-    weights_every: int = 0  # >0: also keep an eval-only model-<step>.pt every N steps (not rotated)
-    # H23 optimiser bake-off (train/optim; defaults reproduce the original AdamW run bit for bit).
-    # optimizer: adamw | scaled_adam (+ Eden lr) | schedulefree_adamw | muon (+ AdamW for the rest).
-    # grad_clip_mode: fixed (clip) | adaptive (clip_k x median of the last clip_window norms) | agc.
-    # lookahead_k > 0 wraps the optimiser in Lookahead; zloss weights the joiner-logit z-loss.
+    pad_frames: int = 0
+    pad_tokens: int = 0
+    weights_every: int = 0
+    # H23 optimizer / clipping / zloss options (defaults = AdamW bit-exact).
     optimizer: str = "adamw"
     grad_clip_mode: str = "fixed"
     clip_k: float = 2.0
@@ -162,19 +138,12 @@ class TrainConfig:
     lookahead_k: int = 0
     lookahead_alpha: float = 0.5
     zloss: float = 0.0
-    # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
-    cr_ctc_weight: float = 0.0
-    stream_ctx_s: float = 0.0  # H41 arm 11 stream-context augmentation (train/stream_ctx.py; 0 = off)
+    cr_ctc_weight: float = 0.0  # H26 CR-CTC (0 = off)
+    stream_ctx_s: float = 0.0  # H41 arm 11 stream-context aug
     stream_ctx_cap: float = 1.5
-    # H41 full-form CR-CTC (needs cr_ctc_weight > 0): two SpecAugment views per step, CTC and
-    # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
-    # so memory stays at one view's graph and a step costs about 2.3x. False = unchanged path.
     cr_ctc_full: bool = False
-    # H41 half-form CR-CTC (the PR #32 form, run one view at a time): as cr_ctc_full, but the
-    # transducer loss is on view A only; view B gets the CTC loss and the consistency KL.
     cr_ctc_half: bool = False
-    # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
-    delay_penalty: float = 0.0
+    delay_penalty: float = 0.0  # H34 k2 delay_penalty
     # H48c MFA-anchored latency loss ("MFA-anchored"; train/anchored_rnnt.py, side file train/mfa_anchors.py).
     # mfa_anchors "" / anchor_kappa 0 = off (calls unchanged).
     mfa_anchors: str = ""
@@ -192,6 +161,16 @@ class TrainConfig:
     eden_steps_per_epoch: float = 0.0
     sf_beta2: float = 0.999
     muon_momentum: float = 0.95
+    # Wave 2 training objectives & regularization (all default-off for 100% bit-exactness):
+    mcr_weight: float = 0.0
+    etm_kd_weight: float = 0.0
+    etm_kd_mode: str = "exact"
+    loss_trunc_q: float = 0.0
+    loss_trunc_warmup: int = 0
+    loss_trunc_mode: str = "drop"
+    specaug_time_warp: int = 0
+    bpe_dropout_p: float = 0.0
+    bpe_dropout_alpha: float = 0.1
     extra: dict = field(default_factory=dict)
 
 
@@ -235,9 +214,10 @@ class Trainer:
         self.step = 0
         self.pos = Position()
         self.stats = FeasibilityStats()
-        from train.recipe_opts import specaug
+        from train.recipe_opts import make_loss_truncator, specaug
 
         self.augment = specaug(cfg)
+        self.loss_trunc = make_loss_truncator(cfg)
         self.log_enabled = log
         self.stop_requested = False
         self.saver = checkpoint.AsyncSaver()
@@ -279,8 +259,10 @@ class Trainer:
         # existed still matches and a resumed run keeps its divergence baselines
         sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
                                     ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half),
-                                    ("stream_ctx", c.stream_ctx_s), ("anchor", c.anchor_kappa and
-                                    [c.anchor_kappa, c.anchor_margin, c.anchor_cap, c.anchor_simple])) if v]
+                                    ("stream_ctx", c.stream_ctx_s), ("mcr", c.mcr_weight),
+                                    ("etm_kd", c.etm_kd_weight and [c.etm_kd_weight, c.etm_kd_mode]),
+                                    ("loss_trunc", c.loss_trunc_q and [c.loss_trunc_q, c.loss_trunc_mode]),
+                                    ("anchor", c.anchor_kappa and [c.anchor_kappa, c.anchor_margin, c.anchor_cap, c.anchor_simple])) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
@@ -365,6 +347,7 @@ class Trainer:
                 freq_width=max(1, int(round(self.augment.freq_width * frac))),
                 time_masks_per_10s=self.augment.time_masks_per_10s,
                 time_width=max(1, int(round(self.augment.time_width * frac))),
+                time_warp=self.augment.time_warp,
             )
         return None
 
@@ -409,7 +392,8 @@ class Trainer:
                                     **({"balancer_weight": self.cfg.balancer_weight}
                                        if self.cfg.balancer_weight else {}),
                                     **({"ctx": b.ctx} if b.ctx is not None else {}),
-                                    **anchor_kwargs(self.cfg, b))
+                                    **anchor_kwargs(self.cfg, b),
+                                    **self._wave2_kwargs())
         if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
@@ -460,7 +444,13 @@ class Trainer:
                 **({"balancer": float(out["balancer"].detach())} if "balancer" in out else {}),
                 **({"anchor_risk": float(out["anchor_risk"]),
                     "anchor_cov": out["anchor_tokens"] / max(1, out["rnnt_tokens"])}
-                   if "anchor_risk" in out else {})}
+                   if "anchor_risk" in out else {}),
+                **({"mcr_kl": float(out["mcr_kl"].detach())} if "mcr_kl" in out else {}),
+                **({"etm_kd": float(out["etm_kd"].detach())} if "etm_kd" in out else {})}
+
+    def _wave2_kwargs(self) -> dict:
+        from train.recipe_opts import wave2_loss_kwargs
+        return wave2_loss_kwargs(self.cfg, self.loss_trunc, self.step)
 
     def _ddp_interval_stats(self, acc: dict) -> dict:
         """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
@@ -876,11 +866,14 @@ def main(argv=None) -> int:
                     help="resume only: replace the model weights by this checkpoint's (e.g. a weight "
                          "soup), keeping optimizer state, schedule, position and any training-only "
                          "heads the file lacks")
+    from train.recipe_opts import add_wave2_args, apply_wave2_args
+    add_wave2_args(ap)
     a = ap.parse_args(argv)
     if a.threads:
         torch.set_num_threads(a.threads)
         torch.set_num_interop_threads(1)
     cfg = TrainConfig(preset=a.preset, splits=tuple(a.splits))
+    apply_wave2_args(cfg, a)
     for kv in a.set:
         k, v = kv.split("=", 1)
         cur = getattr(cfg, k)
@@ -916,7 +909,9 @@ def main(argv=None) -> int:
                                 teacher=_teacher(cfg, tok_r), loader=cfg.loader,
                                 window_groups=cfg.window_groups, synth_aug=cfg.synth_aug,
                                 extra=parse_extra_splits(cfg.extra_splits), min_conf=cfg.extra_min_conf,
-                                base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r), dur_tables=cfg.dur_tables, node_shards=cfg.node_shards)
+                                base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r),
+                                dur_tables=cfg.dur_tables, node_shards=cfg.node_shards,
+                                bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 

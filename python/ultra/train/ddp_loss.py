@@ -25,7 +25,16 @@ def global_loss(out: dict, cfg, model_cfg, world: int, device, pruned_scale: flo
     w, a = world, float(active)
     nr, nc = float(out["rnnt_tokens"]), float(out["ctc_tokens"])
     nk, nf = float(out.get("kd_frames", 0)), float(out.get("frames", 0))
-    tr, tc, tk, tf = reduce_sum([nr * a, nc * a, nk * a, nf * a], device)
+    has_mcr = getattr(cfg, "mcr_weight", 0.0) > 0 and "mcr_kl" in out
+    has_etm = getattr(cfg, "etm_kd_weight", 0.0) > 0 and "etm_kd" in out
+    if has_mcr or has_etm:
+        nm, ne = float(out.get("mcr_cells", 0)), float(out.get("etm_tokens", 0))
+        tr, tc, tk, tf, tm, te = reduce_sum([nr * a, nc * a, nk * a, nf * a, nm * a, ne * a], device)
+        fm = w * a * nm / max(1.0, tm)
+        fe = w * a * ne / max(1.0, te)
+    else:
+        tr, tc, tk, tf = reduce_sum([nr * a, nc * a, nk * a, nf * a], device)
+        fm = fe = 0.0
     fr = w * a * max(1.0, nr) / max(1.0, tr)
     fc = w * a * max(1.0, nc) / max(1.0, tc)
     fk = w * a * nk / max(1.0, tk)
@@ -37,6 +46,10 @@ def global_loss(out: dict, cfg, model_cfg, world: int, device, pruned_scale: flo
     loss = fr * rn + model_cfg.ctc_weight * fc * out["ctc"]
     if "kd" in out:
         loss = loss + cfg.kd_weight * fk * out["kd"]
+    if has_mcr:
+        loss = loss + cfg.mcr_weight * fm * out["mcr_kl"]
+    if has_etm:
+        loss = loss + cfg.etm_kd_weight * fe * out["etm_kd"]
     for name, weight in FRAME_MEAN_TERMS:
         if name in out:
             loss = loss + getattr(cfg, weight) * ff * out[name]
@@ -44,8 +57,10 @@ def global_loss(out: dict, cfg, model_cfg, world: int, device, pruned_scale: flo
         loss = loss + cfg.inter_ctc_weight * fc * out["inter_ctc"]
     if cfg.kd_weight > 0 and "kd" not in out:
         out["kd"] = out["rnnt"].new_zeros(())
-    keys = ["rnnt", "ctc"] + (["rnnt_simple"] if "rnnt_simple" in out else []) + (["kd"] if cfg.kd_weight > 0 else [])
-    scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk}
+    keys = (["rnnt", "ctc"] + (["rnnt_simple"] if "rnnt_simple" in out else [])
+            + (["kd"] if cfg.kd_weight > 0 else [])
+            + (["mcr_kl"] if has_mcr else []) + (["etm_kd"] if has_etm else []))
+    scale = {"rnnt": fr, "ctc": fc, "rnnt_simple": fr, "kd": fk, "mcr_kl": fm, "etm_kd": fe}
     vals = reduce_sum([float(out[k]) * scale[k] / w for k in keys] + [float(loss) / w], device)
     out = dict(out, **{k: torch.tensor(v) for k, v in zip(keys, vals[:-1], strict=True)})
     return loss, dict(out, loss_global=vals[-1])

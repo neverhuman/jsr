@@ -260,19 +260,21 @@ class Encoder(nn.Module):
         super().__init__()
         self.cfg = c
         self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model, c.stem_type)
+        if c.chunk < 0:
+            raise ShapeError(f"chunk must be >= 0 (0 = full utterance), got {c.chunk}")
         if c.family == "dense":
             self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
         elif c.family == "multirate":
-            if c.chunk % 2 or c.left_context % 2:
-                raise ShapeError("multirate needs an even chunk and left context")
+            if (c.chunk > 0 and c.chunk % 2) or c.left_context % 2:
+                raise ShapeError("multirate needs chunk == 0 or an even chunk, and even left context")
             self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
             self.pair = nn.Linear(2 * c.d_model, c.d_model)
             self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
             self.restore = nn.Linear(c.d_model, 2 * c.d_model)
             self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
         elif c.family == "unet3":
-            if c.chunk % 4 or c.left_context % 4:
-                raise ShapeError("unet3 needs chunk and left_context divisible by 4 (e.g. 4 / 128)")
+            if (c.chunk > 0 and c.chunk % 4) or c.left_context % 4:
+                raise ShapeError("unet3 needs chunk == 0 or chunk divisible by 4, and left_context divisible by 4")
             self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
             if c.inter_ctc_vocab > 0:
                 self.inter_ctc = nn.Linear(c.d_model, c.inter_ctc_vocab)
@@ -321,6 +323,8 @@ class Encoder(nn.Module):
         or (states, lens, aux_dict) when `return_aux=True`."""
         c = self.cfg
         chunk = c.chunk if chunk is None else chunk
+        if chunk < 0:
+            raise ValueError(f"chunk must be >= 0 (0 = full utterance bidirectional), got {chunk}")
         l25, l12, l6 = self._stage_lefts()
         x = self.stem(feats)
         lens = stem_out_len(feat_lens)
