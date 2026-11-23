@@ -206,6 +206,12 @@ require 14s models/candidate-rc/int8/weights.int8.safetensors
 require 14t ../ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
 require 14t ../models/nemotron-0.6b/nemotron-speech-streaming-en-0.6b.q8_0.gguf
 14t p73  nemotron-560                1 4  0 6
+# Entry 14u (bench-open 21:2xZ, for the hero plot's Nemotron point): rounds 2 and 3 of 14t's panel73 repetition, so the quiet
+# Nemotron 560 ms row has the three repetitions the evidence rules need (14t round 1 ran as 14tr on CPU 4).
+require 14u ../ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
+require 14u ../models/nemotron-0.6b/nemotron-speech-streaming-en-0.6b.q8_0.gguf
+14u p73  nemotron-560                2 24 1 6
+14u p73  nemotron-560                3 28 2 6
 20 p73  whispercpp-stream-base-t8    1 8-15 3 6
 20 p73  whispercpp-stream-base-w8    1 8-15 3 7
 20 p73  whispercpp-stream-tiny-t8    1 8-15 3 3
