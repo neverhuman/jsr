@@ -10,6 +10,7 @@ tests/test_energy_bench.py
 tests/test_export_curves.py
 tests/test_fleet_dashboard.py
 tests/test_fleet_guard.py
+tests/test_h50_fleet_launchers.py
 tests/test_nemotron_adapter.py
 tests/test_ood.py
 tests/test_opponents_tools.py
