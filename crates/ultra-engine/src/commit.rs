@@ -4,6 +4,7 @@
 //! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
 
 pub(crate) mod ctc_head;
+mod live;
 mod lm;
 pub mod lm_gate;
 mod lm_gate_beam;
@@ -21,6 +22,7 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
 pub use ctc_head::aggregate_duplicate_hyps;
+pub use live::{run_commit_pcm, CommitSnapshot};
 pub use lm::{CommitLmConfig, CommitLmGateConfig};
 pub use lm_gate::{CommitTokenLm, InternalLm, LmGateConfig};
 pub use rescore::{

@@ -136,13 +136,14 @@ pub fn transcribe_audio_file_with_options(
             })??;
         let native = NativeEngineBackend::load_with_options(&wdir, prec, threads, true, 1, 1)?;
         let caps = native.capabilities();
-        let cap_samples = (live_cfg.commit.max_pcm_samples as u64).max(16_000 * 40);
         let cfg = StreamConfig {
             stream_id: "cli-stream-0".into(),
             model_config_id: caps.name.clone(),
             policy,
             profile,
-            segment_hard_cap_samples: cap_samples,
+            // LiveCommitAsrStream owns bounded PCM retention and idle resets; avoid synthetic
+            // coordinator-level `segment_hard_cap` status injections on long silent spans.
+            segment_hard_cap_samples: u64::MAX,
             endpoint_hangover_ms: u64::from(live_cfg.hangover_ms),
             ..StreamConfig::default()
         };
@@ -178,9 +179,25 @@ pub fn transcribe_audio_file_with_options(
     for pkt in replay {
         paced_wakeups += 1;
         let t0 = Instant::now();
-        coord.push_pcm(pkt.start_sample, pkt.pcm)?;
+        let (mut off, mut stalls) = (0usize, 0u32);
+        while off < pkt.pcm.len() {
+            let rep = coord.push_pcm(pkt.start_sample + off as u64, &pkt.pcm[off..])?;
+            drain_timed(&mut coord, &mut timed)?;
+            if rep.accepted_samples == 0 {
+                stalls += 1;
+                if stalls > 10_000 {
+                    return Err(CliError::Resource(format!(
+                        "stream backpressure stall at sample {}",
+                        pkt.start_sample + off as u64
+                    )));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            } else {
+                off += rep.accepted_samples;
+                stalls = 0;
+            }
+        }
         chunk_ms.push(t0.elapsed().as_secs_f64() * 1000.0);
-        drain_timed(&mut coord, &mut timed)?;
     }
     let t0 = Instant::now();
     coord.finish_input()?;

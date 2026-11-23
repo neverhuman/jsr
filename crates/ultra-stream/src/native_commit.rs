@@ -1,87 +1,30 @@
 //! Opt-in live-endpointer [`CommitPassSession`] adapter (`ultra stream --commit-pass`).
-//! Streams `c=4` provisional previews via `accept_i16_live`, tracks causal blank-frame hangover
-//! (`200/300/500/800 ms`) + real pre-roll ring (`--commit-preroll-ms`), runs single in-flight
-//! `c=16` beam+LM commit with `40 s` cap fallback, and updates optional session lexical memory.
+//! Streams `c=4` provisional previews via `accept_i16_live`, preserves monotonic encoder sample
+//! offsets across idle resets, and runs single in-flight `c=16` commit jobs with deadline fallback.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use serde_json::json;
-use ultra_core::events::TranscriptEvent;
-use ultra_engine::commit::{
-    CommitConfig, CommitLmConfig, CommitPassSession, SessionLexicalConfig, SessionLexicalMemory,
-    DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE, DEFAULT_TAIL_PAD_SAMPLES,
-};
+use ultra_core::events::{Emitter, TranscriptEvent};
+use ultra_engine::commit::{CommitPassSession, CommitSnapshot, SessionLexicalMemory};
 
 use crate::api::{
     AsrStream, PollResult, PushReport, PushStatus, StreamClock, StreamConfig, StreamError,
     StreamMetrics, TerminalOutcome,
 };
+use crate::commit_config::{CommitWorker, PendingCommit};
+use crate::commit_queue::{emit_preview_event, finalize_and_flush, FinalizeInput, LiveCommitState};
 use crate::native_engine::NativeEngineBackend;
 use crate::ort_r1::R1_SAMPLES_PER_ENC_FRAME;
 
-#[derive(Debug, Clone)]
-pub struct LiveCommitConfig {
-    pub commit: CommitConfig,
-    pub hangover_ms: u32,
-    pub preroll_ms: u32,
-    pub commit_lm: Option<CommitLmConfig>,
-    pub session_bias: SessionLexicalConfig,
-}
+pub use crate::commit_queue::LiveCommitConfig;
 
-impl Default for LiveCommitConfig {
-    fn default() -> Self {
-        Self {
-            commit: CommitConfig {
-                commit_chunk: 16,
-                tail_pad_samples: DEFAULT_TAIL_PAD_SAMPLES,
-                max_pcm_samples: DEFAULT_MAX_PCM_SAMPLES,
-                ..CommitConfig::default()
-            },
-            hangover_ms: 300,
-            preroll_ms: 300,
-            commit_lm: None,
-            session_bias: SessionLexicalConfig::default(),
-        }
-    }
-}
-
-impl LiveCommitConfig {
-    pub fn validate(&self) -> Result<(), StreamError> {
-        self.commit.validate()?;
-        self.session_bias.validate()?;
-        if !(1..=10_000).contains(&self.hangover_ms) {
-            return Err(StreamError::Protocol(
-                "commit hangover_ms must be in 1..=10000".into(),
-            ));
-        }
-        if self.preroll_ms > 5_000 {
-            return Err(StreamError::Protocol(
-                "commit preroll_ms must be in 0..=5000".into(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-struct LiveCommitState {
-    metrics: StreamMetrics,
-    last_tokens_len: usize,
-    last_enc_frames: usize,
-    last_hyp: String,
-    speech_armed: bool,
-    trailing_blank_samples: u64,
-    speech_end_ns: Option<u64>,
-    commit_in_flight: bool,
-    finished: bool,
-    cancelled: bool,
-    failed: Option<String>,
-}
-
-/// Live-endpointer [`AsrStream`] wrapping [`CommitPassSession`] with single in-flight commit pass.
+/// Live-endpointer [`AsrStream`] wrapping [`CommitPassSession`] + 1-in-flight async commit worker.
 pub struct LiveCommitAsrStream {
     sess: CommitPassSession,
+    emitter: Emitter,
+    worker: CommitWorker,
+    pending: Option<PendingCommit>,
     live_cfg: LiveCommitConfig,
     session_bias: SessionLexicalMemory,
     clock: StreamClock,
@@ -110,8 +53,12 @@ impl LiveCommitAsrStream {
             eid,
         )?
         .with_commit_lm(live_cfg.commit_lm.clone())?;
+        let worker = CommitWorker::spawn(sess.commit_engine().clone(), live_cfg.commit);
         Ok(Self {
             sess,
+            emitter: Emitter::new(&cfg.stream_id, eid),
+            worker,
+            pending: None,
             live_cfg: live_cfg.clone(),
             session_bias: SessionLexicalMemory::new(live_cfg.session_bias)?,
             clock,
@@ -123,77 +70,101 @@ impl LiveCommitAsrStream {
     pub fn session_bias(&self) -> &SessionLexicalMemory {
         &self.session_bias
     }
-    fn hangover_samples(&self) -> u64 {
-        (u64::from(self.live_cfg.hangover_ms) * DEFAULT_SAMPLE_RATE as u64).div_ceil(1000)
-    }
-    fn preroll_keep_samples(&self) -> usize {
-        let p = (self.live_cfg.preroll_ms as usize * DEFAULT_SAMPLE_RATE).div_ceil(1000);
-        (p + 8 * R1_SAMPLES_PER_ENC_FRAME as usize).min(self.live_cfg.commit.max_pcm_samples)
+
+    fn settle_pending(&mut self, wait_until_deadline: bool) -> Result<(), StreamError> {
+        let (cfg, emitter, bias, clock, events) = (
+            &self.live_cfg,
+            &mut self.emitter,
+            &mut self.session_bias,
+            &self.clock,
+            &mut self.events,
+        );
+        self.worker.settle(
+            &mut self.pending,
+            cfg,
+            clock,
+            &mut self.st,
+            wait_until_deadline,
+            |st, inp| finalize_and_flush(cfg, emitter, st, bias, clock, events, inp),
+        )
     }
 
-    fn run_commit_endpoint(&mut self, trigger: &'static str) -> Result<(), StreamError> {
-        if self.st.commit_in_flight {
-            return Err(StreamError::Protocol(
-                "concurrent commit pass already in flight for stream".into(),
-            ));
+    fn emit_fallback(
+        &mut self,
+        trigger: &'static str,
+        snap: &CommitSnapshot,
+        speech_end_ns: Option<u64>,
+        reason: &'static str,
+    ) -> Result<(), StreamError> {
+        finalize_and_flush(
+            &self.live_cfg,
+            &mut self.emitter,
+            &mut self.st,
+            &mut self.session_bias,
+            &self.clock,
+            &mut self.events,
+            FinalizeInput {
+                trigger,
+                s0: snap.start_sample,
+                s1: snap.end_sample,
+                provisional: &snap.provisional,
+                raw_committed: &snap.provisional,
+                commit_wall_ms: 0.0,
+                speech_end_ns,
+                pcm_truncated: snap.pcm_truncated,
+                fallback_reason: reason,
+            },
+        )
+    }
+
+    fn dispatch_commit_endpoint(&mut self, trigger: &'static str) -> Result<(), StreamError> {
+        if self.pending.is_some() {
+            self.settle_pending(true)?;
+        } else {
+            self.worker.drain_stale(&mut self.st);
         }
-        self.st.commit_in_flight = true;
-        let (seg_start, seg_end) = self.sess.segment_sample_range();
-        let live_forced = self.sess.live_progress().2;
-        let res = self.sess.commit_endpoint_event(self.clock.now_ns());
-        self.st.commit_in_flight = false;
-        let (cr, final_ev) = res.map_err(|e| {
+        let mut snap = self.sess.take_commit_snapshot().map_err(|e| {
             self.st.failed = Some(e.to_string());
             StreamError::from(e)
         })?;
-        let done_ns = self.clock.now_ns();
-        let e2f_ms = self.st.speech_end_ns.map_or(cr.commit_wall_ms, |t0| {
-            (done_ns.saturating_sub(t0) as f64 / 1e6).max(cr.commit_wall_ms)
-        });
-        let m = &mut self.st.metrics;
-        m.cap_hits += live_forced;
-        m.refiner_attempts += 1;
-        *if cr.revised {
-            &mut m.refiner_accepts
-        } else {
-            &mut m.refiner_rejects
-        } += 1;
-        m.refiner_charged_cpu_s += cr.commit_wall_ms / 1000.0;
-        self.session_bias
-            .observe_committed_segment(&cr.committed, None, !cr.pcm_truncated);
-        let detail = json!({
-            "trigger": trigger, "start_sample": seg_start, "end_sample": seg_end,
-            "hangover_ms": self.live_cfg.hangover_ms, "preroll_ms": self.live_cfg.preroll_ms,
-            "commit_wall_ms": (cr.commit_wall_ms * 1000.0).round() / 1000.0,
-            "endpoint_to_final_ms": (e2f_ms * 1000.0).round() / 1000.0,
-            "revised": cr.revised, "pcm_truncated": cr.pcm_truncated,
-            "session_bias_active_words": self.session_bias.active_words(),
-        })
-        .to_string();
-        let status_ev = self.sess.status_event(done_ns, "commit_pass", &detail);
-        self.events.extend([final_ev, status_ev]);
-        self.st.metrics.events_emitted += 2;
+        self.st.metrics.cap_hits += snap.forced_advances;
+        self.st.live_base_sample = self.st.metrics.accepted_samples;
         self.st.metrics.processed_samples = self.st.metrics.accepted_samples;
+        let speech_end_ns = self.st.speech_end_ns;
         self.st.reset_segment_tracking();
+
+        let now_ns = self.clock.now_ns();
+        let deadline_ns = self.live_cfg.deadline_ns(speech_end_ns, now_ns);
+        let fallback = if snap.pcm_truncated {
+            Some("pcm_cap")
+        } else if now_ns >= deadline_ns {
+            Some("deadline")
+        } else if self.worker.is_busy() {
+            Some("worker_busy")
+        } else {
+            None
+        };
+        if let Some(reason) = fallback {
+            return self.emit_fallback(trigger, &snap, speech_end_ns, reason);
+        }
+        let job_id = self.st.next_job_id;
+        self.st.next_job_id += 1;
+        if !self
+            .worker
+            .try_submit(job_id, std::mem::take(&mut snap.pcm))
+        {
+            return self.emit_fallback(trigger, &snap, speech_end_ns, "worker_busy");
+        }
+        self.pending = Some(PendingCommit {
+            id: job_id,
+            trigger,
+            seg_start: snap.start_sample,
+            seg_end: snap.end_sample,
+            provisional: snap.provisional,
+            speech_end_ns,
+            deadline_ns,
+        });
         Ok(())
-    }
-
-    fn retained_bytes(&self) -> u64 {
-        let pcm = self.sess.buffered_samples() * std::mem::size_of::<i16>();
-        let evs = self.events.capacity() * std::mem::size_of::<TranscriptEvent>();
-        (pcm + evs + std::mem::size_of::<Self>()) as u64
-    }
-}
-
-impl LiveCommitState {
-    fn reset_segment_tracking(&mut self) {
-        (
-            self.last_tokens_len,
-            self.last_enc_frames,
-            self.speech_armed,
-        ) = (0, 0, false);
-        (self.trailing_blank_samples, self.speech_end_ns) = (0, None);
-        self.last_hyp.clear();
     }
 }
 
@@ -202,6 +173,7 @@ impl AsrStream for LiveCommitAsrStream {
         if self.st.finished || self.st.cancelled || self.st.failed.is_some() {
             return Err(ultra_core::CoreError::Lifecycle("push after terminal state").into());
         }
+        self.settle_pending(false)?;
         let steps = self.sess.accept_i16_live(pcm).map_err(|e| {
             self.st.failed = Some(e.to_string());
             StreamError::from(e)
@@ -209,40 +181,53 @@ impl AsrStream for LiveCommitAsrStream {
         self.st.metrics.accepted_samples += pcm.len() as u64;
         if steps > 0 {
             self.st.metrics.wakeups += steps as u64;
-            let (cur_tok, cur_frames, _, seg_open) = self.sess.live_progress();
+            let (cur_tok, cur_frames, _, _) = self.sess.live_progress();
             let delta_frames = cur_frames.saturating_sub(self.st.last_enc_frames);
             self.st.last_enc_frames = cur_frames;
-            let seg_start = self.sess.segment_sample_range().0;
-            self.st.metrics.processed_samples = (seg_start
+            let proc_now = (self.st.live_base_sample
                 + (cur_frames as u64) * R1_SAMPLES_PER_ENC_FRAME)
                 .min(self.st.metrics.accepted_samples);
+            self.st.metrics.processed_samples = self.st.metrics.processed_samples.max(proc_now);
             if cur_tok > self.st.last_tokens_len {
                 (self.st.last_tokens_len, self.st.speech_armed) = (cur_tok, true);
                 (self.st.trailing_blank_samples, self.st.speech_end_ns) = (0, None);
                 let hyp = self.sess.provisional_text();
                 if hyp != self.st.last_hyp {
-                    self.events
-                        .push_back(self.sess.preview_event(self.clock.now_ns())?);
-                    self.st.last_hyp = hyp;
-                    self.st.metrics.events_emitted += 1;
+                    self.st.last_hyp = hyp.clone();
+                    let end_samp = self.sess.total_samples();
+                    if self.pending.is_some() {
+                        self.st.deferred_preview = Some((hyp, end_samp));
+                    } else {
+                        emit_preview_event(
+                            &mut self.emitter,
+                            &mut self.st,
+                            self.clock.now_ns(),
+                            &mut self.events,
+                            &hyp,
+                            end_samp,
+                        )?;
+                    }
                 }
             } else if self.st.speech_armed && delta_frames > 0 {
                 if self.st.trailing_blank_samples == 0 {
                     self.st.speech_end_ns = Some(self.clock.now_ns());
                 }
                 self.st.trailing_blank_samples += (delta_frames as u64) * R1_SAMPLES_PER_ENC_FRAME;
-                if self.st.trailing_blank_samples >= self.hangover_samples() {
-                    self.run_commit_endpoint("hangover")?;
+                if self.st.trailing_blank_samples >= self.live_cfg.hangover_samples() {
+                    self.dispatch_commit_endpoint("hangover")?;
                 }
-            } else if !self.st.speech_armed && !seg_open {
+            } else if !self.st.speech_armed {
                 let reset_live = cur_frames >= 100; // >= 4 s of pure silence
                 self.sess
-                    .trim_idle_pcm(self.preroll_keep_samples(), reset_live);
+                    .trim_idle_pcm(self.live_cfg.preroll_keep_samples(), reset_live);
                 if reset_live {
+                    self.st.live_base_sample = self.st.metrics.accepted_samples;
+                    self.st.metrics.processed_samples = self.st.metrics.accepted_samples;
                     (self.st.last_tokens_len, self.st.last_enc_frames) = (0, 0);
                 }
             }
         }
+        self.settle_pending(false)?;
         Ok(PushReport {
             start_sample,
             accepted_samples: pcm.len(),
@@ -251,6 +236,7 @@ impl AsrStream for LiveCommitAsrStream {
     }
 
     fn poll_event(&mut self) -> Result<PollResult, StreamError> {
+        let _ = self.settle_pending(false);
         if let Some(ev) = self.events.pop_front() {
             Ok(PollResult::Event(Box::new(ev)))
         } else if let Some(msg) = &self.st.failed {
@@ -269,9 +255,11 @@ impl AsrStream for LiveCommitAsrStream {
             return Err(ultra_core::CoreError::Lifecycle("finish_input on terminal stream").into());
         }
         if !self.st.finished {
+            self.settle_pending(true)?;
             let (s0, s1) = self.sess.segment_sample_range();
-            if s1 > s0 || self.sess.live_progress().3 || self.st.metrics.events_emitted == 0 {
-                self.run_commit_endpoint("eof")?;
+            if s1 > s0 || self.st.seg_open || self.st.metrics.events_emitted == 0 {
+                self.dispatch_commit_endpoint("eof")?;
+                self.settle_pending(true)?;
             }
             self.st.finished = true;
             self.st.metrics.processed_samples = self.st.metrics.accepted_samples;
@@ -282,6 +270,7 @@ impl AsrStream for LiveCommitAsrStream {
     fn cancel(&mut self) -> Result<(), StreamError> {
         if !self.st.finished && self.st.failed.is_none() {
             self.st.cancelled = true;
+            self.pending = None;
             self.events.clear();
         }
         Ok(())
@@ -290,7 +279,9 @@ impl AsrStream for LiveCommitAsrStream {
     fn metrics(&self) -> StreamMetrics {
         let mut m = self.st.metrics;
         m.cap_hits += self.sess.live_progress().2;
-        m.retained_bytes = self.retained_bytes();
+        let pcm = self.sess.buffered_samples() * std::mem::size_of::<i16>();
+        let evs = self.events.capacity() * std::mem::size_of::<TranscriptEvent>();
+        m.retained_bytes = (pcm + evs + std::mem::size_of::<Self>()) as u64;
         m
     }
 }
