@@ -145,14 +145,15 @@ require 14m bench-open/assays/commit-lm16/run.sh
 14m assay commit-lm4               3 28 2 8.5
 14m assay commit-lm16              3 28 2 8.5
 # Entry 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: <= 1% added engine CPU on quiet xbabe0; order 10:35:26Z): #104's
-# ultra-engine-agc (agc-kit/; 1faea9cc..., built at d70d5ed = merged main adc3180) on B0 INT8 decodes each of the 730 panel
-# utterances with --warm-agc --tau-s 5.0 --preroll-ms 500 and with --no-warm-agc, one process per decode, the first arm
-# alternating by utterance and round; the binary's own decode-loop thread CPU (model load excluded), paired per utterance.
+# ultra-engine-agc (agc-kit/; 1faea9cc..., built at d70d5ed = merged main adc3180) on B0 INT8 decodes each panel73 utterance
+# with --warm-agc --tau-s 5.0 --preroll-ms 500 and with --no-warm-agc, one process per decode, the first arm alternating by
+# utterance and round; the binary's own decode-loop thread CPU (model load excluded), paired per utterance. (Each load
+# re-verifies every model hash, ~0.4 s, so the 730 panel would cost ~16 min a round.)
 require 14n bench-open/assays/agc-kit/ultra-engine-agc
 require 14n bench-open/assays/agc-cpu/run.sh
-14n assay agc-cpu                  1 4  0 11
-14n assay agc-cpu                  2 24 1 11
-14n assay agc-cpu                  3 28 2 11
+14n assay agc-cpu                  1 4  0 4
+14n assay agc-cpu                  2 24 1 4
+14n assay agc-cpu                  3 28 2 4
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.

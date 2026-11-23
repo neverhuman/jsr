@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # bench-open 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: "<= 1% added engine CPU, quiet xbabe0"; 10:29:58Z /
 # 10:35:26Z order): #104's warm AGC, on vs off, in the same binary. ultra-engine-agc (agc-kit/; 1faea9cc..., runtime-lane's
-# release build at d70d5ed = merged main adc3180) on B0 INT8 (A1-49000 EMA, 4701787c...) decodes every utterance of the
-# 730-utterance panel (5,259.56 s) twice on one CPU, one process per decode: --warm-agc --tau-s 5.0 --preroll-ms 500
+# release build at d70d5ed = merged main adc3180) on B0 INT8 (A1-49000 EMA, 4701787c...) decodes every utterance of
+# panel73 (73 DEV utterances, 597.1 s; every load re-verifies all model hashes, ~0.4 s, so the 730 panel would cost
+# ~16 min per round) twice on one CPU, one process per decode: --warm-agc --tau-s 5.0 --preroll-ms 500
 # (the fixed release setting) and --no-warm-agc (bit-exact passthrough). The arm that goes first alternates by
 # utterance and round (ABBA), so drift cancels in the paired sum. The binary times its own decode loop (thread CPU and
 # wall, model load excluded): each decode's JSON goes to OUT/dec/<id>.<on|off>.json, a summary (paired totals, added
@@ -13,7 +14,7 @@ round=$1 cpu=$2 out=$3
 opp=${PAPER_OPPONENTS_ROOT:-"$HOME/jsr-data/opponents"}
 bin=$opp/bench-open/assays/agc-kit/ultra-engine-agc
 model=${AGC_MODEL:-"$opp/models/A1-49000-ema/int8"}
-panel=${AGC_PANEL:-"$opp/panel"}
+panel=${AGC_PANEL:-"$opp/bench-cross/workloads/panel73"}
 mkdir -p "$out/dec"
 echo "agc-cpu round $round cpu $cpu" > "$out/arm"
 python3 -c 'import json, sys; print("\n".join(r["id"] for r in json.load(open(sys.argv[1]))))' "$panel/audio.json" > "$out/ids"
