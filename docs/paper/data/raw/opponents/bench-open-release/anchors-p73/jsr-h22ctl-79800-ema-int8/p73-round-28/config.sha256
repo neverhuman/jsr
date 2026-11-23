@@ -1,0 +1,9 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav-457a4db7
+9aed3d32d6830946bcf1237820ecdb8ee08d9866f07ac2d2cd908682748e6d70  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/arch.json
+a50b1b0870effdbcb114b6ed32a7a94e048278ee7b02c58b68b0645f66e42e53  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/weights.int8.safetensors
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/bpe.model
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/tokens.txt
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/mel_fbank.f32
+f4133df66814e90ba33bf181fe532d691ce938f69073eb98527c8a45f29074b4  /home/ubuntu/jsr-data/opponents/models/H22ctl-79800-ema/int8/weights.safetensors
+457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav-457a4db7
