@@ -101,6 +101,8 @@
     "python/ultra/tools/fleet_util_audit.py": "lead",
     "python/ultra/tests/test_fleet_util_audit.py": "lead",
     "python/ultra/train/rescore_tf.py": "training",
-    "python/ultra/tests/test_rescore_tf.py": "training"
+    "python/ultra/tests/test_rescore_tf.py": "training",
+    "python/ultra/train/shard_sidecar.py": "training",
+    "python/ultra/tests/test_shard_sidecar.py": "training"
   }
 }

@@ -119,6 +119,8 @@ class TrainConfig:
     extra_splits: str = ""
     extra_min_conf: float = 0.0
     extra_base_weight: float = 0.0  # >0: the LibriSpeech share of each epoch (extras split the rest by size)
+    dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off, default path)
+    node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off, default path)
     # Data-parallel GPU-util target for the synchronised step-boundary throttle (0 = off).
     ddp_util_target: float = 0.0
     # Use budget_s/max_batch for the global batch, preserving the single-rank sampler cursor.
@@ -914,7 +916,7 @@ def main(argv=None) -> int:
                                 teacher=_teacher(cfg, tok_r), loader=cfg.loader,
                                 window_groups=cfg.window_groups, synth_aug=cfg.synth_aug,
                                 extra=parse_extra_splits(cfg.extra_splits), min_conf=cfg.extra_min_conf,
-                                base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r))
+                                base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r), dur_tables=cfg.dur_tables, node_shards=cfg.node_shards)
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 

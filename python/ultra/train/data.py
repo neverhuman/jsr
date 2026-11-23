@@ -331,11 +331,17 @@ class ParquetBatches:
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
                  pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False,
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
-                 base_weight: float = 0.0, anchors=None):
+                 base_weight: float = 0.0, anchors=None, dur_tables: str = "",
+                 node_shards: str = ""):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
 
+        self._node_plan = None
+        if node_shards:
+            from train.shard_sidecar import parse_node_shards, partition_items
+
+            self._node_plan = parse_node_shards(node_shards)
         root = parquet_root or PARQUET
         self.files = []
         for s in splits:
@@ -345,17 +351,23 @@ class ParquetBatches:
             self.files.extend(fs)
         self._first_extra, self.min_conf, self.dropped_conf = len(self.files), float(min_conf), 0
         spans = []  # (first file, end file, weight or None) per extra split
-        for d, w in extra:
+        for si, (d, w) in enumerate(extra):
             fs = sorted(glob.glob(os.path.join(d, "*.parquet")))
             if not fs:
                 raise DataError(f"no parquet shards in extra split {d}")
+            if self._node_plan is not None and not self._node_plan.prestaged:
+                fs = partition_items(fs, self._node_plan.node_world, weights=self._node_plan.weights,
+                                     seed=self._node_plan.seed, salt=100 + si, preserve_order=True)[self._node_plan.node_rank]
+                if not fs:
+                    raise DataError(f"node_shards partition {self._node_plan.node_rank}/{self._node_plan.node_world} "
+                                    f"received 0 shards from {d}")
             for f in fs:
                 if self.min_conf > 0 and "conf" not in pq.ParquetFile(f).schema_arrow.names:
                     raise DataError(f"{f}: min_conf {self.min_conf} needs a conf column")
             spans.append((len(self.files), len(self.files) + len(fs), w))
             self.files.extend(fs)
-        units = [(fi, rg) for fi, f in enumerate(self.files)
-                 for rg in range(pq.ParquetFile(f).metadata.num_row_groups)]
+        rg_counts = [pq.ParquetFile(f).metadata.num_row_groups for f in self.files]
+        units = [(fi, rg) for fi, n_rg in enumerate(rg_counts) for rg in range(n_rg)]
         if base_weight:  # the base splits' share of each epoch; extras split the rest by row groups
             if not 0.0 < base_weight < 1.0 or not spans or any(w is not None for _, _, w in spans):
                 raise DataError("base_weight needs 0 < w < 1 and extra splits without their own weights")
@@ -369,12 +381,19 @@ class ParquetBatches:
         in_weighted = [any(a <= fi < b for a, b, _ in weighted) for fi, _ in units]
         self.units = [u for u, x in zip(units, in_weighted, strict=True) if not x]
         share = sum(w for _, _, w in weighted)
+        self._weighted_weights = [w for _, _, w in weighted]
+        self._weighted_share = share
         # (row groups, draws per epoch) per weighted split: draws / epoch total = its weight.
         self._weighted = [([u for u in units if a <= u[0] < b], round(w * len(self.units) / (1.0 - share)))
                           for a, b, w in weighted]
         if any(not g for g, _ in self._weighted):
             raise DataError("a weighted extra split has no row groups")
         self.n_epoch_units = len(self.units) + sum(n for _, n in self._weighted)
+        self._dur_table = None
+        if dur_tables:
+            from train.shard_sidecar import FrameSidecar
+
+            self._dur_table = FrameSidecar.from_paths(dur_tables, self.files, rg_counts)
         self.feat, self.seed = feat, seed
         self.budget_s, self.max_batch, self.max_seconds = budget_s, max_batch, max_seconds
         self.window_groups = window_groups
@@ -417,19 +436,41 @@ class ParquetBatches:
         return (self.n_epoch_units + self.window_groups - 1) // self.window_groups
 
     def _width(self, epoch: int) -> int:
-        if self.carry_width is not None and epoch == self.carry_width[1]:
-            return self.carry_width[0]
-        return self.window_groups
+        wg = self.carry_width[0] if (self.carry_width is not None and epoch == self.carry_width[1]) else self.window_groups
+        if self._node_plan is not None:
+            return max(1, round(wg * self._node_plan.share))
+        return wg
 
     def _windows(self, epoch: int) -> int:
         wg = self._width(epoch)
-        return (self.n_epoch_units + wg - 1) // wg
+        n = len(self._epoch_units(epoch)) if self._node_plan is not None else self.n_epoch_units
+        return (n + wg - 1) // wg
 
     def _epoch_units(self, epoch: int) -> list[tuple[int, int]]:
         """One epoch's row groups: every unweighted group once, then each weighted extra split's
         draws for this epoch, read in order from an endless chain of seeded permutations of its
         groups (a down-weighted split rotates through all of them across epochs; an up-weighted
         one repeats them evenly). Without weighted splits this is `self.units`, unchanged."""
+        if self._node_plan is not None:
+            from train.shard_sidecar import partition_items
+
+            plan = self._node_plan
+            base_u = [u for u in self.units if u[0] < self._first_extra]
+            extra_u = [u for u in self.units if u[0] >= self._first_extra]
+            base_part = partition_items(base_u, plan.node_world, weights=plan.weights,
+                                        seed=self.seed ^ plan.seed, salt=epoch, preserve_order=True)[plan.node_rank]
+            out = base_part + extra_u
+            if not self._weighted:
+                return out
+            denom = 1.0 - self._weighted_share
+            for k, ((groups, _), w) in enumerate(zip(self._weighted, self._weighted_weights, strict=True)):
+                draws = max(1, round(w * len(base_part) / denom)) if base_part else 0
+                first, n = epoch * draws, len(groups)
+                for cyc in range(first // n, (first + draws - 1) // n + 1):
+                    perm = np.random.default_rng([self.seed, 52, plan.node_rank, k, cyc]).permutation(n)
+                    lo, hi = max(first, cyc * n) - cyc * n, min(first + draws, (cyc + 1) * n) - cyc * n
+                    out.extend(groups[i] for i in perm[lo:hi])
+            return out
         if not self._weighted:
             return self.units
         out = list(self.units)
@@ -443,7 +484,8 @@ class ParquetBatches:
 
     def _window_units(self, epoch: int, window: int):
         units = self._epoch_units(epoch)
-        perm = np.random.default_rng([self.seed, epoch]).permutation(len(units))
+        seed_seq = [self.seed, epoch, self._node_plan.node_rank] if self._node_plan is not None else [self.seed, epoch]
+        perm = np.random.default_rng(seed_seq).permutation(len(units))
         wg = self._width(epoch)
         sel = perm[window * wg:(window + 1) * wg]
         return [units[i] for i in sorted(sel)]
@@ -512,12 +554,138 @@ class ParquetBatches:
         y = resample_poly(pcm.astype(np.float32), r.denominator, r.numerator)
         return np.clip(np.round(y), -32768, 32767).astype(np.int16)
 
-    def _load_window(self, epoch: int, window: int) -> list[list[Example]]:
+    def _eff_rank_world(self) -> tuple[int, int]:
+        if self._node_plan is not None:
+            return self._node_plan.local_rank, self._node_plan.local_world
+        return self.rank, self.world
+
+    def _partition_groups(self, groups: list[list[int]], dur: list[float], epoch: int, window: int):
+        rank, world = self._eff_rank_world()
+        if world <= 1:
+            return groups, [True] * len(groups)
+        if self.ddp_global_batches:
+            if self.rank_weights and self._node_plan is None:
+                parts = [weighted_share(g, dur, self.rank_weights, rank) for g in groups]
+            else:
+                parts = [g[rank::world] for g in groups]
+            active = [bool(g) for g in parts]
+            parts = [g or [gg[0]] for g, gg in zip(parts, groups, strict=True)]
+            return parts, active
+        n = len(groups)
+        if n % world:
+            target = n + world - n % world
+            groups = (groups * -(-target // max(1, n)))[:target]
+        parts = (stratified_parts(groups, dur, world, rank, [self.seed, epoch, window])
+                 if self.stratify_lengths else groups[rank::world])
+        return parts, [True] * len(parts)
+
+    def _decode_groups(self, mine: list[list[dict]], epoch: int) -> list[list[Example]]:
+        flat = [r for g in mine for r in g]
+        if self.loader == "process" and self._pool is not None:
+            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
+                     self.max_seconds, self.synth_aug) for r in flat]
+            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+        else:
+            dec = functools.partial(self._decode, epoch=epoch)
+            decoded = list(self._pool.map(dec, flat)) if self._pool else [dec(r) for r in flat]
+        out, k = [], 0
+        for g in mine:
+            out.append(decoded[k:k + len(g)])
+            k += len(g)
+        if any(e is None for g in out for e in g):
+            raise DataError("header-predicted length disagrees with the decoded audio")
+        return out
+
+    def _pack_window_sidecar(self, units: list[tuple[int, int]], epoch: int, window: int,
+                             *, count_conf: bool = True):
+        """Pack one window from precomputed per-row FLAC frame counts with zero audio reads."""
+        locs: list[tuple[int, int, str]] = []
+        frames: list[int | None] = []
+        for ui, (fi, rg) in enumerate(units):
+            rg_rows = self._dur_table.row_group(fi, rg)
+            filt = self.min_conf > 0 and fi >= self._first_extra
+            confs = None
+            if filt and any(c is None for _, _, c in rg_rows):
+                confs = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["conf"]).column("conf").to_pylist()
+            for ri, (uid, n_samples, c_side) in enumerate(rg_rows):
+                if filt:
+                    c_val = confs[ri] if confs is not None else c_side
+                    if c_val is None or c_val < self.min_conf:
+                        if count_conf:
+                            self.dropped_conf += 1
+                        continue
+                locs.append((ui, ri, uid))
+                frames.append(self._dur_table.frames_after(
+                    uid, n_samples, epoch, seed=self.seed, speed_perturb=self.speed_perturb,
+                    max_seconds=self.max_seconds, num_frames_fn=self.feat.logmel.num_frames))
+        keep = [i for i, f in enumerate(frames) if f is not None]
+        rng = np.random.default_rng([self.seed, epoch, window])
+        dur = [frames[i] / 100.0 * (1.0 + 0.05 * rng.random()) for i in keep]
+        if self.pad_frames > 1:
+            dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
+        groups = pack(dur, *self._shape(epoch, window))
+        rng.shuffle(groups)
+        return locs, keep, dur, groups
+
+    def _read_selected_rows(self, units: list[tuple[int, int]], locs: list[tuple[int, int, str]],
+                            keep: list[int], parts: list[list[int]]) -> list[list[dict]]:
+        by_rg: dict[tuple[int, int], set[int]] = {}
+        for g in parts:
+            for i in g:
+                ui, ri, _ = locs[keep[i]]
+                by_rg.setdefault(units[ui], set()).add(ri)
+        cache: dict[tuple[int, int, int], dict] = {}
+        for (fi, rg), ridxs in by_rg.items():
+            sorted_idx = sorted(ridxs)
+            tbl = pq.ParquetFile(self.files[fi]).read_row_group(rg, columns=["id", "text", "audio"]).take(sorted_idx)
+            for ri, row in zip(sorted_idx, tbl.to_pylist(), strict=True):
+                cache[(fi, rg, ri)] = row
+        mine: list[list[dict]] = []
+        for g in parts:
+            grp: list[dict] = []
+            for i in g:
+                ui, ri, uid = locs[keep[i]]
+                fi, rg = units[ui]
+                row = cache[(fi, rg, ri)]
+                if row["id"] != uid:
+                    raise DataError(f"duration sidecar uid mismatch at {self.files[fi]} rg={rg} row={ri}: "
+                                    f"sidecar={uid!r} parquet={row['id']!r}")
+                grp.append(row)
+            mine.append(grp)
+        return mine
+
+    def _load_window_sidecar(self, units: list[tuple[int, int]], epoch: int, window: int,
+                             skip: int = 0) -> list:
+        locs, keep, dur, groups = self._pack_window_sidecar(units, epoch, window)
+        self.dropped_long += len(locs) - len(keep)
+        parts, active = self._partition_groups(groups, dur, epoch, window)
+        if skip:
+            parts, active = parts[skip:], active[skip:]
+        out = self._decode_groups(self._read_selected_rows(units, locs, keep, parts), epoch)
+        if self.ddp_global_batches and self.world > 1:
+            return list(zip(out, active, strict=True))
+        return out
+
+    def _count_window_batches(self, epoch: int, window: int) -> int:
+        """Metadata-only batch count for lockstep fast-forward on resume (zero audio decode)."""
+        units = self._window_units(epoch, window)
+        if self._dur_table is not None:
+            _, _, dur, groups = self._pack_window_sidecar(units, epoch, window, count_conf=False)
+        else:
+            rows = [r for fi, rg in units for r in self._read_rows(fi, rg)]
+            _, dur, groups = self._header_pack(rows, epoch, window)
+        parts, _ = self._partition_groups(groups, dur, epoch, window)
+        return len(parts)
+
+    def _load_window(self, epoch: int, window: int, skip: int = 0) -> list[list[Example]]:
+        units = self._window_units(epoch, window)
+        if self._dur_table is not None:
+            return self._load_window_sidecar(units, epoch, window, skip=skip)
         rows: list[dict] = []
-        for fi, rg in self._window_units(epoch, window):
+        for fi, rg in units:
             rows.extend(self._read_rows(fi, rg))
-        if self.world > 1:
-            return self._load_window_sharded(rows, epoch, window)
+        if self.world > 1 or self._node_plan is not None:
+            return self._load_window_sharded(rows, epoch, window, skip=skip)
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
@@ -535,7 +703,7 @@ class ParquetBatches:
             dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
         groups = pack(dur, *self._shape(epoch, window))
         rng.shuffle(groups)
-        return [[exs[i] for i in g] for g in groups]
+        return [[exs[i] for i in g] for g in groups[skip:]]
 
     def _frames_after(self, row: dict, epoch: int) -> int | None:
         """Log-mel frame count of a row after speed perturbation, from the FLAC header alone
@@ -569,54 +737,31 @@ class ParquetBatches:
         """(budget_s, max_batch) for packing one window: the carried older shape for that one window, else the
         current one."""
         if self.carry_shape is not None and tuple(self.carry_shape[1]) == (epoch, window):
-            return self.carry_shape[0]
-        return self.budget_s, self.max_batch
+            budget_s, max_batch = self.carry_shape[0]
+        else:
+            budget_s, max_batch = self.budget_s, self.max_batch
+        if self._node_plan is not None and self.ddp_global_batches:
+            gshare = self._node_plan.gpu_share(self.world)
+            return budget_s * gshare, max(1, round(max_batch * gshare))
+        return budget_s, max_batch
 
     def _header_groups(self, rows: list[dict], epoch: int, window: int) -> list[list[int]]:
         """One window's global groups as lists of indices into `rows` (H53 resize receipts)."""
         keep, _, groups = self._header_pack(rows, epoch, window)
         return [[keep[i] for i in g] for g in groups]
 
-    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int) -> list[list[Example]]:
+    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int, skip: int = 0) -> list[list[Example]]:
         """Data-parallel window: pack on header-only durations (the same packing and shuffle as
         the single-process path), keep groups g with g % world == rank (truncated to a multiple
         of world so every rank has the same number of batches), and decode only those rows."""
         keep, dur, groups = self._header_pack(rows, epoch, window)
         self.dropped_long += len(rows) - len(keep)
-        if self.ddp_global_batches:
-            # Preserve the same global groups and cursor as the single-rank loader.
-            if self.rank_weights:
-                parts = [weighted_share(g, dur, self.rank_weights, self.rank) for g in groups]
-            else:
-                parts = [g[self.rank::self.world] for g in groups]
-            active = [bool(g) for g in parts]
-            parts = [g or [global_group[0]] for g, global_group in zip(parts, groups, strict=True)]
-        else:
-            n = len(groups)
-            if n % self.world:
-                target = n + self.world - n % self.world  # repeat the first groups up to a multiple
-                groups = (groups * -(-target // max(1, n)))[:target]
-            if self.stratify_lengths:
-                parts = stratified_parts(groups, dur, self.world, self.rank, [self.seed, epoch, window])
-            else:
-                parts = groups[self.rank::self.world]
-            active = [True] * len(parts)
+        parts, active = self._partition_groups(groups, dur, epoch, window)
+        if skip:
+            parts, active = parts[skip:], active[skip:]
         mine = [[rows[keep[i]] for i in g] for g in parts]
-        flat = [r for g in mine for r in g]
-        if self.loader == "process" and self._pool is not None:
-            args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
-                     self.max_seconds, self.synth_aug) for r in flat]
-            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
-        else:
-            dec = functools.partial(self._decode, epoch=epoch)
-            decoded = list(self._pool.map(dec, flat)) if self._pool else [dec(r) for r in flat]
-        out, k = [], 0
-        for g in mine:
-            out.append(decoded[k:k + len(g)])
-            k += len(g)
-        if any(e is None for g in out for e in g):
-            raise DataError("header-predicted length disagrees with the decoded audio")
-        if self.ddp_global_batches:
+        out = self._decode_groups(mine, epoch)
+        if self.ddp_global_batches and self.world > 1:
             return list(zip(out, active, strict=True))
         return out
 
@@ -635,6 +780,31 @@ class ParquetBatches:
         stop = threading.Event()
 
         def producer():
+            if self._node_plan is not None:
+                if start.epoch != 0 or start.window != 0:
+                    raise DataError(f"node_shards resume expects Position(0, 0, step), got {start}")
+                ep, w, rem_skip = 0, 0, start.batch
+                while not stop.is_set():
+                    if rem_skip > 0:
+                        nb = self._count_window_batches(ep, w)
+                        if rem_skip >= nb:
+                            rem_skip -= nb
+                            w += 1
+                            if w >= self._windows(ep):
+                                ep, w = ep + 1, 0
+                            continue
+                    item = (ep, w, self._load_window(ep, w, skip=rem_skip))
+                    rem_skip = 0
+                    while not stop.is_set():
+                        try:
+                            q.put(item, timeout=1.0)
+                            break
+                        except queue.Full:
+                            continue
+                    w += 1
+                    if w >= self._windows(ep):
+                        ep, w = ep + 1, 0
+                return
             ep, w = start.epoch, start.window
             while not stop.is_set():
                 item = (ep, w, self._load_window(ep, w))
@@ -654,7 +824,7 @@ class ParquetBatches:
 
         runner = ThreadPoolExecutor(1, thread_name_prefix="batch-producer")
         fut = runner.submit(producer)
-        first = True
+        first, step_idx = True, start.batch
         try:
             while True:
                 try:
@@ -665,10 +835,11 @@ class ParquetBatches:
                         raise DataError(f"batch producer failed: {err!r}") from err
                     continue
                 ep, w, batches = item
-                skip = start.batch if first else 0
+                skip = (0 if self._node_plan is not None else start.batch) if first else 0
                 first = False
                 for bi in range(skip, len(batches)):
-                    nxt = Position(ep, w, bi + 1)
+                    step_idx += 1
+                    nxt = Position(0, 0, step_idx) if self._node_plan is not None else Position(ep, w, bi + 1)
                     group = batches[bi]
                     if self.ddp_global_batches and self.world > 1:
                         examples, active = group

@@ -428,6 +428,14 @@
     "python/ultra/tests/test_rescore_tf.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_rescore_tf.py",
       "purpose": "torch-free unit tests for rescore_tf sentence masks, R2L reversal, VRAM/duty caps, and cotenant yield rule"
+    },
+    "python/ultra/train/shard_sidecar.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_shard_sidecar.py tests/test_train_loader.py tests/test_h52_extra_splits.py",
+      "purpose": "verify H55 per-row FLAC frame-count sidecar packing parity and Option (iv) node-local disjoint shard partitioning"
+    },
+    "python/ultra/tests/test_shard_sidecar.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_shard_sidecar.py",
+      "purpose": "parity, speed, disjointness, statistical balance, and lockstep resume proofs for shard_sidecar"
     }
   }
 }
