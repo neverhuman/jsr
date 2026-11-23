@@ -1,0 +1,4 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+41b19d48dcdc53af10baec48d543033f534e4cc5ad09b05227def417adfbe435  /home/ubuntu/jsr-data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/nemo-speech
+d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d  /home/ubuntu/jsr-data/models/nemotron-0.6b/nemotron-speech-streaming-en-0.6b.q8_0.gguf
+60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2  /home/ubuntu/jsr-data/models/nemotron-0.6b/tokenizer.json

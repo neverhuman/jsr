@@ -1,0 +1,46 @@
+{
+  "chunk_ms": 560,
+  "command": "bench asr",
+  "corpus_audio_seconds": 597.08987500000001,
+  "files": 73,
+  "load_ms": 27.861778000000001,
+  "mode": "stream",
+  "model": ".nemotron-speech-streaming-en-0.6b.q8_0.gguf",
+  "repetitions": 1,
+  "runs": [
+    {
+      "audio_seconds": 597.08987500000001,
+      "concurrency": 1,
+      "items": 73,
+      "items_per_second": 0.29345126892110163,
+      "latency_ms": {
+        "max": 11406.2201,
+        "mean": 3407.7174889452053,
+        "min": 1235.470628,
+        "p50": 3099.9311859999998,
+        "p90": 5834.8811937999999,
+        "p95": 6902.7858125999855,
+        "p99": 9639.8004507200021
+      },
+      "metrics": {
+        "chunk_latency_ms": {
+          "max": 218.665661,
+          "mean": 196.01395048776044,
+          "min": 0.022633,
+          "p50": 208.077538,
+          "p90": 210.5138828,
+          "p95": 211.0072357,
+          "p99": 212.07321854
+        }
+      },
+      "rtfx": 2.4002298832697528,
+      "transcript_mismatches": 0,
+      "utterances": 73,
+      "utterances_per_second": 0.29345126892110163,
+      "wall_seconds": 248.76362016900001
+    }
+  ],
+  "task": "asr",
+  "warmup": 0,
+  "warmup_ms": 2213.4176739999998
+}

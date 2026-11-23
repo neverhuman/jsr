@@ -1,0 +1,10 @@
+026e2ecfac47510c9822d8605db05b3d7dd2ac79cb2b39c3195acf7fd522371c  /home/ubuntu/jsr-data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/libggml-base.so
+07cb7e97b44f8030cf1b4f54ebec3849671bc513d3c8f42531c9aa621b94d5e7  /home/ubuntu/jsr-data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/libggml-cpu.so
+fe6b8cf93bc45dec088f576ab1b06973453a890fcedb8444a11e795a628c68fb  /home/ubuntu/jsr-data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/libggml.so
+135ffc64f30c3d473fdd0f05708d4acf9a80c4e82c4747ad3e4476e0d2b22a57  /home/ubuntu/jsr-data/ext/NeMo-Speech.cpp/build/cpu-asr/bin/libnemo_speech_asr.so
+5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f  /lib64/ld-linux-x86-64.so.2
+755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a  /lib/x86_64-linux-gnu/libc.so.6
+d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb  /lib/x86_64-linux-gnu/libgcc_s.so.1
+135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1  /lib/x86_64-linux-gnu/libgomp.so.1
+5dcc4d25466e29ca390ed6fabb371c69b65dff6fa4e91c34561057a020d6994a  /lib/x86_64-linux-gnu/libm.so.6
+1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11  /lib/x86_64-linux-gnu/libstdc++.so.6
