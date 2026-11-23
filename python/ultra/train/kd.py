@@ -21,6 +21,11 @@ import torch.nn.functional as F
 from ultra.wer import normalise
 
 
+def _speed_key(speed) -> float:
+    """Exact speed factor key (to 1e-3, so 0.9 / 1.0 / 1.1 match however they were parsed)."""
+    return round(float(speed), 3)
+
+
 class TeacherStore:
     def __init__(self, cache_dir: str):
         files = sorted(glob.glob(os.path.join(cache_dir, "*.npz")))
@@ -32,7 +37,7 @@ class TeacherStore:
         for f in files:
             z = np.load(f)
             meta = json.loads(str(z["meta"]))
-            sp = float(meta["speed"])
+            sp = _speed_key(meta["speed"])
             ids, lp, emit = z["topk_ids"], z["topk_lp"], z["emitted"]
             self.topk = ids.shape[1] if self.topk is None else self.topk
             if ids.shape[1] != self.topk:
@@ -51,7 +56,9 @@ class TeacherStore:
         return len(self._entries)
 
     def get(self, uid: str, speed: float):
-        return self._entries.get((uid, round(float(speed), 1)))
+        """The entry cached at exactly this speed, else None: a sample at a speed with no cache
+        trains without the KD term (never with another speed's targets)."""
+        return self._entries.get((uid, _speed_key(speed)))
 
 
 def r0_to_student(ids: torch.Tensor) -> torch.Tensor:

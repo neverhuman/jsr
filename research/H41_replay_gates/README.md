@@ -150,3 +150,11 @@ For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU 
 - They use eval-lane's pinned d5f231e evaluator and its command lines and file layout: greedy, max 8 symbols, batch 8, chunks 4 / 8 / 16, dev-clean + dev-other.
 - The six decodes run at once, under the GPU lease and the fleet guard.
 - eval-lane computes the verdicts from those files.
+- **Fix (03:50Z):** the pinned evaluator rejects config keys added after d5f231e, so the first decodes of arms 14-r and 15 all failed at load, and the script still wrote `DONE`. Now `train/ops/h41_compat_ckpt.py` writes a copy without those keys, but only when they hold the values that rebuild d5f231e's model; strict loading still rejects any parameter mismatch. Arm 16 (pred_ctx 4) cannot be built by d5f231e and is decoded with the lane tree's evaluator. `DONE` is written only when every decode succeeded.
+
+## Amendments 18-19 (2026-11-23, posted in AGENT_CHAT before the arms started)
+- **Amendment 18 (03:50Z): arms 16-r and 18-r** = arms 16 and 18 with `seed=4321` (x5 GPU0 / GPU1). If arm 16 or 18 passes its gate, adoption uses the seed pair: the mean of the two seeds, each against the chunk-arm pair (1234 / 4321). If it fails, the replicate is reported and closes the question. Arm 17 gets no replicate yet.
+- **Amendment 19 (03:59Z): arm 20-r** = arm 20 with `seed=4321` (x9), read as arm 20 for each seed and as the pair's mean. **Arms 21a / 21b / 21c** = the chunk arm plus KD from R0 (H22's loss, R0 speed-1.0 cache), `kd_weight` 0.1 / 0.3 / 1.0, seed 1234 (x7 GPU0 / x7 GPU1 / x8).
+  - Gate: adopted only on a win over the chunk arm of more than 2× the four-run spread (EMA pooled full dev, chunks 4 / 8 / 16).
+  - The KD weight pick is the lowest dev-clean400 WER at step 8,000, as H22 pre-registered.
+  - Speed-perturbed samples (0.9 / 1.1) have no cache entry and train without the KD term. `TeacherStore.get` now matches the speed exactly; it used to round to 0.1, so a factor like 0.96 would have got the 1.0 targets. A test covers this.
