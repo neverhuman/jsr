@@ -1,0 +1,248 @@
+{
+ "trace_format": "words",
+ "allowance_s": 0.5,
+ "words_in_trace": 104803,
+ "utterances": 5567,
+ "words_outside_scored_range": 0,
+ "dev-clean": {
+  "wer": 5.352,
+  "S": 2333,
+  "D": 347,
+  "I": 247,
+  "N": 54691,
+  "utts": 2703
+ },
+ "dev-other": {
+  "wer": 14.725,
+  "S": 5854,
+  "D": 1131,
+  "I": 578,
+  "N": 51363,
+  "utts": 2864
+ },
+ "pooled_wer": 9.891,
+ "gap_false_words": {
+  "brown_-20": {
+   "words": 1,
+   "hours": 0.9503,
+   "per_hour": 1.05
+  },
+  "brown_-30": {
+   "words": 0,
+   "hours": 0.9335,
+   "per_hour": 0.0
+  },
+  "brown_-40": {
+   "words": 0,
+   "hours": 0.9467,
+   "per_hour": 0.0
+  },
+  "pink_-20": {
+   "words": 0,
+   "hours": 0.9194,
+   "per_hour": 0.0
+  },
+  "pink_-30": {
+   "words": 0,
+   "hours": 0.9215,
+   "per_hour": 0.0
+  },
+  "pink_-40": {
+   "words": 0,
+   "hours": 0.9626,
+   "per_hour": 0.0
+  },
+  "silence": {
+   "words": 1,
+   "hours": 8.611,
+   "per_hour": 0.12
+  },
+  "white_-20": {
+   "words": 1,
+   "hours": 0.9127,
+   "per_hour": 1.1
+  },
+  "white_-30": {
+   "words": 0,
+   "hours": 0.9552,
+   "per_hour": 0.0
+  },
+  "white_-40": {
+   "words": 1,
+   "hours": 0.942,
+   "per_hour": 1.06
+  }
+ },
+ "gap_false_words_total": {
+  "words": 4,
+  "hours": 17.0551,
+  "per_hour": 0.23
+ },
+ "lag_ms": {
+  "dev-clean": {
+   "n": 51738,
+   "p50": 306.8375000002561,
+   "p90": 407.2874999983469,
+   "p95": 431.5999999998894,
+   "p99": 481.0375000015483,
+   "mean": 292.9
+  },
+  "dev-other": {
+   "n": 43972,
+   "p50": 313.8374999980442,
+   "p90": 418.93749999871943,
+   "p95": 445.400000011432,
+   "p99": 497.1874999901047,
+   "mean": 301.1
+  },
+  "all": {
+   "n": 95710,
+   "p50": 309.89999999997053,
+   "p90": 412.7000000000862,
+   "p95": 438.5374999983469,
+   "p99": 489.7999999993772
+  }
+ },
+ "wer_per_hour": {
+  "0": {
+   "utts": 205,
+   "pooled_wer": 9.338,
+   "false_words_in_gaps": 0
+  },
+  "1": {
+   "utts": 205,
+   "pooled_wer": 10.529,
+   "false_words_in_gaps": 0
+  },
+  "2": {
+   "utts": 208,
+   "pooled_wer": 10.464,
+   "false_words_in_gaps": 0
+  },
+  "3": {
+   "utts": 195,
+   "pooled_wer": 10.343,
+   "false_words_in_gaps": 0
+  },
+  "4": {
+   "utts": 203,
+   "pooled_wer": 9.595,
+   "false_words_in_gaps": 0
+  },
+  "5": {
+   "utts": 199,
+   "pooled_wer": 9.549,
+   "false_words_in_gaps": 0
+  },
+  "6": {
+   "utts": 207,
+   "pooled_wer": 8.563,
+   "false_words_in_gaps": 1
+  },
+  "7": {
+   "utts": 200,
+   "pooled_wer": 9.956,
+   "false_words_in_gaps": 0
+  },
+  "8": {
+   "utts": 206,
+   "pooled_wer": 9.486,
+   "false_words_in_gaps": 1
+  },
+  "9": {
+   "utts": 200,
+   "pooled_wer": 9.969,
+   "false_words_in_gaps": 0
+  },
+  "10": {
+   "utts": 204,
+   "pooled_wer": 8.351,
+   "false_words_in_gaps": 0
+  },
+  "11": {
+   "utts": 219,
+   "pooled_wer": 10.964,
+   "false_words_in_gaps": 0
+  },
+  "12": {
+   "utts": 202,
+   "pooled_wer": 9.777,
+   "false_words_in_gaps": 0
+  },
+  "13": {
+   "utts": 197,
+   "pooled_wer": 11.01,
+   "false_words_in_gaps": 0
+  },
+  "14": {
+   "utts": 199,
+   "pooled_wer": 9.887,
+   "false_words_in_gaps": 0
+  },
+  "15": {
+   "utts": 197,
+   "pooled_wer": 8.949,
+   "false_words_in_gaps": 0
+  },
+  "16": {
+   "utts": 203,
+   "pooled_wer": 10.173,
+   "false_words_in_gaps": 1
+  },
+  "17": {
+   "utts": 200,
+   "pooled_wer": 8.983,
+   "false_words_in_gaps": 0
+  },
+  "18": {
+   "utts": 200,
+   "pooled_wer": 10.796,
+   "false_words_in_gaps": 0
+  },
+  "19": {
+   "utts": 207,
+   "pooled_wer": 8.413,
+   "false_words_in_gaps": 0
+  },
+  "20": {
+   "utts": 200,
+   "pooled_wer": 9.35,
+   "false_words_in_gaps": 1
+  },
+  "21": {
+   "utts": 204,
+   "pooled_wer": 10.132,
+   "false_words_in_gaps": 0
+  },
+  "22": {
+   "utts": 202,
+   "pooled_wer": 10.849,
+   "false_words_in_gaps": 0
+  },
+  "23": {
+   "utts": 197,
+   "pooled_wer": 11.344,
+   "false_words_in_gaps": 0
+  },
+  "24": {
+   "utts": 207,
+   "pooled_wer": 12.116,
+   "false_words_in_gaps": 0
+  },
+  "25": {
+   "utts": 200,
+   "pooled_wer": 9.448,
+   "false_words_in_gaps": 0
+  },
+  "26": {
+   "utts": 191,
+   "pooled_wer": 8.904,
+   "false_words_in_gaps": 0
+  },
+  "27": {
+   "utts": 110,
+   "pooled_wer": 9.883,
+   "false_words_in_gaps": 0
+  }
+ }
+}

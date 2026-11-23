@@ -130,8 +130,11 @@ def test_page_one_facts_print_the_receipts_numbers_with_their_checkpoint():
     assert rec["AoCapacityStreams"]["raw"] == cap["n"] and cap["flat"]
     sil = alwayson.silence(pd.REPO)
     assert sil["blocks"] == 10 and sil["words"] == 0 and "no word" in rec["AbsSilence"]["value"]
+    assert f"{sil['gap_words']} in the" in rec["AbsSilence"]["value"], "the stream's own pauses must be reported too"
     end = alwayson.endless(pd.REPO)
-    assert end["hi"] - end["lo"] < 0.05 * end["lo"], "memory over the endless run is no longer flat; rewrite the claim"
+    assert end["resets"] == 0 and end["utts"] == 5567, "the endless run is no longer one unbroken stream"
+    assert end["end"] <= end["peak"] < 1.05 * end["warm"], "memory grew over the endless run; rewrite the claim"
+    assert abs(end["second"] - end["first"]) < 0.5, "WER drifted over the endless run; rewrite the claim"
     st = alwayson.stream(pd.REPO)
     assert abs(st["replay"]["delta"]) < 0.2 and st["replay"]["lower"] < 0 < st["replay"]["upper"]
     assert st["penalty"]["lower"] > 0, "the continuous-stream penalty is no longer outside its bounds"

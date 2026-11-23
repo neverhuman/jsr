@@ -1,11 +1,10 @@
 """Page-1 facts, in the order the abstract and the README lead with them: cost, watts, capacity, silence,
 the endless stream, the same words everywhere, and the honest line on accuracy.
 
-The numbers come from the evidence rows (Figure 1's group) and the always-on receipts (alwayson.py), so the
-abstract (\\Abs* macros), the results (\\Ao* macros) and the README bullets print the same values. Two rows of
-ours can appear: the headline row drawn in Figure 1 (systems.json headline.ours) and the row the always-on
-tests ran on (headline.always_on). Every number is printed with the checkpoint it was measured on; a
-fact whose receipt or row is missing says that it is pending.
+Numbers come from the evidence rows (Figure 1's group) and the always-on receipts (alwayson.py), so the
+abstract (\\Abs*), the results (\\Ao*) and the README bullets print the same values. Every number is printed
+with the checkpoint it was measured on (systems.json headline.ours, headline.always_on, or the newest row of
+ours that has the measurement); a fact whose receipt or row is missing says that it is pending.
 """
 
 from __future__ import annotations
@@ -18,9 +17,11 @@ from .cold import speed_text
 from .common import fmt
 from .evidence import HEADLINE, derived
 from .records import Records
+from .tables import HOURS_PER_YEAR
 from .words import checkpoint as _ck, md, name as _name, names as _names, signed as _sg, tex
 
-HOURS_PER_YEAR = 8766.0
+ALWAYS = ("MoneyOursWatts", "AoCheckpoint", "AoMthreeSpeed", "AoWatts", "AoKwh", "AoCapacity", "AoCapacityStreams",
+          "AoSilence", "AoEndless", "AoSameWords", "AoSilenceHours", "AoStreamHours")  # macros the sections use
 
 
 def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dict:
@@ -125,57 +126,66 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
             unit="streams")
     else:
         fact("Capacity", "Capacity", None, None, {}, "pending", "pending")
-    # ---- 4. silence
-    s = ao.silence(root)
-    if s and aon and aon["variant"] == ao.XISA_VARIANT:
+    # ---- 4. silence: ten 1-hour blocks, and the pauses of the whole endless stream
+    s, e, st = ao.silence(root), ao.endless(root), ao.stream(root)
+    if s and e and aon and aon["variant"] == ao.XISA_VARIANT:
         levels = f"{_sg(s['levels'][0], 0)} to {_sg(s['levels'][-1], 0)}\u2009dBFS"
-        words = "no word" if s["words"] == 0 else f"{s['words']} words"
-        gaps = "none" if s["gap_words"] == 0 else str(s["gap_words"])
-        wl = "ten 1-hour non-speech blocks and the pauses of the endless stream's first hour (eval-lane)"
-        fact("Silence", "Silence", f"In {fmt(s['hours'], 0)}\u2009h of silence and synthetic noise it emitted {words}.",
-             f"{s['words']} words in {fmt(s['hours'], 0)} hours of digital silence and synthetic white, pink and "
-             f"brown noise at {levels} ({s['blocks']} one-hour blocks, {_ck(aon)}), and {s['gap_words']} in the "
-             f"{fmt(s['gap_hours'], 2)} h of pauses in the first hour of a continuous stream.", s, "non-speech", wl)
+        per = fmt(s["gap_words"] / s["gap_hours"], 2)
+        gaps = f"{s['gap_words']} in the {fmt(s['gap_hours'], 1)}\u2009h of pauses of a {fmt(e['hours'], 1)}\u2009h stream ({per} per hour)"
+        split = f"{s['silence_words']} in {fmt(s['silence_hours'], 2)}\u2009h of digital silence, {s['gap_words'] - s['silence_words']} in the noise gaps"
+        wl = "ten 1-hour non-speech blocks (eval-lane) and the pauses of the endless stream (runtime-lane, no reset)"
+        fact("Silence", "Silence", f"In {fmt(s['hours'], 0)}\u2009h of silence and synthetic noise it emitted "
+             f"{'no word' if s['words'] == 0 else str(s['words']) + ' words'}, and {gaps}.",
+             f"{s['words']} words in {fmt(s['hours'], 0)} hours of digital silence and synthetic white, pink and brown "
+             f"noise at {levels} ({s['blocks']} one-hour blocks, {_ck(aon)}); {s['gap_words']} words in the "
+             f"{fmt(s['gap_hours'], 2)} h of pauses of the {fmt(e['hours'], 2)} h continuous stream ({per} per hour: "
+             f"{split}).", s, "non-speech", wl)
         put("AoSilence", tex(f"Decoded as one stream from a fresh state, each of {s['blocks']} one-hour blocks of "
                              f"digital silence and of white, pink and brown noise at {levels} gave an empty "
-                             f"transcript: {s['words']} words in {fmt(s['hours'], 0)}\u2009h. In the first hour of the "
-                             f"continuous stream, the {fmt(s['gap_hours'], 2)}\u2009h of pauses held {gaps}."),
+                             f"transcript: {s['words']} words in {fmt(s['hours'], 0)}\u2009h. In the pauses of the "
+                             f"{fmt(e['hours'], 2)}\u2009h stream it emitted {s['gap_words']} words in "
+                             f"{fmt(s['gap_hours'], 2)}\u2009h, {per} per hour ({split})."),
             s, "non-speech, results sentence", wl)
         put("AoSilenceHours", fmt(s["hours"], 0), s, "hours of non-speech decoded", wl, raw=s["hours"], unit="h")
     else:
         fact("Silence", "Silence", None, None, {}, "pending", "pending")
-    # ---- 5. the endless stream: memory over hours, and accuracy in one continuous hour
-    e, st = ao.endless(root), ao.stream(root)
-    if e and st and aon and aon["variant"] == ao.XISA_VARIANT:
+    # ---- 5. the endless stream: memory, lag and WER over all of it; reset-with-replay on its first hour
+    iso = ao.int8(root, aon["variant"]) if aon else None
+    if e and st and iso and aon["variant"] == ao.XISA_VARIANT:
         rep, t0, pen, left = st["replay"], st["t0"], st["penalty"], st["left"]
-        mem = f"{fmt(e['lo'], 1)}\u2013{fmt(e['hi'], 1)}\u2009MB"
+        hrs, lag = fmt(e["hours"], 2), f"{fmt(e['lag50'], 0)}\u2009ms median and {fmt(e['lag95'], 0)}\u2009ms at the 95th percentile"
+        halves = f"{fmt(e['first'], 2)}% in its first half and {fmt(e['second'], 2)}% in its second"
         rr = f"T\u00a0=\u00a0{fmt(st['t_s'], 1)}\u2009s, R\u00a0=\u00a0{fmt(st['r_s'], 1)}\u2009s"
-        wl = f"eval-lane's endless stream ({fmt(e['total'], 1)} h, every DEV utterance once, seeded pauses)"
-        src = {"source": f"{e['source']}; {st['source']}", "digest": e["digest"]}
-        fact("Endless", "Endless", f"Its memory stayed at {mem} over the first {fmt(e['hours'], 1)}\u2009h of a "
-             f"{fmt(e['total'], 1)}\u2009h continuous stream, and with reset-with-replay the stream's first hour scores "
-             f"{fmt(rep['observed_b'], 2)}% WER against {fmt(rep['observed_a'], 2)}% for the same utterances decoded "
-             "one by one.",
-             f"Memory flat at {mem} over the first {fmt(e['hours'], 1)} h of a {fmt(e['total'], 1)} h continuous stream "
-             f"({_ck(aon)}; the run continues). With reset-with-replay ({rr}), one continuous stream matches isolated "
-             f"decoding on the first stream hour: {fmt(rep['observed_b'], 2)}% against {fmt(rep['observed_a'], 2)}% "
-             f"WER, {st['utts']} utterances ({fmt(t0['observed_b'], 2)}% without the reset).", src, "endless", wl)
+        wl = f"eval-lane's endless stream ({hrs} h, {e['utts']:,} DEV utterances once, seeded pauses)"
+        src = {"source": f"{e['source']}; {st['source']}; {iso['source']}", "digest": e["digest"]}
+        hour1 = (f"with reset-with-replay the stream's first hour scores {fmt(rep['observed_b'], 2)}% WER against "
+                 f"{fmt(rep['observed_a'], 2)}% for the same utterances decoded one by one")
+        fact("Endless", "Endless", f"Over a {fmt(e['hours'], 1)}\u2009h continuous stream (one process, no restart) "
+             f"its memory never exceeded {fmt(e['peak'], 1)}\u2009MB, its word lag stayed at {lag}, and its WER did "
+             f"not drift ({halves}); {hour1}.",
+             f"Memory {fmt(e['start'], 2)} MB at the start, {fmt(e['warm'], 1)} MB once loaded, never above "
+             f"{fmt(e['peak'], 2)} MB, {fmt(e['end'], 2)} MB at the end of a {hrs} h continuous stream ({e['utts']:,} "
+             f"utterances, one process, no restart, {_ck(aon)}); word lag p50 {fmt(e['lag50'], 0)} / p95 "
+             f"{fmt(e['lag95'], 0)} ms over {e['words']:,} words; WER {halves}. With reset-with-replay ({rr}), one "
+             f"continuous stream matches isolated decoding on the first stream hour: {fmt(rep['observed_b'], 2)}% "
+             f"against {fmt(rep['observed_a'], 2)}%, {st['utts']} utterances ({fmt(t0['observed_b'], 2)}% without the "
+             "reset); its full-length run is still going.", src, "endless", wl)
         put("AoEndless", tex(
-            f"Over the first {fmt(e['hours'], 1)}\u2009h of the {fmt(e['total'], 1)}\u2009h stream (the run continues), "
-            f"the resident memory of {_ck(aon)} stayed between {mem}. In the stream's first hour ({st['utts']} "
-            f"utterances, {fmt(st['minutes'], 0)}\u2009min) one continuous stream scored {fmt(pen['observed_b'], 2)}% "
-            f"pooled WER against {fmt(pen['observed_a'], 2)}% with each utterance decoded alone "
-            f"({_sg(pen['delta'], 2)}\u2009pp, bootstrap bounds {_sg(pen['lower'], 2)} to {_sg(pen['upper'], 2)}). "
-            f"Of that, {_sg(left['delta'], 2)}\u2009pp comes from the pauses' audio in the encoder's left context "
-            "(each utterance decoded alone with its preceding pause). Resetting the state after "
-            f"{fmt(st['t_s'], 1)}\u2009s without output and replaying the last {fmt(st['r_s'], 1)}\u2009s brings the "
-            f"continuous hour to {fmt(rep['observed_b'], 2)}% ({_sg(rep['delta'], 2)}\u2009pp, "
-            f"{_sg(rep['lower'], 2)} to {_sg(rep['upper'], 2)}; {fmt(t0['observed_b'], 2)}% without the reset in the "
-            f"same build), with {st['replay_gap_words']} false words in the pauses. The {fmt(e['total'], 1)}\u2009h run "
-            "with the reset on is still going."), src, "endless, results sentence", wl)
-        put("AoStreamHours", fmt(e["total"], 1), src, "length of the endless stream", wl, raw=e["total"], unit="h")
-        put("AoEndlessHours", fmt(e["hours"], 1), src, "hours of the endless run done (snapshot)", wl, raw=e["hours"],
-            unit="h")
+            f"Over the whole {hrs}\u2009h stream ({e['utts']:,} utterances, one process, no restart, no reset) the "
+            f"resident memory of {_ck(aon)} was {fmt(e['start'], 2)}\u2009MB at the start, {fmt(e['warm'], 1)}\u2009MB "
+            f"once loaded, at most {fmt(e['peak'], 2)}\u2009MB, and {fmt(e['end'], 2)}\u2009MB at the end; its word "
+            f"lag over {e['words']:,} matched words was {lag}. It scored {fmt(e['wer'], 2)}% pooled WER against "
+            f"{fmt(iso['observed_b'], 2)}% with each utterance decoded alone by the same engine, {halves}: a constant "
+            "cost of continuous decoding, not a drift. In the first hour "
+            f"({st['utts']} utterances) the cost was {_sg(pen['delta'], 2)}\u2009pp (bootstrap bounds "
+            f"{_sg(pen['lower'], 2)} to {_sg(pen['upper'], 2)}), {_sg(left['delta'], 2)}\u2009pp of it from the pauses' "
+            "audio in the encoder's left context. Resetting the state after "
+            f"{fmt(st['t_s'], 1)}\u2009s without output and replaying the last {fmt(st['r_s'], 1)}\u2009s brings that "
+            f"hour to {fmt(rep['observed_b'], 2)}% ({_sg(rep['delta'], 2)}\u2009pp, {_sg(rep['lower'], 2)} to "
+            f"{_sg(rep['upper'], 2)}; {fmt(t0['observed_b'], 2)}% without the reset in the same build), with "
+            f"{st['replay_gap_words']} false words in its pauses. The {hrs}\u2009h run with the reset on was still "
+            "going when this draft was built."), src, "endless, results sentence", wl)
+        put("AoStreamHours", fmt(e["hours"], 1), src, "length of the endless stream", wl, raw=e["hours"], unit="h")
     else:
         fact("Endless", "Endless", None, None, {}, "pending", "pending")
     # ---- 6. the same words on three instruction sets, and INT8 against FP32 on full dev
@@ -210,10 +220,9 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         pick = [r for r in dict.fromkeys(x["id"] for x in (fast, stream_best, whole_best) if x)]
         pick = sorted((r for r in others if r["id"] in pick), key=lambda r: -derived(r)["wer_clean"])
         better = sum(derived(r)["wer_clean"] < h["wer_clean"] for r in others)
-        lm = ((rec.rows["LmEngineGain"]["value"], rec.rows["LmHeldOutGain"]["value"], "H22ctl")
-              if "LmEngineGain" in rec.rows and "LmHeldOutGain" in rec.rows else None)
+        lm = (rec.rows["LmEngineGain"]["value"], rec.rows["LmHeldOutGain"]["value"], "H22ctl") if "LmHeldOutGain" in rec.rows else None
         vs = _names([f"{fmt(derived(r)['wer_clean'], 2)}% for {_name(r)}" for r in pick])
-        rest = f" ({head['detail'].split(', ', 1)[1]})" if ", " in (head.get("detail") or "") else ""
+        rest = " (training continues)" if "training continues" in (head.get("detail") or "") else ""
         fact("Accuracy", "Where we trail", f"Accuracy is where we trail: {_ck(head)} scores {fmt(h['wer_clean'], 2)}% "
              f"dev-clean WER{rest}, against {vs}.",
              f"{_name(head)} ({head.get('detail') or _ck(head)}) scores {fmt(h['wer_clean'], 2)}% WER on the "
@@ -231,15 +240,10 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         figure = md(see)
     else:
         fact("Accuracy", "Where we trail", None, None, {}, "pending", panel)
-        put("MoneyHeadline", "Speed against accuracy on one CPU core, every system measured here.", {}, "pending",
-            panel)
         figure = "Speed against accuracy on one CPU core, every system measured here."
+        put("MoneyHeadline", figure, {}, "pending", panel)
     if aon:
         put("AoCheckpoint", _ck(aon), rowsrc(aon), "the checkpoint the always-on tests ran on", panel, unit="name")
-    for rid in ("MoneyOursWatts", "AoCheckpoint", "AoMthreeSpeed", "AoWatts", "AoKwh", "AoCapacity",
-                "AoCapacityStreams", "AoSilence", "AoEndless", "AoSameWords", "AoSilenceHours", "AoStreamHours",
-                "AoEndlessHours"):
-        if rid not in rec.rows:  # defined either way, so the sections build; the value says what is missing
-            put(rid, "\\relax" if rid == "MoneyOursWatts" else "pending", {}, "pending: no admitted receipt or row yet",
-                "pending")
+    for rid in (r for r in ALWAYS if r not in rec.rows):  # defined either way, so the sections build
+        put(rid, "\\relax" if rid == "MoneyOursWatts" else "pending", {}, "pending: no admitted receipt or row yet", "pending")
     return {"bullets": bullets, "figure": figure}
