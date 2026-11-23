@@ -82,6 +82,8 @@
     "python/ultra/tools/dashboard_events.py": "training",
     "python/ultra/tests/test_dashboard_unified_contract.py": "training",
     "python/ultra/train/vram_pack.py": "training",
-    "python/ultra/tests/test_vram_pack.py": "training"
+    "python/ultra/tests/test_vram_pack.py": "training",
+    "python/ultra/train/train_ffnn_lm.py": "training",
+    "python/ultra/tests/test_train_ffnn_lm.py": "training"
   }
 }

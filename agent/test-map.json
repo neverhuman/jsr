@@ -352,6 +352,14 @@
     "python/ultra/tests/test_vram_pack.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_vram_pack.py",
       "purpose": "torch-free tests for per-process CUDA memory cap and VRAM co-packing planner"
+    },
+    "python/ultra/train/train_ffnn_lm.py": {
+      "command": "just pytest",
+      "purpose": "verify H46 FFNN-6 GPU/CPU LM training convergence, byte-budget INT8 export and parity"
+    },
+    "python/ultra/tests/test_train_ffnn_lm.py": {
+      "command": "just pytest",
+      "purpose": "fast deterministic CPU smoke tests for H46 FFNN-6 training, byte budgets and parity"
     }
   }
 }
