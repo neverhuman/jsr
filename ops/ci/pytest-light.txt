@@ -21,6 +21,7 @@ tests/test_power_bench.py
 tests/test_skip_gate_sim.py
 tests/test_sp_a_fleet.py
 tests/test_sp_a_sim.py
+tests/test_step_sync.py
 tests/test_train_diagnose.py
 tests/test_training_dashboard.py
 tests/test_vram_pack.py
