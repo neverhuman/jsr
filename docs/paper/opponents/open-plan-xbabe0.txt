@@ -42,16 +42,17 @@ require 14c models/F1-60000-ema/int8/weights.int8.safetensors
 # (80 ms), panel73, three cold repetitions each. The chunk-1 and chunk-2 bundles are eval-lane's
 # export with arch.json's three chunk fields set to 1 or 2 (weights byte-identical); on 16 panel
 # utterances they give the same hypotheses as eval-lane's engine runs with --chunk 1 and --chunk 2.
-# One stream at chunk 1 streams all the weights for every 40 ms step, so it costs far more than at
-# chunk 4 (estimates from a loaded H0 pass; the runner replaces them with measured times).
+# One stream at chunk 1 costs far more than at chunk 4: the full-panel WER pass on H0 (eight single-stream
+# workers, a loaded host) took 1.9 s per audio second at chunk 1. Estimates follow it; the runner
+# replaces them with measured times.
 require 14d models/arm13a-ema-c1/int8/weights.int8.safetensors
 require 14d models/arm13a-ema-c2/int8/weights.int8.safetensors
-14d p73  jsr-arm13a-ema-int8-c1    1 4  0 12
-14d p73  jsr-arm13a-ema-int8-c2    1 4  0 6
-14d p73  jsr-arm13a-ema-int8-c1    2 24 1 12
-14d p73  jsr-arm13a-ema-int8-c2    2 24 1 6
-14d p73  jsr-arm13a-ema-int8-c1    3 28 2 12
-14d p73  jsr-arm13a-ema-int8-c2    3 28 2 6
+14d p73  jsr-arm13a-ema-int8-c1    1 4  0 20
+14d p73  jsr-arm13a-ema-int8-c2    1 4  0 10
+14d p73  jsr-arm13a-ema-int8-c1    2 24 1 20
+14d p73  jsr-arm13a-ema-int8-c2    2 24 1 10
+14d p73  jsr-arm13a-ema-int8-c1    3 28 2 20
+14d p73  jsr-arm13a-ema-int8-c2    3 28 2 10
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
