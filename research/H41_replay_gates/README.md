@@ -158,3 +158,11 @@ For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU 
   - Gate: adopted only on a win over the chunk arm of more than 2× the four-run spread (EMA pooled full dev, chunks 4 / 8 / 16).
   - The KD weight pick is the lowest dev-clean400 WER at step 8,000, as H22 pre-registered.
   - Speed-perturbed samples (0.9 / 1.1) have no cache entry and train without the KD term. `TeacherStore.get` now matches the speed exactly; it used to round to 0.1, so a factor like 0.96 would have got the 1.0 targets. A test covers this.
+
+## Amendment 20 and trunk step A1L (2026-11-23, each posted in AGENT_CHAT before it started)
+- **Amendment 20 (04:17Z, placement addenda 04:21Z / 04:27Z): the full-coverage KD sweep.** Arm 22 = the chunk arm with speed perturbation off (`speed_perturb=` empty), seed 1234. Arms 23 / 23b / 23c = arm 22 plus KD from R0 at `kd_weight` 0.3 / 1.0 / 0.1. Arm 23-r = arm 23 with `seed=4321`.
+  - Reading: each KD arm minus arm 22 (EMA pooled full dev, chunks 4 / 8 / 16, paired bootstrap) is KD's effect when every sample can have a target (the 58.5% whose R0 1-best matches the reference). These arms are not adoption candidates; they decide whether the best of 21a-c gets a full-cache run.
+- **Amendment 19 addenda:** arm 21c (`kd_weight=1.0`) moved from x8 to x9. Arm 21b-r = arm 21b with `seed=4321`.
+- **Trunk step A1L (04:44Z):** A1's final checkpoint (`ckpt-00049000.pt`) fine-tuned on A1's recipe plus `delay_penalty=0.005`, the H41 replay schedule (8,000 steps), seed 1234. The model starts from the raw weights and the EMA restarts from them. Launched with `INIT_FROM` / `RUN_NAME` on `train/ops/h41_replay.sh`.
+  - Gate: full-dev EMA pooled at chunks 4 / 8 / 16 within the four-run spread of A1-49000's (8.302 / 7.961 / 7.703). First-token latency at chunks 4 / 8 is the reported outcome. It is promoted only if arm 14 (seed 1234) passes (it did, 04:42Z). Kill rule threshold 6.163 (A1's last dev-clean400 EMA 4.663 + 1.5 pp).
+- **Adopted (lead, 04:43Z):** `delay_penalty=0.005` joins the trunk recipe; arms 14 and 14-r both pass the latency arm's gate against the chunk-arm seed pair.

@@ -7,7 +7,7 @@
 #   h41_burst_decode.sh <run_dir> <gpu> <cpu_list>   (h41_after_end.sh starts it in its own session)
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-R=${1%/}; G=$2; CPUS=$3
+R=${1%/}; G=$2  # $3, the cpu list, is applied by the caller (taskset)
 PY=$HOME/jsr-data/venvs/train/bin/python; [ -x "$PY" ] || PY=$HOME/venvs/train/bin/python
 B=$HOME/jsr-data/evals/burst; SRC=$B/src-d5f231e/python/ultra; OUT=${BURST_OUT:-$B/h41}; mkdir -p "$OUT"
 RUN=$(basename "$R"); CK=$R/model-00008000.pt; J=${JSR_DATA:-$HOME/jsr-data}
