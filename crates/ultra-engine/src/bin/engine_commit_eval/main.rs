@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Instant;
 
-use cli::{load_manifest, parse_args, Args};
+use cli::{open_manifest, parse_args, Args};
 use serde_json::{json, Value};
 use ultra_engine::commit::{
     CommitConfig, CommitLmConfig, CommitPassSession, CommitTfRescoreConfig, DEFAULT_SAMPLE_RATE,
@@ -74,17 +74,19 @@ fn run(a: &Args) -> Result<Value, String> {
         .and_then(|s| s.with_commit_lm(lm_cfg))
         .and_then(|s| s.with_commit_tf_rescorer(tf_cfg))
         .map_err(|e| e.to_string())?;
-    let items = load_manifest(a)?;
+    let mut items = open_manifest(a)?;
     if items.is_empty() {
         return Err("empty manifest".into());
     }
+    let n_items = items.len();
     if let Some(p) = a.out.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
     }
     let mut out = BufWriter::new(File::create(&a.out).map_err(|e| e.to_string())?);
     let (mut tot_s, mut tot_prov, mut tot_commit) = (0.0, 0.0, 0.0);
-    let (mut revised, mut truncated, mut cms) = (0usize, 0usize, Vec::with_capacity(items.len()));
-    for (uid, pcm) in &items {
+    let (mut revised, mut truncated, mut cms) = (0usize, 0usize, Vec::with_capacity(n_items));
+    while let Some(item) = items.next_item() {
+        let (uid, pcm) = item?;
         let t0 = Instant::now();
         for pkt in pcm.chunks(320) {
             sess.accept_i16(pkt).map_err(|e| e.to_string())?;
@@ -106,7 +108,7 @@ fn run(a: &Args) -> Result<Value, String> {
             .map_err(|e| e.to_string())?;
     }
     cms.sort_by(f64::total_cmp);
-    let mut summary = json!({"summary": true, "utterances": items.len(), "revised_count": revised, "pcm_truncated_count": truncated, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "commit_max_audio_s": a.commit_max_audio_s, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
+    let mut summary = json!({"summary": true, "utterances": n_items, "revised_count": revised, "pcm_truncated_count": truncated, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / n_items as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "commit_max_audio_s": a.commit_max_audio_s, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
     if let Some(map) = summary.as_object_mut() {
         if a.commit_lm.is_some() || a.commit_beam.is_some() {
             map.insert("commit_lm_path".into(), json!(a.commit_lm));
@@ -217,5 +219,67 @@ mod tests {
         }
         let xs = [10.0, 20.0, 30.0, 40.0, 50.0];
         assert_eq!((pct(&xs, 0.50), pct(&xs, 0.95)), (30.0, 50.0));
+    }
+
+    fn write_tiny_wav(path: &std::path::Path, samples: &[i16]) {
+        let data_bytes = (samples.len() * 2) as u32;
+        let mut buf = Vec::with_capacity(44 + data_bytes as usize);
+        buf.extend_from_slice(b"RIFF");
+        buf.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+        buf.extend_from_slice(b"WAVEfmt ");
+        buf.extend_from_slice(&16u32.to_le_bytes());
+        buf.extend_from_slice(&1u16.to_le_bytes());
+        buf.extend_from_slice(&1u16.to_le_bytes());
+        buf.extend_from_slice(&16_000u32.to_le_bytes());
+        buf.extend_from_slice(&32_000u32.to_le_bytes());
+        buf.extend_from_slice(&2u16.to_le_bytes());
+        buf.extend_from_slice(&16u16.to_le_bytes());
+        buf.extend_from_slice(b"data");
+        buf.extend_from_slice(&data_bytes.to_le_bytes());
+        for &s in samples {
+            buf.extend_from_slice(&s.to_le_bytes());
+        }
+        std::fs::write(path, &buf).expect("write wav");
+    }
+
+    #[test]
+    fn streaming_manifest_yields_one_wav_lazily_and_honors_limit() {
+        let td = std::env::temp_dir().join(format!("ultra_commit_manifest_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&td);
+        std::fs::create_dir_all(&td).expect("mkdir");
+        let w1 = td.join("a.wav");
+        let w2 = td.join("b.wav");
+        write_tiny_wav(&w1, &[10, -20, 30]);
+        write_tiny_wav(&w2, &[40, 50]);
+        let mf = td.join("list.jsonl");
+        std::fs::write(
+            &mf,
+            format!(
+                "# comment\n{{\"uid\":\"u1\",\"wav\":\"{}\"}}\n{{\"uid\":\"u2\",\"wav\":\"{}\"}}\n",
+                w1.display(),
+                w2.display()
+            ),
+        )
+        .expect("write manifest");
+        let args = parse_args([
+            "--model".into(),
+            "m".into(),
+            "--manifest".into(),
+            mf.to_string_lossy().into_owned(),
+            "--out".into(),
+            td.join("out.jsonl").to_string_lossy().into_owned(),
+        ])
+        .expect("args");
+        let mut stream = open_manifest(&args).expect("open");
+        assert_eq!(stream.len(), 2);
+        // Removing w2 after open_manifest proves WAV reads happen lazily per utterance, not eagerly.
+        std::fs::remove_file(&w2).expect("rm w2");
+        let (id1, pcm1) = stream.next_item().expect("item 1").expect("read w1");
+        assert_eq!(
+            (id1.as_str(), pcm1.as_slice()),
+            ("u1", &[10i16, -20, 30][..])
+        );
+        assert!(stream.next_item().expect("item 2").is_err());
+        let _ = std::fs::remove_dir_all(&td);
     }
 }

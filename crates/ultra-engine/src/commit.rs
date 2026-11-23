@@ -94,6 +94,7 @@ impl CommitPassSession {
         let mut ce = engine
             .clone()
             .with_chunk(cfg.commit_chunk)?
+            .with_max_chunks(engine.max_chunks.max(4))
             .with_beam(cfg.beam_size);
         ce.endpoint_reset_ms = 0;
         ce.endpoint_replay_ms = 0;

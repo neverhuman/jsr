@@ -127,18 +127,48 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
     Ok(a)
 }
 
-pub(super) fn load_manifest(a: &Args) -> Result<Vec<(String, Vec<i16>)>, String> {
+pub(super) enum ManifestStream {
+    Paths(std::vec::IntoIter<(String, PathBuf)>),
+    Memory(std::vec::IntoIter<(String, Vec<i16>)>),
+}
+
+impl ManifestStream {
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::Paths(it) => it.len(),
+            Self::Memory(it) => it.len(),
+        }
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub(super) fn next_item(&mut self) -> Option<Result<(String, Vec<i16>), String>> {
+        match self {
+            Self::Paths(it) => it.next().map(|(id, p)| {
+                read_audio_16k_mono(&p)
+                    .map(|pcm| (id, pcm))
+                    .map_err(|e| format!("{}: {e}", p.display()))
+            }),
+            Self::Memory(it) => it.next().map(Ok),
+        }
+    }
+}
+
+pub(super) fn open_manifest(a: &Args) -> Result<ManifestStream, String> {
     let path = &a.manifest;
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
     let lim = (a.limit > 0).then_some(a.limit);
     if ext.eq_ignore_ascii_case("npz") {
         let au = load_npz_audio_only(path, 0, lim).map_err(|e| e.to_string())?;
         let rf = load_npz_references(path, 0, lim).map_err(|e| e.to_string())?;
-        return Ok(au
+        let items: Vec<(String, Vec<i16>)> = au
             .into_iter()
             .zip(rf)
             .map(|(x, r)| (r.uid, x.pcm))
-            .collect());
+            .collect();
+        return Ok(ManifestStream::Memory(items.into_iter()));
     }
     if ext.eq_ignore_ascii_case("json") {
         let cache = a.cache_dir.clone().unwrap_or_else(|| {
@@ -148,22 +178,23 @@ pub(super) fn load_manifest(a: &Args) -> Result<Vec<(String, Vec<i16>)>, String>
         let wl = Workload::panel(&Panel::read(path)?, &cache)?;
         let rf = wl.references()?;
         let take = lim.unwrap_or(wl.items.len()).min(wl.items.len());
-        return Ok(wl
+        let items: Vec<(String, Vec<i16>)> = wl
             .items
             .into_iter()
             .zip(rf)
             .take(take)
             .map(|(i, r)| (r.uid, i.pcm))
-            .collect());
+            .collect();
+        return Ok(ManifestStream::Memory(items.into_iter()));
     }
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let base = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut out = Vec::new();
+    let mut entries: Vec<(String, PathBuf)> = Vec::new();
     for (idx, line) in text.lines().map(str::trim).enumerate() {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        if lim.is_some_and(|n| out.len() >= n) {
+        if lim.is_some_and(|n| entries.len() >= n) {
             break;
         }
         let (uid, ap) = if line.starts_with('{') {
@@ -190,14 +221,13 @@ pub(super) fn load_manifest(a: &Args) -> Result<Vec<(String, Vec<i16>)>, String>
         } else {
             base.join(&ap)
         };
-        let pcm = read_audio_16k_mono(&p).map_err(|e| format!("{}: {e}", p.display()))?;
         let id = uid.unwrap_or_else(|| {
             p.file_stem().map_or_else(
-                || format!("utt_{:05}", out.len()),
+                || format!("utt_{:05}", entries.len()),
                 |s| s.to_string_lossy().into_owned(),
             )
         });
-        out.push((id, pcm));
+        entries.push((id, p));
     }
-    Ok(out)
+    Ok(ManifestStream::Paths(entries.into_iter()))
 }
