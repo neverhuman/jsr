@@ -158,6 +158,10 @@ def convert(ckpt: str, out: str, bundle: str | None) -> dict:
     p = load_checkpoint(ckpt)
     cfg = p["model_config"]
     enc = cfg["encoder"]
+    if cfg.get("text_tables_dim", 0) > 0 or any(k.startswith("predictor.text.") for k in p["model"]):
+        raise ConvertError(
+            "checkpoint uses Factor D text_tables predictor; refusing export until ultra-engine supports TextTables"
+        )
     if os.path.exists(out) and os.listdir(out):
         raise ConvertError(f"{out} is not empty; outputs go to a fresh directory, never overwrite")
     os.makedirs(out, exist_ok=True)

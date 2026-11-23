@@ -13,14 +13,20 @@ from train.asr import ModelConfig, SpecAugConfig
 
 
 def model_overrides(base: ModelConfig, cfg) -> ModelConfig:
-    """The preset with the trained attention chunk, left context and predictor context."""
+    """The preset with trained chunk, left context, stochastic depth, predictor ctx and text tables."""
     enc = base.encoder
     if cfg.chunk:  # the exported config must carry the trained attention chunk (H14), not the preset's
         enc = dataclasses.replace(enc, chunk=cfg.chunk)
     if cfg.left_context:
         enc = dataclasses.replace(enc, left_context=cfg.left_context)
+    if getattr(cfg, "layer_drop", 0.0):
+        enc = dataclasses.replace(enc, layer_drop=float(cfg.layer_drop))
     base = dataclasses.replace(base, encoder=enc)
-    return dataclasses.replace(base, pred_ctx=cfg.pred_ctx) if cfg.pred_ctx else base
+    if cfg.pred_ctx:
+        base = dataclasses.replace(base, pred_ctx=cfg.pred_ctx)
+    if getattr(cfg, "text_tables_dim", 0):
+        base = dataclasses.replace(base, text_tables_dim=int(cfg.text_tables_dim))
+    return base
 
 
 def specaug(cfg) -> SpecAugConfig:
@@ -72,15 +78,18 @@ def wave2_loss_kwargs(cfg, truncator, step: int) -> dict:
 
 
 def check_init_compatible(src: ModelConfig, dst: ModelConfig) -> None:
-    """A checkpoint may seed a run that differs only in mask geometry (chunk, left context) or in a
-    longer predictor context (widened function-preservingly by widen_state); anything else is a
-    different model."""
+    """A checkpoint may seed a run that differs only in mask geometry (chunk, left context),
+    eval-identity stochastic depth (`layer_drop`), longer predictor context (`widen_state`), or
+    zero-initialised Factor D `text_tables` (`src.text_tables_dim == 0 -> dst > 0`)."""
     from train.errors import CheckpointError
 
+    tables_ok = (src.text_tables_dim == dst.text_tables_dim) or (src.text_tables_dim == 0 and dst.text_tables_dim > 0)
     s = dataclasses.replace(src, qat="none", qat_stem="none", pred_ctx=dst.pred_ctx,
+                            text_tables_dim=dst.text_tables_dim,
                             encoder=dataclasses.replace(src.encoder, chunk=dst.encoder.chunk,
-                                                        left_context=dst.encoder.left_context))
-    if s != dataclasses.replace(dst, qat="none", qat_stem="none") or src.pred_ctx > dst.pred_ctx:
+                                                        left_context=dst.encoder.left_context,
+                                                        layer_drop=dst.encoder.layer_drop))
+    if not tables_ok or s != dataclasses.replace(dst, qat="none", qat_stem="none") or src.pred_ctx > dst.pred_ctx:
         raise CheckpointError("--init-from checkpoint has a different model config")
 
 

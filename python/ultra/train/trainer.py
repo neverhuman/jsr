@@ -1,14 +1,7 @@
 """Train the DENSE reference student (spec v1.0-B §17, §26) on CPU or GPU.
 
-  python -m train.trainer --run-dir /mnt/xbabe3-external/jsr/runs/train/<name> --preset S \
-      --splits train-clean-100 --threads 32
-
-Resumes automatically from `<run-dir>/LATEST`. Logs JSON lines to `<run-dir>/train.jsonl`.
-A non-finite loss or gradient pauses the run: diagnostics go to `<run-dir>/PAUSED.json` and the
-process exits with status 3; a paused run refuses to resume until that file is removed.
-Optimiser: AdamW with linear warm-up and cosine decay by default; H23 alternatives (ScaledAdam+Eden,
-Schedule-Free AdamW, Muon, Lookahead, adaptive/AGC clipping, joiner z-loss) live in train/optim.
-bf16 autocast on CUDA, fp32 on CPU.
+Resumes from `<run-dir>/LATEST`; logs JSON lines to `<run-dir>/train.jsonl`; non-finite loss/grad
+writes `<run-dir>/PAUSED.json` and exits 3. AdamW + cosine by default (H23 options in train/optim).
 """
 from __future__ import annotations
 
@@ -52,9 +45,7 @@ class TrainConfig:
     max_seconds: float = 20.0
     splits: tuple[str, ...] = ("train-clean-100",)
     specaug: bool = True
-    # SpecAugment off for the first N optimiser steps. From step 0 it held the S model on the
-    # unigram plateau (D1c, 2026-11-20: CTC 5.9/token flat to step 2250; without it the same
-    # model left the plateau by step ~900).
+    # SpecAugment off for the first N optimiser steps (avoids unigram plateau on from-scratch runs).
     specaug_start: int = 4000
     log_every: int = 10
     ckpt_every_steps: int = 500
@@ -63,28 +54,20 @@ class TrainConfig:
     dev_split: str = "dev-clean"
     dev_limit: int = 200
     chunk: int = 0  # 0 = model default
-    # Batches behind the initial CMVN statistics of a from-scratch run. 8 keeps new runs comparable
-    # with every earlier one (PR #32 raised the default to 32; set 32 here to opt in).
-    cmvn_batches: int = 8
+    cmvn_batches: int = 8  # initial CMVN batches on from-scratch runs
     pred_ctx: int = 0  # H41 arms 16-18 (train/recipe_opts.py; 0 = preset / built-in value)
     left_context: int = 0
     specaug_time_masks: int = 0
     specaug_time_width: int = 0
-    # Per-step attention chunk drawn from this comma list (e.g. "4,8,16" = 160/320/640 ms), the same
-    # on every rank; "" = off (bit-exact). After runtime-lane's chunk_modes (PR #30), with its own
-    # RNG stream so SpecAugment masks stay those of the fixed-chunk run (paired replay gates).
-    chunk_modes: str = ""
-    # Extra attention chunks scored at each dev eval (comma list), logged as wer_c<k> / ema_wer_c<k>.
-    eval_chunks: str = ""
+    chunk_modes: str = ""  # comma list of per-step chunks (e.g. "4,8,16"); "" = off
+    eval_chunks: str = ""  # extra eval chunks logged as wer_c<k> / ema_wer_c<k>
     workers: int = 4  # data-decoding threads
     eval_each_epoch: bool = True
-    # Divergence guard (DIVERGED.json on train-loss EMA / dev-WER collapse; 0 disables).
-    diverge_after: int = 3000
+    diverge_after: int = 3000  # divergence guard (0 disables)
     diverge_ratio: float = 0.3
     diverge_patience: int = 300
     diverge_wer_points: float = 5.0
-    # Weight EMA (0 disables); ema_half_life_h > 0 indexes decay by audio-hours.
-    ema_decay: float = 0.0
+    ema_decay: float = 0.0  # weight EMA (0 disables); ema_half_life_h > 0 indexes by audio-hours
     ema_half_life_h: float = 0.0
     data_rank: int = 0  # H50 DiLoCo island shard (data_world 0 = use DDP rank/world)
     data_world: int = 0
@@ -94,24 +77,17 @@ class TrainConfig:
     diloco_worker: str = ""
     diloco_every: int = 0
     diloco_dtype: str = "float32"
-    # SentencePiece sizes (pieces, excluding blank) of the RNN-T and CTC heads; the model's output
-    # sizes follow (pieces + 1). H13 shares one 512-piece model between both heads.
-    rnnt_pieces: int = 4096
+    rnnt_pieces: int = 4096  # SentencePiece sizes excluding blank (H13: 512 shared)
     ctc_pieces: int = 1024
-    # Batch loader: "thread" (decode in a thread pool; GIL-bound) or "process" (spawned worker
-    # processes running the same decode/perturb/log-mel code; bit-identical batches, test).
-    loader: str = "thread"
-    # Row groups sorted together per window before packing (more = less padding per batch).
-    window_groups: int = 4  # a change takes effect at the next epoch boundary on resume
-    # H52: extra parquet splits "/abs/dir[@weight],..." (pseudo-label text) and their conf floor.
-    extra_splits: str = ""
+    loader: str = "thread"  # "thread" | "process"
+    window_groups: int = 4  # row groups sorted per window (next epoch on resume)
+    extra_splits: str = ""  # H52: "/abs/dir[@weight],..." + conf floor
     extra_min_conf: float = 0.0
-    extra_base_weight: float = 0.0  # >0: the LibriSpeech share of each epoch (extras split the rest by size)
+    extra_base_weight: float = 0.0
     dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off)
     node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off)
-    collate_ahead: int = 0  # >0: collate the next N batches off the main thread (identical batches; 0 = inline)
-    # Data-parallel options (0/"" = off).
-    ddp_util_target: float = 0.0
+    collate_ahead: int = 0  # >0: collate next N batches off main thread (0 = inline)
+    ddp_util_target: float = 0.0  # DDP options (0/"" = off)
     ddp_global_batches: bool = False
     ddp_rank_weights: str = ""
     ddp_native: bool = False
@@ -130,8 +106,7 @@ class TrainConfig:
     pad_frames: int = 0
     pad_tokens: int = 0
     weights_every: int = 0
-    # H23 optimizer / clipping / zloss options (defaults = AdamW bit-exact).
-    optimizer: str = "adamw"
+    optimizer: str = "adamw"  # H23 optimizer / clipping / zloss (defaults = AdamW bit-exact)
     grad_clip_mode: str = "fixed"
     clip_k: float = 2.0
     clip_window: int = 200
@@ -145,24 +120,21 @@ class TrainConfig:
     cr_ctc_full: bool = False
     cr_ctc_half: bool = False
     delay_penalty: float = 0.0  # H34 k2 delay_penalty
-    # H48c MFA-anchored latency loss ("MFA-anchored"; train/anchored_rnnt.py, side file train/mfa_anchors.py).
-    # mfa_anchors "" / anchor_kappa 0 = off (calls unchanged).
-    mfa_anchors: str = ""
+    mfa_anchors: str = ""  # H48c MFA-anchored latency loss ("" / 0 = off)
     anchor_kappa: float = 0.0
     anchor_margin: int = 1
     anchor_cap: float = 12.0
-    anchor_simple: bool = True  # also tilt the smoothed (simple-joiner) loss that picks the band
-    # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
-    inter_ctc_weight: float = 0.0  # Self-Conditioned InterCTC loss weight (recommended 0.2 for V2)
-    balancer_weight: float = 0.0  # Zipformer Activation Balancer weight (recommended 1e-3 for V2)
-    synth_aug: bool = False  # O2-clean synthetic RIR + pink/white spectral noise in data workers
-    specaug_ramp_start: int = 0  # >0 (e.g. 500): linearly ramp SpecAug widths to specaug_start
+    anchor_simple: bool = True
+    inter_ctc_weight: float = 0.0  # H28 V2 options (all default-off)
+    balancer_weight: float = 0.0
+    synth_aug: bool = False
+    specaug_ramp_start: int = 0
     eden_lr_batches: float = 7500.0
     eden_lr_epochs: float = 3.5
     eden_steps_per_epoch: float = 0.0
     sf_beta2: float = 0.999
     muon_momentum: float = 0.95
-    # Wave 2 training objectives & regularization (all default-off for 100% bit-exactness):
+    # Wave 2 training objectives & regularization (default-off):
     mcr_weight: float = 0.0
     etm_kd_weight: float = 0.0
     etm_kd_mode: str = "exact"
@@ -172,6 +144,22 @@ class TrainConfig:
     specaug_time_warp: int = 0
     bpe_dropout_p: float = 0.0
     bpe_dropout_alpha: float = 0.1
+    # H57 FACT Factors B/D/E (default-OFF, bit-identical when 0 / ""):
+    layer_drop: float = 0.0
+    text_tables_dim: int = 0
+    text_loss_weight: float = 0.0
+    text_stream_path: str = ""
+    text_batch_size: int = 2048
+    text_enull_batches: int = 4
+    gain_aug_p: float = 0.0
+    gain_min_db: float = -35.0
+    gain_max_db: float = 6.0
+    noise_aug_p: float = 0.0
+    noise_dir: str = ""
+    noise_snr_min_db: float = 5.0
+    noise_snr_max_db: float = 25.0
+    rir_aug_p: float = 0.0
+    rir_dir: str = ""
     extra: dict = field(default_factory=dict)
 
 
@@ -215,8 +203,10 @@ class Trainer:
         self.step = 0
         self.pos = Position()
         self.stats = FeasibilityStats()
+        from train.fact_hooks import FactTextHelper
         from train.recipe_opts import make_loss_truncator, specaug
 
+        self._fact_text = FactTextHelper.build(self.model, cfg, self.data_rank)
         self.augment = specaug(cfg)
         self.loss_trunc = make_loss_truncator(cfg)
         self.log_enabled = log
@@ -263,6 +253,7 @@ class Trainer:
                                     ("stream_ctx", c.stream_ctx_s), ("mcr", c.mcr_weight),
                                     ("etm_kd", c.etm_kd_weight and [c.etm_kd_weight, c.etm_kd_mode]),
                                     ("loss_trunc", c.loss_trunc_q and [c.loss_trunc_q, c.loss_trunc_mode]),
+                                    ("text_loss", c.text_loss_weight),
                                     ("anchor", c.anchor_kappa and [c.anchor_kappa, c.anchor_margin, c.anchor_cap, c.anchor_simple])) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
@@ -408,6 +399,8 @@ class Trainer:
             t_c = time.time()
             loss, out = self._global_loss(out, active=b.active)
             hb["comm_s"] += time.time() - t_c
+        if self._fact_text is not None:
+            loss = self._fact_text.step(self.model, b, self.device, loss, out, self.world)
         # finite-loss agreement: under DDP the all-reduced loss decides for every rank at once
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
@@ -447,7 +440,8 @@ class Trainer:
                     "anchor_cov": out["anchor_tokens"] / max(1, out["rnnt_tokens"])}
                    if "anchor_risk" in out else {}),
                 **({"mcr_kl": float(out["mcr_kl"].detach())} if "mcr_kl" in out else {}),
-                **({"etm_kd": float(out["etm_kd"].detach())} if "etm_kd" in out else {})}
+                **({"etm_kd": float(out["etm_kd"].detach())} if "etm_kd" in out else {}),
+                **({"text_loss": float(out["text_loss"])} if "text_loss" in out else {})}
 
     def _wave2_kwargs(self) -> dict:
         from train.recipe_opts import wave2_loss_kwargs
@@ -748,7 +742,7 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov", "text_loss"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -756,7 +750,7 @@ class Trainer:
             if self.step % self.cfg.log_every == 0:
                 self._rank_heartbeat()
                 dt = time.time() - t0
-                opt_avgs = {k: acc[k] / acc["n"] for k in ("rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov") if k in acc}
+                opt_avgs = {k: acc[k] / acc["n"] for k in ("rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov", "text_loss") if k in acc}
                 self.log({"kind": "train", "step": self.step, "pos": pos.to_dict(),
                           "loss": acc["loss"] / acc["n"], "rnnt": acc["rnnt"] / acc["n"],
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
@@ -902,6 +896,8 @@ def main(argv=None) -> int:
         source, dev = FixedBatches(exs, batch_size=len(exs)), exs
         cfg.eval_each_epoch = False  # every step is an epoch here
     else:
+        from train.fact_hooks import fact_aug_from_cfg
+
         source = ParquetBatches(list(a.splits), feat, cfg.seed, cfg.budget_s, cfg.max_batch,
                                 cfg.max_seconds, workers=cfg.workers,
                                 speed_perturb=tuple(float(v) for v in cfg.speed_perturb.split(",")
@@ -913,7 +909,7 @@ def main(argv=None) -> int:
                                 base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r),
                                 dur_tables=cfg.dur_tables, node_shards=cfg.node_shards,
                                 bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha,
-                                collate_ahead=cfg.collate_ahead)
+                                collate_ahead=cfg.collate_ahead, fact_aug=fact_aug_from_cfg(cfg))
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
@@ -953,11 +949,9 @@ def main(argv=None) -> int:
             tr.reset_watch()  # and the divergence guard re-arms on the new weights
     elif a.init_from:
         p = checkpoint.load(a.init_from, restore_rng=False)
-        from train.recipe_opts import check_init_compatible, widen_state
+        from train.fact_hooks import load_init_state
 
-        src = ModelConfig.from_dict(p["model_config"])
-        check_init_compatible(src, tr.model_cfg)
-        tr.model.load_state_dict(widen_state(p["model"], src, tr.model_cfg))
+        load_init_state(tr.model, p["model"], ModelConfig.from_dict(p["model_config"]), tr.model_cfg)
         tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],
                 "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})

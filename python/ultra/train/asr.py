@@ -26,6 +26,7 @@ class ModelConfig:
     vocab_ctc: int = 1025  # 1,024 pieces + blank
     pred_emb: int = 256
     pred_ctx: int = 2  # stateless predictor context length (2 = v1 default, 4 = v2 BPE-500)
+    text_tables_dim: int = 0  # H57 Factor D ("+text"): 0 = off, >0 (e.g. 64) = TextPredictor tables
     joiner: int = 320
     joiner_act: str = "tanh"
     ctc_weight: float = 0.3
@@ -162,8 +163,16 @@ class ASRModel(nn.Module):
                    if (cfg.inter_ctc and cfg.encoder.inter_ctc_vocab == 0) else cfg.encoder)
         self.encoder = Encoder(enc_cfg)
         self.ctc_head = nn.Linear(cfg.encoder.d_model, cfg.vocab_ctc)
-        self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
-                                            context_len=cfg.pred_ctx)
+        if cfg.text_tables_dim > 0:
+            from train.text_tables import TextPredictor
+
+            self.predictor: StatelessPredictor = TextPredictor(
+                cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
+                dense_len=cfg.pred_ctx, dim=cfg.text_tables_dim,
+            )
+        else:
+            self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
+                                                context_len=cfg.pred_ctx)
         self.joiner = Joiner(cfg.encoder.d_model, cfg.joiner, cfg.vocab_rnnt, cfg.joiner_act)
         if cfg.rnnt_loss == "pruned":
             if cfg.prune_range < 2:
@@ -230,7 +239,9 @@ class ASRModel(nn.Module):
             ctc_sum, ctc_tokens, ok = ctc_loss(ctc_lp, enc_lens, ctc_tgt, ctc_lens, stats)
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
-            pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt, self.cfg.pred_ctx)).float()
+            pred_p = self.predictor(
+                StatelessPredictor.contexts(rnnt_tgt, self.predictor.context_len)
+            ).float()
             zl, adiag, mcr_out = None, None, None
             etm_res: tuple[torch.Tensor, int] | None = None
             anchored = anchor is not None and anchor_spec is not None and anchor_spec.active
