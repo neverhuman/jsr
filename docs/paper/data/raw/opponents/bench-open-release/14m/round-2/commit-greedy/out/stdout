@@ -1,0 +1,18 @@
+{
+  "commit_chunk": 16,
+  "commit_max_audio_s": 40.0,
+  "isa": "avx2fma",
+  "p50_commit_ms": 180.350132,
+  "p95_commit_ms": 498.677761,
+  "pcm_truncated_count": 0,
+  "precision": "Int8",
+  "revised_count": 201,
+  "revised_pct": 27.534246575342465,
+  "summary": true,
+  "tail_pad_ms": 320,
+  "threads": 1,
+  "total_audio_s": 5259.559937500001,
+  "total_commit_ms": 161016.0162159999,
+  "total_prov_ms": 179155.51641299995,
+  "utterances": 730
+}

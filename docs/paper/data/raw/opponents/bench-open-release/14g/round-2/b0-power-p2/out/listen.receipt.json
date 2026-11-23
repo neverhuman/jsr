@@ -1,0 +1,53 @@
+{
+  "schema": "ultra.receipt/v1",
+  "bundle": "ultra-engine-dense-int8-b1581cbb1f22",
+  "source_commit": "f16b1b3d8ded",
+  "hardware": "H0",
+  "target": "x86_64",
+  "configured_threads": 1,
+  "observed_threads": 1,
+  "cpu_only_verified": true,
+  "audio_seconds": 600.0,
+  "process_tree_cpu_seconds": 36.965,
+  "peak_rss_bytes": 93491200,
+  "events": 23,
+  "wakeups": 3750,
+  "cap_hits": 20,
+  "chunk_ms": {
+    "p50": 0.014,
+    "p95": 9.773,
+    "p99": 9.818
+  },
+  "status_events": [
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap",
+    "segment_hard_cap"
+  ],
+  "gaps": [],
+  "hashes": {
+    "events": "49e09a8c92c4113b02d38135f6f54ff7f252d0116639190c086b8124f2c8dc7c",
+    "preview": "13b30eab8afdfab285103004686b2e6140ce53aa45a4f917341c740dfdb6e956",
+    "commit": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "label": "in-corpus",
+  "partition": "DEV",
+  "completion_status": "complete"
+}

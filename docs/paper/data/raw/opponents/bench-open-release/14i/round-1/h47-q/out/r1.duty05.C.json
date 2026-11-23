@@ -1,0 +1,19 @@
+{
+  "audio_h": 1.0,
+  "audio_s": 3600.0,
+  "cpu_s": 176.51499143100003,
+  "cpu_s_per_audio_s": 0.049031942064166674,
+  "endpoint_replay_ms": 1000,
+  "endpoint_reset_ms": 1500,
+  "endpoint_resets": 2129,
+  "rss_delta_mb": 6.984375,
+  "rss_end_mb": 69.2890625,
+  "rss_out": null,
+  "rss_peak_mb": 69.2890625,
+  "rss_start_mb": 62.3046875,
+  "rtfx": 20.394868281809625,
+  "tokens": 1005,
+  "trace_out": "/home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-1/h47-q/out/r1.duty05.C.trace.jsonl",
+  "wall_s": 176.605073614,
+  "words": 506
+}

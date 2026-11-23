@@ -1,0 +1,99 @@
+# bench-open: xbabe0 release holds (2026-11-23)
+
+Quiet single-host measurements of the v3.0.0 release decoders on xbabe0 (AMD Threadripper PRO 3995WX, Zen 2), run by
+bench-open's TIMING runner (`docs/paper/opponents/open_turn.py`, plan `open-plan-xbabe0.txt`, entries 14g-14p). Every hold
+ran under TIMING.lock with the owner-approved timer pause (the owner's timers and CI runner units paused, the host reported
+quiet), one measured process on one core (CPUs 4 / 24 / 28 for rounds 1 / 2 / 3, meter on 0 / 1 / 2), and bench-open's host
+guard (alone on its CCX, SMT siblings idle, at most 2 other active cores). Watts are CPU-reported (RAPL core register of the
+service core and the package) from energy's continuous 1 Hz log, never wall power. Background release-decoder evals ran only
+between holds, stopped by process group at least 5 minutes before the next hold.
+
+Receipts are compact copies of `xbabe0:~/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-N/<arm>/` (traces
+gzipped). `joins/` holds the H0-side joins; `release-eval/` the full-dev release-decoder rows.
+
+**Incident (disclosed):** at 12:30:44Z bench-open's runner exited (a window script renamed the runner's gap file), the lock
+lapsed for 108 s and the timer-pause hook resumed the owner's timers and CI runner units; four CI job VMs ran 12:31:11-12:32:32Z,
+when bench-open re-took the lock (the hook's pause ended them). 14m's round-1 beam-16 repetition, whose idle phase followed,
+was set aside (`round-1/commit-lm16.void-ci-lapse-1231Z.*`, kept on xbabe0) and repeated.
+
+## 14m: the release decoder (B0 + commit pass), quiet cost on one core
+
+One artifact: release binary `ultra-engine-commit` 9a142e8e... (main bb1071a: #106 LM + LODR beam in the commit pass, #107
+40 s cap), B0 INT8 (A1-49000 EMA, weights.int8 4701787c...), M5.ulm (72a621c2...). Its full-dev WER is runtime-lane's official
+row on the same sha, 6.087% (6,455 edits). Each repetition decodes the 730-utterance panel (5,259.6 s) unpaced in one process
+with one GEMM thread: the chunk-4 greedy stream (provisional text) and, at each endpoint, the chunk-16 final pass with a 320 ms
+synthetic tail pad, then a reset of the stream (`reset_segment`). 60 s idle before and after each run for the 1 Hz power join.
+Variants in Latin-square order over 3 rounds (CPUs 4 / 24 / 28); all repetitions clean. Medians of 3:
+
+| final pass | CPU-s per audio-s (stream + final) | x real time | peak RSS | final-text delay p50 / p95 / max | core / package W per stream |
+|---|---|---:|---:|---|---|
+| greedy c16 | 0.0648 (0.0341 + 0.0306) | 15.5 | 251 MiB | 180 / 499 / 956 ms | 0.67 / 1.67 |
+| beam 4 + M5 / LODR (0.65 / 0.45) | 0.0658 (0.0338 + 0.0317) | 15.3 | 686 MiB | 186 / 518 / 1,002 ms | 0.68 / 1.67 |
+| **beam 16 + M5 / LODR (0.80 / 0.60), release** | **0.0702 (0.0339 + 0.0360)** | **14.3** | **686 MiB** | **210 / 589 / 1,127 ms** | **0.72 / 1.79** |
+
+- CPU-s per audio-s from the binary's own per-utterance stream / final-pass wall (one thread on a quiet core, so wall ~ CPU)
+  and `/usr/bin/time` (process, including model and LM load). Beam 16 per round: 0.0702 / 0.0701 / 0.0703.
+- Final-text delay: the final pass's wall time after the endpoint is declared (the tail pad is synthetic zeros inside the pass;
+  the endpointer's silence wait is not included). It scales with segment length.
+- Watts per stream: net joules (run phase minus the floor interpolated between the idle phases) per audio second, i.e. the
+  draw of one live stream at 1x.
+- Session length: the cost per audio-s is flat over each 87.7-min session (per 10-min window 0.0696-0.0701 for beam 16;
+  slope +0.1% per hour), because the stream resets at every endpoint.
+- Join: `joins/14m.jsonl` (every repetition with its hashes).
+
+## 14k: streaming-L4 fallback vs B0, paced (latency and memory)
+
+panel73 (73 DEV utterances, 597.1 s, staged under full-dev ids), one core per run, physically paced at 1x in 20 ms packets,
+L4 / B0 order alternated by round. L4 = B0 INT8 (4701787c...) + M5.ulm (72a621c2...) / LODR in codex-full-fleet's
+`h46-native-l4-paced` (d561d65d...; chunk 4, beam 4, 0.8 / 0.6 / 0); B0 = greedy chunk 4 in eval-lane's paced runner
+(beb61399...). 6 / 6 repetitions clean.
+
+| arm | CPU-s per audio-s (r1 / r2 / r3) | median | peak RSS | final text after the last packet (mean / p95) |
+|---|---|---:|---:|---|
+| B0 | 0.0629 / 0.0627 / 0.0630 | 0.0629 | 67-68 MiB | 5.9 / 10.0 ms |
+| L4 | 0.0646 / 0.0642 / 0.0643 | 0.0643 | 685 MiB | 5.9 / 10.0 ms |
+
+eval-lane's protected E2 reading of these traces (first correct word, paced capture clock, pooled 3 x 73): onset p50 equal,
+onset p95 +40.1 ms [-160, +320], so the streaming-L4 row failed E2 as registered and is a documented row only.
+
+## 14g: B0 power, pair 2 (capture-only proxy vs B0 listening)
+
+One hold = idle 3 min, X 10 min, Y 10 min, idle 3 min (ABBA over holds), 600 s of pink noise at -30 dBFS. 3 / 3 holds clean.
+The capture-only proxy (20 ms packets read at 1x, no model) costs nothing measurable (net core +0.03 W over the idle floor).
+**B0 listening minus the capture proxy in the same hold: +0.47 W core / +1.7 W package** (median of 3; per hold core
++0.45 / +0.47 / +0.54 W, package +1.23 / +1.72 / +2.52 W). With 14f (one live B0 stream ~0.5 W core / ~2 W package, the same
+on speech and on noise). Join: `joins/14fg_power_holds.jsonl`.
+
+## 14i: H47-Q, #77's Sentinel-0 session (CPU and energy)
+
+h47-sleep's `h47_q_cpu.sh` with `ultra-alwayson-check` b6bc7fbd... (`--replay-ms 500 --idle-ms 1500`) on B0 INT8, unpaced, one
+core per repetition, gated (G) vs its ungated twin (U) vs today's C1 (T=1500 / R=1000) on the 5%-duty hour. 3 / 3 clean.
+CPU-s per audio-s (3-repetition means, load baseline subtracted; spread <= +-0.3%):
+
+| input | G | U | C1 | G / U |
+|---|---:|---:|---:|---:|
+| silence (900 s) | 0.00010 | 0.0407 | | 0.25% |
+| pink -30 dBFS (900 s) | 0.00010 | 0.0408 | | 0.25% |
+| white -20 dBFS (900 s) | 0.00024 | 0.0407 | | 0.60% |
+| duty05 (1 h, 5% speech) | 0.00292 | 0.0411 | 0.0491 | 7.1% (G / C1 5.9%) |
+| panel (900 s, 100% speech) | 0.03533 | 0.03522 | | 1.003 |
+
+Q2 (mean G / U on non-speech <= 0.02): 0.0036, PASS. Q6 (G / U on speech <= 1.05): 1.003, PASS. Energy per stream at 1x on
+the 5%-duty hour (net J per audio-s from the 1 Hz log; core register exact, package approximate): G 0.029 W core / 0.09 W
+package, U 0.41 / 1.28, C1 0.50 / 1.59. Summary: `joins/14i_q_cpu_summary.json`.
+
+## Release-decoder full-dev evals (between holds)
+
+`release_eval.sh` (v3) on xbabe0's idle cores between holds: 80 single-thread `ultra-engine-commit` processes at nice 19 on
+CPUs 24-63 / 88-127, ~20-utterance shards of the 5,567 full-dev utterances, canonical `ultra-score` (d784f8ca...). The binary
+is pinned per run. Settings: `--commit-chunk 16 --tail-pad-ms 320 --threads 1 --commit-lm M5.ulm --commit-beam 16 --lm-scale
+0.80 --lodr-scale 0.60 --token-bonus 0.0`. These runs are memory-bandwidth bound (80 processes), so their CPU totals are not
+throughput numbers; 14m is.
+
+| model | binary | dev-clean | dev-other | pooled | edits | provisional (c4 greedy) |
+|---|---|---:|---:|---:|---:|---:|
+| B0 (A1-49000 EMA, 4701787c...) | fb8a95e5 (#106, 30 s cap) | 3.256 | 9.131 | 6.102 | 6,471 | 8.272 |
+| S2-BP1 EMA (S2a step 5,500; weights.int8 0f35bfb1...) | 9a142e8e (bb1071a, 40 s cap) | 3.158 | 8.816 | 5.898 | 6,255 | 7.987 |
+
+The B0 row reproduces runtime-lane's official #106 pad-320 row edit for edit. S2-BP1 vs B0 on the same binary (runtime-lane's
+official 9a142e8e row, 6,455 edits): -0.189 pp [-0.282, -0.096] (10,000 paired speaker-cluster bootstrap replicates).

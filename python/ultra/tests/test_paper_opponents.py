@@ -524,6 +524,39 @@ def test_a_hold_that_cannot_be_made_quiet_measures_nothing_and_is_retried(tmp_pa
     assert not (host / "TIMING.lock").exists() and "DONE 2 " in (host / "TIMING.done").read_text()
 
 
+def test_pre_acquire_runs_before_every_hold_and_idle_when_nothing_is_ready(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | bench-open | x\n3 | runtime-lane | y\n4 | bench-open | z\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    plan = tmp_path / "plan.txt"
+    plan.write_text("2 full m 1 4 0 0.004\n4 full z 1 4 0 0.004\n")
+    events = tmp_path / "events.log"
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
+           "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.05", "FAKE_LOG": str(tmp_path / "calls.log"),
+           "OPEN_AGENT": "bench-open", "OPEN_PRE_ACQUIRE_CMD": f'echo pre $(test -d "{host}/TIMING.lock" && echo locked || echo free) >> "{events}"',
+           "OPEN_IDLE_CMD": f'echo idle >> "{events}"'}
+    runner = subprocess.Popen([sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")], env=env)
+
+    def owner():  # entry 3 finishes a little after entry 2, so the runner idles in between
+        while "DONE 2" not in (host / "TIMING.done").read_text():
+            time.sleep(0.05)
+        time.sleep(0.5)
+        with (host / "TIMING.done").open("a") as out:
+            out.write("DONE 3 t runtime-lane\n")
+
+    helper = threading.Thread(target=owner)
+    helper.start()
+    assert runner.wait(timeout=60) == 0
+    helper.join()
+    lines = events.read_text().splitlines()
+    assert lines[0] == "pre free" and lines[-1] == "idle"  # before the first hold, without the lock; idle at the end
+    assert lines.count("pre free") == 2 and "pre locked" not in lines  # once per hold, always before the lock
+    assert lines[1] == "idle" and lines.index("idle") < lines.index("pre free", 1)  # one idle period between the holds
+
+
 def test_an_assay_hold_starts_with_the_panel73_anchor(tmp_path):
     host = tmp_path / "opponents"
     host.mkdir()

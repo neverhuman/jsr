@@ -87,6 +87,95 @@ require 14h bench-open/assays/h51-prof/run.sh
 14h assay h51-prof                 1 4  0 4
 14h assay h51-prof                 2 24 1 4
 14h assay h51-prof                 3 28 2 4
+# Entry 14i (h47-sleep's request, 08:37Z; research/H47_always_on_sleep_gate/README.md Q and amendment 2): CPU
+# of #77's always-on session at 5ca3583 (ultra-alwayson-check b6bc7fbd..., --replay-ms 500 --idle-ms 1500),
+# gated against its ungated twin, plus arm C (today's continuous T=1500 / R=1000) on the 5%-duty cell; one
+# h47_q_cpu.sh (f163af3b...) repetition per CPU, as an assay. Energy joined per run from its receipt.
+require 14i bench-open/assays/h47-q/run.sh
+14i assay h47-q                    1 4  0 10
+14i assay h47-q                    2 24 1 10
+14i assay h47-q                    3 28 2 10
+# Entry 14j (h51-pq's int4 assay) was dropped before it ran: research wrapped up (owner 09:50Z).
+
+# Entry 14k (lead 09:55Z: the first protected slot goes to the streaming-L4 FALLBACK release configuration, ahead of
+# 14i; codex-full-fleet 08:16:53Z / 08:44:49Z): latency and memory. L4 = B0 INT8 (4701787c...) + M5.ulm (72a621c2...)
+# run by codex-full-fleet's h46-native-l4-paced (d561d65d...; chunk 4, beam 4, 0.8 / 0.6 / 0 fixed in the binary);
+# its paired control = B0 greedy at chunk 4 in eval-lane's paced runner (beb61399..., the H43 B0 binary, same trace
+# schema). Each is physically paced at 1x over panel73 (597.1 s, staged under its full-dev ids) on one core, L4 / B0
+# order alternating by round (ABBA). eval-lane reads paced first-correct p95 from the traces (E2: L4 within +20 ms of
+# B0); peak RSS from the runner and the meter.
+require 14k bench-open/assays/l4-kit/h46-native-l4-paced
+require 14k bench-open/assays/l4-stream/run.sh
+require 14k bench-open/assays/b0-stream/run.sh
+14k assay l4-stream                1 4  0 10.5
+14k assay b0-stream                1 4  0 10.5
+14k assay b0-stream                2 24 1 10.5
+14k assay l4-stream                2 24 1 10.5
+14k assay l4-stream                3 28 2 10.5
+14k assay b0-stream                3 28 2 10.5
+
+# Entry 14l: the L4 fallback's power holds, the twin of 14f (B0's pair 1) with the L4 runner: one L4 stream at 1x on
+# the same 600 s of speech-only DEV audio and 600 s of pink noise at -30 dBFS (idle 3 / X 10 / Y 10 / idle 3 min,
+# ABBA across the three holds), joined with energy's 1 Hz power log for the gross 5%-duty number.
+require 14l bench-open/assays/l4-kit/h46-native-l4-paced
+require 14l bench-open/assays/l4-power/run.sh
+14l assay l4-power                 1 4  0 26.5
+14l assay l4-power                 2 24 1 26.5
+14l assay l4-power                 3 28 2 26.5
+# Entry 14m (lead 10:00:14Z / 10:35:26Z; owner 09:50Z: release measurements first): the release decoder's quiet cost.
+# runtime-lane's build of #106 (LM + LODR beam in the commit pass) as ultra-engine-commit (commit-kit/) on B0 INT8 (4701787c...)
+# decodes the 730-utterance panel unpaced on one core: chunk-4 greedy stream + chunk-16 final pass at each endpoint (320 ms
+# synthetic tail pad), the final pass greedy (commit-greedy), beam 4 + M5.ulm / LODR 0.65 / 0.45 (commit-lm4) or beam 16 + M5.ulm
+# / LODR 0.80 / 0.60 (commit-lm16, the release configuration); 60 s idle before and after each run for energy's 1 Hz log. The
+# three variants rotate through the three positions of a hold (Latin square over rounds). CPU-s per audio-s (stream and final
+# pass split), x real time, core and package watts, peak RSS and the final-text delay (final-pass wall after the endpoint).
+require 14m bench-open/assays/commit-kit/ultra-engine-commit
+require 14m bench-open/assays/l4-kit/M5.ulm
+require 14m bench-open/assays/commit-pass/run.sh
+require 14m bench-open/assays/commit-greedy/run.sh
+require 14m bench-open/assays/commit-lm4/run.sh
+require 14m bench-open/assays/commit-lm16/run.sh
+14m assay commit-lm16              1 4  0 8.5
+14m assay commit-greedy            1 4  0 8.5
+14m assay commit-lm4               1 4  0 8.5
+14m assay commit-lm4               2 24 1 8.5
+14m assay commit-lm16              2 24 1 8.5
+14m assay commit-greedy            2 24 1 8.5
+14m assay commit-greedy            3 28 2 8.5
+14m assay commit-lm4               3 28 2 8.5
+14m assay commit-lm16              3 28 2 8.5
+# Entry 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: <= 1% added engine CPU on quiet xbabe0; 11:51:13Z: on the v2
+# binary, after 14m): #108's ultra-engine-agc (agc-kit/; 02e1fa4c..., runtime-lane's build of the PR head ee613d5, the binary
+# eval-lane runs C1-C3 on) on B0 INT8 decodes the 730-utterance panel in the shipping mode, one process per arm with --manifest
+# (the AGC level carried across utterances, the decoder reset per clip): --warm-agc --tau-s 5.0 vs --no-warm-agc, the first arm
+# alternating by round; the binary's per-utterance decode-loop thread CPU (model load excluded), paired per utterance.
+require 14n bench-open/assays/agc-kit/ultra-engine-agc
+require 14n bench-open/assays/agc-cpu/run.sh
+14n assay agc-cpu                  1 4  0 7
+14n assay agc-cpu                  2 24 1 7
+14n assay agc-cpu                  3 28 2 7
+# Entry 14o (lead 11:11:19Z: #105's per-chunk wakes stay opt-in until bench-open's paired quiet-xbabe0 receipt; v3-engine-reviewer
+# 10:42:32Z item 3): one live B0 stream paced at 1x, runtime-lane-h47's #105 build of ultra (wake-kit/, 296f469c..., built at the
+# merged head ab0a867), --wake-per-packet (default) vs --wake-per-chunk on 300 s of speech-only DEV audio and 300 s of pink noise
+# at -30 dBFS (the first halves of 14f's inputs): idle 2 min, four 5-min phases ABBA, idle 2 min. Design-clock identity of the
+# events, the wall-clock emission shift, CPU-s per audio-s and watts per phase.
+require 14o bench-open/assays/wake-kit/ultra
+require 14o bench-open/assays/wake-ab/run.sh
+require 14o bench-open/assays/h47-a0/speech600.wav
+14o assay wake-ab                  1 4  0 24.5
+14o assay wake-ab                  2 24 1 24.5
+14o assay wake-ab                  3 28 2 24.5
+# Entry 14p (lead 13:00:49Z: WER and speed paired on ONE artifact): the CANDIDATE timing hold. The release decoder exactly as in
+# 14m's commit-lm16 (release binary 9a142e8e, c4 greedy stream + c16 beam 16 + M5 / LODR, pad 320, 40 s cap) on the release
+# candidate's INT8 export (models/candidate-rc/int8, exported with eval-lane's chain), 730 panel, one core, three repetitions.
+require 14p bench-open/assays/commit-kit/ultra-engine-commit
+require 14p bench-open/assays/l4-kit/M5.ulm
+require 14p bench-open/assays/commit-pass/run.sh
+require 14p bench-open/assays/commit-lm16-cand/run.sh
+require 14p models/candidate-rc/int8/weights.int8.safetensors
+14p assay commit-lm16-cand         1 4  0 8.5
+14p assay commit-lm16-cand         2 24 1 8.5
+14p assay commit-lm16-cand         3 28 2 8.5
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
