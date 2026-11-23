@@ -77,6 +77,10 @@ pub struct PackedI8 {
     pub(crate) scale: Vec<f32>,
     /// Per-output-channel sum of dequantised weights (`scale * sum_k w_q`), padded.
     pub(crate) wsum: Vec<f32>,
+    /// Per-output-channel integer weight sum (`sum_k w_q`), padded to whole panels; populated
+    /// only when AVX-512 VNNI is available (zero extra memory on AVX2/NEON/scalar hosts).
+    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    pub(crate) qsum: Vec<i32>,
     pub(crate) bias: Vec<f32>,
     /// Optional second packing of the same codes for the aarch64 i8mm `smmla` kernel
     /// (`[panel][k/8][col pair][2 cols][8 k]`); empty where unused.
@@ -170,6 +174,7 @@ impl PackedI8 {
             data,
             scale,
             wsum,
+            qsum: Vec::new(),
             bias: b,
             mm: Vec::new(),
         }
@@ -214,14 +219,16 @@ impl PackedI8 {
             data,
             scale: scale.to_vec(),
             wsum: wsum.to_vec(),
+            qsum: Vec::new(),
             bias: b,
             mm: Vec::new(),
         }
         .with_mm())
     }
 
-    /// Add the i8mm packing when this CPU runs the `smmla` kernel (aarch64 with i8mm and
-    /// K a multiple of 8). Same codes, different order: results are identical.
+    /// Add ISA-specific auxiliary buffers when supported by this CPU:
+    /// - `mm`: aarch64 i8mm `smmla` packing (K a multiple of 8).
+    /// - `qsum`: per-channel integer weight sums for x86 AVX-512 VNNI (`vpdpbusd` +128 bias).
     fn with_mm(mut self) -> Self {
         if crate::kernels::wants_mm_packing() && self.kp.is_multiple_of(8) {
             let (kp, panels) = (self.kp, self.panels());
@@ -239,22 +246,44 @@ impl PackedI8 {
             }
             self.mm = mm;
         }
+        if crate::kernels::wants_qsum() {
+            let panels = self.panels();
+            let groups = self.kp / KG;
+            let mut qsum = vec![0i32; panels * NR];
+            for p in 0..panels {
+                let ncols = NR.min(self.n - p * NR);
+                let panel = &self.data[p * self.kp * NR..(p + 1) * self.kp * NR];
+                for g in 0..groups {
+                    let base = g * NR * KG;
+                    for j in 0..ncols {
+                        let off = base + j * KG;
+                        qsum[p * NR + j] += i32::from(panel[off])
+                            + i32::from(panel[off + 1])
+                            + i32::from(panel[off + 2])
+                            + i32::from(panel[off + 3]);
+                    }
+                }
+            }
+            self.qsum = qsum;
+        }
         advise_hugepage(&self.data);
         advise_hugepage(&self.mm);
         self
     }
 
-    /// Rebuild the i8mm packing after `data` was edited in place (tests).
+    /// Rebuild ISA-specific auxiliary buffers after `data` was edited in place (tests).
     #[cfg(test)]
     pub(crate) fn rebuild_mm(&mut self) {
         let me = std::mem::replace(
             self,
             Self {
+                qsum: Vec::new(),
                 mm: Vec::new(),
                 ..self.clone()
             },
         );
         *self = Self {
+            qsum: Vec::new(),
             mm: Vec::new(),
             ..me
         }

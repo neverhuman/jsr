@@ -9,8 +9,11 @@
 #[cfg(target_arch = "aarch64")]
 mod aarch64_neon;
 pub mod scalar;
+pub mod small_m;
 #[cfg(target_arch = "x86_64")]
 mod x86_avx2;
+#[cfg(target_arch = "x86_64")]
+mod x86_avx512;
 
 /// Keys per tile of the attention key cache: a head's keys are stored as tiles of 8 slots,
 /// `kt[(slot / 8) * dh * 8 + e * 8 + slot % 8]`, so one 32-byte load holds dimension `e` of
@@ -29,6 +32,11 @@ pub fn wants_mm_packing() -> bool {
     }
 }
 
+/// Whether int8 weights should carry per-channel integer sums (`qsum`) for AVX-512 VNNI.
+pub fn wants_qsum() -> bool {
+    Isa::Avx512Vnni.is_available()
+}
+
 /// Index of key `slot`, dimension `e` in a tiled key cache of head width `dh`.
 #[inline]
 pub fn kt_index(slot: usize, e: usize, dh: usize) -> usize {
@@ -45,6 +53,9 @@ pub enum Isa {
     Scalar,
     /// x86-64 AVX2 + FMA (Zen 2 and later; no AVX-512 or VNNI needed).
     Avx2Fma,
+    /// x86-64 AVX-512 VNNI (`vpdpbusd`) for int8 GEMM, with AVX2+FMA for remaining ops.
+    /// Bit-identical to `Avx2Fma` and `Scalar`.
+    Avx512Vnni,
     /// aarch64 NEON (baseline), with `sdot` for int8 when the CPU has `dotprod`. Same
     /// roundings as `Avx2Fma`, so outputs are bit-identical across the two.
     Neon,
@@ -61,11 +72,22 @@ impl Isa {
             }
             #[cfg(not(target_arch = "x86_64"))]
             Isa::Avx2Fma => false,
+            #[cfg(target_arch = "x86_64")]
+            Isa::Avx512Vnni => {
+                std::arch::is_x86_feature_detected!("avx2")
+                    && std::arch::is_x86_feature_detected!("fma")
+                    && std::arch::is_x86_feature_detected!("avx512f")
+                    && std::arch::is_x86_feature_detected!("avx512bw")
+                    && std::arch::is_x86_feature_detected!("avx512vl")
+                    && std::arch::is_x86_feature_detected!("avx512vnni")
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            Isa::Avx512Vnni => false,
             Isa::Neon => cfg!(target_arch = "aarch64"),
         }
     }
 
-    /// The best available family.
+    /// The best default family (`Avx512Vnni` is explicitly opt-in via `--isa avx512vnni`).
     pub fn detect() -> Isa {
         if Isa::Avx2Fma.is_available() {
             Isa::Avx2Fma
@@ -80,6 +102,7 @@ impl Isa {
         match self {
             Isa::Scalar => "scalar",
             Isa::Avx2Fma => "avx2fma",
+            Isa::Avx512Vnni => "avx512vnni",
             Isa::Neon => "neon",
         }
     }
@@ -214,7 +237,7 @@ pub fn gemm_f32(isa: Isa, w: &PackedF32, x: &[f32], rows: usize, out: &mut [f32]
     );
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_f32(w, x, rows, out),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::gemm_f32(w, x, rows, out),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::gemm_f32(w, x, rows, out),
         _ => scalar::gemm_f32(w, x, rows, out),
@@ -228,7 +251,9 @@ pub fn layer_norm(isa: Isa, x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut
     );
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::layer_norm(x, d, g, b, out),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx2::layer_norm(x, d, g, b, out)
+        }
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::layer_norm(x, d, g, b, out),
         _ => scalar::layer_norm(x, d, g, b, out),
@@ -239,7 +264,7 @@ pub fn layer_norm(isa: Isa, x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut
 pub fn silu_inplace(isa: Isa, x: &mut [f32]) {
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::silu_inplace(x),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::silu_inplace(x),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::silu_inplace(x),
         _ => scalar::silu_inplace(x),
@@ -251,7 +276,7 @@ pub fn silu_inplace(isa: Isa, x: &mut [f32]) {
 pub fn sum_exp_shifted(isa: Isa, x: &[f32], shift: f32) -> f32 {
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::sum_exp_shifted(x, shift),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::sum_exp_shifted(x, shift),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::sum_exp_shifted(x, shift),
         _ => scalar::sum_exp_shifted(x, shift),
@@ -263,7 +288,7 @@ pub fn glu(isa: Isa, a: &[f32], d: usize, out: &mut [f32]) {
     assert!(d > 0 && a.len() == 2 * out.len() && out.len().is_multiple_of(d));
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::glu(a, d, out),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::glu(a, d, out),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::glu(a, d, out),
         _ => scalar::glu(a, d, out),
@@ -275,7 +300,7 @@ pub fn dot(isa: Isa, a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::dot(a, b),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::dot(a, b),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::dot(a, b),
         _ => scalar::dot(a, b),
@@ -287,7 +312,7 @@ pub fn axpy(isa: Isa, alpha: f32, x: &[f32], y: &mut [f32]) {
     assert_eq!(x.len(), y.len());
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::axpy(alpha, x, y),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::axpy(alpha, x, y),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::axpy(alpha, x, y),
         _ => scalar::axpy(alpha, x, y),
@@ -338,7 +363,9 @@ pub fn attend_head(
     assert!(out.len() >= (n - 1) * o_stride + dh);
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() && dh.is_multiple_of(8) && dh <= 128 => {
+        Isa::Avx2Fma | Isa::Avx512Vnni
+            if isa.is_available() && dh.is_multiple_of(8) && dh <= 128 =>
+        {
             x86_avx2::attention_scores(q, q_stride, n, dh, kt, ring, segs, scale, scores);
             x86_avx2::attention_values(n, dh, vals, scores, out, o_stride);
         }
@@ -370,7 +397,7 @@ pub fn quantize_row_q(isa: Isa, x: &[f32], out: &mut [i8], qmax: u8) -> (f32, f3
     let qm = f32::from(qmax);
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::quantize_row(x, out, qm),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::quantize_row(x, out, qm),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::quantize_row(x, out, qm),
         _ => scalar::quantize_row(x, out, qm),
@@ -397,6 +424,8 @@ pub fn gemm_i8(
         "gemm_i8 lengths"
     );
     match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx512Vnni if isa.is_available() => x86_avx512::gemm_i8(w, a, sa, ca, rows, out),
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out, false),
         #[cfg(target_arch = "aarch64")]
@@ -441,6 +470,10 @@ pub fn gemm_i8_panels(
         );
     }
     match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx512::gemm_i8_panels(w, a, sa, ca, rows, out, p0, p1, width)
+        }
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() => {
             x86_avx2::gemm_i8_panels(w, a, sa, ca, rows, out, a7, p0, p1, width)
@@ -494,7 +527,9 @@ pub fn gemm_i8_u7(
     );
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8_u7(w, colsum, u, sa, ca, rows, out),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx2::gemm_i8_u7(w, colsum, u, sa, ca, rows, out)
+        }
         _ => {
             let a: Vec<i8> = u[..rows * w.kp]
                 .iter()
@@ -530,6 +565,8 @@ pub fn gemm_i8_a7(
     );
     match isa {
         #[cfg(target_arch = "x86_64")]
+        Isa::Avx512Vnni if isa.is_available() => x86_avx512::gemm_i8(w, a, sa, ca, rows, out),
+        #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma if isa.is_available() => x86_avx2::gemm_i8(w, a, sa, ca, rows, out, true),
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::gemm_i8_panels(w, a, sa, ca, rows, out, 0, w.panels(), w.n),
@@ -544,7 +581,9 @@ pub fn mul_add_exact(isa: Isa, dst: &mut [f32], src: &[f32], w: &[f32]) {
     assert_eq!(dst.len(), w.len());
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma if isa.is_available() => x86_avx2::mul_add_exact(dst, src, w),
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx2::mul_add_exact(dst, src, w)
+        }
         #[cfg(target_arch = "aarch64")]
         Isa::Neon => aarch64_neon::mul_add_exact(dst, src, w),
         _ => {

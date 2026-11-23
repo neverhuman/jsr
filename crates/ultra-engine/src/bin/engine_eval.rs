@@ -181,6 +181,7 @@ fn parse() -> Result<Args, String> {
                 a.isa = match v()?.as_str() {
                     "scalar" => Isa::Scalar,
                     "avx2fma" => Isa::Avx2Fma,
+                    "avx512vnni" => Isa::Avx512Vnni,
                     "neon" => Isa::Neon,
                     o => return Err(format!("unknown isa {o}")),
                 }

@@ -123,7 +123,7 @@ fn check((worst, tol): &(Vec<(f64, f64)>, f64)) {
 
 #[test]
 fn fp32_layers_match_torch_prefix() {
-    for isa in [Isa::Avx2Fma, Isa::Scalar] {
+    for isa in [Isa::Avx512Vnni, Isa::Avx2Fma, Isa::Scalar] {
         if !isa.is_available() {
             continue;
         }
