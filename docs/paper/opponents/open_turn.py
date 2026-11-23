@@ -49,7 +49,12 @@ has taken and released it (or SECONDS passed without anyone taking it), then ren
 After taking the lock, OPEN_QUIET_CMD (if set) runs before anything is measured, for example
 xbabe0's `timing-quiet-wait.sh`, which waits until the owner's paused timers have no service still
 running. If it fails (the host could not be made quiet), nothing is measured: the lock is released
-and the hold is tried again after OPEN_QUIET_RETRY_S (300 s). A repetition whose receipt folder already exists is not run blind: a finished, clean
+and the hold is tried again after OPEN_QUIET_RETRY_S (300 s).
+
+OPEN_PRE_ACQUIRE_CMD (if set) runs before the lock is taken for every hold and must succeed first
+(on xbabe0: background evals are stopped by PID and the host left idle for 5 minutes before a
+hold); OPEN_IDLE_CMD runs once each time the runner finds none of its entries ready (on xbabe0: the
+evals may resume). Both are logged in LOG_DIR. A repetition whose receipt folder already exists is not run blind: a finished, clean
 receipt counts as done (a restart does not repeat it); any other folder is renamed
 `<folder>.aborted.<UTC>` first, so nothing is overwritten or deleted.
 """
@@ -72,6 +77,8 @@ AFTER_HOLD = os.environ.get("OPEN_AFTER_HOLD")
 PREPARE = os.environ.get("OPEN_PREPARE")
 QUIET_CMD = os.environ.get("OPEN_QUIET_CMD")
 QUIET_RETRY_S = float(os.environ.get("OPEN_QUIET_RETRY_S", 300))
+PRE_ACQUIRE_CMD = os.environ.get("OPEN_PRE_ACQUIRE_CMD")
+IDLE_CMD = os.environ.get("OPEN_IDLE_CMD")
 GAP_MAX_S = float(os.environ.get("OPEN_GAP_MAX_S", 600))
 REQUEUE_MAX = int(os.environ.get("OPEN_REQUEUE_MAX", 3))
 ENTRY_ID = r"[0-9]+[a-z]*"  # 12, 6b, and re-queued ids such as 7r or 14br
@@ -454,6 +461,13 @@ def main():
             if gap is not None:
                 hold["gap_served"] = gap
                 save()
+            if PRE_ACQUIRE_CMD:
+                pre_began = time.monotonic()
+                while (code := hook(PRE_ACQUIRE_CMD, "pre-acquire.log", timeout=3600)) != 0:
+                    hold["pre_acquire_failures"] = hold.get("pre_acquire_failures", 0) + 1
+                    save()
+                    time.sleep(QUIET_RETRY_S)
+                hold["pre_acquire_s"] = round(time.monotonic() - pre_began, 1)
             acquired = host.acquire(active)
             if acquired is None:
                 hold["outcome"] = "finished elsewhere"
@@ -516,7 +530,7 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     save()
-    families = {}
+    families, idle = {}, False
     for job in jobs:
         families.setdefault(job["entry"], []).append(job)
     try:
@@ -537,8 +551,12 @@ def main():
             if not open_count:
                 break
             if not ready:
+                if IDLE_CMD and not idle:
+                    hook(IDLE_CMD, "idle.log")
+                idle = True
                 time.sleep(POLL_S)
                 continue
+            idle = False
             order = order_ids(order_text)
             family, active, pending = min(ready, key=lambda item: order.index(item[1]) if item[1] in order else len(order))
             if run_entry(family, active, pending) == "done":
@@ -547,6 +565,8 @@ def main():
     finally:
         host.release()
         save()
+        if IDLE_CMD:
+            hook(IDLE_CMD, "idle.log")
     bad = [f"{job['arm']} {job['panel']} round {job['round']}" for job in jobs
            if job["status"] not in ("done", "skipped-already-done", "skipped")]
     print(f"{utc()} plan finished; not done: {bad or 'none'}")

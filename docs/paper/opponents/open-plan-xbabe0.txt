@@ -95,13 +95,7 @@ require 14i bench-open/assays/h47-q/run.sh
 14i assay h47-q                    1 4  0 10
 14i assay h47-q                    2 24 1 10
 14i assay h47-q                    3 28 2 10
-# Entry 14j (h51-pq, 09:30Z; H51 addendum A): int4-weight x int8-activation small-M kernels against the
-# engine's INT8 gemm_i8 on A1-49000's encoder shapes, cache-hot and a DRAM-streamed whole-encoder sweep,
-# M = 1 / 2 / 4 (h51_int4_bench 5a07473c..., synthetic values, bit-exactness asserted); one call per CPU.
-require 14j bench-open/assays/h51-int4/run.sh
-14j assay h51-int4                 1 4  0 5
-14j assay h51-int4                 2 24 1 5
-14j assay h51-int4                 3 28 2 5
+# Entry 14j (h51-pq's int4 assay) was dropped before it ran: research wrapped up (owner 09:50Z).
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
