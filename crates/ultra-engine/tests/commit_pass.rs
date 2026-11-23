@@ -196,6 +196,7 @@ fn commit_tail_pad_silence_invariance_and_session_api() {
         beam_size: 2,
         ctc_weight: 0.0,
         mbr_enabled: true,
+        ..CommitConfig::default()
     };
     let mut sess_pad = CommitPassSession::new(eng.clone(), cfg_pad).expect("session");
     assert!(Arc::ptr_eq(
@@ -242,6 +243,7 @@ fn commit_preserves_immutable_committed_prefix_and_ctc_rescore() {
             beam_size: 2,
             ctc_weight: 0.3,
             mbr_enabled: false,
+            ..CommitConfig::default()
         },
     )
     .expect("session");
