@@ -1,6 +1,6 @@
 """Figure 1 geometry: axis limits, the streaming frontier, labels, and the watts axis.
 
-x is the speed on one pinned core, y the WER on the dev-clean half of the panel (400 utterances).
+x is the speed on one pinned core on a linear scale, y the pooled WER of the 730-utterance panel.
 
 The plot box is fixed in points (pgfplots `scale only axis`), so every marker and label box is known
 here. Labels are placed without collisions (labels.py); a label that cannot be placed becomes a number
@@ -21,18 +21,17 @@ from .labels import LINE_PT, place
 from .records import Records
 from .words import name
 
-AXIS_W, AXIS_H = 197.0, 205.0  # pt; with tick and axis labels the figure stays under 243 pt wide
+AXIS_W, AXIS_H = 197.0, 168.0  # pt; with tick, 4-row header table, legend and key the figure fits page 1 cleanly
 FONT_PT = 7.0  # \scriptsize labels
 MARK_R = {"ours": 3.3, "comparator": 2.3}  # half-extent of the drawn marker
 BETTER = (AXIS_W - 47.0, 3.0, AXIS_W - 3.0, 14.0)  # the "better" arrow, bottom right
-BAND = (0.0, AXIS_H - 62.0, 9.5, AXIS_H)           # the rotated "slower than real time" note, top left
 WATTS_SPREAD = 0.15  # a watts axis is drawn only if every system is within this of the common power per core
 # Width of a 7 pt Latin Modern glyph in em (upper bounds, checked against TeX by the tests).
 _WIDTHS = {**dict.fromkeys("il.,:;'", 0.32), **dict.fromkeys("fj", 0.36), **dict.fromkeys("rst()", 0.45),
            **dict.fromkeys("cez", 0.51), **dict.fromkeys("ago0123456789/", 0.57), **dict.fromkeys("kqvxy", 0.60),
            **dict.fromkeys("bdhnpu", 0.64), "w": 0.82, "m": 0.95, " ": 0.39, "-": 0.39, "I": 0.43, "J": 0.59,
            **dict.fromkeys("SZL", 0.71), **dict.fromkeys("FEPB", 0.80), **dict.fromkeys("CTR", 0.83),
-           **dict.fromkeys("AHNUVXYDKGOQ", 0.89), "M": 1.04, "W": 1.16, "\u00b7": 0.32}
+           **dict.fromkeys("AHNUVXYDKGOQ", 0.89), "M": 1.04, "W": 1.16, "\u00b7": 0.32, "\u00a7": 0.57}
 
 
 def text_width(text: str, bold: bool = False) -> float:
@@ -40,11 +39,11 @@ def text_width(text: str, bold: bool = False) -> float:
 
 
 def axis_limits(points: list[dict]) -> dict:
-    lo = min(p["speed"] for p in points)
     hi = max(p["speed"] for p in points)
+    xstep = 5 * math.ceil(hi / 35)
     top = max(p["wer"] for p in points) + 0.5  # the top point's label goes beside it, not above
     step = 2 if top <= 20 else 5
-    return {"xmin": 2.0 ** math.floor(math.log2(lo * 0.75)), "xmax": 2.0 ** math.ceil(math.log2(hi * 1.6)),
+    return {"xmin": 0, "xmax": xstep * math.ceil(hi * 1.1 / xstep), "xstep": xstep,
             "ymax": step * math.ceil(top / step), "ystep": step}
 
 
@@ -79,22 +78,24 @@ def watts_axis(points: list[dict], lim: dict) -> dict | None:
     spread = max(abs(x / k - 1.0) for x in per_core)
     if spread > WATTS_SPREAD:
         return None
-    ticks, decade = [], 10.0 ** math.floor(math.log10(k / lim["xmax"]))
-    while decade <= k / lim["xmin"]:
-        ticks += [w for w in (decade, 2 * decade, 5 * decade) if k / lim["xmax"] <= w <= k / lim["xmin"]]
+    low = k / lim["xmax"]
+    high = k / min(p["speed"] for p in points)  # the reciprocal scale stops at the slowest measured system
+    ticks, decade = [], 10.0 ** math.floor(math.log10(low))
+    while decade <= high:
+        ticks += [w for w in (decade, 2 * decade, 5 * decade) if low <= w <= high]
         decade *= 10
     return {"k": k, "spread": spread, "ticks": [(k / w, f"{w:g}") for w in ticks]}
 
 
 @lru_cache(maxsize=32)
-def _layout(spec: tuple, lines: tuple) -> tuple:
+def _layout(spec: tuple, lines: tuple, reserved: tuple = ()) -> tuple:
     """Place the labels; a label that cannot be placed becomes a number. Cached: builds repeat it."""
     pts = [{"id": i, "label": label, "bold": bold, "px": px, "py": py, "r": r, "number": None,
             "w": max(text_width(line, bold) for line in label.split("\n")) + 1.2,  # label: plain text, callout included
             "h": LINE_PT * (1 + 1.15 * label.count("\n"))} for i, label, bold, px, py, r in spec]
     numbered: list[dict] = []
     for _ in range(8):
-        res = place(pts, [BETTER, BAND], list(lines), (AXIS_W, AXIS_H))
+        res = place(pts, [BETTER, *reserved], list(lines), (AXIS_W, AXIS_H))
         bad = [p for p, c in zip(pts, res) if not c["ok"]]
         if not bad:
             return tuple((p["id"], p["number"], c["box"], c["leader"]) for p, c in zip(pts, res))
@@ -123,7 +124,7 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
                 f"({axis['k']:.2f}\\,W; every system is within {100 * axis['spread']:.0f}\\% of it).")
     elif have:
         method = ENERGY_WORDS[next(p["row"]["energy_method"] for p in pts if p["watts"] is not None)]
-        text = f"Watts: incremental energy per stream from the {method} (same run), not device power."
+        text = f"Active core W per stream ({method}, same run), not device power."
     else:
         text = "No watts drawn yet: no same-run energy measurement has been admitted."
     first = rows[0] if rows else None
@@ -143,12 +144,13 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         if (r["machine"], r["threads"]) != HEADLINE or not r["plot"]:
             continue
         d = derived(r)
-        # y is the WER on the dev-clean half: the number model cards and our dashboard lead with
-        pts.append({"id": r["id"], "speed": d["speed"], "wer": d["wer_clean"], "class": r["class"], "role": r["role"],
-                    "frontier": r["frontier"], "label": r["short"], "watts": d["watts"], "row": r})
+        # y is pooled WER across all 730 utterances (400 dev-clean + 330 dev-other)
+        lbl = r["system"] if r["role"] == "ours" else r["short"]
+        pts.append({"id": r["id"], "speed": d["speed"], "wer": d["wer"], "class": r["class"], "role": r["role"],
+                    "frontier": r["frontier"], "label": lbl, "watts": d["watts"], "row": r})
     if not pts:
         out["money_layout.tex"] = "% Generated by python/ultra/tools/paper_data. No measured rows yet.\n"
-        out["money_frontier.csv"] = csv_text(["speed", "wer_clean"], [])
+        out["money_frontier.csv"] = csv_text(["speed", "wer"], [])
         first = rows[0] if rows else None
         rec.add("MoneyMarksCaption", "\\relax", unit="sentence", label="reported",
                 configuration="generated: the marks drawn in Figure 1 (none yet)",
@@ -156,36 +158,74 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
                 workload_digest=first["workload_digest"] if first else "pending", source="docs/paper/data/evidence/*.jsonl")
         return _note(rec, rows, pts, None)
     lim = axis_limits(pts)
-    span = math.log10(lim["xmax"] / lim["xmin"])
+    span = lim["xmax"] - lim["xmin"]
 
     def to_pt(speed: float, wer: float) -> tuple[float, float]:
-        return round(AXIS_W * math.log10(speed / lim["xmin"]) / span, 3), round(AXIS_H * wer / lim["ymax"], 3)
+        return round(AXIS_W * (speed - lim["xmin"]) / span, 3), round(AXIS_H * wer / lim["ymax"], 3)
 
     best = frontier(pts)
     for p in best:
         p["row"]["frontier_point"] = True
     line = stairs(best)
     line_pt = [to_pt(*v) for v in line]
+    frontier_len = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(line_pt, line_pt[1:]))
+    visible_frontier = len(best) > 1 and frontier_len >= 12.0
     axis = watts_axis(pts, lim)
-    for p in pts:  # call out power beside each point when neither the axis nor the comparison table shows it
-        callout = None if axis or p["watts"] is None or p["row"] in comparison else fmt(p["watts"], 3)
-        p["plain"] = p["label"] + (f" - {callout} W" if callout else "")
-        p["tex"] = _tex(p["label"]) + (f"\\,$\\cdot$\\,{callout}\\,W" if callout else "")
+    for p in pts:  # call out power only when the figure has neither a watts axis nor an inset table
+        callout = None if axis or comparison or p["watts"] is None else fmt(p["watts"], 3)
+        sub_p = " \u00a7" if p["row"]["timing_panel"] != "full" else ""
+        sub_t = "~\\S" if p["row"]["timing_panel"] != "full" else ""
+        if p["role"] == "ours" and not callout and " (" in p["label"]:
+            head, tail = p["label"].split(" (", 1)
+            p["plain"] = f"{head}\n({tail}{sub_p}"
+            p["tex"] = f"{_tex(head)}\\\\({_tex(tail)}{sub_t}"
+        else:
+            p["plain"] = p["label"] + sub_p + (f" - {callout} W" if callout else "")
+            p["tex"] = _tex(p["label"]) + sub_t + (f"\\,$\\cdot$\\,{callout}\\,W" if callout else "")
     spec = tuple((p["id"], p["plain"], p["role"] == "ours", *to_pt(p["speed"], p["wer"]), MARK_R[p["role"]]) for p in pts)
-    placed = {i: (number, box, leader) for i, number, box, leader in _layout(spec, tuple(zip(line_pt, line_pt[1:])))}
-    ticks, t = [], lim["xmin"]
-    while t <= lim["xmax"] * 1.0001:
-        ticks.append(f"{t:g}")
-        t *= 2
-    has = {"frontier": len(best) > 1,
+    quiet_full = {p["id"]: p for p in pts if p["frontier"] and p["row"]["timing_panel"] == "full"}
+    zipformer = quiet_full.get("r0-int8-zen2-t1")
+    live = quiet_full.get("rc1-ema-live-zen2-t1")
+    speed_gap, reserved = "", ()
+    if zipformer and live and live["speed"] > zipformer["speed"]:
+        left = to_pt(zipformer["speed"], 0)[0]
+        right = to_pt(live["speed"], 0)[0]
+        y = min(AXIS_H - 14.0, to_pt(0, max(live["wer"], zipformer["wer"]))[1] + 9.0)
+        ratio = live["speed"] / zipformer["speed"]
+        text = f"{ratio:.1f}× as fast as Zipformer INT8"
+        half_width = max((right - left) / 2, text_width(text, bold=True) / 2)
+        center = (left + right) / 2
+        reserved = ((center - half_width - 2, y - 2, center + half_width + 2, y + 13),)
+        speed_gap = (f"\\draw[{{Stealth[length=3.5pt]}}-{{Stealth[length=3.5pt]}}, okBlue, line width=0.6pt] "
+                     f"([xshift={left:.2f}pt, yshift={y:g}pt] rel axis cs:0,0) -- "
+                     f"([xshift={right:.2f}pt, yshift={y:g}pt] rel axis cs:0,0) "
+                     f"node[midway, above=2pt, font=\\scriptsize\\bfseries] {{{ratio:.1f}$\\times$ as fast as Zipformer INT8}};")
+    placed = {i: (number, box, leader) for i, number, box, leader in _layout(spec, tuple(zip(line_pt, line_pt[1:])), reserved)}
+    ticks = range(lim["xmin"], lim["xmax"] + 1, lim["xstep"])
+    has = {"frontier": visible_frontier,
            "stream": any(p["class"] == "streaming" and p["role"] != "ours" and not p["row"]["faded"] for p in pts),
            "whole": any(p["class"] == "whole_utterance" and not p["row"]["faded"] for p in pts),
            "faded": any(p["row"]["faded"] for p in pts)}
-    marks = ["Diamond: ours."]
+    ours_pts = sorted((p for p in pts if p["role"] == "ours"), key=lambda p: p["speed"])
+    ours_conn = ""
+    if len(ours_pts) == 2:
+        a, b = to_pt(ours_pts[0]["speed"], ours_pts[0]["wer"]), to_pt(ours_pts[1]["speed"], ours_pts[1]["wer"])
+        ours_conn = (f"\\draw[okBlue!70, line width=0.8pt, densely dotted] "
+                     f"([xshift={a[0]:.2f}pt, yshift={a[1]:.2f}pt] rel axis cs:0,0) -- "
+                     f"([xshift={b[0]:.2f}pt, yshift={b[1]:.2f}pt] rel axis cs:0,0);")
+        ours_legend = "ULTRA v3.0.0 (live / final)"
+        marks = ["Blue diamonds: ours (same INT8 weights)."]
+    else:
+        ours_legend = "ULTRA v3.0.0 (final, seg.)"
+        marks = ["Blue diamond: ours (final commit pass)."]
     if has["whole"] or any(p["class"] == "whole_utterance" for p in pts):
-        marks.append("Hollow: whole-utterance systems, which see the whole clip before they emit a word.")
-    if has["frontier"]:
-        marks.append("Dashed: no other streaming system is better on both axes.")
+        marks.append("Hollow: offline.")
+    n_faded = sum(1 for p in pts if p["row"]["faded"])
+    if n_faded:
+        marks.append(f"Lighter: H0 interim ({n_faded}).")
+    n_sub = sum(1 for p in pts if p["row"]["timing_panel"] != "full")
+    if n_sub:
+        marks.append(f"\\S: 73-clip timing ({n_sub}).")
     first = rows[0]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],
@@ -193,19 +233,24 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
     comparison_rows = []
     for row in comparison:
         d = derived(row)
-        comparison_rows.append(" & ".join((_tex(name(row)), f"{speed_text(d['speed'])}$\\times$",
-                                            fmt(d["watts"], 3), f"{fmt(d['wer_clean'], 2)}\\%",
+        lbl = f"\\textbf{{{_tex(row['system'])}}}" if row["role"] == "ours" else _tex(row["short"])
+        w_cell = "--" if d["watts"] is None else fmt(d["watts"], 3)
+        comparison_rows.append(" & ".join((lbl, f"{speed_text(d['speed'])}$\\times$",
+                                            w_cell, f"{fmt(d['wer_clean'], 2)}\\%",
                                             f"{fmt(d['wer'], 2)}\\%")) + r"\\")
     body = ["% Generated by python/ultra/tools/paper_data (money.py). Do not edit by hand.",
             f"\\def\\MoneyAxisW{{{AXIS_W:g}pt}}\\def\\MoneyAxisH{{{AXIS_H:g}pt}}%",
             f"\\def\\MoneyXmin{{{lim['xmin']:g}}}\\def\\MoneyXmax{{{lim['xmax']:g}}}\\def\\MoneyYmax{{{lim['ymax']:g}}}%",
-            f"\\def\\MoneyXticks{{{','.join(ticks)}}}\\def\\MoneyYstep{{{lim['ystep']:g}}}%",
+            f"\\def\\MoneyXticks{{{','.join(map(str, ticks))}}}\\def\\MoneyYstep{{{lim['ystep']:g}}}%",
             f"\\def\\MoneyWattsOn{{{1 if axis else 0}}}%",
             "\\def\\MoneyHasFrontier{%d}\\def\\MoneyHasStream{%d}\\def\\MoneyHasWhole{%d}\\def\\MoneyHasFaded{%d}%%" % (
                 has["frontier"], has["stream"], has["whole"], has["faded"]),
             f"\\def\\MoneyWattTicks{{{','.join(f'{x:.5g}' for x, _ in axis['ticks']) if axis else ''}}}%",
             f"\\def\\MoneyWattLabels{{{','.join(w for _, w in axis['ticks']) if axis else ''}}}%",
             "\\def\\MoneyComparisonRows{" + " ".join(comparison_rows) + "}%",
+            "\\def\\MoneyOursLine{" + ours_conn + "}%",
+            "\\def\\MoneyOursLegend{" + ours_legend + "}%",
+            "\\def\\MoneySpeedGap{" + speed_gap + "}%",
             "\\def\\MoneyAnnotations{%"]
     key = []
     for p in sorted(pts, key=lambda p: p["id"]):
@@ -220,7 +265,10 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         if number is not None:
             key.append((number, p["tex"]))
     body.append("}%")
-    body.append("\\def\\MoneyKey{" + "\\quad ".join(f"\\mbox{{\\textbf{{{n}}}~{name}}}" for n, name in sorted(key)) + "}%")
+    key_items = [f"\\mbox{{\\textbf{{{n}}}~{name}}}" for n, name in sorted(key)]
+    if any(p["row"]["timing_panel"] != "full" for p in pts):
+        key_items.append("\\mbox{\\S~73-clip subset timing}")
+    body.append("\\def\\MoneyKey{" + "\\quad ".join(key_items) + "}%")
     out["money_layout.tex"] = "\n".join(body) + "\n"
-    out["money_frontier.csv"] = csv_text(["speed", "wer_clean"], [[f"{x:.4f}", f"{y:.3f}"] for x, y in line])
+    out["money_frontier.csv"] = csv_text(["speed", "wer"], [[f"{x:.4f}", f"{y:.3f}"] for x, y in line])
     return _note(rec, rows, pts, axis)

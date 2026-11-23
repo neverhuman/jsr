@@ -1,148 +1,35 @@
-% Related work.
-% Rule: no literal result numbers of ours in this file. Our measured values come from
-% data/metrics.tex. Numbers published by others are \Rep... macros generated from data/reported.json,
-% or literals on a line that carries their \cite. Nothing reported is drawn on a measured axis.
 \section{Related Work}\label{sec:related}
 
-\para{Streaming transducers and chunked attention.} The RNN transducer~\cite{graves2012rnnt}
-became the default streaming recogniser after it ran in real time on a phone~\cite{he2019streaming}. Self-attention encoders were made
-streamable by restricting each frame's context. Transformer Transducer limits the left and right
-context~\cite{zhang2020transformertransducer}. Chunk masks with cached history decode in fixed
-blocks~\cite{chen2021developing}, and WeNet trains one model over dynamic chunk
-sizes~\cite{yao2021wenet}. Emformer carries an augmented memory across
-segments~\cite{shi2021emformer}, and cache-aware FastConformer removes the gap between how a model
-is trained and how it is streamed~\cite{noroozi2024stateful}. Zipformer~\cite{yao2024zipformer} improves on the Conformer~\cite{gulati2020conformer} by running
-middle stacks at lower frame rates. Pruned RNN-T~\cite{kuang2022pruned}, a stateless
-predictor~\cite{ghodsi2020stateless} and consistency-regularised CTC~\cite{yao2025crctc} cut
-training cost. \ultra is a chunked Conformer transducer built from these parts. Our multirate
-encoder applies Zipformer's insight that not every block needs the full frame rate inside
-fixed 160\,ms streaming chunks. We claim the measurement of multirate as a lever on CPU
-stream density, not the idea of multirate itself.
+\para{Streaming transducers and chunked encoders.} The RNN transducer~\cite{graves2012rnnt} enabled
+real-time on-device streaming~\cite{he2019streaming}, and restricted-context self-attention made
+Transformer and Conformer encoders
+streamable~\cite{gulati2020conformer,zhang2020transformertransducer,chen2021developing,yao2021wenet}.
+Cache-aware encoders such as Emformer~\cite{shi2021emformer} and
+FastConformer~\cite{rekesh2023fastconformer,noroozi2024stateful} align training with streaming
+inference, while Zipformer~\cite{yao2024zipformer} combines U-Net-like downsampling with pruned
+RNN-T~\cite{kuang2022pruned} and stateless predictors~\cite{ghodsi2020stateless}. \ultra{} builds
+on a chunked Conformer transducer with a stateless predictor and adds a native second-pass commit
+decoder with 5-gram LM and LODR rescoring on the exact same acoustic weights.
 
-\para{The systems we measure.} Whisper~\cite{radford2023whisper} spans five sizes. Its encoder
-always processes a padded 30\,s window, so a short utterance costs as much as a long one;
-whisper.cpp~\cite{whispercpp} runs it on CPUs, and its streaming mode re-runs the model on
-successive windows. Moonshine~\cite{moonshine} scales encoder compute with input length, and
-Moonshine v2~\cite{kudlur2026moonshinev2} adds a sliding-window streaming encoder in three sizes.
-NVIDIA's FastConformer~\cite{rekesh2023fastconformer} uses 8\x subsampling. It underlies
-Parakeet-TDT~\cite{xu2023tdt,parakeettdt,nvidia2025parakeettdtv3}, a whole-utterance model, and the
-cache-aware Nemotron streaming models~\cite{nemotron,nvidia2026nemotron35}, which
-NeMo-Speech.cpp~\cite{nemospeechcpp} runs on CPUs. Parakeet Redux~\cite{moondream2026parakeetredux}
-is a version of Parakeet TDT v3 with ternary encoder weights and its own runtime, whose x86 fast
-path needs AVX-512 VNNI. Zipformer~\cite{yao2024zipformer} streaming models are deployed through
-sherpa-onnx~\cite{sherpaonnx,icefall}, and Kaldi~\cite{povey2011kaldi} models through
-Vosk~\cite{vosk}. Picovoice Cheetah is a commercial streaming engine whose terms of use set conditions on publishing benchmarks of it;
-it appears here only with its vendor's own numbers~\cite{picovoice2026benchmark}. Parakeet Redux's
-runtime is licensed separately, so it too appears only with its vendor's numbers. Self-supervised encoders
-such as wav2vec~2.0~\cite{baevski2020wav2vec} are larger still. These works report WER together
-with parameters, FLOPs or a speed figure on the authors' own machine. \Cref{tab:reported} collects
-what they and their benchmarks publish, and \cref{tab:measured} what we measure for the same
-systems on one machine.
+\para{Public CPU comparators.} We compare directly on the same LibriSpeech DEV panel against all
+\ColdCompleteCompCount{} open-weights public CPU recognisers with complete 730-utterance DEV panel
+WER (\ColdComparatorCount{} timed on Zen~2 plus one other-host complete-panel row), omitting none to
+shrink the field: streaming Zipformer INT8~\cite{yao2024zipformer,icefall} via
+sherpa-onnx~\cite{sherpaonnx}, NVIDIA's cache-aware \NemotronEN~\cite{nemotron} (560\,ms and
+160\,ms), Nemotron~3.5 (80\,ms)~\cite{nvidia2026nemotron35}, and Parakeet unified en q8 (160\,ms)
+via NeMo-Speech.cpp~\cite{nemospeechcpp}, Moonshine v2 Tiny and Small
+Streaming~\cite{kudlur2026moonshinev2}, Kaldi-based Vosk Small and Large~\cite{vosk}, Whisper.cpp
+Streaming Tiny and Base~\cite{radford2023whisper,whispercpp}, and offline Parakeet-TDT v3
+INT8~\cite{xu2023tdt,nvidia2025parakeettdtv3} through both sherpa-onnx and
+onnx-asr~\cite{onnxasr}. Every system is labelled with its exact timing host, panel scope, and
+streaming vs.\ offline class; three additional subset-WER runs on other hardware are disclosed
+without ranking.
 
-\para{CPU inference and quantisation.} Integer-arithmetic-only inference~\cite{jacob2018quantization}
-and its extensions to Transformers~\cite{kim2021ibert} established INT8 with int32 accumulation.
-Surveys cover the practical choices of granularity and calibration~\cite{wu2020integer,nagel2021whitepaper},
-and LLM.int8() scales activations per row~\cite{dettmers2022llmint8}. Ternary and 1.58-bit
-weights~\cite{wang2023bitnet,ma2024bitnet} promise large memory savings. Our negative result
-(\cref{sec:negative}) shows that the memory saving does not by itself buy batch throughput on a
-compute-bound CPU. Deployed CPU ASR mostly runs through general runtimes: ONNX
-Runtime~\cite{onnxruntime} behind sherpa-onnx~\cite{sherpaonnx}, the next-gen Kaldi deployment of
-icefall Zipformers~\cite{icefall}, or ggml-based runtimes such as NeMo-Speech.cpp~\cite{nemospeechcpp}.
-He et al.\ traced nondeterministic LLM serving to batch-variant kernels~\cite{he2025nondeterminism}.
-In \ultra, every activation row is quantised from its own range and accumulation is exact. As a
-result, a stream's tokens do not depend on its batch partners, and the engine produces
-bit-identical tokens on AVX2 and NEON. We are not aware of an ASR engine that documents
-either property.
-
-\para{Benchmarking practice.} MLPerf Inference~\cite{reddi2020mlperf} judges servers by the throughput
-they hold under a tail-latency bound, not by a single query's speed. Stream density is the
-streaming-ASR form of that rule. ESB~\cite{gandhi2022esb} standardises WER across domains. Speed is
-not standardised at all. The comparisons that practitioners consult are a vendor's
-benchmark~\cite{picovoice2026benchmark}, a runtime's own benchmark page~\cite{nvidia2026nemospeechbench},
-a model family's documentation~\cite{moonshine2026docs} and a model
-card~\cite{moondream2026parakeetredux}; each uses a different host, thread count, audio set and text
-normaliser (\cref{tab:reported}), and two of them differ by more than a factor of two on the same model
-(\cref{sec:compare}). We retracted one of our own density ratios for exactly this kind of mismatch
-(\cref{sec:protocol}). We therefore measure every system we compare against under one protocol, on
-one host, and report WER beside each cost. Timing contrasts use Holm
-correction~\cite{holm1979simple}, and accuracy gates use bootstrap
-intervals~\cite{bisani2004bootstrap,efron1994bootstrap}.
-
-% ------------------------------------------------------------------ reported elsewhere
-% Every number in this table was published by someone else. The \Rep... macros are generated from
-% data/reported.json (source URL, revision, the quoted line). Literal numbers appear only on lines
-% that carry their \cite. Nothing in this table is drawn on a measured axis.
-\begin{table*}[t]
-\centering
-\caption{\textbf{Reported elsewhere.} Numbers published by others, each on its publisher's own
-hardware, audio and text normaliser, with its citation. None was measured by us and none appears
-on a measured axis; \cref{tab:measured} holds our measurements of the same systems. WER in \%.
-The column headings change with the source and are given in each block.}
-\label{tab:reported}
-\footnotesize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lrrrrrr@{}}
-\toprule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Picovoice speech-to-text benchmark~\cite{picovoice2026benchmark},
-streaming engines. Average WER over LibriSpeech test-clean, test-other, TED-LIUM and Common Voice;
-word emission latency on 100 LibriSpeech test-clean files; core-hours to process 100 hours of
-audio and peak memory on a Ryzen~9 5900X, ten cores at once.}}\\
-\midrule
-Engine & avg.\ WER & test-clean & test-other & latency (ms) & core-hours & peak MB \\
-\midrule
-Picovoice Cheetah & \RepPvCheetahWerAvg & \RepPvCheetahWerClean & \RepPvCheetahWerOther & \RepPvCheetahLag & \RepPvCheetahCoreHours & \RepPvCheetahMem \\
-\NemotronThreeFive{} & \RepPvNemoThreeFiveWerAvg & \RepPvNemoThreeFiveWerClean & \RepPvNemoThreeFiveWerOther & \RepPvNemoThreeFiveLag & \RepPvNemoThreeFiveCoreHours & \RepPvNemoThreeFiveMem \\
-Moonshine Medium & \RepPvMoonMediumWerAvg & \RepPvMoonMediumWerClean & \RepPvMoonMediumWerOther & \RepPvMoonMediumLag & \RepPvMoonMediumCoreHours & \RepPvMoonMediumMem \\
-Vosk Large & \RepPvVoskLargeWerAvg & \RepPvVoskLargeWerClean & \RepPvVoskLargeWerOther & \RepPvVoskLargeLag & \RepPvVoskLargeCoreHours & \RepPvVoskLargeMem \\
-Moonshine Small & \RepPvMoonSmallWerAvg & \RepPvMoonSmallWerClean & \RepPvMoonSmallWerOther & \RepPvMoonSmallLag & \RepPvMoonSmallCoreHours & \RepPvMoonSmallMem \\
-Vosk Small & \RepPvVoskSmallWerAvg & \RepPvVoskSmallWerClean & \RepPvVoskSmallWerOther & \RepPvVoskSmallLag & \RepPvVoskSmallCoreHours & \RepPvVoskSmallMem \\
-Whisper.cpp Streaming Base & \RepPvWhisperBaseWerAvg & \RepPvWhisperBaseWerClean & \RepPvWhisperBaseWerOther & \RepPvWhisperBaseLag & \RepPvWhisperBaseCoreHours & \RepPvWhisperBaseMem \\
-Whisper.cpp Streaming Tiny & \RepPvWhisperTinyWerAvg & \RepPvWhisperTinyWerClean & \RepPvWhisperTinyWerOther & \RepPvWhisperTinyLag & \RepPvWhisperTinyCoreHours & \RepPvWhisperTinyMem \\
-Moonshine Tiny & \RepPvMoonTinyWerAvg & \RepPvMoonTinyWerClean & \RepPvMoonTinyWerOther & \RepPvMoonTinyLag & \RepPvMoonTinyCoreHours & \RepPvMoonTinyMem \\
-\midrule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{NVIDIA NeMo-Speech.cpp benchmark~\cite{nvidia2026nemospeechbench}:
-\NemotronEN, Q8\_0 weights, eight threads of a Core i7-11700K, 100 LibriSpeech
-test-clean utterances, Whisper English normaliser; ``chunk'' is the average compute time per chunk.}}\\
-\midrule
-Chunk & WER & $\times$ real time & & chunk (ms) & p99 (ms) & \\
-\midrule
-160\,ms & \RepNvNemoOneSixtyWer & \RepNvNemoOneSixtyRtfx & & \RepNvNemoOneSixtyChunkMs & \RepNvNemoOneSixtyChunkPninetyNine & \\
-1120\,ms & \RepNvNemoLongWer & \RepNvNemoLongRtfx & & \RepNvNemoLongChunkMs & \RepNvNemoLongChunkPninetyNine & \\
-\midrule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Moonshine documentation~\cite{moonshine2026docs}: WER on LibriSpeech
-test-clean with whole-utterance transcription (shipped 8-bit model; floating-point model of the
-paper~\cite{kudlur2026moonshinev2}); Open ASR Leaderboard average; response latency from the end
-of speech to the final transcript, on the two machines named.}}\\
-\midrule
-Model & shipped INT8 & paper FP32 & Open ASR & Linux x86 (ms) & MacBook (ms) & params (M) \\
-\midrule
-Moonshine Tiny Streaming & \RepMsTinyWerShipped & \RepMsTinyWerPaper & \RepMsTinyWerOpenAsr & \RepMsTinyLatencyLinux & \RepMsTinyLatencyMac & \RepMsTinyParams \\
-Moonshine Small Streaming & \RepMsSmallWerShipped & \RepMsSmallWerPaper & \RepMsSmallWerOpenAsr & \RepMsSmallLatencyLinux & \RepMsSmallLatencyMac & \RepMsSmallParams \\
-Moonshine Medium Streaming & \RepMsMediumWerShipped & \RepMsMediumWerPaper & \RepMsMediumWerOpenAsr & \RepMsMediumLatencyLinux & \RepMsMediumLatencyMac & \RepMsMediumParams \\
-\midrule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Parakeet Redux model card~\cite{moondream2026parakeetredux}:
-whole-utterance transcription of LibriSpeech test-clean, one utterance at a time, eight cores of
-an EPYC 9575F.}}\\
-\midrule
-Runtime (weights) & WER & $\times$ real time & & & & \\
-\midrule
-Photon, Parakeet Redux (ternary) & \RepRxPhotonWer & \RepRxPhotonRtfx & & & & \\
-parakeet.cpp, Parakeet TDT v3 (Q8) & \RepRxParakeetCppWer & \RepRxParakeetCppRtfx & & & & \\
-sherpa-onnx, Parakeet TDT v3 (INT8) & \RepRxSherpaWer & \RepRxSherpaRtfx & & & & \\
-onnx-asr, Parakeet TDT v3 (INT8) & \RepRxOnnxAsrWer & \RepRxOnnxAsrRtfx & & & & \\
-\midrule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textit{Original papers and model cards: LibriSpeech test-clean and
-test-other. Parakeet-TDT and Whisper transcribe whole utterances.}}\\
-\midrule
-System & test-clean & test-other & & & & params (M) \\
-\midrule
-Streaming Zipformer, 320\,ms~\cite{icefall} & 3.06 & 7.79 & & & & 66.1 \\
-Nemotron Streaming 0.6B, 160\,ms~\cite{nemotron} & 2.56 & 5.57 & & & & 600 \\
-Parakeet-TDT 0.6B v2~\cite{parakeettdt} & 1.69 & 3.19 & & & & 600 \\
-Moonshine v2 Tiny~\cite{kudlur2026moonshinev2} & 4.49 & 12.09 & & & & 33.6 \\
-Moonshine v2 Small~\cite{kudlur2026moonshinev2} & 2.49 & 6.78 & & & & 123.4 \\
-Whisper tiny.en~\cite{radford2023whisper} & 5.6 & 14.6 & & & & 39 \\
-Whisper base.en~\cite{radford2023whisper} & 4.2 & 10.2 & & & & 74 \\
-\bottomrule
-\end{tabular}
-\end{table*}
+\para{Integer CPU inference and determinism.} Integer-only inference with int32 accumulation is well
+established~\cite{jacob2018quantization,kim2021ibert,wu2020integer,nagel2021whitepaper}, and
+per-row activation scaling avoids outlier collapse~\cite{dettmers2022llmint8}. Batch-variant
+kernels have been shown to cause nondeterministic serving~\cite{he2025nondeterminism}. Deployed
+CPU ASR typically relies on general runtimes such as ONNX Runtime~\cite{onnxruntime} or
+ggml~\cite{nemospeechcpp}. By combining per-row centred INT8 quantisation, exact non-saturating
+int32 accumulation, and a portable 0-ULP log-mel front end in pure Rust, \ultra{} achieves
+batch-invariant, repeatable integer execution with negligible INT8-vs-FP32 accuracy drift.

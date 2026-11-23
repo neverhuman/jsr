@@ -125,9 +125,9 @@ def test_a_comparator_is_drawn_only_beside_a_row_of_ours_from_its_session(tmp_pa
     for macro in ("\\ColdRowsCount}{3}", "\\ColdRowsUndrawn}{1}", "\\ColdRowsOffFrontier}{1}",
                   "\\ColdAnchorCount}{1}", "its CPU cost is 1.30 times that of the row printed here"):
         assert macro in tex, macro
-    # the off-axis session's row is drawn, but the frontier line ignores it (at 1.0% dev-clean sys-c would be on it)
+    # the off-axis session's row is drawn, but the frontier line ignores it (at 1.0% sys-c would be on it)
     assert "ours-a-zen2-t1-anchor" not in files["money_layout.tex"] and "sys-c-zen2-t1" in files["money_layout.tex"]
-    assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["2.000"]
+    assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["3.000"]
 
 
 def test_each_system_is_drawn_from_its_quiet_host_row_when_one_exists(tmp_path):
@@ -156,7 +156,7 @@ def test_each_system_is_drawn_from_its_quiet_host_row_when_one_exists(tmp_path):
                  "\\ColdOursASpeed}{33.3}", "2 systems, measured on both hosts, cost 1.75 to 2.00 times as much CPU on the shared host H0 as on the quiet host H1",
                  "1 of the 3 points is still interim (lighter marks): measured on host H0"):
         assert text in tex, text
-    assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["2.000"]  # sys-b's 1.0% is not on it: quiet rows only
+    assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["3.000"]  # sys-b is not on it: quiet rows only
 
 
 def test_a_variant_measured_in_two_sessions_on_one_host_keeps_the_earlier_row(tmp_path):
@@ -177,7 +177,7 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     layout = files["money_layout.tex"]
     assert "{Ours\\,$\\cdot$\\,0.343\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
     assert "\\def\\MoneyWattsOn{0}" in layout  # no axis: one system has no value yet
-    assert "Watts: incremental energy per stream from the core energy registers (same run), not device power." in files["metrics.tex"]
+    assert "Active core W per stream (core energy registers, same run), not device power." in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, rows + [dict(energy, row="sys-a-zen2-t1", joules_per_audio_s=1.7)]))
     # every system has a value and 0.343 x 25 = 8.6 W and 1.7 x 5 = 8.5 W per busy core agree: a watts axis
@@ -289,19 +289,19 @@ def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):
 
 def _boxes():
     """Label boxes and marker boxes of the committed Figure 1, in points inside the plot box."""
-    import math
     layout = (DATA / "money_layout.tex").read_text()
     lim = {k: float(v) for k, v in re.findall(r"\\def\\Money(Xmin|Xmax|Ymax)\{([\d.]+)\}", layout)}
     labels = {m[2]: (float(m[0]), float(m[1]), float(m[3])) for m in re.findall(
         r"\\moneylabel\{([\d.-]+)\}\{([\d.-]+)\}\{\w+\}\{[^}]*\}% (\S+) w=([\d.]+)", layout)}
     rows = [dict(zip(cold.CSV_HEADER, line.split(","))) for line in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
-    span = math.log10(lim["Xmax"] / lim["Xmin"])
+    assert lim["Xmin"] == 0
+    span = lim["Xmax"] - lim["Xmin"]
     marks, boxes = {}, {}
     for r in rows:
         if r["id"] not in labels:
             continue
-        px = money.AXIS_W * math.log10(float(r["speed"]) / lim["Xmin"]) / span
-        py = money.AXIS_H * float(r["wer_clean"]) / lim["Ymax"]
+        px = money.AXIS_W * (float(r["speed"]) - lim["Xmin"]) / span
+        py = money.AXIS_H * float(r["wer"]) / lim["Ymax"]
         rad = money.MARK_R[r["role"]]
         marks[r["id"]] = (px - rad, py - rad, px + rad, py + rad)
         cx, cy, w = labels[r["id"]]
@@ -312,7 +312,7 @@ def _boxes():
 def test_money_labels_do_not_collide():
     rows, boxes, marks = _boxes()
     plotted = [r for r in rows if r["machine"] == "zen2" and r["threads"] == "1" and r["plot"] == "1"]
-    assert set(boxes) == {r["id"] for r in plotted} and len(boxes) >= 7
+    assert set(boxes) == {r["id"] for r in plotted} and len(boxes) == 14
 
     def hit(a, b):
         return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
@@ -325,6 +325,19 @@ def test_money_labels_do_not_collide():
             assert not hit(boxes[a], boxes[b]), f"labels {a} and {b} overlap"
         for b in ids:
             assert not hit(boxes[a], marks[b]), f"label {a} covers the marker of {b}"
+
+
+def test_money_speed_comparison_uses_true_positions():
+    layout = (DATA / "money_layout.tex").read_text()
+    ticks = re.search(r"\\def\\MoneyXticks\{([\d,]+)\}", layout)
+    assert ticks
+    assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 36, 5))
+    _, _, marks = _boxes()
+    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.0\$\\times\$ as fast as Zipformer INT8", layout)
+    assert arrow
+    for x, row in zip(arrow.groups(), ("r0-int8-zen2-t1", "rc1-ema-live-zen2-t1")):
+        left, _, right, _ = marks[row]
+        assert float(x) == pytest.approx((left + right) / 2, abs=0.01)
 
 
 def test_money_placement_never_ships_a_collision():

@@ -1,28 +1,26 @@
-% The measured comparison (TABLE I). The float is defined in the introduction so that it lands on
-% page 2, next to Fig. 1. Its body is generated: data/table_measured.tex (python/ultra/tools/paper_data,
-% tables.py) holds one line per measured system, every cell a metrics.tex macro.
+% The measured comparison (TABLE I): single release artifact (v3.0.0) vs all 11 public CPU
+% comparators on the 730-utterance LibriSpeech DEV panel.
 \begin{table*}[t]
 \centering
-\caption{\textbf{Measured here.} Every system decodes the same 730 LibriSpeech DEV utterances
-(400 dev-clean, 330 dev-other) as a cold process, model load included; median of three runs; one
-scorer and normaliser. WER in \%. Speed: audio-seconds per CPU-second on one pinned core
-(``1 core''), and audio-seconds per wall-second with eight pinned cores (``8 cores''; $^{t}$ eight
-threads in one recogniser, $^{w}$ one process with eight workers sharing the weights, $^{p}$ eight
-separate processes). Lag: stable-word lag in ms (retrospective clock, \cref{sec:protocol}) with the
-input paced at real time (median and 95th percentile), and the median with compute excluded
-(``design''). RSS: peak resident memory of the process tree; model: files loaded ($^{\P}$ours: every
-file the INT8 engine's bundle installs, including the FP32 weights it still opens); both in MB. W:
-core-register incremental energy per stream, unpaced (not device power). ``--'': not
-measured yet. $^{\ddagger}$Interim: measured on the shared host H0. $^{*}$Lag measured on the shared host H0. $^{\dagger}$Not drawn in
-\cref{fig:money}. $^{\S}$Timed on a 73-utterance subset; WER from the full panel. Exploratory.}
+\caption{\textbf{Measured comparison on the 730-utterance LibriSpeech DEV panel} (400 dev-clean,
+330 dev-other; one scorer and normaliser). Speed: median of three cold runs on one pinned Zen~2
+core ($\times$ real time, model load included). RSS: peak resident memory of the process tree (MB).
+Artifact: model and LM files loaded (MB). Core~W: active core (CPU-domain) watts per stream on
+quiet host H1 (unpaced, \texttt{core\_msr\_active}, not board or wall power). ``--'': quiet-host energy pending.
+$^{\ddagger}$Shared-host timing (interim, host H0); WER is from the full 730-utterance panel.
+$^{\S}$Timed on a 73-utterance subset of the panel; WER is from the full 730-utterance panel.
+$^{\dagger}$Other-host timing (full 730-utt WER from untimed M3 Ultra pass; Xeon~8358 single-core
+cost \RelParakeetUnifiedXeonCpu\,CPU-s/audio-s; included in WER rank, excluded from H1 speed rank).
+\ultra{} \ReleaseVer{} (final, seg.) is utterance-segmented; Parakeet TDT v3 is offline (whole
+utterance). \RelSubsetNote{} DEV-only.}
 \label{tab:measured}
 \footnotesize
-\setlength{\tabcolsep}{1.35pt}
-\begin{tabular}{@{}llrrrrrrrrrrr@{}}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}llrrrrrrrr@{}}
 \toprule
- & & \multicolumn{3}{c}{WER (\%)} & \multicolumn{2}{c}{Speed ($\times$)} & \multicolumn{3}{c}{Stable lag (ms)} & \multicolumn{2}{c}{Memory (MB)} & \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-7}\cmidrule(lr){8-10}\cmidrule(lr){11-12}
-System & Runtime & clean & other & pooled & 1 core & 8 cores & p50 & p95 & design & RSS & model & W \\
+ & & Speed & WER & \multicolumn{3}{c}{Panel WER (\%)} & RSS & Artifact & Core \\
+\cmidrule(lr){5-7}
+System & Runtime & ($\times$ RT) & rank & clean & other & pooled & (MB) & (MB) & (W) \\
 \midrule
 \rawinput{data/table_measured.tex}
 \bottomrule

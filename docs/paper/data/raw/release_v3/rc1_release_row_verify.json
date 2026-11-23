@@ -1,0 +1,39 @@
+{
+ "schema": "ultra.h43.release-row/v1",
+ "label": "exploratory",
+ "name": "RC1-release-decoder",
+ "input": "/mnt/xbabe3-external/jsr/evals/eval-lane/rc/RC1/release-decoder/release-decoder.committed.score-input.jsonl",
+ "input_sha256": "e293e4fdb2afa1ae4d953e446c16093ee34a2a5452763981c359fbbdadc6284f",
+ "b0_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.engine.score-input.jsonl",
+ "b0_sha256": "936136a3a906e0fe3113320d9e49ebf144327a35416554ee365ab42f08ef5213",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+ "edits": 5808,
+ "b0_edits": 8773,
+ "pooled_wer_pct": 5.476,
+ "splits_wer_pct": {
+  "dev-clean": 2.922,
+  "dev-other": 8.197
+ },
+ "pooled_delta_pp": [
+  -2.796,
+  -3.119,
+  -2.479
+ ],
+ "dev_clean_delta_pp": [
+  -1.54,
+  -1.787,
+  -1.315
+ ],
+ "dev_other_delta_pp": [
+  -4.133,
+  -4.766,
+  -3.536
+ ],
+ "criteria": {
+  "edits_le_7895": true,
+  "pooled_upper_lt_0": true,
+  "dev_clean_upper_le_0.20": true,
+  "dev_other_upper_le_0.20": true
+ },
+ "E1": "PASS"
+}

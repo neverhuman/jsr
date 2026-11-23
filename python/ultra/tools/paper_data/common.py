@@ -41,6 +41,7 @@ ABAB_WORKLOAD = "dev-clean.npz, first 50 utt, 232.005 audio-s per block (--limit
 DEV400_TRAINER = "dev-clean first 400 utt (trainer DEV400, 7,678 ref words)"
 PANEL_DIGEST = "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
 SWEEP_WORKLOAD = "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)"
+PAPER_TITLE = "ULTRA: Reproducible Streaming Speech Recognition on One CPU Core"
 
 # Measured comparison rows (data/evidence/*.jsonl, schema v2): one row per (system, runtime, machine, threads).
 EVIDENCE_REQUIRED = (

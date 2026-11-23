@@ -1,154 +1,113 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short, segmenter and checkpoint (its name in prose) (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that Figure 1 draws and the abstract and the text quote; `headline.always_on` names the row of ours the always-on tests (energy, capacity, silence, endless stream) ran on, which the text names wherever it quotes them.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Only our single release artifact (v3.0.0 RC1-EMA INT8 edac19d8 + release decoder 9a142e8e: live and utterance-segmented final) vs ALL 11 public CPU comparators measured on the same 730-utterance LibriSpeech DEV panel. Zero legacy ULTRA checkpoints appear here.",
   "variants": {
-    "dense-r1-int8": {
-      "system": "ULTRA dense S, avg. 50/55/60k, INT8",
-      "short": "ULTRA dense",
-      "macro": "Dense",
-      "order": 10,
-      "text": "\\ultra{} dense",
-      "detail": "the dense model, average of steps 50k, 55k and 60k",
-      "plot": false,
+    "rc1-ema-live": {
+      "system": "ULTRA v3.0.0 (live)",
+      "short": "ULTRA v3.0.0 (live)",
+      "macro": "UltraLive",
+      "order": 1,
+      "text": "\\ultra{} v3.0.0 (live)",
+      "detail": "v3.0.0 INT8, greedy 160 ms live stream",
+      "checkpoint": "v3.0.0 (live)",
       "runtime_short": "ours",
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
-    "mr-r1-int8": {
-      "system": "ULTRA multirate S, step 50k, INT8",
-      "short": "ULTRA multirate",
-      "macro": "MR",
-      "order": 11,
-      "text": "\\ultra{} multirate",
-      "detail": "the multirate model at step 50k",
-      "plot": false,
+    "rc1-ema-final": {
+      "system": "ULTRA v3.0.0 (final, seg.)",
+      "short": "ULTRA v3.0.0 (final seg.)",
+      "macro": "UltraFinal",
+      "order": 2,
+      "text": "\\ultra{} v3.0.0 (final, seg.)",
+      "detail": "v3.0.0 INT8, full release decoder (beam 16 + LM, utterance-segmented)",
+      "checkpoint": "v3.0.0 (final, seg.)",
       "runtime_short": "ours",
-      "segmenter": "no"
-    },
-    "dense-r1-fp32": {
-      "system": "ULTRA dense S (avg. 50/55/60k), FP32",
-      "short": "ULTRA dense FP32",
-      "macro": "DenseFP",
-      "order": 12,
-      "runtime_short": "ours"
-    },
-    "ort-r1-fp32": {
-      "system": "ULTRA dense S (avg. 50/55/60k), FP32",
-      "short": "ULTRA dense ORT",
-      "macro": "DenseOrt",
-      "order": 13,
-      "runtime_short": "ONNX Runtime",
-      "cite": [
-        "onnxruntime"
-      ]
+      "segmenter": "no",
+      "plot": true
     },
     "r0-int8": {
-      "system": "Zipformer, INT8 (baseline)",
-      "short": "Zipformer",
+      "system": "Zipformer INT8",
+      "short": "Zipformer INT8",
       "macro": "Zip",
       "order": 20,
-      "text": "Zipformer",
+      "text": "Zipformer INT8",
       "runtime_short": "sherpa-onnx",
       "cite": [
         "yao2024zipformer",
         "sherpaonnx"
       ],
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
     "moonshine-tiny": {
       "system": "Moonshine Tiny Streaming",
       "short": "Moonshine Tiny",
       "macro": "MoonTiny",
       "order": 30,
+      "text": "Moonshine Tiny",
       "runtime_short": "Moonshine Voice",
       "cite": [
         "kudlur2026moonshinev2"
       ],
-      "segmenter": "yes"
+      "segmenter": "yes",
+      "plot": true
     },
     "moonshine-small": {
       "system": "Moonshine Small Streaming",
       "short": "Moonshine Small",
       "macro": "MoonSmall",
       "order": 31,
+      "text": "Moonshine Small",
       "runtime_short": "Moonshine Voice",
       "cite": [
         "kudlur2026moonshinev2"
       ],
-      "segmenter": "yes"
+      "segmenter": "yes",
+      "plot": true
     },
     "nemotron-en-560": {
-      "system": "Nemotron Streaming EN 0.6B, 560 ms",
+      "system": "Nemotron 0.6B (560 ms)",
       "short": "Nemotron 560 ms",
       "macro": "NemoFiveSixty",
       "order": 40,
-      "text": "Nemotron at 560\\,ms",
+      "text": "Nemotron 560\\,ms",
       "runtime_short": "NeMo-Speech.cpp",
       "cite": [
         "nemotron",
         "nemospeechcpp"
       ],
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
     "nemotron-en-160": {
-      "system": "Nemotron Streaming EN 0.6B, 160 ms",
+      "system": "Nemotron 0.6B (160 ms)",
       "short": "Nemotron 160 ms",
       "macro": "NemoOneSixty",
       "order": 41,
-      "text": "Nemotron at 160\\,ms",
+      "text": "Nemotron 160\\,ms",
       "runtime_short": "NeMo-Speech.cpp",
       "cite": [
         "nemotron"
       ],
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
     "nemotron-35": {
-      "system": "Nemotron 3.5 Streaming 0.6B, 80 ms",
+      "system": "Nemotron 3.5 (80 ms)",
       "short": "Nemotron 3.5",
       "macro": "NemoThreeFive",
       "order": 42,
+      "text": "Nemotron~3.5",
       "runtime_short": "NeMo-Speech.cpp",
       "cite": [
         "nvidia2026nemotron35"
       ],
-      "segmenter": "no"
-    },
-    "d2e-16457-int8": {
-      "system": "ULTRA dense S, D2e step 16,457, INT8",
-      "short": "ULTRA D2e step 16457",
-      "macro": "DtwoE",
-      "order": 5,
-      "text": "\\ultra{} D2e",
-      "detail": "the dense model D2e at step 16,457",
-      "plot": false,
-      "runtime_short": "ours",
-      "segmenter": "no"
-    },
-    "h22ctl-79800-ema-int8": {
-      "system": "ULTRA-S, H22ctl 79,800 EMA, INT8",
-      "short": "ULTRA-S H22ctl",
-      "macro": "Hctl",
-      "order": 4,
-      "text": "\\ultra{}-S",
-      "detail": "H22ctl, step 79,800, EMA weights, INT8",
-      "runtime_short": "ours",
       "segmenter": "no",
-      "plot": false,
-      "checkpoint": "H22ctl"
-    },
-    "a1-20000-ema-int8": {
-      "system": "ULTRA-S, A1 20,000 EMA, INT8",
-      "short": "ULTRA-S A1 20k",
-      "macro": "Aone",
-      "order": 3,
-      "text": "\\ultra{}-S",
-      "detail": "A1, step 20,000 of 49,000",
-      "runtime_short": "ours",
-      "segmenter": "no",
-      "plot": false,
-      "checkpoint": "A1 step 20,000"
+      "plot": true
     },
     "parakeet-tdt-v3-int8": {
-      "system": "Parakeet TDT v3 (sherpa)",
-      "short": "Parakeet v3 · sherpa-onnx",
+      "system": "Parakeet TDT v3 (sherpa-onnx, offline)",
+      "short": "Parakeet v3 (sherpa)",
       "macro": "ParakeetTdt",
       "order": 50,
       "runtime_short": "sherpa-onnx",
@@ -157,11 +116,12 @@
         "sherpaonnx"
       ],
       "segmenter": "yes",
-      "text": "Parakeet TDT v3 on sherpa-onnx"
+      "text": "Parakeet TDT v3 (sherpa-onnx, offline)",
+      "plot": true
     },
     "parakeet-v3-onnxasr-int8": {
-      "system": "Parakeet TDT v3 (onnx-asr)",
-      "short": "Parakeet v3 · onnx-asr",
+      "system": "Parakeet TDT v3 (onnx-asr, offline)",
+      "short": "Parakeet v3 (onnx-asr)",
       "macro": "ParakeetOnnxAsr",
       "order": 51,
       "runtime_short": "onnx-asr",
@@ -170,54 +130,62 @@
         "onnxasr"
       ],
       "segmenter": "yes",
-      "text": "Parakeet TDT v3 on onnx-asr"
+      "text": "Parakeet TDT v3 (onnx-asr, offline)",
+      "plot": true
     },
     "vosk-small": {
       "system": "Vosk Small (en-us 0.15)",
       "short": "Vosk Small",
       "macro": "VoskSmall",
       "order": 60,
+      "text": "Vosk Small",
       "runtime_short": "Vosk 0.3.45",
       "cite": [
         "vosk"
       ],
-      "segmenter": "no"
-    },
-    "a1-30000-ema-int8": {
-      "system": "ULTRA-S, A1 30,000 EMA, INT8",
-      "short": "ULTRA-S (ours)",
-      "macro": "AoneThirty",
-      "order": 2,
-      "text": "\\ultra{}-S",
-      "detail": "A1, step 30,000 of 49,000; training continues",
-      "checkpoint": "A1 step 30,000",
-      "runtime_short": "ours",
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
     "vosk-large": {
       "system": "Vosk Large (en-us 0.22)",
       "short": "Vosk Large",
       "macro": "VoskLarge",
       "order": 61,
+      "text": "Vosk Large",
       "runtime_short": "Vosk 0.3.45",
       "cite": [
         "vosk"
       ],
-      "segmenter": "no"
+      "segmenter": "no",
+      "plot": true
     },
     "whispercpp-stream-tiny": {
       "system": "Whisper.cpp Streaming Tiny",
       "short": "Whisper.cpp Tiny",
       "macro": "WhisperCppTiny",
       "order": 70,
+      "text": "Whisper.cpp Tiny",
       "runtime_short": "whisper.cpp 1.8.2",
       "cite": [
         "whispercpp"
-      ]
+      ],
+      "plot": true
+    },
+    "whispercpp-stream-base": {
+      "system": "Whisper.cpp Streaming Base",
+      "short": "Whisper.cpp Base",
+      "macro": "WhisperCppBase",
+      "order": 71,
+      "text": "Whisper.cpp Base",
+      "runtime_short": "whisper.cpp 1.8.2",
+      "cite": [
+        "whispercpp"
+      ],
+      "plot": true
     }
   },
   "headline": {
-    "ours": "a1-30000-ema-int8",
-    "always_on": "h22ctl-79800-ema-int8"
+    "ours": "rc1-ema-final",
+    "ours_live": "rc1-ema-live"
   }
 }
