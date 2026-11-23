@@ -22,7 +22,9 @@
   - Stream WER 8.127%: C1 −0.250 pp, ungated twin −0.158 pp. First words after sleep +1.01 pp vs C1. 0 duplicated words, 2 gap words. Recogniser duty 50.9%.
   - AO tier A: gated ≥ twin in every pooled group. Non-speech: 0.06% duty and 0 words.
   - An 800 ms idle was rejected: it restarts mid-utterance and duplicated 7 words at hot closes.
-- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), uclamp pacing (H47-U), Q4 against C1 on all torture sets, and the 30 h non-speech bound (running).
+- **Q5, added false words:** 0 words in 30 h of non-speech for both arms. One added word on the stream's gaps puts the bound at 0.1008/h against 0.10/h, so Q5 misses by a hair.
+- **Q4 against C1:** passes on the stream. INCONCLUSIVE on the AO torture sets at their size (−0.27 pp, bound −1.08).
+- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), uclamp pacing (H47-U), and the gate at low input levels (amendment 8, running).
 
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
@@ -296,3 +298,25 @@ PR #75's Sentinel-0 over the whole stream scaled by an integer gain (the designs
 | −40 dB | 97.86% | 98.81% | 100 / 300 / 627 ms | 37 |
 - The gate keeps onsets on raw levels down to −20 dB and degrades at −30 / −40 dB, where speech approaches its absolute floors (≈ −72 dBFS). Stationary noise never gets hotter at lower gain.
 - Recommendation: an input AGC belongs on the recogniser path after the gate and the ring, with its state inside each segment's standalone decode (isolation stays exact). Low-level wake, if needed, is a recalibration of Sentinel-0's absolute floors (§5.6, C8).
+
+### Q5 at (500, 1500): 30 non-speech hours plus the stream's gaps (exploratory)
+- **30 h of non-speech:** eval-lane's ten 1 h blocks plus alwayson-bench's 20 extra blocks (seeds 20261123 / 20261124, sha256-checked against their MANIFESTs).
+  - Gated and twin emit 0 words in all 30 blocks, with 0 identity mismatches.
+  - The gated session decodes 0.071% of the audio, the twin 131.8%. All 37 wakes fall on white noise, except one on pink −30.
+- **The stream's 17.06 h of gaps:** gated 2 words, twin 3, C1 5. One gated word is not in the twin: "P", 0.82 s after an utterance ends, at the onset of white −20 dBFS noise.
+- **Q5 (added false words ≤ 0.10/h at the one-sided 95% upper bound, amendment 2): NOT PASSED, by 0.0008/h.**
+  - 1 added word in the pre-registered 47.06 h gives a Garwood bound of 0.1008/h.
+  - The net rate gated − twin is negative (−0.021/h; Wald upper +0.057/h).
+  - On the 30 h of non-speech alone, the bound is 0.0999/h (0 words).
+  - Absolute: gated 2 words in 47.06 h (Garwood 0.134/h), twin 3 (0.165/h).
+- Results: `results/Q_5ca3583_r500_i1500_Q5_30h.json`, which supersedes the 10 h file.
+
+### Q4 against C1 on the AO cells, 15 of 21 cells (exploratory, partial)
+alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000), scored with the same scorer as the gated runs (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`; first-word intervals are 5th / 95th percentiles of a 73-speaker bootstrap):
+
+| pooled cells | items | WER gated vs C1, Δ [95%] | first word gated vs C1, Δ [95%] |
+|---|---:|---|---|
+| 8 duty cells | 1,680 | 13.131 vs 13.876%, −0.745 [−1.101, −0.397] | 81.67 vs 79.82%, +1.85 [+0.76, +2.96] |
+| 6 torture sets (T2 g30 pending) | 1,500 | 9.976 vs 10.088%, −0.112 [−0.312, +0.075] | 87.33 vs 87.60%, −0.27 [−1.08, +0.56] |
+| panel, Q (100% speech) | 730 | 8.091 vs 8.084%, +0.007 [−0.240, +0.261] | 90.41 vs 89.73%, +0.69 [−0.41, +1.92] |
+- **Q4 on the torture sets: INCONCLUSIVE** (point −0.27 ≥ −0.5; lower bound −1.08). At 1,500 items the bound is about ±0.8 pp wide; a decisive answer needs tier B's torture sets (600 items per cell). Q4 passes on the stream (+1.01 pp, lower bound +0.57).

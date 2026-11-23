@@ -1,0 +1,507 @@
+{
+ "schema": "h47.q5/v1",
+ "binary": "ultra-alwayson-check 5ca3583 (PR #77 arithmetic of a871f8b), --replay-ms 500 --idle-ms 1500, identity on",
+ "nonspeech_hours": 30.0,
+ "stream_gap_hours": 17.0551,
+ "total_hours": 47.0551,
+ "nonspeech": {
+  "blocks_G": 30,
+  "blocks_U": 30,
+  "words_G": 0,
+  "words_U": 0,
+  "wakes_G": 37,
+  "mean_duty_G": 0.0007091666666666666,
+  "mean_duty_U": 1.3183333333333331,
+  "identity_mismatches": 0,
+  "wakes_by_block_G": {
+   "seed20261122/pink_-30dBFS/G": 1,
+   "seed20261122/white_-20dBFS/G": 3,
+   "seed20261122/white_-30dBFS/G": 1,
+   "seed20261122/white_-40dBFS/G": 6,
+   "seed20261123/white_-20dBFS/G": 7,
+   "seed20261123/white_-30dBFS/G": 3,
+   "seed20261123/white_-40dBFS/G": 6,
+   "seed20261124/white_-20dBFS/G": 2,
+   "seed20261124/white_-30dBFS/G": 6,
+   "seed20261124/white_-40dBFS/G": 2
+  }
+ },
+ "stream_gaps": {
+  "words_G": 2,
+  "words_U": 3,
+  "words_C1": 5,
+  "G_words": [
+   {
+    "word": "P",
+    "emit_s": 59520.1,
+    "gap": "white_-20",
+    "in_twin": false,
+    "context": "0.82 s after utterance 1686-142278-0012 ends, at the onset of white -20 dBFS noise"
+   },
+   {
+    "word": "BUT",
+    "emit_s": 91193.18,
+    "gap": "silence",
+    "in_twin": true
+   }
+  ],
+  "U_only": [
+   {
+    "word": "BALVESTROP",
+    "emit_s": 16553.62,
+    "gap": "white_-20"
+   },
+   {
+    "word": "THAT",
+    "emit_s": 73816.92,
+    "gap": "silence"
+   }
+  ],
+  "method": "score_alwayson.py's assignment (emission - 0.5 s inside a gap); a gated word counts as in the twin if the twin emits the same word in the same gap within 0.5 s (scripts/gap_words_added.py)"
+ },
+ "added_matched": {
+  "words": 1,
+  "garwood_upper95_per_h": 0.10081509801042984,
+  "threshold": 0.1,
+  "verdict": "over the threshold by 0.0008/h"
+ },
+ "net_rate_G_minus_U": {
+  "per_h": -0.0212516815393018,
+  "wald_upper95_per_h": 0.056912099281492816
+ },
+ "absolute_G": {
+  "words": 2,
+  "garwood_upper95_per_h": 0.13379620108919094
+ },
+ "absolute_U": {
+  "words": 3,
+  "garwood_upper95_per_h": 0.16477823929675478
+ },
+ "nonspeech_only_30h": {
+  "words_G": 0,
+  "words_U": 0,
+  "garwood_upper95_per_h": 0.09985774245179965
+ },
+ "blocks": {
+  "seed20261122/brown_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/brown_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/brown_-30dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/brown_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/brown_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/brown_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-30dBFS/G": {
+   "duty": 0.000575,
+   "wakes": 1,
+   "segments": 1,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/pink_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/silence/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/silence/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-20dBFS/G": {
+   "duty": 0.001725,
+   "wakes": 3,
+   "segments": 3,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-30dBFS/G": {
+   "duty": 0.000575,
+   "wakes": 1,
+   "segments": 1,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-40dBFS/G": {
+   "duty": 0.00345,
+   "wakes": 6,
+   "segments": 6,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261122/white_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-30dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/brown_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-30dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/pink_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/silence/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/silence/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-20dBFS/G": {
+   "duty": 0.004025,
+   "wakes": 7,
+   "segments": 7,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-30dBFS/G": {
+   "duty": 0.001725,
+   "wakes": 3,
+   "segments": 3,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-40dBFS/G": {
+   "duty": 0.00345,
+   "wakes": 6,
+   "segments": 6,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261123/white_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-30dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/brown_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-20dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-30dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-40dBFS/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/pink_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/silence/G": {
+   "duty": 0.0,
+   "wakes": 0,
+   "segments": 0,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/silence/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-20dBFS/G": {
+   "duty": 0.00115,
+   "wakes": 2,
+   "segments": 2,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-20dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-30dBFS/G": {
+   "duty": 0.00345,
+   "wakes": 6,
+   "segments": 6,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-30dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-40dBFS/G": {
+   "duty": 0.00115,
+   "wakes": 2,
+   "segments": 2,
+   "tokens": 0,
+   "mismatches": 0
+  },
+  "seed20261124/white_-40dBFS/U": {
+   "duty": 1.3183333333333334,
+   "wakes": 0,
+   "segments": 2293,
+   "tokens": 0,
+   "mismatches": 0
+  }
+ }
+}
