@@ -107,6 +107,27 @@ The one-stream line also gives the live row a paced lag: `joins/14s-lag.jsonl` (
 p95 420 ms). Its workload is one continuous 128 s stream of 22 clips, not the per-clip lag100 workload of the H0 lag rows, as
 its `lag_method` says; the two are not the same measurement.
 
+## 14t: Nemotron 560 ms on the quiet host (one panel73 repetition)
+
+Nemotron Speech Streaming EN 0.6B at 560 ms (NeMo-Speech.cpp, Q8_0 GGUF), the H0 rotation's exact binary (nemo-speech
+41b19d48...) and model (d9a01898...; energy's hash-checked copies on xbabe0, linked where `run-cold.sh` looks) with
+`run-cold.sh`'s own command (one thread, right context 6 = 480 ms), one repetition on panel73 (73 utterances, 597.1 s) on CPU 4,
+as the lead asked: a full-panel repetition (~40 min) would outrun the 30-minute hold. Clean, 2026-11-23 20:53:11-20:57:19Z
+(TIMING 14tr, harness 35eb5ce; receipt `14t/round-1/nemotron-560/`, copied whole with its 73 transcripts).
+
+| | CPU-s per audio-s | x real time | peak RSS | W per stream, core_msr_active |
+|---|---:|---:|---:|---:|
+| **quiet xbabe0, panel73, 1 rep (14tr)** | **0.4156** | **2.41** | 987 MB | **4.33** |
+| H0 rotation row `nemotron-en-560-zen2-t1-xbabe3` (full panel, 3 reps, shared host) | 0.4510 | 2.22 | 1,290 MB | 4.09 (core_msr_contended, separate run) |
+
+The quiet host runs it 7.9% faster than the shared-host row. Energy: `joins/14t-energy.json` (`energy_report.join_run` over the
+timed process window; the core draws 10.4 W while decoding; one other core crossed 2 W during the run). A single subset
+repetition is a cross-check of the shared-host row, not a row of its own. Its first hold (14t, 20:46:37-20:47:15Z) ran only
+the anchor: one-core panel73 arms go through `open-arms.sh`, which had no Nemotron arm until harness 35eb5ce.
+
+The three panel73 anchor repetitions of 14s / 14t / 14tr (H22ctl, `anchors-p73/`) read 0.0355 / 0.0354 / 0.0352 CPU-s per
+audio-s.
+
 ## 14p: the v3.0.0 candidate on the release decoder (one artifact)
 
 RC1's EMA (ckpt-00005095 ee40e833... -> EMA as model 5f528528...), eval-lane's pinned INT8 export **weights.int8

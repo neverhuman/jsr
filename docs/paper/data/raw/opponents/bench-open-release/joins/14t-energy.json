@@ -1,0 +1,24 @@
+{
+ "covered": true,
+ "cores": [
+  4
+ ],
+ "seconds": 248.428,
+ "core_watts": 10.4031,
+ "idle_core_watts": 0.0605797,
+ "idle_is_trustworthy": true,
+ "joules_per_audio_s_active": 4.32836,
+ "joules_per_audio_s_dynamic": 4.30291,
+ "package_watts_mean": 95.532,
+ "package_watts_median": 93.8312,
+ "other_busy_cores": 1,
+ "arm": "nemotron-560",
+ "panel": "p73",
+ "round": 1,
+ "audio_seconds": 597.09,
+ "cpu_s_per_audio_s": 0.415582,
+ "wall_s_per_audio_s": 0.416064,
+ "peak_rss_bytes": 987029504,
+ "guard": "clean",
+ "note": "single panel73 repetition on quiet xbabe0 (TIMING 14tr); energy_report.join_run over the timed process window, as every cold row's join; a cross-check of the H0 rotation's row, not a row itself"
+}
