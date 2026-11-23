@@ -87,3 +87,25 @@ class LmEvalError(TrainError, ValueError):
         self.reason = reason
         self.docs_url = "research/H46_lm_and_text/README.md"
         self.repair_hint = hint
+
+
+class TextTablesError(TrainError, ValueError):
+    """An H46 "+text" predictor-table input does not match (train.text_tables).
+
+    purpose: refuse to start a +text run from a state or a text stream that would silently train
+    something other than the pre-registered arm (research/H46_lm_and_text, amendment 3).
+    reason: `TextPredictor.load_plain` got a state that is not a plain stateless predictor (keys
+    other than the new `text.*` ones missing, or unexpected keys); the text stream holds a token
+    >= 501 or does not end with a sentence break.
+    common_fixes: pass the B0 checkpoint's `predictor.*` state (strip the `predictor.` prefix);
+    rebuild the stream with `python -m train.nlm tokens`.
+    docs_url: research/H46_lm_and_text/README.md
+    repair_hint: cd python/ultra && python -m pytest -q tests/test_text_tables.py
+    """
+
+    def __init__(self, reason: str):
+        hint = "rerun: cd python/ultra && python -m pytest -q tests/test_text_tables.py"
+        super().__init__(f"{reason} (see research/H46_lm_and_text/README.md; {hint})")
+        self.reason = reason
+        self.docs_url = "research/H46_lm_and_text/README.md"
+        self.repair_hint = hint
