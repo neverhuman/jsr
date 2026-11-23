@@ -103,6 +103,9 @@
     "python/ultra/train/rescore_tf.py": "training",
     "python/ultra/tests/test_rescore_tf.py": "training",
     "python/ultra/train/shard_sidecar.py": "training",
-    "python/ultra/tests/test_shard_sidecar.py": "training"
+    "python/ultra/tests/test_shard_sidecar.py": "training",
+    "python/ultra/train/wer_diag.py": "training",
+    "python/ultra/train/nlm_rescore.py": "training",
+    "python/ultra/tests/test_wer_diag_and_rescore_lm.py": "training"
   }
 }
