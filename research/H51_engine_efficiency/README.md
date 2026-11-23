@@ -33,34 +33,37 @@ Status: **VERIFIED ON NATIVE XEON 8358 (`avx512_vnni`) & H0 ZEN 2 (`avx2fma`) �
 
 *All throughputs in GMAC/s (single core). Note why `small_m` delivers `1.37x–2.34x` over baseline `x86_avx512.rs` at `M=1..4`: baseline processes 1 panel (1–4 ZMM accumulators) and hits `vpdpbusd` latency; `small_m` tiles 2–8 panels simultaneously (6–8 ZMM accumulators) and amortizes activation sign-flip + broadcast.*
 
-## 3. Staged 2-Bit / 4-Centroid Group-4 `pqscan` Microbenchmark Receipt
+## 3. Staged 2-Bit / 4-Centroid Group-4 `pqscan` Microbenchmark Receipt (Centred vs Zero-Anchored Asymmetric)
 
-- Receipt: [h0_pqscan_microbench.json](results/h0_pqscan_microbench.json)
+- Receipt: [h0_pqscan_microbench.json](results/h0_pqscan_microbench.json) (`ultra.h51.pqscan-microbench/v2`, pinned single-core `taskset -c 100` on `h0-zen2-avx2-host`).
 - Host role: `h0-zen2-avx2-host` (`AMD Ryzen Threadripper PRO 3995WX`, Zen 2 AVX2). **Preliminary non-quiet H0 single-core numbers**; official quiet CPU timings remain owned by `@bench-open` on `xbabe0`.
-- Kernel: `crates/ultra-engine/examples/pqscan_bench.rs` — exact integer 2-bit / 4-centroid group-4 codebook scan (`vpshufb` AVX2 modular-`u16` inner loop + scalar twin, **0-ULP bit-exact** verified on every shape & stage before timing) with full LUT build measured separately and combined against `gemm_i8`.
+- Kernel: `crates/ultra-engine/examples/pqscan_bench.rs` (`289 LOC`) — exact integer 2-bit / 4-centroid group-4 codebook scan (`vpshufb` AVX2 modular-`u16` inner loop + scalar twin, **0-ULP bit-exact** verified on every shape, stage, and quantization variant before timing) evaluated on synthetic post-SiLU one-sided activations (`silu(z)`) comparing:
+  - **Centred (`i8`):** engine's `quantize_row` (`c = (max+min)/2`, maps near-zero post-SiLU entries near `-127`).
+  - **Zero-anchored asymmetric (`zero_anchored`, `i16` with exact `0.0 -> 0` anchor and full 256 asymmetric levels):** eliminates the post-SiLU `-127` offset & centre epilogue term (addressing `@h51-pq`'s `07:50:40Z` `2–10x` post-SiLU quantization error finding) while feeding the identical 7-bit `vpshufb` scan kernel.
 
-| Shape `(M, K, N)` | Stages (bpw) | `gemm_i8` (ns) | `lut_ns` | `scan_ns` | `total_ns` | **`lut%`** | Scan-only vs `i8` | **Total vs `i8`** |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `(4, 384, 1536)` | 1 (0.5) | 39,944 | 5,241 | 3,964 | 9,205 | 56.9% | 10.08x | **4.34x** |
-| `(4, 384, 1536)` | 2 (1.0) | 39,944 | 10,509 | 7,671 | 18,180 | 57.8% | 5.21x | **2.20x** |
-| `(4, 384, 1536)` | 4 (2.0) | 39,944 | 20,859 | 15,131 | 35,991 | 58.0% | 2.64x | 1.11x |
-| `(4, 1536, 384)` | 1 (0.5) | 39,051 | 21,632 | 3,204 | 24,835 | **87.1%** | 12.19x | 1.57x |
-| `(4, 1536, 384)` | 2 (1.0) | 39,051 | 42,545 | 6,260 | 48,805 | **87.2%** | 6.24x | **0.80x (STOP)** |
-| `(4, 1536, 384)` | 4 (2.0) | 39,051 | 121,184 | 12,450 | 133,634 | **90.7%** | 3.14x | **0.29x (STOP)** |
-| `(1, 384, 1536)` | 1 (0.5) | 11,030 | 1,377 | 1,421 | 2,797 | 49.2% | 7.77x | **3.94x** |
-| `(1, 384, 1536)` | 2 (1.0) | 11,030 | 2,670 | 2,754 | 5,424 | 49.2% | 4.01x | **2.03x** |
-| `(1, 384, 1536)` | 4 (2.0) | 11,030 | 5,276 | 5,433 | 10,709 | 49.3% | 2.03x | 1.03x |
-| `(1, 1536, 384)` | 1 (0.5) | 10,361 | 5,216 | 1,214 | 6,430 | **81.1%** | 8.53x | 1.61x |
-| `(1, 1536, 384)` | 2 (1.0) | 10,361 | 10,422 | 2,371 | 12,793 | **81.5%** | 4.37x | **0.81x (STOP)** |
-| `(1, 1536, 384)` | 4 (2.0) | 10,361 | 20,633 | 4,658 | 25,291 | **81.6%** | 2.22x | **0.41x (STOP)** |
+| Shape `(M, K, N)` | Stages (bpw) | `gemm_i8` (ns) | Centred `lut / scan` (ns) | Centred vs `i8` | **`zero_anchored` `lut / scan` (ns)** | **`za` LUT Overhead** | **`zero_anchored` vs `i8`** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `(4, 384, 1536)` | 1 (0.5) | 39,771 | 4,763 / 3,984 | 4.55x | **4,850 / 3,980** | +1.8% | **4.50x** |
+| `(4, 384, 1536)` | 2 (1.0) | 39,771 | 9,506 / 7,700 | 2.31x | **9,482 / 7,631** | -0.2% | **2.32x** |
+| `(4, 384, 1536)` | 4 (2.0) | 39,771 | 18,722 / 15,062 | 1.18x | **18,971 / 15,096** | +1.3% | 1.17x |
+| `(4, 1536, 384)` | 1 (0.5) | 38,935 | 18,791 / 3,117 | 1.78x | **18,976 / 3,132** | +1.0% | 1.76x |
+| `(4, 1536, 384)` | 2 (1.0) | 38,935 | 38,023 / 6,228 | 0.88x | **38,197 / 6,223** | +0.5% | **0.88x (STOP)** |
+| `(4, 1536, 384)` | 4 (2.0) | 38,935 | 112,880 / 12,414 | 0.31x | **116,132 / 12,501** | +2.9% | **0.30x (STOP)** |
+| `(1, 384, 1536)` | 1 (0.5) | 17,637 | 1,216 / 1,531 | 6.42x | **1,233 / 1,555** | +1.4% | **6.33x** |
+| `(1, 384, 1536)` | 2 (1.0) | 17,637 | 2,394 / 2,970 | 3.29x | **2,405 / 2,978** | +0.5% | **3.28x** |
+| `(1, 384, 1536)` | 4 (2.0) | 17,637 | 4,740 / 5,932 | 1.65x | **4,777 / 5,926** | +0.8% | 1.65x |
+| `(1, 1536, 384)` | 1 (0.5) | 12,768 | 4,733 / 1,333 | 2.11x | **4,832 / 1,365** | +2.1% | 2.06x |
+| `(1, 1536, 384)` | 2 (1.0) | 12,768 | 9,410 / 2,622 | 1.06x | **9,476 / 2,629** | +0.7% | 1.05x |
+| `(1, 1536, 384)` | 4 (2.0) | 12,768 | 18,691 / 5,271 | 0.53x | **18,923 / 5,353** | +1.2% | **0.53x (STOP)** |
 
 ### Key H51 Engineering Takeaway for `@h51-pq`
-1. **Scan throughput is enormous (`2.0x–12.2x` faster than INT8)**, proving `vpshufb` memory bandwidth & ALU scaling works as expected.
-2. **Table build dominates whenever `K > N` (`1536 -> 384`)**: LUT cost scales as `O(stages * M * K)` while scan scales as `O(stages * M * K * N / 16)`. At `N = 384`, scalar LUT build consumes `81–91%` of wall time and **erases the gain at `>= 2` stages (`0.80x` at 2-stage, `0.29x` at 4-stage)**.
-3. **Recommendation:** Only pursue 2-bit / staged PQ QAT for **wide-output matrices (`K <= N`, e.g., FFN-in `384->1536`, QKV `384->1152`, or wider `V2-L`)** at `<= 2` stages (`0.5–1.0 bpw`), OR require an AVX2 SIMD LUT builder (`>= 4x` faster `build_lut`) before considering FFN-out (`1536->384`).
+1. **Zero-anchored asymmetric LUTs are essentially free (`-0.2%` to `+2.9%`, median `+1.1%` LUT-build delta, identical `vpshufb` scan time, 0-ULP `scan_avx2 == scan_scalar`):** fixing the post-SiLU `-127` offset quantization error adds negligible runtime overhead while removing the centre epilogue term.
+2. **Scan throughput is enormous (`2.6x–12.5x` faster than INT8)**, proving `vpshufb` memory bandwidth & ALU scaling works as expected.
+3. **Table build still dominates whenever `K > N` (`1536 -> 384`)**: LUT cost scales as `O(stages * M * K)` while scan scales as `O(stages * M * K * N / 16)`. At `N = 384`, scalar LUT build consumes `78–90%` of wall time and **erases the gain at `>= 2` stages (`0.88x` at 2-stage, `0.30x` at 4-stage for `M=4`)**.
+4. **Recommendation:** Only pursue 2-bit / staged PQ QAT (with zero-anchored asymmetric activations on post-SiLU layers) for **wide-output matrices (`K <= N`, e.g., FFN-in `384->1536`, QKV `384->1152`, or wider `V2-L`)** at `<= 2` stages (`0.5–1.0 bpw`), OR require an AVX2 SIMD LUT builder (`>= 4x` faster `build_lut`) before considering FFN-out (`1536->384`).
 
 ## 4. Code Pointers
 - AVX-512 VNNI kernel: `crates/ultra-engine/src/kernels/x86_avx512.rs` (`204 LOC`)
-- Small-M kernel: `crates/ultra-engine/src/kernels/small_m.rs` (`235 LOC`)
-- Real-shape staged `pqscan` benchmark: `crates/ultra-engine/examples/pqscan_bench.rs` (`< 260 LOC`)
+- Small-M kernel: `crates/ultra-engine/src/kernels/small_m.rs` (`238 LOC`)
+- Real-shape staged `pqscan` benchmark (centred + `zero_anchored`): `crates/ultra-engine/examples/pqscan_bench.rs` (`289 LOC`)
 - ISA & `small_m` comparison benchmark: `crates/ultra-engine/examples/kernel_bench.rs` (`192 LOC`)
