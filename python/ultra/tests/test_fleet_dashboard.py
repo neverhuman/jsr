@@ -112,13 +112,8 @@ def test_rank_heartbeat_summary():
 def test_probe_counts_trainer_and_mwer_runs():
     """The probe names a node's runs from `-m train.trainer --run-dir D` and `-m train.mwer --out D/model.pt`
     (an MWER fine-tune is a training run too; missing it marked busy GPUs idle on 2026-11-22)."""
-    import shutil
     import subprocess
 
-    import pytest
-
-    if shutil.which("bash") is None:
-        pytest.skip("needs bash")
     ps_out = "\n".join([
         "python -m train.trainer --run-dir /data/runs/train/A1_S/ --preset S",
         "python -m train.mwer --init /data/x/model.pt --out /data/runs/train/MWER_S/model-final.pt --steps 10",
