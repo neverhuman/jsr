@@ -661,7 +661,7 @@ class Trainer:
         self.model.load_state_dict(self.ema)
         try:
             # as loaded: no Schedule-Free x swap over the EMA weights
-            ev = self._evaluate(300.0, chunk)  # None inherits; 'offline' is explicit (train/chunks.py)
+            ev = self._evaluate(300.0, chunk) if chunk is not None else self._evaluate(300.0)
         finally:
             self.model.load_state_dict(live)
         return {"ema_wer": ev.get("wer"), "ema_sub": ev.get("sub"), "ema_del": ev.get("del"),
