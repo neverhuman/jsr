@@ -60,3 +60,7 @@ path = "src/bin/engine_endless/main.rs"
 [[bin]]
 name = "ultra-engine-commit"
 path = "src/bin/engine_commit_eval.rs"
+
+[[bin]]
+name = "ultra-engine-fscore"
+path = "src/bin/engine_fscore.rs"

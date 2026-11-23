@@ -23,6 +23,7 @@ pub mod commit;
 pub mod decoder;
 pub mod encoder;
 pub mod engine;
+pub mod fscore;
 pub mod kernels;
 pub mod lm;
 pub mod model;
