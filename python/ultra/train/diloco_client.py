@@ -188,32 +188,40 @@ class DiLoCoClient:
 
 
 class TrainerDiLoCoHook:
-    """Encapsulates `Trainer.run()` DiLoCo lifecycle so `trainer.py` stays compact."""
+    """Encapsulates `Trainer.run()` DiLoCo lifecycle & D1 boundary gating so `trainer.py` stays compact."""
 
     def __init__(self, client: DiLoCoClient | None, every: int) -> None:
+        from train.diloco_d1 import DiLoCoBoundaryGate
+
         self.client, self.every, self.round = client, int(every), None
+        self.just_synced, self.gate = False, DiLoCoBoundaryGate()
         self._audio_s, self._t0 = 0.0, time.time()
 
     @classmethod
     def from_trainer(cls, trainer) -> "TrainerDiLoCoHook":
+        from train.diloco_d1 import make_diloco_state, verify_hub_resume_alignment
+
         cfg = trainer.cfg
         if not (cfg.diloco_hub and cfg.diloco_every > 0):
             return cls(None, 0)
         hook = cls(None, cfg.diloco_every)
+        dr = int(trainer.data_rank) if getattr(cfg, "data_world", 0) > 0 else int(os.environ.get("DILOCO_DATA_RANK", str(getattr(trainer, "data_rank", 0))))
+        dw = int(trainer.data_world) if getattr(cfg, "data_world", 0) > 0 else int(os.environ.get("DILOCO_DATA_WORLD", str(getattr(trainer, "data_world", 1))))
         if trainer.rank == 0:
             wid = cfg.diloco_worker or os.path.basename(os.path.normpath(trainer.run_dir))
             hook.client = DiLoCoClient(
                 cfg.diloco_hub, wid, trainer.model.state_dict(),
                 auth_token=os.environ.get("DILOCO_AUTH_TOKEN", ""),
                 cohort_meta={"model_config": trainer.model_cfg.to_dict(), "tokenizer_sha256": getattr(trainer.tok, "sha256", None)},
-                delta_dtype=cfg.diloco_dtype, data_rank=int(os.environ.get("DILOCO_DATA_RANK", "0")),
-                data_world=int(os.environ.get("DILOCO_DATA_WORLD", "1")),
+                delta_dtype=cfg.diloco_dtype, data_rank=dr, data_world=dw,
                 barrier_timeout_s=float(os.environ.get("DILOCO_BARRIER_TIMEOUT_S", "600.0")),
                 trainable_keys={n for n, _ in trainer.model.named_parameters()},
                 allow_async_experimental=os.environ.get("DILOCO_ALLOW_ASYNC", "0") == "1",
             )
             rnd, upd = hook.client.pull_anchor(trainer.model, force=True)
+            verify_hub_resume_alignment(trainer, rnd, hook.client.anchor_sha256)
             hook.round = rnd
+            trainer._diloco_state = make_diloco_state(trainer, rnd, hook.client.anchor_sha256, dr, dw, hook.every)
             trainer.log({"kind": "diloco_init", "step": trainer.step, "diloco_round": rnd,
                          "diloco_anchor_sha256": hook.client.anchor_sha256, "diloco_updated": upd, "hub": cfg.diloco_hub, "worker": wid})
         if trainer.world > 1:
@@ -223,6 +231,7 @@ class TrainerDiLoCoHook:
         return hook
 
     def on_step(self, trainer, step_rec: Mapping) -> None:
+        self.just_synced = False
         if self.every <= 0:
             return
         self._audio_s += float(step_rec.get("audio_s", 0.0))
@@ -230,6 +239,8 @@ class TrainerDiLoCoHook:
             return
         updated = False
         if trainer.rank == 0 and self.client is not None:
+            from train.diloco_d1 import make_diloco_state
+
             dt = max(time.time() - self._t0, 1e-6)
             pos_dict = trainer.pos.to_dict() if hasattr(trainer, "pos") and hasattr(trainer.pos, "to_dict") else None
             res = self.client.sync(
@@ -237,13 +248,17 @@ class TrainerDiLoCoHook:
                 local_loss=float(step_rec["loss"]), audio_h_per_h=self._audio_s / dt,
                 worker_pos={"step": int(trainer.step), "position": pos_dict},
             )
-            self.round, updated = res["diloco_round"], bool(res["diloco_updated"])
+            self.round, updated, self.just_synced = res["diloco_round"], bool(res["diloco_updated"]), True
+            trainer._diloco_state = make_diloco_state(
+                trainer, self.round, res["diloco_anchor_sha256"], self.client.data_rank, self.client.data_world, self.every
+            )
             trainer.log({"kind": "diloco_sync", "step": trainer.step, **res})
         if trainer.world > 1:
             from train.dist import broadcast_state, broadcast_value
 
             if bool(broadcast_value(updated, trainer.device)):
                 broadcast_state(trainer.model)
+                self.just_synced = True
         self._audio_s, self._t0 = 0.0, time.time()
 
     def log_fields(self) -> dict:
