@@ -3,7 +3,7 @@
 # paper-lane re-hashed every receipt, score input and binary below on 2026-11-23 between 13:55Z and 14:15Z; every posted prefix matches.
 # Not re-hashed (too large for the USB drive, or on another host): B0.ckpt, B0.int8, lm.M5, LL.small, LL.medium, B.cut, B.RC1. Their values are
 # copied from the receipts that recorded them (B0_manifest.json, the run receipts' inputs, h52-librilight's post and H52 README).
-# Rows marked PENDING are filled from the posts that measure the release candidate.
+# The release candidate's rows were filled from its posts (eval-lane 15:02-15:38Z, bench-open 15:40Z).
 
 # --- release decoder and shared pins
 bin.release      $D/runtime-lane/release_bb1071a/ultra-engine-commit  sha256 9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2 (main bb1071a, PR #107; 6,876,512 bytes)
@@ -59,7 +59,7 @@ B.E1             $D/evals/eval-lane/h41/verdicts/release-row-RC1-release-decoder
 B.vs-A           $D/evals/eval-lane/h41/verdicts/release-row-RC1-vs-B0-release-row.json  sha256 6ed83245dcadd82e77c6f360d9d0cd3bb9dbbfe3edc3593f29565eeaff935406 (-0.610 pp against row A)
 B.committed      $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.committed.score-input.jsonl  sha256 e293e4fdb2afa1ae4d953e446c16093ee34a2a5452763981c359fbbdadc6284f
 B.provisional    $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.provisional.score-input.jsonl  sha256 434803ddc1a66413ab8b01c0ba0b18a896cd5588b074cbd2a8bcf81cd7a68550 (live stream 7.447%: 2,148 + 5,750 = 7,898 edits)
-B.timing-14p     PENDING (bench-open)
+B.timing-14p     $D/opponents/bench-open/watts-join/14p.jsonl  sha256 7f7eec35b6f74d7f0a9441e1a82e163b0814098e0bce1d74028eb51d2aa1c196 (3 reps, all clean; 0.0705 CPU-s per audio-s, 14.3x, 686 MiB, 211 / 586 ms, 0.72 / 1.64 W)
 
 # --- data
 LL.small         x5:~/jsr-data/librilight/shards/r0_v11/librilight.small/SHA256SUMS  sha256 8f371a650591ff0663712f3b2603d963abeb69798636f008eb7fcadd5a5d59f3 (99,109 utts, 378.65 h)
