@@ -9,6 +9,7 @@ pub mod delivery;
 pub mod fake;
 pub mod fleet_inproc;
 pub mod grid_sim;
+pub mod native_commit;
 pub mod native_engine;
 pub mod native_engine_bank;
 pub mod native_engine_fleet;
@@ -42,6 +43,7 @@ pub use fleet_inproc::{
     WorkerSummary,
 };
 pub use grid_sim::SustainedSample;
+pub use native_commit::{LiveCommitAsrStream, LiveCommitConfig};
 pub use native_engine::NativeEngineBackend;
 pub use native_engine_bank::{
     run_engine_packet_streaming_with_tokens, run_sp_a_native_engine, EnginePacketStreamingRun,
