@@ -50,9 +50,9 @@ their sources.
   One live stream of \ultra costs \ColdHeadCorePct\% of one core, \ColdHeadSpeedOverFast$\times$
   the speed of the fastest other streaming system on the same core.
 \item \textbf{Watts.} Energy per stream from the core's energy register in the same run:
-  \AoWatts\,W per always-on stream for \AoCheckpoint, about \AoKwh\,kWh per stream-year
+  core-register incremental energy of \AoWatts\,W per stream for \AoWattsCheckpoint, unpaced and not device power
   (\cref{tab:alwayson}).
-\item \textbf{Capacity.} \AoCapacityStreams{} live streams on one core, with the word lag
+\item \textbf{Capacity.} \AoCapacityStreams{} live streams on one core, with the stable-word lag
   measured at every load (\cref{tab:capacity}).
 \item \textbf{Silence and the endless stream.} \AoSilenceHours\,h of non-speech audio, an
   endless stream of \AoStreamHours\,h, and a reset-with-replay rule that removes the accuracy cost

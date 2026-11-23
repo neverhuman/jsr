@@ -123,7 +123,7 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
                 f"({axis['k']:.2f}\\,W; every system is within {100 * axis['spread']:.0f}\\% of it).")
     elif have:
         method = ENERGY_WORDS[next(p["row"]["energy_method"] for p in pts if p["watts"] is not None)]
-        text = f"Power is reported in watts per always-on stream ({method}, same run)."
+        text = f"Watts: incremental energy per stream from the {method} (same run), not device power."
     else:
         text = "No watts drawn yet: no same-run energy measurement has been admitted."
     first = rows[0] if rows else None

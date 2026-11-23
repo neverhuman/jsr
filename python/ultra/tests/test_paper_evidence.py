@@ -177,7 +177,7 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     layout = files["money_layout.tex"]
     assert "{Ours\\,$\\cdot$\\,0.343\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
     assert "\\def\\MoneyWattsOn{0}" in layout  # no axis: one system has no value yet
-    assert "Power is reported in watts per always-on stream (core energy registers, same run)." in files["metrics.tex"]
+    assert "Watts: incremental energy per stream from the core energy registers (same run), not device power." in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, rows + [dict(energy, row="sys-a-zen2-t1", joules_per_audio_s=1.7)]))
     # every system has a value and 0.343 x 25 = 8.6 W and 1.7 x 5 = 8.5 W per busy core agree: a watts axis

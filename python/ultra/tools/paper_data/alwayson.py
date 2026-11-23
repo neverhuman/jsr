@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 
 from .common import RAW, PaperDataError, sha256_file
 
@@ -28,7 +29,8 @@ WARM_S = 10.0  # memory samples before this much audio include the model load an
 ENDLESS = {run: {k: AO / f"endless/endless27h.{run}.{v}" for k, v in (("run", "run.json"), ("summary", "scored.summary.json"),
                                                                      ("rss", "rss.jsonl"))}
            for run in ("t0", "t1500_r1000")}  # without a reset; with reset-with-replay, the always-on configuration
-INT8 = {"a1-20000-ema-int8": "A1-20000-ema", "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
+INT8 = {"a1-49000-ema-int8": "A1-49000-ema", "a1-20000-ema-int8": "A1-20000-ema",
+        "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
 XISA = (("Zen 2 (AVX2)", RAW / "crossisa/xbabe0-h22ctl-entry2.predictions.jsonl"),
         ("Xeon (AVX-512)", RAW / "opponents/xeon8358/jsr-h22ctl-int8-t1/predictions.6ac85d6ff9dc.jsonl"),
         ("Apple M3 (NEON)", RAW / "opponents/m3ultra/jsr-h22ctl-int8-enginetool-t1/predictions.6ac85d6ff9dc.jsonl"))
@@ -76,6 +78,21 @@ def capacity(root: Path) -> dict | None:
     return out
 
 
+def poisson_upper(k: int, hours: float, conf: float = 0.95) -> float:
+    """One-sided upper bound on an event rate per hour after k events in `hours` (Poisson, exact by bisection)."""
+    def cdf(lam: float) -> float:  # P(X <= k)
+        term = total = math.exp(-lam)
+        for i in range(1, k + 1):
+            term *= lam / i
+            total += term
+        return total
+    lo, hi = 0.0, 10.0 * (k + 3)
+    for _ in range(100):
+        mid = (lo + hi) / 2.0
+        lo, hi = (mid, hi) if cdf(mid) > 1.0 - conf else (lo, mid)
+    return hi / hours
+
+
 def silence(root: Path) -> dict | None:
     """The ten 1-hour non-speech blocks, and the pauses of the whole endless stream (always-on configuration)."""
     man, full = AO / "nonspeech/MANIFEST.json", ENDLESS["t1500_r1000"]["summary"]
@@ -92,7 +109,9 @@ def silence(root: Path) -> dict | None:
     return {"blocks": len(blocks), "hours": sum(f["seconds"] for f in files.values()) / 3600.0, "words": words,
             "levels": sorted({f["level_dbfs"] for f in files.values() if f["level_dbfs"] is not None}),
             "gap_words": gaps["words"], "gap_hours": gaps["hours"], "silence_words": quiet["words"],
-            "silence_hours": quiet["hours"], **_src(root, man, full)}
+            "silence_hours": quiet["hours"], **_src(root, man, full),
+            "bound": poisson_upper(words, sum(f["seconds"] for f in files.values()) / 3600.0),
+            "gap_bound": poisson_upper(gaps["words"], gaps["hours"])}
 
 
 def stream(root: Path) -> dict | None:

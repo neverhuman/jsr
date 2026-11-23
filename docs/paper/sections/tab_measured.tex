@@ -8,17 +8,19 @@
 scorer and normaliser. WER in \%. Speed: audio-seconds per CPU-second on one pinned core
 (``1 core''), and audio-seconds per wall-second with eight pinned cores (``8 cores''; $^{t}$ eight
 threads in one recogniser, $^{w}$ one process with eight workers sharing the weights, $^{p}$ eight
-separate processes). Lag: word lag in ms with the input paced at real time (median and 95th
-percentile), and the median lag with unbounded compute (``design''). RSS: peak resident memory of
-the process tree; model: files loaded; both in MB. W: watts one live stream costs. ``--'': not
-measured yet. $^{\ddagger}$Interim: measured on the shared host H0. $^{*}$Word lag measured on the shared host H0. $^{\dagger}$Not drawn in
+separate processes). Lag: stable-word lag in ms (retrospective clock, \cref{sec:protocol}) with the
+input paced at real time (median and 95th percentile), and the median with compute excluded
+(``design''). RSS: peak resident memory of the process tree; model: files loaded ($^{\P}$ours: every
+file the INT8 engine's bundle installs, including the FP32 weights it still opens); both in MB. W:
+core-register incremental energy per stream, unpaced (not device power). ``--'': not
+measured yet. $^{\ddagger}$Interim: measured on the shared host H0. $^{*}$Lag measured on the shared host H0. $^{\dagger}$Not drawn in
 \cref{fig:money}. $^{\S}$Timed on a 73-utterance subset; WER from the full panel. Exploratory.}
 \label{tab:measured}
 \footnotesize
 \setlength{\tabcolsep}{1.35pt}
 \begin{tabular}{@{}llrrrrrrrrrrr@{}}
 \toprule
- & & \multicolumn{3}{c}{WER (\%)} & \multicolumn{2}{c}{Speed ($\times$)} & \multicolumn{3}{c}{Word lag (ms)} & \multicolumn{2}{c}{Memory (MB)} & \\
+ & & \multicolumn{3}{c}{WER (\%)} & \multicolumn{2}{c}{Speed ($\times$)} & \multicolumn{3}{c}{Stable lag (ms)} & \multicolumn{2}{c}{Memory (MB)} & \\
 \cmidrule(lr){3-5}\cmidrule(lr){6-7}\cmidrule(lr){8-10}\cmidrule(lr){11-12}
 System & Runtime & clean & other & pooled & 1 core & 8 cores & p50 & p95 & design & RSS & model & W \\
 \midrule

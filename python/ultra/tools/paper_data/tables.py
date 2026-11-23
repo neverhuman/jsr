@@ -48,7 +48,8 @@ def _line(r: dict, eight: list[dict]) -> str:
         _cell(r, "FinalLatencyPfifty", final) if whole else _cell(r, "LagPfifty", live) + star,
         _cell(r, "FinalLatencyPninetyFive", final) if whole else _cell(r, "LagPninetyFive", live),
         "n/a" if whole else _cell(r, "LagDesignPfifty", design),
-        _cell(r, "Rss"), _cell(r, "Model"), _cell(r, "Watts", r.get("watts") is not None),
+        _cell(r, "Rss"), (_cell(r, "Installed") + "$^{\\P}$") if r.get("installed_bytes") else _cell(r, "Model"),
+        _cell(r, "Watts", r.get("watts") is not None),
     ]
     return " & ".join(cells) + " \\\\"
 
@@ -112,13 +113,12 @@ def always_on_table(rows: list[dict], always_on: str | None = None) -> str:
         d = derived(r)
         name = tex_escape(r["system"]) + ("" if r["plot"] else "$^{\\dagger}$")
         watts = _cell(r, "Watts", d["watts"] is not None)
-        kwh = f"\\Cold{r['macro']}KwhYear{macro_suffix(r)}" if d["watts"] is not None else "--"
         quiet = MACHINES[r["machine"]]["primary_host"]
         star = "$^{*}$" if quiet is not None and (r.get("lag_host") or r["host"]) != quiet else ""
         lag = (f"{_cell(r, 'LagPfifty')} / {_cell(r, 'LagPninetyFive')}{star}" if d["lag_p50_ms"] is not None
                else "n/a" if r["class"] == "whole_utterance" else "--")
         seg = {"yes": "yes", "no": "no", None: "--"}[r.get("segmenter")]
-        out.append(" & ".join([name, f"\\Cold{r['macro']}CorePct{macro_suffix(r)}", watts, kwh, _cell(r, "Rss"), lag,
+        out.append(" & ".join([name, f"\\Cold{r['macro']}CorePct{macro_suffix(r)}", watts, _cell(r, "Rss"), lag,
                                "yes" if d["speed"] > 1.0 else "no", seg]) + " \\\\")
     if len(out) == 3:
         out.append("\\multicolumn{8}{c}{no quiet-host rows yet} \\\\")

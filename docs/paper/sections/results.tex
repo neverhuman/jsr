@@ -53,9 +53,9 @@ cost of keeping one stream listening without a pause. \ColdWattsSentence{} \Cold
 \begin{table}[t]
 \centering
 \caption{\textbf{Cost of always listening}, one always-on stream per row, quiet host only. Core:
-share of one CPU core (CPU-seconds per audio-second). W: watts per stream from the core energy
-registers in the same run. \ColdPackageSentence{} kWh: per stream-year (W times the hours in a
-year). RSS: peak memory in MB. Lag: word lag p50 / p95 in ms with the input paced at real time
+share of one CPU core (CPU-seconds per audio-second). W: core-register incremental energy per
+stream in the same run, unpaced; not device or package power. \ColdPackageSentence{} RSS: peak memory
+in MB. Lag: stable-word lag p50 / p95 in ms (retrospective clock) with the input paced at real time
 ($^{*}$measured on the shared host H0). 1-core: keeps up on one core. Seg.: needs a separate
 voice-activity segmenter to cut an endless stream (from each system's documentation; ours: the
 endless stream below). $^{\dagger}$Not drawn in Fig.~\ref{fig:money}: earlier checkpoints of ours, with
@@ -63,9 +63,9 @@ their own energy lines (the always-on tests ran on \AoCheckpoint). Exploratory.}
 \label{tab:alwayson}
 \footnotesize
 \setlength{\tabcolsep}{2pt}
-\begin{tabular}{@{}p{0.23\columnwidth}rrrrcll@{}}
+\begin{tabular}{@{}p{0.25\columnwidth}rrrcll@{}}
 \toprule
-System & Core (\%) & W & kWh & RSS & Lag (ms) & 1-core & Seg. \\
+System & Core (\%) & W & RSS & Lag (ms) & 1-core & Seg. \\
 \midrule
 \rawinput{data/table_always_on.tex}
 \bottomrule
@@ -77,7 +77,7 @@ System & Core (\%) & W & kWh & RSS & Lag (ms) & 1-core & Seg. \\
 \begin{table}[t]
 \centering
 \caption{\textbf{Live streams on one core}, quiet host, each stream paced at real time. Busy:
-share of the core in use. Lag: stable-word lag p50 / p95 in ms, end to end against forced-aligned
+share of the core in use. Lag: stable-word lag p50 / p95 in ms (retrospective clock), end to end against forced-aligned
 word ends. W: watts per stream from the core's energy register, net of the idle floor / gross.
 Exploratory.}
 \label{tab:capacity}
@@ -100,9 +100,10 @@ in one piece. \AoEndless{}
 
 \para{The same words on every machine.} \AoSameWords{}
 
-\para{First words sooner, a training arm we did not adopt.} A delay-penalty fine-tune (H41 arm 13a)
-emits its first word \FtlDelayFortyMs, \FtlDelayEightyMs{} and \FtlDelayOneSixtyMs\,ms (mean, compute
-unbounded) after the first spoken word ends, with 40, 80 and 160\,ms chunks, against
+\input{data/table_first_token.tex}%
+\para{First words sooner, a training arm we did not adopt.} \FtlSentence{} A delay-penalty fine-tune (H41 arm 13a)
+shows its first visible text \FtlDelayFortyMs, \FtlDelayEightyMs{} and \FtlDelayOneSixtyMs\,ms (mean;
+provisional clock, compute excluded) after the first spoken word ends, with 40, 80 and 160\,ms chunks, against
 \FtlParentOneSixtyMs\,ms for its parent at 160\,ms. It costs \FtlDelayWerCost\,pp of pooled DEV WER,
 more than its pre-registered guard allows, so it is reported here and not carried forward. Exploratory.
 
