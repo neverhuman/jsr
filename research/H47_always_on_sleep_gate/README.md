@@ -9,6 +9,25 @@
 - **Files in this folder:** this README (h47-sleep's pre-registration, amendments and results; results JSON `results/A0_*`, `results/O_*`, `results/Q_*`), the swarm's skip-gate simulation receipts from PR #75 (`results/skip_gate_sim_summary.json`, `results/stream_segments_summary.json`), and the Rust gate's implementation notes in `GATE_IMPLEMENTATION.md` (PR #77, lead's ruling 06:43Z).
 - **h47-sleep** (this pre-registration) writes no gate code. It runs (A0) the xbabe0 assay of what non-speech costs today, (O) the offline oracle speech gate, which bounds the savings and the restart damage, and (Q) the independent qualification of the swarm's gate against an ungated twin.
 
+## Summary of h47-sleep's results so far (exploratory, DEV only; details and statistics under Results)
+- **What silence costs today (A0, quiet xbabe0):** without resets, non-speech costs what speech costs (0.0353 vs 0.0359 CPU-s per audio-s). The adopted reset-with-replay (T=1500 / R=1000) makes it 1.41× speech (0.0501).
+- **B0 needs resets or the gate:** decoded continuously without resets, A1-49000 is +2.72 pp against isolated decoding on the 27.56 h stream and prints 426 words in its gaps. With reset-with-replay (C1) it is +0.10 pp.
+- **Sleeping costs nothing in accuracy:** an oracle gate that sleeps on reference non-speech and restarts the recogniser fresh is as accurate as C1, at about half the decoded audio (O3 − C1 −0.080 pp).
+- **Two rules for any session:**
+  - Close on complete chunks only, never flush: a flush at a close inside noise prints "SH" / "S".
+  - Use a 500 ms pre-roll, not 1 s: 1 s mostly feeds stationary noise ahead of clean speech and costs first words. Sentinel-0's measured wake delay on the stream is ≤ 450 ms.
+- **Sentinel-0 (PR #75's reference) on the real stream:** wakes before the ring would overflow on 5,567 / 5,567 onsets. Its real segments pass the simulation's criterion 2 (WER −0.036 pp vs C1 at R 1 s; −0.192 pp at R 500).
+- **PR #77's Rust session at the shipping defaults (R 500 ms, idle 1500 ms):**
+  - Q1 exactness passes: 0 identity mismatches in every run (the stream gated and ungated, 46,829 segments; all 42 AO tier-A runs; the non-speech blocks).
+  - Stream WER 8.127%: C1 −0.250 pp, ungated twin −0.158 pp. First words after sleep +1.01 pp vs C1. 0 duplicated words, 2 gap words. Recogniser duty 50.9%.
+  - AO tier A: gated ≥ twin in every pooled group. Non-speech: 0.06% duty and 0 words.
+  - An 800 ms idle was rejected: it restarts mid-utterance and duplicated 7 words at hot closes.
+- **Q5, added false words:** 0 words in 30 h of non-speech for both arms. One added word on the stream's gaps puts the bound at 0.1008/h against 0.10/h, so Q5 misses by a hair.
+- **Q4 against C1:** passes on the stream. INCONCLUSIVE on the AO torture sets at their size (−0.27 pp, bound −1.08).
+- **Low input levels (amendment 8):** the gate misses 0.5% / 1.2% / 3.5% of onsets at −20 / −30 / −40 dB. These are mostly items the recogniser fails on anyway: the misses cost 0 / 6 / 9 words over 600 items, while the recogniser's own WER rises from 8.4% to 21.3%. Gated stays ≥ twin at every level.
+- **Q4b (tier B torture, gated vs C1): FAIL**, first word −0.81 pp [−1.40, −0.22]. The loss is in whole-stream white noise at 10 dB SNR (−2.3 pp); quiet backgrounds gain (+0.3 pp). Default-on is blocked; the gate can still merge behind its flag.
+- **Open:** Q5b (running), and the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i). C1 is byte-identical after #72.
+
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
 
@@ -111,6 +130,41 @@ What existed when this was written: Q passes 1–2 on the Mac (exactness, accura
   - CPU-s per audio-s of a run = (user + sys of the process − the same arm's mean on the 1 s input) / audio seconds; the subtraction removes model load and start-up.
   - **Q2:** mean over the three non-speech inputs of G ÷ U ≤ 0.02. **Q3:** incremental core-register joules (net of the idle floor) on the 5% cell, U ÷ G ≥ 2 on the mean of 3 repetitions and ≥ 1.8 on each; C1 ÷ G reported beside it. **Q6:** G ÷ U on the panel excerpt ≤ 1.05 at the one-sided 95% upper bound over repetitions (with 3 repetitions, the max is reported beside the mean).
 - **uclamp pacing (bench-open entry "H47-U", the designs' C-1):** B0 paced at 1× (bench-open's 14f protocol) under `uclampset -M u` for u ∈ {1024, 512, 256}, interleaved; optional unpaced arm with `--uclamp-max` (at R 500 / idle 1500). **Pass (fixed now):** adopt a clamp if core-register J per audio-s falls ≥ 15% against u = 1024 while stable-word lag p95 rises ≤ 10 ms.
+
+## Amendment 8 (2026-11-23, written before the runs it names): the gate at low input levels (the lead's 09:23Z item after the gain-stress trigger)
+- **Question:** how much do Sentinel-0's onset misses at low input level (its absolute floors sit near −72 dBFS) cost the session, beyond what the recogniser itself loses at that level?
+- **Cells:**
+  - (a) alwayson-bench's tier G panel at −10 / −20 / −30 dB. It is re-made on the Mac from tier A's `duty100_panel_Q` with the generator's transform (x · 10^(g/20), np.rint, int16 clip), and every result must match tier G's PCM sha256.
+  - (b) tier A's `T1_g3_Q` and `T2_g3_Q` (fricative and quiet onsets after 3 s of silence) at −20 / −30 / −40 dB, made with the same transform. That is the generator's T4 definition ("T1 + T2 at integer gain") on tier A's draw. For Q cells, scaling the rendered PCM equals rendering with the gain.
+  - The 0 dB rows are AO pass 3's runs.
+- **Arms:** PR #77 at 5ca3583, (500, 1500), gated (G) and ungated twin (U), identity on. Segments are re-decoded and scored as in Q pass 2 / 3.
+- **Measures per level:**
+  1. onsets the session missed: utterance starts outside every session segment, and the audio lost before the first segment that covers the item;
+  2. first-word recall G − U (speaker-cluster bootstrap);
+  3. WER G − U (ultra-score paired bootstrap);
+  4. wakes and recogniser duty.
+- **Reading rule (descriptive, no pass / fail):**
+  - At any level where G − U first-word recall is below −0.5 pp (Q4's margin) with its 95% upper bound below 0, the gate's absolute floors need recalibrating for quiet input (§5.6, C8) before always-on runs on quiet microphones.
+  - U at that level minus U at 0 dB is the recogniser's own loss, which an AGC after the gate would address.
+
+## Amendment 9 (2026-11-23, written before any Q5b or tier B torture data exists): Q5b and Q4b, the lead's 09:39Z ruling
+- **Q5 stands as recorded:** NOT PASSED by 0.0008/h. Nothing below pools Q5's hours.
+- **Q5b, the lead's rule, quoted:**
+  - **Data:** ≥ 50 h never used in any run, made by alwayson-bench with new seeds and sources:
+    - ≥ 30 h of pure non-speech, all background types;
+    - ≥ 20 h of fresh stream with speech → noise junctions at the stream's rate and levels.
+    - Its sha256 list is posted before any decode, and I check every file against it.
+  - **Systems:** #77 at (500, 1500), gated vs its ungated twin, the same binary (5ca3583 arithmetic, or a head whose code diff from it is zero) and the same scorer.
+  - **Rule:** count the added words (gated words the twin does not emit: same word, same gap, within 0.5 s; `scripts/gap_words_added.py`, with score_alwayson.py's gap assignment). The Garwood one-sided 95% upper bound on Q5b's hours only must be ≤ 0.10/h; with ≥ 50 h that allows ≤ 1 added word.
+  - **Exposure, fixed at 09:59Z before any Q5b hash was posted:** all of Q5b's hours, meaning the non-speech blocks plus the junction stream's full length. That is the lead's arithmetic (≥ 50 h allows ≤ 1 added word). The bound on non-speech time only (blocks plus the stream's gaps) is reported beside it.
+  - **Outcomes:**
+    - PASS: the false-word criterion is met for default-on.
+    - FAIL: the gate stays default-off, and the boundary artifact needs a design amendment before any new false-word test.
+- **Q4b (Q4's rule, unchanged, on fresh torture data):**
+  - Data: tier B's torture sets T1, T1v and T2 (gaps 0.4 / 3 / 30 s; Q / N20 / N10) and T3 (g8; N20 / N10), when alwayson-bench builds them.
+  - Systems: gated (#77 at (500, 1500)) vs C1 (`ultra-engine-endless` T=1500 / R=1000), pooled over all those cells, first-word recall by speaker-cluster bootstrap.
+  - Verdicts: PASS if the one-sided 95% lower bound of gated − C1 is ≥ −0.5 pp. INCONCLUSIVE if the bound is below −0.5 pp but the point is ≥ −0.5. FAIL if the point is < −0.5.
+  - Tier A's partial result is not pooled. T4 (−20 / −40 dB) is reported descriptively, beside amendment 8.
 
 ## Results
 
@@ -253,3 +307,90 @@ Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with iden
 - **Recogniser duty, gated / twin:** 8.4 / 130% at 5% speech (1 onset/min), 27 / 129% (6/min); 23 / 126% and 39 / 125% at 20%; 52 / 116% and 67 / 115% at 50%; 100.1–100.2 / 100.1–100.2% at 100%. Gap false words: gated 14, twin 23.
 - **g15 (measured duty):** gated duty at 15% speech ≈ 18% (1 onset/min) and ≈ 35% (6/min), so about 0.13× and 0.26× C1's CPU with A0's rates. This is an estimate until xbabe0 (14i).
 - **Q4 against C1, partial:** alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000) have finished on 8 of 21 cells, and I scored them with the same scorer. On the 5 finished torture sets (T1 g3 Q / N20, T2 g3 Q / N20, T3 g8 N20; 1,400 items): WER gated − C1 −0.116 pp [−0.317, +0.071]; first word **−0.43 pp [−1.25, +0.40]**, **INCONCLUSIVE** by the pre-registered rule (point ≥ −0.5, bound below). On the stream, Q4 passes against C1 (+1.01 pp [+0.57]). Re-scored when T1 / T2 g30 finish (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`).
+
+### Sentinel-0 at low input levels (descriptive; the lead's 09:19Z AGC question, after the gain-stress trigger)
+PR #75's Sentinel-0 over the whole stream scaled by an integer gain (the designs' C7 / C8 level conditions), 5,567 onsets (`qual/sentinel/gain/summary_gain*.json`, `scripts/sentinel_stream.py` `418a9180…`):
+
+| input gain | woken < 500 ms | woken < 1000 ms | delay p50 / p95 / p99 | never hot within 6 s |
+|---|---:|---:|---:|---:|
+| 0 dB | 100.00% | 100.00% | 10 / 60 / 90 ms | 0 |
+| −20 dB | 99.86% | 100.00% | 60 / 110 / 240 ms | 0 |
+| −30 dB | 99.50% | 99.84% | 70 / 160 / 354 ms | 2 |
+| −40 dB | 97.86% | 98.81% | 100 / 300 / 627 ms | 37 |
+- The gate keeps onsets on raw levels down to −20 dB and degrades at −30 / −40 dB, where speech approaches its absolute floors (≈ −72 dBFS). Stationary noise never gets hotter at lower gain.
+- Recommendation: an input AGC belongs on the recogniser path after the gate and the ring, with its state inside each segment's standalone decode (isolation stays exact). Low-level wake, if needed, is a recalibration of Sentinel-0's absolute floors (§5.6, C8).
+
+### Q5 at (500, 1500): 30 non-speech hours plus the stream's gaps (exploratory)
+- **30 h of non-speech:** eval-lane's ten 1 h blocks plus alwayson-bench's 20 extra blocks (seeds 20261123 / 20261124, sha256-checked against their MANIFESTs).
+  - Gated and twin emit 0 words in all 30 blocks, with 0 identity mismatches.
+  - The gated session decodes 0.071% of the audio, the twin 131.8%. All 37 wakes fall on white noise, except one on pink −30.
+- **The stream's 17.06 h of gaps:** gated 2 words, twin 3, C1 5. One gated word is not in the twin: "P", 0.82 s after an utterance ends, at the onset of white −20 dBFS noise.
+- **Q5 (added false words ≤ 0.10/h at the one-sided 95% upper bound, amendment 2): NOT PASSED, by 0.0008/h.**
+  - 1 added word in the pre-registered 47.06 h gives a Garwood bound of 0.1008/h.
+  - The net rate gated − twin is negative (−0.021/h; Wald upper +0.057/h).
+  - On the 30 h of non-speech alone, the bound is 0.0999/h (0 words).
+  - Absolute: gated 2 words in 47.06 h (Garwood 0.134/h), twin 3 (0.165/h).
+- Results: `results/Q_5ca3583_r500_i1500_Q5_30h.json`, which supersedes the 10 h file.
+
+### Q4 against C1 on the AO cells, 15 of 21 cells (exploratory, partial)
+alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000), scored with the same scorer as the gated runs (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`; first-word intervals are 5th / 95th percentiles of a 73-speaker bootstrap):
+
+| pooled cells | items | WER gated vs C1, Δ [95%] | first word gated vs C1, Δ [95%] |
+|---|---:|---|---|
+| 8 duty cells | 1,680 | 13.131 vs 13.876%, −0.745 [−1.101, −0.397] | 81.67 vs 79.82%, +1.85 [+0.76, +2.96] |
+| 6 torture sets (T2 g30 pending) | 1,500 | 9.976 vs 10.088%, −0.112 [−0.312, +0.075] | 87.33 vs 87.60%, −0.27 [−1.08, +0.56] |
+| panel, Q (100% speech) | 730 | 8.091 vs 8.084%, +0.007 [−0.240, +0.261] | 90.41 vs 89.73%, +0.69 [−0.41, +1.92] |
+- **Q4 on the torture sets: INCONCLUSIVE** (point −0.27 ≥ −0.5; lower bound −1.08). At 1,500 items the bound is about ±0.8 pp wide; a decisive answer needs tier B's torture sets (600 items per cell). Q4 passes on the stream (+1.01 pp, lower bound +0.57).
+
+### Amendment 8: the gate at low input levels (exploratory; pre-registered at 09:31Z, runs 09:33–09:46Z)
+The intervals in both tables are one-sided 95% bounds. Results: `results/Q_5ca3583_low_levels.json`.
+
+**T1 + T2 torture sets**, 600 items with fricative or quiet onsets after 3 s of silence; gated (G) vs ungated twin (U); 0 identity and 0 re-decode mismatches:
+
+| input gain | onsets missed of 600 (late / whole) | hit words on those items, G vs U | WER U → G, Δ | first word U → G, Δ |
+|---|---|---|---|---|
+| 0 dB | 0 / 0 | — | 8.38 → 8.25%, −0.13 [−0.36, +0.11] | 90.00 → 90.67%, +0.67 [−0.49, +1.85] |
+| −20 dB | 3 / 0 | 28 vs 28 of 30 | 9.47 → 9.17%, −0.30 [−0.58, −0.01] | 86.50 → 88.50%, +2.00 [+0.53, +3.48] |
+| −30 dB | 7 / 0 | 108 vs 114 of 128 | 12.06 → 11.78%, −0.28 [−0.70, +0.11] | 78.67 → 81.67%, +3.00 [+1.28, +4.81] |
+| −40 dB | 15 / 6 | 168 vs 177 of 401 | 21.35 → 20.71%, −0.63 [−1.13, −0.19] | 63.00 → 64.83%, +1.83 [−0.49, +4.20] |
+
+**The tier G panel** (730 utterances of contiguous speech; G stays awake, 1–4 wakes, duty 100.1–100.2%):
+
+| input gain | WER U → G, Δ | first word U → G, Δ |
+|---|---|---|
+| 0 dB | 8.091 → 8.091%, 0 | 90.41 → 90.41%, 0 |
+| −10 dB | 7.987 → 7.987%, 0 | 89.18 → 89.18%, 0 |
+| −20 dB | 8.672 → 8.756%, +0.083 [+0.027, +0.152] | 89.04 → 88.90%, −0.14 [−0.41, 0.00] |
+| −30 dB | 10.188 → 10.022%, −0.166 [−0.421, +0.102] | 86.71 → 86.58%, −0.14 [−1.10, +0.82] |
+
+- **Reading rule:** G − U first-word recall is never below −0.5 pp, at any level. **The rule does not call for recalibrating the gate.**
+- **The gate does miss onsets at low level:** 0.5%, 1.2% and 3.5% of them at −20, −30 and −40 dB.
+  - The missed items are mostly ones the recogniser itself fails on at that level. At −40 dB the gate misses 6 whole utterances, and the twin decodes only 2 of their 167 words.
+  - Words the misses cost, against the twin: 0, 6 and 9 across the 600 items at −20, −30 and −40 dB.
+- **The recogniser's own loss is much larger.** U's WER goes from 8.4% to 12.1% at −30 dB and 21.3% at −40 dB. That is the AGC's job, after the gate.
+- **Caveat:** the twin decodes continuously without resets, so G − U mixes the gate's misses with the gain from a fresh start at each wake. The direct cost of the misses is the hit-word column.
+- **Panel:** in contiguous speech the session seldom closes. The one extra close at −20 dB costs +0.08 pp of WER.
+
+### Verification records for the release (no new runs after the 09:53Z research wrap-up)
+- **C1 after #72:** C1 built at #72's head `0514443` (`ultra-engine-endless`, Mac sha256 `7f0e18b4…`) is byte-identical to the e61121e C1 trace over the whole 27.56 h stream: 105,324 trace lines, 203,429 tokens, 105,336 words. Every comparison against C1 above therefore stands after #72.
+- **x86 vs NEON:** the x86 AVX2 runs of C0 and C1 on H0 matched the Mac's NEON traces byte for byte over the first 54,507 lines (C0, to 51,516 s) and 49,029 lines (C1, to 46,094 s). They were stopped at the wrap-up (09:55Z), at 52% and 46% of the stream.
+- **#77's rebased head `cd7f831`:** of the PR's 22 files, only `agent/owner-map.json` and `agent/test-map.json` differ from the ACKed `a871f8b`, so the qualification above applies to it unchanged.
+- **Still to run for default-on (lead 09:53Z):** Q5b and Q4b (amendment 9), and the CPU / watts hold on quiet xbabe0 (bench-open 14i: Q2 / Q3 / Q6). The uclamp pacing experiment (H47-U) is dropped with the wrap-up unless the lead reinstates it.
+
+### Q4b: tier B torture sets, gated vs C1 (amendment 9; exploratory, DEV only): FAIL
+- **Data:** tier B's 29 torture cells (13,400 items, 53.78 h). I built them on the Mac with alwayson-bench's pinned generator. All 29 PCM sha256 equal alwayson-bench's x86 build (its 10:09:27Z list; my list `inputs/tierB_torture_sha256.txt`, sha256 4de7fd0b…).
+  - Because the generator draws torture items per tag with tier A's seed, 6,695 items (50.0%) are new relative to tier A's torture cells.
+- **Arms:** gated is #77 at (500, 1500) with identity on: 0 identity and 0 re-decode mismatches, 13,584 wakes. C1 is `ultra-engine-endless` e61121e at T=1500 / R=1000.
+- **Registered result:** first-word recall gated − C1 = **−0.81 pp** (75.32 vs 76.13%; one-sided 95% bounds [−1.40, −0.22]). The point is below −0.5, so **Q4b FAILS**.
+  - WER: 22.73 vs 22.49%, +0.24 pp [+0.12, +0.36].
+  - Items not in tier A: first word −1.26 pp [−1.98, −0.52].
+- **Where it is (post hoc, first word gated − C1):**
+  - By background: N10 −2.26 pp, N20 −0.37, Q +0.31.
+  - By gap: g0.4 −1.63, g3 −0.39, g30 −0.44, g8 +1.12.
+  - By onset: T1v −2.00, T2 −0.57, T1 −0.21.
+  - Worst cells: T1v_g0.4_N10 −9.5, T1v_g3_N10 −4.0, T2_g0.4_N10 −3.0.
+- **Not the wake:** only 78 onsets (0.58%; N10 59, N20 19, Q 0) fall outside every session segment, and on them the gate lost 2 first words that C1 got.
+  - The loss comes from decoding each segment fresh with a 500 ms pre-roll, under noise that covers the speech too (10 dB SNR).
+  - The stream and tier A, where speech was clean and noise sat only in the gaps, favoured the gate.
+- **Consequence:** default-on is blocked (lead 09:39Z). The gate can still merge behind its flag. A design change, such as a longer pre-roll or warm context when the noise floor is high, would need a fresh test; it is deferred to v3.1 by the wrap-up.
+- Results: `results/Q4b_tierB_torture.json`.
