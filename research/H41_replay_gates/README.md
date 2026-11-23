@@ -84,3 +84,32 @@ Written and posted in the chat before arm 9 started (22:15Z); committed here aft
   - neither passes: CR-CTC is not adopted at this operating point.
 - **Placement:** xbabe2, its own guard at 0.87, CPUs 76-99. Arm 9 yields if the card's 5-minute mean passes the guard's target; arm 8's guard is CPU-only so arm 9's load does not pause it. Arm 9 shares the card with arm 8, so its wall time differs from control's, but its steps and batches do not; the per-GPU-hour reading uses its own measured step time.
 
+## Amendment 4 (2026-11-22, posted in AGENT_CHAT at 22:45Z): arm 10 (low-latency chunk sampling)
+Written and posted in the chat before arm 10 started (22:46Z); committed here afterwards. At that time eval-lane had posted its verdict adopting the chunk-sampling arm ({4,8,16}).
+
+- **Arm 10:** `chunk_modes=1,2,4,8,16` (40 / 80 / 160 / 320 / 640 ms attention chunks, one drawn per step from its own RNG stream; SpecAugment masks stay control's), `eval_chunks=1,2,8`. Otherwise identical to the chunk arm: fork point H22ctl step 60,000, schedule, batch 650 s / 144, seed 1234, xbabe1 (RTX 4090).
+- **Why:** the owner's target is a 133 ms average first-token latency. With 160 ms chunks a first token waits about 80 ms on average for its chunk to close, so smaller chunks are the most direct lever.
+- **Gate:** compared with the chunk arm, each decoded at chunk 4, 8 and 16 on full dev (paired bootstrap), arm 10 must not lose by more than the control spread at any of the three chunks.
+- **Reported, not gated:** WER at chunks 1 and 2, and first-token latency at every chunk.
+- **Early look:** at step 2,000, flag in the chat if it is more than 1.0 pp worse than the chunk arm at chunk 4 or 8 on the monitor panel. It was not (within 0.12 pp at steps 2,000 and 4,000).
+
+## Amendment 5 (2026-11-22, posted in AGENT_CHAT at 23:11Z): arm 11 (stream-context augmentation)
+Written and posted in the chat before arm 11 started (23:33Z); committed here afterwards. At that time eval-lane had posted the stream-penalty diagnosis (23:03Z): about +0.62 pp of the +0.95 pp a continuous stream costs comes from the encoder's 5.12 s left-context window holding the preceding gap.
+
+- **Arm 11:** `stream_ctx_s=5.12 stream_ctx_cap=1.5`, fixed decode chunk 4. Same fork point, schedule, batch and seed as control, on xbabe1 (RTX 4090).
+- **What it does** (`train/stream_ctx.py`):
+  - each training utterance gets a random left context of 0-5.12 s in 40 ms steps, drawn per example and seeded per (seed, epoch, utterance), with no external data;
+  - one third digital silence, one third white / pink / brown noise at -40 / -30 / -20 dBFS RMS, one third the tail of another utterance of the same batch with an optional 0-2 s silence gap;
+  - the encoder attends over the context; the CTC and transducer losses see only the utterance's frames (each row's encoder output is shifted left by its context), so prepended words are never targets;
+  - utterance + context stays within 1.5x the batch's longest utterance, which bounds the padded batch (measured 1.19-1.33x on train-clean-100; peak GPU memory 18.6 GB against 12.9 GB).
+- **Decision rule:** on isolated full dev it must not lose to control by more than the control spread; on the endless-stream hour (eval-lane's set, INT8 engine, `score_alwayson.py`) its stream penalty is reported against control's, and adoption needs it to cut control's penalty by at least half. Both must hold.
+- **Cost:** about 1.25x control's compute per step.
+
+## Amendment 6 (2026-11-22, posted in AGENT_CHAT at 23:13Z): arm 12 (arms 10 + 11 combined)
+Written and posted in the chat before arm 12 started; committed here afterwards.
+
+- **Arm 12:** `chunk_modes=1,2,4,8,16 eval_chunks=1,2,8 stream_ctx_s=5.12 stream_ctx_cap=1.5`. Same fork point, schedule, batch and seed as control and arms 10 and 11, on xbabe6 (A10), vCPUs 0-19.
+- **Purpose:** the candidate recipe for A1's successor (always-on + low first-token latency): do the two changes combine cleanly? It is not a verdict on either change alone; arms 10 and 11 give those.
+- **Reading:** on isolated full dev at chunks 4 / 8 / 16 it must not lose to the chunk arm by more than the control spread; its stream penalty is compared with control's and arm 11's; WER at chunks 1 / 2 and first-token latency are reported, not gated.
+- **Process note:** the first start (23:14Z) trained without any context because the trainer set the loader's context option only on the multi-GPU path. Its GPU peak matching the plain arms gave it away; it was stopped at step 100 and kept aside (`H41_chunklow_streamctx.noctx-start`). The fix sets it for single-GPU and DDP alike, and the trainer prints the setting at start. A second restart at step 100 added `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` for memory headroom on the A10 (kept aside as `.alloc-restart`). The run that counts started at 23:17Z.
+
