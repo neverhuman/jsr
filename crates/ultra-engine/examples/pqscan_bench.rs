@@ -1,41 +1,19 @@
 //! H51 real-shape staged 2-bit / 4-centroid group-4 `pqscan` (`vpshufb` AVX2 LUT lookup +
-//! scalar reference + exact LUT construction time) benchmarked directly against `gemm_i8` and
-//! `small_m::gemm_i8_small_m` on ULTRA `S` encoder GEMM shapes.
+//! scalar reference + exact LUT construction time) comparing H24 `centred_trunc`, `@h51-pq`
+//! `nearest_no_bias`, and `fwht16_nearest` directly against `gemm_i8` and `small_m`.
 
 use std::time::{Duration, Instant};
 
 use ultra_engine::kernels::small_m::gemm_i8_small_m;
 use ultra_engine::kernels::{gemm_i8, quantize_row, Isa};
 use ultra_engine::quant::PackedI8;
+use ultra_kernels::pqscan::fwht16_inplace;
 
 const BLOCK_N: usize = 32;
 
 fn next_u64(s: &mut u64) -> u64 {
     *s = s.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
     *s
-}
-
-fn quantize_za(x: &[f32], out: &mut [i16]) -> f32 {
-    let (lo, hi) = x
-        .iter()
-        .fold((0.0f32, 0.0f32), |(l, h), &v| (l.min(v), h.max(v)));
-    if hi <= lo {
-        out.fill(0);
-        return 0.0;
-    }
-    let zp = ((-lo / (hi - lo)) * 255.0)
-        .round_ties_even()
-        .clamp(0.0, 255.0) as i32;
-    let s = (if zp > 0 { -lo / zp as f32 } else { 0.0 }).max(if zp < 255 {
-        hi / (255 - zp) as f32
-    } else {
-        0.0
-    });
-    let (inv, qmin, qmax) = (1.0 / s, -zp as f32, (255 - zp) as f32);
-    for (o, &v) in out.iter_mut().zip(x) {
-        *o = (v * inv).round_ties_even().clamp(qmin, qmax) as i16;
-    }
-    s
 }
 
 struct StagedPq2 {
@@ -66,9 +44,9 @@ impl StagedPq2 {
         }
     }
 
-    fn build_lut<T: Copy + Into<i32>>(&self, a: &[T], m: usize, buf: &mut LutBuf) {
+    fn build_lut(&self, a: &[i8], m: usize, nearest: bool, buf: &mut LutBuf) {
         let dot4 =
-            |x: &[T], c: &[i8]| -> i32 { (0..4).map(|i| x[i].into() * i32::from(c[i])).sum() };
+            |x: &[i8], c: &[i8]| -> i32 { (0..4).map(|i| i32::from(x[i]) * i32::from(c[i])).sum() };
         let (groups, pairs, mut mins) = (self.k / 4, self.k / 8, [0i32; 256]);
         for s in 0..self.stages {
             let cb_s = &self.cb[s * groups * 16..(s + 1) * groups * 16];
@@ -91,14 +69,25 @@ impl StagedPq2 {
                     }
                     (*min_slot, bias_sum, max_span) = (lo, bias_sum + lo, max_span.max(hi - lo));
                 }
-                let sh = (0..16u8).find(|&k| (max_span >> k) <= 127).unwrap_or(16);
+                let sh = (0..16u8)
+                    .find(|&k| {
+                        let add = if nearest && k > 0 { 1 << (k - 1) } else { 0 };
+                        ((max_span + add) >> k) <= 127
+                    })
+                    .unwrap_or(16);
+                let half = if sh > 0 { 1i32 << (sh - 1) } else { 0 };
                 let idx = s * m + r;
-                (buf.1[idx], buf.2[idx]) = (sh, bias_sum);
+                let (add, bias_add) = if nearest {
+                    (half, 0)
+                } else {
+                    (0, (pairs as i32) * half)
+                };
+                (buf.1[idx], buf.2[idx]) = (sh, bias_sum + bias_add);
                 let dst = &mut buf.0[idx * pairs * 16..(idx + 1) * pairs * 16];
                 for (p, &lo) in mins[..pairs].iter().enumerate() {
                     let (src, out_p) = (&buf.3[p * 16..p * 16 + 16], &mut dst[p * 16..p * 16 + 16]);
                     for (d, &v) in out_p.iter_mut().zip(src) {
-                        *d = ((v - lo) >> sh) as u8;
+                        *d = ((v - lo + add) >> sh).min(127) as u8;
                     }
                 }
             }
@@ -137,7 +126,7 @@ impl StagedPq2 {
         out[..m * self.n].fill(0);
         let mask = _mm256_set1_epi8(0x0f);
         for s in 0..self.stages {
-            // SAFETY: s < stages, b < nb, kb < bytes stay inside self.codes and buf.luts.
+            // SAFETY: s < stages, b < nb, kb < bytes stay inside self.codes and buf.0.
             let cs = unsafe { self.codes.as_ptr().add(s * nb * bytes * BLOCK_N) };
             for b in 0..nb {
                 let blk = unsafe { cs.add(b * bytes * BLOCK_N) };
@@ -187,7 +176,8 @@ impl StagedPq2 {
         }
         self.scan_scalar(buf, m, out);
     }
-    fn run_var<T: Copy + Into<i32>>(&self, a: &[T], m: usize, dur: Duration) -> (f64, f64, u8) {
+
+    fn run_var(&self, a: &[i8], m: usize, nearest: bool, dur: Duration) -> (f64, f64, u8) {
         let (p, sm) = (self.k / 8, self.stages * m);
         let mut lut = LutBuf(
             vec![0; sm * p * 16],
@@ -196,12 +186,12 @@ impl StagedPq2 {
             vec![0; p * 16],
         );
         let (mut r_o, mut s_o) = (vec![0i32; m * self.n], vec![0i32; m * self.n]);
-        self.build_lut(a, m, &mut lut);
+        self.build_lut(a, m, nearest, &mut lut);
         self.scan_scalar(&lut, m, &mut r_o);
         self.scan_best(&lut, m, &mut s_o);
         assert_eq!(r_o, s_o, "0-ULP mismatch ({m},{},{})", self.k, self.n);
         let lut_ns = bench_ns(dur, || {
-            self.build_lut(a, m, &mut lut);
+            self.build_lut(a, m, nearest, &mut lut);
             std::hint::black_box(&lut.0);
         });
         let scan_ns = bench_ns(dur, || {
@@ -230,7 +220,7 @@ fn main() {
     let (isa_name, mut rows) = (isa.name(), Vec::new());
     let rf = |s: &mut u64| ((next_u64(s) >> 40) as f32 / (1u64 << 24) as f32) - 0.5;
     if !as_json {
-        println!("H51 staged 2-bit/4-centroid group-4 pqscan (centred + zero_anchored) vs gemm_i8 (isa={isa_name})\n(M,K,N)        Stg    i8_ns |  lut_ns scan_ns  tot_ns vs_i8 | za_lut za_scan  za_tot za_vs");
+        println!("H51 staged 2-bit/4-centroid group-4 pqscan (centred_trunc vs nearest_no_bias vs fwht16_nearest, isa={isa_name})\n(M,K,N)        Stg    i8_ns | trunc_tot  near_tot (lutΔ) | fwht_ns fwht_tot  vs_i8");
     }
     for (m, k, n) in [
         (4, 384, 1536),
@@ -240,18 +230,27 @@ fn main() {
     ] {
         let w: Vec<f32> = (0..n * k).map(|_| rf(&mut rng)).collect();
         let pq_i8 = PackedI8::quantize(&w, n, k, None);
-        let x: Vec<f32> = (0..m * k)
-            .map(|_| {
-                let v = rf(&mut rng) * 6.0;
-                v / (1.0 + (-v).exp())
-            })
-            .collect();
-        let (mut a, mut sa, mut ca) = (vec![0i8; m * pq_i8.kp()], vec![0.0; m], vec![0.0; m]);
-        let mut a_za = vec![0i16; m * k];
+        let silu = |v: f32| v / (1.0 + (-v).exp());
+        let x: Vec<f32> = (0..m * k).map(|_| silu(rf(&mut rng) * 6.0)).collect();
+        let mut x_rot = x.clone();
+        let fwht_ns = bench_ns(dur, || {
+            x_rot.copy_from_slice(&x);
+            fwht16_inplace(&mut x_rot).expect("fwht16");
+            std::hint::black_box(&x_rot);
+        });
+        let (mut a, mut a_rot, mut sa, mut ca) = (
+            vec![0i8; m * pq_i8.kp()],
+            vec![0i8; m * k],
+            vec![0.0; m],
+            vec![0.0; m],
+        );
         for r in 0..m {
-            let xr = &x[r * k..r * k + k];
-            (sa[r], ca[r]) = quantize_row(isa, xr, &mut a[r * pq_i8.kp()..r * pq_i8.kp() + k]);
-            let _ = quantize_za(xr, &mut a_za[r * k..r * k + k]);
+            (sa[r], ca[r]) = quantize_row(
+                isa,
+                &x[r * k..r * k + k],
+                &mut a[r * pq_i8.kp()..r * pq_i8.kp() + k],
+            );
+            let _ = quantize_row(isa, &x_rot[r * k..r * k + k], &mut a_rot[r * k..r * k + k]);
         }
         let mut out_f = vec![0.0f32; m * n];
         let i8_ns = bench_ns(dur, || gemm_i8(isa, &pq_i8, &a, &sa, &ca, m, &mut out_f));
@@ -260,25 +259,28 @@ fn main() {
         });
         for stages in [1, 2, 4] {
             let mat = StagedPq2::synthetic(n, k, stages, &mut rng);
-            let (lut_ns, scan_ns, c_sh) = mat.run_var(&a, m, dur);
-            let (za_lut_ns, za_scan_ns, z_sh) = mat.run_var(&a_za, m, dur);
-            let (tot, za_tot) = (lut_ns + scan_ns, za_lut_ns + za_scan_ns);
-            let (lp, sp, zsp) = (100.0 * lut_ns / tot, i8_ns / tot, i8_ns / za_tot);
+            let (t_lut, t_scan, t_sh) = mat.run_var(&a, m, false, dur);
+            let (n_lut, n_scan, n_sh) = mat.run_var(&a, m, true, dur);
+            let (f_lut, f_scan, f_sh) = mat.run_var(&a_rot, m, true, dur);
+            let (t_tot, n_tot, f_tot) = (t_lut + t_scan, n_lut + n_scan, fwht_ns + f_lut + f_scan);
+            let (n_d, f_sp) = (100.0 * (n_lut - t_lut) / t_lut, i8_ns / f_tot);
             if !as_json {
                 let tag = format!("({m},{k},{n})");
-                println!("{tag:<14} {stages:>3} {i8_ns:>8.0} | {lut_ns:>7.0} {scan_ns:>7.0} {tot:>7.0} {sp:>4.2}x | {za_lut_ns:>6.0} {za_scan_ns:>7.0} {za_tot:>7.0} {zsp:>4.2}x");
+                println!("{tag:<14} {stages:>3} {i8_ns:>8.0} | {t_tot:>9.0} {n_tot:>9.0} ({n_d:+5.1}%) | {fwht_ns:>7.0} {f_tot:>8.0} {f_sp:>5.2}x");
             } else {
-                let (bpw, sms, ssm, scs) = (
+                let (bpw, sms, t_sp, n_sp) = (
                     stages as f64 * 0.5,
                     i8_ns / sm_ns,
-                    sm_ns / tot,
-                    i8_ns / scan_ns,
+                    i8_ns / t_tot,
+                    i8_ns / n_tot,
                 );
-                let (zlp, zov) = (
-                    100.0 * za_lut_ns / za_tot,
-                    100.0 * (za_lut_ns - lut_ns) / lut_ns,
+                let (t_lp, n_lp, f_lp, f_ov) = (
+                    100.0 * t_lut / t_tot,
+                    100.0 * n_lut / n_tot,
+                    100.0 * (fwht_ns + f_lut) / f_tot,
+                    100.0 * (f_tot - t_tot) / t_tot,
                 );
-                rows.push(format!("{{\"m\":{m},\"k\":{k},\"n\":{n},\"stages\":{stages},\"bpw\":{bpw:.1},\"i8_ns\":{i8_ns:.1},\"small_m_ns\":{sm_ns:.1},\"small_m_speedup\":{sms:.4},\"lut_ns\":{lut_ns:.1},\"scan_ns\":{scan_ns:.1},\"total_ns\":{tot:.1},\"lut_pct\":{lp:.2},\"speedup_vs_i8\":{sp:.4},\"speedup_vs_small_m\":{ssm:.4},\"scan_only_speedup_vs_i8\":{scs:.4},\"centred_shift\":{c_sh},\"zero_anchored\":{{\"lut_ns\":{za_lut_ns:.1},\"scan_ns\":{za_scan_ns:.1},\"total_ns\":{za_tot:.1},\"lut_pct\":{zlp:.2},\"lut_overhead_pct\":{zov:.2},\"speedup_vs_i8\":{zsp:.4},\"shift\":{z_sh},\"parity_exact\":true}},\"parity_exact\":true}}"));
+                rows.push(format!("{{\"m\":{m},\"k\":{k},\"n\":{n},\"stages\":{stages},\"bpw\":{bpw:.1},\"i8_ns\":{i8_ns:.1},\"small_m_ns\":{sm_ns:.1},\"small_m_speedup\":{sms:.4},\"centred_trunc\":{{\"lut_ns\":{t_lut:.1},\"scan_ns\":{t_scan:.1},\"total_ns\":{t_tot:.1},\"lut_pct\":{t_lp:.2},\"speedup_vs_i8\":{t_sp:.4},\"shift\":{t_sh},\"parity_exact\":true}},\"nearest_no_bias\":{{\"lut_ns\":{n_lut:.1},\"scan_ns\":{n_scan:.1},\"total_ns\":{n_tot:.1},\"lut_pct\":{n_lp:.2},\"lut_delta_pct\":{n_d:.2},\"speedup_vs_i8\":{n_sp:.4},\"shift\":{n_sh},\"parity_exact\":true}},\"fwht16_nearest\":{{\"fwht16_ns\":{fwht_ns:.1},\"lut_ns\":{f_lut:.1},\"scan_ns\":{f_scan:.1},\"total_ns\":{f_tot:.1},\"prep_plus_lut_pct\":{f_lp:.2},\"total_delta_pct\":{f_ov:.2},\"speedup_vs_i8\":{f_sp:.4},\"shift\":{f_sh},\"parity_exact\":true}}}}"));
             }
         }
     }
