@@ -144,16 +144,16 @@ require 14m bench-open/assays/commit-lm16/run.sh
 14m assay commit-greedy            3 28 2 8.5
 14m assay commit-lm4               3 28 2 8.5
 14m assay commit-lm16              3 28 2 8.5
-# Entry 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: <= 1% added engine CPU on quiet xbabe0; order 10:35:26Z): #104's
-# ultra-engine-agc (agc-kit/; 1faea9cc..., built at d70d5ed = merged main adc3180) on B0 INT8 decodes each panel73 utterance
-# with --warm-agc --tau-s 5.0 --preroll-ms 500 and with --no-warm-agc, one process per decode, the first arm alternating by
-# utterance and round; the binary's own decode-loop thread CPU (model load excluded), paired per utterance. (Each load
-# re-verifies every model hash, ~0.4 s, so the 730 panel would cost ~16 min a round.)
+# Entry 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: <= 1% added engine CPU on quiet xbabe0; 11:51:13Z: on the v2
+# binary, after 14m): #108's ultra-engine-agc (agc-kit/; 02e1fa4c..., runtime-lane's build of the PR head ee613d5, the binary
+# eval-lane runs C1-C3 on) on B0 INT8 decodes the 730-utterance panel in the shipping mode, one process per arm with --manifest
+# (the AGC level carried across utterances, the decoder reset per clip): --warm-agc --tau-s 5.0 vs --no-warm-agc, the first arm
+# alternating by round; the binary's per-utterance decode-loop thread CPU (model load excluded), paired per utterance.
 require 14n bench-open/assays/agc-kit/ultra-engine-agc
 require 14n bench-open/assays/agc-cpu/run.sh
-14n assay agc-cpu                  1 4  0 4
-14n assay agc-cpu                  2 24 1 4
-14n assay agc-cpu                  3 28 2 4
+14n assay agc-cpu                  1 4  0 7
+14n assay agc-cpu                  2 24 1 7
+14n assay agc-cpu                  3 28 2 7
 # Entry 14o (lead 11:11:19Z: #105's per-chunk wakes stay opt-in until bench-open's paired quiet-xbabe0 receipt; v3-engine-reviewer
 # 10:42:32Z item 3): one live B0 stream paced at 1x, runtime-lane-h47's #105 build of ultra (wake-kit/, 296f469c..., built at the
 # merged head ab0a867), --wake-per-packet (default) vs --wake-per-chunk on 300 s of speech-only DEV audio and 300 s of pink noise
