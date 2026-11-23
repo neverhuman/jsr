@@ -24,7 +24,8 @@
   - An 800 ms idle was rejected: it restarts mid-utterance and duplicated 7 words at hot closes.
 - **Q5, added false words:** 0 words in 30 h of non-speech for both arms. One added word on the stream's gaps puts the bound at 0.1008/h against 0.10/h, so Q5 misses by a hair.
 - **Q4 against C1:** passes on the stream. INCONCLUSIVE on the AO torture sets at their size (−0.27 pp, bound −1.08).
-- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), uclamp pacing (H47-U), and the gate at low input levels (amendment 8, running).
+- **Low input levels (amendment 8):** the gate misses 0.5% / 1.2% / 3.5% of onsets at −20 / −30 / −40 dB. These are mostly items the recogniser fails on anyway: the misses cost 0 / 6 / 9 words over 600 items, while the recogniser's own WER rises from 8.4% to 21.3%. Gated stays ≥ twin at every level.
+- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), and uclamp pacing (H47-U).
 
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
@@ -320,3 +321,32 @@ alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000), scored with t
 | 6 torture sets (T2 g30 pending) | 1,500 | 9.976 vs 10.088%, −0.112 [−0.312, +0.075] | 87.33 vs 87.60%, −0.27 [−1.08, +0.56] |
 | panel, Q (100% speech) | 730 | 8.091 vs 8.084%, +0.007 [−0.240, +0.261] | 90.41 vs 89.73%, +0.69 [−0.41, +1.92] |
 - **Q4 on the torture sets: INCONCLUSIVE** (point −0.27 ≥ −0.5; lower bound −1.08). At 1,500 items the bound is about ±0.8 pp wide; a decisive answer needs tier B's torture sets (600 items per cell). Q4 passes on the stream (+1.01 pp, lower bound +0.57).
+
+### Amendment 8: the gate at low input levels (exploratory; pre-registered at 09:31Z, runs 09:33–09:46Z)
+The intervals in both tables are one-sided 95% bounds. Results: `results/Q_5ca3583_low_levels.json`.
+
+**T1 + T2 torture sets**, 600 items with fricative or quiet onsets after 3 s of silence; gated (G) vs ungated twin (U); 0 identity and 0 re-decode mismatches:
+
+| input gain | onsets missed of 600 (late / whole) | hit words on those items, G vs U | WER U → G, Δ | first word U → G, Δ |
+|---|---|---|---|---|
+| 0 dB | 0 / 0 | — | 8.38 → 8.25%, −0.13 [−0.36, +0.11] | 90.00 → 90.67%, +0.67 [−0.49, +1.85] |
+| −20 dB | 3 / 0 | 28 vs 28 of 30 | 9.47 → 9.17%, −0.30 [−0.58, −0.01] | 86.50 → 88.50%, +2.00 [+0.53, +3.48] |
+| −30 dB | 7 / 0 | 108 vs 114 of 128 | 12.06 → 11.78%, −0.28 [−0.70, +0.11] | 78.67 → 81.67%, +3.00 [+1.28, +4.81] |
+| −40 dB | 15 / 6 | 168 vs 177 of 401 | 21.35 → 20.71%, −0.63 [−1.13, −0.19] | 63.00 → 64.83%, +1.83 [−0.49, +4.20] |
+
+**The tier G panel** (730 utterances of contiguous speech; G stays awake, 1–4 wakes, duty 100.1–100.2%):
+
+| input gain | WER U → G, Δ | first word U → G, Δ |
+|---|---|---|
+| 0 dB | 8.091 → 8.091%, 0 | 90.41 → 90.41%, 0 |
+| −10 dB | 7.987 → 7.987%, 0 | 89.18 → 89.18%, 0 |
+| −20 dB | 8.672 → 8.756%, +0.083 [+0.027, +0.152] | 89.04 → 88.90%, −0.14 [−0.41, 0.00] |
+| −30 dB | 10.188 → 10.022%, −0.166 [−0.421, +0.102] | 86.71 → 86.58%, −0.14 [−1.10, +0.82] |
+
+- **Reading rule:** G − U first-word recall is never below −0.5 pp, at any level. **The rule does not call for recalibrating the gate.**
+- **The gate does miss onsets at low level:** 0.5%, 1.2% and 3.5% of them at −20, −30 and −40 dB.
+  - The missed items are mostly ones the recogniser itself fails on at that level. At −40 dB the gate misses 6 whole utterances, and the twin decodes only 2 of their 167 words.
+  - Words the misses cost, against the twin: 0, 6 and 9 across the 600 items at −20, −30 and −40 dB.
+- **The recogniser's own loss is much larger.** U's WER goes from 8.4% to 12.1% at −30 dB and 21.3% at −40 dB. That is the AGC's job, after the gate.
+- **Caveat:** the twin decodes continuously without resets, so G − U mixes the gate's misses with the gain from a fresh start at each wake. The direct cost of the misses is the hit-word column.
+- **Panel:** in contiguous speech the session seldom closes. The one extra close at −20 dB costs +0.08 pp of WER.
