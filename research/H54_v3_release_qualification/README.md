@@ -1,0 +1,92 @@
+# H54: v3 release qualification
+
+**Status: RUNNING (draft by paper-lane, 2026-11-23 about 14:00Z).** H54 registers no gates of its own. It collects the receipts behind the v3.0.0 release decision, measured against gates that other lanes registered before the data existed:
+- release gates E1-E4: eval-lane, 09:02:20Z;
+- S2 gates (a) and (b) and the release-candidate rule: eval-lane, 10:04:38Z;
+- gate (b) Amendment 1: eval-lane, 11:23:12Z;
+- warm-AGC criteria: claude-lead, 09:34:43Z, amended 11:48:10Z;
+- release-decoder settings: claude-lead, 11:12:38Z.
+
+Every number is **exploratory, LibriSpeech DEV only**. The test sets are sealed. The release notes are [`docs/ultra/releases/v3.0.0.md`](../../docs/ultra/releases/v3.0.0.md).
+
+## Question
+Does one frozen artifact (weights + decoder + scorer) pass every registered v3 release gate? And what exactly ships as v3.0.0, in what default state, with which limits?
+
+## Setup
+- **Artifacts:**
+  - **A:** B0 (A1 step 49,000 EMA, INT8 `4701787c…`) + the release decoder. This is the fallback.
+  - **B:** the S2 release candidate (RC1, `H53_RC1_s7919`) + the release decoder. This is the preferred artifact.
+- **Release decoder:** `ultra-engine-commit`, binary sha256 `9a142e8e…` (main bb1071a).
+  - **Stream:** greedy, chunk 4.
+  - **Commit pass:** chunk 16, beam 16, M5 / LODR 0.80 / 0.60, tail pad 320 ms, 40 s cap. M5.ulm `72a621c2…`.
+  - **Scorer:** `ultra-score` `d784f8ca…`.
+- **Paired statistics:** against B0 INT8's 8,773 edits. Paired speaker-cluster bootstrap, 10,000 replicates, seed 20261122. Brackets are one-sided 95% bounds unless a row says otherwise.
+- **Hosts (role labels):**
+  - **WER:** full dev on x2 (runtime-lane) and x0 (bench-open), and on H0 and the 24 GB cards (eval-lane).
+  - **Timing and energy:** quiet holds on x0 (Zen 2, one core, the owner's timers paused), with energy's 1 Hz log.
+- **The release decision** (eval-lane's plan, 09:02:20Z):
+  - a row is eligible if it passes E1 and E2;
+  - the bundle is judged against B0;
+  - effect sizes are never added across rows.
+
+## Results: qualification receipts
+Paths are on the data drive unless they start with `research/` or `docs/`. Full sha256 values are in [`MANIFEST`](MANIFEST).
+
+| # | Check | Registered rule | Artifact | Result | Verdict | Receipt (sha256 prefix) | Posted |
+|---:|---|---|---|---|---|---|---|
+| 1 | **E1, WER** | ≤ 7,895 edits; pooled upper < 0; dev-clean and dev-other uppers ≤ +0.20 pp | A (binary 9a142e8e, 40 s cap) | **6,455 edits = 6.087%** (3.236 / 9.121). Pooled −2.186 [−2.435, −1.943]; dev-clean −1.225 [−1.427, −1.043]; dev-other −3.209 [−3.702, −2.747] | **PASS** | `evals/eval-lane/h41/verdicts/release-row-B0-CP-LM-pad320-bb1071a.json` (0c11b857). Input `runtime-lane/release_bb1071a_pad320_fulldev/…committed.score-input.jsonl` (65fb4ddd). Run receipt `…/release_bb1071a_pad320_fulldev.receipt.json` (d860ea86) | eval-lane 12:08:17Z |
+| 2 | Second-host reproduction | same text from a second host | A on #106's binary (fb8a95e5, 30 s cap) | 6,471 edits on x0, equal edit for edit to runtime-lane's row on that binary. The 40 s cap (row 1) changed 10 long utterances, for 16 fewer edits | reproduced | `opponents/bench-open/release-eval/rows/B0-A1-49000/ROW.json` (137376ab) | bench-open 11:49:14Z |
+| 3 | INT8 parity of the LM final pass | native minus PyTorch within noise | #106 binary, C half, pad 0 | 5.981% against PyTorch's 5.975%: +0.0056 pp [−0.043, +0.057]. With the LM off, the commit path is byte-identical to #76 on 100 / 100 | parity | `runtime-lane/pr106_c_half_parity/pr106_c_half_parity.json` (2125f120) | runtime-lane-h45 11:24:00Z |
+| 4 | **E2, latency** | protected paced first-correct-word p95 ≤ +20 ms over B0, median not higher | A | The provisional stream equals B0 INT8 text for text (5,567 / 5,567), so E2 is B0's stream by construction | **PASS (by construction)** | row 1's receipt | eval-lane 12:08:17Z; claude-lead 11:33:32Z |
+| 5 | E2 for streaming L4 (14k) | same | B0 + streaming L4 | p95 **+40.1 ms** [−159.8, +320.4]; median −0.0 ms | **FAIL**, so L4 is not a release option | `evals/eval-lane/h43/protected-e2/14k-pooled-l4-vs-b0.paced.json` (c9e0d524) | eval-lane 11:33:00Z; claude-lead 11:33:32Z |
+| 6 | **Timing, memory, energy (14m)** | quiet x0, 1 core, 730-utterance panel, 3 rounds | A | Medians of 3 clean rounds: **0.0702 CPU-s per audio-s** (stream 0.0339 + final 0.0360) = **14.3×** (rounds within ±0.15%); **686 MiB**; final text p50 / p95 / max **210 / 589 / 1,127 ms**; core / package **0.72 / 1.79 W** per stream. The rep run after the 12:31Z CI lapse was repeated | measured | `opponents/bench-open/watts-join/14m.jsonl` (90a58ddd; all 9 reps with input hashes). Per-run dirs on H0 `/dev/shm/bench-open/xbabe0/runs-v3/1c-assay/cold/round-N/commit-*/` | bench-open 14:01:25Z |
+| 7 | Long-session cost | flat in the shipped mode | A's binary | 0.0696-0.0701 CPU-s per audio-s in each 10-minute window of an 87.7-minute session (730 endpoint resets); slope +0.1% per hour | flat | the 14m runs' `commit.jsonl` (hashes in `14m.jsonl`). Code reading: `commit.rs` `reset_segment()` | bench-open 13:35:58Z; claude-lead 13:33:13Z |
+| 8 | S2 gate (a), S2a-BP1 | stop if chunk 4 is > +0.20 pp worse than B0 | S2a step 5,500, EMA | 7.995% against 8.302: −0.307 [−0.402, −0.215] | CONTINUE | `evals/eval-lane/h41/verdicts/s2-gate-a-BP1.json` (fa856783) | eval-lane 11:14:44Z |
+| 9 | S2 gate (a), S2a-BP2 | same | S2a step 10,500, EMA | 7.997%: −0.306 [−0.388, −0.223] | CONTINUE (plateau) | `…/s2-gate-a-BP2.json` (deb7b6df) | eval-lane 12:21:34Z |
+| 10 | S2 gate (a), S2b-BP1 | same | S2b step 5,500, EMA (source 62cf5017…) | 7.584%: −0.719 [−0.839, −0.601] | CONTINUE | `…/s2-gate-a-S2b-BP1.json` (c31d9fff) | eval-lane 13:16:04Z |
+| 10b | S2 gate (a), S2b-BP2 | same | S2b step 10,500, EMA (source 08670104…) | 7.490%: −0.813 [−0.929, −0.702] | CONTINUE | `…/s2-gate-a-S2b-BP2.json` (d67e6bdf) | eval-lane 14:04:35Z |
+| 11 | **S2 gate (b), stage 1** (Amendment 1) | intersection-union test at one-sided 97.5%: c4 upper < 0, c8 upper ≤ 0.094, c16 upper ≤ 0.20 | S2b-BP1 stable EMA | c4 −0.719 [upper −0.583]; c8 −0.775 [−0.649]; c16 −0.707 [−0.583] | **PASS**: S2 is the release model, RC1 goes ahead | `…/gate-b-S2b-BP1.json` (1f8c6b42) | eval-lane 13:24:51Z; claude-lead 13:25:12Z |
+| 12 | Branch point with the release decoder (reference) | none (context) | S2-BP1 EMA INT8 (0f35bfb1) | 5.898% (6,255 edits): −0.189 [−0.282, −0.096] against row 1 | reference | `opponents/bench-open/release-eval/rows/H53_S2_BP1-ema/ROW.json` (00bdc4bb), `paired_vs_B0_release_bb1071a.json` (44240ccb) | bench-open 12:26:24Z |
+| 13 | **Candidate rule + A6 look** | EMA unless raw is ≥ 0.05 pp better on S. Then on the confirmation half: upper < 0. On full-dev INT8: pooled upper < 0, splits ≤ +0.20. Latency: median not higher, paired p95 ≤ +20 ms, guards within 0.50 pp. CPU ≤ 1.05×. INT8 minus PyTorch within ±0.05 pp. c16 upper ≤ +0.20 | B (RC1) | *pending* | *pending* | *pending* | eval-lane, about 15:15Z |
+| 14 | **E1 on the candidate** | as row 1 | B | *pending* | *pending* | *pending* | eval-lane / bench-open |
+| 15 | **Candidate timing (14p)** | as row 6 | B | *pending* | *pending* | *pending* | bench-open, about 15:20-16:00Z |
+| 16 | Sentinel-0 CPU (14i): Q2, Q6 | Q2 gated / ungated ≤ 0.02 on non-speech; Q6 ≤ 1.05 on speech | #77 session 5ca3583, replay 500 / idle 1,500 | Q2 0.0036; Q6 1.003. On the 1 h, 5%-duty cell: 0.029 core W per stream against 0.50 W for C1 (−94%); package about 0.09 against 1.59 W | **PASS** (Q2, Q6) | `opponents/bench-open/watts-join/14i_q_cpu_summary.json` (6f938e7e) | bench-open 12:16:50Z |
+| 17 | Sentinel-0 Q4b, tier B torture | first-word recall, gated − C1: point < −0.5 pp fails | same | **−0.81 pp** [−1.40, −0.22] on 13,400 items; N10 noise −2.26 pp | **FAIL**, so the gate is opt-in | `research/H47_always_on_sleep_gate/results/Q4b_tierB_torture.json` (e5e4b825, in the docs batch) | h47-sleep 10:34:40Z; claude-lead 10:35:26Z |
+| 18 | Sentinel-0 Q5, added false words | Garwood one-sided 95% upper ≤ 0.10 per hour | same | 0 words in 30 h of non-speech; one added word on the stream's gaps gives an upper bound of 0.1008 per hour | NOT PASSED (by 0.0008 per hour) | `research/H47_always_on_sleep_gate/results/Q_5ca3583_r500_i1500_Q5_30h.json` (bb1e0f7a, in the docs batch) | h47-sleep; claude-lead 09:39:33Z |
+| 19 | Sentinel-0 Q5b (≥ 50 h fresh) | as Q5 | same | no result posted. It was running on the Mac when h47-sleep went unstaffed (10:43Z) | open | none | none |
+| 20 | Warm AGC C1 + C2 (fresh 730-utterance panel) | C1: ≥ 80% recovery of WER and first-word loss at −20 / −30 dB. C2: 0 dB WER upper ≤ +0.20 pp, first-word error ≤ +0.5 pp | binary 02e1fa4c (#108), warm manifest mode | Recovery 121% / 101% (WER), 102% (first word at −30 dB); 0 dB +0.034 pp [upper +0.120]; AGC off is identical on 2,920 / 2,920 | **PASS** (warm). Cold per clip, reported only: C1 FAIL (12-13%), C2 pass | `evals/eval-lane/h43/gain-panel-fresh/v2-02e1fa4cd1f7/primary/criteria_1_2.json` (ee627a19); `…/secondary/criteria_1_2.json` (e598d99a) | eval-lane 12:59:42Z |
+| 21 | Warm AGC C3, the 27.56 h stream | \|on − off\| ≤ 0.087 pp, no new duplicates | same, 164 pieces of about 10 min, warm within each (design registered at 13:04:13Z) | 11.559% on against 11.112% off: **+0.447 pp**; inserted repeats 10 against 8. 121 of 164 pieces worse | **FAIL**, so warm AGC is opt-in | `evals/eval-lane/h43/agc-c3/pieces-02e1fa4cd1f7/criterion3.json` (e65699cf) | eval-lane 14:05:21Z; claude-lead 14:05:37Z |
+| 22 | Warm AGC C4, CPU | ≤ 1% added engine CPU, quiet x0 | same | not run: dropped as moot after C3 failed | n/a | none | claude-lead 14:05:37Z |
+| 23 | Level sensitivity (B0) | the gain-stress trigger: > 2× spread | B0 INT8, 160 ms, 730-utterance panel | −20 dB **+1.14 pp** [+0.87, +1.41]; −30 dB **+3.05 pp** [+2.58, +3.54]; first-word error 8.49 / 11.51 / 16.44% | trigger fired, so it is listed as a limit | `evals/eval-lane/h43/gain-panel/summary.json` (d19b35fd) | eval-lane 09:17:59Z |
+| 24 | Paced live energy (14f) | none (context) | B0 greedy, `ultra stream --pace 1.0` | core 0.545 W (speech) / 0.500 W (pink −30 dBFS) per stream; package 2.04 / 1.97 W; 0.063 CPU-s per audio-s | reference | `opponents/bench-open/watts-join/power_holds_14f.summary` (2a83180f) | bench-open 09:09:50Z |
+| 25 | Libri-Light data | overlap verdicts logged before use; sealed manifests | small and medium, v1.1 R0 labels | small: 99,109 utterances, 378.65 h. Medium: 888,265 utterances, 3,395.81 h. Overlap verdicts against all four dev and test sets are in `docs/ultra/LOOKS.jsonl` | sealed | small `SHA256SUMS` 8f371a65; medium `SHA256SUMS` 7e87f000; H52 README and MANIFEST | h52-librilight 11:44:38Z |
+
+## Not done for v3.0.0
+These are items from the v3 plan's Phase 9 ([`H43 PLAN`](../H43_v3_baseline_and_measurement/PLAN.md)) that have no receipt yet:
+- **Whole-device watts by duty level** on the owner's metered target device. The device is still pending from the owner.
+- **The gross 5%-duty energy endpoint (E3)** from protected paired holds.
+- **A 24 h paced soak** of the release artifact.
+- **The overnight gated matrix:** B0 / new weights, each with and without the sleep gate, with the compact LM and with the PQ kernels.
+- **Competitor rows beside the release artifact.** The paper's table draws ULTRA as A1 step 30,000 on a greedy stream. The release artifact has no row there yet.
+- **The opt-in features composed with the commit pass in one binary.** Each feature has its own entry point (see the release notes).
+
+## What went wrong or surprised us
+- **The streaming LM looked like the release path until E2.** It costs only 2% more CPU, but its p95 first-correct word fails the +20 ms rule. That p95 is fragile at n ≈ 73. Keeping the LM out of the stream and in the endpoint commit pass sidestepped the question and gave a larger WER gain.
+- **A cold AGC is not a warm AGC, and a speech panel is not a stream.** #104's first binary failed C1 because it ran one process per clip. The fixed binary (#108) passed C1 and C2 in warm manifest mode, then failed C3 on the 27.56 h stream (+0.447 pp). The likely cause is that its level estimate tracks the noise gaps between utterances. The first word after power-on is still uncorrected.
+- **More LibriSpeech alone made B0 worse** (A1C +0.08 to +0.19 pp). S2's gain over B0 is measured only as a whole row: the new data, dp 0.005, the extra training and the cooldown together. dp's own WER effect was never isolated, because the factorial was cut.
+- **Never-reset decoding grows super-linearly** (25.9× → 15.3× real time from 600 s to 1,800 s, AGC off). The release decoder is not exposed, because it resets at every endpoint, but an un-reset continuous mode would be.
+- **Operations:** the D0 / D1 DiLoCo proof failed twice on a transport defect, and its runs were voided. An x0 runner crash released the owner's CI jobs for 88 s (12:31Z), so one 14m rep was voided and repeated.
+
+## Decision / consequence
+- **v3.0.0's decoder** is the greedy chunk-4 stream with the chunk-16 commit pass (beam 16 + M5 / LODR). Streaming L4 stays a documented row only.
+- **v3.0.0's model** is S2's RC1 if row 13 passes. Otherwise it is B0.
+- **The Sentinel-0 gate and chunk-coalesced wakes** ship opt-in.
+- **Warm AGC** ships opt-in: C3 failed (row 21).
+- **The tag** waits for this table's *pending* rows and for the notes PR to merge. claude-lead and v3-integrator tag it; paper-lane does not.
+
+## Pointers
+- Release notes: [`docs/ultra/releases/v3.0.0.md`](../../docs/ultra/releases/v3.0.0.md).
+- Receipts with full sha256: [`MANIFEST`](MANIFEST).
+- Training: `research/H53_v3_trunk_and_capacity/` (Amendments 5-7, 6.1, and gate (b) Amendment 1). Data: `research/H52_libri_light_semi_supervised/`. Decoder: `research/H45_zero_training_wins/`, `research/H46_lm_and_text/`, [`H42`](../H42_ngram_lm/README.md). Always-on: `research/H47_always_on_sleep_gate/`. All of these land with the docs batch.
+- Scoreboard feed: `/mnt/xbabe3-external/jsr/v3-scoreboard/scoreboard.json`. Its curated rows predate the native release-decoder row, so for that row use row 1 above.
+- Coordination: `AGENT_CHAT.md` (local). The posts are cited by role and UTC time.
