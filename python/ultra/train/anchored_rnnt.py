@@ -171,3 +171,30 @@ def anchored_pruned_rnnt(model, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, anc
 
         zl = band_zloss(logits, enc_lens)
     return nll, simple, zl, diag
+
+
+def anchor_kwargs(cfg, batch) -> dict:
+    """The trainer's loss kwargs for H48c: empty (unchanged call) unless the anchored tilt is on
+    (cfg.anchor_kappa > 0) and the batch carries anchors."""
+    if cfg.anchor_kappa <= 0 or batch.anchor is None:
+        return {}
+    return {"anchor": batch.anchor, "anchor_spec": AnchorLoss(cfg.anchor_kappa, cfg.anchor_margin,
+                                                              cfg.anchor_cap, cfg.anchor_simple)}
+
+
+def load_anchors(cfg, tok_rnnt):
+    """H48c MFA anchor store for the loader, or None when the anchored latency loss is off."""
+    if cfg.anchor_kappa > 0 and not cfg.mfa_anchors:
+        raise ValueError("anchor_kappa > 0 needs mfa_anchors (the train MFA side file)")
+    if cfg.anchor_kappa > 0 and cfg.rnnt_loss != "pruned":
+        raise ValueError("the MFA-anchored latency loss needs rnnt_loss=pruned (k2)")
+    if not cfg.mfa_anchors or cfg.anchor_kappa <= 0:
+        return None
+    import json
+
+    from train.mfa_anchors import MfaAnchors
+
+    store = MfaAnchors(cfg.mfa_anchors, tok_rnnt)
+    print(json.dumps({"kind": "mfa_anchors", "path": cfg.mfa_anchors, "sha256": store.sha256,
+                      "utterances": len(store), "speeds": store.speeds}), flush=True)
+    return store

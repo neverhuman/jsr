@@ -9,6 +9,8 @@ import math
 
 import torch
 
+from train.anchored_rnnt import anchor_kwargs
+
 
 def ctc_view(self, x, b, chunk, cr_target) -> dict:
     """Encoder and CTC head only, on one already augmented view (the half form's second view):
@@ -57,7 +59,7 @@ def two_view_step(self, batch, b, gen: torch.Generator) -> dict:
           "simple_detach": self.step < c.prune_hold, "cr_ctc_weight": c.cr_ctc_weight,
           **({"delay_penalty": c.delay_penalty} if c.delay_penalty else {}),
           **({"ctx": b.ctx} if getattr(b, "ctx", None) is not None else {}),
-          **self._anchor_kw(b)}  # H48c MFA-anchored tilt (empty when off)
+          **anchor_kwargs(self.cfg, b)}  # H48c MFA-anchored tilt (empty when off)
     cuda = self.device.type == "cuda"
     ac = {"device_type": self.device.type, "dtype": torch.bfloat16, "enabled": cuda}
 

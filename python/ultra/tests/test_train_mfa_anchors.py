@@ -228,7 +228,8 @@ def test_collate_pads_anchors_and_loader_hook_attaches_them(tmp_path):
 def test_trainer_runs_the_anchored_loss_and_keeps_calls_unchanged_when_off(tmp_path):
     from train.asr import PRESETS
     from train.data import Example, FixedBatches
-    from train.trainer import TrainConfig, Trainer, _anchors
+    from train.anchored_rnnt import anchor_kwargs, load_anchors as _anchors
+    from train.trainer import TrainConfig, Trainer
 
     pytest.importorskip("k2")
     exs = [Example(f"u{i}", "hi there", torch.randn(48, 80), [1, 2, 3], [1, 2],
@@ -244,10 +245,10 @@ def test_trainer_runs_the_anchored_loss_and_keeps_calls_unchanged_when_off(tmp_p
 
     off = trainer("off")
     batch = next(iter(off.source.iterate(off.pos)))[1]
-    assert off._anchor_kw(batch) == {}  # kappa 0: the loss call is unchanged
+    assert anchor_kwargs(off.cfg, batch) == {}  # kappa 0: the loss call is unchanged
     assert off._watch_sig() == trainer("off2")._watch_sig()
     on = trainer("on", anchor_kappa=0.05, anchor_margin=1)
-    kw = on._anchor_kw(batch)
+    kw = anchor_kwargs(on.cfg, batch)
     assert kw["anchor_spec"].kappa == 0.05 and kw["anchor"].shape == batch.rnnt.shape
     assert on._watch_sig() != off._watch_sig()
     r = on.train_step(batch)
