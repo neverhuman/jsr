@@ -1,4 +1,5 @@
-//! SHA-256 verified binary serialisation for `ultra.lm-ngram/v1`.
+//! SHA-256 verified binary serialisation for `ultra.lm-ngram/v2` (bit-packed trie)
+//! with full backward-compatible loading of `ultra.lm-ngram/v1`.
 
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
@@ -6,15 +7,24 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
+use super::bitvec::BitVec;
 use super::{LevelVals, NgramLm, TrieLevel, MAX_ORDER};
 use crate::EngineError;
 
 const MAGIC: &[u8; 8] = b"ULTRLM01";
 
 pub(super) fn save(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
+    save_version(lm, path, 2)
+}
+
+pub(super) fn save_v1(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
+    save_version(lm, path, 1)
+}
+
+fn save_version(lm: &NgramLm, path: &Path, version: u32) -> Result<(), EngineError> {
     let mut payload = Vec::new();
     payload.extend_from_slice(MAGIC);
-    write_u32(&mut payload, 1);
+    write_u32(&mut payload, version);
     write_u32(&mut payload, lm.vocab as u32);
     write_u32(&mut payload, lm.order as u32);
     let flags: u32 = u32::from(lm.quantized) | (u32::from(!lm.lodr_bigram.is_empty()) << 1);
@@ -36,8 +46,12 @@ pub(super) fn save(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
     }
     for lv in &lm.levels {
         write_u32(&mut payload, lv.len() as u32);
-        for &t in &lv.tok {
-            write_u16(&mut payload, t);
+        if version == 1 {
+            for i in 0..lv.len() {
+                write_u16(&mut payload, lv.tok.get_u16(i));
+            }
+        } else {
+            write_bitvec(&mut payload, &lv.tok);
         }
         match &lv.vals {
             LevelVals::Q8 {
@@ -67,8 +81,12 @@ pub(super) fn save(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
             }
         }
         write_u32(&mut payload, lv.child_off.len() as u32);
-        for &o in &lv.child_off {
-            write_u32(&mut payload, o);
+        if version == 1 {
+            for i in 0..lv.child_off.len() {
+                write_u32(&mut payload, lv.child_off.get_u32(i));
+            }
+        } else {
+            write_bitvec(&mut payload, &lv.child_off);
         }
     }
     for &x in &lm.lodr_bigram {
@@ -101,7 +119,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
         return Err(EngineError::Format("bad LM magic header".into()));
     }
     let version = cur.read_u32()?;
-    if version != 1 {
+    if version != 1 && version != 2 {
         return Err(EngineError::Unsupported(format!(
             "unsupported LM binary version {version}"
         )));
@@ -134,10 +152,16 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     }
     let uni_child_off = cur.read_u32_vec(uco_len)?;
 
+    let tok_bits_default = BitVec::bits_needed(vocab as u32);
     let mut levels = Vec::with_capacity(order.saturating_sub(1));
     for lv_idx in 0..order.saturating_sub(1) {
         let n = cur.read_u32()? as usize;
-        let tok = cur.read_u16_vec(n)?;
+        let tok = if version == 1 {
+            let v = cur.read_u16_vec(n)?;
+            BitVec::from_u16_slice(&v, tok_bits_default)
+        } else {
+            read_bitvec(&mut cur, n)?
+        };
         let vals = if quantized {
             let mut prob_lut = Box::new([0.0f32; 256]);
             let mut bow_lut = Box::new([0.0f32; 256]);
@@ -167,7 +191,17 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
                 n + 1
             )));
         }
-        let child_off = cur.read_u32_vec(co_len)?;
+        let child_off = if version == 1 {
+            let v = cur.read_u32_vec(co_len)?;
+            if v.is_empty() {
+                BitVec::empty()
+            } else {
+                let max_off = *v.last().unwrap_or(&0);
+                BitVec::from_u32_slice(&v, BitVec::bits_needed(max_off))
+            }
+        } else {
+            read_bitvec(&mut cur, co_len)?
+        };
         levels.push(TrieLevel {
             tok,
             vals,
@@ -187,9 +221,9 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
         )));
     }
     if order > 1 {
-        validate_csr(&uni_child_off, levels[0].len() as u32)?;
+        validate_csr_slice(&uni_child_off, levels[0].len() as u32)?;
         for i in 0..levels.len().saturating_sub(1) {
-            validate_csr(&levels[i].child_off, levels[i + 1].len() as u32)?;
+            validate_csr_bitvec(&levels[i].child_off, levels[i + 1].len() as u32)?;
         }
     }
     Ok(NgramLm {
@@ -206,7 +240,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     })
 }
 
-fn validate_csr(offs: &[u32], child_len: u32) -> Result<(), EngineError> {
+fn validate_csr_slice(offs: &[u32], child_len: u32) -> Result<(), EngineError> {
     if offs.is_empty() || *offs.last().unwrap_or(&0) != child_len {
         return Err(EngineError::Format("CSR offset sentinel mismatch".into()));
     }
@@ -216,6 +250,41 @@ fn validate_csr(offs: &[u32], child_len: u32) -> Result<(), EngineError> {
         }
     }
     Ok(())
+}
+
+fn validate_csr_bitvec(offs: &BitVec, child_len: u32) -> Result<(), EngineError> {
+    if offs.is_empty() || offs.get_u32(offs.len() - 1) != child_len {
+        return Err(EngineError::Format("CSR offset sentinel mismatch".into()));
+    }
+    let mut prev = offs.get_u32(0);
+    for i in 1..offs.len() {
+        let cur = offs.get_u32(i);
+        if prev > cur {
+            return Err(EngineError::Format("non-monotone CSR offsets".into()));
+        }
+        prev = cur;
+    }
+    Ok(())
+}
+
+fn write_bitvec(out: &mut Vec<u8>, bv: &BitVec) {
+    out.push(bv.bits);
+    let nw = bv.disk_words();
+    write_u32(out, nw as u32);
+    for &w in &bv.words[..nw] {
+        out.extend_from_slice(&w.to_le_bytes());
+    }
+}
+
+fn read_bitvec(cur: &mut Reader<'_>, len: usize) -> Result<BitVec, EngineError> {
+    let bits = cur.read_bytes(1)?[0];
+    let nw = cur.read_u32()? as usize;
+    let words = cur.read_u64_vec(nw)?;
+    BitVec::from_raw(bits, len, words).ok_or_else(|| {
+        EngineError::Format(format!(
+            "corrupt bit-packed vector bits={bits} len={len} words={nw}"
+        ))
+    })
 }
 
 fn write_u16(out: &mut Vec<u8>, v: u16) {
@@ -270,6 +339,12 @@ impl<'a> Reader<'a> {
         let b = self.read_bytes(n * 4)?;
         Ok(b.chunks_exact(4)
             .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect())
+    }
+    fn read_u64_vec(&mut self, n: usize) -> Result<Vec<u64>, EngineError> {
+        let b = self.read_bytes(n * 8)?;
+        Ok(b.chunks_exact(8)
+            .map(|c| u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]))
             .collect())
     }
     fn read_f32_vec(&mut self, n: usize) -> Result<Vec<f32>, EngineError> {

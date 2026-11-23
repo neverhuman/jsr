@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+use super::bitvec::BitVec;
 use super::{LevelVals, NgramLm, TrieLevel, MAX_ORDER};
 use crate::EngineError;
 
@@ -299,10 +300,18 @@ fn build_from_parsed(
                 bow: bows,
             }
         };
+        let tok_bits = BitVec::bits_needed(vocab as u32);
+        let tok_bv = BitVec::from_u16_slice(&tok, tok_bits);
+        let child_off_bv = if child_off.is_empty() {
+            BitVec::empty()
+        } else {
+            let max_off = *child_off.last().unwrap_or(&0);
+            BitVec::from_u32_slice(&child_off, BitVec::bits_needed(max_off))
+        };
         levels.push(TrieLevel {
-            tok,
+            tok: tok_bv,
             vals,
-            child_off,
+            child_off: child_off_bv,
         });
     }
     Ok(NgramLm {
