@@ -485,7 +485,8 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     assert "zipformer-int8" in open_arm(tmp_path, "r0-zipformer-int8-w8").stdout.split("--\n")[1]
     a1 = open_arm(tmp_path, "jsr-a1-30000-ema-int8").stdout.split("\n")
     assert a1[0].endswith("ultra-cold-wav-457a4db7") and a1[2].endswith("opponents/models/A1-30000-ema/int8")
-    for arm, folder in (("jsr-a1-49000-ema-int8", "A1-49000-ema"), ("jsr-f1-60000-ema-int8", "F1-60000-ema")):
+    for arm, folder in (("jsr-a1-49000-ema-int8", "A1-49000-ema"), ("jsr-f1-60000-ema-int8", "F1-60000-ema"),
+                        ("jsr-arm13a-ema-int8-c1", "arm13a-ema-c1"), ("jsr-arm13a-ema-int8-c2", "arm13a-ema-c2")):
         final = open_arm(tmp_path, arm).stdout.split("\n")
         assert final[0].endswith("ultra-cold-wav-457a4db7") and final[2].endswith(f"opponents/models/{folder}/int8")
     ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")

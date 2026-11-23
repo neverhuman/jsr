@@ -78,6 +78,16 @@ SYSTEMS = {
         "JSR F1 60000 EMA INT8", "JSR F1 final INT8", "JsrFoneFinal", "ultra-engine e2ef608 (ultra-cold-wav)",
         "streaming", "ours",
         "F1 step 60000 EMA (F1 final, multirate S_MR), prepared INT8, greedy, 20 ms packets (TIMING entry 14c)"),
+    "jsr-arm13a-ema-int8-c1": (
+        "JSR arm 13a EMA INT8, chunk 1", "JSR 13a INT8 c1", "JsrThirteenAcOne", "ultra-engine e2ef608 (ultra-cold-wav)",
+        "streaming", "ours",
+        "arm 13a (delay penalty 0.01) step 8000 EMA, prepared INT8, greedy, chunk 1 = 40 ms (arch.json chunk fields "
+        "set to 1, weights unchanged), 20 ms packets (TIMING entry 14d)"),
+    "jsr-arm13a-ema-int8-c2": (
+        "JSR arm 13a EMA INT8, chunk 2", "JSR 13a INT8 c2", "JsrThirteenAcTwo", "ultra-engine e2ef608 (ultra-cold-wav)",
+        "streaming", "ours",
+        "arm 13a (delay penalty 0.01) step 8000 EMA, prepared INT8, greedy, chunk 2 = 80 ms (arch.json chunk fields "
+        "set to 2, weights unchanged), 20 ms packets (TIMING entry 14d)"),
     "jsr-d2e-16457-int8": (
         "JSR D2e 16457 INT8", "JSR D2e INT8", "JsrDtwoE", "ultra-engine e2ef608 (ultra-cold-wav)", "streaming", "ours",
         "D2e step 16457, prepared INT8, greedy, 20 ms packets (session anchor)"),
@@ -90,7 +100,8 @@ ANCHORS = {"jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8
 # The paper's variant names where they differ from the arm names (the anchors join the primary rows).
 PAPER_VARIANT = {"jsr-h22ctl-79800-ema-int8": "h22ctl-79800-ema-int8", "jsr-d2e-16457-int8": "d2e-16457-int8",
                  "r0-zipformer-int8": "r0-int8", "jsr-a1-30000-ema-int8": "a1-30000-ema-int8",
-                 "jsr-a1-49000-ema-int8": "a1-49000-ema-int8", "jsr-f1-60000-ema-int8": "f1-60000-ema-int8"}
+                 "jsr-a1-49000-ema-int8": "a1-49000-ema-int8", "jsr-f1-60000-ema-int8": "f1-60000-ema-int8",
+                 "jsr-arm13a-ema-int8-c1": "arm13a-ema-int8-c1", "jsr-arm13a-ema-int8-c2": "arm13a-ema-int8-c2"}
 SHARED_MODEL = ("vosk-",)  # --workers N shares one loaded model between N recogniser threads
 PANEL_LABEL = {
     "full": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
