@@ -186,6 +186,7 @@ def repetition(run):
         "frequency_khz": mean_frequency_khz(run), "loadavg": [guard["loadavg_before"][0], guard["loadavg_after"][0]],
         "recogniser_s": (json.loads((run / "trace.summary.json").read_text())["recogniser_seconds"]
                          if (run / "trace.summary.json").is_file() else None),
+        "harness_commit": (run / "harness.commit").read_text().strip() if (run / "harness.commit").is_file() else None,
     }
     if (run / "score.json").is_file():
         score = json.loads((run / "score.json").read_text())["system_a"]
@@ -350,6 +351,9 @@ def base_row(variant, arm, threads, parallel, reps, total, session):
         "label": "exploratory", "session": session,
         "source": str(mid["run"] / "measurement.json"), "receipt_sha256": sha256(mid["run"] / "measurement.json"),
     }
+    commits = sorted({rep["harness_commit"] for rep in reps if rep.get("harness_commit")})
+    if commits:
+        row["harness_commits"] = commits
     if mid["panel"] != "full":
         row.update(timing_workload=PANEL_LABEL[mid["panel"]], timing_workload_digest=mid["workload_digest"],
                    timing_audio_seconds=mid["audio_seconds"])
