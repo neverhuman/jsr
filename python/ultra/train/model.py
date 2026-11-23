@@ -59,6 +59,7 @@ class EncoderConfig:
     layer_scale_init: float = 0.0  # >0: residual LayerScale (folds into w2/out/pw2 at export)
     stage_left: tuple[int, ...] = ()  # optional (25Hz, 12.5Hz, 6.25Hz) left contexts; () = default
     inter_ctc_vocab: int = 0  # >0: Self-Conditioned InterCTC head+feedback after lower_blocks
+    layer_drop: float = 0.0  # H57 Factor B stochastic depth max drop-path prob (0 = off, eval identity)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -224,8 +225,17 @@ class CausalConvModule(nn.Module):
         return self.drop(self.pw2(F.silu(self.dnorm(y))))
 
 
+def _drop_path(y: torch.Tensor, p: float, training: bool) -> torch.Tensor:
+    """Per-sample stochastic depth (drop-path) with inverted scaling; training-only identity at p=0."""
+    if p <= 0.0 or not training:
+        return y
+    keep = 1.0 - p
+    mask = torch.empty((y.shape[0],) + (1,) * (y.ndim - 1), dtype=y.dtype, device=y.device).bernoulli_(keep)
+    return y * (mask / keep)
+
+
 class ConformerBlock(nn.Module):
-    def __init__(self, c: EncoderConfig):
+    def __init__(self, c: EncoderConfig, drop_path: float = 0.0):
         super().__init__()
         self.ff1 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act, c.norm_affine)
         self.att = ChunkAttention(c.d_model, c.n_heads, c.dropout, c.kv_heads,
@@ -233,6 +243,7 @@ class ConformerBlock(nn.Module):
         self.conv = CausalConvModule(c.d_model, c.conv_kernel, c.dropout, c.norm_affine)
         self.ff2 = FeedForward(c.d_model, c.ffn_mult, c.dropout, c.ffn_act, c.norm_affine)
         self.norm = nn.LayerNorm(c.d_model) if c.post_block_norm else nn.Identity()
+        self.drop_path = float(drop_path)
         self.has_ls = c.layer_scale_init > 0.0
         if self.has_ls:
             v = c.layer_scale_init
@@ -242,51 +253,68 @@ class ConformerBlock(nn.Module):
             self.ls_ff2 = nn.Parameter(torch.full((c.d_model,), v))
 
     def forward(self, x, mask, pad, cos, sin):
+        dp = self.drop_path if self.training else 0.0
         if self.has_ls:
-            x = x + (0.5 * self.ls_ff1.to(x.dtype)) * self.ff1(x)
-            x = x + self.ls_att.to(x.dtype) * self.att(x, mask, cos, sin)
-            x = x + self.ls_conv.to(x.dtype) * self.conv(x, pad)
-            x = x + (0.5 * self.ls_ff2.to(x.dtype)) * self.ff2(x)
+            x = x + _drop_path((0.5 * self.ls_ff1.to(x.dtype)) * self.ff1(x), dp, self.training)
+            x = x + _drop_path(self.ls_att.to(x.dtype) * self.att(x, mask, cos, sin), dp, self.training)
+            x = x + _drop_path(self.ls_conv.to(x.dtype) * self.conv(x, pad), dp, self.training)
+            x = x + _drop_path((0.5 * self.ls_ff2.to(x.dtype)) * self.ff2(x), dp, self.training)
         else:
-            x = x + 0.5 * self.ff1(x)
-            x = x + self.att(x, mask, cos, sin)
-            x = x + self.conv(x, pad)
-            x = x + 0.5 * self.ff2(x)
+            x = x + _drop_path(0.5 * self.ff1(x), dp, self.training)
+            x = x + _drop_path(self.att(x, mask, cos, sin), dp, self.training)
+            x = x + _drop_path(self.conv(x, pad), dp, self.training)
+            x = x + _drop_path(0.5 * self.ff2(x), dp, self.training)
         return self.norm(x)
 
 
 class Encoder(nn.Module):
     def __init__(self, c: EncoderConfig):
         super().__init__()
+        if not 0.0 <= c.layer_drop < 1.0:
+            raise ShapeError(f"layer_drop must be in [0, 1), got {c.layer_drop}")
         self.cfg = c
         self.stem = CausalStem(c.n_mels, c.stem_channels, c.d_model, c.stem_type)
         if c.chunk < 0:
             raise ShapeError(f"chunk must be >= 0 (0 = full utterance), got {c.chunk}")
+
+        def _make_blocks(n: int, offset: int, total: int) -> nn.ModuleList:
+            return nn.ModuleList(
+                ConformerBlock(c, drop_path=c.layer_drop * (offset + i + 1) / max(1, total))
+                for i in range(n)
+            )
+
         if c.family == "dense":
-            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.n_blocks))
+            self.blocks = _make_blocks(c.n_blocks, 0, c.n_blocks)
         elif c.family == "multirate":
             if (c.chunk > 0 and c.chunk % 2) or c.left_context % 2:
                 raise ShapeError("multirate needs chunk == 0 or an even chunk, and even left context")
-            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
+            tot = c.lower_blocks + c.middle_blocks + c.final_blocks
+            self.blocks = _make_blocks(c.lower_blocks, 0, tot)
             self.pair = nn.Linear(2 * c.d_model, c.d_model)
-            self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
+            self.mid_blocks = _make_blocks(c.middle_blocks, c.lower_blocks, tot)
             self.restore = nn.Linear(c.d_model, 2 * c.d_model)
-            self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
+            self.final_blocks = _make_blocks(c.final_blocks, c.lower_blocks + c.middle_blocks, tot)
         elif c.family == "unet3":
             if (c.chunk > 0 and c.chunk % 4) or c.left_context % 4:
                 raise ShapeError("unet3 needs chunk == 0 or chunk divisible by 4, and left_context divisible by 4")
-            self.blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.lower_blocks))
+            tot = c.lower_blocks + c.middle_blocks + c.deep_blocks + c.up_blocks + c.final_blocks
+            off = 0
+            self.blocks = _make_blocks(c.lower_blocks, off, tot)
+            off += c.lower_blocks
             if c.inter_ctc_vocab > 0:
                 self.inter_ctc = nn.Linear(c.d_model, c.inter_ctc_vocab)
                 self.inter_proj = nn.Linear(c.inter_ctc_vocab, c.d_model)
             self.pair = nn.Linear(2 * c.d_model, c.d_model)
-            self.mid_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.middle_blocks))
+            self.mid_blocks = _make_blocks(c.middle_blocks, off, tot)
+            off += c.middle_blocks
             self.pair2 = nn.Linear(2 * c.d_model, c.d_model)
-            self.deep_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.deep_blocks))
+            self.deep_blocks = _make_blocks(c.deep_blocks, off, tot)
+            off += c.deep_blocks
             self.restore2 = nn.Linear(c.d_model, 2 * c.d_model)
-            self.up_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.up_blocks))
+            self.up_blocks = _make_blocks(c.up_blocks, off, tot)
+            off += c.up_blocks
             self.restore = nn.Linear(c.d_model, 2 * c.d_model)
-            self.final_blocks = nn.ModuleList(ConformerBlock(c) for _ in range(c.final_blocks))
+            self.final_blocks = _make_blocks(c.final_blocks, off, tot)
         else:
             raise ShapeError(f"unknown encoder family {c.family}")
         self.final_norm = nn.Identity() if c.post_block_norm else nn.LayerNorm(c.d_model)

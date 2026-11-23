@@ -160,6 +160,10 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
     """Write the bundle for checkpoint `ckpt_path` into `out_dir`; returns the manifest."""
     p = checkpoint.load(ckpt_path, restore_rng=False)
     cfg = ModelConfig.from_dict(p["model_config"])
+    if cfg.text_tables_dim > 0 or any(k.startswith("predictor.text.") for k in p["model"]):
+        raise ExportError(
+            "checkpoint uses Factor D text_tables predictor; refusing export until runtime supports TextTables"
+        )
     model = ASRModel(cfg)
     model.load_state_dict(p["model"])
     model.eval()

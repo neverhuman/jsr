@@ -12,9 +12,9 @@ import hashlib, json, os, sys
 import torch
 
 NEUTRAL_ENC = {"kv_heads": 0, "ffn_act": "silu", "stem_type": "conv2d", "qk_rmsnorm": False, "norm_affine": True,
-               "layer_scale_init": 0.0, "stage_left": (), "inter_ctc_vocab": 0}
+               "layer_scale_init": 0.0, "stage_left": (), "inter_ctc_vocab": 0, "layer_drop": 0.0}
 UNUSED_ENC = ("deep_blocks", "up_blocks")
-NEUTRAL_MODEL = {"pred_ctx": 2, "inter_ctc": False}
+NEUTRAL_MODEL = {"pred_ctx": 2, "inter_ctc": False, "text_tables_dim": 0}
 
 
 def norm(v):
