@@ -87,6 +87,14 @@ require 14h bench-open/assays/h51-prof/run.sh
 14h assay h51-prof                 1 4  0 4
 14h assay h51-prof                 2 24 1 4
 14h assay h51-prof                 3 28 2 4
+# Entry 14i (h47-sleep's request, 08:37Z; research/H47_always_on_sleep_gate/README.md Q and amendment 2): CPU
+# of #77's always-on session at 5ca3583 (ultra-alwayson-check b6bc7fbd..., --replay-ms 500 --idle-ms 800),
+# gated against its ungated twin, plus arm C (today's continuous T=1500 / R=1000) on the 5%-duty cell; one
+# h47_q_cpu.sh (f163af3b...) repetition per CPU, as an assay. Energy joined per run from its receipt.
+require 14i bench-open/assays/h47-q/run.sh
+14i assay h47-q                    1 4  0 10
+14i assay h47-q                    2 24 1 10
+14i assay h47-q                    3 28 2 10
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
