@@ -154,6 +154,17 @@ require 14n bench-open/assays/agc-cpu/run.sh
 14n assay agc-cpu                  1 4  0 4
 14n assay agc-cpu                  2 24 1 4
 14n assay agc-cpu                  3 28 2 4
+# Entry 14o (lead 11:11:19Z: #105's per-chunk wakes stay opt-in until bench-open's paired quiet-xbabe0 receipt; v3-engine-reviewer
+# 10:42:32Z item 3): one live B0 stream paced at 1x, runtime-lane-h47's #105 build of ultra (wake-kit/, 296f469c..., built at the
+# merged head ab0a867), --wake-per-packet (default) vs --wake-per-chunk on 300 s of speech-only DEV audio and 300 s of pink noise
+# at -30 dBFS (the first halves of 14f's inputs): idle 2 min, four 5-min phases ABBA, idle 2 min. Design-clock identity of the
+# events, the wall-clock emission shift, CPU-s per audio-s and watts per phase.
+require 14o bench-open/assays/wake-kit/ultra
+require 14o bench-open/assays/wake-ab/run.sh
+require 14o bench-open/assays/h47-a0/speech600.wav
+14o assay wake-ab                  1 4  0 24.5
+14o assay wake-ab                  2 24 1 24.5
+14o assay wake-ab                  3 28 2 24.5
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
