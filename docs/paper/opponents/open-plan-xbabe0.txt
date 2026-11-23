@@ -1,0 +1,41 @@
+# bench-open timing plan on xbabe0 (protocol v3: one timed arm on the whole host; TIMING.order entries).
+# ENTRY PANEL ARM ROUND SERVICE_CPUS OBSERVER_CPU EST_MIN. Run with open_turn.py.
+# Round r of a one-core arm runs on CPU 4, 24 or 28 (CCX 1, 6, 7), meter on CPU 0, 1 or 2.
+# Every hold starts with one repetition of our engine (the anchor) on the hold's panel and core.
+anchor jsr-h22ctl-79800-ema-int8 3.5 0.6
+5  full parakeet-v3-onnxasr-int8   1 4  0 16
+5  full parakeet-v3-onnxasr-int8   2 24 1 16
+5  full parakeet-v3-onnxasr-int8   3 28 2 16
+6  full vosk-small                 1 4  0 13
+6  full vosk-small                 2 24 1 13
+6  full vosk-small                 3 28 2 13
+12 p73  vosk-large                 1 4  0 6
+12 p73  vosk-large                 2 24 1 6
+12 p73  vosk-large                 3 28 2 6
+13 p73  whispercpp-stream-tiny     1 4  0 12
+13 p73  whispercpp-stream-tiny     2 24 1 12
+13 p73  whispercpp-stream-tiny     3 28 2 12
+14 p73  whispercpp-stream-base     1 4  0 25
+14 p73  whispercpp-stream-base     2 24 1 25
+14 p73  whispercpp-stream-base     3 28 2 25
+# Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
+# where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
+# repeat the mode that was faster in round 1.
+20 p73  whispercpp-stream-base-t8    1 8-15 3 6
+20 p73  whispercpp-stream-base-w8    1 8-15 3 7
+20 p73  whispercpp-stream-tiny-t8    1 8-15 3 3
+20 p73  whispercpp-stream-tiny-w8    1 8-15 3 3.5
+20 p73  parakeet-v3-onnxasr-int8-t8  1 8-15 3 2
+20 p73  parakeet-v3-onnxasr-int8-w8  1 8-15 3 2.5
+20 p73  vosk-small-w8                1 8-15 3 1
+20 p73  vosk-large-w8                1 8-15 3 5
+20 p73  vosk-large-w8                2 8-15 3 5
+20 p73  vosk-small-w8                2 8-15 3 1
+20 p73  parakeet-v3-onnxasr-int8-t8|parakeet-v3-onnxasr-int8-w8 2 8-15 3 2.5
+20 p73  whispercpp-stream-tiny-t8|whispercpp-stream-tiny-w8     2 8-15 3 3.5
+20 p73  whispercpp-stream-base-t8|whispercpp-stream-base-w8     2 8-15 3 7
+20 p73  whispercpp-stream-base-t8|whispercpp-stream-base-w8     3 8-15 3 7
+20 p73  whispercpp-stream-tiny-t8|whispercpp-stream-tiny-w8     3 8-15 3 3.5
+20 p73  parakeet-v3-onnxasr-int8-t8|parakeet-v3-onnxasr-int8-w8 3 8-15 3 2.5
+20 p73  vosk-small-w8                3 8-15 3 1
+20 p73  vosk-large-w8                3 8-15 3 5

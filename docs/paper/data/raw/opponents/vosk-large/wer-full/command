@@ -1,0 +1,1 @@
+/dev/shm/bench-open/vosk/venv/bin/python -I /home/ubuntu/jsr/.agent/worktrees/optim/docs/paper/opponents/vosk_stream.py /dev/shm/bench-open/vosk/models/vosk-model-en-us-0.22 /home/ubuntu/jsr/target/paper-evidence/panel/wav /dev/shm/bench-open/out/vosk-large/predictions.jsonl /dev/shm/bench-open/out/vosk-large/trace.jsonl --workers 24 
