@@ -446,6 +446,61 @@ def test_turn_runner_skips_and_requeues_an_entry_whose_model_is_not_staged(tmp_p
     assert restart.returncode == 0 and len((tmp_path / "calls.log").read_text().splitlines()) == 4
 
 
+def test_turn_runner_serves_a_gap_waits_for_quiet_and_sets_aside_unfinished_receipts(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | bench-open | x\n3 | runtime-lane | y\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    runs = tmp_path / "runs"
+    unfinished = runs / "1c/cold/round-1/m"  # left by an interrupted hold: no `finished`
+    unfinished.mkdir(parents=True)
+    (unfinished / "started").write_text("x")
+    finished = runs / "1c/cold/round-3/m"  # a finished, clean repetition from before a restart
+    finished.mkdir(parents=True)
+    (finished / "finished").write_text("x")
+    (finished / "host.cpu.json").write_text('{"verdict": "clean"}')
+    plan = tmp_path / "plan.txt"
+    plan.write_text("2 full m 1 4 0 0.004\n2 full m 2 24 1 0.004\n2 full m 3 28 2 0.004\n")
+    calls = tmp_path / "calls.log"
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(runs), "OPEN_RUN_SCRIPT": str(fake),
+           "OPEN_POLL_S": "0.05", "OPEN_HOLD_S": "0.5", "OPEN_HOLD_MARGIN_S": "0.1", "FAKE_LOG": str(calls),
+           "OPEN_AGENT": "bench-open", "OPEN_QUIET_CMD": f'cut -d" " -f1-2 "{host}/TIMING.lock/owner" >> "{tmp_path}/quiet.log"'}
+    runner = subprocess.Popen([sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")], env=env)
+
+    def requester():  # asks for a gap during the first hold, takes the free lock, copies, releases
+        while not calls.exists():
+            time.sleep(0.02)
+        (host / "TIMING.gap.request").write_text("claude-lead 5 cache copy\n")
+        while not (host / "TIMING.gap.open").exists():
+            time.sleep(0.02)
+        while (host / "TIMING.lock").exists():
+            time.sleep(0.02)
+        (host / "TIMING.lock").mkdir()
+        (host / "TIMING.lock/owner").write_text("claude-lead cache-copy\n")
+        with calls.open("a") as out:
+            out.write("gap claude-lead\n")
+        time.sleep(0.3)
+        (host / "TIMING.lock/owner").unlink()
+        (host / "TIMING.lock").rmdir()
+
+    helper = threading.Thread(target=requester)
+    helper.start()
+    assert runner.wait(timeout=60) == 0
+    helper.join()
+    assert calls.read_text().splitlines() == ["m 1 4 0 full bench-open 2", "gap claude-lead", "m 2 24 1 full bench-open 2"]
+    assert (tmp_path / "quiet.log").read_text().splitlines() == ["bench-open 2", "bench-open 2"]  # once per hold
+    assert len(list(host.glob("TIMING.gap.served.*"))) == 1 and not (host / "TIMING.gap.open").exists()
+    aborted = list((runs / "1c/cold/round-1").glob("m.aborted.*"))
+    assert len(aborted) == 1 and (aborted[0] / "started").read_text() == "x"  # set aside, not deleted
+    state = json.loads((tmp_path / "logs/turn.json").read_text())
+    assert state["holds"][1]["gap_served"]["taken_by"] == "claude-lead cache-copy"
+    assert [job["status"] for job in state["jobs"]] == ["done", "done", "done"]
+    assert state["jobs"][2]["note"] == "finished clean receipt already on disk"
+    assert (host / "TIMING.done").read_text().splitlines()[-1].startswith("DONE 2 ")
+
+
 ARM_SCRIPT = """
 set -euo pipefail
 data=$1 wav=/panel/wav run=/run
