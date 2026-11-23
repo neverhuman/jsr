@@ -6,6 +6,10 @@
       --baseline b4 --prefix ref_ --split dev_split_v2.json --scorer ultra-score \
       --dump DIR --out confirm_<name>.json [--extra NAME=RUN ...]
 
+  python -m train.h46_tune engine --cache ENC --runs RUNS --engine-dir DIR --split S \
+      --scorer ultra-score --dump DIR --out engine_parity.json \
+      --pairs nolm_b4=b4 M5ship_b4=ref_M5_b4_l0.60_r0.75_p0.00
+
 `select` chooses, per family of the grid, the config with the fewest `ultra.wer` errors on the
 SELECTION half only (ties to the earliest config in train.lm_tune's preference order: smallest LM
 weight, then LODR weight, then blank penalty). It reads no confirmation-half hypothesis. Its JSON
@@ -17,6 +21,11 @@ against the no-LM comparator: the canonical `ultra-score` paired speaker-cluster
 confirmation half (the decision statistic) and on full dev (the reported endpoint), plus
 train.lm_tune's utterance / speaker bootstraps on `ultra.wer` counts. `--extra` adds labelled rows
 that are not chosen by the split (e.g. the transfer row at H42's ship weights).
+
+`engine` compares Rust engine runs (`ultra-engine-eval` shard runs under <engine-dir>/<name>/*/
+engine_eval.json, see train/ops/h46_engine_fulldev.sh) with Python runs of the same weights on the
+same utterances: canonical WER of each side, each side's paired change against its own first pair
+(the no-LM runs), identical token sequences and texts, and the engine's CPU-s per audio-s.
 
 Run from python/ultra (imports train.lm_tune, ultra.wer).
 """
@@ -183,6 +192,76 @@ def confirm(a) -> None:
     _write(a.out, res)
 
 
+def engine_rows(folder: str) -> tuple[dict[str, dict], dict]:
+    """uid -> engine row, merged over the shard runs in `folder`, and summed run costs."""
+    import glob
+
+    rows: dict[str, dict] = {}
+    cost = {"cpu_s": 0.0, "audio_s": 0.0, "peak_rss_mib": 0.0, "runs": 0}
+    meta = {}
+    for f in sorted(glob.glob(os.path.join(folder, "*", "engine_eval.json"))):
+        with open(f) as fh:
+            d = json.load(fh)
+        for r in d["rows"]:
+            if r["id"] in rows:
+                raise LmEvalError(f"{r['id']} decoded twice under {folder}")
+            rows[r["id"]] = r
+        cost["cpu_s"] += d["cpu_s"]
+        cost["audio_s"] += d["audio_s"]
+        cost["peak_rss_mib"] = max(cost["peak_rss_mib"], d["peak_rss_mib"])
+        cost["runs"] += 1
+        meta = {k: d.get(k) for k in ("executable_sha256", "git_commit", "git_dirty", "isa", "host",
+                                      "int8_prepared_sha256", "weights_sha256", "lm", "lm_weight",
+                                      "lodr_weight", "blank_penalty", "beam", "streams",
+                                      "packet_ms", "precision")}
+    cost["cpu_s_per_audio_s"] = round(cost["cpu_s"] / max(cost["audio_s"], 1e-9), 4)
+    return rows, {**meta, **cost}
+
+
+def engine(a) -> None:
+    utts = load_utts(a.cache, a.splits)
+    half, split_sha = load_split(a.split)
+    _, conf = masks(utts, half)
+    os.makedirs(a.dump, exist_ok=True)
+    with open(a.scorer, "rb") as fh:
+        scorer_sha = hashlib.sha256(fh.read()).hexdigest()
+    res = {"split_sha256": split_sha, "scorer_sha256": scorer_sha, "exploratory": True,
+           "pairs": {}}
+    first = None
+    for pair in a.pairs:
+        eng_name, py_name = pair.split("=", 1)
+        erows, emeta = engine_rows(os.path.join(a.engine_dir, eng_name))
+        if set(erows) != {u["uid"] for u in utts}:
+            raise LmEvalError(f"{eng_name}: engine rows cover {len(erows)} utterances, the cache "
+                              f"{len(utts)}")
+        py = load_run(a.runs, py_name, a.splits, len(utts))
+        out = {"engine_run": eng_name, "python_run": py_name, "engine": emeta,
+               "identical_tokens": sum(erows[u["uid"]]["tokens"] == py[u["uid"]]["tokens"]
+                                       for u in utts),
+               "identical_text": sum(erows[u["uid"]]["hyp"] == py[u["uid"]]["hyp"]
+                                     for u in utts),
+               "utterances": len(utts)}
+        for side, hyp in (("engine", lambda u: erows[u["uid"]]["hyp"]),
+                          ("python", lambda u: py[u["uid"]]["hyp"])):
+            for half_name, m in (("full", np.ones(len(utts), dtype=bool)), ("confirmation", conf)):
+                sub = [u for u, keep in zip(utts, m, strict=True) if keep]
+                path = os.path.join(a.dump, f"{side}.{eng_name}.{half_name}.jsonl")
+                dump_hyps(path, sub, [hyp(u) for u in sub])
+                if first is None:
+                    rep = ultra_score(a.scorer, path, path)
+                    out.setdefault(side, {})[half_name] = {"wer": rep["arm"]}
+                else:
+                    base = os.path.join(a.dump, f"{side}.{first}.{half_name}.jsonl")
+                    rep = ultra_score(a.scorer, base, path)
+                    out.setdefault(side, {})[half_name] = {
+                        "wer": rep["arm"], "change_vs_" + first: rep["pooled_delta"],
+                        "per_set_change": rep["per_set_delta"]}
+        res["pairs"][pair] = out
+        if first is None:
+            first = eng_name
+    _write(a.out, res)
+
+
 def _write(path: str, res: dict) -> None:
     with open(path + ".tmp", "w") as fh:
         json.dump(res, fh, indent=1)
@@ -202,7 +281,13 @@ def main(argv=None) -> None:
     c.add_argument("--scorer", required=True)
     c.add_argument("--dump", required=True)
     c.add_argument("--extra", nargs="*", help="LABEL=RUN rows scored the same way")
-    for p in (s, c):
+    e = sub.add_parser("engine")
+    e.add_argument("--engine-dir", required=True)
+    e.add_argument("--pairs", nargs="+", required=True, help="<engine run>=<python run>; the "
+                   "first pair is the no-LM comparator of the others")
+    e.add_argument("--scorer", required=True)
+    e.add_argument("--dump", required=True)
+    for p in (s, c, e):
         p.add_argument("--cache", required=True)
         p.add_argument("--runs", required=True)
         p.add_argument("--split", required=True)
@@ -211,6 +296,7 @@ def main(argv=None) -> None:
         p.add_argument("--procs", type=int, default=8)
     s.set_defaults(fn=select)
     c.set_defaults(fn=confirm)
+    e.set_defaults(fn=engine)
     a = ap.parse_args(argv)
     a.fn(a)
 

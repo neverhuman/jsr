@@ -1,0 +1,14 @@
+{
+ "b4_vs_fast_b4": {
+  "identical_tokens": 5567,
+  "utterances": 5567,
+  "ref_decode_seconds": 274.9,
+  "fast_decode_seconds": 234.4
+ },
+ "b8_vs_fast_b8": {
+  "identical_tokens": 5567,
+  "utterances": 5567,
+  "ref_decode_seconds": 382.4,
+  "fast_decode_seconds": 292.8
+ }
+}

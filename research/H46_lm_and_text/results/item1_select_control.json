@@ -1,0 +1,82 @@
+{
+ "protocol": "eval-lane dev split v2: choose on the selection half only",
+ "split": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/dev_split_v2.json",
+ "split_sha256": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac",
+ "grid": "/mnt/xbabe3-external/jsr/h46-lm/grids/base_ref.json",
+ "exploratory": true,
+ "selection_utterances": 2782,
+ "families": {
+  "ctrl_b4": {
+   "chosen": {
+    "tuned_on_selection": {
+     "name": "b4",
+     "blank_penalty": 0.0
+    }
+   },
+   "selection_half": [
+    {
+     "name": "b4",
+     "blank_penalty": 0.0,
+     "wer": 8.379,
+     "sub": 3505,
+     "del": 387,
+     "ins": 451,
+     "ref_words": 51834,
+     "utts": 2782
+    },
+    {
+     "name": "ctrl_b4_p0.25",
+     "blank_penalty": 0.25,
+     "wer": 8.402,
+     "sub": 3523,
+     "del": 373,
+     "ins": 459,
+     "ref_words": 51834,
+     "utts": 2782
+    },
+    {
+     "name": "ctrl_b4_p0.50",
+     "blank_penalty": 0.5,
+     "wer": 8.398,
+     "sub": 3516,
+     "del": 365,
+     "ins": 472,
+     "ref_words": 51834,
+     "utts": 2782
+    },
+    {
+     "name": "ctrl_b4_p1.00",
+     "blank_penalty": 1.0,
+     "wer": 8.442,
+     "sub": 3536,
+     "del": 356,
+     "ins": 484,
+     "ref_words": 51834,
+     "utts": 2782
+    }
+   ],
+   "configs": 4
+  },
+  "nolm_b8": {
+   "chosen": {
+    "tuned_on_selection": {
+     "name": "b8",
+     "blank_penalty": 0.0
+    }
+   },
+   "selection_half": [
+    {
+     "name": "b8",
+     "blank_penalty": 0.0,
+     "wer": 8.392,
+     "sub": 3514,
+     "del": 381,
+     "ins": 455,
+     "ref_words": 51834,
+     "utts": 2782
+    }
+   ],
+   "configs": 1
+  }
+ }
+}

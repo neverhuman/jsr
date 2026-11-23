@@ -9,6 +9,10 @@
 #
 #   CODE=<frozen python/ultra> CORES="16 ..." LM_CACHE=<enc cache> LM_CKPT=<slim .pt> RUNS=<dir> \
 #   SPLIT=<dev_split_v2.json> h46_sweep.sh <name> <grid.json> <work-dir>
+#
+# PROTOCOL=cv runs H42's two-fold speaker cross-validation instead (train.lm_tune fusion drives
+# the edge rule; results/fusion_<name>.json, held-out hypotheses in results/hyps): the secondary
+# protocol, run on a copy of a finished selection-half grid under its own name.
 set -euo pipefail
 NAME=${1:?sweep name}
 GRID_IN=${2:?grid json}
@@ -26,13 +30,21 @@ round=0
 while :; do
   PY="$PY" LM_BEAM_ARGS=--fast bash "$CODE/train/ops/lm_beam_grid.sh" "$batch_file" "$RUNS" \
     "$WORK/logs/$NAME.r$round"
-  (cd "$CODE" && "$PY" -m train.h46_tune select --cache "$LM_CACHE" --runs "$RUNS" \
-    --grid "$grid" --split "$SPLIT" --out "$WORK/results/select_$NAME.json" \
-    --procs "${PROCS:-8}") > "$WORK/logs/select_$NAME.log"
-  echo "round $round of $NAME tuned on the selection half: $(date -u +%H:%M:%SZ)"
+  if [ "${PROTOCOL:-split}" = cv ]; then
+    res="$WORK/results/fusion_$NAME.json"
+    lm_tune fusion --cache "$LM_CACHE" --runs "$RUNS" --baseline "${BASELINE:-b4}" --grid "$grid" \
+      --dump "$WORK/results/hyps" --out "$res" --procs "${PROCS:-8}" > "$WORK/logs/tune_$NAME.log"
+    echo "round $round of $NAME tuned by two-fold CV: $(date -u +%H:%M:%SZ)"
+  else
+    res="$WORK/results/select_$NAME.json"
+    (cd "$CODE" && "$PY" -m train.h46_tune select --cache "$LM_CACHE" --runs "$RUNS" \
+      --grid "$grid" --split "$SPLIT" --out "$res" \
+      --procs "${PROCS:-8}") > "$WORK/logs/select_$NAME.log"
+    echo "round $round of $NAME tuned on the selection half: $(date -u +%H:%M:%SZ)"
+  fi
   round=$((round + 1))
   batch_file="$WORK/grids/$NAME.ext$round.json"
-  n=$(lm_tune extend --grid "$grid" --results "$WORK/results/select_$NAME.json" --out "$batch_file")
+  n=$(lm_tune extend --grid "$grid" --results "$res" --out "$batch_file")
   if [ "$n" -eq 0 ]; then echo "edge rule: every selection-half choice is interior"; break; fi
   if [ "$round" -gt "${MAX_ROUNDS:-10}" ]; then
     echo "edge rule: CAPPED after ${MAX_ROUNDS:-10} rounds, $n configs still on an edge (not decoded)"

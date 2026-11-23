@@ -1,0 +1,377 @@
+{
+ "split_sha256": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac",
+ "scorer_sha256": "f55967857ced4e2899972b62a7ec7014b1e8889d0c73cddd98229e8b23fcdbb8",
+ "exploratory": true,
+ "pairs": {
+  "nolm_b4=b4": {
+   "engine_run": "nolm_b4",
+   "python_run": "b4",
+   "engine": {
+    "executable_sha256": "a9b552e96b1343842f43bc154f76b54bc968f6d0e4130d9a4f648dd16f68dff9",
+    "git_commit": "e61121e510d1f37f00be4ad0ef008b87d960b314",
+    "git_dirty": "false",
+    "isa": "avx2fma",
+    "host": "xbabe2",
+    "int8_prepared_sha256": "4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285",
+    "weights_sha256": "0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe",
+    "lm": null,
+    "lm_weight": 0.0,
+    "lodr_weight": 0.0,
+    "blank_penalty": 0.0,
+    "beam": 4,
+    "streams": 16,
+    "packet_ms": 20,
+    "precision": "int8",
+    "cpu_s": 8067.477039736,
+    "audio_s": 37832.386125,
+    "peak_rss_mib": 223.50390625,
+    "runs": 28,
+    "cpu_s_per_audio_s": 0.2132,
+    "full": {
+     "wer": {
+      "pooled_wer": 8.211,
+      "macro_wer": 8.332,
+      "substitutions": 7027,
+      "deletions": 824,
+      "insertions": 857,
+      "ref_words": 106054,
+      "errors": 8708,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.487,
+        "substitutions": 1998,
+        "deletions": 219,
+        "insertions": 237,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 12.176,
+        "substitutions": 5029,
+        "deletions": 605,
+        "insertions": 620,
+        "ref_words": 51363
+       }
+      }
+     }
+    },
+    "confirmation": {
+     "wer": {
+      "pooled_wer": 8.142,
+      "macro_wer": 8.159,
+      "substitutions": 3525,
+      "deletions": 428,
+      "insertions": 432,
+      "ref_words": 53858,
+      "errors": 4385,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.523,
+        "substitutions": 983,
+        "deletions": 118,
+        "insertions": 123,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 11.795,
+        "substitutions": 2542,
+        "deletions": 310,
+        "insertions": 309,
+        "ref_words": 26799
+       }
+      }
+     }
+    }
+   },
+   "identical_tokens": 5143,
+   "identical_text": 5145,
+   "utterances": 5567,
+   "python": {
+    "full": {
+     "wer": {
+      "pooled_wer": 8.224,
+      "macro_wer": 8.345,
+      "substitutions": 7043,
+      "deletions": 808,
+      "insertions": 871,
+      "ref_words": 106054,
+      "errors": 8722,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.489,
+        "substitutions": 1999,
+        "deletions": 219,
+        "insertions": 237,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 12.201,
+        "substitutions": 5044,
+        "deletions": 589,
+        "insertions": 634,
+        "ref_words": 51363
+       }
+      }
+     }
+    },
+    "confirmation": {
+     "wer": {
+      "pooled_wer": 8.17,
+      "macro_wer": 8.187,
+      "substitutions": 3545,
+      "deletions": 418,
+      "insertions": 437,
+      "ref_words": 53858,
+      "errors": 4400,
+      "per_set": {
+       "dev-clean": {
+        "wer": 4.542,
+        "substitutions": 985,
+        "deletions": 119,
+        "insertions": 125,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 11.833,
+        "substitutions": 2560,
+        "deletions": 299,
+        "insertions": 312,
+        "ref_words": 26799
+       }
+      }
+     }
+    }
+   }
+  },
+  "M5ship_b4=ref_M5_b4_l0.60_r0.75_p0.00": {
+   "engine_run": "M5ship_b4",
+   "python_run": "ref_M5_b4_l0.60_r0.75_p0.00",
+   "engine": {
+    "executable_sha256": "a9b552e96b1343842f43bc154f76b54bc968f6d0e4130d9a4f648dd16f68dff9",
+    "git_commit": "e61121e510d1f37f00be4ad0ef008b87d960b314",
+    "git_dirty": "false",
+    "isa": "avx2fma",
+    "host": "xbabe2",
+    "int8_prepared_sha256": "4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285",
+    "weights_sha256": "0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe",
+    "lm": "/home/ubuntu/jsr-data/h46-lm/lm/M5.ulm",
+    "lm_weight": 0.6000000238418579,
+    "lodr_weight": 0.44999998807907104,
+    "blank_penalty": 0.0,
+    "beam": 4,
+    "streams": 16,
+    "packet_ms": 20,
+    "precision": "int8",
+    "cpu_s": 9360.108743595001,
+    "audio_s": 37832.386125,
+    "peak_rss_mib": 686.234375,
+    "runs": 28,
+    "cpu_s_per_audio_s": 0.2474,
+    "full": {
+     "wer": {
+      "pooled_wer": 6.996,
+      "macro_wer": 7.102,
+      "substitutions": 5901,
+      "deletions": 793,
+      "insertions": 726,
+      "ref_words": 106054,
+      "errors": 7420,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.728,
+        "substitutions": 1647,
+        "deletions": 197,
+        "insertions": 195,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 10.476,
+        "substitutions": 4254,
+        "deletions": 596,
+        "insertions": 531,
+        "ref_words": 51363
+       }
+      }
+     },
+     "change_vs_nolm_b4": {
+      "delta_pp": -1.214,
+      "relative_pct": -14.79,
+      "lo_pp": -1.403,
+      "hi_pp": -1.029,
+      "limited": false
+     },
+     "per_set_change": {
+      "dev-clean": {
+       "delta_pp": -0.759,
+       "relative_pct": -16.91,
+       "lo_pp": -0.965,
+       "hi_pp": -0.582,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -1.7,
+       "relative_pct": -13.96,
+       "lo_pp": -2.04,
+       "hi_pp": -1.369,
+       "limited": false
+      }
+     }
+    },
+    "confirmation": {
+     "wer": {
+      "pooled_wer": 6.946,
+      "macro_wer": 6.962,
+      "substitutions": 2963,
+      "deletions": 409,
+      "insertions": 369,
+      "ref_words": 53858,
+      "errors": 3741,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.736,
+        "substitutions": 808,
+        "deletions": 102,
+        "insertions": 101,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 10.187,
+        "substitutions": 2155,
+        "deletions": 307,
+        "insertions": 268,
+        "ref_words": 26799
+       }
+      }
+     },
+     "change_vs_nolm_b4": {
+      "delta_pp": -1.196,
+      "relative_pct": -14.69,
+      "lo_pp": -1.471,
+      "hi_pp": -0.928,
+      "limited": false
+     },
+     "per_set_change": {
+      "dev-clean": {
+       "delta_pp": -0.787,
+       "relative_pct": -17.4,
+       "lo_pp": -1.117,
+       "hi_pp": -0.542,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -1.608,
+       "relative_pct": -13.63,
+       "lo_pp": -2.077,
+       "hi_pp": -1.148,
+       "limited": false
+      }
+     }
+    }
+   },
+   "identical_tokens": 5138,
+   "identical_text": 5138,
+   "utterances": 5567,
+   "python": {
+    "full": {
+     "wer": {
+      "pooled_wer": 6.99,
+      "macro_wer": 7.095,
+      "substitutions": 5890,
+      "deletions": 789,
+      "insertions": 734,
+      "ref_words": 106054,
+      "errors": 7413,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.734,
+        "substitutions": 1657,
+        "deletions": 195,
+        "insertions": 190,
+        "ref_words": 54691
+       },
+       "dev-other": {
+        "wer": 10.457,
+        "substitutions": 4233,
+        "deletions": 594,
+        "insertions": 544,
+        "ref_words": 51363
+       }
+      }
+     },
+     "change_vs_nolm_b4": {
+      "delta_pp": -1.234,
+      "relative_pct": -15.01,
+      "lo_pp": -1.429,
+      "hi_pp": -1.046,
+      "limited": false
+     },
+     "per_set_change": {
+      "dev-clean": {
+       "delta_pp": -0.755,
+       "relative_pct": -16.82,
+       "lo_pp": -0.962,
+       "hi_pp": -0.583,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -1.744,
+       "relative_pct": -14.3,
+       "lo_pp": -2.101,
+       "hi_pp": -1.414,
+       "limited": false
+      }
+     }
+    },
+    "confirmation": {
+     "wer": {
+      "pooled_wer": 6.901,
+      "macro_wer": 6.917,
+      "substitutions": 2948,
+      "deletions": 404,
+      "insertions": 365,
+      "ref_words": 53858,
+      "errors": 3717,
+      "per_set": {
+       "dev-clean": {
+        "wer": 3.751,
+        "substitutions": 815,
+        "deletions": 100,
+        "insertions": 100,
+        "ref_words": 27059
+       },
+       "dev-other": {
+        "wer": 10.082,
+        "substitutions": 2133,
+        "deletions": 304,
+        "insertions": 265,
+        "ref_words": 26799
+       }
+      }
+     },
+     "change_vs_nolm_b4": {
+      "delta_pp": -1.268,
+      "relative_pct": -15.52,
+      "lo_pp": -1.57,
+      "hi_pp": -0.985,
+      "limited": false
+     },
+     "per_set_change": {
+      "dev-clean": {
+       "delta_pp": -0.791,
+       "relative_pct": -17.41,
+       "lo_pp": -1.131,
+       "hi_pp": -0.552,
+       "limited": false
+      },
+      "dev-other": {
+       "delta_pp": -1.75,
+       "relative_pct": -14.79,
+       "lo_pp": -2.266,
+       "hi_pp": -1.262,
+       "limited": false
+      }
+     }
+    }
+   }
+  }
+ }
+}

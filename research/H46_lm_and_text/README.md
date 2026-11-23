@@ -338,5 +338,136 @@ No LM decode, beam decode or pack comparison had produced a number.
      reported: file size, load time, peak RSS and CPU-s per audio-s, informational only.
    - **On a miss:** a bug report to runtime-lane (PR #70's owner) with the utterances.
 
+## Amendment 2 (2026-11-23, 07:45Z): item 3 arms, written before any item-3 decode or LM build
+What existed when this was written:
+- **Item 1:** L4 confirmation half −1.328 pp; full dev −1.292 pp.
+- **Item 2:** passed.
+- The tokenised LM text was being built on xbabe1; no compact LM had been trained, built or
+  decoded.
+- runtime-lane's PR #79 (open) defines the neural runtime format `ultra.lm-ffnn/v1`:
+  E [V, d_e] → ctx slots → one hidden layer (ReLU / SiLU) → V outputs, symmetric per-row int8.
+
+1. **Bytes.** A rung's budget covers everything the engine loads for fusion: the LM file plus,
+   for a "+LODR" family, the LODR bigram. The LODR bigram as a v2 pack is 287,296 B, sha256 of
+   `packs/lodr2.v2.ulm` recorded. Rungs: ≤ 0.5 MiB (524,288 B), ≤ 2 MiB, ≤ 8 MiB. A family
+   counts for the smallest rung its total fits.
+2. **Candidates:**
+   - **(a) Count-pruned token n-grams** (`lmplz --prune`, the H42 text and tokenisation), packed
+     as `ultra.lm-ngram/v2` with `ultra-lm-pack`.
+     - Order 3 for each rung, sized for the LM-only bytes (fusion) and the LM + LODR bytes
+       (+LODR).
+     - Order 4 for the 8 MiB rung.
+     - Thresholds are the smallest that keep the pack ≤ 95% of the rung, read from exact
+       bigram / trigram count-of-counts on the token stream (and from `lmplz`'s reported
+       counts for order 4).
+     - One rebuild with raised thresholds is allowed if a pack misses its rung; no threshold is
+       chosen from WER or perplexity.
+   - **(b) Feed-forward neural token LMs** (`train.nlm`, PR #79's shape at vocabulary 501):
+     - `0.5m`: ctx 6, d_e 96, d_h 384, ReLU, 476,224 B;
+     - `2.0m`: ctx 6, d_e 192, d_h 1,120, SiLU, 1,977,152 B;
+     - `4m`: ctx 8, d_e 192, d_h 2,048, SiLU, 4,290,428 B.
+
+     Training, fixed now:
+     - the OpenSLR 11 text minus every line holding one of H42's 42 verbatim dev transcripts;
+     - every 1000th line held out;
+     - AdamW, lr 2e-3, 1,000 warm-up steps then cosine, weight decay 0.01, batch 65,536
+       positions, seed 1234;
+     - steps: 20,000 for `0.5m` and `2.0m`, 30,000 for `4m`;
+     - the last 10% of steps through the exporter's symmetric per-row int8 round trip.
+
+     The exported int8 file (PR #79's `export_ffnn_v1`) is the one scored. The Python beam
+     evaluates the same int8 tables through `train.nlm.NeuralFusion` on the QAT model, whose
+     parity with the exported file is reported.
+   - **(c) Residual student** (time permitting, after (a) and (b)):
+     - R̂(c, v) = b_v + f(c)ᵀ e_v, where f embeds 4 context tokens (64-d each) and runs an
+       MLP 256 → 128 → 64, with e_v of 64-d.
+     - It is fitted by MSE over all 500 tokens to R = 0.8 ln P_M5 − 0.6 ln P_LODR (L4's
+       finalist weights) on 4 M contexts from the LM text.
+     - It needs no separate LODR. Fused as α · R̂ with α ∈ {0.6, 0.8, 1.0, 1.2} and penalty
+       ∈ {0, 0.25}.
+3. **Weights per candidate and family** (beam 4 only), edge rule as in item 1:
+   - fusion: λ1 ∈ {0.2 … 0.7, step 0.1} × penalty ∈ {0, 0.5, 1.0, 1.5};
+   - +LODR: λ1 ∈ {0.4 … 0.9, step 0.1} × λ2/λ1 ∈ {0.5, 0.75} × penalty ∈ {0, 0.25}.
+4. **Choosing and scoring:**
+   - Each family's finalist is chosen on the selection half and re-decoded with the reference
+     search.
+   - The rung's representative is the eligible finalist with the fewest selection-half errors.
+     It is named before any confirmation-half look.
+   - **Retention** = Δ(candidate) / Δ(L4) against `b4`, on the confirmation half (decision) and
+     on full dev (endpoint), canonical counts.
+5. **Gate** (unchanged; codex-lead's 06:03Z version):
+   - retention ≥ 70%;
+   - ≤ 8 MiB total;
+   - ≤ +5% CPU. A MAC / lookup count per audio second against the encoder is reported now; the
+     measured CPU comes later on xbabe0 through bench-open.
+
 ## Results
-(none yet)
+All numbers are **exploratory**, from DEV only. "+LM" rows are separate rows.
+
+### Item 1: B0 + M5 + LODR (2026-11-23, 07:39Z)
+**Inputs and checks:**
+- **Encoder cache** (`train.lm_decode encode`, 14 workers on H0, torch 2.7.0+cpu MKL). Greedy
+  output equals eval-lane's `A1-49000.ema.c4.ms8` dumps on 5,566 / 5,567.
+  - The exception is `6319-64726-0000` at frame 196: 'THE' here against 'A' in the dump, with
+    a top-2 log-prob margin of 0.0016. The next smallest margin on that utterance is 0.064.
+  - The cache matches the reference transcript there. eval-lane's curve passes run on H0's
+    GPU queue, so a near-tie flip is expected (`results/item1_encoder_check.json`).
+- **Search:** `FastBeam` = `train.beam` without an LM on 5,567 / 5,567 at beam 4 and beam 8.
+  Every finalist's `train.beam` re-decode equals its sweep twin on 5,567 / 5,567.
+- **Scorers:** the canonical `ultra-score` (h46 build `f5596785…`, eval-lane's `d784f8ca…`)
+  gives 8.3024% on eval-lane's greedy dump with both builds.
+- **Weights:** chosen on the selection half of eval-lane's split v2 (`002ac7ae…`). The beam-4
+  sweep converged in 4 rounds (105 configs). Finalists were named at 07:36:47Z, before any
+  confirmation-half score.
+
+**Beam 4, canonical `ultra-score`.** Intervals are the paired speaker-cluster bootstrap,
+10,000 replicates, two-sided 95% (`results/item1_confirm_M5_b4.json`).
+
+| row | weights (chosen on selection half) | dev-clean | dev-other | full dev pooled | Δ full [95%] | Δ confirmation half [95%] |
+|---|---|---:|---:|---:|---|---|
+| no LM (`b4`) | – | 4.489 | 12.201 | 8.224 | | |
+| C4: blank penalty only | penalty 0 (= b4) | 4.489 | 12.201 | 8.224 | 0 | 0 |
+| F4: M5 fusion | λ1 0.5, penalty 1.5 | 3.752 | 10.632 | 7.084 | −1.140 [−1.291, −0.991] | −1.168 [−1.401, −0.943] |
+| **L4: M5 + LODR** | **λ1 0.8, λ2 0.6, penalty 0** | **3.717** | **10.356** | **6.932** | **−1.292 [−1.482, −1.108]** | **−1.328 [−1.619, −1.053]** |
+| T4: M5 + LODR at H42's ship weights | λ1 0.6, λ2 0.45, penalty 0 | 3.734 | 10.457 | 6.990 | −1.234 [−1.429, −1.046] | −1.268 [−1.570, −0.985] |
+
+- **Decision:** L4's confirmation-half gain is 1.328 pp (−16.3% relative). That is more than
+  0.17 pp, and the 95% interval lies below zero. **The LM branch continues.**
+- **Size of the gain:**
+  - Full dev with the LM: S / D / I 5,809 / 845 / 698 (7,352 edits, against 8,722 without).
+  - The relative gain (−15.7% on full dev) matches H22ctl's (−16.1%); the better acoustic model
+    kept the whole LM gain.
+  - LODR adds 0.15 pp on top of fusion.
+  - On the `ultra.wer` counts, the speaker-level bootstrap of L4 on the confirmation half is
+    [−1.584, −1.031].
+- **Python decode cost** (informational): sum of per-utterance search time with the reference
+  beam, MKL torch, H0 / xbabe2.
+  - b4: 275 s; L4: 411 s; T4: 563 s.
+  - L4 needs 12.5 distinct LM contexts per audio second.
+
+**Rust engine parity at H42's ship weights** (amendment 1; xbabe2; `results/item1_engine_parity.json`):
+
+| full dev, beam 4 | no LM | + M5 + LODR (λ1 0.6, λ2 0.45) | Δ [95%] |
+|---|---:|---:|---|
+| engine INT8 (`ultra-engine-eval` a9b552e9…, M5 v1 pack) | 8.211 | 6.996 | −1.214 [−1.403, −1.029] |
+| Python FP32 (`train.beam` + `NgramFusion`) | 8.224 | 6.990 | −1.234 [−1.429, −1.046] |
+
+- The engine's LM change is within 0.02 pp of Python's (criterion ≤ 0.15 pp): **parity holds.**
+- Identical token sequences, engine against Python: 5,143 / 5,567 without the LM and 5,138 / 5,567
+  with it. The differences are INT8 against FP32, not the fusion.
+- Engine cost (non-quiet xbabe2, decode thread): 0.213 → 0.247 CPU-s per audio-s; peak RSS
+  224 → 686 MiB.
+
+### Item 2: v1 / v2 pack parity (2026-11-23, 06:58Z): PASSED
+730-utterance panel, `--qualifying`, beam 4, A1-49000 EMA INT8
+(`results/item2_pack_parity.json`):
+
+| LM | v1 → v2 bytes | identical tokens | identical text | errors v1 / v2 | peak RSS v1 → v2 |
+|---|---|---:|---:|---:|---|
+| M5 | 334,427,094 → 254,718,038 (−23.8%) | 730 / 730 | 730 / 730 | 936 / 936 | 686 → 586 MiB |
+| S5 | 94,503,208 → 70,200,308 (−25.7%) | 730 / 730 | 730 / 730 | 964 / 964 | 410 → 410 MiB |
+| S4 | 81,876,459 → 61,285,991 (−25.1%) | 730 / 730 | 730 / 730 | 960 / 960 | 402 → 401 MiB |
+
+- v2 sha256: M5 `58ef726b…`, S5 `185381f1…`, S4 `3a9b6885…`.
+- Panel WER without an LM is 7.316%. With M5 + LODR at the ship weights it is 6.478%
+  (−0.84 pp).

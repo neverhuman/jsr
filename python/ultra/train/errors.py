@@ -61,15 +61,19 @@ class OptimConfigError(TrainError, ValueError):
 
 
 class LmEvalError(TrainError, ValueError):
-    """An H46 language-model evaluation input is inconsistent (train.h46_tune, train/ops/h46_*).
+    """An H46 language-model input is inconsistent (train.h46_tune, train.nlm, train/ops/h46_*).
 
-    purpose: stop a "+LM" tuning or scoring step before it reports a number from mismatched
-    inputs (a dev split that does not cover the encoder cache, a decode copy that does not
-    answer for the named source checkpoint).
+    purpose: stop a "+LM" tuning, scoring, LM-training or export step before it reports a number
+    from mismatched inputs (a dev split that does not cover the encoder cache, a decode copy that
+    does not answer for the named source checkpoint, engine shards that do not cover dev, a
+    neural LM without the runtime exporter).
     reason: the split file lists an utterance twice or not exactly the cache's utterances; a
-    derived checkpoint records another source sha256 or non-EMA weights.
+    derived checkpoint records another source sha256 or non-EMA weights; an engine run decodes
+    an utterance twice or misses one; a test split was passed to the shard tool;
+    `train.ffnn_lm_export` (runtime-lane's PR #79) is not importable.
     common_fixes: pass eval-lane's `dev_split_v2.json` for the full-dev cache; re-cut the decode
-    copy from the derived file of the named checkpoint.
+    copy from the derived file of the named checkpoint; rerun the missing engine shards; use dev
+    splits only; merge or check out PR #79 before `train.nlm export`.
     docs_url: research/H46_lm_and_text/README.md
     repair_hint: cd python/ultra && python -m pytest -q tests/test_h46_tune.py
     """
