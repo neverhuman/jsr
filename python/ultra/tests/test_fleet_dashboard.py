@@ -126,3 +126,71 @@ def test_probe_counts_trainer_and_mwer_runs():
         out = subprocess.run(["bash", "-c", pipe], input=ps_out, capture_output=True, text=True, check=True).stdout
         assert out.split() == ["RUN", "A1_S", "RUN", "MWER_S"], (ps, out)
 
+
+def test_dashboard_v3_zero_runs_multi_rank_monotonic_and_sdi():
+    from tools.fleet_dashboard.parse import parse_diloco_status, parse_other_load, parse_timing_lock
+
+    # 1. Zero live runs renders clean empty KPIs.
+    g0 = global_summary([], {"xbabe0": {"up": True, "ncpu": 64, "cpu_pct": 2.0, "gpus": [], "runs": []}})
+    assert g0["live_runs"] == 0 and g0["audio_h_per_h"] == 0.0 and g0["idle_nodes"] == []
+
+    # 2. Same-host multi-rank entries sharing run_id must NOT double-count audio_h_per_h.
+    runs = [
+        {"name": "D1_rank0", "run_id": "D1", "rank": 0, "status": "running", "cohort": "prod", "ahh": 100.0},
+        {"name": "D1_rank1", "run_id": "D1", "rank": 1, "status": "running", "cohort": "prod", "ahh": 100.0},
+    ]
+    g2 = global_summary(runs, {})
+    assert g2["live_runs"] == 1 and g2["audio_h_per_h"] == 100.0
+
+    # 3. Monotonic (run_id, attempt_id, rank, seq): prior attempt and older seq never overwrite newer state.
+    rs = RunState("V3_A1", host="xbabe5")
+    rs.add(parse_line(
+        '{"kind":"train","run_id":"V3_A1","attempt_id":2,"rank":0,"seq":10,"step":500,"loss":1.1,'
+        '"audio_h_per_h":100.0,"audio_s":360.0,"time":2000,"ckpt_sha256":"2a3dd9fb12345678","git_commit":"e61121e"}'
+    ))
+    rs.add(parse_line(
+        '{"kind":"train","run_id":"V3_A1","attempt_id":1,"rank":0,"seq":99,"step":100,"loss":9.9,'
+        '"audio_h_per_h":50.0,"audio_s":360.0,"time":1900}'
+    ))
+    rs.add(parse_line(
+        '{"kind":"train","run_id":"V3_A1","attempt_id":2,"rank":0,"seq":9,"step":450,"loss":8.8,'
+        '"audio_h_per_h":50.0,"audio_s":360.0,"time":1990}'
+    ))
+    rs.add(parse_line(
+        '{"kind":"train","run_id":"V3_A1","attempt_id":2,"rank":1,"seq":10,"step":500,"loss":1.2,'
+        '"audio_h_per_h":50.0,"audio_s":360.0,"time":2000}'
+    ))
+    rs.add(parse_line(
+        '{"kind":"eval","run_id":"V3_A1","attempt_id":2,"rank":0,"seq":11,"step":500,"split":"dev-clean",'
+        '"wer":3.12,"ema_wer":2.91,"s":42,"d":5,"i":3,"ref_words":1600,"wave_gate":"PASS",'
+        '"measurement_domain":"ultra-en-wer-norm/v1","time":2005}'
+    ))
+    s = rs.summary(now=2010.0)
+    assert s["step"] == 500 and s["attempt_id"] == 2 and s["ahh"] == 100.0
+    assert s["rank_local_ahh"] == {1: 50.0} and round(s["audio_h_total"], 2) == 0.1
+    assert s["sdi"] == {"s": 42, "d": 5, "i": 3, "ref_words": 1600} and s["ref_words"] == 1600
+    assert s["wave_gate"] == "PASS" and s["measurement_domain"] == "ultra-en-wer-norm/v1"
+    assert s["artifact"] == {"ckpt_sha256": "2a3dd9fb12345678", "git_commit": "e61121e"}
+
+    # 4. TIMING.lock / TIMING.quiet and non-JSR ("other project") GPU/CPU detection.
+    tl = parse_timing_lock("TIMING_LOCK held bench-open 14b\nTIMING_QUIET busy cpu=12%\n")
+    assert tl == {"status": "held", "owner": "bench-open 14b", "quiet": "busy cpu=12%"}
+    ol = parse_other_load(
+        "OTHER_GPU 33500 python3\nOTHER_CPU 45.2 cotenant-worker\n",
+        [{"idx": 0, "util": 0.0, "mem_used": 33500.0, "mem_total": 40960.0}], set(), 50.0,
+    )
+    assert ol["gpu"] and ol["cpu"] and "other project" in ol["label"]
+    g_other = global_summary([], {"x7": {"up": True, "gpus": [{"util": 0, "mem_used": 33500, "mem_total": 40960}],
+                                         "runs": [], "other_load": ol}})
+    assert g_other["idle_nodes"] == []
+
+    # 5. DiLoCo status normalization for both Sync-FP32 Roster and Async-BF16 Quorum.
+    d_async = parse_diloco_status({
+        "cohort": "V3_Async", "round": 3, "quorum_k": 2, "pending_count": 1,
+        "total_audio_h": 24.5, "effective_audio_h_per_h": 4200.0,
+        "workers": {"w1": {"host": "xbabe5", "base_round": 2, "staleness": 1, "delta_norm": 1.25, "cosine": 0.88, "status": "synced"}},
+        "recent_rounds": [{"round": 3, "mean_cos": 0.88, "quarantined": []}],
+    })
+    assert d_async["mode_label"] == "Async-BF16 Quorum" and d_async["max_staleness"] == 1 and d_async["mean_delta_norm"] == 1.25
+
+
