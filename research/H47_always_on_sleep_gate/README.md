@@ -78,5 +78,26 @@ Where codex-lead's 06:03:04Z release decisions are stricter or add a check, they
 - **False words:** the **added** rate (real wake minus ungated twin, on the same non-speech hours) ≤ 0.10 / h at the one-sided 95% upper bound; the absolute rate and its Garwood bound are reported beside it (Q5 tightened from absolute to added, per §10.1 of the final plan).
 - **Power (extended):** interleaved idle / capture / capture + detector / full service at 0 / 5 / 20 / 100% speech duty on the measured host (xbabe0 now; the owner's metered device when it arrives). Pass needs ≥ 2× lower incremental listening energy at 5% (Q3), a paired improvement at 20%, ≤ +5% gross upper bound at 100% (Q6 tightened from the mean ratio to the upper bound), and non-speech CPU ≤ 2% of the ungated twin (Q2). If capture alone exceeds 80% of A1's gross energy at 5% duty, the report says capture must be fixed first. The release-level "≥ 30% less active CPU, ≥ 20% less gross energy" is H54's and is reported, not gated, here.
 
+## Amendment 3 (2026-11-23, written after O0–O3 and before any run it names): three post-hoc diagnostic arms
+What existed when this was written: O0–O3 decoded and scored (summary below under Results), C0 / C1 still decoding, no comparison involving C0 / C1. The arms below are **post-hoc diagnostics** chosen after seeing O0–O3; they are labelled so, and they cannot change the pre-registered readings of O0–O3.
+1. **Observation A (false words at the close):** O2 has 18 and O3 10 "false words" in the gaps. 17 of O2's 18 are "SH" / "S" / "SP"-like fragments stamped exactly at the segment end (utterance end + 1.5 s), all in white or pink noise gaps: `input_finished` at a close inside noise makes the final partial chunk emit a fricative. The designs' session closes on complete chunks only (§6.2, e = s0 + 640 T − 240) and never flushes.
+2. **Observation B (first word after a noise pre-roll):** first-word recall, O1 − O0, is −0.97 pp overall: −1.72 / −1.83 / −1.19 pp after −20 / −30 / −40 dBFS noise gaps and −0.36 pp after digital silence. A fresh recogniser that hears 1 s of stationary noise before clean speech loses first words.
+3. **New arms** (decoder v2, `tools/oracle-decode/src/main.rs` sha256 `8e6edb99…`; its default path gives byte-identical traces to v1 on the sanity set; `--no-flush` closes a segment on complete chunks only and still commits the pending word):
+   - **O3n:** O3's segments (`b12cabdd…`) with `--no-flush`.
+   - **O3n-r500 / O3n-r300:** `[first MFA word − 500 / 300 ms, last MFA word end + 1800 ms)` (`00700b6c…` / `1fd60553…`; no merges), `--no-flush`. Sentinel-0's measured wake delay on this stream is p99 90 ms, max 450 ms (Q, above), so a 500 ms pre-roll would have covered every onset.
+4. **Readings fixed now:** (a) if O3n has ≤ 2 gap false words and |WER(O3n) − WER(O3)| ≤ 0.05 pp, the session's close must not flush, and Q checks that the swarm's session never emits text at a close. (b) If O3n-r500 recovers at least half of O3n's first-word loss against O0 after noise gaps, at no WER cost beyond +0.05 pp, a 500 ms pre-roll is recommended to the swarm's B-6 sweep (with the measured wake delays); O3n-r300 shows the trend.
+5. `scripts/h47_analyze.py` now reuses a score when it is newer than its trace (sha256 `fa49b0e4…`; no computation changed).
+
 ## Results
-(none yet)
+
+### O0–O3 (exploratory; decoded on the Mac 06:34–06:55Z, NEON, traces byte-identical to AVX2 on the sanity set; scored by `score_alwayson.py`)
+| Arm | Pooled WER | dev-clean | dev-other | Gap false words (17.06 h) | First-word recall (all / after sleep) | Duty |
+|---|---:|---:|---:|---:|---:|---:|
+| O0 isolated | 8.273% | 4.461 | 12.332 | 1 | 90.07 / 89.94% | 38.1% |
+| O1 exact oracle, R 1 s | 8.371% | 4.536 | 12.454 | 0 | 89.10 / 88.97% | 43.7% |
+| O2 + 1.5 s hangover | 8.345% | 4.500 | 12.439 | 18 | 88.84 / 88.97% | 52.1% |
+| O3 word-onset detector | 8.297% | 4.372 | 12.476 | 10 | 89.35 / 89.37% | 49.9% |
+- O0 reproduces the INT8 engine's isolated full-dev WER (8.272%) to one edit, so decoding each utterance as its own segment on the stream timeline is isolated decoding.
+- O1 − O0: WER +0.098 pp (one-sided 95% [+0.006, +0.189]; Bonferroni [−0.037, +0.230]); first-word recall −0.97 pp [−1.42, −0.52]. O2 − O1: WER −0.026 pp (Bonferroni [−0.074, +0.017]); first-word recall −0.25 pp overall, 0.00 after sleep (the loss is in the 144 merged short-gap utterances).
+- Word lag p50 / p95 / p99 = 330 / 460 / 510 ms in every O arm.
+- Comparisons against C0 / C1 follow when those runs finish.
