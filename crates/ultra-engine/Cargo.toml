@@ -55,4 +55,4 @@ path = "src/bin/lm_pack.rs"
 
 [[bin]]
 name = "ultra-engine-endless"
-path = "src/bin/engine_endless.rs"
+path = "src/bin/engine_endless/main.rs"
