@@ -46,6 +46,9 @@ def test_readme_shows_the_current_figure_block():
     assert readme.count(publish.START) == 1 and readme.count(publish.END) == 1
     shown = readme[readme.index(publish.START):readme.index(publish.END) + len(publish.END)]
     assert shown == block, f"README.md shows an old Figure 1 block; {REFRESH}"
+    title, image, caption, *_ = [line for line in readme.splitlines() if line and not line.startswith("<!--")]
+    assert title.startswith("# ") and image.startswith("![") and image.endswith("(docs/paper/money.png)")
+    assert caption.startswith("**Figure 1.**") and "[Read the paper](docs/paper/paper.pdf)" in caption
     drawn = [ln for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
              if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
     table = [ln for ln in re.findall(r"^\| .*", block, flags=re.M) if ", not drawn" not in ln]

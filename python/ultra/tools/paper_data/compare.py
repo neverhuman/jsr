@@ -111,9 +111,9 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     num("ColdHeadCorePct", share, fmt(share, 1), "% of one core", "CPU share of one core for one always-on stream", head)
     parts = [f"{fmt(share, 1)}\\% of one CPU core", f"{fmt(h['rss_mb'], 0)}\\,MB of memory"]
     if head["watts"] is not None:
-        num("ColdHeadWatts", head["watts"], fmt(head["watts"], 2), "W per always-on stream", "watts one always-on "
+        num("ColdHeadWatts", head["watts"], fmt(head["watts"], 3), "W per always-on stream", "watts one always-on "
             f"stream of ours costs ({head['energy_method']}, same run)", head)
-        parts.append(f"{fmt(head['watts'], 2)}\\,W")
+        parts.append(f"{fmt(head['watts'], 3)}\\,W")
     if head.get("lag_p50_ms") is not None:
         parts.append(f"live words in {fmt(head['lag_p50_ms'], 0)}\\,ms")
     say("ColdSubtitle", "One live stream: " + ", ".join(parts[:-1]) + " and " + parts[-1], "subtitle")
@@ -195,9 +195,9 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
                    and r["role"] != "ours"), key=lambda r: r["watts"])
     watts = [aon] + rest
     if aon["watts"] is not None and rest:
-        say("ColdWattsSentence", f"One always-on stream of {ckname(aon)} costs {fmt(aon['watts'], 2)}\\,W, against "
-            f"{fmt(rest[0]['watts'], 2)}\\,W for {_name(rest[0])}"
-            + (f" and {fmt(rest[-1]['watts'], 2)}\\,W for {_name(rest[-1])}" if len(rest) > 1 else "")
+        say("ColdWattsSentence", f"One always-on stream of {ckname(aon)} costs {fmt(aon['watts'], 3)}\\,W, against "
+            f"{fmt(rest[0]['watts'], 3)}\\,W for {_name(rest[0])}"
+            + (f" and {fmt(rest[-1]['watts'], 3)}\\,W for {_name(rest[-1])}" if len(rest) > 1 else "")
             + f" ({ENERGY_WORDS[aon['energy_method']]}, same host).", "energy rows")
         quiet = [r for r in watts if r.get("package_factor", {}).get(r["energy_method"])]
         if quiet:

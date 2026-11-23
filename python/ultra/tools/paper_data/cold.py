@@ -78,7 +78,7 @@ def _add_row_records(rec: Records, r: dict) -> None:
                            f"; {r['lag_method']}; lag workload {str(r['lag_workload_digest'])[:12]}"))
     fields.append(("CorePct", fmt(100 * d["cpu"], 1), 100 * d["cpu"], "% of one core for one always-on stream", ""))
     if d["watts"] is not None:
-        fields.append(("Watts", fmt(d["watts"], 2), d["watts"], "W per live stream (= J per audio-s)",
+        fields.append(("Watts", fmt(d["watts"], 3), d["watts"], "W per live stream (= J per audio-s)",
                        f"; energy method {r['energy_method']}"))
         kwh = d["watts"] * 8766.0 / 1000.0
         fields.append(("KwhYear", fmt(kwh, 1), kwh, "kWh per stream-year (W x 8766 h)",

@@ -175,9 +175,9 @@ def test_watts_are_called_out_beside_the_systems_that_have_an_energy_line(tmp_pa
     rows = [_row(), _row(variant="sys-o", role="ours", system="Ours", cpu_s_per_audio_s=0.04, cpu_reps=[0.04] * 3), energy]
     files, _ = pd.build(_mini_repo(tmp_path, rows))
     layout = files["money_layout.tex"]
-    assert "{Ours\\,$\\cdot$\\,0.34\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
+    assert "{Ours\\,$\\cdot$\\,0.343\\,W}" in layout and "{A}% sys-a-zen2-t1" in layout
     assert "\\def\\MoneyWattsOn{0}" in layout  # no axis: one system has no value yet
-    assert "Watts beside a name: W per always-on stream (core energy registers, same run)." in files["metrics.tex"]
+    assert "Power is reported in watts per always-on stream (core energy registers, same run)." in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, rows + [dict(energy, row="sys-a-zen2-t1", joules_per_audio_s=1.7)]))
     # every system has a value and 0.343 x 25 = 8.6 W and 1.7 x 5 = 8.5 W per busy core agree: a watts axis
@@ -220,7 +220,7 @@ def test_an_energy_headline_without_a_group_names_the_method_of_every_group(tmp_
             dict(line, joules_per_audio_s=0.5, energy_method="core_msr_dynamic"),
             {"kind": "energy_headline", "energy_method": "core_msr_active"}]
     files, _ = pd.build(_mini_repo(tmp_path, rows))
-    assert "\\ColdSysAWatts}{0.60}" in files["metrics.tex"]
+    assert "\\ColdSysAWatts}{0.600}" in files["metrics.tex"]
 
 
 def test_quiet_host_rows_need_no_shared_session_and_eight_core_rows_count_their_own_cores(tmp_path):
@@ -267,17 +267,17 @@ def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):
     lines = {ln.split(",")[0]: ln for ln in files["cold_dev.csv"].splitlines()[1:]}
     assert lines["sys-a-zen2-t1"].endswith(",310,720,0.750,exploratory,h0,1,250,480,,,0,full")
     assert lines["sys-w-zen2-t1"].endswith(",,,,exploratory,h0,1,,,5100,9900,0,full")
-    for macro in ("\\ColdSysALagPfifty}{310}", "\\ColdSysALagPninetyFive}{720}", "\\ColdSysAWatts}{0.75}",
+    for macro in ("\\ColdSysALagPfifty}{310}", "\\ColdSysALagPninetyFive}{720}", "\\ColdSysAWatts}{0.750}",
                   "\\ColdSysALagDesignPfifty}{250}", "\\ColdSysWFinalLatencyPninetyFive}{9900}",
                   "\\ColdRowsEnergy}{1}", "\\ColdRowsLag}{1}"):
         assert macro in files["metrics.tex"], macro
     shutil.rmtree(tmp_path / "repo")
     files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, core, pkg, head]))  # two methods, one named headline
-    assert "\\ColdSysAWatts}{1.25}" in files["metrics.tex"]
+    assert "\\ColdSysAWatts}{1.250}" in files["metrics.tex"]
     shutil.rmtree(tmp_path / "repo")
     shared = dict(core, joules_per_audio_s=0.9, energy_method="core_msr_contended")  # a separate run, shared core
     files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, core, shared, dict(head, energy_method="core_msr_active")]))
-    assert "\\ColdSysAWatts}{0.75}" in files["metrics.tex"]
+    assert "\\ColdSysAWatts}{0.750}" in files["metrics.tex"]
     for rows, msg in (([_row(), dict(lag, row="nope")], "unknown row"), ([_row(lag_p50_ms=1), lag], "given twice"),
                       ([_row(), core, core], "given twice"), ([_row(), core, pkg], "energy_headline"),
                       ([_row(), dict(core, watts_per_stream=0.5)], "same quantity"),

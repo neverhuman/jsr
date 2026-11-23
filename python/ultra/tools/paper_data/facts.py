@@ -33,6 +33,7 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
     aon = next((r for r in group if r["variant"] == headline.get("always_on")), None) or head
     others = [r for r in drawn if r["role"] == "comparator"]
     bullets: list[str] = []
+    comparison = ()
 
     def put(rid: str, text: str, src: dict, what: str, workload: str, raw=None, unit: str = "sentence") -> None:
         rec.add(rid, text, raw=raw, unit=unit, label="exploratory", configuration=what, workload=workload,
@@ -84,20 +85,18 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
              f"% of {_ck(head)}): ")
     if wr and wr.get("watts") is not None and wrows:
         w = wr["watts"]
-        ratio = [(fmt(r["watts"] / w, 1), r) for r in wrows]
         kwh = fmt(w * HOURS_PER_YEAR / 1000.0, 1)
-        who, intro = (intro, "") if wr is aon else ("", intro)  # the clause opens the first fact measured on aon
+        who = intro if wr is aon else ""
         who = who or ("" if wr is head else f"{_ck(wr)}, an earlier checkpoint ({_ck(head)} is not measured yet): ")
-        ends = [ratio[0], ratio[-1]] if len(ratio) > 1 else ratio[:1]
-        fact("Watts", "Watts", f"{who}{'one' if who else 'One'} stream draws {fmt(w, 2)}\u2009W, "
-             + " and ".join(f"{q}\u00d7 less than {_name(r)}" for q, r in ends) + ".",
-             f"{fmt(w, 2)} W per always-on stream ({_ck(wr)}; core energy registers, same run), about {kwh} kWh per "
-             "stream-year: " + _names([f"{q}× less than {_name(r)} ({fmt(r['watts'], 2)} W)" for q, r in ratio]) + ".",
+        fact("Watts", "Watts", f"{who}{'one' if who else 'One'} stream draws {fmt(w, 3)}\u2009W, versus "
+             f"{fmt(wrows[0]['watts'], 3)}\u2009W for {_name(wrows[0])}.",
+             f"{fmt(w, 3)} W per always-on stream from same-run core energy registers ({_ck(wr)}), about "
+             f"{kwh} kWh per stream-year. " + _names([f"{_name(r)} draws {fmt(r['watts'], 3)} W" for r in wrows]) + ".",
              rowsrc(wr, *wrows), "watts per always-on stream of our row against the other systems", panel)
-        put("AoWatts", fmt(w, 2), rowsrc(wr), f"W per always-on stream, {_ck(wr)}", panel, raw=w, unit="W")
+        put("AoWatts", fmt(w, 3), rowsrc(wr), f"W per always-on stream, {_ck(wr)}", panel, raw=w, unit="W")
         put("MoneyOursWatts", "\\relax" if wr is head else tex(
             f"No watts are drawn for ours: {_ck(head)} has no energy measurement yet; {_ck(wr)}, an earlier "
-            f"checkpoint, draws {fmt(w, 2)}\u2009W."), rowsrc(wr), "Figure 1 caption: watts of ours", panel)
+            f"checkpoint, draws {fmt(w, 3)}\u2009W."), rowsrc(wr), "Figure 1 caption: watts of ours", panel)
         put("AoKwh", kwh, rowsrc(wr), f"kWh per stream-year, {_ck(wr)} (W x 8766 h)", panel,
             raw=w * HOURS_PER_YEAR / 1000.0, unit="kWh")
     else:
@@ -110,8 +109,8 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         zlag = f"{fmt(z['lo'], 0)}\u2013{fmt(z['hi'], 0)}\u2009ms"
         flat = f"flat from {o['n_min']} to {o['n']} streams" if o["flat"] else f"over {o['n_min']} to {o['n']} streams"
         wl = "the first 22 panel utterances (128 s) per stream, paced at real time, all streams on one core"
-        fact("Capacity", "Capacity", f"{intro}{'one' if intro else 'One'} core carries {o['n']} live streams at a 95th-percentile word lag of {lag}, "
-             f"{flat}; Zipformer carries {z['n']} at {zlag}.",
+        fact("Capacity", "Capacity", f"In a real-time paced trial, {_ck(aon)} sustained {o['n']} live streams on one "
+             f"core at a 95th-percentile word lag of {lag}. Zipformer sustained {z['n']} at {zlag}.",
              f"{o['n']} live streams on one core ({_ck(aon)}), 95th-percentile word lag {lag}, {flat}; Zipformer holds "
              f"{z['n']} streams at {zlag}. Measured on one core; from the CPU cost the ceilings are about "
              f"{fmt(o['ceiling'], 0)} and {fmt(z['ceiling'], 0)} streams.", cap, "capacity test", wl)
@@ -222,9 +221,13 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         better = sum(derived(r)["wer_clean"] < h["wer_clean"] for r in others)
         lm = (rec.rows["LmEngineGain"]["value"], rec.rows["LmHeldOutGain"]["value"], "H22ctl") if "LmHeldOutGain" in rec.rows else None
         vs = _names([f"{fmt(derived(r)['wer_clean'], 2)}% for {_name(r)}" for r in pick])
-        rest = " (training continues)" if "training continues" in (head.get("detail") or "") else ""
-        fact("Accuracy", "Where we trail", f"Accuracy is where we trail: {_ck(head)} scores {fmt(h['wer_clean'], 2)}% "
-             f"dev-clean WER{rest}, against {vs}.",
+        accuracy = f"{_ck(head)} scores {fmt(h['wer_clean'], 2)}% dev-clean WER, against {vs}."
+        if fast and not head["interim"] and h["watts"] is not None and fast["watts"] is not None:
+            f = derived(fast)
+            comparison = (head, fast)
+            accuracy = (f"{_ck(head)} scores {fmt(h['wer_clean'], 2)}% dev-clean WER and {fmt(h['wer'], 2)}% pooled WER, "
+                        f"versus {fmt(f['wer_clean'], 2)}% and {fmt(f['wer'], 2)}% for {_name(fast)}.")
+        fact("Accuracy", "Where we trail", accuracy,
              f"{_name(head)} ({head.get('detail') or _ck(head)}) scores {fmt(h['wer_clean'], 2)}% WER on the "
              f"panel's dev-clean half, against {vs}; {better} of the {len(others)} other systems drawn are more "
              "accurate." + (f" An optional n-gram LM lowers the pooled WER of {lm[2]} by {lm[0]} points in the engine "
@@ -236,6 +239,11 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
             top and fast) else ""
         see = (f"{_name(head)} ({head.get('detail') or _ck(head)}) is {rank}{ratio}, and {better} of the {len(others)} "
                f"others are more accurate.")
+        if comparison:
+            see = (f"On one quiet Zen\u00a02 core, {_name(head)} ({_ck(head)}) reaches {speed_text(h['speed'])}× real time "
+                   f"at {fmt(h['watts'], 3)}\u2009W per stream, versus {speed_text(f['speed'])}× and "
+                   f"{fmt(f['watts'], 3)}\u2009W for {_name(fast)}. Dev-clean WER is {fmt(h['wer_clean'], 2)}% versus "
+                   f"{fmt(f['wer_clean'], 2)}%, and pooled WER is {fmt(h['wer'], 2)}% versus {fmt(f['wer'], 2)}%.")
         put("MoneyHeadline", tex(see), rowsrc(head, *([fast] if fast else [])), "Figure 1: what to see", panel)
         figure = md(see)
     else:
@@ -246,4 +254,4 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
         put("AoCheckpoint", _ck(aon), rowsrc(aon), "the checkpoint the always-on tests ran on", panel, unit="name")
     for rid in (r for r in ALWAYS if r not in rec.rows):  # defined either way, so the sections build
         put(rid, "\\relax" if rid == "MoneyOursWatts" else "pending", {}, "pending: no admitted receipt or row yet", "pending")
-    return {"bullets": bullets, "figure": figure}
+    return {"bullets": bullets, "figure": figure, "comparison": comparison}
