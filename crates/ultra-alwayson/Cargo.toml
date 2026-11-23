@@ -1,0 +1,23 @@
+[package]
+name = "ultra-alwayson"
+description = "H47 always-on 5-state sleep ladder, 3s PCM16 ring buffer, one-pass wake replay, and segment identity verifier"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ultra-engine = { path = "../ultra-engine", default-features = false }
+ultra-frontend = { path = "../ultra-frontend" }
+ultra-gate = { path = "../ultra-gate" }
+ultra-gp = { path = "../ultra-gp" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "ultra-alwayson-check"
+path = "src/bin/ultra_alwayson_check.rs"

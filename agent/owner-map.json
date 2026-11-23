@@ -94,6 +94,9 @@
     "python/ultra/tests/test_diloco_faults.py": "training",
     "python/ultra/tests/test_diloco_d1.py": "training",
     "python/ultra/train/step_sync.py": "training",
-    "python/ultra/tests/test_step_sync.py": "training"
+    "python/ultra/tests/test_step_sync.py": "training",
+    "crates/ultra-gate/": "runtime",
+    "crates/ultra-alwayson/": "runtime",
+    "research/H47_always_on_sleep_gate/GATE_IMPLEMENTATION.md": "runtime"
   }
 }

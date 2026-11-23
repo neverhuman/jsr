@@ -521,6 +521,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ultra-alwayson"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ultra-engine",
+ "ultra-frontend",
+ "ultra-gate",
+ "ultra-gp",
+]
+
+[[package]]
 name = "ultra-bench"
 version = "0.1.0"
 dependencies = [
@@ -616,6 +629,13 @@ dependencies = [
  "tempfile",
  "thiserror",
  "ultra-core",
+]
+
+[[package]]
+name = "ultra-gate"
+version = "0.1.0"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

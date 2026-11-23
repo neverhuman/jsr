@@ -1,0 +1,13 @@
+[package]
+name = "ultra-gate"
+description = "Pure-integer Sentinel-0 wake gate and opt-in Linux per-thread uclamp pacing for ULTRA always-on ASR"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[lints]
+workspace = true
