@@ -55,7 +55,11 @@ f7699a787bc13ea83197e5a7a7767640a99fd98f366f0aa1c63d9fb9d5ab5d3e  bin/ll_pass2.p
 8eb204c784df183dc52bb8b805526c54e0897ddc402ad71be5ff0bdec19f58ae  bin/ll_student_src.py
 3c233370cdb67d967a3aa2862e29bd9a4c972dfd5ebfdf582a553c27973877ba  bin/launch_large_x6.sh
 b0860eb771a81d848f807e53d5a955c1ca459b929387244ba5e4953f9a695823  bin/finalize_medium_x5.sh
-# large (insurance): url=https://dl.fbaipublicfiles.com/librilight/data/large.tar bytes=3055377274880 official md5=4dfbac018f50b99797ece101fc9f0c30; our sha256 + selection list sha256: pending (index on xbabe6)
+# large (insurance): url=https://dl.fbaipublicfiles.com/librilight/data/large.tar bytes=3055377274880 md5=4dfbac018f50b99797ece101fc9f0c30 (= official) sha256=3e6cd5c469c5b99bd77714d7911e280a54feb12800d1f52c5890023966e9247a (verified 11:49:54Z on xbabe6)
+# large selection v1: select_large_v1.tsv sha256 8e7a7e2259f579a07aaed2f7b92e336b3d3bb69909adc8448be0f7c979183dd4 (posted 11:51:16Z, before any cut); script 2f6afed1604e72b6827bce2f90f4273085c341cb1691256b55225e26c536653b
+e80400c4b7cfb5efc87de705db398a2b667f0940d745735324245f4ca4fb08d0  analysis/overlap_large/overlap_verdict.json
+ead57be772be9c7e5c7e5c8ad7c4355d9449be1ecd1fee0ddbf02d876eb670ee  analysis/overlap_large/excluded_large.tsv
+29675cd57c1ad33108202120714e59d4d536242721dddcbd2d8e0d63697ccee9  analysis/overlap_large/train_dup_large.tsv
 # medium final (sealed 2026-11-23T11:43:43Z; x5:~/jsr-data/librilight/shards/r0_v11/librilight.medium/, 444 shards)
 7e87f000be40a0d028db8b83fa0229c39cff7c2698fee9fa8383a25f98e25892  shards/r0_v11/librilight.medium/SHA256SUMS
 26b79dac05833868f4ce3995e4c4b50a192214790da69d0db0b90d4adc4c0e7b  shards/r0_v11/librilight.medium/FILTER_REPORT.json

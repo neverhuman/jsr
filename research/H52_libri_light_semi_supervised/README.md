@@ -181,6 +181,11 @@ Details:
 - **Segmentation:** the same `ll_segment` / `ll_pass2` rules (≤ 18 s, tail ≥ 0.3 s) and the same pinned env.
   - Tier A shards go on xbabe6's disk; tier B on xbabe7's disk, under the trainer-discovering guard.
   - Labels and filter are the same as section 5, if and when needed.
+- **Large, pass 1 result (11:49:54Z):** md5 = official, sha256 3e6cd5c469c5b99b…, 197,714 FLAC files, 47,940.41 VAD h, 0 anomalies.
+  - **Overlap:** speakers NONE. Books FOUND: 6,940 files (1,922.001 VAD h) excluded. Another 15,946 probable 960 h duplicates excluded.
+  - **Selection v1:** 176,814 eligible files → list sha256 8e7a7e2259f579a0…, posted 11:51:16Z before any cut. tier A 48,248 files / 10,000.4 VAD h / 4,978 speakers / 639.4 GB FLAC; tier B 18,943 files / 3,449.8 VAD h / 4,092 speakers / 220.8 GB FLAC.
+  - Tier B stops at 3,449.8 VAD h because the 15 h per-speaker cap exhausts the eligible pool. The rule is unchanged.
+  - Tier-A segmentation started 11:51Z on x6. The labels are v1.1 R0 with frame-KD, per shard, beside each shard (`lab_drive_large.py`).
 
 ## 7. Results so far (semi-supervised (R0 labels))
 
