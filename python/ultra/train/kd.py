@@ -49,7 +49,7 @@ class TeacherStore:
                 e = emit[off:off + n]
                 u = np.concatenate([[0], np.cumsum(e[:-1] != 0)]).astype(np.int64) if n else e.astype(np.int64)
                 ok = normalise(str(hyp)) == normalise(str(text))
-                self._entries[(str(uid), sp)] = (ids[off:off + n], lp[off:off + n], u, ok)
+                self._entries[(str(uid), sp)] = (ids[off:off + n], lp[off:off + n], u, ok, e)
                 off += n
 
     def __len__(self) -> int:
@@ -58,7 +58,21 @@ class TeacherStore:
     def get(self, uid: str, speed: float):
         """The entry cached at exactly this speed, else None: a sample at a speed with no cache
         trains without the KD term (never with another speed's targets)."""
-        return self._entries.get((uid, _speed_key(speed)))
+        row = self._entries.get((uid, _speed_key(speed)))
+        if row is None:
+            return None
+        ids, lp, u, ok, _ = row
+        return ids, lp, u, ok
+
+    def get_checked(self, uid: str, speed: float, target_ids: list[int] | np.ndarray):
+        """Return `(ids, lp, u, ok)` verifying the teacher's exact emitted subword sequence
+        against `target_ids` via `verify_emitted_path` (closes Wave-0 B2 guard)."""
+        row = self._entries.get((uid, _speed_key(speed)))
+        if row is None:
+            return None
+        ids, lp, u, ok, emitted = row
+        ok_exact = bool(ok) and verify_emitted_path(emitted, target_ids)
+        return ids, lp, u, ok_exact
 
 
 def r0_to_student(ids: torch.Tensor) -> torch.Tensor:

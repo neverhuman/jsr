@@ -336,7 +336,7 @@ class ParquetBatches:
             pcm = apply_synth_aug(pcm, row["id"], epoch, self.seed)
         ex = self.feat.example(row["id"], row["text"], pcm)
         if self.teacher is not None:
-            ex.kd = self.teacher.get(row["id"], f)
+            ex.kd = self.teacher.get_checked(row["id"], f, ex.rnnt)
         return ex
 
     def _attach(self, x):
@@ -346,7 +346,7 @@ class ParquetBatches:
         uid, text, feats, rnnt, ctc, f = x
         ex = Example(uid, text, torch.from_numpy(feats), rnnt, ctc)
         if self.teacher is not None:
-            ex.kd = self.teacher.get(uid, f)
+            ex.kd = self.teacher.get_checked(uid, f, rnnt)
         return ex
 
     def _speed(self, uid: str, epoch: int) -> float:

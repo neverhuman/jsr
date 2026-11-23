@@ -336,6 +336,11 @@ class Encoder(nn.Module):
             if return_aux:
                 aux["inter_logits"] = inter_logits
         if c.family in ("multirate", "unet3"):
+            if chunk > 0 and chunk % 2 != 0:
+                raise ValueError(
+                    f"{c.family} encoder requires an even positive chunk (got {chunk}); "
+                    "chunk // 2 == 0 would silently remove causality"
+                )
             skip = x
             m, m_lens = self._downsample2(x, pad, lens, self.pair)
             c2 = chunk // 2 if chunk > 0 else chunk
@@ -345,6 +350,11 @@ class Encoder(nn.Module):
             if return_aux:
                 bal_terms.append(activation_balancer_loss(m))
             if c.family == "unet3":
+                if chunk > 0 and chunk % 4 != 0:
+                    raise ValueError(
+                        f"unet3 encoder requires a positive chunk divisible by 4 (got {chunk}); "
+                        "chunk // 4 == 0 would silently remove causality"
+                    )
                 skip12 = m
                 t12 = m.shape[1]
                 deep, d_lens = self._downsample2(m, mp, m_lens, self.pair2)
