@@ -360,6 +360,30 @@
     "python/ultra/tests/test_train_ffnn_lm.py": {
       "command": "just pytest",
       "purpose": "fast deterministic CPU smoke tests for H46 FFNN-6 training, byte budgets and parity"
+    },
+    "python/ultra/train/diloco_hub.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_hub.py tests/test_diloco_faults.py",
+      "purpose": "verify DiLoCoHub exact-sync safetensors FP32 barrier, rollback, durable outer state, hub EMA, and opt-in experimental async quorum"
+    },
+    "python/ultra/train/diloco_http.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_hub.py tests/test_diloco_faults.py",
+      "purpose": "verify DiLoCoHub HMAC-authenticated safetensors HTTP routes, executor commit, and CLI wiring"
+    },
+    "python/ultra/train/diloco_client.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_hub.py tests/test_diloco_faults.py",
+      "purpose": "verify DiLoCoClient safetensors wire, blocking round barrier, DiLoCoBarrierError, and TrainerDiLoCoHook"
+    },
+    "python/ultra/train/diloco_promote.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_hub.py",
+      "purpose": "verify dev-eval gated DiLoCo anchor promotion CLI and provenance receipt checks"
+    },
+    "python/ultra/tests/test_diloco_hub.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_hub.py",
+      "purpose": "security, exact-sync HTTP barrier, validation, retention, async experimental, and promotion tests for DiLoCoHub"
+    },
+    "python/ultra/tests/test_diloco_faults.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_diloco_faults.py",
+      "purpose": "4 fault-tolerance proofs: interrupted commit recovery, corrupt delta preservation, member dropout barrier, and restart trajectory parity"
     }
   }
 }

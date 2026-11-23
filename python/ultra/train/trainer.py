@@ -96,6 +96,12 @@ class TrainConfig:
     # step. Saved in checkpoints and in the eval-only model-<step>.pt snapshots under "ema";
     # score it with `train.evaluate --ema`.
     ema_decay: float = 0.0
+    ema_half_life_h: float = 0.0  # exposure-indexed EMA half-life in audio-hours (0 = use ema_decay)
+    stratify_chunks: bool = False  # DDP: rank r runs modes[(r + step) % len(modes)]
+    diloco_hub: str = ""  # live DiLoCoHub URL; diloco_every > 0 enables hot-swap sync
+    diloco_worker: str = ""
+    diloco_every: int = 0
+    diloco_dtype: str = "float32"
     # SentencePiece sizes (pieces, excluding blank) of the RNN-T and CTC heads; the model's output
     # sizes follow (pieces + 1). H13 shares one 512-piece model between both heads.
     rnnt_pieces: int = 4096
@@ -259,6 +265,8 @@ class Trainer:
         if not c.chunk_modes:
             return c.chunk or None
         modes = [int(v) for v in c.chunk_modes.split(",") if v.strip()]
+        if c.stratify_chunks and self.world > 1:
+            return modes[(self.rank + self.step) % len(modes)]
         pick = torch.Generator().manual_seed(c.seed * 1_000_003 + self.step + 500_009)
         return modes[int(torch.randint(0, len(modes), (1,), generator=pick))]
 
@@ -428,13 +436,14 @@ class Trainer:
             self._pause(batch, out, gnorm, "gradient norm")
         self.opt.step()
         self._qkv_constraint()
-        self._ema_update()
+        step_audio_s = self._timed_global_audio(batch.audio_seconds)
+        self._ema_update(step_audio_s)
         self.sched.step()
         self.step += 1
         return {"loss": float(out.get("loss_global", loss)), "rnnt": float(out["rnnt"]),
                 "ctc": float(out["ctc"]),
                 "grad_norm": gnorm, "ctc_masked": out["ctc_masked"] if b.active else 0,
-                "lr": self.sched.get_last_lr()[0], "audio_s": self._timed_global_audio(batch.audio_seconds),
+                "lr": self.sched.get_last_lr()[0], "audio_s": step_audio_s,
                 "utts": len(batch.uids) if b.active else 0,
                 **({"rnnt_simple": float(out["rnnt_simple"])} if "rnnt_simple" in out else {}),
                 **({"kd": float(out["kd"]), "kd_frames": out["kd_frames"]} if "kd" in out else {}),
@@ -538,8 +547,11 @@ class Trainer:
         return 1.0 if not w else min(1.0, 0.1 + 0.9 * s / w)
 
     @torch.no_grad()
-    def _ema_update(self) -> None:
-        d = self.cfg.ema_decay
+    def _ema_update(self, audio_s: float = 0.0) -> None:
+        if self.cfg.ema_half_life_h > 0 and audio_s > 0:
+            d = math.exp(-math.log(2.0) * (audio_s / 3600.0) / self.cfg.ema_half_life_h)
+        else:
+            d = self.cfg.ema_decay
         if not d:
             return
         state = self.model.state_dict()
@@ -702,13 +714,13 @@ class Trainer:
         t_wait = time.time()
         throttle = None
         if self.world > 1 and self.cfg.ddp_util_target > 0 and self.device.type == "cuda":
-            from train.dist import StepThrottle
-
-            from train.dist import physical_gpu
-
-            throttle = StepThrottle(self.cfg.ddp_util_target, physical_gpu(self.device.index or 0),
-                                    live_dir=self.run_dir)
+            from train.dist import StepThrottle, physical_gpu
+            throttle = StepThrottle(self.cfg.ddp_util_target, physical_gpu(self.device.index or 0), live_dir=self.run_dir)
         self._throttle = throttle
+        diloco = None
+        if self.cfg.diloco_hub and self.cfg.diloco_every > 0:
+            from train.diloco_client import TrainerDiLoCoHook
+            diloco = TrainerDiLoCoHook.from_trainer(self)
         for pos, batch in self._batches():
             acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
             t_step = time.time()
@@ -738,39 +750,26 @@ class Trainer:
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
-            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc",
-                      "inter_ctc", "balancer", "anchor_risk", "anchor_cov"):
+            for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
+            if diloco is not None: diloco.on_step(self, r)
             if self.step % self.cfg.log_every == 0:
                 self._rank_heartbeat()
                 dt = time.time() - t0
+                opt_avgs = {k: acc[k] / acc["n"] for k in ("rnnt_simple", "kd", "zloss", "cr_ctc", "inter_ctc", "balancer", "anchor_risk", "anchor_cov") if k in acc}
                 self.log({"kind": "train", "step": self.step, "pos": pos.to_dict(),
                           "loss": acc["loss"] / acc["n"], "rnnt": acc["rnnt"] / acc["n"],
                           "ctc": acc["ctc"] / acc["n"], "lr": r["lr"], "grad_norm": r["grad_norm"],
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
-                          "dropped_long": getattr(self.source, "dropped_long", 0),
+                          "dropped_long": getattr(self.source, "dropped_long", 0), **opt_avgs,
                           **({"dropped_conf": self.source.dropped_conf} if getattr(self.source, "min_conf", 0) else {}),
-                          **({"anchor_counts": dict(s.counts)}
-                             if (s := getattr(self.source, "anchors", None)) is not None else {}),
-                          **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
-                             else {}),
-                          **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
-                          **({"kd_counts": dict(self.source.teacher.counts)}
-                             if getattr(self.source, "teacher", None) else {}),
-                          **({"zloss": acc["zloss"] / acc["n"]} if "zloss" in acc else {}),
-                          **({"cr_ctc": acc["cr_ctc"] / acc["n"]} if "cr_ctc" in acc else {}),
-                          **({"inter_ctc": acc["inter_ctc"] / acc["n"]} if "inter_ctc" in acc
-                             else {}),
-                          **({"balancer": acc["balancer"] / acc["n"]} if "balancer" in acc else {}),
-                          **({k: acc[k] / acc["n"] for k in ("anchor_risk", "anchor_cov")} if "anchor_risk" in acc
-                             else {}),
-                          **({"clip_thr": self.clipper.last_threshold}
-                             if self.clipper.mode == "adaptive" else {}),
-                          **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)}
-                             if self.device.type == "cuda" else {}),
-                          "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema,
+                          **({"anchor_counts": dict(s.counts)} if (s := getattr(self.source, "anchors", None)) is not None else {}),
+                          **({"kd_counts": dict(self.source.teacher.counts)} if getattr(self.source, "teacher", None) else {}),
+                          **({"clip_thr": self.clipper.last_threshold} if self.clipper.mode == "adaptive" else {}),
+                          **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)} if self.device.type == "cuda" else {}),
+                          "max_qkv_norm": self._max_qkv_norm(), "loss_ema": self.loss_ema, **(diloco.log_fields() if diloco is not None else {}),
                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
                           "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
                           "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2),
