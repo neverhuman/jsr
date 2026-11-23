@@ -37,6 +37,16 @@ impl DecState {
             beam: None,
         }
     }
+
+    /// Reset predictor context (and collapse any active beam to its best hypothesis with fresh
+    /// context) without discarding previously emitted tokens. Used by optional endpoint-and-reset.
+    pub fn reset_context(&mut self, m: &Model) {
+        self.ctx = m.arch.ctx_init;
+        self.dec_ok = false;
+        if let Some(b) = &mut self.beam {
+            b.reset_context(m);
+        }
+    }
 }
 
 #[derive(Debug, Default)]

@@ -127,8 +127,10 @@ impl GroupCache {
 /// a multirate model adds the 12.5 Hz middle group in `gmid`.
 #[derive(Debug, Clone)]
 pub struct EncState {
-    /// Absolute index of the next 25 Hz encoder frame.
+    /// Absolute index of the next 25 Hz encoder frame (FeatureRing cursor).
     pub t: usize,
+    /// Frame index at which encoder caches were last reset (`0` when endpoint-reset is off).
+    pub rope_origin: usize,
     /// Valid 25 Hz attention cache entries (saturates at `left`).
     pub kv_len: usize,
     /// 25 Hz ring slots per layer and head (a multiple of 8, at least left + one step).
@@ -178,6 +180,7 @@ impl EncState {
         let g = GroupCache::new(m, a.lower + a.fin, a.left, chunk, max_chunks, kv_int8);
         Self {
             t: 0,
+            rope_origin: 0,
             kv_len: 0,
             ring: g.ring,
             kv_int8,
@@ -216,9 +219,28 @@ impl EncState {
             + g
     }
 
+    /// Relative 25 Hz frame position since the last endpoint cache reset (`t` when never reset).
+    #[inline]
+    pub fn rel_t(&self) -> usize {
+        self.t - self.rope_origin
+    }
+
+    /// Clear encoder KV, depthwise-conv, and stem overlap caches and restart RoPE positions at 0,
+    /// keeping `self.t` aligned with the stream's `FeatureRing` cursor.
+    pub fn reset_caches(&mut self) {
+        self.rope_origin = self.t;
+        self.kv_len = 0;
+        self.conv.fill(0.0);
+        self.c1_prev_t = None;
+        if let Some(g) = &mut self.gmid {
+            g.kv_len = 0;
+            g.conv.fill(0.0);
+        }
+    }
+
     fn view25(&mut self, n: usize) -> View<'_> {
         View {
-            pos: self.t,
+            pos: self.rel_t(),
             n,
             kv_len: self.kv_len,
             left: self.left,
@@ -405,13 +427,13 @@ pub fn encode_chunk(
         }
     };
     let mut rope25 = std::mem::take(&mut ws.rope);
-    let spans: Vec<(usize, usize)> = jobs.iter().map(|j| (j.state.t, j.n)).collect();
+    let spans: Vec<(usize, usize)> = jobs.iter().map(|j| (j.state.rel_t(), j.n)).collect();
     block::rope_table(m, &spans, &mut rope25);
     let mut rope_mid = std::mem::take(&mut ws.rope_mid);
     if a.mid > 0 {
         let spans: Vec<(usize, usize)> = jobs
             .iter()
-            .map(|j| (j.state.t / 2, j.n.div_ceil(2)))
+            .map(|j| (j.state.rel_t() / 2, j.n.div_ceil(2)))
             .collect();
         block::rope_table(m, &spans, &mut rope_mid);
     }
@@ -451,7 +473,7 @@ pub fn encode_chunk(
             let mut views: Vec<View<'_>> = jobs
                 .iter_mut()
                 .map(|j| {
-                    let pos = j.state.t / 2;
+                    let pos = j.state.rel_t() / 2;
                     let g = j.state.gmid.as_mut().expect("checked above");
                     g.view(pos, j.n.div_ceil(2))
                 })
