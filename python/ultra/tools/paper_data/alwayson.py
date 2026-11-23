@@ -28,7 +28,8 @@ WARM_S = 10.0  # memory samples before this much audio include the model load an
 ENDLESS = {run: {k: AO / f"endless/endless27h.{run}.{v}" for k, v in (("run", "run.json"), ("summary", "scored.summary.json"),
                                                                      ("rss", "rss.jsonl"))}
            for run in ("t0", "t1500_r1000")}  # without a reset; with reset-with-replay, the always-on configuration
-INT8 = {"a1-20000-ema-int8": "A1-20000-ema", "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
+INT8 = {"a1-49000-ema-int8": "A1-49000-ema", "a1-20000-ema-int8": "A1-20000-ema",
+        "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
 XISA = (("Zen 2 (AVX2)", RAW / "crossisa/xbabe0-h22ctl-entry2.predictions.jsonl"),
         ("Xeon (AVX-512)", RAW / "opponents/xeon8358/jsr-h22ctl-int8-t1/predictions.6ac85d6ff9dc.jsonl"),
         ("Apple M3 (NEON)", RAW / "opponents/m3ultra/jsr-h22ctl-int8-enginetool-t1/predictions.6ac85d6ff9dc.jsonl"))

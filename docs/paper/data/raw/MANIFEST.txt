@@ -298,6 +298,7 @@ d832dc0335220e7342670dfdf500fadf6d40090c454a4f4cc725d2c79bc8fb8b  energy/v2-spin
 fc1ad7439643ca98984239fb188bf1053c30b4a508fb50541293cb86e8f0f28b  energy/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 c628016f68f8e94d5d6ef08b3fd86b60d97df9c9021924e5648f01ebe06d0dc8  evidence_codex.json  /home/ubuntu/jsr/docs/paper/evidence.json (Codex Evidence, untracked in main checkout, copied 2026-11-22)
 94f3c9463dbbb097d617aba2aba94900d925b19061fae9db23346d3d60bdde9c  export/A1-20000-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-20000-ema/fulldev-int8/fulldev.pytorch-v-engine.json
+f04ecf58c45fe1f56026ec777c15e308a95487541a564310325f3d35d5476e94  export/A1-49000-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.pytorch-v-engine.json
 51e4f1885d697397115acb90443ef59ae37a41772dfd87975a24744bc878a2c0  export/H22ctl-79800-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/H22ctl-79800-ema/fulldev-int8/fulldev.pytorch-v-engine.json
 b59f4a7e93495a2749c65333623778c192239d9f0b6c80a0dd52cdc0a93d73c8  frontier.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/frontier.json
 7c355dec2266f6ef5f445f8e0cd8dfe312e78acf1a3b640980f14607ffdfe227  frontier_panel.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/frontier.json

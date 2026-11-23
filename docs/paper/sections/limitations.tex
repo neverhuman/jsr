@@ -1,8 +1,8 @@
 \section{Limitations}\label{sec:limitations}
 
 \para{Where \ultra loses.} \ColdAccuracySentence{} Its speed is therefore compared across
-operating points, never at equal accuracy. It is trained on LibriSpeech alone and its training is
-unfinished: our Fig.~\ref{fig:money} point is \ColdHeadDetail. An optional $n$-gram language model
+operating points, never at equal accuracy. It is trained on LibriSpeech alone; our Fig.~\ref{fig:money}
+point is \ColdHeadDetail. An optional $n$-gram language model
 lowers the pooled WER of H22ctl by \LmEngineGain{} points in the engine (beam~4, from
 \LmEngineNoLm\% to \LmEngineWithLm\% on the panel, with weights chosen on DEV) and by
 \LmHeldOutGain{} points held out on full DEV in PyTorch. Its \LmPackMb\,MB pack is held in memory,
