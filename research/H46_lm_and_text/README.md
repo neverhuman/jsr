@@ -301,5 +301,42 @@ text loss.
 **Engine:** the Rust predictor context is fixed at 2 tokens today. Engine support is a design
 note for Codex; no engine code comes from this lane.
 
+## Amendment 1 (2026-11-23, 06:42Z): written before any engine output and before any item-2 run
+What existed when this was written:
+- the encoder pass (dev-clean done, dev-other running);
+- the engine full-dev runs of item 1, started 06:38Z, none finished.
+
+No LM decode, beam decode or pack comparison had produced a number.
+
+1. **Engine host.** H0 is crowded: about 60% busy, 23 GB swapped, and memory-bound torch ops
+   run ~5× slower than on xbabe2. So the item-1 engine runs (`nolm_b4`, `M5ship_b4`) run on
+   **xbabe2 cores 14-27**, nice 10. Everything is identical to H0 except the host:
+   - the same `ultra-engine-eval` binary, sha256 `a9b552e9…`;
+   - the same prepared INT8 directory and M5 pack (hashes checked after the copy);
+   - the same dev npz, sha256 `bfb27f58…` / `2944dbff…`.
+
+   Both hosts are Threadripper 3995WX running the `avx2fma` kernels; the ISA is recorded in
+   each `engine_eval.json`.
+   - **Shards:** full dev is cut by `train/ops/h46_npz_shards.py` into 14 shards per split
+     (utterance i goes to shard i mod 14; byte-identical slices; hashes in
+     `results/engine_shards.jsonl`).
+   - **Runs:** `train/ops/h46_engine_fulldev.sh` runs them with 16 streams, beam 4 and
+     `--beam-max-symbols 1`.
+   - **Isolation:** each shard is an independent run, so streams never mix utterances of
+     different shards.
+2. **Item 2, exact arms (gate unchanged: 730 / 730 identical token sequences and texts):**
+   - **Packs:** each v1 pack (H42's M5, S5 and S4: `72a621c2…`, `9e2d3f98…`, `73d82f7a…`) is
+     repacked with `ultra-lm-pack --repack` (the binary built from `e61121e`, sha256
+     `208fe3ce…`) into `ultra.lm-ngram/v2`.
+   - **Engine runs:** `ultra-engine-eval --panel dev_selection_panel.json` (sha256
+     `199c6843…`), `--qualifying`, A1-49000 EMA INT8, 16 streams, beam 4,
+     `--beam-max-symbols 1`.
+   - **Weights:**
+     - M5: λ1 0.6, λ2 0.45, penalty 0;
+     - S5 and S4: λ1 0.6, λ2 0.3, penalty 0.5 (H42's engine-parity weights).
+   - **Compared:** v1 against v2 for each LM, per utterance: tokens, text and score. Also
+     reported: file size, load time, peak RSS and CPU-s per audio-s, informational only.
+   - **On a miss:** a bug report to runtime-lane (PR #70's owner) with the utterances.
+
 ## Results
 (none yet)
