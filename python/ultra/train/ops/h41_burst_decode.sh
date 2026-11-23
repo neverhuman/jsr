@@ -3,6 +3,7 @@
 # lease and the fleet guard at 0.87. The six decodes are the command lines of eval-lane's burst_decode.sh (pinned
 # d5f231e evaluator, eval-lane's checks and file layout), run concurrently instead of one after another.
 # BURST_NO_LEASE=1: skip the GPU lease (decoding beside a trainer that holds it). BURST_CHUNKS: default "4 8 16".
+# BURST_EVAL=lane: decode with this tree's evaluator even when the pinned one could (an evaluator-equivalence check).
 #   h41_burst_decode.sh <run_dir> <gpu> <cpu_list>   (h41_after_end.sh starts it in its own session)
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -18,7 +19,8 @@ done
 rm -f "$OUT/$RUN.DONE" "$OUT/$RUN.FAILED"
 # The pinned evaluator cannot read config keys added after d5f231e: decode a copy without them when they hold the
 # values that reproduce d5f231e's model (h41_compat_ckpt.py); otherwise (e.g. pred_ctx 4) use this tree's evaluator.
-"$PY" "$REPO/python/ultra/train/ops/h41_compat_ckpt.py" "$CK" "$OUT/$RUN.compat.pt" > "$OUT/$RUN.compat.json" 2>> "$OUT/$RUN.compat.err"
+if [ "${BURST_EVAL:-}" = lane ]; then echo '{"compat": false, "forced": "lane"}' > "$OUT/$RUN.compat.json"  # evaluator check
+else "$PY" "$REPO/python/ultra/train/ops/h41_compat_ckpt.py" "$CK" "$OUT/$RUN.compat.pt" > "$OUT/$RUN.compat.json" 2>> "$OUT/$RUN.compat.err"; fi
 if grep -q '"compat": true' "$OUT/$RUN.compat.json"; then CKD=$OUT/$RUN.compat.pt; EVSRC=$SRC; EVAL=d5f231e
 else CKD=$CK; EVSRC=$REPO/python/ultra; EVAL="lane tree $(git -C "$EVSRC" rev-parse --short HEAD 2>/dev/null || echo deployed)"; fi
 echo "$(date -u +%T) $RUN evaluator: $EVAL ($(cat "$OUT/$RUN.compat.json"))"
