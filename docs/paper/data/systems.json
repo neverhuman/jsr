@@ -193,6 +193,17 @@
       "checkpoint": "A1 step 30,000",
       "runtime_short": "ours",
       "segmenter": "no"
+    },
+    "vosk-large": {
+      "system": "Vosk Large (en-us 0.22)",
+      "short": "Vosk Large",
+      "macro": "VoskLarge",
+      "order": 61,
+      "runtime_short": "Vosk 0.3.45",
+      "cite": [
+        "vosk"
+      ],
+      "segmenter": "no"
     }
   },
   "headline": {

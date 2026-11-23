@@ -51,8 +51,8 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records) -> dic
     if head:
         h = derived(head)
         peers = sorted((r for r in others if r["host"] == head["host"]), key=lambda r: -derived(r)["speed"])
-        vs = [f"{speed_text(derived(r)['speed'])}\u00d7 for {_name(r)}" + (" (whole clip)" if r["class"] ==
-              "whole_utterance" else "") for r in peers]
+        vs = [f"{speed_text(derived(r)['speed'])}\u00d7 for {_name(r)}" + (" (whole clip)" if r["class"] == "whole_utterance"
+              else "") + ("" if r["timing_panel"] == "full" else " (timed on 73 utterances)") for r in peers]
         share, x = fmt(100.0 * h["cpu"], 1), speed_text(h["speed"])
         tail = f", against {_names(vs)}" if vs else ""
         m3 = ao.m3(root) if aon and aon["variant"] == ao.XISA_VARIANT else None

@@ -20,7 +20,7 @@ from .evidence import HEADLINE, derived
 from .labels import place
 from .records import Records
 
-AXIS_W, AXIS_H = 197.0, 150.0  # pt; with tick and axis labels the figure stays under 243 pt wide
+AXIS_W, AXIS_H = 197.0, 180.0  # pt; with tick and axis labels the figure stays under 243 pt wide
 FONT_PT = 7.0  # \scriptsize labels
 MARK_R = {"ours": 3.3, "comparator": 2.3}  # half-extent of the drawn marker
 BETTER = (AXIS_W - 47.0, 3.0, AXIS_W - 3.0, 14.0)  # the "better" arrow, bottom right

@@ -75,10 +75,10 @@
 \newcommand{\ChunkSixteenGainClean}{0.39}% [exploratory] pp WER
 \newcommand{\ChunkSixteenGainOther}{0.90}% [exploratory] pp WER
 \newcommand{\ColdAblationSentence}{In FP32, ONNX Runtime costs 0.159 CPU-seconds per audio-second and our engine 0.108, with the same WER (11.43\% pooled): the engine needs 1.47$\times$ less CPU and 1.86$\times$ less memory before any quantisation. Prepared INT8 then cuts the cost a further 2.81$\times$, to 0.039, and changes the pooled WER by -0.10 points.}% [reported] sentence
-\newcommand{\ColdAbstractAccuracy}{7 of the 9 other systems are more accurate; the best, Parakeet TDT v3 on sherpa-onnx, scores 2.43\%.}% [reported] sentence
+\newcommand{\ColdAbstractAccuracy}{7 of the 10 other systems are more accurate; the best, Parakeet TDT v3 on sherpa-onnx, scores 2.43\%.}% [reported] sentence
 \newcommand{\ColdAbstractSentence}{Measured cold on one pinned core, model load included, \ultra decodes at 28.2$\times$ real time at 4.60\% dev-clean WER, against 14.5$\times$ and 3.03\% for Zipformer, the fastest other streaming system on the same host.}% [reported] sentence
 \newcommand{\ColdAccuracyCount}{7}% [reported] rows
-\newcommand{\ColdAccuracySentence}{7 of the 9 other systems are more accurate on dev-clean than \ultra. The most accurate, Parakeet TDT v3 on sherpa-onnx, scores 2.43\% (4.78\% on dev-other, 3.40\% pooled), 2.16 points below \ultra.}% [reported] sentence
+\newcommand{\ColdAccuracySentence}{7 of the 10 other systems are more accurate on dev-clean than \ultra. The most accurate, Parakeet TDT v3 on sherpa-onnx, scores 2.43\% (4.78\% on dev-other, 3.40\% pooled), 2.16 points below \ultra.}% [reported] sentence
 \newcommand{\ColdAnchorCount}{3}% [reported] rows
 \newcommand{\ColdAnchorSentence}{3 rows were measured a second time (another host or session); their CPU cost is 0.99 to 1.69 times that of the row printed here.}% [reported] sentence
 \newcommand{\ColdAoneCorePct}{3.6}% [exploratory] % of one core for one always-on stream
@@ -104,7 +104,7 @@
 \newcommand{\ColdAoneWerClean}{4.66}% [exploratory] % WER
 \newcommand{\ColdAoneWerOther}{11.99}% [exploratory] % WER
 \newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
-\newcommand{\ColdComparatorCount}{9}% [reported] rows
+\newcommand{\ColdComparatorCount}{10}% [reported] rows
 \newcommand{\ColdDenseCorePct}{3.9}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdDenseCpu}{0.039}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdDenseFPCorePct}{10.8}% [exploratory] % of one core for one always-on stream
@@ -173,9 +173,9 @@
 \newcommand{\ColdHeadWerClean}{4.60}% [exploratory] % WER, dev-clean half
 \newcommand{\ColdHeadWerGapBest}{2.16}% [exploratory] pp WER
 \newcommand{\ColdHeadWerOther}{11.61}% [exploratory] % WER, dev-other half
-\newcommand{\ColdHostAbstract}{4 of the 10 systems are still measured on a shared host; quiet-host rows replace them as they arrive.}% [reported] sentence
-\newcommand{\ColdHostSentence}{4 of the 10 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
-\newcommand{\ColdHostShort}{Lighter marks (4 of 10 points): interim, measured on the shared host H0 until their quiet-host (H1) rows arrive.}% [reported] sentence
+\newcommand{\ColdHostAbstract}{4 of the 11 systems are still measured on a shared host; quiet-host rows replace them as they arrive.}% [reported] sentence
+\newcommand{\ColdHostSentence}{4 of the 11 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
+\newcommand{\ColdHostShort}{Lighter marks (4 of 11 points): interim, measured on the shared host H0 until their quiet-host (H1) rows arrive.}% [reported] sentence
 \newcommand{\ColdLagSentence}{With the input paced at real time on one core of the shared host H0, the median word lag of \ultra{} (H22ctl) is 350\,ms (95th percentile 494\,ms); the other streaming systems measured there range from 564\,ms (Zipformer) to 719\,ms (Moonshine Tiny).}% [reported] sentence
 \newcommand{\ColdLightRssOverHead}{2.1}% [exploratory] x
 \newcommand{\ColdMRCorePct}{3.7}% [exploratory] % of one core for one always-on stream
@@ -192,7 +192,7 @@
 \newcommand{\ColdMRWerClean}{11.56}% [exploratory] % WER
 \newcommand{\ColdMRWerOther}{22.19}% [exploratory] % WER
 \newcommand{\ColdMachinesSentence}{Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are measured but not yet admitted to \cref{tab:measured}.}% [reported] sentence
-\newcommand{\ColdMemorySentence}{The other systems need between 153\,MB (Zipformer) and 1684\,MB (Parakeet TDT v3 on onnx-asr) of memory, 2.1 to 22.6 times as much as \ultra.}% [reported] sentence
+\newcommand{\ColdMemorySentence}{The other systems need between 153\,MB (Zipformer) and 7629\,MB (Vosk Large) of memory, 2.1 to 102.6 times as much as \ultra.}% [reported] sentence
 \newcommand{\ColdMoonSmallCorePct}{49.5}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMoonSmallLagDesignPfifty}{540}% [exploratory] ms word lag with unbounded compute, p50
@@ -274,19 +274,28 @@
 \newcommand{\ColdParakeetTdtWer}{3.40}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerClean}{2.43}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerOther}{4.78}% [exploratory] % WER
-\newcommand{\ColdRowsCount}{10}% [reported] rows
+\newcommand{\ColdRowsCount}{11}% [reported] rows
 \newcommand{\ColdRowsEnergy}{4}% [reported] rows
 \newcommand{\ColdRowsFaded}{4}% [reported] rows
 \newcommand{\ColdRowsInterim}{4}% [reported] rows
 \newcommand{\ColdRowsLag}{2}% [reported] rows
 \newcommand{\ColdRowsOffFrontier}{4}% [reported] rows
-\newcommand{\ColdRowsStreaming}{8}% [reported] rows
-\newcommand{\ColdRowsSubset}{0}% [reported] rows
+\newcommand{\ColdRowsStreaming}{9}% [reported] rows
+\newcommand{\ColdRowsSubset}{1}% [reported] rows
 \newcommand{\ColdRowsUndrawn}{0}% [reported] rows
 \newcommand{\ColdRowsWhole}{2}% [reported] rows
-\newcommand{\ColdSpeedSentence}{On the same host the fastest other streaming system, Zipformer, runs at 14.5$\times$ real time: \ultra is 2.0$\times$ faster. 5 other systems have a row from that host, and \ultra is the fastest of them.}% [reported] sentence
-\newcommand{\ColdSubsetSentence}{\relax}% [reported] sentence
+\newcommand{\ColdSpeedSentence}{On the same host the fastest other streaming system, Zipformer, runs at 14.5$\times$ real time: \ultra is 2.0$\times$ faster. 6 other systems have a row from that host, and \ultra is the fastest of them.}% [reported] sentence
+\newcommand{\ColdSubsetSentence}{1 slow system is timed on a 73-utterance subset of the panel (Vosk Large); their WER is from the full panel.}% [reported] sentence
 \newcommand{\ColdSubtitle}{One live stream: 3.5\% of one CPU core, 74\,MB of memory and 0.35\,W}% [reported] sentence
+\newcommand{\ColdVoskLargeCorePct}{24.2}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdVoskLargeCpu}{0.242}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdVoskLargeModel}{2866}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdVoskLargeRss}{7629}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdVoskLargeRtfx}{4.10}% [exploratory] audio-s per wall-s
+\newcommand{\ColdVoskLargeSpeed}{4.13}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdVoskLargeWer}{8.80}% [exploratory] % WER
+\newcommand{\ColdVoskLargeWerClean}{5.97}% [exploratory] % WER
+\newcommand{\ColdVoskLargeWerOther}{12.85}% [exploratory] % WER
 \newcommand{\ColdVoskSmallCorePct}{14.5}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdVoskSmallCpu}{0.145}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdVoskSmallModel}{71}% [exploratory] MB of model files (10^6 bytes)
@@ -418,6 +427,11 @@
 \newcommand{\FrontierSingleMR}{0.167}% [exploratory] CPU-s/audio-s
 \newcommand{\FrontierSingleRzero}{0.226}% [exploratory] CPU-s/audio-s
 \newcommand{\FrontierStreams}{16}% [reported] streams
+\newcommand{\FtlDelayEightyMs}{105}% [exploratory] ms, mean, 80 ms chunks
+\newcommand{\FtlDelayFortyMs}{93}% [exploratory] ms, mean, 40 ms chunks
+\newcommand{\FtlDelayOneSixtyMs}{146}% [exploratory] ms, mean, 160 ms chunks
+\newcommand{\FtlDelayWerCost}{0.2}% [exploratory] pp pooled WER (full dev, EMA, chunk 4) against arm 10
+\newcommand{\FtlParentOneSixtyMs}{239}% [exploratory] ms, mean, 160 ms chunks, arm 10 (its parent)
 \newcommand{\FullAttnLossClean}{0.81}% [exploratory] pp WER
 \newcommand{\GapMRvsRzeroPooled}{10.82}% [exploratory] pp WER
 \newcommand{\GapMRvsRzeroPooledHi}{11.73}% [exploratory] pp WER
@@ -481,7 +495,7 @@
 \newcommand{\MelNnzSparse}{477}% [reported] nonzeros
 \newcommand{\MelSpeedupMthree}{2.83}% [exploratory] x
 \newcommand{\MelSpeedupZen}{3.55}% [exploratory] x
-\newcommand{\MoneyHeadline}{\ultra{}-S (A1, step 30,000 of 49,000; training continues) is the fastest of the 10 systems, 2.0$\times$ the next streaming system on the same core, and 7 of the 9 others are more accurate.}% [exploratory] sentence
+\newcommand{\MoneyHeadline}{\ultra{}-S (A1, step 30,000 of 49,000; training continues) is the fastest of the 11 systems, 2.0$\times$ the next streaming system on the same core, and 7 of the 10 others are more accurate.}% [exploratory] sentence
 \newcommand{\MoneyMarksCaption}{Diamond: ours. Hollow: whole-utterance systems, which see the whole clip before they emit a word. Dashed: no other streaming system is better on both axes.}% [reported] sentence
 \newcommand{\MoneyOursWatts}{\relax}% [exploratory] sentence
 \newcommand{\MoneyWattsCaption}{Watts beside a name: W per always-on stream (core energy registers, same run).}% [reported] sentence

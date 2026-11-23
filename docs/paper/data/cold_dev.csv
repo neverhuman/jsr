@@ -19,3 +19,4 @@ nemotron-35-zen2-t1-xbabe3,nemotron-35,Nemotron 3.5,comparator,streaming,zen2,1,
 parakeet-tdt-v3-int8-zen2-t1,parakeet-tdt-v3-int8,Parakeet v3 sherpa,comparator,whole_utterance,zen2,1,zen2-t1-comparator-whole,0.16901,5.917,5.911,3.40,2.43,4.78,1403.3,670.6,,,1.711,exploratory,xbabe0,1,,,,,0,full
 parakeet-v3-onnxasr-int8-zen2-t1,parakeet-v3-onnxasr-int8,Parakeet v3 onnx-asr,comparator,whole_utterance,zen2,1,zen2-t1-comparator-whole,0.14952,6.688,6.678,3.36,2.52,4.58,1683.6,670.5,,,,exploratory,xbabe0,1,,,,,0,full
 vosk-small-zen2-t1,vosk-small,Vosk Small,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.14534,6.880,6.875,14.90,10.74,20.86,256.9,70.9,,,,exploratory,xbabe0,1,,,,,0,full
+vosk-large-zen2-t1,vosk-large,Vosk Large,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.24204,4.132,4.100,8.80,5.97,12.85,7629.3,2866.0,,,,exploratory,xbabe0,1,,,,,0,p73
