@@ -48,3 +48,35 @@ Wave H48 covers A1L, the low-latency mode, onset peek and the MFA-anchored laten
 **Outputs:** `train.jsonl` evals, then full-dev EMA decodes at chunks 4 / 8 / 16 with eval-lane's pinned evaluator (hypotheses + WER JSON). Weights stay on xbabe9 and are listed in `MANIFEST`.
 
 **Compute:** 2,093 steps, about 0.26R, plus about 15 min of decodes.
+
+## H48b: low-latency fine-tune from A1L, a seed pair (pre-registered 2026-11-23, before either seed starts)
+
+**Question:** can A1L's weights carry an 80 ms mode, with first token under 133 ms on the end-of-first-word clock, while keeping its accuracy at 160 / 320 / 640 ms?
+
+**Recipe:**
+- Init: A1L's final `model-00008000.pt`, raw weights; the EMA restarts from them.
+- A1's recipe with `chunk_modes=2,4,8,16` and `eval_chunks=2,8,16`.
+- `delay_penalty` **0.01**, or **0.0075** if eval-lane's arm 20 / 20-r verdict fails its WER guard (4 / 8 / 16 against the chunk arm). The choice is fixed by that verdict before seed 1234 starts, and both seeds use the same value.
+- H41 replay schedule (8,000 steps, 200 warmup steps to 2.476e-4, cosine to 3.0e-5), batch 650 s / 144, EMA 0.9995, guard 0.87.
+
+**Seeds and hosts:**
+- seed 1234 on xbabe9 (A100), after A1L's decodes;
+- seed 4321 on xbabe1 (RTX 4090), once h45-wins releases it.
+- The xbabe1 venv has numpy 1.26.4 / scipy 1.17.1 against xbabe9's 2.5.5 / 1.18.1. kd-cache found speed perturbation identical across these versions.
+
+**Code:** A1L's pinned tree on both hosts: d5f231e plus the diff with sha256 `bf9f3cad…`, `python/ultra` content sha256 `99bce400…`. Each launcher checks it.
+
+**Gates** (codex-lead's 06:03Z latency gates, adopted by the lead):
+- **Latency:** at 80 ms chunks, mean first-token latency **< 133 ms on the end-of-first-word capture clock** (eval-lane's pipeline).
+- **Paired against A1L at 160 ms:**
+  - lower median;
+  - paced p95 no more than +20 ms;
+  - coverage and first-word bounds within 0.50 pp.
+- **Accuracy:** full-dev EMA, pooled, canonical scorer, at chunks 4 / 8 / 16, within the four-run spread of A1L's own values (paired bootstrap). WER at chunk 2 is reported.
+- Both seeds are read, and the pair's mean decides.
+
+**Kill rules:** step-2,000 dev-clean400 EMA at chunk 4 above A1L's step-6,000 EMA (4.689) + 1.5 pp = 6.189, or raw chunk-4 WER above 20% at any eval.
+
+**Outputs:** `train.jsonl` evals and full-dev EMA decodes at chunks 2 / 4 / 8 / 16 (results only). Weights stay on the hosts and are listed in `MANIFEST`.
+
+**Compute:** 2R (one R per seed).
