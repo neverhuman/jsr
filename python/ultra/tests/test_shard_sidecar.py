@@ -276,3 +276,98 @@ def test_parse_node_shards_validation():
     for bad in ("node=4/4", "node=0/2,weights=1:2:3", "node=0/2,weights=1:0", "badtoken"):
         with pytest.raises(DataError):
             parse_node_shards(bad)
+
+
+# ---- collate_ahead (H55 S4b data-wait fix): collation off the consumer's thread, identical batches ----------
+
+def _ahead_source(corpus, ahead: int, rank: int = 0, world: int = 1, ddp_global: bool = False):
+    ls_root, ll_dir, tok, tbl_ls, tbl_ll, _ = corpus
+    t = Tokenizer(tok)
+    s = ParquetBatches(
+        ["train-clean-100"], Featurizer(t, t), seed=7919, budget_s=6.0, max_batch=12, max_seconds=2.4,
+        window_groups=6, parquet_root=ls_root, workers=1, speed_perturb=(0.9, 1.0, 1.1), pad_frames=4,
+        extra=[(ll_dir, None)], base_weight=0.5, dur_tables=f"{tbl_ls},{tbl_ll}", collate_ahead=ahead,
+    )
+    s.rank, s.world, s.ddp_global_batches = rank, world, ddp_global
+    return s
+
+
+def _assert_same_batches(ref, got):
+    assert len(got) == len(ref)
+    for (p_ref, b_ref), (p_got, b_got) in zip(ref, got, strict=True):
+        assert p_got == p_ref
+        assert b_got.uids == b_ref.uids and b_got.texts == b_ref.texts and b_got.active == b_ref.active
+        for k in ("feats", "feat_lens", "rnnt", "rnnt_lens", "ctc", "ctc_lens"):
+            assert torch.equal(getattr(b_got, k), getattr(b_ref, k)), k
+
+
+@pytest.mark.parametrize("world,ddp_global,start", [
+    (1, False, Position()),
+    (3, True, Position()),
+    (3, True, Position(0, 1, 2)),
+    (2, False, Position(0, 2, 1)),
+])
+def test_collate_ahead_batches_identical_to_inline(corpus, world, ddp_global, start):
+    for rank in range(world):
+        ref = _collect(_ahead_source(corpus, 0, rank, world, ddp_global), 10, start)
+        for ahead in (1, 3):
+            _assert_same_batches(ref, _collect(_ahead_source(corpus, ahead, rank, world, ddp_global), 10, start))
+
+
+def test_collate_ahead_surfaces_errors_at_the_same_batch(corpus, monkeypatch):
+    import train.data as td
+
+    real = td.collate
+    calls = {"n": 0}
+
+    def flaky(exs, *a, **k):
+        calls["n"] += 1
+        if calls["n"] == 5:
+            raise DataError("collate failed at batch 5")
+        return real(exs, *a, **k)
+
+    monkeypatch.setattr(td, "collate", flaky)
+    for ahead in (0, 2):
+        calls["n"], seen = 0, []
+        with pytest.raises(DataError, match="collate failed at batch 5"):
+            for pos, _b in _ahead_source(corpus, ahead).iterate(Position()):
+                seen.append(pos)
+        assert len(seen) == 4
+
+    monkeypatch.setattr(td, "collate", real)
+    real_load = ParquetBatches._load_window
+
+    def dies_after_first_window(self, epoch, window, skip=0):
+        if (epoch, window) != (0, 0):
+            raise RuntimeError("window read failed")
+        return real_load(self, epoch, window, skip=skip)
+
+    monkeypatch.setattr(ParquetBatches, "_load_window", dies_after_first_window)
+    counts = []
+    for ahead in (0, 2):
+        seen = []
+        with pytest.raises(DataError, match="batch producer failed: RuntimeError"):
+            for pos, _b in _ahead_source(corpus, ahead).iterate(Position()):
+                seen.append(pos)
+        counts.append(len(seen))
+    assert counts[0] == counts[1] > 0
+
+
+def test_collate_ahead_threads_stop_when_closed(corpus):
+    import threading
+    import time
+
+    it = _ahead_source(corpus, 2).iterate(Position())
+    next(it)
+    next(it)
+    assert any(th.name.startswith("batch-collator") for th in threading.enumerate())
+    it.close()
+    deadline = time.time() + 15
+    while time.time() < deadline and any(th.name.startswith("batch-collator") for th in threading.enumerate()):
+        time.sleep(0.05)
+    assert not any(th.name.startswith("batch-collator") for th in threading.enumerate())
+
+
+def test_collate_ahead_rejects_negative(corpus):
+    with pytest.raises(DataError, match="collate_ahead must be >= 0"):
+        _ahead_source(corpus, -1)
