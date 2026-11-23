@@ -53,9 +53,11 @@ from .common import (
     verify_manifest,
     write_manifest,
 )
+from .alwayson import capacity
 from .cold import load_evidence
 from .compare import add_comparison
 from .derive import add_derived
+from .facts import add_facts
 from .evidence import presentation
 from .jobg import add_job_g
 from .figures import accuracy_table, add_curves, add_sweeps, add_tables
@@ -66,7 +68,7 @@ from .records import Records, add_curated
 from .reported import add_reported
 from .rehearsal import add_rehearsal
 from .sources import add_cluster_gap, add_codex_evidence, add_panel5
-from .tables import always_on_table, hardware_table, measured_table
+from .tables import always_on_table, capacity_table, hardware_table, measured_table
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -87,11 +89,14 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     accuracy_table(rec, out)
     rows = load_evidence(root, rec, out)
     watts = add_money(rows, out, rec)
-    add_comparison(rows, presentation(root).get("headline", {}), rec)
-    out["money_readme.md"] = readme_block(rows, rec.rows["ColdHostSentence"]["value"], watts)
+    headline = presentation(root).get("headline", {})
+    add_comparison(rows, headline, rec)
+    bullets = add_facts(root, rows, headline, rec)
+    out["money_readme.md"] = readme_block(rows, bullets, watts, headline.get("always_on"))
     out["table_measured.tex"] = measured_table(rows)
     out["table_hardware.tex"] = hardware_table(rows)
-    out["table_always_on.tex"] = always_on_table(rows)
+    out["table_always_on.tex"] = always_on_table(rows, headline.get("always_on"))
+    out["table_capacity.tex"] = capacity_table(rows, capacity(root))
     add_reported(root, rec)
     out["metrics.tex"] = metrics_tex(rec)
     out["SOURCES.md"] = sources_md(rec)

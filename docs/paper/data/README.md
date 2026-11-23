@@ -37,6 +37,10 @@ on any record that is missing a required field, and on bare decimal or percent n
   group; only the generator writes it. Its columns are append-only.
 - `table_measured.tex`, `table_hardware.tex`: the bodies of the "measured here" table (one line per measured
   system, every cell a `metrics.tex` macro) and of the hardware table (hosts, CPUs, memory configuration).
+- `table_always_on.tex`, `table_capacity.tex`: the cost of one always-on stream per quiet-host system, and the
+  capacity test (live streams on one core).
+- `money_readme.md`: the README block (page-1 facts, Figure 1, its table), copied into `README.md` by
+  `just paper-refresh`.
 - `money_layout.tex`, `money_frontier.csv`: Figure 1 geometry (axis limits, label boxes, leaders, frontier, the
   key of numbered labels, watts ticks).
 
@@ -180,7 +184,10 @@ PNG is older than the data, so neither can go stale silently.
 
 To add a system: put its v2 row in a file under `evidence/`, give its `variant` a name, a plot label (`short`) and a
 macro stem in `systems.json`, and run the command. To change which checkpoint of ours the paper quotes: set
-`headline.ours` in `systems.json` and give the stale variant `"plot": false`.
+`headline.ours` in `systems.json` and give the stale variant `"plot": false`. `headline.always_on` names the row of
+ours the always-on tests ran on (energy, capacity, silence, endless stream); when it differs from `headline.ours`,
+every sentence that quotes those tests names that checkpoint, the always-on table keeps its row (marked as not
+drawn), and Figure 1 draws no watts for our point until the headline row has its own same-run energy line.
 
 ## What the text quotes
 
@@ -195,6 +202,29 @@ change by themselves when rows arrive.
 
 Figure 1's vertical axis is the WER on the panel's 400 dev-clean utterances (`wer_clean`), the number model cards
 lead with; dev-other and pooled WER are in the text, the tables and the README block.
+
+### Page-1 facts and the always-on receipts
+
+`facts.py` writes the facts the abstract (`\Abs...`), the contributions and the results (`\Ao...`) and the README
+bullets lead with, in one order: cost, watts, capacity, silence, the endless stream, the same words on every
+instruction set, and where we trail. Each fact is built from the rows above and from receipts that `alwayson.py`
+reads, all copied verbatim under `raw/` and pinned in `raw/MANIFEST.txt`:
+
+| Receipt (under `raw/`) | Fact |
+|---|---|
+| `energy/derived/capacity-test-entry4b.jsonl`, `energy/paced/*.json` | live streams on one core, word lag at each load, W per stream (energy, TIMING entry 4b) |
+| `alwayson/nonspeech/MANIFEST.json`, `alwayson/nonspeech/h22ctl/*/predictions.jsonl` | words emitted in ten 1-hour blocks of silence and noise (eval-lane) |
+| `alwayson/stream/MANIFEST.json`, `alwayson/stream/hour1/*` | the endless stream's length; its first hour as one stream against the utterances one by one, the pauses' false words, the left-context share (eval-lane) |
+| `alwayson/stream/replay/*` | the first hour with no reset and with reset-with-replay, rescored by eval-lane |
+| `alwayson/endless/endless27h.t0.rss.jsonl` | memory over the endless run so far (runtime-lane; a snapshot of a run that continues: copy a newer one and re-pin it) |
+| `export/*.fulldev.pytorch-v-engine.json` | INT8 engine against FP32 PyTorch on full dev (eval-lane) |
+| `crossisa/*.predictions.jsonl` with `opponents/{xeon8358,m3ultra}/jsr-h22ctl-*/predictions.*.jsonl` | the same transcripts on AVX2, AVX-512 and NEON |
+| `opponents/rows/m3ultra-bench-cross.jsonl` | one-core speed on the Apple M3 Ultra (bench-cross) |
+
+A fact whose receipt is missing prints "pending" (and its README bullet says so); `tests/test_paper_claims.py`
+checks that the facts carry the receipts' numbers and fails if a claim the text makes (a flat lag, flat memory, a
+reset that matches isolated decoding) stops holding. The n-gram LM numbers come from `curated.json`, quoted from
+`research/H42_ngram_lm/README.md`.
 
 ## Hosts
 

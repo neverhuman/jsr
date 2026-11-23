@@ -1,7 +1,9 @@
 \section{Conclusion}\label{sec:conclusion}
 
-\ColdAlwaysOnSentence{} We measured it and \ColdComparatorCount{} published recognisers on one pinned Zen~2
-core under one protocol. \ColdAbstractSentence{} \ColdAbstractAccuracy{} The engine that gives the speed is
+\AbsCost{} We measured \ultra and \ColdComparatorCount{} published recognisers on one pinned Zen~2
+core under one protocol, and ran the tests an always-on recogniser must pass. So far it emits no
+word in silence or noise, holds its word lag flat up to \AoCapacityStreams{} live streams on one
+core, and keeps its memory flat over hours of continuous audio, at a fraction of the other
+systems' CPU time and watts. It trails on accuracy. The engine that gives the speed is
 batch-invariant and bit-identical across x86 and ARM, and it does not change with the weights, so
-the accuracy gap is a training problem. Word lag, watts, the eight-core budget and two more
-machines are being measured under the same protocol, and the qualified run follows.
+the accuracy gap is a training problem; training continues.

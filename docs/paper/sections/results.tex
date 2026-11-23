@@ -24,32 +24,6 @@ much of it overlaps LibriSpeech.
 report, so \cref{tab:measured} gives its throughput, and at most the time from the end of a clip
 to its transcript; \cref{fig:money} draws it hollow.
 
-\para{The cost of always listening.} \Cref{tab:alwayson} restates the quiet-host rows as the cost of
-keeping one stream listening without a pause. \ColdWattsSentence{} \ColdLagSentence{} Two tests that an
-always-on recogniser must pass are under way, and their results are not admitted to this draft yet: an
-endless stream, over which memory, CPU time, word lag and WER must stay flat for \EndlessStreamHours{}
-hours of continuous audio, and the number of words emitted per hour of audio that contains no speech.
-
-\begin{table}[t]
-\centering
-\caption{\textbf{Cost of always listening}, one always-on stream per row, quiet host only. Core:
-share of one CPU core (CPU-seconds per audio-second). W: watts per stream from the core energy
-registers in the same run. \ColdPackageSentence{} kWh: per stream-year (W times the hours in a year). RSS: peak memory in MB. Lag: word
-lag p50 / p95 in ms with the input paced at real time ($^{*}$measured on the shared host H0). 1-core:
-keeps up on one core. Seg.: needs a separate voice-activity segmenter to cut an endless stream (from
-each system's documentation; ours: the endless-stream test is pending). Exploratory.}
-\label{tab:alwayson}
-\footnotesize
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{@{}p{0.23\columnwidth}rrrrcll@{}}
-\toprule
-System & Core (\%) & W & kWh & RSS & Lag (ms) & 1-core & Seg. \\
-\midrule
-\rawinput{data/table_always_on.tex}
-\bottomrule
-\end{tabular}
-\end{table}
-
 \para{Eight cores, other machines.} \ColdEightSentence{} \ColdMachinesSentence{}
 
 \para{The engine against a general runtime, on the same weights.} The last block of
@@ -66,6 +40,64 @@ reports \RepPvMoonTinyCoreHours{} core-hours per hundred hours of audio, about
 \RepPvMoonTinyCpuEquivalent{} CPU-seconds per audio-second, where we measure
 \ColdMoonTinyCpu{}. Differences of this size between sources are the reason for measuring every
 system under one protocol.
+
+\subsection{Always on}\label{sec:alwayson}
+
+The tests of this subsection ran on \AoCheckpoint, the checkpoint before our Fig.~\ref{fig:money}
+point (same architecture and engine; its rows are in \cref{tab:measured,tab:alwayson}).
+
+\para{The cost of one always-on stream.} \Cref{tab:alwayson} restates the quiet-host rows as the
+cost of keeping one stream listening without a pause. \ColdWattsSentence{} \ColdLagSentence{}
+
+\begin{table}[t]
+\centering
+\caption{\textbf{Cost of always listening}, one always-on stream per row, quiet host only. Core:
+share of one CPU core (CPU-seconds per audio-second). W: watts per stream from the core energy
+registers in the same run. \ColdPackageSentence{} kWh: per stream-year (W times the hours in a
+year). RSS: peak memory in MB. Lag: word lag p50 / p95 in ms with the input paced at real time
+($^{*}$measured on the shared host H0). 1-core: keeps up on one core. Seg.: needs a separate
+voice-activity segmenter to cut an endless stream (from each system's documentation; ours: the
+endless stream below). $^{\dagger}$Not drawn in Fig.~\ref{fig:money}: the checkpoint the always-on
+tests ran on. Exploratory.}
+\label{tab:alwayson}
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}p{0.23\columnwidth}rrrrcll@{}}
+\toprule
+System & Core (\%) & W & kWh & RSS & Lag (ms) & 1-core & Seg. \\
+\midrule
+\rawinput{data/table_always_on.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\para{Capacity on one core.} \AoCapacity{} \Cref{tab:capacity} gives every load.
+
+\begin{table}[t]
+\centering
+\caption{\textbf{Live streams on one core}, quiet host, each stream paced at real time. Busy:
+share of the core in use. Lag: stable-word lag p50 / p95 in ms, end to end against forced-aligned
+word ends. W: watts per stream from the core's energy register, net of the idle floor / gross.
+Exploratory.}
+\label{tab:capacity}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrcc@{}}
+\toprule
+System & Streams & Busy (\%) & Lag (ms) & W \\
+\midrule
+\rawinput{data/table_capacity.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\para{Silence.} \AoSilence{}
+
+\para{The endless stream.} The endless stream holds every DEV utterance once, in a seeded order,
+with seeded pauses of digital silence or synthetic noise between them: \AoStreamHours\,h of audio
+in one piece. \AoEndless{}
+
+\para{The same words on every machine.} \AoSameWords{}
 
 \begin{table*}[t]
 \centering

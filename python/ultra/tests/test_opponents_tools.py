@@ -203,7 +203,7 @@ def test_exported_rows_pass_the_paper_evidence_checks():
     for path in files:
         rows = [json.loads(line) for line in path.read_text().splitlines()]
         for number, row in enumerate(rows, 1):
-            evidence._check_row(dict(row), f"{path.name}:{number}")
+            evidence.check_row(dict(row), f"{path.name}:{number}")
         if not path.name.endswith((".slow.jsonl", ".loaded.jsonl")):
             assert {row["workload_digest"] for row in rows} == {"010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963"}
         assert len({row["id"] for row in rows}) == len(rows)

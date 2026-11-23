@@ -1,5 +1,5 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short and segmenter (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that the abstract and the text quote.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Per variant only system (table name), short (plot label), text (name in prose), detail (which checkpoint), macro, cite, order, plot, runtime_short and segmenter (yes | no: needs a separate segmenter for an endless stream) may be set; every number comes from data/evidence/*.jsonl. `headline.ours` names the row of ours that Figure 1 draws and the abstract and the text quote; `headline.always_on` names the row of ours the always-on tests (energy, capacity, silence, endless stream) ran on, which the text names wherever it quotes them.",
   "variants": {
     "dense-r1-int8": {
       "system": "ULTRA dense S, avg. 50/55/60k, INT8",
@@ -124,16 +124,40 @@
     },
     "h22ctl-79800-ema-int8": {
       "system": "ULTRA-S, H22ctl 79,800 EMA, INT8",
-      "short": "ULTRA-S (ours)",
+      "short": "ULTRA-S H22ctl",
       "macro": "Hctl",
       "order": 4,
       "text": "\\ultra{}-S",
       "detail": "H22ctl, step 79,800, EMA weights, INT8",
       "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": false
+    },
+    "a1-20000-ema-int8": {
+      "system": "ULTRA-S, A1 20,000 EMA, INT8",
+      "short": "ULTRA-S (ours)",
+      "macro": "Aone",
+      "order": 3,
+      "text": "\\ultra{}-S",
+      "detail": "A1, step 20,000 of 49,000; training continues",
+      "runtime_short": "ours",
       "segmenter": "no"
+    },
+    "parakeet-tdt-v3-int8": {
+      "system": "Parakeet TDT v3 0.6B, INT8",
+      "short": "Parakeet TDT v3",
+      "macro": "ParakeetTdt",
+      "order": 50,
+      "runtime_short": "sherpa-onnx",
+      "cite": [
+        "nvidia2025parakeettdtv3",
+        "sherpaonnx"
+      ],
+      "segmenter": "yes"
     }
   },
   "headline": {
-    "ours": "h22ctl-79800-ema-int8"
+    "ours": "a1-20000-ema-int8",
+    "always_on": "h22ctl-79800-ema-int8"
   }
 }

@@ -1,16 +1,20 @@
 \section{Limitations}\label{sec:limitations}
 
 \para{Where \ultra loses.} \ColdAccuracySentence{} Its speed is therefore compared across
-operating points, never at equal accuracy. Its training was unfinished and used LibriSpeech only.
-Two levers are being measured and are not in this draft's numbers: a model trained further, and an
-n-gram language model fused into the beam search.
+operating points, never at equal accuracy. It is trained on LibriSpeech alone and its training is
+unfinished: our Fig.~\ref{fig:money} point is \ColdHeadDetail. An optional $n$-gram language model
+lowers the pooled WER of H22ctl by \LmEngineGain{} points in the engine (beam~4, from
+\LmEngineNoLm\% to \LmEngineWithLm\% on the panel, with weights chosen on DEV) and by
+\LmHeldOutGain{} points held out on full DEV in PyTorch. Its \LmPackMb\,MB pack is held in memory,
+and no row in our tables uses it. Its training text contains \LmOverlapCount{} of the
+\LmOverlapOf{} longer DEV transcripts verbatim; without them the relative gain is unchanged.
 
-\para{Always on, not yet shown.} The endless-stream test and the false-words test on non-speech
-audio are under way but not admitted to this draft, so it does not yet show that memory, CPU time,
-lag and WER stay flat over hours of continuous audio, nor how many words \ultra emits when nobody
-speaks. A first look suggests that WER is worse in one continuous stream than when the same
-utterances are decoded one by one; the cause is being isolated, and the number will be reported as
-measured.
+\para{Always on, as far as shown.} The always-on tests ran on \AoCheckpoint, not on our
+Fig.~\ref{fig:money} checkpoint. When this draft was built the endless run had covered
+\AoEndlessHours{} of its \AoStreamHours\,h; reset-with-replay is shown on the stream's first hour
+only, and the full run with it is under way. The non-speech audio is digital silence and
+synthetic noise, not music, television or babble. The capacity test fed every stream the same
+short excerpt of the panel, and its ceilings come from CPU cost, not from a run at that load.
 
 \para{Exploratory measurements.} Every number comes from outside a qualifying window.
 \ColdHostSentence{} Each cost is the median of three runs. On the shared host the three runs of
