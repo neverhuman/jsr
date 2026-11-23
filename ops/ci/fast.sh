@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# CI fast lane: the Rust part of `just fast` (fmt, clippy -D warnings, tests).
+# CI fast lane: the Rust part of `just fast` (fmt, clippy -D warnings, tests), plus, on GitHub Actions only,
+# the torch-free pytest lane (CI has no .venv; locally `just pytest` in quality-gates.sh covers pytest).
 set -Eeuo pipefail
 # shellcheck source=ops/ci/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -16,3 +17,8 @@ fi
 cargo check --target aarch64-unknown-linux-gnu -p ultra-kernels -p ultra-engine
 ci_step "cargo test"
 cargo test --workspace -q
+# Called from here rather than as its own workflow step: the repo token used by the agents cannot
+# push changes to .github/workflows/ (no `workflow` scope).
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  bash ops/ci/pytest-light.sh
+fi
