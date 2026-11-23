@@ -88,6 +88,12 @@ What existed when this was written: O0–O3 decoded and scored (summary below un
 4. **Readings fixed now:** (a) if O3n has ≤ 2 gap false words and |WER(O3n) − WER(O3)| ≤ 0.05 pp, the session's close must not flush, and Q checks that the swarm's session never emits text at a close. (b) If O3n-r500 recovers at least half of O3n's first-word loss against O0 after noise gaps, at no WER cost beyond +0.05 pp, a 500 ms pre-roll is recommended to the swarm's B-6 sweep (with the measured wake delays); O3n-r300 shows the trend.
 5. `scripts/h47_analyze.py` now reuses a score when it is newer than its trace (sha256 `fa49b0e4…`; no computation changed).
 
+## Amendment 4 (2026-11-23, written before the runs it names): the skip-gate simulation's criterion 2 with the swarm's real Sentinel-0 segments
+What existed when this was written: O0–O3 results (below), the O3n / O3n-r500 / O3n-r300 runs in progress, C0 / C1 still decoding, no comparison with C0 / C1, and the swarm's segment list (runtime-lane-h47-sim, 06:52:59Z).
+- **Input:** `/mnt/xbabe3-external/jsr/runtime-lane/h47_skipgate_segments/endless_27h_sentinel0.segments.jsonl` (sha256 `3a969cd8…`): PR #75's `sentinel0_segments.py` on this wave's Sentinel-0 trace of the stream (`hot.u8` `c9a51519…`). The session wakes on a hot hop with a 1 s pre-roll and closes after 1.5 s of gate-cold hops (a gate-driven close, not the designs' recogniser-blank close). 5,318 segments, duty 53.7%.
+- **Arms:** **S1n** = those segments decoded by `h47-oracle-decode` v2 with `--no-flush` (complete chunks only, the designs' close; primary). **S1f** = the same with the flush (diagnostic for finding 1).
+- **Readings fixed now** (codex-lead's wake gate, via the lead's 04:48Z criterion 2): WER(S1n) − WER(C1) ≤ +0.10 pp and one-sided 95% upper bound ≤ +0.20 pp (Bonferroni α/6 bounds reported beside the unadjusted ones); first-word recall after sleep, S1n − C1, one-sided 95% lower bound ≥ −0.5 pp; gap false words of S1n with the Garwood bound, and added over C1. S1f − S1n gives the cost of flushing at a close.
+
 ## Results
 
 ### O0–O3 (exploratory; decoded on the Mac 06:34–06:55Z, NEON, traces byte-identical to AVX2 on the sanity set; scored by `score_alwayson.py`)
