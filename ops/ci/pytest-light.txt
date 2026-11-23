@@ -1,0 +1,24 @@
+# python/ultra test files that run without torch, k2 or LaTeX (paths relative to python/ultra).
+# Checked in a clean venv with only pytest, pytest-asyncio, numpy and aiohttp on 2026-11-23.
+# Add a file here when it needs nothing heavier; the local gate runs everything regardless.
+tests/test_bridge_guard.py
+tests/test_cpu_pool.py
+tests/test_dev_panel.py
+tests/test_divergence_watch.py
+tests/test_energy_bench.py
+tests/test_export_curves.py
+tests/test_fleet_dashboard.py
+tests/test_fleet_guard.py
+tests/test_nemotron_adapter.py
+tests/test_ood.py
+tests/test_opponents_tools.py
+tests/test_paper_claims.py
+tests/test_paper_data.py
+tests/test_paper_evidence.py
+tests/test_power_bench.py
+tests/test_sp_a_fleet.py
+tests/test_sp_a_sim.py
+tests/test_train_diagnose.py
+tests/test_training_dashboard.py
+tests/test_wer.py
+tests/test_word_timing.py
