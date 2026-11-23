@@ -67,8 +67,8 @@ LL.medium        x5:~/jsr-data/librilight/shards/r0_v11/librilight.medium/SHA256
 # --- flags, limits and context rows
 E2.L4-14k        $D/evals/eval-lane/h43/protected-e2/14k-pooled-l4-vs-b0.paced.json  sha256 c9e0d52414beee919e3f9eae0b44f8418bb88a1d4a8283f755024a244a90bb63 (E2 FAIL)
 gate.14i         $D/opponents/bench-open/watts-join/14i_q_cpu_summary.json  sha256 6f938e7e75e3284d733991d1c2ced154cc73fc90b5385351f112928d6d8efb7c (Q2, Q6, duty05 watts)
-gate.Q4b         research/H47_always_on_sleep_gate/results/Q4b_tierB_torture.json  sha256 e5e4b825a88b3e273ab53c74d34d7e48234d0d94b7ab1d64676ae8f641b65085 (docs batch 7047bd8)
-gate.Q5          research/H47_always_on_sleep_gate/results/Q_5ca3583_r500_i1500_Q5_30h.json  sha256 bb1e0f7aae4a339859d95db878eb98a41ba9c68e1486c90f9dfef3cb0b59dfca (docs batch 7047bd8)
+gate.Q4b         research/H47_always_on_sleep_gate/results/Q4b_tierB_torture.json  sha256 e5e4b825a88b3e273ab53c74d34d7e48234d0d94b7ab1d64676ae8f641b65085 (on main via #110)
+gate.Q5          research/H47_always_on_sleep_gate/results/Q_5ca3583_r500_i1500_Q5_30h.json  sha256 bb1e0f7aae4a339859d95db878eb98a41ba9c68e1486c90f9dfef3cb0b59dfca (on main via #110)
 agc.C1C2.warm    $D/evals/eval-lane/h43/gain-panel-fresh/v2-02e1fa4cd1f7/primary/criteria_1_2.json  sha256 ee627a19451cebb2f0bc03aeda38240b9cc0db00c8eec55904217f2cc919d842
 agc.C1C2.cold    $D/evals/eval-lane/h43/gain-panel-fresh/v2-02e1fa4cd1f7/secondary/criteria_1_2.json  sha256 e598d99aaf44190ca4278e1b1c0f95a4838a180da7ab55e8ee0b42c00f3ff124
 agc.C3           $D/evals/eval-lane/h43/agc-c3/pieces-02e1fa4cd1f7/criterion3.json  sha256 e65699cf6f297c8dcb96a43232c6de810960bc8f33d4e0f01307c86ac41c6de5 (FAIL, +0.447 pp)
