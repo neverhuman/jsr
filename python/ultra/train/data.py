@@ -381,6 +381,9 @@ class ParquetBatches:
         # (width, epoch): keep an older window width until that epoch ends (resume after a width
         # change), so a mid-epoch resume never skips or repeats data; set by the trainer.
         self.carry_width: tuple[int, int] | None = None
+        # ((budget_s, max_batch), (epoch, window)): finish that window at a checkpoint's older batch shape after a
+        # resume with a new one (train.resize), so nothing is skipped or repeated; set by the trainer.
+        self.carry_shape: tuple | None = None
         self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
         self.ddp_global_batches = False
         self.stream_ctx_s, self.stream_ctx_cap, self._ctx_bank = 0.0, 1.5, None  # H41 arm 11 (0 = off)
@@ -530,7 +533,7 @@ class ParquetBatches:
         dur = [e.seconds * (1.0 + 0.05 * rng.random()) for e in exs]
         if self.pad_frames > 1:  # pack on the padded length the batch will really have
             dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
-        groups = pack(dur, self.budget_s, self.max_batch)
+        groups = pack(dur, *self._shape(epoch, window))
         rng.shuffle(groups)
         return [[exs[i] for i in g] for g in groups]
 
@@ -549,19 +552,37 @@ class ParquetBatches:
             return None
         return self.feat.logmel.num_frames(n)
 
-    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int) -> list[list[Example]]:
-        """Data-parallel window: pack on header-only durations (the same packing and shuffle as
-        the single-process path), keep groups g with g % world == rank (truncated to a multiple
-        of world so every rank has the same number of batches), and decode only those rows."""
+    def _header_pack(self, rows: list[dict], epoch: int, window: int):
+        """(kept row indices, jittered durations, shuffled groups of positions in `kept`) for one window from
+        header-only lengths: the same packing and shuffle as the single-process path."""
         frames = [self._frames_after(r, epoch) for r in rows]
-        self.dropped_long += sum(f is None for f in frames)
         keep = [i for i, f in enumerate(frames) if f is not None]
         rng = np.random.default_rng([self.seed, epoch, window])
         dur = [frames[i] / 100.0 * (1.0 + 0.05 * rng.random()) for i in keep]
         if self.pad_frames > 1:
             dur = [_round_up(int(d * 100), self.pad_frames) / 100.0 for d in dur]
-        groups = pack(dur, self.budget_s, self.max_batch)
+        groups = pack(dur, *self._shape(epoch, window))
         rng.shuffle(groups)
+        return keep, dur, groups
+
+    def _shape(self, epoch: int, window: int) -> tuple[float, int]:
+        """(budget_s, max_batch) for packing one window: the carried older shape for that one window, else the
+        current one."""
+        if self.carry_shape is not None and tuple(self.carry_shape[1]) == (epoch, window):
+            return self.carry_shape[0]
+        return self.budget_s, self.max_batch
+
+    def _header_groups(self, rows: list[dict], epoch: int, window: int) -> list[list[int]]:
+        """One window's global groups as lists of indices into `rows` (H53 resize receipts)."""
+        keep, _, groups = self._header_pack(rows, epoch, window)
+        return [[keep[i] for i in g] for g in groups]
+
+    def _load_window_sharded(self, rows: list[dict], epoch: int, window: int) -> list[list[Example]]:
+        """Data-parallel window: pack on header-only durations (the same packing and shuffle as
+        the single-process path), keep groups g with g % world == rank (truncated to a multiple
+        of world so every rank has the same number of batches), and decode only those rows."""
+        keep, dur, groups = self._header_pack(rows, epoch, window)
+        self.dropped_long += len(rows) - len(keep)
         if self.ddp_global_batches:
             # Preserve the same global groups and cursor as the single-rank loader.
             if self.rank_weights:
