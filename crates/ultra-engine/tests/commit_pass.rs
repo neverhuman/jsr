@@ -76,7 +76,7 @@ fn synthetic_model(bias_token: usize) -> Arc<Model> {
             joiner,
             blank: 0,
             max_symbols: 2,
-            ctx_init: [0, 0],
+            ctx_init: vec![0, 0],
             log_floor: 1e-6,
             checkpoint_sha256: String::new(),
             weights_sha256: String::new(),
