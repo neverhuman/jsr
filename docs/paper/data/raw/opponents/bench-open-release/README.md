@@ -41,6 +41,21 @@ Variants in Latin-square order over 3 rounds (CPUs 4 / 24 / 28); all repetitions
   slope +0.1% per hour), because the stream resets at every endpoint.
 - Join: `joins/14m.jsonl` (every repetition with its hashes).
 
+## 14p: the v3.0.0 candidate on the release decoder (one artifact)
+
+RC1's EMA (ckpt-00005095 ee40e833... -> EMA as model 5f528528...), eval-lane's pinned INT8 export **weights.int8
+edac19d8...** (weights.safetensors dd4121aa..., arch.json 880a38c0...), on the release binary 9a142e8e with 14m's exact command,
+730 panel, one core, 3 repetitions in one hold (CPUs 4 / 24 / 28), all clean. Its full-dev WER on the same artifact is
+eval-lane's release-decoder row, 5.476% (5,808 edits; -0.610 pp [-0.737, -0.489] vs the B0 release row).
+
+| artifact (release decoder) | CPU-s per audio-s (stream + final) | x real time | peak RSS | final-text delay p50 / p95 / max | core / package W per stream | revised |
+|---|---|---:|---:|---|---|---:|
+| **candidate RC1 EMA (edac19d8...)** | **0.0705 (0.0342 + 0.0360)** | **14.3** | **686 MiB** | **211 / 586 / 1,126 ms** | **0.72 / 1.64** | 42.5% |
+| B0 (4701787c...), 14m | 0.0702 (0.0339 + 0.0360) | 14.3 | 686 MiB | 210 / 589 / 1,127 ms | 0.72 / 1.79 | 41.4% |
+
+CPU per round 0.0706 / 0.0704 / 0.0705; the package figure carries about +-0.1 W of floor noise per round. Join:
+`joins/14p.jsonl`.
+
 ## 14k: streaming-L4 fallback vs B0, paced (latency and memory)
 
 panel73 (73 DEV utterances, 597.1 s, staged under full-dev ids), one core per run, physically paced at 1x in 20 ms packets,
@@ -97,3 +112,26 @@ throughput numbers; 14m is.
 
 The B0 row reproduces runtime-lane's official #106 pad-320 row edit for edit. S2-BP1 vs B0 on the same binary (runtime-lane's
 official 9a142e8e row, 6,455 edits): -0.189 pp [-0.282, -0.096] (10,000 paired speaker-cluster bootstrap replicates).
+
+## 14n: warm-AGC v2 added engine CPU (criterion 4; for the record, warm AGC ships opt-in)
+
+#108's `ultra-engine-agc` (02e1fa4c..., the binary eval-lane ran C1-C3 on) on B0 INT8 decodes the 730-utterance panel in the
+shipping mode, one process per arm with `--manifest` (AGC level carried across utterances, decoder reset per clip):
+`--warm-agc --tau-s 5.0` vs `--no-warm-agc`, first arm alternating by round, paired per utterance on the binary's decode-loop
+thread CPU. 3 / 3 rounds clean. Added engine CPU: +0.34% [+0.26, +0.41], +0.52% [+0.44, +0.60], +0.55% [+0.47, +0.62]; pooled
+**+0.47%** (on 0.0342 vs off 0.0341 CPU-s per audio-s), under the criterion's 1%. The AGC changes the text of 69 / 730 utterances.
+Warm AGC ships opt-in because criterion 3 (the 27.56 h stream) failed (lead, 14:05Z). Join: `joins/14n.jsonl`.
+
+## 14o: #105 per-packet vs per-chunk wakes (one paced B0 stream)
+
+`ultra stream --pace 1.0` (296f469c, #105's merged head ab0a867), 20 ms packets, `--wake-per-packet` (default) vs
+`--wake-per-chunk` on 300 s of continuous speech-only DEV audio and 300 s of pink noise at -30 dBFS, ABBA inside each hold.
+
+- CPU-s per audio-s (median of 3 rounds): speech 0.0619 vs 0.0618 (-0.6%), pink 0.0618 vs 0.0613 (-0.8%); core watts per
+  stream unchanged within noise (~0.45-0.5 W). The loaded-host smoke's -24% / -33% does not hold on a quiet core.
+- Not design-clock identical: on continuous speech the 30 s hard-cap closure lands one revision later in chunk mode (segment
+  0: revision 102 vs 103), the previews diverge from end sample 481,280 on, and on this input (an exact multiple of the cap)
+  packet mode ends with 10 cap closures and an empty Final while chunk mode ends with 9 and a Final carrying the last segment's
+  text. Pink: previews and texts identical; one Status event fewer in chunk mode, and the cap / status events land ~0.3 s later
+  in wall time. Deterministic: identical in all 3 rounds. Event files are gzipped.
+- Ruling (lead, 14:47Z): `--wake-per-chunk` stays opt-in and experimental; per-packet is the default. Join: `joins/14o.jsonl`.

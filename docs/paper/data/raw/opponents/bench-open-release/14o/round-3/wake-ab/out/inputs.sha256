@@ -1,0 +1,6 @@
+3729fc3cc4a99483145a9c2c53a907f048d483491f39a95f0140ef9081083730  /home/ubuntu/jsr-data/opponents/bench-open/assays/wake-ab/run.sh
+296f469ca736c6d9b44721b1be6ecc91d07809132a22344d61324bbe5b0b6f92  /home/ubuntu/jsr-data/opponents/bench-open/assays/wake-kit/ultra
+b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/arch.json
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  /home/ubuntu/jsr-data/opponents/models/A1-49000-ema/int8/weights.int8.safetensors
+e0f48b35f5b95cfb580956819bdab6cb62cebb9a8580900b2f2f3968e2692856  /home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-3/wake-ab/out/speech300.wav
+bf0491671c76cdac68f858eddbd92a9641960c4ba095987a2badc03b6621b523  /home/ubuntu/jsr-data/opponents/bench-open/runs-v3/1c-assay/cold/round-3/wake-ab/out/pink300.wav
