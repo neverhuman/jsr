@@ -17,6 +17,7 @@
 //!   only in `kernels::x86_avx2`.
 
 pub mod beam;
+pub mod commit;
 pub mod decoder;
 pub mod encoder;
 pub mod engine;
