@@ -8,6 +8,7 @@ tests/test_dev_panel.py
 tests/test_divergence_watch.py
 tests/test_energy_bench.py
 tests/test_export_curves.py
+tests/test_export_tf_rescore.py
 tests/test_fleet_dashboard.py
 tests/test_fleet_guard.py
 tests/test_fleet_util_audit.py

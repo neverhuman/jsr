@@ -1,7 +1,6 @@
-//! H45 dual-pass endpoint commit pass: fast provisional streaming (`c=4`, 160 ms) paired with
-//! an endpoint commit re-decode (`c=16`, 640 ms) over bounded buffered PCM using the same
-//! `Arc<Model>` weights, optional `320 ms` trailing silence pad, real `ultra_core::events::Emitter`
-//! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
+//! H45/H55 dual-pass endpoint commit pass: fast provisional streaming (`c=4`, 160 ms) paired with
+//! an endpoint commit re-decode (`c=16`, 640 ms), optional 320 ms tail pad, `Emitter` events,
+//! SentencePiece/model-head CTC, word-MBR, and opt-in INT8 Transformer N-best rescoring.
 
 pub(crate) mod ctc_head;
 mod live;
@@ -12,6 +11,7 @@ mod rescore;
 mod session_bias;
 mod spm;
 mod spm_proto;
+mod tf;
 mod types;
 mod vocab;
 
@@ -19,7 +19,7 @@ use std::time::Instant;
 
 use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
-use crate::{Engine, EngineError, EngineStream, Workspace};
+use crate::{lm::TfWorkspace, Engine, EngineError, EngineStream, Workspace};
 
 pub use ctc_head::aggregate_duplicate_hyps;
 pub use live::{run_commit_pcm, CommitSnapshot};
@@ -31,6 +31,7 @@ pub use rescore::{
 };
 pub use session_bias::{SessionLexicalConfig, SessionLexicalMemory};
 pub use spm::{SpmModelType, SpmTokenizer};
+pub use tf::*;
 pub use types::{
     pad_tail_silence, reconcile_immutable_suffix, CommitConfig, CommitEvent, CommitResult,
     DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE, DEFAULT_TAIL_PAD_SAMPLES,
@@ -72,6 +73,7 @@ pub struct CommitPassSession {
     pub(super) stream: EngineStream,
     pub(super) seg: SegBuf,
     pub(super) ws: Workspace,
+    pub(crate) tf: Option<(CommitTfRescoreConfig, TfWorkspace)>,
     pub(super) emitter: Emitter,
     committed_prefix: String,
     model_ctc_vocab: Option<CtcVocab>,
@@ -108,6 +110,7 @@ impl CommitPassSession {
             stream,
             seg: SegBuf::default(),
             ws: Workspace::default(),
+            tf: None,
             emitter: Emitter::new(stream_id, model_config_id),
             committed_prefix: String::new(),
             model_ctc_vocab,
@@ -235,6 +238,7 @@ impl CommitPassSession {
                 &mut self.ws,
                 ctc,
                 self.model_ctc_vocab.as_ref(),
+                self.tf.as_mut().map(|(c, w)| (&*c, w)),
             )?
         };
         let commit_wall_ms = t0.elapsed().as_secs_f64() * 1000.0;

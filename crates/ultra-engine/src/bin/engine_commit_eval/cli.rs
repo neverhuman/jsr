@@ -3,7 +3,9 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use ultra_engine::commit::{DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE};
+use ultra_engine::commit::{
+    DEFAULT_MAX_PCM_SAMPLES, DEFAULT_RESCORE_M5_SUB, DEFAULT_RESCORE_WEIGHT, DEFAULT_SAMPLE_RATE,
+};
 use ultra_engine::panel::Panel;
 use ultra_engine::workload::Workload;
 use ultra_engine::Precision;
@@ -30,6 +32,10 @@ pub(super) struct Args {
     pub(super) ctc_weight: f32,
     pub(super) mbr: bool,
     pub(super) mbr_temp: f32,
+    pub(super) rescore_l2r: Option<PathBuf>,
+    pub(super) rescore_r2l: Option<PathBuf>,
+    pub(super) rescore_weight: f32,
+    pub(super) rescore_m5_sub: f32,
 }
 
 pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
@@ -54,6 +60,10 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
         ctc_weight: 0.0,
         mbr: false,
         mbr_temp: 1.0,
+        rescore_l2r: None,
+        rescore_r2l: None,
+        rescore_weight: DEFAULT_RESCORE_WEIGHT,
+        rescore_m5_sub: DEFAULT_RESCORE_M5_SUB,
     };
     while let Some(k) = it.next() {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
@@ -81,6 +91,14 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
             "--ctc-weight" => a.ctc_weight = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--mbr" => a.mbr = true,
             "--mbr-temp" => a.mbr_temp = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            "--rescore-l2r" => a.rescore_l2r = Some(v()?.into()),
+            "--rescore-r2l" => a.rescore_r2l = Some(v()?.into()),
+            "--rescore-weight" => {
+                a.rescore_weight = v()?.parse().map_err(|e| format!("{k}: {e}"))?
+            }
+            "--rescore-m5-sub" => {
+                a.rescore_m5_sub = v()?.parse().map_err(|e| format!("{k}: {e}"))?
+            }
             o => return Err(format!("unknown argument {o}")),
         }
     }

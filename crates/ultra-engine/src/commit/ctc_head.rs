@@ -4,10 +4,12 @@
 use std::collections::BTreeMap;
 
 use crate::kernels::{self, Isa};
+use crate::lm::TfWorkspace;
 use crate::model::Model;
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
 use super::rescore::{logaddexp_f64, select_commit_hyp, CtcInput};
+use super::tf::CommitTfRescoreConfig;
 use super::types::CommitConfig;
 use super::vocab::CtcVocab;
 
@@ -50,6 +52,7 @@ pub fn aggregate_duplicate_hyps(hyps: &[(String, f32)]) -> Vec<(Vec<String>, Str
 
 /// Run the closed-segment commit decode on `eng` (using optional external or model-internal CTC
 /// scoring) and return `(committed_text, selected_hyp_index)`. Zero CTC overhead when unused.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn decode_commit_segment(
     eng: &Engine,
     pcm: &[i16],
@@ -57,6 +60,7 @@ pub(crate) fn decode_commit_segment(
     ws: &mut Workspace,
     ext_ctc: Option<(&CtcVocab, &[f32], usize)>,
     model_ctc_vocab: Option<&CtcVocab>,
+    tf: Option<(&CommitTfRescoreConfig, &mut TfWorkspace)>,
 ) -> Result<(String, usize), EngineError> {
     let mut cs = eng.create_stream();
     cs.accept_i16(pcm)?;
@@ -66,17 +70,18 @@ pub(crate) fn decode_commit_segment(
     cs.input_finished();
     if let Some((vocab, lp, frames)) = ext_ctc {
         while eng.decode(&mut [&mut cs], ws)? > 0 {}
-        return Ok(select_commit_hyp(
+        return select_commit_hyp(
             eng,
             &cs,
             cfg,
             Some(CtcInput::External(vocab, lp, frames)),
-        ));
+            tf,
+        );
     }
     if cfg.ctc_weight > 0.0 && eng.model.ctc_head.is_some() {
         let (ctc_lp, ctc_frames) = drain_stream_with_ctc(eng, &mut cs, ws)?;
         let ctc_v = eng.model.ctc_head.as_ref().map_or(0, |h| h.n());
-        return Ok(select_commit_hyp(
+        return select_commit_hyp(
             eng,
             &cs,
             cfg,
@@ -86,10 +91,11 @@ pub(crate) fn decode_commit_segment(
                 ctc_frames,
                 ctc_v,
             )),
-        ));
+            tf,
+        );
     }
     while eng.decode(&mut [&mut cs], ws)? > 0 {}
-    Ok(select_commit_hyp(eng, &cs, cfg, None))
+    select_commit_hyp(eng, &cs, cfg, None, tf)
 }
 
 /// Project `frames` encoder `final_norm` rows (`[frames][d]`) through `model.ctc_head` (fp32)
