@@ -15,11 +15,12 @@ use ultra_eval::procfs::TreeSampler;
 use ultra_eval::stream::TimedEvent;
 use ultra_frontend::read_audio_16k_mono;
 use ultra_stream::{
-    AsrStream, OperatingProfile, OutputPolicy, PollResult, StreamClock, StreamConfig,
-    StreamCoordinator,
+    AsrStream, Backend, NativeEngineBackend, OperatingProfile, OutputPolicy, PollResult,
+    StreamClock, StreamConfig, StreamCoordinator,
 };
 
 use crate::runner::instantiate_backend;
+use crate::stream_commit::StreamCommitCliOptions;
 use crate::{git_short_commit, CliError};
 
 /// Wakeup scheduling cadence for paced live streams (`ultra stream`).
@@ -97,22 +98,72 @@ pub fn transcribe_audio_file_with_wake(
     threads: i32,
     wake_cadence: WakeCadence,
 ) -> Result<(String, Vec<TimedEvent>, Receipt, u64), CliError> {
+    transcribe_audio_file_with_options(
+        candidate_id,
+        audio_path,
+        profile,
+        policy,
+        packet_ms,
+        pace,
+        threads,
+        wake_cadence,
+        &StreamCommitCliOptions::default(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn transcribe_audio_file_with_options(
+    candidate_id: &str,
+    audio_path: &Path,
+    profile: OperatingProfile,
+    policy: OutputPolicy,
+    packet_ms: u32,
+    pace: f64,
+    threads: i32,
+    wake_cadence: WakeCadence,
+    commit_opts: &StreamCommitCliOptions,
+) -> Result<(String, Vec<TimedEvent>, Receipt, u64), CliError> {
     let pcm = read_audio_16k_mono(audio_path)
         .map_err(|e| CliError::Config(format!("{}: {e}", audio_path.display())))?;
-    let backend = instantiate_backend(candidate_id, threads)?;
-    let caps = backend.capabilities();
-    let cfg = StreamConfig {
-        stream_id: "cli-stream-0".into(),
-        model_config_id: caps.name.clone(),
-        policy,
-        profile,
-        ..StreamConfig::default()
+    let clock = StreamClock::real();
+    let (caps, cfg, inner) = if commit_opts.enabled {
+        let live_cfg = commit_opts.to_live_commit_config()?;
+        let (wdir, prec) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, None)
+            .ok_or_else(|| {
+                CliError::Config(format!(
+                    "--commit-pass requires a native ultra-engine candidate (got `{candidate_id}`)"
+                ))
+            })??;
+        let native = NativeEngineBackend::load_with_options(&wdir, prec, threads, true, 1, 1)?;
+        let caps = native.capabilities();
+        let cap_samples = (live_cfg.commit.max_pcm_samples as u64).max(16_000 * 40);
+        let cfg = StreamConfig {
+            stream_id: "cli-stream-0".into(),
+            model_config_id: caps.name.clone(),
+            policy,
+            profile,
+            segment_hard_cap_samples: cap_samples,
+            endpoint_hangover_ms: u64::from(live_cfg.hangover_ms),
+            ..StreamConfig::default()
+        };
+        let inner = native.create_live_commit_stream_with_clock(&cfg, &live_cfg, clock.clone())?;
+        (caps, cfg, inner)
+    } else {
+        let backend = instantiate_backend(candidate_id, threads)?;
+        let caps = backend.capabilities();
+        let cfg = StreamConfig {
+            stream_id: "cli-stream-0".into(),
+            model_config_id: caps.name.clone(),
+            policy,
+            profile,
+            ..StreamConfig::default()
+        };
+        let inner = backend.create_stream_with_clock(&cfg, clock.clone())?;
+        (caps, cfg, inner)
     };
     let mut sampler = TreeSampler::new(std::process::id() as i32);
     sampler.sample();
     let cpu0 = self_cpu_s()?;
-    let clock = StreamClock::real();
-    let inner = backend.create_stream_with_clock(&cfg, clock.clone())?;
     let mut coord = StreamCoordinator::with_clock(cfg, inner, clock);
     let (mut timed, mut chunk_ms, mut paced_wakeups) = (Vec::new(), Vec::new(), 0u64);
 

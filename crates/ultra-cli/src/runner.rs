@@ -240,8 +240,13 @@ pub(crate) fn cmd_transcribe(args: &[String], stream_mode: bool) -> Result<(), C
     let (mut profile, mut policy) = (OperatingProfile::Live, OutputPolicy::EditableDictation);
     let (mut packet_ms, mut pace, mut threads) = (20u32, if stream_mode { 1.0 } else { 0.0 }, 1i32);
     let (mut events_out, mut receipt_out) = (None, None);
+    let mut commit_opts = crate::stream_commit::StreamCommitCliOptions::default();
     let mut i = 0;
     while i < args.len() {
+        if commit_opts.try_parse_flag(args, &mut i)? {
+            i += 1;
+            continue;
+        }
         let next = |idx: &mut usize, name: &str| -> Result<&str, CliError> {
             *idx += 1;
             args.get(*idx)
@@ -293,9 +298,18 @@ pub(crate) fn cmd_transcribe(args: &[String], stream_mode: bool) -> Result<(), C
     let cand = candidate.ok_or_else(|| CliError::Config("missing --candidate".into()))?;
     let path = audio.ok_or_else(|| CliError::Config("missing --audio / --input".into()))?;
     let cadence = wake_override.unwrap_or(WakeCadence::PerPacket);
-    let (text, timed, receipt, paced_wakeups) = transcribe_audio_file_with_wake(
-        &cand, &path, profile, policy, packet_ms, pace, threads, cadence,
-    )?;
+    let (text, timed, receipt, paced_wakeups) =
+        crate::stream_run::transcribe_audio_file_with_options(
+            &cand,
+            &path,
+            profile,
+            policy,
+            packet_ms,
+            pace,
+            threads,
+            cadence,
+            &commit_opts,
+        )?;
     crate::stream_run::write_stream_outputs(events_out, receipt_out, &timed, &receipt)?;
     let out = serde_json::json!({
         "candidate": cand, "text": text, "events": timed.len(),

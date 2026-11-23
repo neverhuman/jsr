@@ -12,6 +12,7 @@ pub mod bench_cmd;
 pub mod bundle_cmd;
 pub mod inventory;
 pub mod runner;
+pub mod stream_commit;
 pub mod stream_run;
 pub mod suite_abab;
 pub mod suite_cmd;
@@ -244,7 +245,9 @@ pub fn usage_text() -> &'static str {
        transcribe --candidate ID --audio PATH [--threads N] [--events JSONL] [--receipt JSON]\n\
        stream --candidate ID --input PATH [--profile live|efficient|accurate] [--policy dictate|commit]\n\
               [--packet-ms N] [--pace F] [--wake-per-chunk|--wake-per-packet] [--threads N]\n\
-              [--events JSONL] [--receipt JSON]\n\
+              [--commit-pass] [--commit-hangover-ms 200|300|500|800] [--commit-preroll-ms 300] [--commit-chunk 16] [--commit-tail-pad-ms 320]\n\
+              [--commit-lm PATH] [--commit-beam 16] [--commit-lm-scale 0.80] [--commit-lodr-scale 0.60]\n\
+              [--commit-max-audio-s 40.0] [--session-lexical-bias] [--events JSONL] [--receipt JSON]\n\
        bench --candidate ID [--split SPLIT | --npz PATH] [--limit N] [--offset N] [--duration-s S]\n\
              [--streams N] [--decode single|batch] [--grid-ms G] [--precision int8|fp32] [--paced]\n\
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\

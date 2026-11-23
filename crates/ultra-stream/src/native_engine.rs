@@ -184,6 +184,18 @@ impl NativeEngineBackend {
             events: VecDeque::new(),
         })
     }
+
+    /// Create an opt-in live-endpointer [`crate::native_commit::LiveCommitAsrStream`] (`--commit-pass`).
+    pub fn create_live_commit_stream_with_clock(
+        self: &Arc<Self>,
+        cfg: &StreamConfig,
+        live_cfg: &crate::native_commit::LiveCommitConfig,
+        clock: StreamClock,
+    ) -> Result<Box<dyn AsrStream>, StreamError> {
+        Ok(Box::new(crate::native_commit::LiveCommitAsrStream::new(
+            self, cfg, live_cfg, clock,
+        )?))
+    }
 }
 
 impl Backend for Arc<NativeEngineBackend> {
