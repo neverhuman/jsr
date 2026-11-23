@@ -253,3 +253,15 @@ Run on the Mac (NEON; same commit built there), `ultra-alwayson-check` with iden
 - **Recogniser duty, gated / twin:** 8.4 / 130% at 5% speech (1 onset/min), 27 / 129% (6/min); 23 / 126% and 39 / 125% at 20%; 52 / 116% and 67 / 115% at 50%; 100.1–100.2 / 100.1–100.2% at 100%. Gap false words: gated 14, twin 23.
 - **g15 (measured duty):** gated duty at 15% speech ≈ 18% (1 onset/min) and ≈ 35% (6/min), so about 0.13× and 0.26× C1's CPU with A0's rates. This is an estimate until xbabe0 (14i).
 - **Q4 against C1, partial:** alwayson-bench's C1 runs (`ultra-engine-endless` T=1500 / R=1000) have finished on 8 of 21 cells, and I scored them with the same scorer. On the 5 finished torture sets (T1 g3 Q / N20, T2 g3 Q / N20, T3 g8 N20; 1,400 items): WER gated − C1 −0.116 pp [−0.317, +0.071]; first word **−0.43 pp [−1.25, +0.40]**, **INCONCLUSIVE** by the pre-registered rule (point ≥ −0.5, bound below). On the stream, Q4 passes against C1 (+1.01 pp [+0.57]). Re-scored when T1 / T2 g30 finish (`results/Q_5ca3583_r500_i1500_ao_vs_C1_partial.json`).
+
+### Sentinel-0 at low input levels (descriptive; the lead's 09:19Z AGC question, after the gain-stress trigger)
+PR #75's Sentinel-0 over the whole stream scaled by an integer gain (the designs' C7 / C8 level conditions), 5,567 onsets (`qual/sentinel/gain/summary_gain*.json`, `scripts/sentinel_stream.py` `418a9180…`):
+
+| input gain | woken < 500 ms | woken < 1000 ms | delay p50 / p95 / p99 | never hot within 6 s |
+|---|---:|---:|---:|---:|
+| 0 dB | 100.00% | 100.00% | 10 / 60 / 90 ms | 0 |
+| −20 dB | 99.86% | 100.00% | 60 / 110 / 240 ms | 0 |
+| −30 dB | 99.50% | 99.84% | 70 / 160 / 354 ms | 2 |
+| −40 dB | 97.86% | 98.81% | 100 / 300 / 627 ms | 37 |
+- The gate keeps onsets on raw levels down to −20 dB and degrades at −30 / −40 dB, where speech approaches its absolute floors (≈ −72 dBFS). Stationary noise never gets hotter at lower gain.
+- Recommendation: an input AGC belongs on the recogniser path after the gate and the ring, with its state inside each segment's standalone decode (isolation stays exact). Low-level wake, if needed, is a recalibration of Sentinel-0's absolute floors (§5.6, C8).
