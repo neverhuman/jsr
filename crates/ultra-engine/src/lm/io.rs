@@ -1,12 +1,19 @@
-//! SHA-256 verified binary serialisation for `ultra.lm-ngram/v2` (bit-packed trie)
-//! with full backward-compatible loading of `ultra.lm-ngram/v1`.
+//! SHA-256 verified binary serialisation and zero-spike streaming loader for `ultra.lm-ngram/v2`
+//! (bit-packed trie) with full backward-compatible loading of `ultra.lm-ngram/v1`.
+
+#[path = "io_stream.rs"]
+mod stream;
 
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
+use self::stream::{
+    open_payload_reader, read_bitvec_stream, validate_csr_bitvec, validate_csr_slice,
+    verify_sha256_streaming,
+};
 use super::bitvec::BitVec;
 use super::{LevelVals, NgramLm, TrieLevel, MAX_ORDER};
 use crate::EngineError;
@@ -15,6 +22,14 @@ const MAGIC: &[u8; 8] = b"ULTRLM01";
 const FLAG_QUANTIZED: u32 = 1 << 0;
 const FLAG_HAS_LODR: u32 = 1 << 1;
 const FLAG_HAS_EOS: u32 = 1 << 2;
+
+impl NgramLm {
+    /// Load a SHA-256 verified `ultra.lm-ngram/v1|v2` file via two-pass streaming I/O with exact
+    /// target-buffer allocation (zero `read_to_end` / `BitVec` doubling peak RSS spike).
+    pub fn load_streaming(path: &Path) -> Result<Self, EngineError> {
+        load_streaming(path)
+    }
+}
 
 pub(super) fn save(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
     save_version(lm, path, 2)
@@ -107,20 +122,15 @@ fn save_version(lm: &NgramLm, path: &Path, version: u32) -> Result<(), EngineErr
 }
 
 pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
-    let mut raw = Vec::new();
-    File::open(path)?.read_to_end(&mut raw)?;
-    if raw.len() < 32 + 28 {
-        return Err(EngineError::Format("LM file truncated".into()));
-    }
-    let (payload, tail) = raw.split_at(raw.len() - 32);
-    if tail != Sha256::digest(payload).as_slice() {
-        return Err(EngineError::Integrity(
-            "LM file SHA-256 verification failed".into(),
-        ));
-    }
+    load_streaming(path)
+}
 
-    let mut cur = Reader::new(payload);
-    if cur.read_bytes(8)? != MAGIC {
+pub(super) fn load_streaming(path: &Path) -> Result<NgramLm, EngineError> {
+    let payload_len = verify_sha256_streaming(path)?;
+    let mut cur = open_payload_reader(path, payload_len)?;
+    let mut magic = [0u8; 8];
+    cur.read_exact_buf(&mut magic)?;
+    if &magic != MAGIC {
         return Err(EngineError::Format("bad LM magic header".into()));
     }
     let version = cur.read_u32()?;
@@ -153,7 +163,11 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     let n_uni = vocab + 1 + usize::from(has_eos);
     let uni_prob = cur.read_f32_vec(n_uni)?;
     let uni_bow = cur.read_f32_vec(n_uni)?;
-    let seen: Vec<bool> = cur.read_bytes(n_uni)?.iter().map(|&b| b != 0).collect();
+    let seen: Vec<bool> = cur
+        .read_u8_vec(n_uni)?
+        .into_iter()
+        .map(|b| b != 0)
+        .collect();
 
     let uco_len = cur.read_u32()? as usize;
     if order > 1 && uco_len != n_uni + 1 {
@@ -171,16 +185,16 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
             let v = cur.read_u16_vec(n)?;
             BitVec::from_u16_slice(&v, tok_bits_default)
         } else {
-            read_bitvec(&mut cur, n)?
+            read_bitvec_stream(&mut cur, n)?
         };
         let vals = if quantized {
             let mut prob_lut = Box::new([0.0f32; 256]);
             let mut bow_lut = Box::new([0.0f32; 256]);
             prob_lut.copy_from_slice(&cur.read_f32_vec(256)?);
             bow_lut.copy_from_slice(&cur.read_f32_vec(256)?);
-            let q_prob = cur.read_bytes(n)?.to_vec();
+            let q_prob = cur.read_u8_vec(n)?;
             let qb_len = cur.read_u32()? as usize;
-            let q_bow = cur.read_bytes(qb_len)?.to_vec();
+            let q_bow = cur.read_u8_vec(qb_len)?;
             LevelVals::Q8 {
                 prob_lut,
                 bow_lut,
@@ -211,7 +225,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
                 BitVec::from_u32_slice(&v, BitVec::bits_needed(max_off))
             }
         } else {
-            read_bitvec(&mut cur, co_len)?
+            read_bitvec_stream(&mut cur, co_len)?
         };
         levels.push(TrieLevel {
             tok,
@@ -252,33 +266,6 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     })
 }
 
-fn validate_csr_slice(offs: &[u32], child_len: u32) -> Result<(), EngineError> {
-    if offs.is_empty() || *offs.last().unwrap_or(&0) != child_len {
-        return Err(EngineError::Format("CSR offset sentinel mismatch".into()));
-    }
-    for w in offs.windows(2) {
-        if w[0] > w[1] {
-            return Err(EngineError::Format("non-monotone CSR offsets".into()));
-        }
-    }
-    Ok(())
-}
-
-fn validate_csr_bitvec(offs: &BitVec, child_len: u32) -> Result<(), EngineError> {
-    if offs.is_empty() || offs.get_u32(offs.len() - 1) != child_len {
-        return Err(EngineError::Format("CSR offset sentinel mismatch".into()));
-    }
-    let mut prev = offs.get_u32(0);
-    for i in 1..offs.len() {
-        let cur = offs.get_u32(i);
-        if prev > cur {
-            return Err(EngineError::Format("non-monotone CSR offsets".into()));
-        }
-        prev = cur;
-    }
-    Ok(())
-}
-
 fn write_bitvec(out: &mut Vec<u8>, bv: &BitVec) {
     out.push(bv.bits);
     let nw = bv.disk_words();
@@ -286,17 +273,6 @@ fn write_bitvec(out: &mut Vec<u8>, bv: &BitVec) {
     for &w in &bv.words[..nw] {
         out.extend_from_slice(&w.to_le_bytes());
     }
-}
-
-fn read_bitvec(cur: &mut Reader<'_>, len: usize) -> Result<BitVec, EngineError> {
-    let bits = cur.read_bytes(1)?[0];
-    let nw = cur.read_u32()? as usize;
-    let words = cur.read_u64_vec(nw)?;
-    BitVec::from_raw(bits, len, words).ok_or_else(|| {
-        EngineError::Format(format!(
-            "corrupt bit-packed vector bits={bits} len={len} words={nw}"
-        ))
-    })
 }
 
 fn write_u16(out: &mut Vec<u8>, v: u16) {
@@ -307,62 +283,4 @@ fn write_u32(out: &mut Vec<u8>, v: u32) {
 }
 fn write_f32(out: &mut Vec<u8>, v: f32) {
     out.extend_from_slice(&v.to_le_bytes());
-}
-
-struct Reader<'a> {
-    buf: &'a [u8],
-    pos: usize,
-}
-
-impl<'a> Reader<'a> {
-    fn new(buf: &'a [u8]) -> Self {
-        Self { buf, pos: 0 }
-    }
-    fn remaining(&self) -> usize {
-        self.buf.len().saturating_sub(self.pos)
-    }
-    fn read_bytes(&mut self, n: usize) -> Result<&'a [u8], EngineError> {
-        let end = self
-            .pos
-            .checked_add(n)
-            .ok_or_else(|| EngineError::Format("LM file offset overflow".into()))?;
-        if end > self.buf.len() {
-            return Err(EngineError::Format("unexpected EOF reading LM file".into()));
-        }
-        let s = &self.buf[self.pos..end];
-        self.pos = end;
-        Ok(s)
-    }
-    fn read_u32(&mut self) -> Result<u32, EngineError> {
-        let b = self.read_bytes(4)?;
-        Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-    }
-    fn read_f32(&mut self) -> Result<f32, EngineError> {
-        let b = self.read_bytes(4)?;
-        Ok(f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-    }
-    fn read_u16_vec(&mut self, n: usize) -> Result<Vec<u16>, EngineError> {
-        let b = self.read_bytes(n * 2)?;
-        Ok(b.chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect())
-    }
-    fn read_u32_vec(&mut self, n: usize) -> Result<Vec<u32>, EngineError> {
-        let b = self.read_bytes(n * 4)?;
-        Ok(b.chunks_exact(4)
-            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-            .collect())
-    }
-    fn read_u64_vec(&mut self, n: usize) -> Result<Vec<u64>, EngineError> {
-        let b = self.read_bytes(n * 8)?;
-        Ok(b.chunks_exact(8)
-            .map(|c| u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]))
-            .collect())
-    }
-    fn read_f32_vec(&mut self, n: usize) -> Result<Vec<f32>, EngineError> {
-        let b = self.read_bytes(n * 4)?;
-        Ok(b.chunks_exact(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-            .collect())
-    }
 }
