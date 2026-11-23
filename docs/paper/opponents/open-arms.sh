@@ -17,6 +17,10 @@
 #   jsr-arm13a-ema-int8-c1|-c2          our engine, arm 13a (delay penalty) 8000 EMA INT8 at chunk 1 (40 ms)
 #                                       or chunk 2 (80 ms): the export with arch.json's chunk fields set
 #                                       to 1 or 2, weights unchanged (TIMING entry 14d)
+#   jsr-rc1-ema-int8                    our engine, v3.0.0 release weights (RC1-EMA INT8, weights.int8 edac19d8)
+#                                       as the live greedy chunk-4 stream only, through ultra-cold-wav built at
+#                                       the v3.0.0 tag 9c8c05e (bench-open/anchor-v300/ultra-cold-wav,
+#                                       sha256 bc072957; TIMING entry 14q)
 #   jsr-d2e-16457-int8                  our engine, D2e 16457 INT8 (earlier cross-session anchor)
 #   r0-zipformer-int8                   R0 Zipformer INT8 through sherpa-onnx (same-session anchor)
 #   <system>-t8                         eight intra-op threads in one recogniser
@@ -72,7 +76,7 @@ open_arm() {
                 "$opp/parakeet-onnx-asr/venv.freeze.txt")
             ;;
         jsr-h22ctl-79800-ema-int8|jsr-a1-30000-ema-int8|jsr-a1-49000-ema-int8|jsr-f1-60000-ema-int8|\
-            jsr-arm13a-ema-int8-c1|jsr-arm13a-ema-int8-c2|jsr-d2e-16457-int8|r0-zipformer-int8)
+            jsr-arm13a-ema-int8-c1|jsr-arm13a-ema-int8-c2|jsr-d2e-16457-int8|r0-zipformer-int8|jsr-rc1-ema-int8)
             # Same-session anchors through ultra-cold-wav: our engine (H22ctl-79800 EMA INT8 with the
             # primary row's binary; D2e-16457 as the earlier cross-session anchor) and the R0 Zipformer.
             local anchor="$opp/bench-open/anchor" binary
@@ -94,6 +98,11 @@ open_arm() {
                         jsr-arm13a-ema-int8-c2) model="$opp/models/arm13a-ema-c2/int8" ;;
                     esac
                     binary="$anchor/ultra-cold-wav-457a4db7"
+                    ;;
+                jsr-rc1-ema-int8)
+                    # the v3.0.0 live point: the release weights through the v3.0.0 tag's own cold binary
+                    model="$opp/models/candidate-rc/int8"
+                    binary="$opp/bench-open/anchor-v300/ultra-cold-wav"
                     ;;
                 jsr-d2e-16457-int8) model="$anchor/d2e-16457-int8" ;;
                 r0-zipformer-int8) model="$anchor/r0-zipformer-int8" ;;
