@@ -30,6 +30,7 @@ from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
 from train.data import Batch, Example, FixedBatches, Position, collate
 from train.errors import CheckpointError, DivergenceError, NonFiniteLossError, ShapeError
+from train.resize import apply_resize, checkpoint_carry_shape
 from train.optim import build_optimizer, eval_weights, make_clipper
 
 DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
@@ -109,11 +110,6 @@ class TrainConfig:
     # sizes follow (pieces + 1). H13 shares one 512-piece model between both heads.
     rnnt_pieces: int = 4096
     ctc_pieces: int = 1024
-    # RNN-T loss (ModelConfig.rnnt_loss): "exact" or "pruned" (k2; H13b), band width, and a linear
-    # ramp of the pruned-loss weight from 0.1 to 1 over the first prune_warmup steps while the
-    # simple joiner that picks the band is still untrained (0 = weight 1 from the start).
-    # H22 distillation from R0: cache dir of train/teacher_cache.py outputs and the KL weight;
-    # tokenizer overrides both heads' SentencePiece model path (R0's bpe.model for H22).
     # Batch loader: "thread" (decode in a thread pool; GIL-bound) or "process" (spawned worker
     # processes running the same decode/perturb/log-mel code; bit-identical batches, test).
     loader: str = "thread"
@@ -133,6 +129,8 @@ class TrainConfig:
     ddp_rank_weights: str = ""
     ddp_native: bool = False  # overlap gradient communication with backward
     ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
+    # H22 KD from R0: teacher-cache dir and KL weight; tokenizer overrides both heads' model (R0's bpe.model).
+    # RNN-T loss "exact" | "pruned" (k2, H13b), band width, pruned weight ramped 0.1 -> 1 over prune_warmup.
     kd_dir: str = ""
     kd_weight: float = 0.0
     tokenizer: str = ""
@@ -255,7 +253,7 @@ class Trainer:
     def payload(self) -> dict:
         return {"model": self.model.state_dict(), "optimizer": self.opt.state_dict(),
                 "scheduler": self.sched.state_dict(), "position": self.pos.to_dict(), "precision": self.precision,
-                "train_config": asdict(self.cfg), "model_config": self.model_cfg.to_dict(),
+                "train_config": asdict(self.cfg), "model_config": self.model_cfg.to_dict(), "carry_shape": checkpoint_carry_shape(self),
                 "manifest": list(getattr(self.source, "manifest", [])), "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary(), "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm,
                 "ema": self.ema, "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
@@ -336,6 +334,8 @@ class Trainer:
         self.clipper.load_state_dict(p.get("clipper"))
         self.ema = ({k: v.to(self.device) for k, v in p["ema"].items()}
                     if p.get("ema") is not None else None)
+        if resized := apply_resize(self, p.get("train_config") or {}, p.get("carry_shape")):  # new lr / batch shape (train/resize.py)
+            self.log({"kind": "resize", "step": self.step, **resized})
         return True
 
     def init_cmvn(self, n_batches: int = 8) -> None:
