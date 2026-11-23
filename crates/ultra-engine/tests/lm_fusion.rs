@@ -135,7 +135,7 @@ fn tiny_model() -> TinyWeights {
         joiner,
         blank: 0,
         max_symbols: 1,
-        ctx_init: [0, 0],
+        ctx_init: vec![0, 0],
         log_floor: 1e-6,
         checkpoint_sha256: String::new(),
         weights_sha256: String::new(),

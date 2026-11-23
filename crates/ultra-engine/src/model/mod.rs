@@ -47,7 +47,7 @@ pub struct Arch {
     pub joiner: usize,
     pub blank: usize,
     pub max_symbols: usize,
-    pub ctx_init: [usize; 2],
+    pub ctx_init: Vec<usize>,
     pub log_floor: f32,
     pub checkpoint_sha256: String,
     pub weights_sha256: String,
@@ -238,7 +238,8 @@ impl BlankCert {
     }
 
     /// Returns `true` ONLY when `z_blank > z_v` is mathematically certified for every `v != blank`.
-    pub fn is_certified_blank(&self, hid: &[f32], int8_slack: bool) -> bool {
+    /// `int8_qmax`: `None` for FP32, `Some(127)` for 8-bit int8, `Some(63)` for 7-bit (`--act7`).
+    pub fn is_certified_blank(&self, hid: &[f32], int8_qmax: Option<u8>) -> bool {
         let jn = self.w_blank.len();
         debug_assert_eq!(hid.len(), jn);
         let mut z_blank = f64::from(self.b_blank);
@@ -258,11 +259,14 @@ impl BlankCert {
         }
         let h_norm = h2.sqrt();
         let mut margin = 1e-4f64 * (1.0 + h_norm * f64::from(self.max_w_norm));
-        if int8_slack {
+        if let Some(qmax) = int8_qmax {
+            if qmax == 0 {
+                return false;
+            }
             // Per-row centred int8 quantisation perturbs each element by <= scale / 2,
             // so ||x_hat - hid||_2 <= (scale / 2) * sqrt(jn) and |(w_v - w_blank).(x_hat - hid)|
-            // <= scale * sqrt(jn) * max_w_norm.
-            let scale = f64::from((hi - lo) / 254.0);
+            // <= scale * sqrt(jn) * max_w_norm. Exact denominator is 2 * qmax (254 or 126).
+            let scale = (f64::from(hi) - f64::from(lo)) / (2.0 * f64::from(qmax));
             margin += scale * (jn as f64).sqrt() * f64::from(self.max_w_norm) + 1e-3;
         }
         let upper = mu + f64::from(self.r_max) * h_norm + f64::from(self.b_max_nonblank) + margin;
@@ -385,12 +389,14 @@ impl Model {
             ));
         }
         if de.kind != "stateless"
-            || de.context != 2
+            || de.context == 0
+            || de.context != de.ctx_init.len()
+            || de.context.checked_mul(raw.model.config.pred_emb).is_none()
             || de.vocab_size != raw.model.config.vocab_rnnt
             || de.joiner_activation != "tanh"
         {
             return Err(EngineError::Unsupported(
-                "decoder spec (stateless, context 2, tanh)".into(),
+                "decoder spec needs stateless tanh and a nonempty context matching ctx_init".into(),
             ));
         }
         if e.chunk == 0 || e.left_context == 0 || e.conv_kernel < 2 {
@@ -420,7 +426,7 @@ impl Model {
             joiner: raw.model.config.joiner,
             blank: raw.decoder.blank_id,
             max_symbols: raw.decoder.max_symbols,
-            ctx_init: raw.decoder.ctx_init,
+            ctx_init: de.ctx_init.clone(),
             log_floor: raw.features.log_floor,
             checkpoint_sha256: raw.source.checkpoint_sha256.clone(),
             weights_sha256: wfile.sha256.clone(),
@@ -594,10 +600,11 @@ impl Model {
             (None, None)
         };
         let emb = st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?;
-        let pred_w = st.f32("predictor.proj.weight", &[a.joiner, 2 * a.pred_emb])?;
+        let pred_in = a.ctx_init.len() * a.pred_emb;
+        let pred_w = st.f32("predictor.proj.weight", &[a.joiner, pred_in])?;
         let pred_b = st.f32("predictor.proj.bias", &[a.joiner])?;
-        let pred_proj = Linear::new(&pred_w, a.joiner, 2 * a.pred_emb, Some(&pred_b));
-        let pred_cache = (a.vocab <= 1024).then(|| {
+        let pred_proj = Linear::new(&pred_w, a.joiner, pred_in, Some(&pred_b));
+        let pred_cache = (a.vocab <= 1024 && a.ctx_init.len() == 2).then(|| {
             let (v, e, jn) = (a.vocab, a.pred_emb, a.joiner);
             let mut h0 = vec![0.0f32; v * jn];
             let mut h1 = vec![0.0f32; v * jn];
