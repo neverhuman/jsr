@@ -38,6 +38,19 @@ missing, the runner appends `SKIP N <UTC> <agent> (reason; re-queued as Nr after
 TIMING.done and re-queues the entry in TIMING.order as `Nr`, right after the next entry of
 another agent (lead, 2026-11-23T03:20Z), then releases the lock; at most OPEN_REQUEUE_MAX (3)
 times per plan entry, after which the entry is only skipped.
+
+At every hold boundary (before the lock is taken for a hold) the runner serves a gap request:
+another lane that needs the host idle for a while (a copy, a probe) writes one line
+`AGENT SECONDS REASON` to `$PAPER_OPPONENTS_ROOT/TIMING.gap.request` on the host itself (no ssh
+polling). The runner renames it to `TIMING.gap.open`, leaves the lock alone until the requester
+has taken and released it (or SECONDS passed without anyone taking it), then renames it to
+`TIMING.gap.served.<UTC>`. While a gap is open no runner of this kind takes the lock.
+
+After taking the lock, OPEN_QUIET_CMD (if set) runs before anything is measured, for example
+xbabe0's `timing-quiet-wait.sh`, which waits until the owner's paused timers have no service still
+running. A repetition whose receipt folder already exists is not run blind: a finished, clean
+receipt counts as done (a restart does not repeat it); any other folder is renamed
+`<folder>.aborted.<UTC>` first, so nothing is overwritten or deleted.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -56,6 +69,8 @@ MARGIN_S = float(os.environ.get("OPEN_HOLD_MARGIN_S", 60))
 POLL_S = float(os.environ.get("OPEN_POLL_S", 10))
 AFTER_HOLD = os.environ.get("OPEN_AFTER_HOLD")
 PREPARE = os.environ.get("OPEN_PREPARE")
+QUIET_CMD = os.environ.get("OPEN_QUIET_CMD")
+GAP_MAX_S = float(os.environ.get("OPEN_GAP_MAX_S", 600))
 REQUEUE_MAX = int(os.environ.get("OPEN_REQUEUE_MAX", 3))
 ENTRY_ID = r"[0-9]+[a-z]*"  # 12, 6b, and re-queued ids such as 7r or 14br
 ORDER_LINE = re.compile(r"\s*(" + ENTRY_ID + r")\s*\|\s*([^|]*?)\s*(?:\||$)")
@@ -190,6 +205,24 @@ def clean_wall_s(run):
         return None
 
 
+def receipt_state(run):
+    """"done" for a finished, clean receipt; "absent" when there is no folder; "unfinished" otherwise."""
+    if not run.is_dir():
+        return "absent"
+    try:
+        clean = json.loads((run / "host.cpu.json").read_text()).get("verdict") == "clean"
+    except (OSError, ValueError):
+        clean = False
+    return "done" if (run / "finished").is_file() and clean else "unfinished"
+
+
+def set_aside(run):
+    """Rename an unfinished receipt folder out of the way (never delete it); the new path."""
+    target = run.with_name(f"{run.name}.aborted.{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}")
+    run.rename(target)
+    return target
+
+
 def resolve(runs, job):
     """The arm to run for a job whose ARM may name two alternatives."""
     choices = job["arm"].split("|")
@@ -219,12 +252,61 @@ class Host:
     def order_text(self):
         return self.order.read_text() if self.order.is_file() else ""
 
+    def gap_open_elsewhere(self):
+        """A gap another runner opened and has not served yet (stale after GAP_MAX_S + 10 min)."""
+        gap = self.lock.with_name("TIMING.gap.open")
+        try:
+            age = time.time() - gap.stat().st_mtime
+        except OSError:
+            return False
+        return age < GAP_MAX_S + 600 and AGENT not in gap.read_text().split("by=")[-1]
+
+    def serve_gap(self):
+        """Serve a pending gap request (see the module docstring); a record of it, or None."""
+        request = self.lock.with_name("TIMING.gap.request")
+        opened = self.lock.with_name("TIMING.gap.open")
+        try:
+            text = request.read_text().strip()
+            request.rename(opened)
+        except OSError:
+            return None
+        fields = text.split()
+        try:
+            seconds = min(float(fields[1]), GAP_MAX_S)
+        except (IndexError, ValueError):
+            seconds = 180.0
+        record = {"request": text[:200], "opened_utc": utc(), "seconds": seconds}
+        opened.write_text(f"{text} opened={record['opened_utc']} by={AGENT}\n")
+        began, taken = time.monotonic(), None
+        while True:
+            held = self.lock.is_dir()
+            if held and taken is None:
+                taken = (self.lock / "owner").read_text().strip()[:200] if (self.lock / "owner").is_file() else "?"
+                record["taken_by"], record["taken_utc"] = taken, utc()
+            if taken is not None and not held:
+                record["released_utc"] = utc()
+                break
+            if taken is None and time.monotonic() - began >= seconds:
+                record["untaken"] = True
+                break
+            if time.monotonic() - began >= seconds + GAP_MAX_S:
+                record["gave_up_waiting"] = True
+                break
+            time.sleep(min(POLL_S, 1.0))
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        opened.rename(self.lock.with_name(f"TIMING.gap.served.{stamp}"))
+        record["closed_utc"] = utc()
+        return record
+
     def acquire(self, entry):
         """Wait for the entry's turn and take the lock; None if the entry was finished meanwhile."""
         while True:
             done_text = self.done_text()
             if str(entry) in finished_entries(done_text):
                 return None
+            if self.gap_open_elsewhere():
+                time.sleep(POLL_S)
+                continue
             if turn_has_come(entry, done_text, self.order_text()):
                 try:
                     self.lock.mkdir()
@@ -311,6 +393,14 @@ def main():
         nonlocal child
         job["arm"] = resolve(runs, job)
         name = f"{job['arm']}.{job['panel']}.r{job['round']}"
+        receipt = receipt_dir(runs, job["panel"], job["service"], job["round"], job["arm"])
+        state = receipt_state(receipt)
+        if state == "done":
+            job.update(status="done", note="finished clean receipt already on disk", ended_utc=utc())
+            save()
+            return 0
+        if state == "unfinished":
+            job["set_aside"] = str(set_aside(receipt))
         job.update(status="running", started_utc=utc())
         hold["jobs"].append(name)
         save()
@@ -334,11 +424,11 @@ def main():
                  if key in measured]
         return 1.05 * max(known) if known else job["est_s"]
 
-    def hook(command, log_name):
+    def hook(command, log_name, timeout=300):
         with open(log_dir / log_name, "ab") as log:
             try:
                 return subprocess.run(["bash", "-c", command], stdin=subprocess.DEVNULL, stdout=log,
-                                      stderr=subprocess.STDOUT, timeout=300).returncode
+                                      stderr=subprocess.STDOUT, timeout=timeout).returncode
             except subprocess.TimeoutExpired:
                 return "timeout"
 
@@ -347,9 +437,21 @@ def main():
         (a required path was missing; the entry was skipped and re-queued) or "finished-elsewhere"."""
         repeated, checked = set(), family not in requires
         while pending:
+            for job in list(pending):  # finished, clean receipts on disk count as done (restarts)
+                arm = resolve(runs, job)
+                if receipt_state(receipt_dir(runs, job["panel"], job["service"], job["round"], arm)) == "done":
+                    job.update(arm=arm, status="done", note="finished clean receipt already on disk")
+                    pending.remove(job)
+            if not pending:
+                save()
+                break
             hold = {"entry": active, "waiting_since_utc": utc(), "jobs": []}
             holds.append(hold)
             save()
+            gap = host.serve_gap()
+            if gap is not None:
+                hold["gap_served"] = gap
+                save()
             acquired = host.acquire(active)
             if acquired is None:
                 hold["outcome"] = "finished elsewhere"
@@ -357,6 +459,11 @@ def main():
                 return "finished-elsewhere"
             hold["acquired_utc"] = acquired
             began = time.monotonic()
+            if QUIET_CMD:
+                quiet_began = time.monotonic()
+                hold["quiet_exit"] = hook(QUIET_CMD, "quiet.log", timeout=1200)
+                hold["quiet_s"] = round(time.monotonic() - quiet_began, 1)
+                save()
             if not checked:
                 checked = True
                 if PREPARE:
