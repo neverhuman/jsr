@@ -2,6 +2,23 @@
 # Run from the repository root after staging the pinned DEV audio and model bundles.
 set -euo pipefail
 
+# Receipts name the machine by role, never by address (the repository is public). A cloud VM's hostname
+# is its public IP (a-b-c-d), so the role comes from JSR_HOST_ROLE or ~/.config/jsr/host-role (untracked).
+host_role() {
+    local role=${JSR_HOST_ROLE:-}
+    if [[ -z $role && -r $HOME/.config/jsr/host-role ]]; then
+        role=$(head -n 1 "$HOME/.config/jsr/host-role")
+    fi
+    if [[ -z $role ]]; then
+        role=$(hostname)
+    fi
+    if printf '%s\n' "$role" | grep -Eq '[0-9]{1,3}[.-][0-9]{1,3}[.-][0-9]{1,3}[.-][0-9]{1,3}'; then
+        printf 'host name looks like an address; set JSR_HOST_ROLE or ~/.config/jsr/host-role\n' >&2
+        role=unlabelled-host
+    fi
+    printf '%s\n' "$role"
+}
+
 root=${PAPER_RUN_ROOT:-"$PWD/target/paper-evidence"}
 sdk=${PAPER_SDK_ROOT:-"$PWD/target/paper-smoke"}
 data=${JSR_DATA:-/mnt/xbabe3-external/jsr}
@@ -113,7 +130,7 @@ run_arm() {
         $1 ~ /^\// {print $1}
     ' | sort -u | xargs -r sha256sum > "$run/runtime-libraries.sha256"
     sha256sum "$root/panel/audio.json" > "$run/workload.sha256"
-    hostname > "$run/host"
+    host_role > "$run/host"
     cat /proc/loadavg "/sys/devices/system/cpu/cpu$service_cpu/cpufreq/scaling_governor" \
         /sys/devices/system/cpu/cpufreq/boost > "$run/host.before"
     printf '%s\n' "$round" > "$run/round"

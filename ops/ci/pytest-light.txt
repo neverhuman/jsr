@@ -13,6 +13,7 @@ tests/test_fleet_guard.py
 tests/test_fleet_util_audit.py
 tests/test_h50_fleet_launchers.py
 tests/test_nemotron_adapter.py
+tests/test_no_host_addresses.py
 tests/test_ood.py
 tests/test_opponents_tools.py
 tests/test_paper_claims.py

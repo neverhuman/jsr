@@ -27,6 +27,23 @@
 # the caller (open_turn.py); this script does not touch it.
 set -euo pipefail
 
+# Receipts name the machine by role, never by address (the repository is public). A cloud VM's hostname
+# is its public IP (a-b-c-d), so the role comes from JSR_HOST_ROLE or ~/.config/jsr/host-role (untracked).
+host_role() {
+    local role=${JSR_HOST_ROLE:-}
+    if [[ -z $role && -r $HOME/.config/jsr/host-role ]]; then
+        role=$(head -n 1 "$HOME/.config/jsr/host-role")
+    fi
+    if [[ -z $role ]]; then
+        role=$(hostname)
+    fi
+    if printf '%s\n' "$role" | grep -Eq '[0-9]{1,3}[.-][0-9]{1,3}[.-][0-9]{1,3}[.-][0-9]{1,3}'; then
+        printf 'host name looks like an address; set JSR_HOST_ROLE or ~/.config/jsr/host-role\n' >&2
+        role=unlabelled-host
+    fi
+    printf '%s\n' "$role"
+}
+
 if [[ $# != 4 ]]; then
     printf 'usage: bash docs/paper/opponents/open-run.sh ARM ROUND SERVICE_CPUS OBSERVER_CPU\n' >&2
     exit 2
@@ -161,7 +178,7 @@ run_listed() {
         $1 ~ /^\// {print $1}
     ' | sort -u | xargs -r sha256sum > "$run/runtime-libraries.sha256"
     sha256sum "$root/panel/audio.json" > "$run/workload.sha256"
-    hostname > "$run/host"
+    host_role > "$run/host"
     cat /proc/loadavg "/sys/devices/system/cpu/cpu${service_list[0]}/cpufreq/scaling_governor" \
         /sys/devices/system/cpu/cpufreq/boost > "$run/host.before"
     printf '%s\n' "$round" > "$run/round"
