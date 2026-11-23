@@ -24,6 +24,7 @@ from dataclasses import asdict, dataclass, field
 import torch
 
 from train import checkpoint
+from train.anchored_rnnt import anchor_kwargs, load_anchors
 from train.checkpoint import swap_weights  # noqa: F401  (re-exported: tests and tools import it from here)
 from train.asr import PRESETS, ASRModel, ModelConfig, SpecAugConfig
 from train.ctc import FeasibilityStats
@@ -165,6 +166,13 @@ class TrainConfig:
     cr_ctc_half: bool = False
     # H34 pruned RNN-T emission-delay penalty (k2 delay_penalty; 0 = off, calls unchanged).
     delay_penalty: float = 0.0
+    # H48c MFA-anchored latency loss ("MFA-anchored"; train/anchored_rnnt.py, side file train/mfa_anchors.py).
+    # mfa_anchors "" / anchor_kappa 0 = off (calls unchanged).
+    mfa_anchors: str = ""
+    anchor_kappa: float = 0.0
+    anchor_margin: int = 1
+    anchor_cap: float = 12.0
+    anchor_simple: bool = True  # also tilt the smoothed (simple-joiner) loss that picks the band
     # H28 Stage-1A V2 WER/stability options (all default-off for 100% v1 bit-exactness):
     inter_ctc_weight: float = 0.0  # Self-Conditioned InterCTC loss weight (recommended 0.2 for V2)
     balancer_weight: float = 0.0  # Zipformer Activation Balancer weight (recommended 1e-3 for V2)
@@ -262,7 +270,8 @@ class Trainer:
         # existed still matches and a resumed run keeps its divergence baselines
         sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
                                     ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half),
-                                    ("stream_ctx", c.stream_ctx_s)) if v]
+                                    ("stream_ctx", c.stream_ctx_s), ("anchor", c.anchor_kappa and
+                                    [c.anchor_kappa, c.anchor_margin, c.anchor_cap, c.anchor_simple])) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
@@ -384,7 +393,8 @@ class Trainer:
                                        if self.cfg.inter_ctc_weight else {}),
                                     **({"balancer_weight": self.cfg.balancer_weight}
                                        if self.cfg.balancer_weight else {}),
-                                    **({"ctx": b.ctx} if b.ctx is not None else {}))
+                                    **({"ctx": b.ctx} if b.ctx is not None else {}),
+                                    **anchor_kwargs(self.cfg, b))
         if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
@@ -431,7 +441,10 @@ class Trainer:
                 **({"zloss": float(out["zloss"].detach())} if "zloss" in out else {}),
                 **({"cr_ctc": float(out["cr_ctc"].detach())} if "cr_ctc" in out else {}),
                 **({"inter_ctc": float(out["inter_ctc"].detach())} if "inter_ctc" in out else {}),
-                **({"balancer": float(out["balancer"].detach())} if "balancer" in out else {})}
+                **({"balancer": float(out["balancer"].detach())} if "balancer" in out else {}),
+                **({"anchor_risk": float(out["anchor_risk"]),
+                    "anchor_cov": out["anchor_tokens"] / max(1, out["rnnt_tokens"])}
+                   if "anchor_risk" in out else {})}
 
     def _ddp_interval_stats(self, acc: dict) -> dict:
         """Per-rank sample counts, padding and backward(+collective) seconds for the interval."""
@@ -726,7 +739,7 @@ class Trainer:
             acc["n"] += 1
             acc["masked"] += r["ctc_masked"]
             for k in ("loss", "rnnt", "ctc", "rnnt_simple", "kd", "zloss", "cr_ctc",
-                      "inter_ctc", "balancer"):
+                      "inter_ctc", "balancer", "anchor_risk", "anchor_cov"):
                 if k in r:
                     acc[k] = acc.get(k, 0.0) + r[k]
             self._watch_loss(r)
@@ -739,6 +752,8 @@ class Trainer:
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
                           "dropped_long": getattr(self.source, "dropped_long", 0),
                           **({"dropped_conf": self.source.dropped_conf} if getattr(self.source, "min_conf", 0) else {}),
+                          **({"anchor_counts": dict(s.counts)}
+                             if (s := getattr(self.source, "anchors", None)) is not None else {}),
                           **({"rnnt_simple": acc["rnnt_simple"] / acc["n"]} if "rnnt_simple" in acc
                              else {}),
                           **({"kd": acc["kd"] / acc["n"]} if "kd" in acc else {}),
@@ -749,6 +764,8 @@ class Trainer:
                           **({"inter_ctc": acc["inter_ctc"] / acc["n"]} if "inter_ctc" in acc
                              else {}),
                           **({"balancer": acc["balancer"] / acc["n"]} if "balancer" in acc else {}),
+                          **({k: acc[k] / acc["n"] for k in ("anchor_risk", "anchor_cov")} if "anchor_risk" in acc
+                             else {}),
                           **({"clip_thr": self.clipper.last_threshold}
                              if self.clipper.mode == "adaptive" else {}),
                           **({"gpu_peak_gb": round(torch.cuda.max_memory_allocated() / 1e9, 3)}
@@ -900,7 +917,7 @@ def main(argv=None) -> int:
                                 teacher=_teacher(cfg, tok_r), loader=cfg.loader,
                                 window_groups=cfg.window_groups, synth_aug=cfg.synth_aug,
                                 extra=parse_extra_splits(cfg.extra_splits), min_conf=cfg.extra_min_conf,
-                                base_weight=cfg.extra_base_weight)
+                                base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r))
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
