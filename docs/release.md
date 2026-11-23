@@ -31,24 +31,32 @@ no hosted service, account system or server to operate.
 
 ## Install the pinned release
 Run from the repository root. Release files go to `models/sha256-<SHA256SUMS digest>/`, which git ignores.
+The example runs in a subshell with `set -eu`. It stops at the first failed check, so nothing is unpacked or run after a bad signature, digest or hash, and your own shell is left as it was.
 ```bash
-P=docs/ultra/releases/pinned.json
-TAG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$P")
-DIR=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["install_dir"])' "$P")
-mkdir -p "$DIR" && gh release download "$TAG" -R neverhuman/jsr -D "$DIR"
-cd "$DIR"
-# 1. The signature, against the committed trust anchor
-ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
-  -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
-# 2. The checksum list is the pinned one (its digest names this directory), and every file matches it
-test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")" && sha256sum -c SHA256SUMS
-# 3. Unpack the model bundle and check its contents
-tar -xf ultra-v3.0.1-int8-bundle.tar && sha256sum -c ultra-v3.0.1-int8-bundle.SHA256SUMS
-chmod +x ultra-engine-commit ultra-score
-# 4. Run: utts.jsonl has one {"uid", "wav"} row per utterance (16 kHz mono WAV)
-./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
-  --commit-chunk 16 --tail-pad-ms 320 --threads 1 \
-  --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
+(
+  set -eu
+  P=docs/ultra/releases/pinned.json
+  TAG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$P")
+  DIR=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["install_dir"])' "$P")
+  mkdir -p "$DIR"
+  gh release download "$TAG" -R neverhuman/jsr -D "$DIR" --skip-existing
+  cd "$DIR"
+  # 1. The signature, against the committed trust anchor
+  ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
+    -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
+  # 2. The checksum list is the pinned one: its digest names this directory
+  test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")"
+  # 3. Every file matches the checksum list
+  sha256sum -c SHA256SUMS
+  # 4. Unpack the model bundle and check its contents
+  tar -xf ultra-v3.0.1-int8-bundle.tar
+  sha256sum -c ultra-v3.0.1-int8-bundle.SHA256SUMS
+  chmod +x ultra-engine-commit ultra-score
+  # 5. Run: utts.jsonl in this directory has one {"uid", "wav"} row per utterance (16 kHz mono WAV)
+  ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
+    --commit-chunk 16 --tail-pad-ms 320 --threads 1 \
+    --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
+)
 ```
 - **Output:** each row holds the live stream text (`provisional`) and the final text (`committed`).
 - **Without `gh`:** download each file from the `download_base` URL in `pinned.json`.
