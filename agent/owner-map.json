@@ -97,6 +97,8 @@
     "python/ultra/tests/test_step_sync.py": "training",
     "crates/ultra-gate/": "runtime",
     "crates/ultra-alwayson/": "runtime",
-    "research/H47_always_on_sleep_gate/GATE_IMPLEMENTATION.md": "runtime"
+    "research/H47_always_on_sleep_gate/GATE_IMPLEMENTATION.md": "runtime",
+    "python/ultra/tools/fleet_util_audit.py": "lead",
+    "python/ultra/tests/test_fleet_util_audit.py": "lead"
   }
 }
