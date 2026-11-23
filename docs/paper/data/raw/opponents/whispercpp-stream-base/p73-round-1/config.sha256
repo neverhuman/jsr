@@ -1,0 +1,12 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/bin/python
+a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002  /home/ubuntu/jsr-data/opponents/whispercpp-stream/models/ggml-base.en.bin
+676074b9d8db18ad8ea108a75afc753e6579f920add1488ec80e11d801f33cf6  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/_pywhispercpp.cpython-312-x86_64-linux-gnu.so
+30d51ad8615b24a7fc51a445b673540a1d784f77564753dfeb1e9b0ba12fdc45  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/pywhispercpp.libs/libggml-7534fc68.so
+ab1cd7caff4b43095a81d4bbffc75e0866aec262e5bc068bf4d20534fb02ba61  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/pywhispercpp.libs/libggml-base-29333f76.so
+18feb312d175c58a36f53ca2ae94874cf1b62a76caae689c3355bf19761d5822  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/pywhispercpp.libs/libggml-cpu-9bb296ac.so
+a43904e4fa297301d4640dc1bb3c8a3480b406f99e498eba9b1914b68aab604a  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/pywhispercpp.libs/libgomp-e985bcbb.so.1.0.0
+d9c71b0f35de7d7e0fab48aa5d54b8a5bcd185ff92b09166ee35ceb59b294dec  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv/lib/python3.12/site-packages/pywhispercpp.libs/libwhisper-4df6f0fe.so.1.8.2
+23897b13acae22347a11a6c72761a5165ba8a280da670ededad8c476f2c7b0c2  /home/ubuntu/jsr-data/opponents/whispercpp-stream/venv.freeze.txt
+150e1a2f90b1b7b43ddcbf4f1fb9b77a123859b124ebf7a3c6d63d8a9dfd3ed4  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/whispercpp_stream.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_common.py
