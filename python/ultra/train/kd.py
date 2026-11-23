@@ -7,6 +7,13 @@ every cached utterance the store keeps views into the concatenated arrays:
   ok: R0's 1-best equals the normalised reference (only then is (t, u_t) on the reference lattice).
 The student shares R0's bpe.model through train.tokenizer, so student index = R0 id + 1 for
 pieces and 0 for blank.
+
+Frame alignment for frame KD (kd_loss): teacher frame t is paired with student encoder frame t, both 25 Hz
+from the utterance start, over min(T_R0, T_student) frames. R0 keeps only full 8-frame output chunks after a
+0.3 s tail pad, so T_R0 - T_student lies in -3..+4 by construction (kd-cache, 2026-11-23): up to 3 student
+frames at the end get no target and up to 4 teacher frames go unused. The cache check is therefore exact,
+not a tolerance: T_R0 must equal r0_frames(n_mel) for the student's own audio (a wrong audio pairing fails).
+Sequence KD (H49b) does not frame-align.
 """
 from __future__ import annotations
 
@@ -24,6 +31,14 @@ from ultra.wer import normalise
 def _speed_key(speed) -> float:
     """Exact speed factor key (to 1e-3, so 0.9 / 1.0 / 1.1 match however they were parsed)."""
     return round(float(speed), 3)
+
+
+def r0_frames(n_mel: int) -> int:
+    """R0's encoder frame count for the audio behind a student utterance of `n_mel` log-mel frames.
+    R0: n_fb = (n_samples + 4800 + 80) // 160 (0.3 s tail pad, snip_edges false) and frames =
+    8 * ((n_fb - 45) // 32 + 1) (full chunks only). Student: n_mel = 1 + (n_samples - 400) // 160, so
+    n_fb = n_mel + 32 exactly. Checked on 2,039 / 2,039 real cache rows (train-clean-100 shard 0)."""
+    return max(0, 8 * ((int(n_mel) - 13) // 32 + 1))
 
 
 KD_META = "KD_META.json"  # cache identity side file (format ultra.kd-cache/v1), see write_meta()
@@ -138,10 +153,11 @@ class TeacherStore:
         return ids, lp, u, ok
 
     def get_checked(self, uid: str, speed: float, target_ids: list[int] | np.ndarray,
-                    n_frames: int | None = None):
+                    n_mel: int | None = None):
         """`(ids, lp, u, ok)` with ok only if R0's text matches, its emitted subword path equals the
-        student's RNN-T targets (`verify_emitted_path`, PR #72's B2) and, given `n_frames`, its frame
-        count is within one of the student's encoder frames. Every outcome is counted."""
+        student's RNN-T targets (`verify_emitted_path`, PR #72's B2) and, given the student's log-mel
+        frame count `n_mel`, R0's frame count is exactly `r0_frames(n_mel)` (the same audio). Every
+        outcome is counted."""
         row = self._entries.get((uid, _speed_key(speed)))
         if row is None:
             self.counts["missing"] += 1
@@ -152,7 +168,7 @@ class TeacherStore:
         elif not verify_emitted_path(emitted, target_ids):
             self.counts["path_mismatch"] += 1
             ok = False
-        elif n_frames is not None and abs(len(u) - int(n_frames)) > 1:
+        elif n_mel is not None and len(u) != r0_frames(n_mel):
             self.counts["frame_mismatch"] += 1
             ok = False
         else:

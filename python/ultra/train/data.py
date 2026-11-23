@@ -25,7 +25,6 @@ import torch
 
 from train.errors import DataError
 from train.features import LogMel, pcm_to_float
-from train.model import stem_out_len
 from train.tokenizer import Tokenizer
 
 
@@ -422,7 +421,7 @@ class ParquetBatches:
             pcm = apply_synth_aug(pcm, row["id"], epoch, self.seed)
         ex = self.feat.example(row["id"], row["text"], pcm)
         if self.teacher is not None:
-            ex.kd = self.teacher.get_checked(row["id"], f, ex.rnnt, stem_out_len(ex.feats.shape[0]))
+            ex.kd = self.teacher.get_checked(row["id"], f, ex.rnnt, n_mel=ex.feats.shape[0])
         return ex
 
     def _attach(self, x):
@@ -432,7 +431,7 @@ class ParquetBatches:
         uid, text, feats, rnnt, ctc, f = x
         ex = Example(uid, text, torch.from_numpy(feats), rnnt, ctc)
         if self.teacher is not None:
-            ex.kd = self.teacher.get_checked(uid, f, rnnt, stem_out_len(feats.shape[0]))
+            ex.kd = self.teacher.get_checked(uid, f, rnnt, n_mel=feats.shape[0])
         return ex
 
     def _speed(self, uid: str, epoch: int) -> float:

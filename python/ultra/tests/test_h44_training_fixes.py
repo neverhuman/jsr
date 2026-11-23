@@ -122,12 +122,12 @@ def test_stream_context_is_dropped_from_inter_ctc_too():
 
 
 # ---- 5. KD cache identity and counts -----------------------------------------------------------
-def _cache(d, emitted=(0, 4, 0, 9)):
+def _cache(d, emitted=(0, 4, 0, 9, 0, 0, 0, 0)):
     os.makedirs(d, exist_ok=True)
     np.savez(os.path.join(d, "shard_0000_sp1.0.npz"), meta=json.dumps({"speed": 1.0}),
              uid=np.array(["utt-1"]), text=np.array(["hello"]), hyp=np.array(["HELLO"]),
-             n_frames=np.array([4], np.int32), emitted=np.array(emitted, np.int32),
-             topk_ids=np.zeros((4, 2), np.int32), topk_lp=np.zeros((4, 2), np.float32))
+             n_frames=np.array([8], np.int32), emitted=np.array(emitted, np.int32),
+             topk_ids=np.zeros((8, 2), np.int32), topk_lp=np.zeros((8, 2), np.float32))
 
 
 def test_teacher_cache_must_prove_its_tokenizer(tmp_path):
@@ -147,7 +147,7 @@ def test_teacher_cache_must_prove_its_tokenizer(tmp_path):
     assert len(TeacherStore(cache, tokenizer_sha256=sha[tok_a])) == 1
     with pytest.raises(KdIdentityError):
         TeacherStore(cache, tokenizer_sha256=sha[tok_b])
-    _cache(cache, emitted=(0, 4, 0, 8))  # the shard changes after the side file was written
+    _cache(cache, emitted=(0, 4, 0, 8, 0, 0, 0, 0))  # the shard changes after the side file was written
     with pytest.raises(KdIdentityError):
         TeacherStore(cache, tokenizer_sha256=sha[tok_a])
 
@@ -158,9 +158,45 @@ def test_teacher_lookups_are_counted_and_frame_checked(tmp_path):
     cache = str(tmp_path / "c")
     _cache(cache)
     st = TeacherStore(cache)
-    assert st.get_checked("utt-1", 1.0, [5, 10], n_frames=4)[3] is True
-    assert st.get_checked("utt-1", 1.0, [5, 10], n_frames=7)[3] is False  # 4 teacher frames vs 7
-    assert st.get_checked("utt-1", 1.0, [5, 11], n_frames=4)[3] is False
-    assert st.get_checked("utt-1", 0.9, [5, 10], n_frames=4) is None
+    assert st.get_checked("utt-1", 1.0, [5, 10], n_mel=40)[3] is True  # r0_frames(40) = 8 = the cache's
+    assert st.get_checked("utt-1", 1.0, [5, 10], n_mel=50)[3] is False  # 16 expected: other audio
+    assert st.get_checked("utt-1", 1.0, [5, 11], n_mel=40)[3] is False
+    assert st.get_checked("utt-1", 0.9, [5, 10], n_mel=40) is None
     assert st.counts == {"accepted": 1, "missing": 1, "text_mismatch": 0, "path_mismatch": 1,
                          "frame_mismatch": 1}
+
+
+# Real R0 cache rows (teacher_cache_R0 train-clean-100 shard 0, speed 1.0): "n_samples:R0 frames" from the
+# parquet audio headers and the cache's n_frames (kd-cache, 2026-11-23: R0 - student frames spans -3..+4).
+R0_ROWS = (
+    "232480:360,257360:400,212720:336,178000:280,225280:352,218960:344,213280:336,252000:392,219520:344,25096"
+    "0:392,226480:352,210960:328,249120:392,207440:328,226400:352,237440:368,245600:384,229360:360,251680:392"
+    ",132880:208,229760:360,207440:328,241280:376,238400:376,244960:384,226960:352,47360:72,244640:384,240560"
+    ":376,242000:376,241680:376,248880:392,220640:344,223600:352,251920:392,137680:216,221200:344,230240:360,"
+    "146320:232,139680:216,252480:392,275360:432,214880:336,165840:256,251600:392,179680:280,64320:104,261040"
+    ":408,261760:408,231520:360,220720:344,248640:392,253520:400,203440:320,228160:360,224640:352,213120:336,"
+    "237680:368,210400:328,151520:240,135601:216,228881:360,204640:320,226960:352,242960:384,99440:152,237360"
+    ":368,52640:80,44960:72,239360:376,216560:336,66320:104,246800:384,220080:344,210720:328,225760:352,18936"
+    "0:296,239920:376,203440:320,238720:376,235280:368,222800:352,221600:344,235680:368,209440:328,222800:352"
+    ",255040:400,250560:392,242000:376,175120:272,237760:368,213200:336,234640:368,233520:368,192400:304,2168"
+    "00:336,231280:360,226160:352,244480:384,235760:368,256560:400,157040:248,243520:384,152400:240,153840:24"
+    "0,242640:376,256960:400,236800:368,239520:376,123840:192,236640:368,241040:376,255680:400,239600:376,230"
+    "160:360,242880:376,201840:312,200880:312,76320:120,250240:392"
+)
+
+
+def test_r0_frame_rule_matches_real_cache_rows_where_the_tolerance_failed():
+    """kd-cache's finding: the +-1 tolerance against the student's encoder frames rejected ~63% of valid
+    R0 rows. The exact rule r0_frames(n_mel) reproduces every real row."""
+    from train.features import LogMel
+    from train.kd import r0_frames
+    from train.model import stem_out_len
+
+    lm = LogMel()
+    rows = [tuple(int(v) for v in p.split(":")) for p in "".join(R0_ROWS).split(",")]
+    assert len(rows) == 120
+    assert all(r0_frames(lm.num_frames(n)) == f for n, f in rows)
+    old_ok = sum(abs(f - stem_out_len(lm.num_frames(n))) <= 1 for n, f in rows)
+    assert old_ok < 0.5 * len(rows)  # the old check rejected most of these valid rows
+    deltas = {f - stem_out_len(lm.num_frames(n)) for n, f in rows}
+    assert min(deltas) >= -3 and max(deltas) <= 4
