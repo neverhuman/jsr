@@ -2,10 +2,49 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use ultra_bridge::engine::Engine;
 use ultra_bridge::protocol::Packet;
 use ultra_bridge::records::{hash_file, Job, Plan, SCHEMA};
 use ultra_bridge::service::validate_batch;
+
+/// Serialize the three heavy model-loading/inference integration tests inside this binary so
+/// they do not contend with one another for CPU/L3 cache while `ServiceDeadline` is ticking.
+static HEAVY_NATIVE_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_heavy_native() -> std::sync::MutexGuard<'static, ()> {
+    HEAVY_NATIVE_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
+/// Load- and profile-aware wall-clock deadline for the 8-utterance learned FP32 service
+/// completeness test (`complete_fused_service_reproduces_eight_retained_learned_texts`).
+///
+/// That test verifies exact transcript reproduction and clean drain (not deadline expiry,
+/// which is covered separately by `service_deadline::tests::native_deadline_is_scoped_and_fatal`).
+/// Under unoptimized debug builds (`cargo test --workspace`) on a busy shared host, 8 FP32
+/// utterances can exceed the 60 s release budget while still making normal progress; scaling
+/// by build profile and `/proc/loadavg` avoids spurious status-124 deadline aborts while retaining a
+/// bounded hung-service backstop (`[60, 600]` s).
+fn fused_service_timeout_s() -> u64 {
+    if let Ok(raw) = std::env::var("ULTRA_FUSED_TEST_TIMEOUT_S") {
+        if let Ok(v) = raw.trim().parse::<u64>() {
+            return v.clamp(60, 600);
+        }
+    }
+    let base: f64 = if cfg!(debug_assertions) { 180.0 } else { 60.0 };
+    let cpus = std::thread::available_parallelism()
+        .map(|n| n.get() as f64)
+        .unwrap_or(1.0);
+    let load1 = std::fs::read_to_string("/proc/loadavg")
+        .ok()
+        .and_then(|s| s.split_whitespace().next()?.parse::<f64>().ok())
+        .filter(|v| v.is_finite() && *v >= 0.0)
+        .unwrap_or(0.0);
+    let scale = (1.0 + load1 / cpus).max(1.0);
+    ((base * scale).ceil() as u64).clamp(60, 600)
+}
 
 fn plan(bundle: &Path) -> Plan {
     Plan {
@@ -153,6 +192,7 @@ fn admission_checks_bpe_paths_cmvn_and_effective_settings() {
 
 #[test]
 fn learned_fused_bundle_batches_partial_chunks_and_has_sticky_failures() {
+    let _guard = lock_heavy_native();
     let data = PathBuf::from(
         std::env::var("JSR_DATA").unwrap_or_else(|_| "/mnt/xbabe3-external/jsr".into()),
     );
@@ -215,6 +255,7 @@ fn learned_fused_bundle_batches_partial_chunks_and_has_sticky_failures() {
 
 #[test]
 fn complete_fused_service_reproduces_eight_retained_learned_texts() {
+    let _guard = lock_heavy_native();
     let data = PathBuf::from(
         std::env::var("JSR_DATA").unwrap_or_else(|_| "/mnt/xbabe3-external/jsr".into()),
     );
@@ -244,6 +285,7 @@ fn complete_fused_service_reproduces_eight_retained_learned_texts() {
     p.job.inputs = inputs;
     p.job.out = cleanup.0.clone();
     p.job.streams = 8;
+    p.job.timeout_s = fused_service_timeout_s();
     // Inference gets only bundle, opaque audio inputs and config. Expected output
     // is opened after the service has drained and closed its model.
     ultra_bridge::service::execute(&p).expect("complete audio-only fused service");
@@ -314,6 +356,7 @@ fn run_packets(
 
 #[test]
 fn prepared_int8_refuses_runtime_weight_quantization_and_is_batch_packet_invariant() {
+    let _guard = lock_heavy_native();
     let data = PathBuf::from(
         std::env::var("JSR_DATA").unwrap_or_else(|_| "/mnt/xbabe3-external/jsr".into()),
     );
