@@ -12,6 +12,8 @@
 #   parakeet-v3-onnxasr-int8            Parakeet TDT 0.6B v3, onnx-asr INT8, whole utterance
 #   jsr-h22ctl-79800-ema-int8           our engine, H22ctl 79800 EMA INT8 (same-session anchor)
 #   jsr-a1-30000-ema-int8               our engine, A1 30000 EMA INT8 (TIMING entry 6b, a primary row of ours)
+#   jsr-a1-49000-ema-int8               our engine, A1 49000 EMA INT8, A1 final (TIMING entry 14b)
+#   jsr-f1-60000-ema-int8               our engine, F1 60000 EMA INT8, F1 final, multirate S_MR (entry 14c)
 #   jsr-d2e-16457-int8                  our engine, D2e 16457 INT8 (earlier cross-session anchor)
 #   r0-zipformer-int8                   R0 Zipformer INT8 through sherpa-onnx (same-session anchor)
 #   <system>-t8                         eight intra-op threads in one recogniser
@@ -66,7 +68,8 @@ open_arm() {
             files=("${artifacts[@]}" "$venv"/lib/python3*/site-packages/onnxruntime/capi/*.so*
                 "$opp/parakeet-onnx-asr/venv.freeze.txt")
             ;;
-        jsr-h22ctl-79800-ema-int8|jsr-a1-30000-ema-int8|jsr-d2e-16457-int8|r0-zipformer-int8)
+        jsr-h22ctl-79800-ema-int8|jsr-a1-30000-ema-int8|jsr-a1-49000-ema-int8|jsr-f1-60000-ema-int8|\
+            jsr-d2e-16457-int8|r0-zipformer-int8)
             # Same-session anchors through ultra-cold-wav: our engine (H22ctl-79800 EMA INT8 with the
             # primary row's binary; D2e-16457 as the earlier cross-session anchor) and the R0 Zipformer.
             local anchor="$opp/bench-open/anchor" binary
@@ -77,9 +80,14 @@ open_arm() {
                     model="$opp/models/H22ctl-79800-ema/int8"
                     binary="$anchor/ultra-cold-wav-457a4db7"  # copy of the primary row's binary
                     ;;
-                jsr-a1-30000-ema-int8)
-                    model="$opp/models/A1-30000-ema/int8"
-                    binary="$anchor/ultra-cold-wav-457a4db7"  # the primary rows' binary
+                jsr-a1-30000-ema-int8|jsr-a1-49000-ema-int8|jsr-f1-60000-ema-int8)
+                    # eval-lane's verified INT8 exports, run with the primary rows' binary
+                    case "$system" in
+                        jsr-a1-30000-ema-int8) model="$opp/models/A1-30000-ema/int8" ;;
+                        jsr-a1-49000-ema-int8) model="$opp/models/A1-49000-ema/int8" ;;
+                        *) model="$opp/models/F1-60000-ema/int8" ;;
+                    esac
+                    binary="$anchor/ultra-cold-wav-457a4db7"
                     ;;
                 jsr-d2e-16457-int8) model="$anchor/d2e-16457-int8" ;;
                 r0-zipformer-int8) model="$anchor/r0-zipformer-int8" ;;

@@ -298,6 +298,22 @@ def test_turn_plan_parsing_and_turn_rules(tmp_path):
     assert turn.resolve(tmp_path, {**job, "arm": "t8|z8"}) == "t8"  # a busy-host round does not count
     assert turn.resolve(tmp_path, {**job, "arm": "q8|r8"}) == "q8"  # nothing measured yet: the first
     assert turn.next_round(tmp_path, "p73", "8-15", "t8") == 2 and turn.next_round(tmp_path, "full", "4", "t8") == 1
+    assert turn.read_requirements("require 14b models/x/w.bin\n14b full x 1 4 0 3\nrequire 14b y  # z\n") == {
+        "14b": ["models/x/w.bin", "y"]}
+    assert [job["entry"] for job in turn.read_plan("require 14b m\n14br full x 1 4 0 3\n")[0]] == ["14br"]
+    with pytest.raises(ValueError):
+        turn.read_requirements("require 14b\n")
+    requeued = ("14 | bench-open | w\n14b | bench-open | x\n7r | runtime-lane | y\n14br | bench-open | x  # re-queued\n"
+                "14brr | someone | x\n15 | bench-cross | z\n")
+    assert [item[:2] for item in turn.order_entries(requeued)] == [
+        ("14", "bench-open"), ("14b", "bench-open"), ("7r", "runtime-lane"), ("14br", "bench-open"),
+        ("14brr", "someone"), ("15", "bench-cross")]
+    assert turn.family_ids("14b", requeued) == ["14b", "14br"] and turn.family_ids("14", requeued) == ["14"]
+    skipped = "DONE 14 t bench-open\nSKIP 14b t bench-open (not staged; re-queued as 14br after 7r)\n"
+    assert turn.finished_entries(skipped, "bench-open") == {"14", "14b"}
+    assert turn.finished_entries(skipped, kinds=("DONE",)) == {"14"}
+    assert turn.active_id("14b", requeued, skipped) == "14br" and turn.active_id("14", requeued, skipped) is None
+    assert not turn.turn_has_come("14br", skipped, requeued) and turn.turn_has_come("14br", skipped + "DONE 7r t r\n", requeued)
 
 
 FAKE_RUN = """
@@ -378,6 +394,58 @@ def test_turn_runner_holds_the_lock_only_for_its_own_entries_with_an_anchor_per_
     assert len((tmp_path / "calls.log").read_text().splitlines()) == 14
 
 
+def test_turn_runner_skips_and_requeues_an_entry_whose_model_is_not_staged(tmp_path):
+    host = tmp_path / "opponents"
+    host.mkdir()
+    (host / "TIMING.done").write_text("DONE 1 t energy\n")
+    (host / "TIMING.order").write_text("1 | energy | a\n2 | bench-open | ours, final\n2b | bench-open | ours, other\n"
+                                        "3 | runtime-lane | b\n4 | bench-open | c\n")
+    fake = tmp_path / "fake-run.sh"
+    fake.write_text(FAKE_RUN)
+    plan = tmp_path / "plan.txt"
+    plan.write_text("anchor anc 0.001 0.001\nrequire 2 staged/model.bin\n2 full m 1 4 0 0.004\n"
+                    "require 2b never/staged.bin\n2b full n 1 4 0 0.004\n4 full z 1 4 0 0.004\n")
+    env = {**os.environ, "PAPER_OPPONENTS_ROOT": str(host), "OPEN_RUNS": str(tmp_path / "runs"),
+           "OPEN_RUN_SCRIPT": str(fake), "OPEN_POLL_S": "0.1", "OPEN_HOLD_S": "0.6", "OPEN_HOLD_MARGIN_S": "0.1",
+           "FAKE_LOG": str(tmp_path / "calls.log"), "OPEN_AGENT": "bench-open", "OPEN_REQUEUE_MAX": "1",
+           "OPEN_PREPARE": f'cut -d" " -f1-2 "{host}/TIMING.lock/owner" >> "{tmp_path}/prepare.log"'}
+    command = [sys.executable, str(OPPONENTS / "open_turn.py"), str(plan), str(tmp_path / "logs")]
+    runner = subprocess.Popen(command, env=env)
+
+    def owner():  # runtime-lane takes entry 3 once both of bench-open's entries before it are skipped
+        while "SKIP 2b" not in (host / "TIMING.done").read_text():
+            time.sleep(0.05)
+        (host / "staged").mkdir()
+        (host / "staged/model.bin").write_text("x")
+        with (host / "TIMING.done").open("a") as out:
+            out.write("DONE 3 t runtime-lane\n")
+
+    helper = threading.Thread(target=owner)
+    helper.start()
+    assert runner.wait(timeout=90) == 0
+    helper.join()
+    assert (tmp_path / "calls.log").read_text().splitlines() == [
+        "anc 1 4 0 full bench-open 2r", "m 1 4 0 full bench-open 2r", "anc 2 4 0 full bench-open 4",
+        "z 1 4 0 full bench-open 4"]
+    assert (tmp_path / "prepare.log").read_text().splitlines() == [
+        "bench-open 2", "bench-open 2b", "bench-open 2r", "bench-open 2br"]
+    order = (host / "TIMING.order").read_text().splitlines()
+    assert [line.split("  #")[0] for line in order] == [
+        "1 | energy | a", "2 | bench-open | ours, final", "2b | bench-open | ours, other", "3 | runtime-lane | b",
+        "2r | bench-open | ours, final", "2br | bench-open | ours, other", "4 | bench-open | c"]
+    assert "# re-queued by bench-open" in order[4] and "after SKIP 2: not staged at its turn: staged/model.bin" in order[4]
+    done = [line.split(" ", 4) for line in (host / "TIMING.done").read_text().splitlines()]
+    assert [fields[:2] for fields in done] == [
+        ["DONE", "1"], ["SKIP", "2"], ["SKIP", "2b"], ["DONE", "3"], ["DONE", "2r"], ["SKIP", "2br"], ["DONE", "4"]]
+    assert done[1][4] == "(not staged at its turn: staged/model.bin; re-queued as 2r after 3)"
+    assert done[5][4] == "(not staged at its turn: never/staged.bin)"  # OPEN_REQUEUE_MAX=1: skipped, not re-queued
+    assert len(list(host.glob("TIMING.order.bak-bench-open-*"))) >= 1 and not (host / "TIMING.lock").exists()
+    state = json.loads((tmp_path / "logs/turn.json").read_text())
+    assert [job["status"] for job in state["jobs"] if not job.get("anchor")] == ["done", "skipped", "done"]
+    restart = subprocess.run(command, env=env, timeout=30)  # nothing left: neither 2 nor 2b runs again
+    assert restart.returncode == 0 and len((tmp_path / "calls.log").read_text().splitlines()) == 4
+
+
 ARM_SCRIPT = """
 set -euo pipefail
 data=$1 wav=/panel/wav run=/run
@@ -417,6 +485,9 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     assert "zipformer-int8" in open_arm(tmp_path, "r0-zipformer-int8-w8").stdout.split("--\n")[1]
     a1 = open_arm(tmp_path, "jsr-a1-30000-ema-int8").stdout.split("\n")
     assert a1[0].endswith("ultra-cold-wav-457a4db7") and a1[2].endswith("opponents/models/A1-30000-ema/int8")
+    for arm, folder in (("jsr-a1-49000-ema-int8", "A1-49000-ema"), ("jsr-f1-60000-ema-int8", "F1-60000-ema")):
+        final = open_arm(tmp_path, arm).stdout.split("\n")
+        assert final[0].endswith("ultra-cold-wav-457a4db7") and final[2].endswith(f"opponents/models/{folder}/int8")
     ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")
     assert ours[0].endswith("opponents/bench-open/anchor/ultra-cold-wav-457a4db7") and ours[1] == "r1-engine-int8"
     assert ours[2].endswith("opponents/models/H22ctl-79800-ema/int8") and ours[3] == "/panel/wav"
@@ -432,8 +503,8 @@ def test_run_cold_dispatches_the_open_arms_to_their_definitions():
     case = next(line for line in script.splitlines() if "parakeet-v3-onnxasr-int8" in line)
     assert set(case.strip().rstrip(")").split("|")) == {
         "vosk-large", "vosk-small", "whispercpp-stream-base", "whispercpp-stream-tiny",
-        "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-a1-30000-ema-int8", "jsr-d2e-16457-int8",
-        "r0-zipformer-int8"}
+        "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-a1-30000-ema-int8", "jsr-a1-49000-ema-int8",
+        "jsr-f1-60000-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
     assert 'source "$PWD/docs/paper/opponents/open-arms.sh"' in script
 
 

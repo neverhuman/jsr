@@ -17,17 +17,27 @@ PLAN lines (`#` starts a comment):
                                                               the panel of the hold's first repetition
                                                               and on its first CPU (or on its whole CPU
                                                               list for a multi-core anchor: -t8/-w8/-s8)
+    require ENTRY PATH                                        the entry needs PATH (relative to the
+                                                              opponents root) at its turn
 ARM may be `A|B`: the one of the two with the shorter wall time in round 1 of this plan (both
 clean); if neither has such a round-1 receipt, A.
 
-Entries run in file order; an entry this agent already marked DONE is skipped, so the runner
-can be restarted. Inside an entry the repetitions run one after another; a new hold starts when
+The runner takes whichever of its entries has its turn first (normally file order); an entry
+that is already DONE is skipped, so the runner can be restarted. Inside an entry the repetitions run one after another; a new hold starts when
 the next repetition's estimate no longer fits in the current one. Once an arm has run, its
-measured duration (plus 5%) replaces the plan's estimate. A repetition that was not alone on
+measured duration (plus 5%) replaces the plan's estimate. An entry that is DONE or SKIP is not
+run again; its re-queued ids of this agent in TIMING.order (`Nr`, then `Nrr`, ...) run instead. A repetition that was not alone on
 the host (exit 3) is repeated once at the end of its entry. If OPEN_AFTER_HOLD is set, that
 shell command runs at the end of every hold, after its last repetition and before the lock is
 released (for example, to copy the receipts off the host without loading anyone else's
 measurement); a failure is logged and ignored. State: LOG_DIR/turn.json.
+
+An entry with `require` lines is checked inside its first hold, after the shell command
+OPEN_PREPARE (if set; for example, to copy a model in under the lock). If a required path is
+missing, the runner appends `SKIP N <UTC> <agent> (reason; re-queued as Nr after M)` to
+TIMING.done and re-queues the entry in TIMING.order as `Nr`, right after the next entry of
+another agent (lead, 2026-11-23T03:20Z), then releases the lock; at most OPEN_REQUEUE_MAX (3)
+times per plan entry, after which the entry is only skipped.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -45,6 +55,10 @@ HOLD_S = float(os.environ.get("OPEN_HOLD_S", 30 * 60))
 MARGIN_S = float(os.environ.get("OPEN_HOLD_MARGIN_S", 60))
 POLL_S = float(os.environ.get("OPEN_POLL_S", 10))
 AFTER_HOLD = os.environ.get("OPEN_AFTER_HOLD")
+PREPARE = os.environ.get("OPEN_PREPARE")
+REQUEUE_MAX = int(os.environ.get("OPEN_REQUEUE_MAX", 3))
+ENTRY_ID = r"[0-9]+[a-z]*"  # 12, 6b, and re-queued ids such as 7r or 14br
+ORDER_LINE = re.compile(r"\s*(" + ENTRY_ID + r")\s*\|\s*([^|]*?)\s*(?:\||$)")
 
 
 def utc(moment=None):
@@ -61,6 +75,8 @@ def read_plan(text):
         fields = line.split("#", 1)[0].split()
         if not fields:
             continue
+        if fields[0] == "require":
+            continue  # read_requirements
         if fields[0] == "anchor":
             if len(fields) not in (4, 5):
                 raise ValueError(f"expected anchor ARM EST_MIN_FULL EST_MIN_P73 [ENTRIES]: {line!r}")
@@ -71,11 +87,23 @@ def read_plan(text):
         if len(fields) != 7:
             raise ValueError(f"expected ENTRY PANEL ARM ROUND SERVICE_CPUS OBSERVER_CPU EST_MIN: {line!r}")
         entry, panel, arm, round_id, service, observer, minutes = fields
-        if not re.fullmatch(r"[0-9]+[a-z]?", entry):
+        if not re.fullmatch(ENTRY_ID, entry):
             raise ValueError(f"entry ids look like 12 or 6b: {line!r}")
         jobs.append({"entry": entry, "panel": panel, "arm": arm, "round": int(round_id), "service": service,
                      "observer": int(observer), "est_s": 60 * float(minutes), "status": "pending"})
     return jobs, anchors
+
+
+def read_requirements(text):
+    """`require ENTRY PATH` lines: entry -> the paths (relative to the opponents root) it needs at its turn."""
+    requires = {}
+    for line in text.splitlines():
+        fields = line.split("#", 1)[0].split()
+        if fields and fields[0] == "require":
+            if len(fields) != 3 or not re.fullmatch(ENTRY_ID, fields[1]):
+                raise ValueError(f"expected require ENTRY PATH: {line!r}")
+            requires.setdefault(fields[1], []).append(fields[2])
+    return requires
 
 
 def anchor_for(anchors, entry):
@@ -88,20 +116,41 @@ def anchor_service(arm, service):
     return service if arm.endswith(MULTI_CORE) else service.split(",")[0].split("-")[0]
 
 
-def finished_entries(text, agent=None):
-    """Entry ids (strings such as "5" or "4b") recorded as DONE or SKIP (by `agent` only, when given)."""
+def finished_entries(text, agent=None, kinds=("DONE", "SKIP")):
+    """Entry ids (strings such as "5" or "4b") recorded as DONE or SKIP (by `agent` only, when given).
+
+    Lines read `DONE N <UTC> <agent>` or `SKIP N <UTC> <agent> (reason)`."""
     done = set()
     for line in text.splitlines():
         fields = line.split()
-        if len(fields) >= 2 and fields[0] in ("DONE", "SKIP") and re.fullmatch(r"[0-9]+[a-z]?", fields[1]):
-            if agent is None or fields[-1] == agent:
+        if len(fields) >= 2 and fields[0] in kinds and re.fullmatch(ENTRY_ID, fields[1]):
+            if agent is None or (fields[3] if len(fields) > 3 else fields[-1]) == agent:
                 done.add(fields[1])
     return done
 
 
+def order_entries(text):
+    """`(id, agent, line_number)` of every `N | agent | ...` line of TIMING.order, in order."""
+    return [(match.group(1), match.group(2), number)
+            for number, match in enumerate(map(ORDER_LINE.match, text.splitlines())) if match]
+
+
 def order_ids(text):
     """Entry ids in the order TIMING.order lists them (`N | agent | ...` lines)."""
-    return [match.group(1) for match in map(re.compile(r"\s*([0-9]+[a-z]?)\s*\|").match, text.splitlines()) if match]
+    return [ident for ident, _, _ in order_entries(text)]
+
+
+def family_ids(entry, order_text):
+    """A plan entry and its re-queued ids of this agent in TIMING.order: N, Nr, Nrr, ..."""
+    later = [ident for ident, agent, _ in order_entries(order_text)
+             if agent == AGENT and re.fullmatch(re.escape(str(entry)) + "r+", ident)]
+    return [str(entry)] + sorted(later, key=len)
+
+
+def active_id(entry, order_text, done_text):
+    """The id a plan entry runs under now: the first of its family that is neither DONE nor SKIP."""
+    finished = finished_entries(done_text)
+    return next((ident for ident in family_ids(entry, order_text) if ident not in finished), None)
 
 
 def turn_has_come(entry, done_text, order_text=""):
@@ -171,8 +220,12 @@ class Host:
         return self.order.read_text() if self.order.is_file() else ""
 
     def acquire(self, entry):
+        """Wait for the entry's turn and take the lock; None if the entry was finished meanwhile."""
         while True:
-            if turn_has_come(entry, self.done_text(), self.order_text()):
+            done_text = self.done_text()
+            if str(entry) in finished_entries(done_text):
+                return None
+            if turn_has_come(entry, done_text, self.order_text()):
                 try:
                     self.lock.mkdir()
                 except FileExistsError:
@@ -197,11 +250,42 @@ class Host:
         with self.done.open("a") as out:
             out.write(f"DONE {entry} {utc()} {AGENT}\n")
 
+    def skip(self, entry, reason, requeue=True):
+        """Append SKIP for the entry; with `requeue`, first list it again as `<entry>r` right after the next
+        entry of another agent in TIMING.order (a backup of the old file stays beside it). The new id or None."""
+        text = self.order_text()
+        lines, entries = text.splitlines(), order_entries(text)
+        position = next((index for index, (ident, _, _) in enumerate(entries) if ident == str(entry)), None)
+        new_id, note = None, reason
+        if requeue and position is not None:
+            new_id = f"{entry}r"
+            later = entries[position + 1:]
+            index = next((number for number, item in enumerate(later) if item[1] != AGENT), None)
+            after = None if index is None else later[index]
+            at = len(lines) if after is None else after[2] + 1
+            for ident, agent, number in ([] if index is None else later[index + 1:]):
+                if agent != AGENT or not ident.endswith("r") or number != at:
+                    break
+                at += 1  # behind entries of this agent re-queued there before, in the order they were skipped
+            line = re.sub(r"\s+# re-queued by .*$", "", lines[entries[position][2]])
+            line = re.sub(r"^(\s*)" + re.escape(str(entry)) + r"(\s*\|)", r"\g<1>" + new_id + r"\g<2>", line, count=1)
+            lines.insert(at, f"{line}  # re-queued by {AGENT} {utc()} after SKIP {entry}: {reason}")
+            stamp = datetime.now(timezone.utc).strftime("%H%M%S")
+            self.order.with_name(f"TIMING.order.bak-{AGENT}-{stamp}").write_text(text)
+            temporary = self.order.with_name(f".TIMING.order.{os.getpid()}.tmp")
+            temporary.write_text("\n".join(lines) + "\n")
+            temporary.replace(self.order)
+            note = f"{reason}; re-queued as {new_id} after {after[0] if after else 'the last entry'}"
+        with self.done.open("a") as out:
+            out.write(f"SKIP {entry} {utc()} {AGENT} ({note})\n")
+        return new_id
+
 
 def main():
     plan, log_dir = Path(sys.argv[1]), Path(sys.argv[2])
     log_dir.mkdir(parents=True, exist_ok=True)
     jobs, anchors = read_plan(plan.read_text())
+    requires = read_requirements(plan.read_text())
     root = Path(os.environ.get("PAPER_OPPONENTS_ROOT",
                                Path(os.environ.get("JSR_DATA", Path.home() / "jsr-data")) / "opponents"))
     runs = Path(os.environ.get("OPEN_RUNS", root / "bench-open" / "runs"))
@@ -250,65 +334,105 @@ def main():
                  if key in measured]
         return 1.05 * max(known) if known else job["est_s"]
 
+    def hook(command, log_name):
+        with open(log_dir / log_name, "ab") as log:
+            try:
+                return subprocess.run(["bash", "-c", command], stdin=subprocess.DEVNULL, stdout=log,
+                                      stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                return "timeout"
+
+    def run_entry(family, active, pending):
+        """The pending repetitions of plan entry `family`, run as TIMING entry `active`: "done", "skipped"
+        (a required path was missing; the entry was skipped and re-queued) or "finished-elsewhere"."""
+        repeated, checked = set(), family not in requires
+        while pending:
+            hold = {"entry": active, "waiting_since_utc": utc(), "jobs": []}
+            holds.append(hold)
+            save()
+            acquired = host.acquire(active)
+            if acquired is None:
+                hold["outcome"] = "finished elsewhere"
+                save()
+                return "finished-elsewhere"
+            hold["acquired_utc"] = acquired
+            began = time.monotonic()
+            if not checked:
+                checked = True
+                if PREPARE:
+                    hold["prepare_exit"] = hook(PREPARE, "prepare.log")
+                missing = [path for path in requires[family] if not (root / path).exists()]
+                if missing:
+                    hold["skipped"] = reason = "not staged at its turn: " + ", ".join(missing)
+                    hold["requeued_as"] = host.skip(active, reason, len(active) - len(family) < REQUEUE_MAX)
+                    hold["released_utc"] = host.release()
+                    save()
+                    return "skipped"
+            anchor = anchor_for(anchors, family)
+            if anchor is not None:
+                first = pending[0]
+                service = anchor_service(anchor["arm"], first["service"])
+                marker = {"entry": active, "panel": first["panel"], "arm": anchor["arm"], "service": service,
+                          "observer": first["observer"], "anchor": True,
+                          "est_s": anchor["est_s"][first["panel"]], "status": "pending"}
+                marker["round"] = next_round(runs, marker["panel"], service, anchor["arm"])
+                jobs.append(marker)
+                run(marker, hold)
+            while pending:
+                job = pending[0]
+                job["est_s"] = estimate(job)
+                if not fits(job, time.monotonic() - began, bool(hold["jobs"]) and not (
+                        anchor is not None and len(hold["jobs"]) == 1)):
+                    break
+                pending.pop(0)
+                if run(job, hold) == 3 and id(job) not in repeated:
+                    again = {**job, "status": "pending", "repeat_of": f"{job['arm']}.r{job['round']}"}
+                    repeated.add(id(again))
+                    jobs.append(again)
+                    pending.append(again)
+            if AFTER_HOLD:
+                hold["after_hold_exit"] = hook(AFTER_HOLD, "after-hold.log")
+            hold["released_utc"] = host.release()
+            hold["held_s"] = round(time.monotonic() - began, 1)
+            save()
+        return "done"
+
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     save()
+    families = {}
+    for job in jobs:
+        families.setdefault(job["entry"], []).append(job)
     try:
-        mine_done = finished_entries(host.done_text(), AGENT)
-        for entry in dict.fromkeys(job["entry"] for job in jobs):
-            pending = [job for job in jobs if job["entry"] == entry]
-            if str(entry) in mine_done:
-                for job in pending:
-                    job["status"] = "skipped-already-done"
-                save()
+        while True:
+            order_text, done_text = host.order_text(), host.done_text()
+            ready, open_count = [], 0
+            for family, plan_jobs in families.items():
+                active = active_id(family, order_text, done_text)
+                pending = [job for job in plan_jobs if job["status"] == "pending"]
+                if active is None or not pending:
+                    ran = finished_entries(done_text, kinds=("DONE",)) & set(family_ids(family, order_text))
+                    for job in pending:
+                        job["status"] = "skipped-already-done" if ran else "skipped"
+                    continue
+                open_count += 1
+                if turn_has_come(active, done_text, order_text):
+                    ready.append((family, active, pending))
+            if not open_count:
+                break
+            if not ready:
+                time.sleep(POLL_S)
                 continue
-            repeated = set()
-            while pending:
-                hold = {"entry": entry, "waiting_since_utc": utc(), "jobs": []}
-                holds.append(hold)
-                save()
-                hold["acquired_utc"] = host.acquire(entry)
-                began = time.monotonic()
-                anchor = anchor_for(anchors, entry)
-                if anchor is not None:
-                    first = pending[0]
-                    service = anchor_service(anchor["arm"], first["service"])
-                    marker = {"entry": entry, "panel": first["panel"], "arm": anchor["arm"], "service": service,
-                              "observer": first["observer"], "anchor": True,
-                              "est_s": anchor["est_s"][first["panel"]], "status": "pending"}
-                    marker["round"] = next_round(runs, marker["panel"], service, anchor["arm"])
-                    jobs.append(marker)
-                    run(marker, hold)
-                while pending:
-                    job = pending[0]
-                    job["est_s"] = estimate(job)
-                    if not fits(job, time.monotonic() - began, bool(hold["jobs"]) and not (
-                            anchor is not None and len(hold["jobs"]) == 1)):
-                        break
-                    pending.pop(0)
-                    if run(job, hold) == 3 and id(job) not in repeated:
-                        again = {**job, "status": "pending", "repeat_of": f"{job['arm']}.r{job['round']}"}
-                        repeated.add(id(again))
-                        jobs.append(again)
-                        pending.append(again)
-                if AFTER_HOLD:
-                    with open(log_dir / "after-hold.log", "ab") as log:
-                        try:
-                            hold["after_hold_exit"] = subprocess.run(
-                                ["bash", "-c", AFTER_HOLD], stdin=subprocess.DEVNULL, stdout=log,
-                                stderr=subprocess.STDOUT, timeout=300).returncode
-                        except subprocess.TimeoutExpired:
-                            hold["after_hold_exit"] = "timeout"
-                hold["released_utc"] = host.release()
-                hold["held_s"] = round(time.monotonic() - began, 1)
-                save()
-            host.mark_done(entry)
+            order = order_ids(order_text)
+            family, active, pending = min(ready, key=lambda item: order.index(item[1]) if item[1] in order else len(order))
+            if run_entry(family, active, pending) == "done":
+                host.mark_done(active)
             save()
     finally:
         host.release()
         save()
     bad = [f"{job['arm']} {job['panel']} round {job['round']}" for job in jobs
-           if job["status"] not in ("done", "skipped-already-done")]
+           if job["status"] not in ("done", "skipped-already-done", "skipped")]
     print(f"{utc()} plan finished; not done: {bad or 'none'}")
     sys.exit(1 if any(job["status"] == "failed" for job in jobs) else 0)
 
