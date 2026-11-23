@@ -1,6 +1,6 @@
 # H42: n-gram language model for the streaming transducer ("+LM" rows)
 
-**Status:** PRE-REGISTERED on 2026-11-22, committed at 20:34:04Z (commit 2c48b91; after the rebase onto main it is 4f60479, same author date), before any scored run of this wave. At that time the only numbers that existed for the acoustic model were the trainer's dev-clean400 greedy screens (4.95% EMA). No N-best list, no rescoring and no fusion decode had been run. Results are appended below the line "Results" later; amendments are dated and written before the runs they affect.
+**Status:** RESULTS (exploratory); PRE-REGISTERED on 2026-11-22, committed at 20:34:04Z (commit 2c48b91; after the rebase onto main it is 4f60479, same author date), before any scored run of this wave. At that time the only numbers that existed for the acoustic model were the trainer's dev-clean400 greedy screens (4.95% EMA). No N-best list, no rescoring and no fusion decode had been run. Results are appended below the line "Results" later; amendments are dated and written before the runs they affect.
 
 Authority: owner ruling **O17** (`docs/ultra/RULINGS.md`): the LibriSpeech language-model text (OpenSLR 11) may be used for a decoding language model; results that use it are reported in separate "+LM" rows. Every number of this wave is **exploratory**.
 
@@ -72,7 +72,20 @@ What existed when this was written: Phase 1 (rescoring of the beam-8 list with t
 4. **Larger rescoring lists (post hoc).** Beam-16 and beam-32 lists rescored with the word 4-gram, same grid and folds. This was added after seeing that the beam-8 oracle (6.51 pooled) is far below what rescoring reached (8.38), and is labelled post hoc.
 
 ## Results
-All numbers are **exploratory**. Scorer `ultra.wer` (54,402 / 50,948 reference words) unless a row says otherwise. Every row carries the one-token-per-frame cap of the Python beam.
+All numbers are **exploratory**.
+
+**Summary** (H22ctl-79800 EMA, chunk 160 ms; full dev-clean / dev-other / pooled; weights held out by 2-fold speaker cross-validation; paired bootstrap 95% on the pooled difference; every row carries the Python beam's one-token-per-frame cap):
+
+| | LM size | dev-clean | dev-other | pooled | Δ pooled [95%] |
+|---|---:|---:|---:|---:|---|
+| beam 4, no LM | – | 4.803 | 12.972 | 8.754 | |
+| word 4-gram rescoring of the beam-16 list (second pass, not streaming) | 1,556 MB | 4.586 | 12.240 | 8.288 | −0.466 [−0.549, −0.382] |
+| **beam 4 + token 5-gram M5 + LODR** (streaming) | 179 MB | **3.895** | **11.027** | **7.344** | **−1.410 [−1.535, −1.286]** |
+| beam 8 + M5 + LODR (streaming) | 179 MB | 3.768 | 10.668 | 7.105 | −1.649 [−1.779, −1.519] |
+| beam 4 + token 5-gram S5 + LODR (streaming, device size) | 48 MB | 4.097 | 11.421 | 7.639 | −1.114 [−1.231, −1.002] |
+| oracle of the beam-8 list (ceiling for rescoring) | – | 3.000 | 10.267 | 6.514 | |
+
+The Rust engine (#49) reproduces the fusion gain on the 730-utterance panel: −1.134 pp for the engine (INT8) against −1.099 pp for Python, with the same weights. The LM text contains 42 of the 3,719 long dev transcripts verbatim; the gain is the same without them. Scorer `ultra.wer` (54,402 / 50,948 reference words) unless a row says otherwise. Every row carries the one-token-per-frame cap of the Python beam.
 
 ### Phase 1: N-best rescoring with the official word 4-gram (2026-11-22, 21:14Z)
 - Encoder cache: `train.lm_decode encode`, EMA weights, 6 single-threaded workers taking every 6th `train.evaluate` batch. Its greedy hypotheses are **identical to eval-lane's EMA greedy dump on 5,567 / 5,567 utterances** (`/mnt/xbabe3-external/jsr/evals/eval-lane/full-dev/H22ctl-79800.ema.c4.ms8.*`).
@@ -116,7 +129,7 @@ Same protocol (held-out speaker folds, beam-4 baseline 4.803 / 12.972 / 8.754). 
 
 - The blank penalty alone does not lower WER, so a fusion gain is not a penalty effect.
 
-### Phase 2: token n-gram fusion in the beam (IN PROGRESS, 2026-11-22 22:55Z; this section is replaced by the final table)
+### Phase 2: token n-gram fusion in the beam, all LMs (FINAL, 2026-11-23)
 Token LMs (all on the OpenSLR 11 text, 1,577,847,566 tokens; sizes = the quantised KenLM trie each decode queries):
 
 | name | order | `--prune` | n-grams (orders 2..N) | trie MB | sha256 (trie) |
@@ -131,16 +144,42 @@ Token LMs (all on the OpenSLR 11 text, 1,577,847,566 tokens; sizes = the quantis
 
 Every LM met its size class with the thresholds fixed in amendment 2 (no rebuild was needed). LODR: token bigram of the 960 h transcripts (18,252,156 tokens; 131,573 bigrams; 2.4 MB).
 
-Sweep results so far (FastBeam, beam 4, held-out speaker folds, baseline 8.754 pooled; the edge rule is still extending M5's grid):
+**Size against WER at beam 4** (held-out speaker folds, baseline 4.803 / 12.972 / 8.754; "decode" says whether the row is the reference search (`train.beam` + hook) or the sweep (`FastBeam`), and where the edge rule ended):
 
-| LM | fusion only: clean / other / pooled | fusion + LODR: clean / other / pooled |
-|---|---|---|
-| S3 (31 MB, edge rule done) | 4.643 / 12.348 / 8.369 | 4.634 / 12.228 / 8.307 |
-| M5 (179 MB, full grid, round 1 of the edge rule) | 4.061 / 11.361 / 7.591 | 3.895 / 11.027 / 7.344 |
-| L5a (305 MB, reduced grid, edge rule pending) | 4.116 / 11.698 / 7.783 | 3.834 / 10.980 / 7.290 |
-| L5b (548 MB, reduced grid, edge rule pending) | 4.103 / 11.681 / 7.767 | 3.873 / 11.047 / 7.342 |
+| LM | order | MB | arm | dev-clean | dev-other | pooled | Δ pooled [95%, utterances] | [95%, speakers] | rel. | weights chosen (held out) | decode |
+|---|---:|---:|---|---:|---:|---:|---|---|---:|---|---|
+| S3 | 3 | 31.4 | fusion | 4.643 | 12.348 | **8.369** | -0.384 [-0.471, -0.297] | [-0.463, -0.309] | -4.4% | A→B: λ1 0.3, pen 1; B→A: λ1 0.3, pen 1 | train.beam edge rule converged |
+| S3 | 3 | 31.4 | fusion + LODR | 4.634 | 12.228 | **8.307** | -0.447 [-0.540, -0.352] | [-0.554, -0.345] | -5.1% | A→B: λ1 0.4, λ2 0.2, pen 0.5; B→A: λ1 0.5, λ2 0.25, pen 0.5 | train.beam edge rule converged |
+| S4 | 4 | 47.4 | fusion | 4.294 | 11.757 | **7.903** | -0.850 [-0.964, -0.737] | [-1.007, -0.696] | -9.7% | A→B: λ1 0.5, pen 1.5; B→A: λ1 0.4, pen 1.25 | train.beam edge rule converged |
+| S4 | 4 | 47.4 | fusion + LODR | 4.184 | 11.474 | **7.710** | -1.044 [-1.159, -0.928] | [-1.205, -0.884] | -11.9% | A→B: λ1 0.6, λ2 0.3, pen 0.5; B→A: λ1 0.5, λ2 0.25, pen 0.5 | train.beam edge rule converged |
+| S5 | 5 | 48.2 | fusion | 4.285 | 11.673 | **7.858** | -0.896 [-1.008, -0.784] | [-1.045, -0.752] | -10.2% | A→B: λ1 0.4, pen 1.5; B→A: λ1 0.5, pen 1.5 | train.beam edge rule stopped (round 6 decoded, not tuned; row = round 5) |
+| S5 | 5 | 48.2 | fusion + LODR | 4.097 | 11.421 | **7.639** | -1.114 [-1.231, -1.002] | [-1.287, -0.954] | -12.7% | A→B: λ1 0.6, λ2 0.3, pen 0.5; B→A: λ1 0.6, λ2 0.3, pen 0.5 | train.beam edge rule converged |
+| M4 | 4 | 187.7 | fusion | 4.193 | 11.673 | **7.810** | -0.944 [-1.059, -0.830] | [-1.100, -0.794] | -10.8% | A→B: λ1 0.5, pen 1.25; B→A: λ1 0.4, pen 1 | train.beam edge rule incomplete (11 points pending) |
+| M4 | 4 | 187.7 | fusion + LODR | 4.149 | 11.378 | **7.645** | -1.109 [-1.233, -0.986] | [-1.281, -0.941] | -12.7% | A→B: λ1 0.6, λ2 0.3, pen 0.75; B→A: λ1 0.7, λ2 0.35, pen 0.75 | train.beam edge rule converged |
+| M5 | 5 | 179.1 | fusion | 4.061 | 11.361 | **7.591** | -1.163 [-1.280, -1.047] | [-1.337, -0.994] | -13.3% | A→B: λ1 0.4, pen 1.5; B→A: λ1 0.5, pen 1.5 | train.beam edge rule converged |
+| M5 | 5 | 179.1 | fusion + LODR | 3.895 | 11.027 | **7.344** | -1.410 [-1.535, -1.286] | [-1.595, -1.227] | -16.1% | A→B: λ1 0.6, λ2 0.45, pen 0; B→A: λ1 0.7, λ2 0.525, pen 0 | train.beam edge rule converged |
+| L5a | 5 | 305.0 | fusion | 4.116 | 11.698 | **7.783** | -0.971 [-1.072, -0.872] | [-1.094, -0.858] | -11.1% | A→B: λ1 0.3, pen 0.25; B→A: λ1 0.3, pen 0.25 | sweep reduced grid; edge rule incomplete (stopped) |
+| L5a | 5 | 305.0 | fusion + LODR | 3.834 | 10.980 | **7.290** | -1.464 [-1.589, -1.339] | [-1.656, -1.280] | -16.7% | A→B: λ1 0.6, λ2 0.3, pen 0.25; B→A: λ1 0.6, λ2 0.3, pen 0.25 | sweep reduced grid; edge rule incomplete (stopped) |
+| L5b | 5 | 548.5 | fusion | 4.103 | 11.681 | **7.767** | -0.986 [-1.090, -0.884] | [-1.105, -0.875] | -11.3% | A→B: λ1 0.3, pen 0.25; B→A: λ1 0.3, pen 0.25 | sweep reduced grid; edge rule not run (12 points pending) |
+| L5b | 5 | 548.5 | fusion + LODR | 3.873 | 11.047 | **7.342** | -1.411 [-1.532, -1.293] | [-1.601, -1.230] | -16.1% | A→B: λ1 0.5, λ2 0.25, pen 0.25; B→A: λ1 0.6, λ2 0.3, pen 0.25 | sweep reduced grid; edge rule not run (12 points pending) |
 
-Pending: the edge rule for M5, S4, S5, M4, L5a, L5b; M5 at beam 8; the reference re-decode (`train.beam` + hook) of every chosen config; `ultra-score` rows; decode cost.
+- **Order matters more than size:** at about 180 MB the 5-gram (M5, 7.344) beats the 4-gram (M4, 7.645) by 0.30 pp. Under 50 MB, the heavily pruned 5-gram (S5, 7.639) and 4-gram (S4, 7.710) are close, and the unpruned 3-gram (S3, 31 MB, 8.307) is far behind. The 305 / 548 MB 5-grams are no better than M5 (reduced grids, edge rule not completed; reference only).
+- **LODR helps every LM:** 0.06-0.25 pp pooled on top of fusion alone for the LMs whose grids converged (S3 0.06, M4 0.17, S4 0.19, S5 0.22, M5 0.25). The 0.43-0.49 pp for L5a / L5b is inflated: their fusion-only grids stopped at blank penalty 0.25.
+- **Ship (lead, 23:35Z):** M5 for servers, S5 for devices.
+- **Reference search for the table rows:** all chosen configs of S3, S4, S5, M4 and M5 were decoded again with `train.beam` + hook. 17 of 18 gave token output identical to the sweep on all 5,567 utterances: `S3_b4_l0.50_r0.50_p0.50` differs on 1 of 5567 utterances (a float32 near-tie); its family's held-out WER is the same either way (8.307 with `train.beam`, 8.307 in the sweep). Rows marked `train.beam` are those re-decodes. L5a / L5b and the beam-8 rows are sweep decodes (`FastBeam`).
+- **Python decode time with the LM** (sum of per-utterance search time, same-batch no-LM run, informational): M5 (H0): no LM 861 s, with LM 1169-1197 s (+36 to +39%); S5 (xbabe2): no LM 678 s, with LM 1035-1140 s (+53 to +68%); S4 (xbabe2): no LM 702 s, with LM 985-1115 s (+40 to +59%); S3 (xbabe2): no LM 746 s, with LM 864-1152 s (+16 to +54%); M4 (xbabe2): no LM 746 s, with LM 1030-1248 s (+38 to +67%). M5 ran on H0 (10 workers), the others on xbabe2 (16 workers on 8 cores and their siblings), so the ratios differ by host. Almost all of the extra time is the Python KenLM row (499 calls per new context).
+
+**M5 at beam 8** (pre-registered in amendment 2: reduced grid plus the edge rule, held-out folds).
+
+| arm | dev-clean | dev-other | pooled | Δ vs beam 4 no LM [95%] | Δ vs beam 8 no LM [95%] | weights chosen (held out) |
+|---|---:|---:|---:|---|---|---|
+| beam 8, no LM | 4.777 | 12.988 | 8.748 | | | |
+| beam 8 + M5 | 3.890 | 10.846 | **7.254** | -1.500 [-1.627, -1.373] | -1.494 [-1.620, -1.370] | A→B: λ1 0.5, pen 1.25; B→A: λ1 0.5, pen 1.5 |
+| beam 8 + M5 + LODR | 3.768 | 10.668 | **7.105** | -1.649 [-1.779, -1.519] | -1.643 [-1.771, -1.514] | A→B: λ1 0.5, λ2 0.25, pen 0.25; B→A: λ1 0.7, λ2 0.35, pen 0.75 |
+
+- **Beam 8 against beam 4:** with M5 + LODR, beam 8 is 0.24 pp better (7.105 against 7.344), almost all of it on dev-other. Without an LM, beam 8 changes nothing (8.748 against 8.754). So the wider beam pays only when an LM can re-rank the extra hypotheses.
+- **Edge rule at beam 8:** both families converged (LODR after round 3, fusion only after round 6, its blank penalty rising from 0.25 to 1.25-1.5).
+
 
 ### Overlap of the LM text with dev (2026-11-22, 23:10Z; a check I owed, not pre-registered)
 - **Why:** my first chat post said the dev and test books are "excluded by construction" from the OpenSLR 11 LM text. The OpenSLR page says nothing of the kind (it describes the corpus only as "14500 public domain books, used as training material for the LibriSpeech's LM"), so I tested it.
