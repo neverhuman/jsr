@@ -95,6 +95,11 @@ What existed when this was written: O0–O3 results (below), the O3n / O3n-r500 
 - **Arms:** **S1n** = those segments decoded by `h47-oracle-decode` v2 with `--no-flush` (complete chunks only, the designs' close; primary). **S1f** = the same with the flush (diagnostic for finding 1).
 - **Readings fixed now** (codex-lead's wake gate, via the lead's 04:48Z criterion 2): WER(S1n) − WER(C1) ≤ +0.10 pp and one-sided 95% upper bound ≤ +0.20 pp (Bonferroni α/6 bounds reported beside the unadjusted ones); first-word recall after sleep, S1n − C1, one-sided 95% lower bound ≥ −0.5 pp; gap false words of S1n with the Garwood bound, and added over C1. S1f − S1n gives the cost of flushing at a close.
 
+## Amendment 5 (2026-11-23, written after amendments 3–4's results and before the run it names): real Sentinel-0 segments with a 500 ms pre-roll
+What existed when this was written: all arms of amendments 3 and 4 decoded and scored (results below). O3n-r500 beat O3n by −0.165 pp WER and +0.77 pp first-word recall, and S1n (real Sentinel-0 segments, R = 1 s) lost 0.61 pp of first words after noise gaps against C1. One more **post-hoc** arm tests the recommended configuration on the real gate's segments:
+- **S2n:** PR #75's `python/ultra/tools/sentinel0_segments.py` (main d72169c) with `--preroll-ms 500 --idle-ms 1500` on this wave's Sentinel-0 trace (`hot.u8` `c9a51519…`), decoded by `h47-oracle-decode` v2 with `--no-flush`.
+- **Readings fixed now:** the same as amendment 4's against C1 (WER ≤ +0.10 pp, one-sided 95% upper ≤ +0.20 pp; first-word recall after sleep, lower bound ≥ −0.5 pp; gap false words); S2n − S1n is descriptive. If S2n passes and is no worse than S1n, the recommendation to the swarm is R = 500 ms with a no-flush close.
+
 ## Results
 
 ### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
