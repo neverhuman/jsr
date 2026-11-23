@@ -37,6 +37,7 @@ class Example:
     ctc: list[int]
     kd: tuple | None = None  # H22 teacher targets (ids, lp, u, ok) from train.kd.TeacherStore
     ctx: int = 0  # H41 arm 11: prepended stream-context feature frames (not part of the utterance)
+    anchor: np.ndarray | None = None  # H48c: per-token MFA anchor frames (train.mfa_anchors)
 
     @property
     def seconds(self) -> float:
@@ -56,6 +57,7 @@ class Batch:
     kd: tuple | None = None  # (kd_ids, kd_lp, kd_u, kd_mask), padded to the longest teacher track
     active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
     ctx: torch.Tensor | None = None  # per-row prepended context frames (train.stream_ctx)
+    anchor: torch.Tensor | None = None  # H48c (B, S) MFA anchor frames, -1 = none / padding
 
     @property
     def audio_seconds(self) -> float:
@@ -66,7 +68,8 @@ class Batch:
         return Batch(self.uids, self.texts, *(t.to(device) for t in (
             self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
             kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
-            active=self.active, ctx=self.ctx.to(device) if self.ctx is not None else None)
+            active=self.active, ctx=self.ctx.to(device) if self.ctx is not None else None,
+            anchor=self.anchor.to(device) if self.anchor is not None else None)
 
 
 @dataclass(frozen=True)
@@ -98,12 +101,22 @@ def collate(exs: list[Example], pad_frames: int = 0, pad_tokens: int = 0) -> Bat
     feats = torch.zeros(len(exs), T, exs[0].feats.shape[1])
     for i, e in enumerate(exs):
         feats[i, :e.feats.shape[0]] = e.feats
+    rnnt = pad([e.rnnt for e in exs], torch.long)
+    anchor = None
+    if any(e.anchor is not None for e in exs):  # H48c: -1 marks unanchored tokens and padding
+        anchor = torch.full(rnnt.shape, -1, dtype=torch.long)
+        for i, e in enumerate(exs):
+            if e.anchor is not None:
+                if len(e.anchor) != len(e.rnnt):
+                    raise DataError(f"{e.uid}: {len(e.anchor)} anchors for {len(e.rnnt)} tokens")
+                anchor[i, :len(e.anchor)] = torch.as_tensor(np.asarray(e.anchor), dtype=torch.long)
     return Batch([e.uid for e in exs], [e.text for e in exs], feats,
                  torch.tensor([e.feats.shape[0] for e in exs]),
-                 pad([e.rnnt for e in exs], torch.long), torch.tensor([len(e.rnnt) for e in exs]),
+                 rnnt, torch.tensor([len(e.rnnt) for e in exs]),
                  pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]),
                  kd=_collate_kd(exs),
-                 ctx=torch.tensor([e.ctx for e in exs]) if any(e.ctx for e in exs) else None)
+                 ctx=torch.tensor([e.ctx for e in exs]) if any(e.ctx for e in exs) else None,
+                 anchor=anchor)
 
 
 def _collate_kd(exs: list[Example]):
@@ -284,7 +297,7 @@ class ParquetBatches:
                  speed_perturb: tuple[float, ...] = (), pad_frames: int = 0,
                  pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False,
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
-                 base_weight: float = 0.0):
+                 base_weight: float = 0.0, anchors=None):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -342,6 +355,7 @@ class ParquetBatches:
         self.speed_perturb = tuple(speed_perturb)
         self.synth_aug = bool(synth_aug)
         self.teacher = teacher
+        self.anchors = anchors  # H48c train.mfa_anchors.MfaAnchors (None = off)
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
         if loader not in ("thread", "process"):
             raise DataError(f"unknown loader {loader!r}")
@@ -420,6 +434,8 @@ class ParquetBatches:
         if self.synth_aug:
             pcm = apply_synth_aug(pcm, row["id"], epoch, self.seed)
         ex = self.feat.example(row["id"], row["text"], pcm)
+        if self.anchors is not None:  # H48c MFA anchors, keyed by (id, speed) like the teacher
+            ex.anchor = self.anchors.token_anchors(row["id"], f, ex.rnnt, row["text"])
         if self.teacher is not None:
             ex.kd = self.teacher.get_checked(row["id"], f, ex.rnnt, n_mel=ex.feats.shape[0])
         return ex
@@ -430,6 +446,8 @@ class ParquetBatches:
             return None
         uid, text, feats, rnnt, ctc, f = x
         ex = Example(uid, text, torch.from_numpy(feats), rnnt, ctc)
+        if self.anchors is not None:  # H48c MFA anchors, keyed by (id, speed) like the teacher
+            ex.anchor = self.anchors.token_anchors(uid, f, rnnt, text)
         if self.teacher is not None:
             ex.kd = self.teacher.get_checked(uid, f, rnnt, n_mel=feats.shape[0])
         return ex

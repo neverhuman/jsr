@@ -190,11 +190,14 @@ class ASRModel(nn.Module):
                cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0,
                inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0,
                view: torch.Tensor | None = None, cr_target: torch.Tensor | None = None,
-               ctx: torch.Tensor | None = None) -> dict:
+               ctx: torch.Tensor | None = None, anchor: torch.Tensor | None = None,
+               anchor_spec=None) -> dict:
         """`view` / `cr_target` serve the full-form CR-CTC step (trainer.cr_ctc_full), which runs one
         view per call: `view` is that view's normalised, already augmented input (no augmentation
         here), `cr_target` the other view's detached CTC log-posteriors; the result then carries
-        this view's own `ctc_lp`. Both None: the usual single call, unchanged."""
+        this view's own `ctc_lp`. Both None: the usual single call, unchanged.
+        `anchor` (B, S) / `anchor_spec` (train.anchored_rnnt.AnchorLoss) add the H48c MFA-anchored
+        late-emission tilt to the pruned transducer loss; None or kappa 0: unchanged."""
         x_norm = self.cmvn(feats)
         if view is not None:
             x = view
@@ -220,8 +223,15 @@ class ASRModel(nn.Module):
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
             pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt, self.cfg.pred_ctx)).float()
-            zl = None
-            if self.cfg.rnnt_loss == "pruned":
+            zl, adiag = None, None
+            anchored = anchor is not None and anchor_spec is not None and anchor_spec.active
+            if self.cfg.rnnt_loss == "pruned" and anchored:  # H48c: train/anchored_rnnt.py
+                from train.anchored_rnnt import anchored_pruned_rnnt
+
+                nll, simple, zl, adiag = anchored_pruned_rnnt(
+                    self, enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens, anchor, anchor_spec,
+                    simple_detach, zloss=zloss_weight > 0, delay_penalty=delay_penalty)
+            elif self.cfg.rnnt_loss == "pruned":
                 nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
                                                     rnnt_lens, simple_detach,
                                                     zloss=zloss_weight > 0,
@@ -229,6 +239,8 @@ class ASRModel(nn.Module):
             else:
                 if delay_penalty:
                     raise ValueError("delay_penalty needs rnnt_loss='pruned' (k2)")
+                if anchor_spec is not None and anchor_spec.active:
+                    raise ValueError("the MFA-anchored latency loss needs rnnt_loss='pruned' (k2)")
                 lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
                 nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
                 if zloss_weight > 0:  # H23: train/optim/zloss.py
@@ -242,6 +254,9 @@ class ASRModel(nn.Module):
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
                "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach(),
                "frames": int(enc_lens.sum())}  # denominator of the per-frame means under DDP
+        if adiag is not None:  # diagnostics only (not in the loss): R = L_kappa - L_0 per token
+            out["anchor_risk"] = adiag["anchor_risk"] / max(1, rnnt_tokens)
+            out["anchor_tokens"] = adiag["anchor_tokens"]
         if "inter_logits" in aux and inter_ctc_weight > 0:
             with torch.autocast(device_type=enc.device.type, enabled=False):
                 il = aux["inter_logits"].float()

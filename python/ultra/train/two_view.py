@@ -56,7 +56,8 @@ def two_view_step(self, batch, b, gen: torch.Generator) -> dict:
     kw = {"chunk": self._step_chunk(), "pruned_scale": self._pruned_scale(),
           "simple_detach": self.step < c.prune_hold, "cr_ctc_weight": c.cr_ctc_weight,
           **({"delay_penalty": c.delay_penalty} if c.delay_penalty else {}),
-          **({"ctx": b.ctx} if getattr(b, "ctx", None) is not None else {})}
+          **({"ctx": b.ctx} if getattr(b, "ctx", None) is not None else {}),
+          **self._anchor_kw(b)}  # H48c MFA-anchored tilt (empty when off)
     cuda = self.device.type == "cuda"
     ac = {"device_type": self.device.type, "dtype": torch.bfloat16, "enabled": cuda}
 
