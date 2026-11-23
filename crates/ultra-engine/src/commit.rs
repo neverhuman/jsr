@@ -3,6 +3,7 @@
 //! `Arc<Model>` weights, optional `320 ms` trailing silence pad, real `ultra_core::events::Emitter`
 //! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
 
+mod lm;
 mod rescore;
 mod spm;
 mod spm_proto;
@@ -15,6 +16,7 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
+pub use lm::CommitLmConfig;
 pub use rescore::{
     combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, word_edit_distance,
 };
@@ -35,7 +37,7 @@ fn drain_stream(eng: &Engine, s: &mut EngineStream, ws: &mut Workspace) -> Resul
 #[derive(Debug)]
 pub struct CommitPassSession {
     provisional_engine: Engine,
-    commit_engine: Engine,
+    pub(crate) commit_engine: Engine,
     cfg: CommitConfig,
     stream_id: String,
     model_config_id: String,

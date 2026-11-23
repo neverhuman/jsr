@@ -192,6 +192,9 @@ pub(crate) fn select_commit_hyp(
     cfg: CommitConfig,
     ctc: Option<(&CtcVocab, &[f32], usize)>,
 ) -> (String, usize) {
+    if ctc.is_none() && !cfg.mbr_enabled {
+        return (eng.text(stream), 0);
+    }
     let Some(beam) = &stream.dec.beam else {
         return (eng.text(stream), 0);
     };
