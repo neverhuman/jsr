@@ -185,6 +185,10 @@ impl LazyTensors {
         self.spans.contains_key(name)
     }
 
+    pub fn shape(&self, name: &str) -> Option<&[usize]> {
+        self.spans.get(name).map(|s| s.shape.as_slice())
+    }
+
     fn raw(&self, name: &str, shape: &[usize], i8: bool) -> Result<Vec<u8>, EngineError> {
         use std::io::{Read, Seek, SeekFrom};
         let sp = self

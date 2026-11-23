@@ -128,6 +128,7 @@ fn synthetic_near_tie_model(bias1: f32, bias2: f32) -> Arc<Model> {
         rope_inv: vec![1.0; dh / 2],
         mel_cfg: Arc::new(TrainerMelConfig::default_htk(GlobalCmvn::identity()).expect("mel")),
         tokens: Arc::new(tok),
+        ctc_head: None,
         int8_prepared: None,
     })
 }

@@ -520,6 +520,7 @@ mod tests {
             rope_inv: Vec::new(),
             mel_cfg,
             tokens,
+            ctc_head: None,
             int8_prepared: None,
         });
         let engine = Engine::new(model, Isa::Scalar, Precision::F32).expect("tiny engine");

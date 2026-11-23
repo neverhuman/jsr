@@ -298,6 +298,9 @@ pub struct Model {
     /// Precomputed predictor halves for compact vocabularies (`vocab <= 1024`).
     pub pred_cache: Option<PredCache>,
     pub joiner_out: Linear,
+    /// Optional auxiliary CTC linear projection `[ctc_vocab, d]` (fp32, loaded when present in
+    /// `weights.safetensors`; zero overhead when unused).
+    pub ctc_head: Option<Linear>,
     /// Exact Cauchy-Schwarz blank-first certificates for fp32 and int8 joiner paths.
     pub blank_cert_f32: Option<BlankCert>,
     pub blank_cert_i8: Option<BlankCert>,
@@ -636,6 +639,21 @@ impl Model {
                 cert,
             )
         };
+        let ctc_head = if st.contains("ctc_head.weight") && st.contains("ctc_head.bias") {
+            let b_shape = st.shape("ctc_head.bias").unwrap_or(&[]);
+            if b_shape.len() != 1 || b_shape[0] < 2 {
+                return Err(EngineError::Shape(format!(
+                    "ctc_head.bias: invalid shape {b_shape:?}"
+                )));
+            }
+            let cv = b_shape[0];
+            bounded("ctc_vocab", cv, 1 << 20)?;
+            let cw = st.f32("ctc_head.weight", &[cv, d])?;
+            let cb = st.f32("ctc_head.bias", &[cv])?;
+            Some(Linear::new(&cw, cv, d, Some(&cb)))
+        } else {
+            None
+        };
         Ok(Self {
             pair,
             restore,
@@ -650,6 +668,7 @@ impl Model {
             pred_proj,
             pred_cache,
             joiner_out,
+            ctc_head,
             blank_cert_f32,
             blank_cert_i8: None,
             rope_inv,

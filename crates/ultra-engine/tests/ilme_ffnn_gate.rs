@@ -79,6 +79,7 @@ fn synthetic_model(vocab: usize, pred_emb: usize, joiner: usize) -> Model {
         pair: None,
         restore: None,
         enc_proj: d,
+        ctc_head: None,
         emb,
         pred_proj: Linear::from_fp32(&pred_w, joiner, 2 * pred_emb, Some(&pred_b)),
         pred_cache: None,
