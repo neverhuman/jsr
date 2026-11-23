@@ -9,6 +9,21 @@
 - **Files in this folder:** this README (h47-sleep's pre-registration, amendments and results; results JSON `results/A0_*`, `results/O_*`, `results/Q_*`), the swarm's skip-gate simulation receipts from PR #75 (`results/skip_gate_sim_summary.json`, `results/stream_segments_summary.json`), and the Rust gate's implementation notes in `GATE_IMPLEMENTATION.md` (PR #77, lead's ruling 06:43Z).
 - **h47-sleep** (this pre-registration) writes no gate code. It runs (A0) the xbabe0 assay of what non-speech costs today, (O) the offline oracle speech gate, which bounds the savings and the restart damage, and (Q) the independent qualification of the swarm's gate against an ungated twin.
 
+## Summary of h47-sleep's results so far (exploratory, DEV only; details and statistics under Results)
+- **What silence costs today (A0, quiet xbabe0):** without resets, non-speech costs what speech costs (0.0353 vs 0.0359 CPU-s per audio-s). The adopted reset-with-replay (T=1500 / R=1000) makes it 1.41× speech (0.0501).
+- **B0 needs resets or the gate:** decoded continuously without resets, A1-49000 is +2.72 pp against isolated decoding on the 27.56 h stream and prints 426 words in its gaps. With reset-with-replay (C1) it is +0.10 pp.
+- **Sleeping costs nothing in accuracy:** an oracle gate that sleeps on reference non-speech and restarts the recogniser fresh is as accurate as C1, at about half the decoded audio (O3 − C1 −0.080 pp).
+- **Two rules for any session:**
+  - Close on complete chunks only, never flush: a flush at a close inside noise prints "SH" / "S".
+  - Use a 500 ms pre-roll, not 1 s: 1 s mostly feeds stationary noise ahead of clean speech and costs first words. Sentinel-0's measured wake delay on the stream is ≤ 450 ms.
+- **Sentinel-0 (PR #75's reference) on the real stream:** wakes before the ring would overflow on 5,567 / 5,567 onsets. Its real segments pass the simulation's criterion 2 (WER −0.036 pp vs C1 at R 1 s; −0.192 pp at R 500).
+- **PR #77's Rust session at the shipping defaults (R 500 ms, idle 1500 ms):**
+  - Q1 exactness passes: 0 identity mismatches across ~90,000 segments (stream, AO tier A, 30 h of non-speech).
+  - Stream WER 8.127%: C1 −0.250 pp, ungated twin −0.158 pp. First words after sleep +1.01 pp vs C1. 0 duplicated words, 2 gap words. Recogniser duty 50.9%.
+  - AO tier A: gated ≥ twin in every pooled group. Non-speech: 0.06% duty and 0 words.
+  - An 800 ms idle was rejected: it restarts mid-utterance and duplicated 7 words at hot closes.
+- **Open:** the CPU / energy / overhead gates on quiet xbabe0 (Q2 / Q3 / Q6, bench-open 14i), uclamp pacing (H47-U), Q4 against C1 on all torture sets, and the 30 h non-speech bound (running).
+
 ## Question
 ULTRA spends about 0.035 CPU-s per audio-s in silence and in speech alike, and more in silence with reset-with-replay. Moonshine's VAD-gated decoder spends about 0.01 in silence. Can the recogniser sleep in non-speech, so that silence becomes nearly free, without losing the first word after a pause?
 
