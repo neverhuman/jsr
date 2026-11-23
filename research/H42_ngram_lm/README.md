@@ -132,15 +132,15 @@ Same protocol (held-out speaker folds, beam-4 baseline 4.803 / 12.972 / 8.754). 
 ### Phase 2: token n-gram fusion in the beam, all LMs (FINAL, 2026-11-23)
 Token LMs (all on the OpenSLR 11 text, 1,577,847,566 tokens; sizes = the quantised KenLM trie each decode queries):
 
-| name | order | `--prune` | n-grams (orders 2..N) | trie MB | sha256 (trie) |
+| name | order | `--prune` | n-grams (orders 2..N) | trie MB | file, sha256 prefix |
 |---|---:|---|---|---:|---|
-| S3 | 3 | none | 194,853 / 14,346,832 | 31.4 | `tok3.p000.trie.bin` |
-| S4 | 4 | 0 0 4 15 | 194,853 / 6,441,413 / 9,565,946 | 47.4 | `tok4.p00415.trie.bin` |
-| S5 | 5 | 0 0 6 30 60 | 194,853 / 5,466,300 / 5,345,531 / 2,295,257 | 48.2 | `tok5.p0063060.trie.bin` |
-| M4 | 4 | 0 0 0 1 | 194,853 / 14,346,832 / 59,140,270 | 187.7 | `tok4.p0001.trie.bin` |
-| **M5** | 5 | 0 0 1 4 9 | 194,853 / 10,054,238 / 25,723,048 / 16,787,323 | 179.1 | `tok5.p00149.trie.bin` |
-| L5a | 5 | 0 0 1 2 3 | 194,853 / 10,054,238 / 40,283,631 / 46,781,615 | 305.0 | `tok5.p00123.trie.bin` |
-| L5b | 5 | 0 0 0 1 1 | 194,853 / 14,346,832 / 59,140,270 / 114,371,177 | 548.5 | `tok5.p00011.trie.bin` |
+| S3 | 3 | none | 194,853 / 14,346,832 | 31.4 | `tok3.p000.trie.bin` 9ddfe279dd9ac17f |
+| S4 | 4 | 0 0 4 15 | 194,853 / 6,441,413 / 9,565,946 | 47.4 | `tok4.p00415.trie.bin` 3175b9b14b806f26 |
+| S5 | 5 | 0 0 6 30 60 | 194,853 / 5,466,300 / 5,345,531 / 2,295,257 | 48.2 | `tok5.p0063060.trie.bin` 7fffb51895e660bc |
+| M4 | 4 | 0 0 0 1 | 194,853 / 14,346,832 / 59,140,270 | 187.7 | `tok4.p0001.trie.bin` c2f9a33faf196b16 |
+| **M5** | 5 | 0 0 1 4 9 | 194,853 / 10,054,238 / 25,723,048 / 16,787,323 | 179.1 | `tok5.p00149.trie.bin` aaec33c6bacdc198 |
+| L5a | 5 | 0 0 1 2 3 | 194,853 / 10,054,238 / 40,283,631 / 46,781,615 | 305.0 | `tok5.p00123.trie.bin` e6ab121cf8e0b00e |
+| L5b | 5 | 0 0 0 1 1 | 194,853 / 14,346,832 / 59,140,270 / 114,371,177 | 548.5 | `tok5.p00011.trie.bin` 4068f44bb82530fa |
 
 Every LM met its size class with the thresholds fixed in amendment 2 (no rebuild was needed). LODR: token bigram of the 960 h transcripts (18,252,156 tokens; 131,573 bigrams; 2.4 MB).
 
@@ -166,10 +166,10 @@ Every LM met its size class with the thresholds fixed in amendment 2 (no rebuild
 - **Order matters more than size:** at about 180 MB the 5-gram (M5, 7.344) beats the 4-gram (M4, 7.645) by 0.30 pp. Under 50 MB, the heavily pruned 5-gram (S5, 7.639) and 4-gram (S4, 7.710) are close, and the unpruned 3-gram (S3, 31 MB, 8.307) is far behind. The 305 / 548 MB 5-grams are no better than M5 (reduced grids, edge rule not completed; reference only).
 - **LODR helps every LM:** 0.06-0.25 pp pooled on top of fusion alone for the LMs whose grids converged (S3 0.06, M4 0.17, S4 0.19, S5 0.22, M5 0.25). The 0.43-0.49 pp for L5a / L5b is inflated: their fusion-only grids stopped at blank penalty 0.25.
 - **Ship (lead, 23:35Z):** M5 for servers, S5 for devices.
-- **Reference search for the table rows:** all chosen configs of S3, S4, S5, M4 and M5 were decoded again with `train.beam` + hook. 17 of 18 gave token output identical to the sweep on all 5,567 utterances: `S3_b4_l0.50_r0.50_p0.50` differs on 1 of 5567 utterances (a float32 near-tie); its family's held-out WER is the same either way (8.307 with `train.beam`, 8.307 in the sweep). Rows marked `train.beam` are those re-decodes. L5a / L5b and the beam-8 rows are sweep decodes (`FastBeam`).
+- **Reference search for the table rows:** all chosen configs of S3, S4, S5, M4 and M5 at beam 4, and of M5 at beam 8, were decoded again with `train.beam` + hook. 21 of 22 gave token output identical to the sweep on all 5,567 utterances: `S3_b4_l0.50_r0.50_p0.50` differs on 1 of 5567 utterances (a float32 near-tie); its family's held-out WER is the same either way (8.307 with `train.beam`, 8.307 in the sweep). Rows marked `train.beam` are those re-decodes; the beam-8 rows below are re-decodes too. L5a / L5b are sweep decodes (`FastBeam`).
 - **Python decode time with the LM** (sum of per-utterance search time, same-batch no-LM run, informational): M5 (H0): no LM 861 s, with LM 1169-1197 s (+36 to +39%); S5 (xbabe2): no LM 678 s, with LM 1035-1140 s (+53 to +68%); S4 (xbabe2): no LM 702 s, with LM 985-1115 s (+40 to +59%); S3 (xbabe2): no LM 746 s, with LM 864-1152 s (+16 to +54%); M4 (xbabe2): no LM 746 s, with LM 1030-1248 s (+38 to +67%). M5 ran on H0 (10 workers), the others on xbabe2 (16 workers on 8 cores and their siblings), so the ratios differ by host. Almost all of the extra time is the Python KenLM row (499 calls per new context).
 
-**M5 at beam 8** (pre-registered in amendment 2: reduced grid plus the edge rule, held-out folds).
+**M5 at beam 8** (pre-registered in amendment 2: reduced grid plus the edge rule, held-out folds; both families' chosen configs decoded again with `train.beam` + hook, identical on 5,567 / 5,567).
 
 | arm | dev-clean | dev-other | pooled | Δ vs beam 4 no LM [95%] | Δ vs beam 8 no LM [95%] | weights chosen (held out) |
 |---|---:|---:|---:|---|---|---|
@@ -179,6 +179,7 @@ Every LM met its size class with the thresholds fixed in amendment 2 (no rebuild
 
 - **Beam 8 against beam 4:** with M5 + LODR, beam 8 is 0.24 pp better (7.105 against 7.344), almost all of it on dev-other. Without an LM, beam 8 changes nothing (8.748 against 8.754). So the wider beam pays only when an LM can re-rank the extra hypotheses.
 - **Edge rule at beam 8:** both families converged (LODR after round 3, fusion only after round 6, its blank penalty rising from 0.25 to 1.25-1.5).
+- **Cost of beam 8 with the LM:** 21.4 new LM contexts per audio second (3.97 per output token), against 13.3 at beam 4. Python decode time on xbabe2 was 1,205 s without an LM and 2,281-2,638 s with M5 (+89 to +119%, same batch).
 
 
 ### Overlap of the LM text with dev (2026-11-22, 23:10Z; a check I owed, not pre-registered)
