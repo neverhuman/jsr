@@ -9,13 +9,18 @@ import re
 import time
 from pathlib import Path
 
+import aiohttp
 from aiohttp import WSMsgType, web
 
-from tools.fleet_dashboard.parse import (RunState, global_summary, parse_line, parse_live_runs, parse_nvidia,
-                                          summarize_rank)
+from tools.dashboard_events import DEFAULT_DILOCO_HUB, DEFAULT_SCORECARD_PATH, SCHEMA_VERSION
+from tools.fleet_dashboard.parse import (RunState, annotate_node, global_summary, parse_diloco_status, parse_line,
+                                          parse_live_runs, parse_nvidia, parse_other_load,
+                                          parse_timing_lock, read_v3_scorecard, summarize_rank)
 from tools.fleet_dashboard.remote_tail import tail_remote_node
 
 RUN_ROOT = Path(os.environ.get("FLEET_RUN_ROOT", "/mnt/xbabe3-external/jsr/runs/train"))
+DILOCO_HUB = os.environ.get("FLEET_DILOCO_HUB", DEFAULT_DILOCO_HUB)
+SCORECARD_PATH = Path(os.environ.get("JSR_V3_SCOREBOARD") or os.environ.get("JSR_V3_SCORECARD") or str(DEFAULT_SCORECARD_PATH))
 STATIC = Path(__file__).parent / "static"
 LINUX_NODES = os.environ.get("FLEET_NODES", "xbabe3 xbabe0 xbabe1 xbabe2 xbabe5 xbabe6 xbabe7 xbabe8 xbabe9").split()
 MAC_NODES = os.environ.get("FLEET_MAC_NODES", "xbabe4").split()
@@ -43,6 +48,12 @@ LINUX_PROBE = r"""read -r _ a b c d e f g h _ < /proc/stat; t1=$((a+b+c+d+e+f+g+
 read -r _ a b c d e f g h _ < /proc/stat; t2=$((a+b+c+d+e+f+g+h)); i2=$((d+e))
 echo "CPU $(( 1000*((t2-t1)-(i2-i1))/(t2-t1) ))"; echo "NCPU $(nproc)"
 free -m | awk '/Mem/{print "MEM",$3,$2}'; awk '{print "LOAD",$1}' /proc/loadavg
+LDIR="$HOME/jsr-data/opponents/TIMING.lock"
+if [ -f "$LDIR/owner" ]; then echo "TIMING_LOCK held $(head -n1 "$LDIR/owner")"; elif [ -d "$LDIR" ] || [ -f "$LDIR" ]; then echo "TIMING_LOCK held locked"; elif [ -d "$HOME/jsr-data/opponents" ]; then echo "TIMING_LOCK free"; fi
+QFILE="$HOME/jsr-data/opponents/TIMING.quiet"
+if [ -f "$QFILE" ]; then echo "TIMING_QUIET $(head -n1 "$QFILE")"; fi
+nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits 2>/dev/null | while IFS=, read -r p m; do p=${p// /}; m=${m// /}; [ -n "$p" ] || continue; c=$(ps -o args= -p "$p" 2>/dev/null || true); echo "$c" | grep -qE 'train[.](trainer|mwer|evaluate)|ultra-|jsr' || echo "OTHER_GPU ${m:-0} $(ps -o comm= -p "$p" 2>/dev/null || echo other)"; done || true
+ps -eo pcpu=,comm=,args= | awk '$1+0 >= 15 && $0 !~ /train[.](trainer|mwer|evaluate)|ultra-|jsr/ {print "OTHER_CPU",$1,$2}' | head -n 4
 ps -eo args | grep -E -- '-m train[.](trainer|mwer) ' | grep -oE -- '--(run-dir|out) [^ ]+' | sed -E 's#/+$##; s#/[^/]*[.]pt$##; s#.*/#RUN #'; echo GPUS
 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits 2>/dev/null || true"""
 
@@ -64,14 +75,68 @@ def host_for(run: str) -> str:
 
 
 class Fleet:
-    def __init__(self) -> None:
+    def __init__(self, *, scorecard_path: Path | None = None, diloco_hub: str | None = None, run_root: Path | None = None) -> None:
         self.runs: dict[str, RunState] = {}
         self.offsets: dict[str, int] = {}
         self.pending: dict[str, dict] = {}
         self.nodes: dict[str, dict] = {n: {"name": n, "up": False} for n in LINUX_NODES + MAC_NODES}
+        self.diloco: list[dict] = []
+        self.v3_scorecard: dict | None = None
+        self.scorecard_path = scorecard_path or SCORECARD_PATH
+        self.diloco_hub = diloco_hub if diloco_hub is not None else DILOCO_HUB
+        self.run_root = run_root or RUN_ROOT
         self.clients: set[web.WebSocketResponse] = set()
         self.probed: set[str] = set()
         self.dirty = True
+
+    def scan_diloco(self) -> None:
+        sc = read_v3_scorecard(self.scorecard_path)
+        if sc != self.v3_scorecard:
+            self.v3_scorecard = sc
+            self.dirty = True
+        by_cohort: dict[str, dict] = {}
+        try:
+            dirs = sorted(d for d in self.run_root.iterdir() if d.is_dir())
+        except OSError:
+            dirs = []
+        for d in dirs:
+            st_file = d / "diloco_status.json"
+            if not st_file.is_file():
+                continue
+            try:
+                parsed = parse_diloco_status(json.loads(st_file.read_text()))
+            except (OSError, ValueError):
+                continue
+            if parsed is not None:
+                by_cohort[parsed["cohort"]] = parsed
+        if by_cohort:
+            cohorts = [by_cohort[k] for k in sorted(by_cohort)]
+            if cohorts != self.diloco:
+                self.diloco = cohorts
+                self.dirty = True
+
+    async def poll_diloco_hub(self, session: aiohttp.ClientSession | None = None) -> None:
+        if not self.diloco_hub:
+            return
+        url = self.diloco_hub.rstrip("/") + "/status"
+        close_after = session is None
+        client = session or aiohttp.ClientSession()
+        try:
+            async with client.get(url, timeout=aiohttp.ClientTimeout(total=1.5)) as resp:
+                if resp.status == 200:
+                    parsed = parse_diloco_status(await resp.json())
+                    if parsed is not None:
+                        by_cohort = {c["cohort"]: c for c in self.diloco}
+                        by_cohort[parsed["cohort"]] = parsed
+                        merged = [by_cohort[k] for k in sorted(by_cohort)]
+                        if merged != self.diloco:
+                            self.diloco = merged
+                            self.dirty = True
+        except (OSError, ValueError, asyncio.TimeoutError, aiohttp.ClientError):
+            pass
+        finally:
+            if close_after:
+                await client.close()
 
     # ---------- training logs ----------
     def scan_logs(self) -> None:
@@ -107,6 +172,17 @@ class Fleet:
                     pass
                 self.runs[name] = RunState(name=name, host=host_for(name), total_steps=int(total) if total else None)
             rs = self.runs[name]
+            for gname in ("wave_gate.json", "gate.json"):
+                gfile = d / gname
+                if gfile.is_file():
+                    try:
+                        gd = json.loads(gfile.read_text())
+                        gv = str(gd.get("wave_gate") or gd.get("verdict") or gd.get("status") or "").strip().upper()
+                        if gv in ("PASS", "FAIL", "INCONCLUSIVE", "RUNNING"):
+                            rs.wave_gate = gv
+                    except (OSError, ValueError):
+                        pass
+                    break
             with log.open("rb") as fh:
                 fh.seek(off)
                 chunk = fh.read()
@@ -127,9 +203,12 @@ class Fleet:
             self.dirty = True
 
     async def log_loop(self) -> None:
-        while True:
-            await asyncio.to_thread(self.scan_logs)
-            await asyncio.sleep(LOG_PERIOD)
+        async with aiohttp.ClientSession() as session:
+            while True:
+                await asyncio.to_thread(self.scan_logs)
+                await asyncio.to_thread(self.scan_diloco)
+                await self.poll_diloco_hub(session)
+                await asyncio.sleep(LOG_PERIOD)
 
     # ---------- nodes ----------
     async def probe(self, node: str) -> None:
@@ -167,13 +246,19 @@ class Fleet:
                 info["load"] = float(p[1])
         info["gpus"] = parse_nvidia(gpu_txt)
         live = parse_live_runs(head)
+        tlock = parse_timing_lock(head)
+        if tlock is not None:
+            info["timing_lock"] = tlock
+        other = parse_other_load(head, info["gpus"], live, info.get("cpu_pct"))
+        if other:
+            info["other_load"] = other
         for name, rs in self.runs.items():  # where each run's processes actually are (DDP spans nodes)
             # on a node's first probe, a live run was not *seen* starting: leave live_since unknown (0)
             rs.set_live(node, name in live, time.time() if node in self.probed else 0.0)
         info["runs"] = sorted(live)
         self.probed.add(node)
         info["t"] = time.time()
-        self.nodes[node] = info
+        self.nodes[node] = annotate_node(info)
         self.dirty = True
 
     def _ingest_lines(self, name: str, host: str, total: int | None, lines: list[str]) -> None:
@@ -226,11 +311,17 @@ class Fleet:
         )
 
     def snapshot(self) -> dict:
+        now = time.time()
         sums = self.summaries()
+        complete = all(n.get("up") for n in self.nodes.values())
+        nodes = {k: annotate_node(v) if v.get("up") else v for k, v in self.nodes.items()}
         return {
-            "type": "snapshot", "t": time.time(),
+            "schema": SCHEMA_VERSION, "type": "snapshot", "t": now,
             "runs": {n: {"train": r.train, "evals": r.evals} for n, r in self.runs.items()},
-            "summaries": sums, "nodes": self.nodes, "global": global_summary(sums, self.nodes),
+            "summaries": sums,
+            "canonical_runs": [r.canonical(now, inventory_complete=complete) for r in self.runs.values()],
+            "nodes": nodes, "diloco": self.diloco, "v3_scorecard": self.v3_scorecard,
+            "global": global_summary(sums, nodes, scorecard=self.v3_scorecard),
         }
 
     async def broadcast_loop(self) -> None:
@@ -239,11 +330,17 @@ class Fleet:
             if not self.dirty or not self.clients:
                 continue
             self.dirty = False
+            now = time.time()
             sums = self.summaries()
+            complete = all(n.get("up") for n in self.nodes.values())
+            nodes = {k: annotate_node(v) if v.get("up") else v for k, v in self.nodes.items()}
             msg = json.dumps({
-                "type": "delta", "t": time.time(),
+                "schema": SCHEMA_VERSION, "type": "delta", "t": now,
                 "points": {n: p for n, p in self.pending.items() if p["train"] or p["evals"]},
-                "summaries": sums, "nodes": self.nodes, "global": global_summary(sums, self.nodes),
+                "summaries": sums,
+                "canonical_runs": [r.canonical(now, inventory_complete=complete) for r in self.runs.values()],
+                "nodes": nodes, "diloco": self.diloco, "v3_scorecard": self.v3_scorecard,
+                "global": global_summary(sums, nodes, scorecard=self.v3_scorecard),
             }, separators=(",", ":"))
             self.pending = {}
             dead = []
@@ -278,6 +375,7 @@ async def ws_handler(req: web.Request) -> web.WebSocketResponse:
 async def start_background(app: web.Application) -> None:
     fleet: Fleet = app["fleet"]
     await asyncio.to_thread(fleet.scan_logs)
+    await asyncio.to_thread(fleet.scan_diloco)
     app["tasks"] = [asyncio.create_task(fleet.log_loop()), asyncio.create_task(fleet.broadcast_loop())]
     app["tasks"] += [asyncio.create_task(fleet.node_loop(n)) for n in fleet.nodes]
 
@@ -291,14 +389,15 @@ async def api_snapshot(req: web.Request) -> web.Response:
     return web.json_response(req.app["fleet"].snapshot())
 
 
-def make_app() -> web.Application:
+def make_app(*, fleet: Fleet | None = None, start_background_tasks: bool = True) -> web.Application:
     app = web.Application()
-    app["fleet"] = Fleet()
+    app["fleet"] = fleet or Fleet()
     app.router.add_get("/", index)
     app.router.add_get("/api/snapshot", api_snapshot)
     app.router.add_get("/ws", ws_handler)
-    app.on_startup.append(start_background)
-    app.on_cleanup.append(stop_background)
+    if start_background_tasks:
+        app.on_startup.append(start_background)
+        app.on_cleanup.append(stop_background)
     return app
 
 

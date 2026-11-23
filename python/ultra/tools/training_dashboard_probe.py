@@ -30,6 +30,160 @@ MAX_EVALS = 400
 MAX_LINE_BYTES = 128 * 1024
 PYTHON_NAME = re.compile(r"python(?:\d+(?:\.\d+)*)?[dm]?\Z", re.IGNORECASE)
 DEV_SPLITS = {"dev-clean", "dev-other"}
+SCHEMA_VERSION = "ultra.dashboard.event/v1"
+DEFAULT_MEASUREMENT_DOMAIN = "ultra-en-wer-norm/v1"
+GATE_STATES = frozenset({"PASS", "FAIL", "INCONCLUSIVE", "RUNNING"})
+
+try:
+    from tools.dashboard_events import (
+        attempt_rank as _attempt_rank,
+        extract_artifact as _extract_artifact,
+        extract_cohort as _extract_cohort,
+        extract_sdi as _extract_sdi,
+        infer_measurement_domain as _infer_measurement_domain,
+        is_valid_schema as _is_valid_schema,
+        normalize_gate as _normalize_gate,
+        read_timing_status as _read_timing_status,
+    )
+    from tools.fleet_dashboard.parse import parse_other_load as _parse_other_load
+except ImportError:
+    def _is_valid_schema(raw):
+        schema = raw.get("schema") if raw.get("schema") is not None else raw.get("schema_version")
+        return schema is None or schema == SCHEMA_VERSION
+
+    def _attempt_rank(val):
+        if val is None:
+            return (0, 0)
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            return (1, float(val))
+        text = str(val).strip()
+        if text.isdigit():
+            return (1, float(text))
+        match = re.search(r"(\d+)$", text)
+        return (2, f"{text[:match.start()]}{int(match.group(1)):012d}") if match else (2, text)
+
+    def _normalize_gate(val):
+        if not isinstance(val, str):
+            return None
+        up = val.strip().upper()
+        return up if up in GATE_STATES else None
+
+    def _extract_sdi(rec):
+        for src in (rec.get("sdi"), rec, rec.get("legacy_sdi")):
+            if not isinstance(src, dict):
+                continue
+            s = src.get("s", src.get("S", src.get("sub", src.get("subs", src.get("substitutions")))))
+            d = src.get("d", src.get("D", src.get("del", src.get("dels", src.get("deletions")))))
+            ins = src.get("i", src.get("I", src.get("ins", src.get("insertions"))))
+            if s is None or d is None or ins is None:
+                continue
+            out = {"s": int(s), "d": int(d), "i": int(ins)}
+            ref = src.get("ref_words", rec.get("ref_words", src.get("words", src.get("ref_word_count", src.get("n_words")))))
+            if ref is not None:
+                out["ref_words"] = int(ref)
+            return out
+        return None
+
+    def _infer_measurement_domain(raw, sdi):
+        dom = raw.get("measurement_domain") or raw.get("normaliser_id")
+        if isinstance(dom, str) and dom.strip():
+            return dom.strip()
+        if sdi is not None:
+            is_legacy = (
+                isinstance(raw.get("legacy_sdi"), dict)
+                or any(k in raw for k in ("sub", "del", "subs", "dels", "substitutions", "deletions"))
+                or (raw.get("schema") != SCHEMA_VERSION and raw.get("schema_version") != SCHEMA_VERSION)
+            )
+            return "legacy" if is_legacy else DEFAULT_MEASUREMENT_DOMAIN
+        return None
+
+    def _extract_artifact(rec):
+        nested = rec.get("artifact") if isinstance(rec.get("artifact"), dict) else {}
+        ckpt = nested.get("ckpt_sha256") or rec.get("ckpt_sha256") or rec.get("checkpoint_sha256") or rec.get("artifact_sha256")
+        commit = nested.get("git_commit") or rec.get("git_commit") or rec.get("commit")
+        tree = nested.get("git_tree") or rec.get("git_tree") or rec.get("tree_sha256")
+        art = {}
+        if ckpt:
+            art["ckpt_sha256"] = str(ckpt).strip()
+        if commit:
+            art["git_commit"] = str(commit).strip()
+        if tree:
+            art["git_tree"] = str(tree).strip()
+        return art or None
+
+    def _extract_cohort(rec):
+        raw = rec.get("cohort")
+        out = {}
+        if isinstance(raw, dict):
+            for key in ("name", "diloco_round", "roster", "mode"):
+                if raw.get(key) is not None:
+                    out[key] = raw[key]
+        elif isinstance(raw, str) and raw.strip():
+            out["name"] = raw.strip()
+        if rec.get("diloco_round") is not None:
+            out["diloco_round"] = int(rec["diloco_round"])
+        roster = rec.get("diloco_roster") or rec.get("roster")
+        if isinstance(roster, list) and roster:
+            out["roster"] = [str(item) for item in roster]
+        mode = rec.get("diloco_mode") or rec.get("mode")
+        if isinstance(mode, str) and mode.strip():
+            out["mode"] = mode.strip()
+        return out or None
+
+    def _read_timing_status(opponents_dir=None):
+        base = Path(opponents_dir) if opponents_dir is not None else (Path.home() / "jsr-data" / "opponents")
+        if not base.is_dir():
+            return None
+        lock_dir, quiet_file = base / "TIMING.lock", base / "TIMING.quiet"
+        status, owner, quiet = "free", "", None
+        if lock_dir.is_dir():
+            status = "held"
+            owner_file = lock_dir / "owner"
+            try:
+                owner = owner_file.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip() if owner_file.is_file() else "locked"
+            except (OSError, IndexError):
+                owner = "locked"
+        elif lock_dir.is_file():
+            status, owner = "held", "locked"
+        if quiet_file.is_file():
+            try:
+                lines = quiet_file.read_text(encoding="utf-8", errors="replace").splitlines()
+                quiet = lines[0].strip() if lines else None
+            except OSError:
+                quiet = None
+        return {"status": status, "owner": owner, "quiet": quiet}
+
+    def _parse_other_load(text, gpus, live_runs, cpu_pct=None):
+        gpu_mem_mb, cpu_other_pct, labels = 0.0, 0.0, []
+        for line in text.splitlines():
+            if line.startswith(("OTHER_GPU ", "OTHER_CPU ")):
+                parts = line.split(None, 2)
+                try:
+                    val = float(parts[1])
+                    if line.startswith("OTHER_GPU "):
+                        gpu_mem_mb += val
+                    else:
+                        cpu_other_pct += val
+                except (IndexError, ValueError):
+                    pass
+                if len(parts) > 2 and parts[2].strip():
+                    labels.append(parts[2].strip()[:32])
+        gpu_busy, cpu_busy = gpu_mem_mb >= 256.0, cpu_other_pct >= 15.0
+        if not live_runs:
+            for g in gpus:
+                used = float(g.get("mem_used") or g.get("memory_used_mib") or 0.0)
+                total = float(g.get("mem_total") or g.get("memory_total_mib") or 0.0)
+                util = float(g.get("util") or g.get("util_pct") or 0.0)
+                if util >= 15.0 or (total > 0 and 100.0 * used / total >= 10.0):
+                    gpu_busy, gpu_mem_mb = True, max(gpu_mem_mb, used)
+            if cpu_pct is not None and cpu_pct >= 25.0:
+                cpu_busy, cpu_other_pct = True, max(cpu_other_pct, float(cpu_pct))
+        if not gpu_busy and not cpu_busy:
+            return {}
+        uniq = sorted(set(labels))
+        tag = f"other project ({', '.join(uniq[:2])})" if uniq else "other project"
+        return {"gpu": gpu_busy, "cpu": cpu_busy, "gpu_mem_mb": round(gpu_mem_mb, 1),
+                "cpu_pct": round(cpu_other_pct, 1), "label": tag}
 
 
 def number(value, minimum=0):
@@ -178,7 +332,7 @@ def trainer_processes():
         run_dir = option(argv, "--run-dir")
         if run_dir and (path := run_path(pid, run_dir)) is not None:
             candidates[pid] = (path, start, overfit_size(argv))
-    result = {}
+    result = defaultdict(dict)
     for pid in candidates:
         path, start, overfit = candidates[pid]
         parent = parents.get(pid, 0)
@@ -187,8 +341,10 @@ def trainer_processes():
                 break
             parent = parents.get(parent, 0)
         else:
-            result.setdefault(path, (pid, start, overfit, distributed_process(pid, start)))
-    return result
+            ddp = distributed_process(pid, start)
+            rank = (ddp["group"], ddp["rank"]) if ddp else None
+            result[path].setdefault(rank, (pid, start, overfit, ddp))
+    return dict(result)
 
 
 def gpu_snapshot():
@@ -210,8 +366,8 @@ def gpu_snapshot():
                 return None
 
         index, uuid, name, util, used, total, power = row
-        indexes[uuid] = int(index)
-        gpus.append({"index": int(index), "name": name[:120], "util_pct": reading(util),
+        indexes[uuid] = (int(index), uuid)
+        gpus.append({"index": int(index), "uuid": uuid, "name": name[:120], "util_pct": reading(util),
                      "memory_used_mib": reading(used), "memory_total_mib": reading(total),
                      "power_w": reading(power)})
     if not gpus:
@@ -222,13 +378,14 @@ def gpu_snapshot():
         if len(row) == 2 and row[0].isdigit():
             mapping[int(row[0])].add(indexes.get(row[1]))
     return sorted(gpus, key=lambda gpu: gpu["index"]), {
-        pid: next(iter(devices)) for pid, devices in mapping.items() if len(devices) == 1
+        pid: next(iter(devices)) for pid, devices in mapping.items()
+        if len(devices) == 1 and None not in devices
     }
 
 
 @dataclass
 class History:
-    """Read full train.jsonl from step 0 with stride decimation plus recent high-res window."""
+    """Read full train.jsonl from step 0 with monotonic (run_id, attempt_id, rank, seq) filtering."""
 
     train: dict = field(default_factory=dict)
     train_global: list = field(default_factory=list)
@@ -246,6 +403,18 @@ class History:
     total_steps: int | None = None
     dev_limit: int | None = None
     overfit: int | None = None
+    run_id: str | None = None
+    attempt_id: str | int | None = None
+    world_size: int | None = None
+    seq_by_rank: dict = field(default_factory=dict)
+    max_train_step_by_rank: dict = field(default_factory=dict)
+    rank_local_ahh: dict = field(default_factory=dict)
+    artifact: dict | None = None
+    cohort: dict | None = None
+    sdi: dict | None = None
+    measurement_domain: str | None = None
+    wave_gate: str | None = None
+    rejected_events: int = 0
 
     def _reset_series(self):
         self.train.clear()
@@ -254,6 +423,29 @@ class History:
         self.train_global_seen = 0
         self.last_train = None
         self.evals.clear()
+        self.seq_by_rank.clear()
+        self.max_train_step_by_rank.clear()
+        self.rank_local_ahh.clear()
+
+    def _absorb_meta(self, event):
+        if event.get("run_id") is not None:
+            self.run_id = str(event["run_id"])
+        if event.get("world_size") is not None:
+            ws = count(event.get("world_size"))
+            if ws is not None:
+                self.world_size = ws
+        art = _extract_artifact(event)
+        if art:
+            self.artifact = {**(self.artifact or {}), **art}
+        coh = _extract_cohort(event)
+        if coh:
+            self.cohort = {**(self.cohort or {}), **coh}
+        dom = event.get("measurement_domain") or event.get("normaliser_id")
+        if isinstance(dom, str) and dom.strip():
+            self.measurement_domain = dom.strip()
+        gate = _normalize_gate(event.get("wave_gate") or event.get("gate"))
+        if gate:
+            self.wave_gate = gate
 
     def _record_global_train(self, row):
         if not self.train_global:
@@ -309,9 +501,50 @@ class History:
             return False
         if not isinstance(event, dict):
             return False
+        if not _is_valid_schema(event):
+            self.rejected_events += 1
+            return False
         kind, step, stamp = event.get("kind"), count(event.get("step")), number(event.get("time"))
+        att = event.get("attempt_id")
+        advancing_attempt = False
+        if att is not None and self.attempt_id is not None:
+            cur_k, new_k = _attempt_rank(self.attempt_id), _attempt_rank(att)
+            if new_k < cur_k:
+                self.rejected_events += 1
+                return False
+            advancing_attempt = new_k > cur_k
+        raw_rank = event.get("rank")
+        rank = int(raw_rank) if raw_rank is not None and type(raw_rank) is int and raw_rank >= 0 else 0
+        seq = count(event.get("seq"))
+        if not advancing_attempt:
+            if seq is not None:
+                prev_seq = self.seq_by_rank.get(rank)
+                if prev_seq is not None and seq <= prev_seq:
+                    self.rejected_events += 1
+                    return False
+            elif kind == "train" and step is not None:
+                prev_step = self.max_train_step_by_rank.get(rank)
+                if prev_step is not None and step < prev_step:
+                    self.rejected_events += 1
+                    return False
+        if advancing_attempt:
+            self._reset_series()
+            self.attempt_id = att
+            self.wave_gate = None
+        elif att is not None and self.attempt_id is None:
+            self.attempt_id = att
+        if seq is not None:
+            self.seq_by_rank[rank] = seq
         if kind == "start":
             self._reset_series()
+            if seq is not None:
+                self.seq_by_rank[rank] = seq
+            self._absorb_meta(event)
+            return True
+        if kind in ("diverged", "done", "finished"):
+            self._absorb_meta(event)
+            if kind == "diverged" and self.wave_gate is None:
+                self.wave_gate = "FAIL"
             return True
         if step is None:
             return False
@@ -320,16 +553,41 @@ class History:
             self.train_global = [row for row in self.train_global if row["step"] <= step]
             self.last_train = self.train_global[-1] if self.train_global else None
             self.evals = {key: row for key, row in self.evals.items() if row["step"] <= step}
+            self.max_train_step_by_rank = {r: min(s, step) for r, s in self.max_train_step_by_rank.items()}
+            self._absorb_meta(event)
             return True
+        self._absorb_meta(event)
         if kind == "train":
+            self.max_train_step_by_rank[rank] = max(step, self.max_train_step_by_rank.get(rank, step))
             audio, wall = number(event.get("audio_s")), number(event.get("wall_s"))
-            rate = number(audio / wall) if audio is not None and wall else number(event.get("audio_h_per_h"))
+            planned = number(event.get("planned_exposure_ahh"))
+            if planned is None:
+                planned = number(event.get("planned_audio_h_per_h"))
+            rate = number(audio / wall) if audio is not None and wall else (planned if planned is not None else number(event.get("audio_h_per_h")))
+            rank_local = number(event.get("rank_local_ahh"))
+            if rank_local is None:
+                rank_local = number(event.get("rank_audio_h_per_h"))
+            if rank_local is not None:
+                self.rank_local_ahh[rank] = round(rank_local, 1)
+            elif raw_rank is not None and rank > 0 and rate is not None:
+                self.rank_local_ahh[rank] = round(rate, 1)
+            if raw_rank is not None and rank > 0:
+                return True
             position = event.get("pos")
             epoch = position.get("epoch") if isinstance(position, dict) else event.get("epoch")
             row = {"step": step, "time": stamp, "loss": number(event.get("loss")),
                    "rnnt": number(event.get("rnnt")), "ctc": number(event.get("ctc")),
                    "audio_s": audio, "wall_s": wall, "audio_per_second": rate,
-                   "epoch": count(epoch)}
+                   "epoch": count(epoch), "lr": number(event.get("lr")),
+                   "grad_norm": number(event.get("grad_norm"))}
+            if planned is not None:
+                row["planned_exposure_ahh"] = planned
+            if att is not None:
+                row["attempt_id"] = att
+            if raw_rank is not None:
+                row["rank"] = rank
+            if seq is not None:
+                row["seq"] = seq
             if self.last_train is None or step >= self.last_train["step"]:
                 self.last_train = row
             self._record_global_train(row)
@@ -351,9 +609,31 @@ class History:
         for decoder, values in scored:
             wer = number(values.get("wer"))
             if wer is not None:
+                sdi = _extract_sdi(values) or _extract_sdi(event)
+                dom = _infer_measurement_domain(event, sdi)
+                if sdi is not None:
+                    self.sdi = sdi
+                if dom is not None:
+                    self.measurement_domain = dom
                 row = {"step": step, "time": stamp, "split": split, "wer": wer,
                        "ema_wer": number(values.get("ema_wer")), "decoder": decoder}
                 row.update({key: count(values.get(key)) for key in ("ref_words", "sub", "del", "ins")})
+                if sdi is not None:
+                    row["sdi"] = sdi
+                    if row["ref_words"] is None and sdi.get("ref_words") is not None:
+                        row["ref_words"] = sdi["ref_words"]
+                    if row["sub"] is None:
+                        row["sub"] = sdi["s"]
+                    if row["del"] is None:
+                        row["del"] = sdi["d"]
+                    if row["ins"] is None:
+                        row["ins"] = sdi["i"]
+                if dom is not None:
+                    row["measurement_domain"] = dom
+                if att is not None:
+                    row["attempt_id"] = att
+                if seq is not None:
+                    row["seq"] = seq
                 if paired_train is not None:
                     row["train_loss"] = paired_train.get("loss")
                     row["train_rnnt"] = paired_train.get("rnnt")
@@ -446,6 +726,70 @@ def disk_free(path_list):
     return None
 
 
+def other_load_lines(live_runs, gpus, cpu_pct, gpu_pids=None, trainer_pids=None):
+    lines = []
+    known = set(trainer_pids or ())
+    extra_gpu_pids = [pid for pid in (gpu_pids or ()) if pid not in known]
+    if extra_gpu_pids:
+        for pid in extra_gpu_pids[:8]:
+            args_txt = command(["ps", "-o", "args=", "-p", str(pid)], timeout=0.5) or ""
+            if not re.search(r"train[.](trainer|mwer|evaluate)|ultra-|jsr", args_txt):
+                comm = (command(["ps", "-o", "comm=", "-p", str(pid)], timeout=0.5) or "other").strip()
+                lines.append(f"OTHER_GPU 512 {comm}")
+    ps_txt = command(["ps", "-eo", "pcpu=,comm=,args="], timeout=0.8) or ""
+    cpu_hits = 0
+    for line in ps_txt.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2:
+            continue
+        try:
+            pct = float(parts[0])
+        except ValueError:
+            continue
+        if pct >= 15.0 and not re.search(r"train[.](trainer|mwer|evaluate)|ultra-|jsr", line):
+            lines.append(f"OTHER_CPU {pct} {parts[1]}")
+            cpu_hits += 1
+            if cpu_hits >= 4:
+                break
+    return _parse_other_load("\n".join(lines), gpus, live_runs, cpu_pct)
+
+
+def run_snapshot(path, history, process, gpu_by_pid):
+    pid, start, overfit, ddp = process
+    identity = os.fsencode(path)
+    if ddp:
+        identity += f"\0{ddp['group']}\0{ddp['rank']}".encode()
+    if overfit:
+        scope = "overfit"
+    elif history.dev_limit:
+        scope = "dev-prefix"
+    else:
+        scope = None
+    gpu_index, gpu_uuid = gpu_by_pid.get((pid, start), (None, None))
+    follower = ddp is not None and ddp["rank"] > 0
+    run_rec = {
+        "schema": SCHEMA_VERSION, "id": hashlib.sha256(identity).hexdigest()[:20],
+        "name": path.name, "active": pid is not None, "pid": pid,
+        "gpu_index": gpu_index, "gpu_uuid": gpu_uuid, "total_steps": history.total_steps,
+        "dev_limit": history.dev_limit, "eval_scope": scope,
+        "overfit": bool(overfit) if overfit is not None else None, "ddp": ddp,
+        "rank": ddp["rank"] if ddp else 0, "world_size": ddp["world_size"] if ddp else history.world_size,
+        "attempt_id": history.attempt_id, "seq": history.seq_by_rank.get(ddp["rank"] if ddp else 0),
+        "sdi": history.sdi, "measurement_domain": history.measurement_domain,
+        "artifact": history.artifact, "cohort": history.cohort, "wave_gate": history.wave_gate,
+        "rank_local_ahh": dict(history.rank_local_ahh) if history.rank_local_ahh else None,
+        "rejected_events": history.rejected_events,
+        "train": [] if follower else sorted(history.train.values(), key=lambda row: row["step"]),
+        "train_global": [] if follower else history.global_train_rows(),
+        "eval": [] if follower else sorted(
+            history.evals.values(), key=lambda row: (row["step"], row["split"], row["decoder"])
+        ),
+    }
+    if history.run_id is not None:
+        run_rec["run_id"] = history.run_id
+    return run_rec
+
+
 def hardware_snapshot(paths):
     gpus, gpu_by_pid = gpu_snapshot()
     try:
@@ -458,7 +802,8 @@ def hardware_snapshot(paths):
         cpu_load = os.getloadavg()[0]
     except OSError:
         cpu_load = None
-    return gpus, gpu_by_pid, disk_free(paths), cpu_ticks, cpu_load
+    timing_lock = _read_timing_status()
+    return gpus, gpu_by_pid, disk_free(paths), cpu_ticks, cpu_load, timing_lock
 
 
 def live(args):
@@ -472,7 +817,8 @@ def live(args):
     fallback_scan = float("-inf")
     discovery_at = hardware_at = float("-inf")
     gpus, gpu_by_pid, free = [], {}, None
-    previous_ticks = cpu_pct = cpu_load = None
+    previous_ticks = cpu_pct = cpu_load = timing_lock = None
+    other_load = {}
     detail = None
     with ThreadPoolExecutor(max_workers=2) as worker:
         discovery_job = hardware_job = None
@@ -506,40 +852,35 @@ def live(args):
                 hardware_job = worker.submit(hardware_snapshot, [args.disk_path, *dirs, Path.cwd()])
                 hardware_at = begin
             if hardware_job is not None and (args.once or hardware_job.done()):
-                gpus, mapping, free, ticks, cpu_load = hardware_job.result()
+                gpus, mapping, free, ticks, cpu_load, timing_lock = hardware_job.result()
                 if ticks and previous_ticks and ticks[0] > previous_ticks[0]:
                     duration = ticks[0] - previous_ticks[0]
                     cpu_pct = round(100 * (1 - (ticks[1] - previous_ticks[1]) / duration), 1)
                 previous_ticks = ticks
+                trainer_pids = {
+                    pid for ranks in hardware_processes.values() for pid, _, _, _ in ranks.values()
+                }
                 gpu_by_pid = {
                     (pid, start): mapping[pid]
-                    for pid, start, _, _ in hardware_processes.values() if pid in mapping
+                    for ranks in hardware_processes.values()
+                    for pid, start, _, _ in ranks.values() if pid in mapping
                 }
+                other_load = other_load_lines({p.name for p in hardware_processes}, gpus, cpu_pct,
+                                              gpu_pids=mapping.keys(), trainer_pids=trainer_pids)
                 hardware_job = None
             runs = []
             for path, history in histories.items():
-                pid, start, overfit, ddp = processes.get(path, (None, "", history.overfit, None))
-                if overfit:
-                    scope = "overfit"
-                elif history.dev_limit:
-                    scope = "dev-prefix"
-                else:
-                    scope = None
-                runs.append({"id": hashlib.sha256(os.fsencode(path)).hexdigest()[:20],
-                             "name": path.name, "active": pid is not None, "pid": pid,
-                             "gpu_index": gpu_by_pid.get((pid, start)), "total_steps": history.total_steps,
-                             "dev_limit": history.dev_limit, "eval_scope": scope,
-                             "overfit": bool(overfit) if overfit is not None else None, "ddp": ddp,
-                             "train": [] if ddp and ddp["rank"] else sorted(history.train.values(), key=lambda row: row["step"]),
-                             "train_global": [] if ddp and ddp["rank"] else history.global_train_rows(),
-                             "eval": [] if ddp and ddp["rank"] else sorted(history.evals.values(), key=lambda row: (row["step"], row["split"], row["decoder"]))})
-            info = {"gpu": gpus[0] if gpus else None, "gpus": gpus, "disk_free_bytes": free,
-                    "cpu_pct": cpu_pct, "cpu_load": cpu_load, "cpu_count": os.cpu_count(), "runs": runs}
+                ranks = processes[path].values() if path in processes else [(None, "", history.overfit, None)]
+                for process in ranks:
+                    runs.append(run_snapshot(path, history, process, gpu_by_pid))
+            info = {"schema": SCHEMA_VERSION, "gpu": gpus[0] if gpus else None, "gpus": gpus, "disk_free_bytes": free,
+                    "cpu_pct": cpu_pct, "cpu_load": cpu_load, "cpu_count": os.cpu_count(),
+                    "timing_lock": timing_lock, "other_load": other_load or None, "runs": runs}
             if detail or not dirs:
                 info["detail"] = detail or "No trainer process or recent run log"
             now = time.monotonic()
             visible_change = last_info is None or any(
-                info.get(key) != last_info.get(key) for key in ("runs", "gpus", "detail")
+                info.get(key) != last_info.get(key) for key in ("runs", "gpus", "detail", "timing_lock", "other_load")
             )
             if args.once or changed or visible_change or now - emitted_at >= HEARTBEAT_SECONDS:
                 print(json.dumps({"updated_at": time.time(), **info}, allow_nan=False,

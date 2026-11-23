@@ -3,6 +3,7 @@
 # Add a file here when it needs nothing heavier; the local gate runs everything regardless.
 tests/test_bridge_guard.py
 tests/test_cpu_pool.py
+tests/test_dashboard_unified_contract.py
 tests/test_dev_panel.py
 tests/test_divergence_watch.py
 tests/test_energy_bench.py

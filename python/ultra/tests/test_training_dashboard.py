@@ -96,6 +96,60 @@ def test_distributed_workers_follow_fresh_rank_zero_without_double_counting():
     assert fleet.summary["audio_per_second"] is None
 
 
+def test_probe_attributes_same_host_ddp_ranks_to_both_gpus(monkeypatch, tmp_path, capsys):
+    import json
+    from types import SimpleNamespace
+
+    from tools import training_dashboard_probe as probe
+    from tools.training_dashboard import Fleet
+
+    now = time.time()
+    run_dir = tmp_path / "shared"
+    run_dir.mkdir()
+    train = {"kind": "train", "step": 100, "time": now, "audio_s": 300, "wall_s": 3}
+    (run_dir / "train.jsonl").write_text(json.dumps(train) + "\n")
+    listing = "\n".join(
+        f"{pid} {parent} Mon Nov 23 06:01:00 2026 python3 -m train.trainer --run-dir {run_dir}"
+        for pid, parent in ((101, 99), (100, 99), (102, 101))
+    )
+    devices = "\n".join(f"{index}, GPU-test{index}, A100, 83, 15000, 40960, 220" for index in (0, 1))
+
+    def command(args, timeout=1.5):
+        if args[0] == "ps":
+            return listing
+        if args[1].startswith("--query-gpu="):
+            return devices
+        assert args[1] == "--query-compute-apps=pid,gpu_uuid"
+        return "100, GPU-test0\n101, GPU-test1"
+
+    monkeypatch.setattr(probe, "command", command)
+    monkeypatch.setattr(probe, "linux_process", lambda pid: (
+        ["python3", "-m", "train.trainer", "--run-dir", str(run_dir)], str(pid)
+    ))
+    monkeypatch.setattr(probe.shutil, "which", lambda name: name)
+    monkeypatch.setattr(probe.sys, "platform", "linux")
+    monkeypatch.setattr(probe, "distributed_process", lambda pid, start: {
+        "group": "job", "rank": pid - 100, "world_size": 2, "started_at": now - 1
+    })
+
+    probe.live(SimpleNamespace(run_dir=[], disk_path=None, once=True))
+    payload = json.loads(capsys.readouterr().out)
+    assert sorted(run["ddp"]["rank"] for run in payload["runs"]) == [0, 1]
+    fleet = Fleet(("xbabe5",))
+    fleet.feed("xbabe5", payload)
+    fleet.pulse()
+    host = fleet.hosts["xbabe5"]
+    assert [(gpu["index"], gpu["uuid"]) for gpu in host["gpus"]] == [(0, "GPU-test0"), (1, "GPU-test1")]
+    leader, follower = sorted(host["runs"], key=lambda run: run["ddp"]["rank"])
+    assert (leader["gpu_index"], leader["gpu_uuid"]) == (0, "GPU-test0")
+    assert (follower["gpu_index"], follower["gpu_uuid"]) == (1, "GPU-test1")
+    assert leader["id"] != follower["id"]
+    assert follower["shared_from"]["id"] == leader["id"]
+    assert not follower["train"]
+    assert fleet.summary["active_runs"] == 1
+    assert fleet.summary["audio_per_second"] == 100
+
+
 def test_old_leader_log_cannot_mark_workers_live_after_restart():
     from tools.training_dashboard import Fleet
 
