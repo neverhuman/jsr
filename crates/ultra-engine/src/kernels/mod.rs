@@ -87,11 +87,9 @@ impl Isa {
         }
     }
 
-    /// The best available family.
+    /// The best default family (`Avx512Vnni` is explicitly opt-in via `--isa avx512vnni`).
     pub fn detect() -> Isa {
-        if Isa::Avx512Vnni.is_available() {
-            Isa::Avx512Vnni
-        } else if Isa::Avx2Fma.is_available() {
+        if Isa::Avx2Fma.is_available() {
             Isa::Avx2Fma
         } else if Isa::Neon.is_available() {
             Isa::Neon

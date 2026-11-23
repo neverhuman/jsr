@@ -23,14 +23,19 @@ impl Rng {
     }
 }
 
-fn simd() -> Option<Isa> {
-    let isa = Isa::detect();
-    (isa != Isa::Scalar).then_some(isa)
+fn available_simd_isas() -> Vec<Isa> {
+    [Isa::Avx2Fma, Isa::Avx512Vnni, Isa::Neon]
+        .into_iter()
+        .filter(|isa| isa.is_available())
+        .collect()
 }
 
 #[test]
 fn gemm_f32_simd_is_bit_exact_with_scalar() {
-    let Some(isa) = simd() else { return };
+    let isas = available_simd_isas();
+    if isas.is_empty() {
+        return;
+    }
     let mut rng = Rng::new(1);
     for &(rows, n, k) in &[
         (1, 16, 8),
@@ -44,10 +49,12 @@ fn gemm_f32_simd_is_bit_exact_with_scalar() {
         let x = rng.vec(rows * k, 2.0);
         let p = PackedF32::pack(&w, n, k, Some(&b));
         let mut o1 = vec![0.0; rows * n];
-        let mut o2 = vec![1.0; rows * n];
         gemm_f32(Isa::Scalar, &p, &x, rows, &mut o1);
-        gemm_f32(isa, &p, &x, rows, &mut o2);
-        assert_eq!(o1, o2, "rows {rows} n {n} k {k}");
+        for &isa in &isas {
+            let mut o2 = vec![1.0; rows * n];
+            gemm_f32(isa, &p, &x, rows, &mut o2);
+            assert_eq!(o1, o2, "{isa:?} rows {rows} n {n} k {k}");
+        }
         // And the scalar reference is a plain matmul.
         for r in 0..rows {
             for j in 0..n {
@@ -82,19 +89,20 @@ fn exp_and_activations_bit_exact_and_accurate() {
             "silu({v})"
         );
     }
-    let Some(isa) = simd() else { return };
-    let mut a = x.clone();
-    let mut b = x.clone();
-    silu_inplace(Isa::Scalar, &mut a);
-    silu_inplace(isa, &mut b);
-    assert_eq!(a, b);
-    let d = 384;
-    let g = rng.vec(4 * 2 * d, 12.0);
-    let mut o1 = vec![0.0; 4 * d];
-    let mut o2 = vec![0.0; 4 * d];
-    glu(Isa::Scalar, &g, d, &mut o1);
-    glu(isa, &g, d, &mut o2);
-    assert_eq!(o1, o2);
+    for isa in available_simd_isas() {
+        let mut a = x.clone();
+        let mut b = x.clone();
+        silu_inplace(Isa::Scalar, &mut a);
+        silu_inplace(isa, &mut b);
+        assert_eq!(a, b, "{isa:?}");
+        let d = 384;
+        let g = rng.vec(4 * 2 * d, 12.0);
+        let mut o1 = vec![0.0; 4 * d];
+        let mut o2 = vec![0.0; 4 * d];
+        glu(Isa::Scalar, &g, d, &mut o1);
+        glu(isa, &g, d, &mut o2);
+        assert_eq!(o1, o2, "{isa:?}");
+    }
 }
 
 #[test]
@@ -119,88 +127,91 @@ fn exp_endpoints_and_non_finite_inputs() {
 
 #[test]
 fn reductions_agree_within_tolerance() {
-    let Some(isa) = simd() else { return };
-    let mut rng = Rng::new(3);
-    let d = 384;
-    let x: Vec<f32> = (0..5 * d).map(|i| rng.f32(3.0) + (i % 7) as f32).collect();
-    let g = rng.vec(d, 1.0);
-    let b = rng.vec(d, 1.0);
-    let mut o1 = vec![0.0; x.len()];
-    let mut o2 = vec![0.0; x.len()];
-    layer_norm(Isa::Scalar, &x, d, &g, &b, &mut o1);
-    layer_norm(isa, &x, d, &g, &b, &mut o2);
-    for (u, v) in o1.iter().zip(&o2) {
-        assert!((u - v).abs() < 2e-5, "{u} {v}");
-    }
-    for n in [1, 8, 64, 67, 132] {
-        let a = rng.vec(n, 2.0);
-        let c = rng.vec(n, 2.0);
-        let (u, v) = (dot(Isa::Scalar, &a, &c), dot(isa, &a, &c));
-        assert!((u - v).abs() < 1e-4 * (1.0 + u.abs()));
-        let mut y1 = rng.vec(n, 1.0);
-        let mut y2 = y1.clone();
-        axpy(Isa::Scalar, 0.37, &a, &mut y1);
-        axpy(isa, 0.37, &a, &mut y2);
-        for (p, q) in y1.iter().zip(&y2) {
-            assert!((p - q).abs() < 1e-6);
+    for isa in available_simd_isas() {
+        let mut rng = Rng::new(3);
+        let d = 384;
+        let x: Vec<f32> = (0..5 * d).map(|i| rng.f32(3.0) + (i % 7) as f32).collect();
+        let g = rng.vec(d, 1.0);
+        let b = rng.vec(d, 1.0);
+        let mut o1 = vec![0.0; x.len()];
+        let mut o2 = vec![0.0; x.len()];
+        layer_norm(Isa::Scalar, &x, d, &g, &b, &mut o1);
+        layer_norm(isa, &x, d, &g, &b, &mut o2);
+        for (u, v) in o1.iter().zip(&o2) {
+            assert!((u - v).abs() < 2e-5, "{isa:?} {u} {v}");
+        }
+        for n in [1, 8, 64, 67, 132] {
+            let a = rng.vec(n, 2.0);
+            let c = rng.vec(n, 2.0);
+            let (u, v) = (dot(Isa::Scalar, &a, &c), dot(isa, &a, &c));
+            assert!((u - v).abs() < 1e-4 * (1.0 + u.abs()));
+            let mut y1 = rng.vec(n, 1.0);
+            let mut y2 = y1.clone();
+            axpy(Isa::Scalar, 0.37, &a, &mut y1);
+            axpy(isa, 0.37, &a, &mut y2);
+            for (p, q) in y1.iter().zip(&y2) {
+                assert!((p - q).abs() < 1e-6);
+            }
         }
     }
 }
 
 #[test]
 fn quantize_row_simd_is_bit_exact_with_scalar() {
-    let Some(isa) = simd() else { return };
-    let mut rng = Rng::new(4);
-    for n in [1, 7, 31, 32, 33, 384, 1536, 1155] {
-        for scale in [1e-3, 1.0, 50.0] {
-            let mut x = rng.vec(n, scale);
-            if n > 3 {
-                // Exact half steps and the extremes.
-                let mx = x.iter().fold(0.0f32, |a, &v| a.max(v.abs()));
-                x[1] = mx * 0.5 / 127.0;
-                x[2] = -mx;
-            }
-            let (mut a, mut b) = (vec![0i8; n], vec![0i8; n]);
-            let s1 = quantize_row(Isa::Scalar, &x, &mut a);
-            let s2 = quantize_row(isa, &x, &mut b);
-            assert_eq!(
-                (s1.0.to_bits(), s1.1.to_bits(), &a),
-                (s2.0.to_bits(), s2.1.to_bits(), &b),
-                "n {n}"
-            );
-            assert!(a.iter().all(|&q| q != i8::MIN));
-            // Reconstruction within half a step.
-            for (&v, &q) in x.iter().zip(&a) {
-                assert!(
-                    (f32::from(q).mul_add(s1.0, s1.1) - v).abs() <= 0.5001 * s1.0 + 1e-6 * v.abs()
+    for isa in available_simd_isas() {
+        let mut rng = Rng::new(4);
+        for n in [1, 7, 31, 32, 33, 384, 1536, 1155] {
+            for scale in [1e-3, 1.0, 50.0] {
+                let mut x = rng.vec(n, scale);
+                if n > 3 {
+                    // Exact half steps and the extremes.
+                    let mx = x.iter().fold(0.0f32, |a, &v| a.max(v.abs()));
+                    x[1] = mx * 0.5 / 127.0;
+                    x[2] = -mx;
+                }
+                let (mut a, mut b) = (vec![0i8; n], vec![0i8; n]);
+                let s1 = quantize_row(Isa::Scalar, &x, &mut a);
+                let s2 = quantize_row(isa, &x, &mut b);
+                assert_eq!(
+                    (s1.0.to_bits(), s1.1.to_bits(), &a),
+                    (s2.0.to_bits(), s2.1.to_bits(), &b),
+                    "{isa:?} n {n}"
                 );
+                assert!(a.iter().all(|&q| q != i8::MIN));
+                // Reconstruction within half a step.
+                for (&v, &q) in x.iter().zip(&a) {
+                    assert!(
+                        (f32::from(q).mul_add(s1.0, s1.1) - v).abs()
+                            <= 0.5001 * s1.0 + 1e-6 * v.abs()
+                    );
+                }
             }
         }
-    }
-    let mut z = vec![1i8; 40];
-    assert_eq!(quantize_row(isa, &[0.0; 40], &mut z), (0.0, 0.0));
-    assert!(z.iter().all(|&q| q == 0));
-    assert_eq!(quantize_row(isa, &[-2.5; 40], &mut z), (0.0, -2.5));
-    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
-        for pos in [0usize, 5, 39] {
-            let mut x = vec![0.5f32; 40];
-            x[pos] = bad;
-            for i in [Isa::Scalar, isa] {
-                let (s, c) = quantize_row(i, &x, &mut z);
-                assert!(s.is_nan() && c.is_nan(), "{bad} at {pos}");
+        let mut z = vec![1i8; 40];
+        assert_eq!(quantize_row(isa, &[0.0; 40], &mut z), (0.0, 0.0));
+        assert!(z.iter().all(|&q| q == 0));
+        assert_eq!(quantize_row(isa, &[-2.5; 40], &mut z), (0.0, -2.5));
+        for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            for pos in [0usize, 5, 39] {
+                let mut x = vec![0.5f32; 40];
+                x[pos] = bad;
+                for i in [Isa::Scalar, isa] {
+                    let (s, c) = quantize_row(i, &x, &mut z);
+                    assert!(s.is_nan() && c.is_nan(), "{bad} at {pos}");
+                }
             }
         }
-    }
-    // A subnormal range would overflow 127 / half: treated as a constant row in both paths.
-    let tiny: Vec<f32> = (0..40)
-        .map(|i| if i % 2 == 0 { 1e-44 } else { -1e-44 })
-        .collect();
-    for i in [Isa::Scalar, isa] {
-        let (s, c) = quantize_row(i, &tiny, &mut z);
-        assert!(
-            s == 0.0 && c.abs() < 1e-37 && z.iter().all(|&q| q == 0),
-            "{s} {c}"
-        );
+        // A subnormal range would overflow 127 / half: treated as a constant row in both paths.
+        let tiny: Vec<f32> = (0..40)
+            .map(|i| if i % 2 == 0 { 1e-44 } else { -1e-44 })
+            .collect();
+        for i in [Isa::Scalar, isa] {
+            let (s, c) = quantize_row(i, &tiny, &mut z);
+            assert!(
+                s == 0.0 && c.abs() < 1e-37 && z.iter().all(|&q| q == 0),
+                "{s} {c}"
+            );
+        }
     }
     let mut one = [0i8; 1];
     assert_eq!(quantize_row(Isa::Scalar, &[3.0], &mut one), (0.0, 3.0));
@@ -209,7 +220,10 @@ fn quantize_row_simd_is_bit_exact_with_scalar() {
 #[test]
 fn gemm_i8_simd_is_bit_exact_including_extremes() {
     use crate::quant::PackedI8;
-    let Some(isa) = simd() else { return };
+    let isas = available_simd_isas();
+    if isas.is_empty() {
+        return;
+    }
     let mut rng = Rng::new(5);
     for &(rows, n, k) in &[
         (1, 16, 4),
@@ -250,26 +264,7 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
         let sa = rng.vec(rows, 0.1);
         let ca = rng.vec(rows, 1.0);
         let mut o1 = vec![0.0; rows * n];
-        let mut o2 = vec![1.0; rows * n];
         gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o1);
-        gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
-        // Panel-range split reproduces every column bit for bit.
-        let panels = p.panels();
-        let cut = panels / 2;
-        if cut > 0 {
-            for (p0, p1) in [(0, cut), (cut, panels)] {
-                let width = (p1 * 16).min(n) - p0 * 16;
-                let mut part = vec![0.0; rows * width];
-                gemm_i8_panels(isa, &p, &a, &sa, &ca, rows, p0, p1, &mut part, false);
-                for r in 0..rows {
-                    assert_eq!(
-                        &part[r * width..(r + 1) * width],
-                        &o1[r * n + p0 * 16..r * n + p0 * 16 + width]
-                    );
-                }
-            }
-        }
-        // 7-bit codes through the paired kernel: same exact result (extremes +-63).
         let a7: Vec<i8> = a
             .iter()
             .map(|&v| {
@@ -280,11 +275,34 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
                 }
             })
             .collect();
-        let (mut r1, mut r2) = (vec![0.0; rows * n], vec![1.0; rows * n]);
+        let mut r1 = vec![0.0; rows * n];
         gemm_i8(Isa::Scalar, &p, &a7, &sa, &ca, rows, &mut r1);
-        gemm_i8_a7(isa, &p, &a7, &sa, &ca, rows, &mut r2);
-        assert_eq!(r1, r2, "a7 rows {rows} n {n} k {k}");
-        assert_eq!(o1, o2, "rows {rows} n {n} k {k}");
+        for &isa in &isas {
+            let mut o2 = vec![1.0; rows * n];
+            gemm_i8(isa, &p, &a, &sa, &ca, rows, &mut o2);
+            assert_eq!(o1, o2, "{isa:?} rows {rows} n {n} k {k}");
+            // Panel-range split reproduces every column bit for bit.
+            let panels = p.panels();
+            let cut = panels / 2;
+            if cut > 0 {
+                for (p0, p1) in [(0, cut), (cut, panels)] {
+                    let width = (p1 * 16).min(n) - p0 * 16;
+                    let mut part = vec![0.0; rows * width];
+                    gemm_i8_panels(isa, &p, &a, &sa, &ca, rows, p0, p1, &mut part, false);
+                    for r in 0..rows {
+                        assert_eq!(
+                            &part[r * width..(r + 1) * width],
+                            &o1[r * n + p0 * 16..r * n + p0 * 16 + width],
+                            "{isa:?} panels {p0}..{p1}"
+                        );
+                    }
+                }
+            }
+            // 7-bit codes through the paired kernel: same exact result (extremes +-63).
+            let mut r2 = vec![1.0; rows * n];
+            gemm_i8_a7(isa, &p, &a7, &sa, &ca, rows, &mut r2);
+            assert_eq!(r1, r2, "{isa:?} a7 rows {rows} n {n} k {k}");
+        }
         if n == 17 {
             let full = (k as f32) * 127.0 * 127.0;
             let base = ca[0].mul_add(p.wsum[0], p.bias[0]);
@@ -295,7 +313,10 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
 
 #[test]
 fn attend_head_simd_matches_scalar() {
-    let Some(isa) = simd() else { return };
+    let isas = available_simd_isas();
+    if isas.is_empty() {
+        return;
+    }
     let mut rng = Rng::new(6);
     // (dh, queries, ring, window start, window length): wrapped and unwrapped windows.
     for &(dh, n, ring, start, nk) in &[
@@ -375,23 +396,25 @@ fn attend_head_simd_matches_scalar() {
             &mut o1,
             2 * dh,
         );
-        attend_head(
-            isa,
-            &q,
-            3 * dh,
-            n,
-            dh,
-            &kt,
-            ring,
-            segs,
-            vals,
-            scale,
-            &mut s2,
-            &mut o2,
-            2 * dh,
-        );
-        for (a, b) in o1.iter().zip(&o2) {
-            assert!((a - b).abs() < 1e-5, "dh {dh}: {a} {b}");
+        for &isa in &isas {
+            attend_head(
+                isa,
+                &q,
+                3 * dh,
+                n,
+                dh,
+                &kt,
+                ring,
+                segs,
+                vals,
+                scale,
+                &mut s2,
+                &mut o2,
+                2 * dh,
+            );
+            for (a, b) in o1.iter().zip(&o2) {
+                assert!((a - b).abs() < 1e-5, "{isa:?} dh {dh}: {a} {b}");
+            }
         }
         // And against a direct f64 softmax-attention.
         for i in 0..n {
@@ -459,13 +482,14 @@ fn gemm_i8_u7_equals_act7_and_scalar_including_extremes() {
         let ca = rng.vec(rows, 1.0);
         let mut want = vec![0.0; rows * n];
         scalar::gemm_i8(&p, &a, &sa, &ca, rows, &mut want);
-        let isa = Isa::detect();
-        let mut a7 = vec![0.0; rows * n];
-        gemm_i8_a7(isa, &p, &a, &sa, &ca, rows, &mut a7);
-        let mut got = vec![0.0; rows * n];
-        gemm_i8_u7(isa, &p, &cs, &u, &sa, &ca, rows, &mut got);
-        assert_eq!(got, a7, "u7 vs act7 ({rows}x{n}x{k}, {isa:?})");
-        assert_eq!(got, want, "u7 vs scalar ({rows}x{n}x{k}, {isa:?})");
+        for isa in std::iter::once(Isa::Scalar).chain(available_simd_isas()) {
+            let mut a7 = vec![0.0; rows * n];
+            gemm_i8_a7(isa, &p, &a, &sa, &ca, rows, &mut a7);
+            let mut got = vec![0.0; rows * n];
+            gemm_i8_u7(isa, &p, &cs, &u, &sa, &ca, rows, &mut got);
+            assert_eq!(got, a7, "u7 vs act7 ({rows}x{n}x{k}, {isa:?})");
+            assert_eq!(got, want, "u7 vs scalar ({rows}x{n}x{k}, {isa:?})");
+        }
     }
 }
 
@@ -476,8 +500,10 @@ fn sum_exp_shifted_is_bit_identical_across_isas() {
         let x = rng.vec(n, 20.0);
         let mx = x.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let want = scalar::sum_exp_shifted(&x, mx);
-        let got = sum_exp_shifted(Isa::detect(), &x, mx);
-        assert_eq!(got.to_bits(), want.to_bits(), "n = {n}");
+        for isa in available_simd_isas() {
+            let got = sum_exp_shifted(isa, &x, mx);
+            assert_eq!(got.to_bits(), want.to_bits(), "{isa:?} n = {n}");
+        }
         let exact: f64 = x.iter().map(|&v| f64::from(v - mx).exp()).sum();
         assert!((f64::from(want) - exact).abs() <= 1e-5 * exact, "n = {n}");
     }
@@ -492,13 +518,15 @@ fn mul_add_exact_is_bit_identical_across_isas() {
         let w = rng.vec(n, 2.0);
         let mut want = base.clone();
         mul_add_exact(Isa::Scalar, &mut want, &src, &w);
-        let mut got = base;
-        mul_add_exact(Isa::detect(), &mut got, &src, &w);
-        assert_eq!(
-            got.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
-            want.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
-            "n = {n}"
-        );
+        for isa in available_simd_isas() {
+            let mut got = base.clone();
+            mul_add_exact(isa, &mut got, &src, &w);
+            assert_eq!(
+                got.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                want.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                "{isa:?} n = {n}"
+            );
+        }
     }
 }
 

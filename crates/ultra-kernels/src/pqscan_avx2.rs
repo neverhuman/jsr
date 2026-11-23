@@ -176,21 +176,18 @@ fn build_tables_avx2(m: &CodebookMatrix, x: &[i8], sparse: bool, out: &mut Codeb
                 }
             }
         }
-        let mut sh = 0u32;
-        while (max_rng >> sh) > 127 {
-            sh += 1;
-        }
+        let (sh, half) = crate::pqscan::nearest_shift(max_rng);
         out.shifts[f] = sh;
         let sh_v = _mm_cvtsi32_si128(sh as i32);
+        let half_v = _mm256_set1_epi32(half);
+        let max127_v = _mm256_set1_epi32(127);
         let mut sum_mn = 0i64;
-        let mut active_subspaces = 0i64;
         for idx in 0..mc {
             let c = idx % c_n;
             if sparse && out.pair_nonzero[f * pairs + (c / 2)] == 0 {
                 out.entries[f * mc + idx] = [0u8; PQSCAN_K];
                 continue;
             }
-            active_subspaces += 1;
             let mn = out.mins_scratch[idx];
             sum_mn += i64::from(mn);
             let mn_v = _mm256_set1_epi32(mn);
@@ -198,13 +195,28 @@ fn build_tables_avx2(m: &CodebookMatrix, x: &[i8], sparse: bool, out: &mut Codeb
             // SAFETY: src has 16 i32s.
             let (q0, q1) = unsafe {
                 (
-                    _mm256_sra_epi32(
-                        _mm256_sub_epi32(_mm256_loadu_si256(src.as_ptr().cast()), mn_v),
-                        sh_v,
+                    _mm256_min_epi32(
+                        _mm256_sra_epi32(
+                            _mm256_add_epi32(
+                                _mm256_sub_epi32(_mm256_loadu_si256(src.as_ptr().cast()), mn_v),
+                                half_v,
+                            ),
+                            sh_v,
+                        ),
+                        max127_v,
                     ),
-                    _mm256_sra_epi32(
-                        _mm256_sub_epi32(_mm256_loadu_si256(src.as_ptr().add(8).cast()), mn_v),
-                        sh_v,
+                    _mm256_min_epi32(
+                        _mm256_sra_epi32(
+                            _mm256_add_epi32(
+                                _mm256_sub_epi32(
+                                    _mm256_loadu_si256(src.as_ptr().add(8).cast()),
+                                    mn_v,
+                                ),
+                                half_v,
+                            ),
+                            sh_v,
+                        ),
+                        max127_v,
                     ),
                 )
             };
@@ -219,8 +231,7 @@ fn build_tables_avx2(m: &CodebookMatrix, x: &[i8], sparse: bool, out: &mut Codeb
             // SAFETY: destination entry is [u8; 16].
             unsafe { _mm_storeu_si128(out.entries[f * mc + idx].as_mut_ptr().cast(), packed) };
         }
-        let round_bias = (active_subspaces * ((1i64 << sh) - 1)) >> 1;
-        out.offsets[f] = (sum_mn + round_bias) as i32;
+        out.offsets[f] = sum_mn as i32;
     }
 }
 

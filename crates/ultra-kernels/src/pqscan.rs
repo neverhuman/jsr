@@ -5,12 +5,12 @@
 //! - Each input vector of width `din` is split into `C = din / s` subspaces (`s in {2, 4, 8}`,
 //!   `C` even) across `M in {1, 2}` additive stages.
 //! - Each subspace has 16 signed `i8` codewords (`|cb| <= 127`). Per row, exact `i32` table
-//!   values `v[m][c][j] = sum_i a[c*s + i] * cb[m][c][j][i]` are shifted right by the minimal
-//!   `sh >= 0` such that `(max - min) >> sh <= 127`, producing 7-bit unsigned LUT entries
-//!   `e[m][c][j] in 0..=127`.
+//!   values `v[m][c][j] = sum_i a[c*s + i] * cb[m][c][j][i]` are rounded to nearest 7-bit unsigned
+//!   LUT entries `e[m][c][j] = min(127, (v - mn + half) >> sh)` using the minimal `sh >= 0` such
+//!   that `((max - min) + half) >> sh <= 127` (`half = 1 << (sh - 1)` for `sh > 0`, else `0`).
 //! - Two adjacent subspaces' LUT hits sum in `u8` (`<= 254`) and accumulate in `u16` for at most
 //!   [`PQSCAN_FLUSH_PAIRS`] = 256 pairs (`256 * 254 = 65,024 < 65,535`) before widening to `i32`.
-//! - Output is `acc[o] = (S[o] << sh) + sum_{m,c} mn[m][c] + ((M * C * ((1 << sh) - 1)) >> 1)`,
+//! - Output is `acc[o] = (S[o] << sh) + sum_{m,c} mn[m][c]` (no frame-wide round bias),
 //!   bit-identical across scalar, x86 AVX2 (`vpshufb`), and ARM NEON (`vqtbl1q_u8`).
 
 use crate::{Backend, KernelError};
@@ -43,7 +43,7 @@ pub struct CodebookTables {
     pub entries: Vec<[u8; PQSCAN_K]>,
     /// Per-frame right shift `sh >= 0`.
     pub shifts: Vec<u32>,
-    /// Per-frame integer offset `sum_{m,c} mn[m][c] + ((M * C * ((1 << sh) - 1)) >> 1)`.
+    /// Per-frame integer offset `sum_{m,c} mn[m][c]` (no global round bias).
     pub offsets: Vec<i32>,
     /// Optional per-frame per-pair activity mask (false iff all `2 * s` activations in pair are 0).
     pub pair_nonzero: Vec<u8>,
@@ -231,29 +231,23 @@ impl CodebookMatrix {
                     }
                 }
             }
-            let mut sh = 0u32;
-            while (max_rng >> sh) > 127 {
-                sh += 1;
-            }
+            let (sh, half) = nearest_shift(max_rng);
             out.shifts[f] = sh;
             let mut sum_mn = 0i64;
-            let mut active_subspaces = 0i64;
             for idx in 0..mc {
                 let c = idx % c_n;
                 if sparse && out.pair_nonzero[f * pairs + (c / 2)] == 0 {
                     out.entries[f * mc + idx] = [0u8; PQSCAN_K];
                     continue;
                 }
-                active_subspaces += 1;
                 let mn = out.mins_scratch[idx];
                 sum_mn += i64::from(mn);
                 let dst = &mut out.entries[f * mc + idx];
                 for (j, slot) in dst.iter_mut().enumerate() {
-                    *slot = ((out.raw_scratch[idx][j] - mn) >> sh) as u8;
+                    *slot = (((out.raw_scratch[idx][j] - mn + half) >> sh).min(127)) as u8;
                 }
             }
-            let round_bias = (active_subspaces * ((1i64 << sh) - 1)) >> 1;
-            out.offsets[f] = (sum_mn + round_bias) as i32;
+            out.offsets[f] = sum_mn as i32;
         }
     }
 
@@ -352,6 +346,19 @@ impl CodebookMatrix {
         let mut tables = CodebookTables::default();
         self.build_tables_into(backend, x, sparse, &mut tables)?;
         self.scan_with_tables(backend, &tables, sparse, out)
+    }
+}
+
+/// Minimal right-shift `sh >= 0` with `((max_rng + half) >> sh) <= 127` (`half = 1 << (sh - 1)`
+/// for `sh > 0`, else `0`). Shared by scalar and SIMD LUT builders for 0-ULP parity.
+pub(crate) fn nearest_shift(max_rng: i32) -> (u32, i32) {
+    let mut sh = 0u32;
+    loop {
+        let half = if sh > 0 { 1i32 << (sh - 1) } else { 0 };
+        if ((max_rng + half) >> sh) <= 127 {
+            return (sh, half);
+        }
+        sh += 1;
     }
 }
 
@@ -578,5 +585,54 @@ mod tests {
         assert_eq!(q[6], 127);
         assert_eq!(q[7], 0);
         assert!((f32::from(q[4]) * scale - 2.5).abs() <= scale * 0.51);
+    }
+
+    #[test]
+    fn pqscan_nearest_no_bias_tables_are_exact_and_simd_identical() {
+        // Construct max_rng = 255 -> nearest_shift chooses sh = 2 (half = 2) because
+        // (255 + 1) >> 1 = 128 > 127, and offsets carry sum(mn) with zero global round bias.
+        assert_eq!(nearest_shift(127), (0, 0));
+        assert_eq!(nearest_shift(254), (1, 1));
+        assert_eq!(nearest_shift(255), (2, 2));
+        let (rows, din, s, m_st) = (32, 8, 4, 1);
+        let c = din / s; // 2 subspaces
+        let mut cb = vec![0i8; m_st * c * PQSCAN_K * s];
+        // Subspace 0: codeword 0 = [0,0,0,0] (v=0), codeword 1 = [127,127,1,0] (v=255 for a=1),
+        // codeword 2 = [2,0,0,0] (v=2 -> rounds up to 1 under sh=2, half=2).
+        cb[s..2 * s].copy_from_slice(&[127, 127, 1, 0]);
+        cb[2 * s..3 * s].copy_from_slice(&[2, 0, 0, 0]);
+        // Subspace 1: constant offset mn = -10 (all codewords = [-10,0,0,0]).
+        for j in 0..PQSCAN_K {
+            cb[PQSCAN_K * s + j * s] = -10;
+        }
+        let mut codes = vec![0u8; rows * c];
+        for r in 0..rows {
+            codes[r * c] = (r % 3) as u8;
+            codes[r * c + 1] = 0;
+        }
+        let mat = CodebookMatrix::from_parts(rows, din, s, m_st, cb, &codes).unwrap();
+        let x = vec![1i8; din];
+        let (mut t_scalar, mut t_simd) = (CodebookTables::default(), CodebookTables::default());
+        mat.build_tables_into(Backend::Scalar, &x, false, &mut t_scalar)
+            .unwrap();
+        mat.build_tables_into(Backend::detect(), &x, false, &mut t_simd)
+            .unwrap();
+        assert_eq!(t_scalar.shifts, vec![2]);
+        assert_eq!(t_scalar.offsets, vec![-10]);
+        assert_eq!(t_scalar.entries[0][0], 0);
+        assert_eq!(t_scalar.entries[0][1], 64); // (255 + 2) >> 2 = 64
+        assert_eq!(t_scalar.entries[0][2], 1); // (2 + 2) >> 2 = 1 (round-to-nearest!)
+        assert_eq!(t_scalar.shifts, t_simd.shifts);
+        assert_eq!(t_scalar.offsets, t_simd.offsets);
+        assert_eq!(t_scalar.entries, t_simd.entries);
+        let (mut o_scalar, mut o_simd) = (vec![0i32; rows], vec![0i32; rows]);
+        mat.scan_with_tables(Backend::Scalar, &t_scalar, false, &mut o_scalar)
+            .unwrap();
+        mat.scan_with_tables(Backend::detect(), &t_simd, false, &mut o_simd)
+            .unwrap();
+        assert_eq!(o_scalar, o_simd);
+        assert_eq!(o_scalar[0], -10);
+        assert_eq!(o_scalar[1], (64 << 2) - 10);
+        assert_eq!(o_scalar[2], (1 << 2) - 10);
     }
 }
