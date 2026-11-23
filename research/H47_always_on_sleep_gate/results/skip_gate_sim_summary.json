@@ -1,0 +1,212 @@
+{
+  "schema": "ultra.h47.skip_gate_sim.v1",
+  "gate_constants": {
+    "hop": 160,
+    "v": 25,
+    "u": 5,
+    "kf": 2,
+    "ks": 8,
+    "theta_f": 640,
+    "theta_s": 256,
+    "nabs_f": 3943,
+    "nabs_s": 4455,
+    "preroll_ms": 1000,
+    "idle_ms": 1500
+  },
+  "golden_vector": {
+    "pcm_fnv1a64": "0x6f5d0b63084f8ffd",
+    "trace_fnv1a64": "0xc7b5b4e8da91b73f",
+    "hot_hop_count": 113,
+    "matches_spec": true
+  },
+  "librispeech_full_dev": {
+    "protocol": "2.0s tiled leading room-tone prefix per utterance, strict post-onset wake check",
+    "preroll_ring_ms": 1000,
+    "splits": {
+      "dev-clean": {
+        "energy_onset": {
+          "n_utterances": 2703,
+          "woken_any": 2703,
+          "woken_before_1s_preroll": 2703,
+          "wake_rate_before_1s_pct": 100.0,
+          "latency_ms": {
+            "p50": 0.0,
+            "p90": 0.0,
+            "p99": 90.0,
+            "max": 380.0
+          }
+        },
+        "mfa_first_word_onset": {
+          "n_utterances": 2703,
+          "woken_any": 2703,
+          "woken_before_1s_preroll": 2703,
+          "wake_rate_before_1s_pct": 100.0,
+          "latency_ms": {
+            "p50": 40.0,
+            "p90": 50.0,
+            "p99": 110.0,
+            "max": 440.0
+          }
+        }
+      },
+      "dev-other": {
+        "energy_onset": {
+          "n_utterances": 2864,
+          "woken_any": 2864,
+          "woken_before_1s_preroll": 2864,
+          "wake_rate_before_1s_pct": 100.0,
+          "latency_ms": {
+            "p50": 0.0,
+            "p90": 0.0,
+            "p99": 190.0,
+            "max": 540.0
+          }
+        },
+        "mfa_first_word_onset": {
+          "n_utterances": 2864,
+          "woken_any": 2864,
+          "woken_before_1s_preroll": 2864,
+          "wake_rate_before_1s_pct": 100.0,
+          "latency_ms": {
+            "p50": 40.0,
+            "p90": 50.0,
+            "p99": 100.0,
+            "max": 440.0
+          }
+        }
+      }
+    },
+    "pooled_energy_onset": {
+      "n_utterances": 5567,
+      "woken_any": 5567,
+      "woken_before_1s_preroll": 5567,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 0.0,
+        "p90": 0.0,
+        "p99": 120.0,
+        "max": 540.0
+      }
+    },
+    "pooled_mfa_first_word_onset": {
+      "n_utterances": 5567,
+      "woken_any": 5567,
+      "woken_before_1s_preroll": 5567,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 40.0,
+        "p90": 50.0,
+        "p99": 110.0,
+        "max": 440.0
+      }
+    },
+    "passes_wake_rate_ge_99_8pct": true
+  },
+  "synthetic_torture_t1_t4": {
+    "T1_fricative_onset": {
+      "n_utterances": 8,
+      "woken_any": 8,
+      "woken_before_1s_preroll": 8,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 30.0,
+        "p90": 33.0,
+        "p99": 39.3,
+        "max": 40.0
+      }
+    },
+    "T2_quiet_speech_-35dBFS": {
+      "n_utterances": 8,
+      "woken_any": 8,
+      "woken_before_1s_preroll": 8,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 0.0,
+        "p90": 10.0,
+        "p99": 10.0,
+        "max": 10.0
+      }
+    },
+    "T3_post_burst_noise": {
+      "n_utterances": 8,
+      "woken_any": 8,
+      "woken_before_1s_preroll": 8,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 10.0,
+        "p90": 10.0,
+        "p99": 10.0,
+        "max": 10.0
+      }
+    },
+    "T4_low_snr_floor_transition": {
+      "n_utterances": 8,
+      "woken_any": 8,
+      "woken_before_1s_preroll": 8,
+      "wake_rate_before_1s_pct": 100.0,
+      "latency_ms": {
+        "p50": 20.0,
+        "p90": 20.0,
+        "p99": 20.0,
+        "max": 20.0
+      }
+    }
+  },
+  "pure_noise_false_wakes": {
+    "silence": {
+      "duration_s": 600.0,
+      "hot_hops": 0,
+      "hot_hop_fraction": 0.0,
+      "false_wakes": 0,
+      "false_wakes_per_hour": 0.0,
+      "hot_at_close_replays": 0,
+      "false_wake_cpu_fraction": 0.0,
+      "passes_cpu_le_2pct": true
+    },
+    "pink_-20dBFS": {
+      "duration_s": 600.0,
+      "hot_hops": 0,
+      "hot_hop_fraction": 0.0,
+      "false_wakes": 0,
+      "false_wakes_per_hour": 0.0,
+      "hot_at_close_replays": 0,
+      "false_wake_cpu_fraction": 0.0,
+      "passes_cpu_le_2pct": true
+    },
+    "pink_-30dBFS": {
+      "duration_s": 600.0,
+      "hot_hops": 0,
+      "hot_hop_fraction": 0.0,
+      "false_wakes": 0,
+      "false_wakes_per_hour": 0.0,
+      "hot_at_close_replays": 0,
+      "false_wake_cpu_fraction": 0.0,
+      "passes_cpu_le_2pct": true
+    },
+    "white_-20dBFS": {
+      "duration_s": 600.0,
+      "hot_hops": 0,
+      "hot_hop_fraction": 0.0,
+      "false_wakes": 0,
+      "false_wakes_per_hour": 0.0,
+      "hot_at_close_replays": 0,
+      "false_wake_cpu_fraction": 0.0,
+      "passes_cpu_le_2pct": true
+    },
+    "white_-40dBFS": {
+      "duration_s": 600.0,
+      "hot_hops": 2,
+      "hot_hop_fraction": 3.3e-05,
+      "false_wakes": 1,
+      "false_wakes_per_hour": 6.0,
+      "hot_at_close_replays": 0,
+      "false_wake_cpu_fraction": 0.004183,
+      "passes_cpu_le_2pct": true
+    }
+  },
+  "gates": {
+    "dev_wake_ge_99_8pct": true,
+    "all_noise_cpu_le_2pct": true,
+    "golden_parity": true
+  }
+}
