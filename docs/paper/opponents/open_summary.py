@@ -89,7 +89,7 @@ SYSTEMS = {
         "arm 13a (delay penalty 0.01) step 8000 EMA, prepared INT8, greedy, chunk 2 = 80 ms (arch.json chunk fields "
         "set to 2, weights unchanged), 20 ms packets (TIMING entry 14d)"),
     "jsr-rc1-ema-int8": (
-        "ULTRA v3.0 (live)", "ULTRA v3.0 (live)", "UltraLive", "ultra-engine v3.0.0 9c8c05e (ultra-cold-wav)",
+        "ULTRA v3.0.0 (live)", "ULTRA v3.0.0 (live)", "UltraLive", "ultra-engine v3.0.0 9c8c05e (ultra-cold-wav)",
         "streaming", "ours",
         "RC1-EMA (weights.int8 edac19d8), prepared INT8, greedy, chunk 4 = 160 ms, 20 ms packets, the live stream "
         "only (no final pass, no LM) (TIMING entry 14q)"),
