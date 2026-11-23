@@ -146,6 +146,24 @@ What existed when this was written: Q passes 1–2 on the Mac (exactness, accura
   - At any level where G − U first-word recall is below −0.5 pp (Q4's margin) with its 95% upper bound below 0, the gate's absolute floors need recalibrating for quiet input (§5.6, C8) before always-on runs on quiet microphones.
   - U at that level minus U at 0 dB is the recogniser's own loss, which an AGC after the gate would address.
 
+## Amendment 9 (2026-11-23, written before any Q5b or tier B torture data exists): Q5b and Q4b, the lead's 09:39Z ruling
+- **Q5 stands as recorded:** NOT PASSED by 0.0008/h. Nothing below pools Q5's hours.
+- **Q5b, the lead's rule, quoted:**
+  - **Data:** ≥ 50 h never used in any run, made by alwayson-bench with new seeds and sources:
+    - ≥ 30 h of pure non-speech, all background types;
+    - ≥ 20 h of fresh stream with speech → noise junctions at the stream's rate and levels.
+    - Its sha256 list is posted before any decode, and I check every file against it.
+  - **Systems:** #77 at (500, 1500), gated vs its ungated twin, the same binary (5ca3583 arithmetic, or a head whose code diff from it is zero) and the same scorer.
+  - **Rule:** count the added words (gated words the twin does not emit: same word, same gap, within 0.5 s; `scripts/gap_words_added.py`, with score_alwayson.py's gap assignment). The Garwood one-sided 95% upper bound on Q5b's hours only must be ≤ 0.10/h; with ≥ 50 h that allows ≤ 1 added word.
+  - **Outcomes:**
+    - PASS: the false-word criterion is met for default-on.
+    - FAIL: the gate stays default-off, and the boundary artifact needs a design amendment before any new false-word test.
+- **Q4b (Q4's rule, unchanged, on fresh torture data):**
+  - Data: tier B's torture sets T1, T1v and T2 (gaps 0.4 / 3 / 30 s; Q / N20 / N10) and T3 (g8; N20 / N10), when alwayson-bench builds them.
+  - Systems: gated (#77 at (500, 1500)) vs C1 (`ultra-engine-endless` T=1500 / R=1000), pooled over all those cells, first-word recall by speaker-cluster bootstrap.
+  - Verdicts: PASS if the one-sided 95% lower bound of gated − C1 is ≥ −0.5 pp. INCONCLUSIVE if the bound is below −0.5 pp but the point is ≥ −0.5. FAIL if the point is < −0.5.
+  - Tier A's partial result is not pooled. T4 (−20 / −40 dB) is reported descriptively, beside amendment 8.
+
 ## Results
 
 ### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
