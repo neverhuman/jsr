@@ -88,11 +88,20 @@ impl StreamCoordinator {
         Ok(())
     }
 
+    fn inner_base_bytes(&self) -> usize {
+        let open_imm = if self.has_open_segment() {
+            self.emitter.immutable().len()
+        } else {
+            0
+        };
+        self.inner_consumed_bytes + open_imm
+    }
+
     fn forward_inner_event(&mut self, raw_ev: TranscriptEvent) -> Result<(), StreamError> {
         let now_ns = raw_ev.observed_monotonic_ns;
         match raw_ev.body {
             Body::Preview(u) => {
-                let base = self.inner_consumed_bytes + self.emitter.immutable().len();
+                let base = self.inner_base_bytes();
                 let suffix = slice_from_boundary(&u.snapshot_utf8, base);
                 let ev = self
                     .emitter
@@ -100,7 +109,7 @@ impl StreamCoordinator {
                 self.push_validated(ev)?;
             }
             Body::Commit(u) => {
-                let base = self.inner_consumed_bytes + self.emitter.immutable().len();
+                let base = self.inner_base_bytes();
                 if u.immutable_after_utf8_bytes > base
                     && u.snapshot_utf8.is_char_boundary(base)
                     && u.snapshot_utf8
@@ -121,7 +130,7 @@ impl StreamCoordinator {
                 update: u,
                 processing,
             } => {
-                let base = self.inner_consumed_bytes + self.emitter.immutable().len();
+                let base = self.inner_base_bytes();
                 let suffix = slice_from_boundary(&u.snapshot_utf8, base);
                 let ev =
                     self.emitter

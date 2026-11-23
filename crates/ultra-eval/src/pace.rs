@@ -41,6 +41,9 @@ pub struct Packet<'a> {
 pub struct PacedReplay<'a> {
     pcm: &'a [i16],
     packet: usize,
+    /// Optional model chunk stride in samples (`0` = wake per packet, `> packet` = coalesce
+    /// incoming transport packets until the next chunk boundary is complete before waking).
+    chunk_samples: usize,
     pace: f64,
     origin: Instant,
     pos: usize,
@@ -60,6 +63,30 @@ impl<'a> PacedReplay<'a> {
         pace: f64,
         origin: Instant,
     ) -> Result<Self, EvalError> {
+        Self::with_origin_and_chunk_coalescing(pcm, packet_ms, 0, pace, origin)
+    }
+
+    /// Paced replay that coalesces incoming `packet_ms` transport packets up to the earliest
+    /// transport boundary reaching each `chunk_samples` model chunk boundary, waking once per
+    /// chunk instead of once per short packet while preserving exact audio-clock offsets and
+    /// trailing EOF flush.
+    pub fn with_chunk_coalescing(
+        pcm: &'a [i16],
+        packet_ms: u32,
+        chunk_samples: usize,
+        pace: f64,
+    ) -> Result<Self, EvalError> {
+        Self::with_origin_and_chunk_coalescing(pcm, packet_ms, chunk_samples, pace, Instant::now())
+    }
+
+    /// As [`PacedReplay::with_chunk_coalescing`] with an explicit monotonic origin.
+    pub fn with_origin_and_chunk_coalescing(
+        pcm: &'a [i16],
+        packet_ms: u32,
+        chunk_samples: usize,
+        pace: f64,
+        origin: Instant,
+    ) -> Result<Self, EvalError> {
         if packet_ms == 0 {
             return Err(EvalError::Input("packet_ms must be > 0".into()));
         }
@@ -71,6 +98,7 @@ impl<'a> PacedReplay<'a> {
         Ok(PacedReplay {
             pcm,
             packet: packet_samples(packet_ms),
+            chunk_samples,
             pace,
             origin,
             pos: 0,
@@ -100,7 +128,13 @@ impl<'a> Iterator for PacedReplay<'a> {
             return None;
         }
         let start = self.pos;
-        let end = (start + self.packet).min(self.pcm.len());
+        let next_end = if self.chunk_samples > self.packet {
+            let chunk_target = ((start / self.chunk_samples) + 1) * self.chunk_samples;
+            chunk_target.div_ceil(self.packet) * self.packet
+        } else {
+            start + self.packet
+        };
+        let end = next_end.min(self.pcm.len());
         self.pos = end;
         let due = self.origin + due_offset(end as u64, self.pace);
         if self.pace > 0.0 {
@@ -186,5 +220,46 @@ mod tests {
             "{total:?}"
         );
         assert!(worst_late < Duration::from_millis(50), "{worst_late:?}");
+    }
+
+    #[test]
+    fn chunk_coalescing_reduces_wakeups_and_preserves_audio_clock() {
+        // 10 s + 137 trailing samples at 16 kHz, 20 ms packets, chunk 4 = 2560 samples (160 ms).
+        let pcm = ramp(160_000 + 137);
+        let per_pkt: Vec<_> = PacedReplay::new(&pcm, 20, 0.0).unwrap().collect();
+        let per_chunk: Vec<_> = PacedReplay::with_chunk_coalescing(&pcm, 20, 2_560, 0.0)
+            .unwrap()
+            .collect();
+
+        // 501 per-packet wakes -> 63 per-chunk wakes (>= 7.9x reduction, 50/s -> 6.25/s).
+        assert_eq!(per_pkt.len(), 501);
+        assert_eq!(per_chunk.len(), 63);
+        assert!(per_pkt.len() >= per_chunk.len() * 7);
+
+        let mut reassembled = Vec::with_capacity(pcm.len());
+        let mut expected_start = 0u64;
+        for p in &per_chunk {
+            assert_eq!(p.start_sample, expected_start);
+            expected_start += p.pcm.len() as u64;
+            reassembled.extend_from_slice(p.pcm);
+        }
+        assert_eq!(reassembled, pcm);
+        assert_eq!(per_chunk.last().unwrap().pcm.len(), (160_000 % 2_560) + 137);
+
+        // Odd 37 ms packet size: exact timeline preserved without drift.
+        let origin = Instant::now();
+        let odd: Vec<_> =
+            PacedReplay::with_origin_and_chunk_coalescing(&pcm, 37, 2_560, 0.0, origin)
+                .unwrap()
+                .collect();
+        let mut odd_cat = Vec::with_capacity(pcm.len());
+        let mut odd_start = 0u64;
+        for p in &odd {
+            assert_eq!(p.start_sample, odd_start);
+            odd_start += p.pcm.len() as u64;
+            odd_cat.extend_from_slice(p.pcm);
+        }
+        assert_eq!(odd_cat, pcm);
+        assert!(odd.len() <= 64);
     }
 }

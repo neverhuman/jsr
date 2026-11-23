@@ -12,6 +12,7 @@ pub mod bench_cmd;
 pub mod bundle_cmd;
 pub mod inventory;
 pub mod runner;
+pub mod stream_run;
 pub mod suite_abab;
 pub mod suite_cmd;
 pub mod suite_engine;
@@ -41,7 +42,8 @@ use ultra_stream::StreamError;
 
 pub use bench_cmd::{compare_score_files, CompareVerdictReport};
 pub use inventory::collect_hardware_inventory;
-pub use runner::{instantiate_backend, resolve_offline_config, transcribe_audio_file};
+pub use runner::{instantiate_backend, resolve_offline_config};
+pub use stream_run::{transcribe_audio_file, transcribe_audio_file_with_wake, WakeCadence};
 
 pub const EXIT_OK: i32 = 0;
 pub const EXIT_INTERNAL: i32 = 1;
@@ -241,7 +243,8 @@ pub fn usage_text() -> &'static str {
        doctor --candidate ID [--hardware PATH]\n\
        transcribe --candidate ID --audio PATH [--threads N] [--events JSONL] [--receipt JSON]\n\
        stream --candidate ID --input PATH [--profile live|efficient|accurate] [--policy dictate|commit]\n\
-              [--packet-ms N] [--pace F] [--threads N] [--events JSONL] [--receipt JSON]\n\
+              [--packet-ms N] [--pace F] [--wake-per-chunk|--wake-per-packet] [--threads N]\n\
+              [--events JSONL] [--receipt JSON]\n\
        bench --candidate ID [--split SPLIT | --npz PATH] [--limit N] [--offset N] [--duration-s S]\n\
              [--streams N] [--decode single|batch] [--grid-ms G] [--precision int8|fp32] [--paced]\n\
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\
@@ -342,5 +345,42 @@ mod tests {
             "unknown"
         );
         assert_eq!(resolve_short_commit(None, None), "unknown");
+    }
+
+    #[test]
+    fn cli_stream_wake_per_chunk_reduces_wakeups_with_identical_commit_hash() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let wav = tmp.path().join("short.wav");
+        write_wav_pcm16(&wav, 16_000, &[0i16; 16_000 + 137]).expect("wav");
+
+        let (t_pkt, _, r_pkt, w_pkt) = transcribe_audio_file_with_wake(
+            "fake",
+            &wav,
+            OperatingProfile::Live,
+            OutputPolicy::EditableDictation,
+            20,
+            0.0,
+            1,
+            WakeCadence::PerPacket,
+        )
+        .expect("per-packet");
+        let (t_chk, _, r_chk, w_chk) = transcribe_audio_file_with_wake(
+            "fake",
+            &wav,
+            OperatingProfile::Live,
+            OutputPolicy::EditableDictation,
+            20,
+            0.0,
+            1,
+            WakeCadence::PerChunk,
+        )
+        .expect("per-chunk");
+
+        assert_eq!(t_chk, t_pkt);
+        assert_eq!(r_chk.hashes.commit, r_pkt.hashes.commit);
+        assert_eq!(r_chk.hashes.final_, r_pkt.hashes.final_);
+        assert_eq!(w_pkt, 51); // 16_137 / 320 ceil
+        assert_eq!(w_chk, 11); // 16_137 / 1_600 ceil (FakeBackend chunk_samples = 1_600)
+        assert!(w_chk < w_pkt);
     }
 }

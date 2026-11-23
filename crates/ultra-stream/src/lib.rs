@@ -2,6 +2,7 @@
 //! drivers (spec v1.0-B P02, P03, P05, §13–15, §33, §38.1, §38.3).
 
 pub mod api;
+pub mod coalesce;
 pub mod contrast;
 pub mod coordinator;
 pub mod delivery;
@@ -32,6 +33,7 @@ pub use api::{
     AsrStream, Backend, BackendCaps, OperatingProfile, OutputPolicy, PollResult, PushReport,
     PushStatus, StreamClock, StreamConfig, StreamError, StreamMetrics, TerminalOutcome,
 };
+pub use coalesce::{ChunkWakeCoalescer, CoalesceStats};
 pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
