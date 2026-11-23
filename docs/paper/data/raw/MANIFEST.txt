@@ -277,11 +277,12 @@ f38daf0ffb38ba3d36c8481c7389a2cfce87dd01e8dd0722ba2c7e7dd9d5ec09  energy/derived
 485266bc008c9698bbc256f011951f5b2687278bbad52468170c2ced99a7be9a  energy/derived/entry2-h22ctl-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 94646b07d97cb74ec44bb17872309dadf1aa207f7e10f9cf1a2329cb1f113b03  energy/derived/entry3-moonshine-tiny-energy.jsonl  power-log join of runtime-lane's timing entry 3 receipts
 9ae4b9e2410e2a6a3f12d378432a16346840ec72e28d03ab8f953ae3192eb658  energy/derived/entry4-parakeet-tdt-v3-energy.jsonl  power-log join of runtime-lane's timing entry 4 receipts
+52d1b49030ee4660bf0b4a8a088421808108a41292425e1dc0e67445e06eb13e  energy/derived/entry4c-a1-20000-energy.jsonl  power-log join of runtime-lane's timing entry 4c receipts (A1 step 20,000 EMA INT8)
 483b90a031217de212512f9b607b25833856cbd974138dce6f61d6896749bd7a  energy/derived/idle-against-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 df7d0c44a8c224ecc1ddd17150447bdb3b2d7f1258b70be75603f4d254e09ed2  energy/derived/v2-spin-fit.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 cc429824aeb844d2007fc57e02fc7d529de7a029ecd4a1eb8d23524fea911377  energy/derived/zipformer-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 8a3213722a67f12e3190902bb78005deadc2d69e0b5123ff969361b90484a523  energy/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
-3647134762ce650c3c7f237936098afa9312e7fff6f8958e355f5dc9cff65e86  energy/evidence/xbabe0-energy-joins.jsonl  energy lines for rows other agents timed (joined with the xbabe0 power log); copy once each row is admitted
+0034945aa464247d3d4b94d24aa3df58731f2303bf7a3afe162e4b0b1a95fccd  energy/evidence/xbabe0-energy-joins.jsonl  energy lines for rows other agents timed (joined with the xbabe0 power log); copy once each row is admitted
 0ce510219967d911e7b0618a7f127373dd0be14f4c17ccd852ff59870055cc84  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
 b9aac134b95a4eb98ea4d78b22ba1eca2c79c1b931c096c548938916cf8b7efa  energy/paced/paced-h22ctl-n1.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
 e2e87953f1bb208b7692466db139222032771c1de1ec645d5bf1492bc60ef90e  energy/paced/paced-h22ctl-n16.json  TIMING entry 4b on xbabe0 (capacity test), energy_bench receipt; events stay on xbabe0 under ~/jsr-data/opponents/energy/runs/out/paced/
