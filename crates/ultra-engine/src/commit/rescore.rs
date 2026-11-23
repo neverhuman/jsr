@@ -1,96 +1,8 @@
-//! Separate-vocabulary CTC forward rescoring and word-level Minimum Bayes Risk (MBR) selection
-//! for the H45 endpoint commit pass (`crate::commit`).
-//!
-//! Correctness invariants:
-//! 1. **Separate CTC vocabulary**: CTC rescoring always retokenizes candidate text into the
-//!    checkpoint's own [`CtcVocab`]; RNN-T token IDs are never passed into CTC forward scoring.
-//! 2. **Impossible CTC paths receive infinite cost**: OOV text, blank targets, or sequences with
-//!    `num_frames < targets.len() + adjacent_repeats` return `f32::NEG_INFINITY` log-prob.
+//! CTC forward log-probability and word-level Minimum Bayes Risk (MBR) selection for H45.
 
-use std::collections::BTreeMap;
-
-use crate::EngineError;
-
-/// Separate CTC vocabulary used to retokenize candidate text before CTC forward scoring.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CtcVocab {
-    blank_id: usize,
-    vocab_size: usize,
-    uses_sp_marker: bool,
-    pieces: BTreeMap<String, usize>,
-    max_piece_bytes: usize,
-}
-
-impl CtcVocab {
-    pub fn new(blank_id: usize, tokens: Vec<String>) -> Result<Self, EngineError> {
-        let vocab_size = tokens.len();
-        if vocab_size == 0 || blank_id >= vocab_size {
-            return Err(EngineError::Format(format!(
-                "invalid CTC vocab: blank_id {blank_id} for {vocab_size} entries"
-            )));
-        }
-        let mut pieces = BTreeMap::new();
-        let (mut max_piece_bytes, mut uses_sp_marker) = (0usize, false);
-        for (id, piece) in tokens.into_iter().enumerate() {
-            if id == blank_id || piece.is_empty() {
-                continue;
-            }
-            uses_sp_marker |= piece.contains('\u{2581}');
-            max_piece_bytes = max_piece_bytes.max(piece.len());
-            if pieces.insert(piece, id).is_some() {
-                return Err(EngineError::Format(format!(
-                    "duplicate non-blank CTC piece at id {id}"
-                )));
-            }
-        }
-        Ok(Self {
-            blank_id,
-            vocab_size,
-            uses_sp_marker,
-            pieces,
-            max_piece_bytes,
-        })
-    }
-
-    pub fn blank_id(&self) -> usize {
-        self.blank_id
-    }
-    pub fn vocab_size(&self) -> usize {
-        self.vocab_size
-    }
-
-    /// Retokenize candidate text into separate CTC token IDs (greedy longest-match).
-    /// Returns `None` if any span is OOV in the CTC vocabulary.
-    pub fn retokenize_text(&self, text: &str) -> Option<Vec<usize>> {
-        let norm: Vec<&str> = text.split_whitespace().collect();
-        if norm.is_empty() {
-            return Some(Vec::new());
-        }
-        let encoded = if self.uses_sp_marker {
-            format!("\u{2581}{}", norm.join("\u{2581}"))
-        } else {
-            norm.join(" ")
-        };
-        let (mut out, mut pos) = (Vec::new(), 0usize);
-        while pos < encoded.len() {
-            let mut end = (pos + self.max_piece_bytes).min(encoded.len());
-            let mut matched = None;
-            while end > pos {
-                if encoded.is_char_boundary(end) {
-                    if let Some(&id) = self.pieces.get(&encoded[pos..end]) {
-                        matched = Some((id, end));
-                        break;
-                    }
-                }
-                end -= 1;
-            }
-            let (id, next_pos) = matched?;
-            out.push(id);
-            pos = next_pos;
-        }
-        Some(out)
-    }
-}
+use super::types::CommitConfig;
+use super::vocab::CtcVocab;
+use crate::{Engine, EngineStream};
 
 /// Exact word-level Levenshtein edit distance.
 pub fn word_edit_distance(a: &[String], b: &[String]) -> usize {
@@ -98,8 +10,7 @@ pub fn word_edit_distance(a: &[String], b: &[String]) -> usize {
     if n == 0 || m == 0 {
         return n + m;
     }
-    let mut prev: Vec<usize> = (0..=m).collect();
-    let mut curr = vec![0usize; m + 1];
+    let (mut prev, mut curr): (Vec<usize>, Vec<usize>) = ((0..=m).collect(), vec![0; m + 1]);
     for i in 1..=n {
         curr[0] = i;
         for j in 1..=m {
@@ -126,8 +37,7 @@ pub fn mbr_select(candidates: &[(Vec<String>, f32)]) -> usize {
     if !max_s.is_finite() {
         return 0;
     }
-    let mut probs = vec![0.0f64; n];
-    let mut sum_p = 0.0f64;
+    let (mut probs, mut sum_p) = (vec![0.0f64; n], 0.0f64);
     for (i, (_, s)) in candidates.iter().enumerate() {
         if s.is_finite() {
             probs[i] = f64::from(*s - max_s).exp();
@@ -154,8 +64,8 @@ pub fn mbr_select(candidates: &[(Vec<String>, f32)]) -> usize {
         if !candidates[i].1.is_finite() {
             continue;
         }
-        let r_diff = risks[i] - risks[best];
-        if r_diff < -1e-12 || (r_diff.abs() <= 1e-12 && candidates[i].1 > candidates[best].1) {
+        let d = risks[i] - risks[best];
+        if d < -1e-12 || (d.abs() <= 1e-12 && candidates[i].1 > candidates[best].1) {
             best = i;
         }
     }
@@ -189,8 +99,6 @@ fn logaddexp_f64(a: f64, b: f64) -> f64 {
 }
 
 /// Exact CTC forward log-probability over `[num_frames][vocab_size]` log-probs.
-/// Assigns `f32::NEG_INFINITY` (infinite cost) to any impossible path (invalid target, blank in
-/// targets, or `num_frames < targets.len() + adjacent_repeats`).
 pub fn ctc_forward_logp(
     log_probs: &[f32],
     num_frames: usize,
@@ -228,11 +136,11 @@ pub fn ctc_forward_logp(
         }
     };
     let mut prev = vec![f64::NEG_INFINITY; ext_len];
+    let mut curr = vec![f64::NEG_INFINITY; ext_len];
     prev[0] = emit(0, blank_id);
     if !targets.is_empty() {
         prev[1] = emit(0, targets[0]);
     }
-    let mut curr = vec![f64::NEG_INFINITY; ext_len];
     for t in 1..num_frames {
         curr.fill(f64::NEG_INFINITY);
         for s in 0..ext_len {
@@ -276,4 +184,40 @@ pub fn ctc_rescore_text(vocab: &CtcVocab, log_probs: &[f32], num_frames: usize, 
         vocab.blank_id(),
         &ids,
     )
+}
+
+pub(crate) fn select_commit_hyp(
+    eng: &Engine,
+    stream: &EngineStream,
+    cfg: CommitConfig,
+    ctc: Option<(&CtcVocab, &[f32], usize)>,
+) -> (String, usize) {
+    let Some(beam) = &stream.dec.beam else {
+        return (eng.text(stream), 0);
+    };
+    if beam.hyps.len() <= 1 {
+        return (eng.text(stream), 0);
+    }
+    let mut texts = Vec::with_capacity(beam.hyps.len());
+    let mut cands = Vec::with_capacity(beam.hyps.len());
+    for hy in &beam.hyps {
+        let ids: Vec<i64> = hy.tokens.iter().map(|&t| i64::from(t)).collect();
+        let text = eng.model.tokens.decode_ids(&ids);
+        let score = ctc.map_or(hy.score, |(vocab, lp, frames)| {
+            let ctc_lp = ctc_rescore_text(vocab, lp, frames, &text);
+            combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
+        });
+        texts.push(text.clone());
+        cands.push((text.split_whitespace().map(str::to_owned).collect(), score));
+    }
+    let idx = if cfg.mbr_enabled {
+        mbr_select(&cands)
+    } else {
+        cands
+            .iter()
+            .enumerate()
+            .max_by(|(ia, a), (ib, b)| a.1.total_cmp(&b.1).then_with(|| ib.cmp(ia)))
+            .map_or(0, |(i, _)| i)
+    };
+    (texts.swap_remove(idx), idx)
 }

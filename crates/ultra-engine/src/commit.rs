@@ -1,129 +1,29 @@
 //! H45 dual-pass endpoint commit pass: fast provisional streaming (`c=4`, 160 ms) paired with
-//! an endpoint commit re-decode (`c=16`, 640 ms) over buffered PCM using the same `Arc<Model>`
-//! weights, optional `320 ms` trailing silence pad, separate-vocab CTC rescoring, and MBR.
-//!
-//! Correctness invariants:
-//! 1. **Separate CTC vocabulary**: CTC rescoring always retokenizes candidate text into the
-//!    checkpoint's own [`CtcVocab`]; RNN-T token IDs are never passed into CTC forward scoring.
-//! 2. **Impossible CTC paths receive infinite cost**: OOV text, blank targets, or sequences with
-//!    `num_frames < targets.len() + adjacent_repeats` return `f32::NEG_INFINITY` log-prob.
-//! 3. **Immutable committed prefix**: [`CommitPassSession::committed_prefix`] is append-only;
-//!    an endpoint commit may revise only the active uncommitted segment.
+//! an endpoint commit re-decode (`c=16`, 640 ms) over bounded buffered PCM using the same
+//! `Arc<Model>` weights, optional `320 ms` trailing silence pad, real `ultra_core::events::Emitter`
+//! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
 
 mod rescore;
+mod spm;
+mod spm_proto;
+mod types;
+mod vocab;
 
 use std::time::Instant;
 
-use serde::{Deserialize, Serialize};
+use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
 pub use rescore::{
     combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, word_edit_distance,
-    CtcVocab,
 };
-
-/// Default audio sample rate in Hz (`16 kHz`).
-pub const DEFAULT_SAMPLE_RATE: usize = 16_000;
-/// Default trailing silence pad at utterance endpoints (`320 ms` at `16 kHz`).
-pub const DEFAULT_TAIL_PAD_SAMPLES: usize = 5_120;
-
-/// Configuration for the H45 endpoint commit pass.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct CommitConfig {
-    pub commit_chunk: usize,
-    pub tail_pad_samples: usize,
-    pub beam_size: usize,
-    pub ctc_weight: f32,
-    pub mbr_enabled: bool,
-}
-
-impl Default for CommitConfig {
-    fn default() -> Self {
-        Self {
-            commit_chunk: 16,
-            tail_pad_samples: DEFAULT_TAIL_PAD_SAMPLES,
-            beam_size: 1,
-            ctc_weight: 0.0,
-            mbr_enabled: false,
-        }
-    }
-}
-
-impl CommitConfig {
-    pub fn validate(&self) -> Result<(), EngineError> {
-        if !(1..=64).contains(&self.commit_chunk) {
-            return Err(EngineError::Shape(format!(
-                "commit_chunk {} not in 1..=64",
-                self.commit_chunk
-            )));
-        }
-        if !(1..=16).contains(&self.beam_size) {
-            return Err(EngineError::Shape(format!(
-                "beam_size {} not in 1..=16",
-                self.beam_size
-            )));
-        }
-        if !self.ctc_weight.is_finite() || self.ctc_weight < 0.0 {
-            return Err(EngineError::Format(format!(
-                "invalid ctc_weight {}",
-                self.ctc_weight
-            )));
-        }
-        Ok(())
-    }
-}
-
-/// Streaming transcript event separating fast provisional output from committed endpoint output.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CommitEvent {
-    Provisional {
-        prefix: String,
-        text: String,
-        audio_ms: f64,
-    },
-    Committed {
-        prefix: String,
-        provisional: String,
-        text: String,
-        revised: bool,
-        commit_ms: f64,
-        audio_ms: f64,
-    },
-}
-
-/// Output of [`CommitPassSession::commit_endpoint`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CommitResult {
-    pub provisional: String,
-    pub committed: String,
-    pub committed_prefix: String,
-    pub revised: bool,
-    pub commit_wall_ms: f64,
-    pub audio_ms: f64,
-    pub selected_hyp: usize,
-}
-
-impl CommitResult {
-    pub fn into_event(self) -> CommitEvent {
-        CommitEvent::Committed {
-            prefix: self.committed_prefix,
-            provisional: self.provisional,
-            text: self.committed,
-            revised: self.revised,
-            commit_ms: self.commit_wall_ms,
-            audio_ms: self.audio_ms,
-        }
-    }
-}
-
-/// Append `tail_pad_samples` zero samples of trailing silence to `pcm`.
-pub fn pad_tail_silence(pcm: &[i16], tail_pad_samples: usize) -> Vec<i16> {
-    let mut out = Vec::with_capacity(pcm.len() + tail_pad_samples);
-    out.extend_from_slice(pcm);
-    out.resize(pcm.len() + tail_pad_samples, 0);
-    out
-}
+pub use spm::{SpmModelType, SpmTokenizer};
+pub use types::{
+    pad_tail_silence, reconcile_immutable_suffix, CommitConfig, CommitEvent, CommitResult,
+    DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE, DEFAULT_TAIL_PAD_SAMPLES,
+};
+pub use vocab::CtcVocab;
 
 fn drain_stream(eng: &Engine, s: &mut EngineStream, ws: &mut Workspace) -> Result<(), EngineError> {
     while eng.decode(&mut [s], ws)? > 0 {}
@@ -131,20 +31,38 @@ fn drain_stream(eng: &Engine, s: &mut EngineStream, ws: &mut Workspace) -> Resul
 }
 
 /// Stateful dual-pass streaming session sharing one loaded `Arc<Model>` across provisional (`c=4`)
-/// and endpoint commit (`c=16`) passes while preserving an immutable committed prefix.
+/// and endpoint commit (`c=16`) passes with bounded PCM retention and transcript-ledger events.
 #[derive(Debug)]
 pub struct CommitPassSession {
     provisional_engine: Engine,
     commit_engine: Engine,
     cfg: CommitConfig,
+    stream_id: String,
+    model_config_id: String,
     stream: EngineStream,
     pcm_buf: Vec<i16>,
+    pcm_truncated: bool,
+    dropped_pcm_samples: u64,
+    segment_samples: u64,
+    total_samples: u64,
+    segment_start_sample: u64,
+    segment_open: bool,
     ws: Workspace,
+    emitter: Emitter,
     committed_prefix: String,
 }
 
 impl CommitPassSession {
     pub fn new(engine: Engine, cfg: CommitConfig) -> Result<Self, EngineError> {
+        Self::with_stream_id(engine, cfg, "h45-commit", "h45-commit-v1")
+    }
+
+    pub fn with_stream_id(
+        engine: Engine,
+        cfg: CommitConfig,
+        stream_id: &str,
+        model_config_id: &str,
+    ) -> Result<Self, EngineError> {
         cfg.validate()?;
         let mut commit_engine = engine
             .clone()
@@ -157,9 +75,18 @@ impl CommitPassSession {
             provisional_engine: engine,
             commit_engine,
             cfg,
+            stream_id: stream_id.to_owned(),
+            model_config_id: model_config_id.to_owned(),
             stream,
             pcm_buf: Vec::new(),
+            pcm_truncated: false,
+            dropped_pcm_samples: 0,
+            segment_samples: 0,
+            total_samples: 0,
+            segment_start_sample: 0,
+            segment_open: false,
             ws: Workspace::default(),
+            emitter: Emitter::new(stream_id, model_config_id),
             committed_prefix: String::new(),
         })
     }
@@ -176,19 +103,44 @@ impl CommitPassSession {
     pub fn committed_prefix(&self) -> &str {
         &self.committed_prefix
     }
+    pub fn active_immutable(&self) -> &str {
+        if self.segment_open {
+            self.emitter.immutable()
+        } else {
+            ""
+        }
+    }
     pub fn provisional_text(&self) -> String {
         self.provisional_engine.text(&self.stream)
     }
     pub fn buffered_samples(&self) -> usize {
         self.pcm_buf.len()
     }
+    pub fn pcm_truncated(&self) -> bool {
+        self.pcm_truncated
+    }
+    pub fn dropped_pcm_samples(&self) -> u64 {
+        self.dropped_pcm_samples
+    }
+    pub fn total_samples(&self) -> u64 {
+        self.total_samples
+    }
+    pub fn segment_sample_range(&self) -> (u64, u64) {
+        (self.segment_start_sample, self.total_samples)
+    }
     pub fn audio_ms(&self) -> f64 {
-        self.pcm_buf.len() as f64 * 1000.0 / DEFAULT_SAMPLE_RATE as f64
+        self.segment_samples as f64 * 1000.0 / DEFAULT_SAMPLE_RATE as f64
     }
 
     pub fn accept_i16(&mut self, pcm: &[i16]) -> Result<CommitEvent, EngineError> {
         self.stream.accept_i16(pcm)?;
-        self.pcm_buf.extend_from_slice(pcm);
+        let dropped = types::push_bounded_pcm(&mut self.pcm_buf, pcm, self.cfg.max_pcm_samples);
+        if dropped > 0 {
+            self.dropped_pcm_samples += dropped;
+            self.pcm_truncated = true;
+        }
+        self.segment_samples += pcm.len() as u64;
+        self.total_samples += pcm.len() as u64;
         drain_stream(&self.provisional_engine, &mut self.stream, &mut self.ws)?;
         Ok(CommitEvent::Provisional {
             prefix: self.committed_prefix.clone(),
@@ -197,8 +149,32 @@ impl CommitPassSession {
         })
     }
 
+    pub fn preview_event(&mut self, now_ns: u64) -> Result<TranscriptEvent, EngineError> {
+        let suffix = reconcile_immutable_suffix(self.active_immutable(), &self.provisional_text());
+        let ev = self
+            .emitter
+            .preview(now_ns, &suffix, self.total_samples)
+            .map_err(|e| EngineError::Lifecycle(e.to_string()))?;
+        self.segment_open = true;
+        Ok(ev)
+    }
+
+    pub fn precommit_active_prefix(
+        &mut self,
+        now_ns: u64,
+        commit_bytes: usize,
+    ) -> Result<TranscriptEvent, EngineError> {
+        let suffix = reconcile_immutable_suffix(self.active_immutable(), &self.provisional_text());
+        let ev = self
+            .emitter
+            .commit(now_ns, &suffix, commit_bytes, self.total_samples)
+            .map_err(|e| EngineError::Lifecycle(e.to_string()))?;
+        self.segment_open = true;
+        Ok(ev)
+    }
+
     pub fn commit_endpoint(&mut self) -> Result<CommitResult, EngineError> {
-        self.commit_inner(None)
+        Ok(self.commit_inner(0, None)?.0)
     }
 
     pub fn commit_endpoint_with_ctc(
@@ -207,28 +183,65 @@ impl CommitPassSession {
         ctc_log_probs: &[f32],
         ctc_frames: usize,
     ) -> Result<CommitResult, EngineError> {
-        self.commit_inner(Some((ctc_vocab, ctc_log_probs, ctc_frames)))
+        Ok(self
+            .commit_inner(0, Some((ctc_vocab, ctc_log_probs, ctc_frames)))?
+            .0)
+    }
+
+    pub fn commit_endpoint_event(
+        &mut self,
+        now_ns: u64,
+    ) -> Result<(CommitResult, TranscriptEvent), EngineError> {
+        self.commit_inner(now_ns, None)
+    }
+
+    pub fn commit_endpoint_event_with_ctc(
+        &mut self,
+        now_ns: u64,
+        ctc_vocab: &CtcVocab,
+        ctc_log_probs: &[f32],
+        ctc_frames: usize,
+    ) -> Result<(CommitResult, TranscriptEvent), EngineError> {
+        self.commit_inner(now_ns, Some((ctc_vocab, ctc_log_probs, ctc_frames)))
     }
 
     fn commit_inner(
         &mut self,
+        now_ns: u64,
         ctc: Option<(&CtcVocab, &[f32], usize)>,
-    ) -> Result<CommitResult, EngineError> {
-        let audio_ms = self.audio_ms();
+    ) -> Result<(CommitResult, TranscriptEvent), EngineError> {
+        let (audio_ms, pcm_truncated) = (self.audio_ms(), self.pcm_truncated);
         self.stream.input_finished();
         drain_stream(&self.provisional_engine, &mut self.stream, &mut self.ws)?;
         let provisional = self.provisional_engine.text(&self.stream);
         let t0 = Instant::now();
-        let mut cs = self.commit_engine.create_stream();
-        cs.accept_i16(&self.pcm_buf)?;
-        if self.cfg.tail_pad_samples > 0 {
-            cs.accept_i16(&vec![0i16; self.cfg.tail_pad_samples])?;
-        }
-        cs.input_finished();
-        drain_stream(&self.commit_engine, &mut cs, &mut self.ws)?;
-        let (committed, selected_hyp) = self.select_commit_hyp(&cs, ctc);
+        let (raw_committed, selected_hyp) = if pcm_truncated {
+            (provisional.clone(), 0)
+        } else {
+            let mut cs = self.commit_engine.create_stream();
+            cs.accept_i16(&self.pcm_buf)?;
+            if self.cfg.tail_pad_samples > 0 {
+                cs.accept_i16(&vec![0i16; self.cfg.tail_pad_samples])?;
+            }
+            cs.input_finished();
+            drain_stream(&self.commit_engine, &mut cs, &mut self.ws)?;
+            rescore::select_commit_hyp(&self.commit_engine, &cs, self.cfg, ctc)
+        };
         let commit_wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
-        let revised = committed != provisional;
+        let active_imm = self.active_immutable().to_owned();
+        let suffix = reconcile_immutable_suffix(&active_imm, &raw_committed);
+        let committed = format!("{active_imm}{suffix}");
+        let proc = ProcessingEvidence {
+            accepted_through_sample: self.total_samples,
+            required_processed_through_sample: self.total_samples,
+            flushed: true,
+        };
+        let ev = self
+            .emitter
+            .finalize(now_ns, &suffix, self.total_samples, proc)
+            .map_err(|e| EngineError::Lifecycle(e.to_string()))?;
+        self.segment_open = false;
+        let revised = committed.trim() != provisional.trim();
         let trimmed = committed.trim();
         if !trimmed.is_empty() {
             if !self.committed_prefix.is_empty() {
@@ -238,61 +251,35 @@ impl CommitPassSession {
         }
         let committed_prefix = self.committed_prefix.clone();
         self.reset_segment();
-        Ok(CommitResult {
-            provisional,
-            committed,
-            committed_prefix,
-            revised,
-            commit_wall_ms,
-            audio_ms,
-            selected_hyp,
-        })
+        Ok((
+            CommitResult {
+                provisional,
+                committed,
+                committed_prefix,
+                revised,
+                pcm_truncated,
+                commit_wall_ms,
+                audio_ms,
+                selected_hyp,
+            },
+            ev,
+        ))
     }
 
-    fn select_commit_hyp(
-        &self,
-        stream: &EngineStream,
-        ctc: Option<(&CtcVocab, &[f32], usize)>,
-    ) -> (String, usize) {
-        let Some(beam) = &stream.dec.beam else {
-            return (self.commit_engine.text(stream), 0);
-        };
-        if beam.hyps.len() <= 1 {
-            return (self.commit_engine.text(stream), 0);
-        }
-        let mut texts = Vec::with_capacity(beam.hyps.len());
-        let mut cands = Vec::with_capacity(beam.hyps.len());
-        for hy in &beam.hyps {
-            let ids: Vec<i64> = hy.tokens.iter().map(|&t| i64::from(t)).collect();
-            let text = self.commit_engine.model.tokens.decode_ids(&ids);
-            let score = ctc.map_or(hy.score, |(vocab, lp, frames)| {
-                let ctc_lp = ctc_rescore_text(vocab, lp, frames, &text);
-                combine_ctc_rnnt_scores(hy.score, ctc_lp, self.cfg.ctc_weight)
-            });
-            texts.push(text.clone());
-            cands.push((text.split_whitespace().map(str::to_owned).collect(), score));
-        }
-        let idx = if self.cfg.mbr_enabled {
-            mbr_select(&cands)
-        } else {
-            cands
-                .iter()
-                .enumerate()
-                .max_by(|(ia, a), (ib, b)| a.1.total_cmp(&b.1).then_with(|| ib.cmp(ia)))
-                .map_or(0, |(i, _)| i)
-        };
-        (texts.swap_remove(idx), idx)
-    }
-
-    /// Clear the active segment buffer and provisional stream without touching `committed_prefix`.
     pub fn reset_segment(&mut self) {
         self.pcm_buf.clear();
+        self.pcm_truncated = false;
+        self.dropped_pcm_samples = 0;
+        self.segment_samples = 0;
+        self.segment_start_sample = self.total_samples;
+        self.segment_open = false;
         self.stream = self.provisional_engine.create_stream();
     }
 
-    /// Clear both active segment state and the accumulated `committed_prefix`.
     pub fn reset_all(&mut self) {
         self.committed_prefix.clear();
+        self.total_samples = 0;
+        self.emitter = Emitter::new(&self.stream_id, &self.model_config_id);
         self.reset_segment();
     }
 }
