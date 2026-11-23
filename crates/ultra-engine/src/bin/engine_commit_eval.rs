@@ -8,7 +8,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::{json, Value};
-use ultra_engine::commit::{CommitConfig, CommitLmConfig, CommitPassSession, DEFAULT_SAMPLE_RATE};
+use ultra_engine::commit::{
+    CommitConfig, CommitLmConfig, CommitPassSession, DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE,
+};
 use ultra_engine::panel::Panel;
 use ultra_engine::workload::Workload;
 use ultra_engine::{Engine, Isa, Model, Precision};
@@ -21,6 +23,7 @@ struct Args {
     out: PathBuf,
     commit_chunk: usize,
     tail_pad_ms: usize,
+    commit_max_audio_s: f64,
     threads: usize,
     precision: Precision,
     limit: usize,
@@ -41,6 +44,7 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
         out: PathBuf::new(),
         commit_chunk: 16,
         tail_pad_ms: 320,
+        commit_max_audio_s: DEFAULT_MAX_PCM_SAMPLES as f64 / DEFAULT_SAMPLE_RATE as f64,
         threads: 1,
         precision: Precision::Int8,
         limit: 0,
@@ -60,6 +64,9 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
             "--out" => a.out = v()?.into(),
             "--commit-chunk" => a.commit_chunk = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--tail-pad-ms" => a.tail_pad_ms = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            "--commit-max-audio-s" | "--commit-max-segment-s" => {
+                a.commit_max_audio_s = v()?.parse().map_err(|e| format!("{k}: {e}"))?
+            }
             "--threads" => a.threads = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
             "--limit" => a.limit = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
@@ -83,6 +90,13 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
     }
     if a.threads == 0 {
         return Err("--threads must be positive".into());
+    }
+    if !a.commit_max_audio_s.is_finite()
+        || a.commit_max_audio_s <= 0.0
+        || (a.commit_max_audio_s * DEFAULT_SAMPLE_RATE as f64).round() < 1.0
+        || a.commit_max_audio_s > 3600.0
+    {
+        return Err("--commit-max-audio-s must be finite and in (0, 3600]".into());
     }
     Ok(a)
 }
@@ -182,9 +196,11 @@ fn run(a: &Args) -> Result<Value, String> {
     let beam = a
         .commit_beam
         .unwrap_or(if a.commit_lm.is_some() { 4 } else { 1 });
+    let max_pcm_samples = (a.commit_max_audio_s * DEFAULT_SAMPLE_RATE as f64).round() as usize;
     let cfg = CommitConfig {
         commit_chunk: a.commit_chunk,
         tail_pad_samples: a.tail_pad_ms * DEFAULT_SAMPLE_RATE / 1000,
+        max_pcm_samples,
         beam_size: beam,
         ..CommitConfig::default()
     };
@@ -215,7 +231,7 @@ fn run(a: &Args) -> Result<Value, String> {
     }
     let mut out = BufWriter::new(File::create(&a.out).map_err(|e| e.to_string())?);
     let (mut tot_s, mut tot_prov, mut tot_commit) = (0.0, 0.0, 0.0);
-    let (mut revised, mut cms) = (0usize, Vec::with_capacity(items.len()));
+    let (mut revised, mut truncated, mut cms) = (0usize, 0usize, Vec::with_capacity(items.len()));
     for (uid, pcm) in &items {
         let t0 = Instant::now();
         for pkt in pcm.chunks(320) {
@@ -232,12 +248,22 @@ fn run(a: &Args) -> Result<Value, String> {
         tot_prov += prov_ms;
         tot_commit += r.commit_wall_ms;
         revised += usize::from(r.revised);
+        truncated += usize::from(r.pcm_truncated);
         cms.push(r.commit_wall_ms);
-        writeln!(out, "{}", json!({"uid": uid, "provisional": r.provisional, "committed": r.committed, "revised": r.revised, "audio_s": audio_s, "prov_wall_ms": prov_ms, "commit_wall_ms": r.commit_wall_ms}))
+        writeln!(out, "{}", json!({"uid": uid, "provisional": r.provisional, "committed": r.committed, "revised": r.revised, "pcm_truncated": r.pcm_truncated, "audio_s": audio_s, "prov_wall_ms": prov_ms, "commit_wall_ms": r.commit_wall_ms}))
             .map_err(|e| e.to_string())?;
     }
     cms.sort_by(f64::total_cmp);
-    let summary = json!({"summary": true, "utterances": items.len(), "revised_count": revised, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name(), "commit_lm_path": a.commit_lm, "commit_beam": beam, "lm_scale": a.lm_scale, "lodr_scale": a.lodr_scale, "token_bonus": a.token_bonus});
+    let mut summary = json!({"summary": true, "utterances": items.len(), "revised_count": revised, "pcm_truncated_count": truncated, "total_audio_s": tot_s, "total_prov_ms": tot_prov, "total_commit_ms": tot_commit, "revised_pct": 100.0 * revised as f64 / items.len() as f64, "p50_commit_ms": pct(&cms, 0.50), "p95_commit_ms": pct(&cms, 0.95), "commit_chunk": a.commit_chunk, "tail_pad_ms": a.tail_pad_ms, "commit_max_audio_s": a.commit_max_audio_s, "threads": a.threads, "precision": format!("{:?}", a.precision), "isa": isa.name()});
+    if a.commit_lm.is_some() || a.commit_beam.is_some() {
+        if let Some(map) = summary.as_object_mut() {
+            map.insert("commit_lm_path".into(), json!(a.commit_lm));
+            map.insert("commit_beam".into(), json!(beam));
+            map.insert("lm_scale".into(), json!(a.lm_scale));
+            map.insert("lodr_scale".into(), json!(a.lodr_scale));
+            map.insert("token_bonus".into(), json!(a.token_bonus));
+        }
+    }
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;
     out.flush().map_err(|e| e.to_string())?;
     Ok(summary)
@@ -261,14 +287,40 @@ mod tests {
     use super::*;
     #[test]
     fn commit_eval_cli_args_and_percentiles() {
-        let s = "--model m --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --threads 2 --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.7 --lodr-scale 0.525 --token-bonus 0.1";
+        let base = parse_args(
+            "--model m --manifest in.jsonl --out o.jsonl"
+                .split_whitespace()
+                .map(String::from),
+        )
+        .expect("defaults");
+        assert!((base.commit_max_audio_s - 40.0).abs() < 1e-9);
+
+        let s = "--model m --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --commit-max-audio-s 45.5 --threads 2 --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.7 --lodr-scale 0.525 --token-bonus 0.1";
         let a = parse_args(s.split_whitespace().map(String::from)).expect("parse");
         assert_eq!((a.commit_chunk, a.tail_pad_ms, a.threads), (16, 320, 2));
+        assert!((a.commit_max_audio_s - 45.5).abs() < 1e-9);
         assert_eq!(a.commit_lm, Some(PathBuf::from("M5.ulm")));
         assert_eq!(
             (a.commit_beam, a.lm_scale, a.lodr_scale, a.token_bonus),
             (Some(16), 0.7, 0.525, 0.1)
         );
+
+        let alias = parse_args(
+            "--model m --manifest in.jsonl --out o.jsonl --commit-max-segment-s 36"
+                .split_whitespace()
+                .map(String::from),
+        )
+        .expect("alias");
+        assert!((alias.commit_max_audio_s - 36.0).abs() < 1e-9);
+
+        for bad in ["0", "-5", "NaN", "inf", "4000"] {
+            assert!(parse_args(
+                format!("--model m --manifest in.jsonl --out o.jsonl --commit-max-audio-s {bad}")
+                    .split_whitespace()
+                    .map(String::from)
+            )
+            .is_err());
+        }
         assert!(parse_args(["--model".into(), "m".into()]).is_err());
         let xs = [10.0, 20.0, 30.0, 40.0, 50.0];
         assert_eq!((pct(&xs, 0.50), pct(&xs, 0.95)), (30.0, 50.0));

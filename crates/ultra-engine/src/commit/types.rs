@@ -7,8 +7,9 @@ use crate::EngineError;
 
 pub const DEFAULT_SAMPLE_RATE: usize = 16_000;
 pub const DEFAULT_TAIL_PAD_SAMPLES: usize = 5_120;
-/// Bounded per-segment PCM retention cap (`30 s` at `16 kHz`) preventing unbounded memory growth.
-pub const DEFAULT_MAX_PCM_SAMPLES: usize = 30 * DEFAULT_SAMPLE_RATE;
+/// Bounded per-segment PCM retention cap (`40 s` at `16 kHz`) preventing unbounded memory growth
+/// while covering all canonical LibriSpeech dev utterances (`max 35.16 s`).
+pub const DEFAULT_MAX_PCM_SAMPLES: usize = 40 * DEFAULT_SAMPLE_RATE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CommitConfig {
