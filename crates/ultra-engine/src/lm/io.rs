@@ -12,6 +12,9 @@ use super::{LevelVals, NgramLm, TrieLevel, MAX_ORDER};
 use crate::EngineError;
 
 const MAGIC: &[u8; 8] = b"ULTRLM01";
+const FLAG_QUANTIZED: u32 = 1 << 0;
+const FLAG_HAS_LODR: u32 = 1 << 1;
+const FLAG_HAS_EOS: u32 = 1 << 2;
 
 pub(super) fn save(lm: &NgramLm, path: &Path) -> Result<(), EngineError> {
     save_version(lm, path, 2)
@@ -27,7 +30,9 @@ fn save_version(lm: &NgramLm, path: &Path, version: u32) -> Result<(), EngineErr
     write_u32(&mut payload, version);
     write_u32(&mut payload, lm.vocab as u32);
     write_u32(&mut payload, lm.order as u32);
-    let flags: u32 = u32::from(lm.quantized) | (u32::from(!lm.lodr_bigram.is_empty()) << 1);
+    let flags: u32 = (u32::from(lm.quantized) * FLAG_QUANTIZED)
+        | (u32::from(!lm.lodr_bigram.is_empty()) * FLAG_HAS_LODR)
+        | (u32::from(lm.has_eos) * FLAG_HAS_EOS);
     write_u32(&mut payload, flags);
     write_f32(&mut payload, lm.max_lm_logp);
 
@@ -132,14 +137,20 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
         )));
     }
     let flags = cur.read_u32()?;
-    let quantized = (flags & 1) != 0;
-    let has_lodr = (flags & 2) != 0;
+    let quantized = (flags & FLAG_QUANTIZED) != 0;
+    let has_lodr = (flags & FLAG_HAS_LODR) != 0;
+    let has_eos = (flags & FLAG_HAS_EOS) != 0;
+    if (flags & !(FLAG_QUANTIZED | FLAG_HAS_LODR | FLAG_HAS_EOS)) != 0 {
+        return Err(EngineError::Unsupported(format!(
+            "unsupported LM flags {flags:#x}"
+        )));
+    }
     let max_lm_logp = cur.read_f32()?;
     if !max_lm_logp.is_finite() {
         return Err(EngineError::Format("non-finite max_lm_logp".into()));
     }
 
-    let n_uni = vocab + 1;
+    let n_uni = vocab + 1 + usize::from(has_eos);
     let uni_prob = cur.read_f32_vec(n_uni)?;
     let uni_bow = cur.read_f32_vec(n_uni)?;
     let seen: Vec<bool> = cur.read_bytes(n_uni)?.iter().map(|&b| b != 0).collect();
@@ -152,7 +163,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     }
     let uni_child_off = cur.read_u32_vec(uco_len)?;
 
-    let tok_bits_default = BitVec::bits_needed(vocab as u32);
+    let tok_bits_default = BitVec::bits_needed((vocab + usize::from(has_eos)) as u32);
     let mut levels = Vec::with_capacity(order.saturating_sub(1));
     for lv_idx in 0..order.saturating_sub(1) {
         let n = cur.read_u32()? as usize;
@@ -210,7 +221,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
     }
 
     let lodr_bigram = if has_lodr {
-        cur.read_f32_vec(n_uni * vocab)?
+        cur.read_f32_vec((vocab + 1) * vocab)?
     } else {
         Vec::new()
     };
@@ -230,6 +241,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
         vocab,
         order,
         quantized,
+        has_eos,
         uni_prob,
         uni_bow,
         seen,

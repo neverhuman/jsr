@@ -12,32 +12,37 @@ use crate::EngineError;
 
 const LN_10: f32 = std::f32::consts::LN_10;
 
-pub(super) fn from_arpa_str(
+pub(super) fn from_arpa_str_with_eos(
     lm_arpa: &str,
     lodr_arpa: Option<&str>,
     vocab: usize,
     quantize_bits8: bool,
+    include_eos: bool,
 ) -> Result<NgramLm, EngineError> {
-    let lm_parsed = parse_arpa(lm_arpa.as_bytes(), vocab)?;
+    let lm_parsed = parse_arpa(lm_arpa.as_bytes(), vocab, include_eos)?;
     let lodr_table = match lodr_arpa {
-        Some(s) => build_lodr_dense(&parse_arpa(s.as_bytes(), vocab)?, vocab),
+        Some(s) => build_lodr_dense(&parse_arpa(s.as_bytes(), vocab, false)?, vocab),
         None => Vec::new(),
     };
-    build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8)
+    build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8, include_eos)
 }
 
-pub(super) fn from_arpa_files(
+pub(super) fn from_arpa_files_with_eos(
     lm_path: &Path,
     lodr_path: Option<&Path>,
     vocab: usize,
     quantize_bits8: bool,
+    include_eos: bool,
 ) -> Result<NgramLm, EngineError> {
-    let lm_parsed = parse_arpa(BufReader::new(File::open(lm_path)?), vocab)?;
+    let lm_parsed = parse_arpa(BufReader::new(File::open(lm_path)?), vocab, include_eos)?;
     let lodr_table = match lodr_path {
-        Some(p) => build_lodr_dense(&parse_arpa(BufReader::new(File::open(p)?), vocab)?, vocab),
+        Some(p) => build_lodr_dense(
+            &parse_arpa(BufReader::new(File::open(p)?), vocab, false)?,
+            vocab,
+        ),
         None => Vec::new(),
     };
-    build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8)
+    build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8, include_eos)
 }
 
 struct ParsedArpa {
@@ -48,7 +53,7 @@ struct ParsedArpa {
     ngrams: Vec<Vec<([u16; MAX_ORDER], f32, f32)>>,
 }
 
-fn parse_arpa_token(tok: &str, vocab: usize) -> Option<u16> {
+fn parse_arpa_token(tok: &str, vocab: usize, include_eos: bool) -> Option<u16> {
     if tok == "<unk>" || tok == "<UNK>" {
         return Some(0);
     }
@@ -56,14 +61,18 @@ fn parse_arpa_token(tok: &str, vocab: usize) -> Option<u16> {
         return Some(vocab as u16);
     }
     if tok == "</s>" {
-        return None;
+        return include_eos.then_some((vocab + 1) as u16);
     }
     let id: usize = tok.parse().ok()?;
     (id >= 1 && id < vocab).then_some(id as u16)
 }
 
-fn parse_arpa<R: BufRead>(mut reader: R, vocab: usize) -> Result<ParsedArpa, EngineError> {
-    let n_uni = vocab + 1;
+fn parse_arpa<R: BufRead>(
+    mut reader: R,
+    vocab: usize,
+    include_eos: bool,
+) -> Result<ParsedArpa, EngineError> {
+    let n_uni = vocab + 1 + usize::from(include_eos);
     let mut uni_prob = vec![-20.0f32; n_uni];
     let mut uni_bow = vec![0.0f32; n_uni];
     let mut seen = vec![false; n_uni];
@@ -117,7 +126,7 @@ fn parse_arpa<R: BufRead>(mut reader: R, vocab: usize) -> Result<ParsedArpa, Eng
                     "short ARPA {section}-gram line: {s}"
                 )));
             };
-            match parse_arpa_token(tok, vocab) {
+            match parse_arpa_token(tok, vocab, include_eos) {
                 Some(id) => *slot = id,
                 None => {
                     skip = true;
@@ -165,10 +174,11 @@ fn build_from_parsed(
     lodr_bigram: Vec<f32>,
     vocab: usize,
     quantize_bits8: bool,
+    include_eos: bool,
 ) -> Result<NgramLm, EngineError> {
-    if vocab == 0 || vocab >= usize::from(u16::MAX) {
+    if vocab == 0 || vocab >= usize::from(u16::MAX) - 1 {
         return Err(EngineError::Format(format!(
-            "vocab must be in 1..65535 (got {vocab})"
+            "vocab must be in 1..65534 (got {vocab})"
         )));
     }
     let order = parsed.order;
@@ -179,7 +189,7 @@ fn build_from_parsed(
     }
     ensure_suffix_closure(&mut parsed);
 
-    let n_uni = vocab + 1;
+    let n_uni = vocab + 1 + usize::from(include_eos);
     let unk_prob = parsed.uni_prob[0];
     let mut uni_prob = vec![unk_prob; n_uni];
     let mut uni_bow = vec![0.0f32; n_uni];
@@ -191,7 +201,7 @@ fn build_from_parsed(
     }
     let mut max_lm_logp = f32::NEG_INFINITY;
     for (i, &p) in uni_prob.iter().enumerate() {
-        if i != vocab && p.is_finite() {
+        if i < vocab && p.is_finite() {
             max_lm_logp = max_lm_logp.max(p);
         }
     }
@@ -200,6 +210,7 @@ fn build_from_parsed(
             vocab,
             order,
             quantized: quantize_bits8,
+            has_eos: include_eos,
             uni_prob,
             uni_bow,
             seen: parsed.seen,
@@ -222,8 +233,8 @@ fn build_from_parsed(
         }
         entries.sort_unstable_by(|a, b| a.0[..o].cmp(&b.0[..o]));
         entries.dedup_by(|a, b| a.0[..o] == b.0[..o]);
-        for &(_, p, _) in &entries {
-            if p.is_finite() {
+        for &(k, p, _) in &entries {
+            if usize::from(k[0]) < vocab && p.is_finite() {
                 max_lm_logp = max_lm_logp.max(p);
             }
         }
@@ -280,8 +291,10 @@ fn build_from_parsed(
         };
         let vals = if quantize_bits8 {
             let (prob_lut, q_prob) = quantize_q8(&probs);
-            for &q in &q_prob {
-                max_lm_logp = max_lm_logp.max(prob_lut[usize::from(q)]);
+            for (idx, &q) in q_prob.iter().enumerate() {
+                if usize::from(cur_entries[idx].0[0]) < vocab {
+                    max_lm_logp = max_lm_logp.max(prob_lut[usize::from(q)]);
+                }
             }
             let (bow_lut, q_bow) = if is_leaf {
                 ([0.0f32; 256], Vec::new())
@@ -300,7 +313,8 @@ fn build_from_parsed(
                 bow: bows,
             }
         };
-        let tok_bits = BitVec::bits_needed(vocab as u32);
+        let max_tok = (vocab + usize::from(include_eos)) as u32;
+        let tok_bits = BitVec::bits_needed(max_tok);
         let tok_bv = BitVec::from_u16_slice(&tok, tok_bits);
         let child_off_bv = if child_off.is_empty() {
             BitVec::empty()
@@ -318,6 +332,7 @@ fn build_from_parsed(
         vocab,
         order,
         quantized: quantize_bits8,
+        has_eos: include_eos,
         uni_prob,
         uni_bow,
         seen: parsed.seen,

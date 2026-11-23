@@ -29,6 +29,7 @@ fn run() -> Result<(), String> {
     let mut out: Option<PathBuf> = None;
     let mut vocab: usize = 501;
     let mut quantize = true;
+    let mut include_eos = false;
 
     while let Some(k) = it.next() {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
@@ -40,6 +41,7 @@ fn run() -> Result<(), String> {
             "--vocab" => vocab = v()?.parse().map_err(|e| format!("--vocab: {e}"))?,
             "--fp32" => quantize = false,
             "--q8" => quantize = true,
+            "--include-eos" => include_eos = true,
             o => return Err(format!("unknown argument {o}")),
         }
     }
@@ -48,19 +50,22 @@ fn run() -> Result<(), String> {
     let t0 = Instant::now();
     let lm = match (repack, arpa) {
         (Some(src), None) => NgramLm::load(&src).map_err(|e| e.to_string())?,
-        (None, Some(arpa)) => NgramLm::from_arpa_files(&arpa, lodr.as_deref(), vocab, quantize)
-            .map_err(|e| e.to_string())?,
+        (None, Some(arpa)) => {
+            NgramLm::from_arpa_files_with_eos(&arpa, lodr.as_deref(), vocab, quantize, include_eos)
+                .map_err(|e| e.to_string())?
+        }
         (Some(_), Some(_)) => return Err("pass either --arpa or --repack, not both".into()),
         (None, None) => return Err("--arpa or --repack is required".into()),
     };
     lm.save(&out).map_err(|e| e.to_string())?;
     let file_bytes = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
     println!(
-        "packed ultra.lm-ngram/v2: order={} vocab={} quantized={} lodr={} max_logp={:.5} mem={:.2}MB file={:.2}MB elapsed={:.2}s -> {}",
+        "packed ultra.lm-ngram/v2: order={} vocab={} quantized={} lodr={} eos={} max_logp={:.5} mem={:.2}MB file={:.2}MB elapsed={:.2}s -> {}",
         lm.order,
         lm.vocab,
         lm.quantized,
         lm.has_lodr(),
+        lm.has_eos(),
         lm.max_lm_logp(),
         lm.memory_bytes() as f64 / 1e6,
         file_bytes as f64 / 1e6,
