@@ -15,10 +15,12 @@ mod arpa;
 mod bitvec;
 pub mod ffnn;
 mod ffnn_io;
+pub mod ilme;
 mod io;
 pub mod traits;
 
 pub use ffnn::{FfnnActivation, FfnnLm};
+pub use ilme::{IlmeArtifact, StatelessIlme, ILME_SCHEMA};
 pub use traits::TokenLm;
 
 use std::path::Path;

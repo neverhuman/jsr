@@ -6,7 +6,14 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use ultra_frontend::{TrainerLogMel, MEL_BINS};
+use ultra_gp::{chunk_bounds, FeatureRing};
+
+use super::lm_gate::{decode_enc_gated, CommitTokenLm, InternalLm, LmGateConfig};
+use crate::encoder::{encode_chunk, ChunkJob, EncState, EncWorkspace, Precision};
+use crate::kernels::Isa;
 use crate::lm::{LmConfig, NgramLm};
+use crate::model::Model;
 use crate::{Engine, EngineError};
 
 /// Endpoint-only LM shallow-fusion + LODR beam settings for [`super::CommitPassSession`].
@@ -101,4 +108,85 @@ impl super::CommitPassSession {
     pub fn has_commit_lm(&self) -> bool {
         self.commit_engine.lm.is_some()
     }
+}
+
+/// Extended Wave-1B endpoint LM + ILME + acoustic-confidence gate bundle.
+#[derive(Debug, Clone)]
+pub struct CommitLmGateConfig {
+    pub token_lm: Option<CommitTokenLm>,
+    pub internal_lm: InternalLm,
+    pub gate: LmGateConfig,
+}
+
+impl CommitLmGateConfig {
+    /// Run a closed-segment commit pass on raw PCM using `CommitTokenLm` + `InternalLm` + margin gate.
+    pub fn decode_pcm(
+        &self,
+        engine: &Engine,
+        commit_chunk: usize,
+        pcm: &[i16],
+        tail_pad_samples: usize,
+    ) -> Result<String, EngineError> {
+        let (enc, n_frames) = encode_pcm_frames(
+            &engine.model,
+            engine.isa,
+            engine.precision,
+            commit_chunk,
+            pcm,
+            tail_pad_samples,
+        )?;
+        let toks = decode_enc_gated(
+            &engine.model,
+            engine.isa,
+            engine.precision,
+            &enc,
+            n_frames,
+            self.token_lm.as_ref(),
+            &self.internal_lm,
+            &self.gate,
+        )?;
+        let ids: Vec<i64> = toks.into_iter().map(i64::from).collect();
+        Ok(engine.model.tokens.decode_ids(&ids))
+    }
+}
+
+/// Encode PCM (+ optional trailing silence pad) into projected encoder frames `[T, joiner]`.
+pub fn encode_pcm_frames(
+    model: &Model,
+    isa: Isa,
+    prec: Precision,
+    chunk: usize,
+    pcm: &[i16],
+    tail_pad_samples: usize,
+) -> Result<(Vec<f32>, usize), EngineError> {
+    let mut mel = TrainerLogMel::new(model.mel_cfg.clone());
+    let (mut rows, mut ring) = (Vec::new(), FeatureRing::new());
+    mel.push_i16_into(pcm, &mut rows);
+    ring.push_rows(&rows);
+    if tail_pad_samples > 0 {
+        rows.clear();
+        mel.push_i16_into(&vec![0i16; tail_pad_samples], &mut rows);
+        ring.push_rows(&rows);
+    }
+    let mut enc = EncState::new_with_kv_and_chunk(model, 1, false, chunk);
+    let (mut ws, mut feats, mut out, mut all) =
+        (EncWorkspace::default(), Vec::new(), Vec::new(), Vec::new());
+    let (mut nf, jn) = (0usize, model.arch.joiner);
+    while let Some((t0, t1)) = chunk_bounds(enc.t, ring.n_feat(), chunk, true) {
+        let n = t1 - t0;
+        let need = (4 * n + 3) * MEL_BINS;
+        if feats.len() < need {
+            feats.resize(need, 0.0);
+        }
+        ring.extract_chunk_into(t0, n, &mut feats[..need]);
+        let mut jobs = [ChunkJob {
+            state: &mut enc,
+            feats: &feats[..need],
+            n,
+        }];
+        encode_chunk(model, isa, prec, &mut jobs, &mut ws, &mut out, None)?;
+        all.extend_from_slice(&out[..n * jn]);
+        nf += n;
+    }
+    Ok((all, nf))
 }

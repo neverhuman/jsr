@@ -4,6 +4,8 @@
 //! transcript-ledger events, exact SentencePiece CTC rescoring, and word-level MBR.
 
 mod lm;
+pub mod lm_gate;
+mod lm_gate_beam;
 mod rescore;
 mod session_bias;
 mod spm;
@@ -17,7 +19,8 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{Engine, EngineError, EngineStream, Workspace};
 
-pub use lm::CommitLmConfig;
+pub use lm::{CommitLmConfig, CommitLmGateConfig};
+pub use lm_gate::{CommitTokenLm, InternalLm, LmGateConfig};
 pub use rescore::{
     combine_ctc_rnnt_scores, ctc_forward_logp, ctc_rescore_text, mbr_select, word_edit_distance,
 };
