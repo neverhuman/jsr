@@ -155,6 +155,7 @@ What existed when this was written: Q passes 1–2 on the Mac (exactness, accura
     - Its sha256 list is posted before any decode, and I check every file against it.
   - **Systems:** #77 at (500, 1500), gated vs its ungated twin, the same binary (5ca3583 arithmetic, or a head whose code diff from it is zero) and the same scorer.
   - **Rule:** count the added words (gated words the twin does not emit: same word, same gap, within 0.5 s; `scripts/gap_words_added.py`, with score_alwayson.py's gap assignment). The Garwood one-sided 95% upper bound on Q5b's hours only must be ≤ 0.10/h; with ≥ 50 h that allows ≤ 1 added word.
+  - **Exposure, fixed at 09:59Z before any Q5b hash was posted:** all of Q5b's hours, meaning the non-speech blocks plus the junction stream's full length. That is the lead's arithmetic (≥ 50 h allows ≤ 1 added word). The bound on non-speech time only (blocks plus the stream's gaps) is reported beside it.
   - **Outcomes:**
     - PASS: the false-word criterion is met for default-on.
     - FAIL: the gate stays default-off, and the boundary artifact needs a design amendment before any new false-word test.
