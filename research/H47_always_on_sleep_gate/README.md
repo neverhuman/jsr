@@ -127,6 +127,22 @@ What existed when this was written: Q passes 1–2 on the Mac (exactness, accura
   - **Q2:** mean over the three non-speech inputs of G ÷ U ≤ 0.02. **Q3:** incremental core-register joules (net of the idle floor) on the 5% cell, U ÷ G ≥ 2 on the mean of 3 repetitions and ≥ 1.8 on each; C1 ÷ G reported beside it. **Q6:** G ÷ U on the panel excerpt ≤ 1.05 at the one-sided 95% upper bound over repetitions (with 3 repetitions, the max is reported beside the mean).
 - **uclamp pacing (bench-open entry "H47-U", the designs' C-1):** B0 paced at 1× (bench-open's 14f protocol) under `uclampset -M u` for u ∈ {1024, 512, 256}, interleaved; optional unpaced arm with `--uclamp-max` (at R 500 / idle 1500). **Pass (fixed now):** adopt a clamp if core-register J per audio-s falls ≥ 15% against u = 1024 while stable-word lag p95 rises ≤ 10 ms.
 
+## Amendment 8 (2026-11-23, written before the runs it names): the gate at low input levels (the lead's 09:23Z item after the gain-stress trigger)
+- **Question:** how much do Sentinel-0's onset misses at low input level (its absolute floors sit near −72 dBFS) cost the session, beyond what the recogniser itself loses at that level?
+- **Cells:**
+  - (a) alwayson-bench's tier G panel at −10 / −20 / −30 dB. It is re-made on the Mac from tier A's `duty100_panel_Q` with the generator's transform (x · 10^(g/20), np.rint, int16 clip), and every result must match tier G's PCM sha256.
+  - (b) tier A's `T1_g3_Q` and `T2_g3_Q` (fricative and quiet onsets after 3 s of silence) at −20 / −30 / −40 dB, made with the same transform. That is the generator's T4 definition ("T1 + T2 at integer gain") on tier A's draw. For Q cells, scaling the rendered PCM equals rendering with the gain.
+  - The 0 dB rows are AO pass 3's runs.
+- **Arms:** PR #77 at 5ca3583, (500, 1500), gated (G) and ungated twin (U), identity on. Segments are re-decoded and scored as in Q pass 2 / 3.
+- **Measures per level:**
+  1. onsets the session missed: utterance starts outside every session segment, and the audio lost before the first segment that covers the item;
+  2. first-word recall G − U (speaker-cluster bootstrap);
+  3. WER G − U (ultra-score paired bootstrap);
+  4. wakes and recogniser duty.
+- **Reading rule (descriptive, no pass / fail):**
+  - At any level where G − U first-word recall is below −0.5 pp (Q4's margin) with its 95% upper bound below 0, the gate's absolute floors need recalibrating for quiet input (§5.6, C8) before always-on runs on quiet microphones.
+  - U at that level minus U at 0 dB is the recogniser's own loss, which an AGC after the gate would address.
+
 ## Results
 
 ### A0: what non-speech costs today (quiet xbabe0, bench-open entry 14e, 06:49–06:59Z; exploratory)
