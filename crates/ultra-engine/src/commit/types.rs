@@ -19,6 +19,7 @@ pub struct CommitConfig {
     pub beam_size: usize,
     pub ctc_weight: f32,
     pub mbr_enabled: bool,
+    pub mbr_temp: f32,
 }
 
 impl Default for CommitConfig {
@@ -30,6 +31,7 @@ impl Default for CommitConfig {
             beam_size: 1,
             ctc_weight: 0.0,
             mbr_enabled: false,
+            mbr_temp: 1.0,
         }
     }
 }
@@ -47,9 +49,9 @@ impl CommitConfig {
                 "max_pcm_samples must be positive".into(),
             ));
         }
-        if !(1..=16).contains(&self.beam_size) {
+        if !(1..=64).contains(&self.beam_size) {
             return Err(EngineError::Shape(format!(
-                "beam_size {} not in 1..=16",
+                "beam_size {} not in 1..=64",
                 self.beam_size
             )));
         }
@@ -57,6 +59,12 @@ impl CommitConfig {
             return Err(EngineError::Format(format!(
                 "invalid ctc_weight {}",
                 self.ctc_weight
+            )));
+        }
+        if !self.mbr_temp.is_finite() || self.mbr_temp <= 0.0 {
+            return Err(EngineError::Format(format!(
+                "invalid mbr_temp {}",
+                self.mbr_temp
             )));
         }
         Ok(())

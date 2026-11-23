@@ -295,11 +295,11 @@ impl Engine {
         self
     }
 
-    /// Decode with a bounded beam of width `k` (1..=16; 1 = greedy, the default). Streams
+    /// Decode with a bounded beam of width `k` (1..=64; 1 = greedy, the default). Streams
     /// created afterwards carry the beam state; a stream created before gets it at its first
     /// step.
     pub fn with_beam(mut self, k: usize) -> Self {
-        self.beam = k.clamp(1, 16);
+        self.beam = k.clamp(1, 64);
         self
     }
 
@@ -657,5 +657,15 @@ impl Engine {
         let slice = s.dec.tokens.get(start..).unwrap_or(&[]);
         let ids: Vec<i64> = slice.iter().map(|&t| i64::from(t)).collect();
         self.model.tokens.decode_ids(&ids)
+    }
+
+    /// Project encoder `final_norm` frames `[frames][d]` through optional `model.ctc_head` into
+    /// `[frames][ctc_vocab]` log-probabilities (`f32`).
+    pub fn ctc_log_probs(
+        &self,
+        enc_frames: &[f32],
+        frames: usize,
+    ) -> Result<Vec<f32>, EngineError> {
+        crate::commit::ctc_head::compute_ctc_log_probs(&self.model, self.isa, enc_frames, frames)
     }
 }

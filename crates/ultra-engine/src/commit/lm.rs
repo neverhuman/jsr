@@ -63,9 +63,9 @@ impl CommitLmConfig {
     }
 
     pub fn validate(&self) -> Result<(), EngineError> {
-        if !(2..=16).contains(&self.beam) {
+        if !(2..=64).contains(&self.beam) {
             return Err(EngineError::Shape(format!(
-                "commit LM beam {} not in 2..=16",
+                "commit LM beam {} not in 2..=64",
                 self.beam
             )));
         }

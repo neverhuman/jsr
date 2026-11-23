@@ -86,6 +86,7 @@ fn tiny_model() -> Arc<Model> {
         rope_inv: vec![1.0, 0.1],
         mel_cfg,
         tokens,
+        ctc_head: None,
         int8_prepared: None,
     })
 }

@@ -129,6 +129,7 @@ impl StreamCommitCliOptions {
                 beam_size: beam,
                 ctc_weight: 0.0,
                 mbr_enabled: false,
+                mbr_temp: 1.0,
             },
             hangover_ms: self.hangover_ms,
             preroll_ms: self.preroll_ms,
