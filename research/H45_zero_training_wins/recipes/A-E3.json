@@ -1,0 +1,21 @@
+{
+ "name": "A-E3",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "ema",
+   "coef": 0.3333333333333333
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "ema",
+   "coef": 0.3333333333333333
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00045000.pt",
+   "key": "ema",
+   "coef": 0.3333333333333333
+  }
+ ],
+ "note": "uniform mean of A1 EMA at the last 3 snapshots"
+}

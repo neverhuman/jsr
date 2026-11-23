@@ -1,0 +1,29 @@
+# H45 scripts as committed (h45-wins; records, not run by CI). Originals stay at /mnt/xbabe3-external/jsr/h45-wins/.
+# Not committed (data, kept on the data drive with the MANIFEST): results/**/*.score-input.jsonl, per-utterance dumps (*.utts.jsonl, results/*/dumps/, engine_eval rows > 200 kB), raw/, out/, logs/; src/ holds snapshots of this repository's own code at the pinned commits; bin/ultra-score is a built binary.
+ccaccb2edbe79963fc5705a194e37c307726a35cbedcfbc282083e915f41e248  bin/amend2_report.py
+4e4ff8ac43ba8368052a2a9467558e2f340268d74a1af2e71ece7a5b2a84455a  bin/amend2_tools.py
+4b52640f2aabccfa9a4377401f2af4dba49f34b7d27f2de9d266c14392baf204  bin/arm_a_select.py
+2640baf1011cd313dffc051707079e7e8be83a9965a261a73736646758212d1e  bin/arm_b_report.py
+1b2aedaea5f241d88366eafcd29794a071aa2b4b8daf6bdfb2150f814f74a5bc  bin/evallane_h43_latency.py
+ccc22a2bdb2b95293543d5c2325f4df5c3239214ddfd00aca5abde191edb462d  bin/h45_commit_probe.py
+dca6d79da81f0e82a5273641e5ce6527541d5792c0005bb85830921331a903ea  bin/h45_decode.py
+02a6e4f8e3fca175f46365d07f09e9d755830810ad29f954c6fc19ef3844f873  bin/h45_greedy_soup.py
+1f84d702fbb3ba3fdf38c934a9afbfcbb340b1403d607dd64a6fffa22e04f173  bin/h45_lmbeam.py
+25a009af577e60f35748c659e90ab35d6b036bc176cf28ad0b01248ecb9170e6  bin/h45_lmcache.py
+15a489e07474656e66bdc63fbaaf63d38b068a8306583d8d5afff59e11b8173e  bin/h45_merge.py
+e17fb99c94817cc961b0afdd9d1069afa104d3a04710b9de749255accb741a26  bin/h45_rescore.py
+41cfbdc205a12f77433133a2003c0b5687995f10e3274313ca6f1b3d2a718edc  bin/h45_score.py
+82b87b13fc86de6891d81447c6a98792391e3483a89d777dba3896b0391e823a  bin/h45_wdiag.py
+bc14eb94ee12f7eeb47fdfd3f43cd45e1d75b34dd13864ed145257849cd7666e  bin/int8_cover2.sh
+0e8822249f72c5fad9ac3abaccf96ed5ea274beb29bf070fc047926424753f61  bin/int8_cover.sh
+b923b33101ffa9e1c1587af808f054043e99b6e2c72b476e0422ed9d87907c4f  bin/int8_parity.py
+c04d6a018435ae1f5b8c87c095e4e392bb00c0b3c4a26f8708266f83de476c15  bin/make_manifest.sh
+ef1f8cc5a8f8c75df1f2a9e8d5e85716ec0239c4266207a577c94012d190cd7f  bin/make_recipes.py
+10a45344999e7aabe612402000ac4262786b47c377c7208b659d88e56615a737  bin/posthoc_ema.py
+28e3e027183369f5b966e13db99096b8d906a2e770572f31ec9feacbba69ce5e  bin/pull_all.sh
+ae47200b88db04c9e8bcc7766f905397a1b8545f2b3773b011f7038e4ac8604f  bin/pull_more.sh
+64caf564a879d5ae91a9854e58234145ecd478b1185b3d0ec62b2b8569ffc0a4  bin/pull.sh
+fcf111cba196200c46e65bd7125305f7846f41c38ba090c024562d6c094d353b  bin/run_a.sh
+699e25c965cbca66018782a6cf5c9f62e3cff0bce8395e7120ffcab39fa3d017  bin/x1_launch.sh
+55a1c29cccdcd91cbde6f50bf107a374a8386c99353fbfded53175b717e6d49a  bin/x2_launch.sh
+aa0c886717aa77f7b8d6924f9b95485c012526984194d6b1c035232338799e67  bin/x9_launch.sh

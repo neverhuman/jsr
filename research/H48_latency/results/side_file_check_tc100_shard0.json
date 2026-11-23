@@ -1,0 +1,54 @@
+{
+ "side_file_sha256": "58a8bd0f65231138cb0f10cd62d1b59a28c56c6247732ae4b59f570f13e60b2b",
+ "tokenizer_sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5",
+ "shard": "/mnt/xbabe3-external/jsr/corpora/librispeech/hf_parquet/all/train.clean.100/0000.parquet",
+ "utterances": 2039,
+ "speeds": {
+  "0.9": {
+   "anchored_utts": 2039,
+   "missing_utts": 0,
+   "token_mismatch_utts": 0,
+   "tokens": 143621,
+   "non_monotone_utts": 0,
+   "last_anchor_minus_last_frame": {
+    "max": 1,
+    "p50": -5.0,
+    "share_beyond_last_frame": 0.011280039234919078
+   }
+  },
+  "1.0": {
+   "anchored_utts": 2039,
+   "missing_utts": 0,
+   "token_mismatch_utts": 0,
+   "tokens": 143621,
+   "non_monotone_utts": 0,
+   "last_anchor_minus_last_frame": {
+    "max": 1,
+    "p50": -4.0,
+    "share_beyond_last_frame": 0.008827856792545365
+   }
+  },
+  "1.1": {
+   "anchored_utts": 2039,
+   "missing_utts": 0,
+   "token_mismatch_utts": 0,
+   "tokens": 143621,
+   "non_monotone_utts": 0,
+   "last_anchor_minus_last_frame": {
+    "max": 1,
+    "p50": -4.0,
+    "share_beyond_last_frame": 0.010789602746444336
+   }
+  }
+ },
+ "frames_between_word_ends_s1.0": {
+  "p10": 3.0,
+  "p50": 8.0,
+  "p90": 16.0
+ },
+ "store_counts": {
+  "anchored": 6117,
+  "missing": 0,
+  "token_mismatch": 0
+ }
+}

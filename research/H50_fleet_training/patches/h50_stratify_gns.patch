@@ -1,0 +1,657 @@
+--- a/python/ultra/train/trainer.py
++++ b/python/ultra/train/trainer.py
+@@ -29,6 +29,7 @@
+ from train.ctc import FeasibilityStats
+ from train.data import Batch, Example, FixedBatches, Position, collate
+ from train.errors import CheckpointError, DivergenceError, NonFiniteLossError, ShapeError
++from train.gns import maybe as gns_maybe
+ from train.optim import build_optimizer, eval_weights, make_clipper
+ 
+ DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
+@@ -115,6 +116,13 @@
+     ddp_rank_weights: str = ""
+     ddp_native: bool = False  # overlap gradient communication with backward
+     ddp_bf16_comm: bool = False  # native DDP: all-reduce gradient buckets in bf16 (half the bytes)
++    # H50 (frontier OPT-1/2; train/gns.py, train/data.py): a DiLoCo island's data shard (data_world 0 =
++    # the DDP rank), per-rank chunk strata, duration strata of per-rank batches, gradient-noise telemetry
++    data_rank: int = 0
++    data_world: int = 0
++    stratify_chunks: bool = False  # rank r: modes[(draw + r) % len]; rank 0 / world 1 keep today's draw
++    ddp_stratify_lengths: bool = False  # needs ddp_global_batches=false
++    gns_every: int = 0  # 0 = off; telemetry only, the update is bit-identical
+     kd_dir: str = ""
+     kd_weight: float = 0.0
+     tokenizer: str = ""
+@@ -194,6 +202,7 @@
+                  log: bool = True, rank: int = 0, world: int = 1, local_rank: int = 0):
+         self.run_dir, self.cfg, self.source, self.dev, self.tok = run_dir, cfg, source, dev, tokenizer
+         self.rank, self.world, self.local_rank = rank, world, local_rank
++        self.data_rank, self.data_world = (cfg.data_rank, cfg.data_world) if cfg.data_world > 0 else (rank, world)
+         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+         if world > 1 and self.device.type == "cuda":
+             self.device = torch.device("cuda", local_rank)
+@@ -202,6 +211,7 @@
+         self.model_cfg = model_cfg or PRESETS[cfg.preset]
+         torch.manual_seed(cfg.seed)
+         self.model = ASRModel(self.model_cfg).to(self.device)
++        self._gns = gns_maybe(self.model, self.device, cfg.gns_every, world)
+         self._ddp_loss = None
+         self.opt, self.sched = build_optimizer(self.model, cfg, lr_lambda)
+         self.clipper = make_clipper(cfg)
+@@ -242,7 +252,8 @@
+             return c.chunk or None
+         modes = [int(v) for v in c.chunk_modes.split(",") if v.strip()]
+         pick = torch.Generator().manual_seed(c.seed * 1_000_003 + self.step + 500_009)
+-        return modes[int(torch.randint(0, len(modes), (1,), generator=pick))]
++        draw = int(torch.randint(0, len(modes), (1,), generator=pick))
++        return modes[(draw + self.data_rank) % len(modes) if c.stratify_chunks and self.data_world > 1 else draw]
+ 
+     def _watch_sig(self) -> dict:
+         c = self.cfg
+@@ -350,7 +361,9 @@
+             self._ddp_loss = DistributedDataParallel(_ForwardLoss(self.model), device_ids=devices,
+                                                      broadcast_buffers=False,
+                                                      gradient_as_bucket_view=True)
+-            if self.cfg.ddp_bf16_comm:
++            if self._gns is not None:  # telemetry wraps the same reduction (one hook per DDP)
++                self._gns.register(self._ddp_loss, self.cfg.ddp_bf16_comm)
++            elif self.cfg.ddp_bf16_comm:
+                 from torch.distributed.algorithms.ddp_comm_hooks import default_hooks
+ 
+                 self._ddp_loss.register_comm_hook(None, default_hooks.bf16_compress_hook)
+@@ -379,7 +392,7 @@
+             if self.device.type == "cuda":
+                 torch.cuda.synchronize(self.device)
+             self._fwd_s = getattr(self, "_fwd_s", 0.0) + (time.time() - t_fwd)
+-        loss = out["loss"]
++        loss = out["loss"] if self.world > 1 or b.active else out["loss"] * 0.0  # island zero-support step
+         if self.world > 1:
+             hb = self._hb_acc()
+             hb["loss"] += float(loss.detach()) if b.active else 0.0
+@@ -394,15 +407,21 @@
+         self.opt.zero_grad(set_to_none=True)
+         if self.world > 1 and self.device.type == "cuda":
+             torch.cuda.synchronize(self.device)
++        gns_step = self._gns is not None and self._gns.arm(self.step)
+         t_bwd = time.time()
+         loss.backward()
+         if self.world > 1 and self._ddp_loss is None:
+             from train.dist import all_reduce_grads
+ 
+-            all_reduce_grads([p for p in self.model.parameters() if p.requires_grad])
++            params = [p for p in self.model.parameters() if p.requires_grad]
++            if gns_step:
++                self._gns.add_local(params)  # the local gradients, before they are averaged
++            all_reduce_grads(params)
+         if self.world > 1 and self.device.type == "cuda":
+             torch.cuda.synchronize(self.device)  # backward + gradient collective (overlapped when native)
+         self._bwd_s = getattr(self, "_bwd_s", 0.0) + (time.time() - t_bwd)
++        if gns_step:
++            self._gns.finish(self.model, b.active, self.world)  # after the sync, before clipping
+         gnorm = self.clipper(self.model)  # after the gradient sync (DDP: same norm on every rank)
+         if not math.isfinite(gnorm):
+             self._pause(batch, out, gnorm, "gradient norm")
+@@ -501,6 +520,8 @@
+         c, w = self.model.cfg, self.world
+         nr, nc, nk = float(out["rnnt_tokens"]), float(out["ctc_tokens"]), float(out.get("kd_frames", 0))
+         tr, tc, tk = all_reduce_sum([nr * active, nc * active, nk * active], self.device)
++        if self._gns is not None:
++            self._gns.tokens = tr
+         fr = w * active * max(1.0, nr) / max(1.0, tr)
+         fc = w * active * max(1.0, nc) / max(1.0, tc)
+         fk = w * active * nk / max(1.0, tk)
+@@ -773,7 +794,7 @@
+                           "audio_h_per_h": acc["audio_s"] / max(dt, 1e-9),
+                           "data_wait_pct": round(100.0 * acc.get("data_wait_s", 0.0) / max(dt, 1e-9), 2),
+                           "pad_pct": round(100.0 * (1 - acc.get("frames", 0) / max(1, acc.get("padded", 0))), 2),
+-                          **self._ddp_interval_stats(acc)})
++                          **self._ddp_interval_stats(acc), **(self._gns.fields() if self._gns else {})})
+                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
+                 t0 = time.time()
+             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
+@@ -886,7 +907,7 @@
+         cur = getattr(cfg, k)
+         setattr(cfg, k, type(cur)(json.loads(v)) if not isinstance(cur, str) else v)
+ 
+-    from train.data import Featurizer, ParquetBatches
++    from train.data import Featurizer, ParquetBatches, apply_data_shard
+     from train.tokenizer import Tokenizer, tokenizer_path
+ 
+     tok_r = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.rnnt_pieces))
+@@ -917,9 +938,10 @@
+ 
+     dev_type = (a.device or ("cuda" if torch.cuda.is_available() else "cpu")).split(":")[0]
+     rank, world, local_rank = init_from_env(dev_type)
++    apply_data_shard(source, cfg, world)
+     if world > 1 and hasattr(source, "world"):
+         source.rank, source.world = rank, world
+-        source.ddp_global_batches = cfg.ddp_global_batches
++        source.ddp_global_batches, source.stratify_lengths = cfg.ddp_global_batches, cfg.ddp_stratify_lengths
+         if cfg.ddp_rank_weights:
+             w = tuple(float(v) for v in cfg.ddp_rank_weights.split(","))
+             if len(w) != world or min(w) <= 0 or not cfg.ddp_global_batches:
+--- a/python/ultra/train/data.py
++++ b/python/ultra/train/data.py
+@@ -160,6 +160,42 @@
+     return mine
+ 
+ 
++def stratified_parts(groups: list[list[int]], durations: list[float], world: int, rank: int,
++                     seed) -> list[list[int]]:
++    """This rank's groups under duration stratification (frontier OPT-2.2). The window's groups
++    (a multiple of `world`) are ordered by their longest member, cut into `world` contiguous strata
++    of equal size and shuffled within each stratum; at step i rank r takes the i-th group of
++    stratum (r + i) % world. Every step then holds one group from each stratum, every rank cycles
++    through all strata, and the window's groups are used exactly once, as without stratification."""
++    if len(groups) % world:
++        raise DataError("stratified parts need a multiple of world groups")
++    order = sorted(range(len(groups)), key=lambda k: (max(durations[i] for i in groups[k]), k))
++    per = len(order) // world
++    rng = np.random.default_rng(list(seed) + [7919])
++    strata = []
++    for j in range(world):
++        s = order[j * per:(j + 1) * per]
++        rng.shuffle(s)
++        strata.append(s)
++    return [groups[strata[(rank + i) % world][i]] for i in range(per)]
++
++
++def apply_data_shard(source, cfg, world: int) -> None:
++    """H50 DiLoCo island: one process (data_world > 0) reads exactly what DDP rank data_rank of
++    data_world reads from the same ordered global batches (global-batch split, no rank weights)."""
++    if cfg.ddp_stratify_lengths and cfg.ddp_global_batches:
++        raise ValueError("ddp_stratify_lengths stratifies per-rank batches; it needs ddp_global_batches=false")
++    if cfg.data_world <= 0:
++        return
++    if world != 1:
++        raise ValueError("data_rank / data_world name a single-process island's shard; DDP ranks use their own")
++    if not 0 <= cfg.data_rank < cfg.data_world or not hasattr(source, "world"):
++        raise ValueError("need 0 <= data_rank < data_world and a source that shards (ParquetBatches)")
++    if cfg.ddp_rank_weights or cfg.ddp_stratify_lengths:
++        raise ValueError("island shards use the plain global-batch split")
++    source.rank, source.world, source.ddp_global_batches = cfg.data_rank, cfg.data_world, True
++
++
+ class Featurizer:
+     def __init__(self, tok_rnnt: Tokenizer, tok_ctc: Tokenizer):
+         self.logmel = LogMel()
+@@ -282,6 +318,7 @@
+         self.ddp_global_batches = False
+         self.stream_ctx_s, self.stream_ctx_cap, self._ctx_bank = 0.0, 1.5, None  # H41 arm 11 (0 = off)
+         self.rank_weights: tuple | None = None  # per-rank relative speed (None = equal shares)
++        self.stratify_lengths = False  # per-rank batches: every step spans every duration stratum
+         self.dropped_long = 0
+         self.speed_perturb = tuple(speed_perturb)
+         self.synth_aug = bool(synth_aug)
+@@ -438,7 +475,10 @@
+             if n % self.world:
+                 target = n + self.world - n % self.world  # repeat the first groups up to a multiple
+                 groups = (groups * -(-target // max(1, n)))[:target]
+-            parts = groups[self.rank::self.world]
++            if self.stratify_lengths:
++                parts = stratified_parts(groups, dur, self.world, self.rank, [self.seed, epoch, window])
++            else:
++                parts = groups[self.rank::self.world]
+             active = [True] * len(parts)
+         mine = [[rows[keep[i]] for i in g] for g in parts]
+         flat = [r for g in mine for r in g]
+--- a/python/ultra/train/gns.py
++++ b/python/ultra/train/gns.py
+@@ -0,0 +1,162 @@
++"""Gradient-noise telemetry under data parallelism (frontier spec OPT-1.1; H50).
++
++Per parameter group j, rank r holds its own gradient contribution g_r before the all-reduce and
++the average g after it. One extra all-reduce of one float per group gives mean_r |g_r^j|^2, and
++with K contributing ranks:
++
++    tr Cov_j = K / (K - 1) * (mean_r |g_r^j|^2 - |g^j|^2)    (unbiased over ranks)
++    noise_j  = tr Cov_j / K                                   (variance of the averaged step gradient)
++    signal_j = |g^j|^2 - noise_j                              (unbiased |E g^j|^2)
++
++The trainer scales each rank's loss by world * N_r / N (token weights), so g_r is the rank's actual
++contribution and g is exactly their mean. A zero-support rank contributes 0: it is left out and the
++K active contributions are rescaled by K / world so that their mean is again g.
++
++Single steps are noisy (a difference of two large numbers), so the trainer logs sums over each log
++interval; read ratios over windows of a few hundred steps. Telemetry only: it never changes the
++gradients, so a run with gns_every > 0 is bit-identical to the same run without it.
++"""
++from __future__ import annotations
++
++import torch
++import torch.distributed as dist
++
++
++def group_name(param_name: str) -> str:
++    """stem; each encoder block; the other encoder parameters; predictor; joiner; CTC head; the
++    simple-joiner heads together (the spec's groups); any other top-level module by its name."""
++    p = param_name.split(".")
++    if p[0] == "encoder" and len(p) > 1:
++        if len(p) > 2 and p[1] in ("blocks", "layers") and p[2].isdigit():
++            return f"encoder.{p[1]}.{p[2]}"
++        return "encoder.stem" if p[1] == "stem" else "encoder.other"
++    if p[0].startswith("simple_"):
++        return "simple"
++    return p[0]
++
++
++def estimate(sum_local: torch.Tensor, g2: torch.Tensor, k: float, world: int):
++    """(signal, noise) per group from the all-reduced sum of local |g_r|^2 over the k contributing
++    ranks (out of `world`) and |g|^2 of the averaged gradient. None when fewer than 2 contribute."""
++    if k < 2:
++        return None
++    mean_local = sum_local * (k / world) ** 2 / k
++    noise = (k / (k - 1) * (mean_local - g2)) / k
++    return g2 - noise, noise
++
++
++class GnsState:
++    """Per-group accumulator of this rank's local squared gradient norms for one armed step."""
++
++    def __init__(self, model: torch.nn.Module, device):
++        self.names: list[str] = []
++        self.index: dict[int, int] = {}
++        for n, prm in model.named_parameters():
++            if not prm.requires_grad:
++                continue
++            g = group_name(n)
++            if g not in self.names:
++                self.names.append(g)
++            self.index[id(prm)] = self.names.index(g)
++        self.acc = torch.zeros(len(self.names), dtype=torch.float64, device=device)
++        self.armed = False
++
++    def begin(self) -> None:
++        self.acc.zero_()
++        self.armed = True
++
++    def add(self, params, grads) -> None:
++        pairs = [(self.index[id(p)], g) for p, g in zip(params, grads, strict=True)
++                 if g is not None and id(p) in self.index]
++        if not pairs:
++            return
++        idx = torch.tensor([i for i, _ in pairs], device=self.acc.device)
++        norms = torch._foreach_norm([g.float() for _, g in pairs])
++        self.acc.index_add_(0, idx, torch.stack(norms).double().to(self.acc.device) ** 2)
++
++    def global_sq(self, model: torch.nn.Module) -> torch.Tensor:
++        params = [p for p in model.parameters() if p.grad is not None and id(p) in self.index]
++        g2 = torch.zeros_like(self.acc)
++        if params:
++            idx = torch.tensor([self.index[id(p)] for p in params], device=self.acc.device)
++            norms = torch._foreach_norm([p.grad.float() for p in params])
++            g2.index_add_(0, idx, torch.stack(norms).double().to(self.acc.device) ** 2)
++        return g2
++
++    def finish(self, model: torch.nn.Module, active: bool, world: int):
++        """After the gradient all-reduce: ONE collective (local sums + active flag), then the
++        estimate. Every rank must call it at the same steps. Returns (signal, noise, k) or None."""
++        self.armed = False
++        t = torch.cat([self.acc * float(active), self.acc.new_tensor([float(active)])])
++        dist.all_reduce(t)
++        k = float(t[-1])
++        est = estimate(t[:-1], self.global_sq(model), k, world)
++        if est is None:
++            return None
++        return est[0], est[1], k
++
++
++def gns_hook(bf16: bool):
++    """DDP comm hook: on an armed step, add this rank's bucket gradients (still local) to the
++    accumulator, then reduce exactly as the plain (or bf16-compressed) default hook does."""
++    from torch.distributed.algorithms.ddp_comm_hooks import default_hooks
++
++    inner = default_hooks.bf16_compress_hook if bf16 else default_hooks.allreduce_hook
++
++    def hook(state: GnsState, bucket):
++        if state.armed:
++            state.add(bucket.parameters(), bucket.gradients())
++        return inner(None, bucket)
++
++    return hook
++
++
++class GnsTelemetry:
++    """The trainer-facing side: hook registration, arming every `every` steps, the per-step record
++    and interval sums for the log record (all sums, then reset at each log)."""
++
++    def __init__(self, model: torch.nn.Module, device, every: int):
++        self.state, self.every, self.tokens, self.log = GnsState(model, device), every, 0.0, None
++
++    def register(self, ddp, bf16: bool) -> None:
++        ddp.register_comm_hook(self.state, gns_hook(bf16))
++
++    def arm(self, step: int) -> bool:
++        if step % self.every:
++            return False
++        self.state.begin()
++        return True
++
++    def add_local(self, params) -> None:
++        self.state.add(params, [p.grad for p in params])
++
++    def finish(self, model: torch.nn.Module, active: bool, world: int) -> None:
++        est = self.state.finish(model, active, world)
++        if est is None:
++            return
++        signal, noise, _ = est
++        if self.log is None:
++            self.log = {"steps": 0, "signal": torch.zeros_like(signal), "noise": torch.zeros_like(noise),
++                        "noise_tokens": 0.0}
++        self.log["steps"] += 1
++        self.log["signal"] += signal
++        self.log["noise"] += noise
++        self.log["noise_tokens"] += float(noise.sum()) * self.tokens
++
++    def fields(self) -> dict:
++        """Interval sums; b_simple_tokens = sum(noise * tokens) / sum(signal) estimates
++        tr(Sigma_token) / |E g|^2 in transducer tokens."""
++        log, self.log = self.log, None
++        if not log:
++            return {}
++        sig, noi = log["signal"].tolist(), log["noise"].tolist()
++        tot_s, tot_n = sum(sig), sum(noi)
++        return {"gns_steps": log["steps"], "gns_signal": tot_s, "gns_noise": tot_n,
++                "gns_snr": tot_s / tot_n if tot_n > 0 else None,
++                "gns_b_simple_tokens": log["noise_tokens"] / tot_s if tot_s > 0 else None,
++                "gns_groups": {n: [a, b] for n, a, b in zip(self.state.names, sig, noi, strict=True)}}
++
++
++def maybe(model: torch.nn.Module, device, every: int, world: int) -> GnsTelemetry | None:
++    """Telemetry for a data-parallel run with gns_every > 0, else None (the default path)."""
++    return GnsTelemetry(model, device, every) if world > 1 and every > 0 else None
+--- a/python/ultra/tests/test_h50_stratify_gns.py
++++ b/python/ultra/tests/test_h50_stratify_gns.py
+@@ -0,0 +1,292 @@
++"""H50 trainer options: DiLoCo island data shards, per-rank chunk stratification (OPT-2.1), duration
++stratification of per-rank batches (OPT-2.2) and gradient-noise telemetry (OPT-1.1).
++
++Defaults change nothing; an island reads exactly its DDP rank's share; telemetry never changes the
++update (a run with it is bit-identical to the run without it)."""
++import dataclasses
++import io
++import json
++import os
++import socket
++import sys
++from types import SimpleNamespace
++
++import numpy as np
++import pyarrow as pa
++import pyarrow.parquet as pq
++import pytest
++import soundfile as sf
++import torch
++import torch.multiprocessing as mp
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
++from train.data import Featurizer, FixedBatches, ParquetBatches, apply_data_shard, collate, stratified_parts  # noqa: E402
++from train.gns import GnsState, estimate, gns_hook, group_name  # noqa: E402
++from train.tokenizer import Tokenizer  # noqa: E402
++from train.trainer import TrainConfig, Trainer  # noqa: E402
++
++
++def _free_port() -> int:
++    with socket.socket() as s:
++        s.bind(("127.0.0.1", 0))
++        return s.getsockname()[1]
++
++
++# ---- OPT-2.1 chunk stratification ------------------------------------------------------------------
++def _chunks(steps, modes="4,8,16", stratify=False, data_rank=0, data_world=1, seed=1234):
++    cfg = TrainConfig(chunk_modes=modes, stratify_chunks=stratify, seed=seed)
++    fake = SimpleNamespace(cfg=cfg, data_rank=data_rank, data_world=data_world, step=0)
++    out = []
++    for s in range(steps):
++        fake.step = s
++        out.append(Trainer._step_chunk(fake))
++    return out
++
++
++def test_chunk_stratification_keeps_rank0_and_world1_and_spreads_modes():
++    base = _chunks(60)
++    modes = [int(v) for v in "4,8,16".split(",")]
++    pick = [modes[int(torch.randint(0, 3, (1,), generator=torch.Generator().manual_seed(
++        1234 * 1_000_003 + s + 500_009)))] for s in range(60)]
++    assert base == pick  # off = today's per-step draw, bit for bit
++    assert _chunks(60, stratify=True) == base  # world 1: unchanged
++    assert _chunks(60, stratify=True, data_rank=0, data_world=3) == base  # rank 0 keeps the draw
++    ranks = [_chunks(60, stratify=True, data_rank=r, data_world=3) for r in range(3)]
++    assert all(sorted(col) == [4, 8, 16] for col in zip(*ranks))  # every step averages all modes
++    two = [_chunks(60, stratify=True, data_rank=r, data_world=2) for r in range(2)]
++    assert all(a != b for a, b in zip(*two))
++    assert not dataclasses.asdict(TrainConfig())["stratify_chunks"]
++
++
++# ---- OPT-2.2 duration strata for per-rank batches --------------------------------------------------
++def test_stratified_parts_use_every_group_once_and_span_all_strata_each_step():
++    rng = np.random.default_rng(0)
++    dur = list(rng.uniform(1.0, 20.0, 240))
++    order = sorted(range(240), key=lambda i: dur[i])
++    groups = [order[i:i + 5] for i in range(0, 240, 5)]  # 48 duration-homogeneous groups
++    for world in (2, 3, 4, 6):
++        parts = [stratified_parts(groups, dur, world, r, [7, 0, 3]) for r in range(world)]
++        flat = sorted(tuple(g) for p in parts for g in p)
++        assert flat == sorted(tuple(g) for g in groups)  # same groups, each exactly once
++        per = len(groups) // world
++        longest = sorted(range(len(groups)), key=lambda k: (max(dur[i] for i in groups[k]), k))
++        stratum = {tuple(groups[k]): j // per for j, k in enumerate(longest)}
++        for i in range(per):  # one group from every stratum at every step
++            assert sorted(stratum[tuple(parts[r][i])] for r in range(world)) == list(range(world))
++        for r in range(world):  # every rank cycles through the strata
++            assert {stratum[tuple(g)] for g in parts[r][:world]} == set(range(world))
++        assert parts == [stratified_parts(groups, dur, world, r, [7, 0, 3]) for r in range(world)]
++    with pytest.raises(Exception):
++        stratified_parts(groups[:7], dur, 2, 0, [1])
++
++
++@pytest.fixture(scope="module")
++def shard(tmp_path_factory):
++    import sentencepiece as spm
++
++    d = tmp_path_factory.mktemp("h50loader")
++    words = ["hello there", "the quick brown fox", "general kenobi", "a b c d e f"]
++    (d / "t.txt").write_text("\n".join(words * 40))
++    spm.SentencePieceTrainer.train(input=str(d / "t.txt"), model_prefix=str(d / "tok"), vocab_size=30,
++                                   model_type="bpe", character_coverage=1.0)
++    rng = np.random.default_rng(0)
++    rows = {"id": [], "text": [], "audio": []}
++    for i in range(36):
++        pcm = (rng.standard_normal(int(16000 * (0.5 + 0.13 * i))) * 3000).astype(np.int16)
++        buf = io.BytesIO()
++        sf.write(buf, pcm, 16000, format="FLAC")
++        rows["id"].append(f"u{i}")
++        rows["text"].append(words[i % 4].upper())
++        rows["audio"].append({"bytes": buf.getvalue(), "path": f"u{i}.flac"})
++    root = d / "parquet"
++    (root / "train.clean.100").mkdir(parents=True)
++    pq.write_table(pa.table(rows), root / "train.clean.100" / "0000.parquet", row_group_size=6)
++    return str(root), str(d / "tok.model")
++
++
++def _src(shard, rank=0, world=1, **kw):
++    root, tok = shard
++    t = Tokenizer(tok)
++    s = ParquetBatches(["train-clean-100"], Featurizer(t, t), seed=7, budget_s=kw.pop("budget_s", 4.0),
++                       max_batch=8, parquet_root=root, workers=1, window_groups=3)
++    s.rank, s.world = rank, world
++    for k, v in kw.items():
++        setattr(s, k, v)
++    return s
++
++
++def test_loader_duration_strata_keep_the_window_groups(shard):
++    for world in (2, 3):
++        plain = [_src(shard, r, world) for r in range(world)]
++        strat = [_src(shard, r, world, stratify_lengths=True) for r in range(world)]
++        for w in range(plain[0]._windows(0)):
++            a = sorted(tuple(e.uid for e in g) for s in plain for g in s._load_window(0, w))
++            b = sorted(tuple(e.uid for e in g) for s in strat for g in s._load_window(0, w))
++            assert a == b  # same groups (incl. the repeated tail) per window, only re-dealt
++            n = [len(s._load_window(0, w)) for s in strat]
++            assert len(set(n)) == 1  # equal step count on every rank
++
++
++# ---- DiLoCo island shards ------------------------------------------------------------------------
++def test_island_reads_exactly_its_ddp_rank_share(shard):
++    for world in (2, 3):
++        for r in range(world):
++            ddp = _src(shard, r, world, ddp_global_batches=True, budget_s=8.0)
++            island = _src(shard, 0, 1, budget_s=8.0)
++            apply_data_shard(island, TrainConfig(data_rank=r, data_world=world), world=1)
++            for w in range(ddp._windows(0)):
++                a = [([e.uid for e in g], act) for g, act in ddp._load_window(0, w)]
++                b = [([e.uid for e in g], act) for g, act in island._load_window(0, w)]
++                assert a == b
++    s = _src(shard)
++    apply_data_shard(s, TrainConfig(), world=1)  # data_world 0: untouched
++    assert (s.rank, s.world, s.ddp_global_batches) == (0, 1, False)
++    for bad, world in ((TrainConfig(data_rank=0, data_world=2), 2), (TrainConfig(data_rank=2, data_world=2), 1),
++                       (TrainConfig(data_rank=0, data_world=2, ddp_rank_weights="1,1"), 1)):
++        with pytest.raises(ValueError):
++            apply_data_shard(_src(shard), bad, world)
++
++
++def _tiny_trainer(d, **kw):
++    sys.path.insert(0, os.path.dirname(__file__))
++    from test_train_checkpoint import _cfg, _examples
++
++    base = _cfg()
++    mcfg = dataclasses.replace(base, encoder=dataclasses.replace(base.encoder, dropout=0.0))
++    cfg = TrainConfig(preset="TINY", warmup=2, total_steps=100, ckpt_every_steps=1000, ckpt_every_minutes=1e9,
++                      eval_every=0, log_every=kw.pop("log_every", 1000), specaug=False, clip=1.0, **kw)
++    src = FixedBatches(_examples(12, seed=3), batch_size=2, shuffle=False)
++    return Trainer(d, cfg, src, model_cfg=mcfg, device="cpu", log=False,
++                   rank=int(os.environ.get("RANK", 0)), world=int(os.environ.get("WORLD_SIZE", 1)),
++                   local_rank=int(os.environ.get("RANK", 0)))
++
++
++def test_island_zero_support_step_trains_nothing(tmp_path):
++    torch.manual_seed(0)
++    t = _tiny_trainer(str(tmp_path))
++    sys.path.insert(0, os.path.dirname(__file__))
++    from test_train_checkpoint import _examples
++
++    b = collate(_examples(2, seed=5))
++    b.active = False
++    t.train_step(b)
++    assert all(p.grad is None or not p.grad.any() for p in t.model.parameters())
++    assert t.step == 1
++
++
++# ---- OPT-1.1 gradient-noise telemetry ------------------------------------------------------------
++def test_group_names_follow_the_spec():
++    assert group_name("encoder.stem.conv.0.weight") == "encoder.stem"
++    assert group_name("encoder.blocks.11.ffn1.w1.weight") == "encoder.blocks.11"
++    assert group_name("encoder.final_norm.weight") == "encoder.other"
++    assert group_name("simple_am.weight") == group_name("simple_lm.bias") == "simple"
++    assert group_name("joiner.out.weight") == "joiner" and group_name("ctc_head.bias") == "ctc_head"
++
++
++@pytest.mark.parametrize("world,k", [(4, 4), (5, 4), (2, 2)])
++def test_estimator_is_unbiased_with_and_without_zero_support_ranks(world, k):
++    g = torch.Generator().manual_seed(world * 10 + k)
++    dim, sigma = 40, 0.5
++    mu = torch.randn(dim, generator=g, dtype=torch.float64)
++    sig_sum = noi_sum = 0.0
++    trials = 6000
++    for _ in range(trials):
++        h = mu + sigma * torch.randn(k, dim, generator=g, dtype=torch.float64)  # active contributions
++        contrib = h * (world / k)  # what the token-weighted loss hands DDP (zero-support ranks: 0)
++        mean = contrib.sum(0) / world
++        s, n = estimate(torch.tensor([float((contrib ** 2).sum())]), torch.tensor([float(mean @ mean)]),
++                        float(k), world)
++        sig_sum += float(s[0])
++        noi_sum += float(n[0])
++    assert abs(sig_sum / trials - float(mu @ mu)) < 0.05 * float(mu @ mu)
++    assert abs(noi_sum / trials - dim * sigma ** 2 / k) < 0.05 * dim * sigma ** 2 / k
++    assert estimate(torch.ones(1), torch.ones(1), 1.0, world) is None
++
++
++def _hook_worker(rank, world, port, out):
++    os.environ.update(MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port), RANK=str(rank), WORLD_SIZE=str(world))
++    torch.set_num_threads(1)
++    import torch.distributed as dist
++    from torch.nn.parallel import DistributedDataParallel
++
++    dist.init_process_group("gloo")
++    torch.manual_seed(0)
++    model = torch.nn.Sequential(torch.nn.Linear(8, 16), torch.nn.Tanh(), torch.nn.Linear(16, 3))
++    ref = torch.nn.Sequential(torch.nn.Linear(8, 16), torch.nn.Tanh(), torch.nn.Linear(16, 3))
++    ref.load_state_dict(model.state_dict())
++    x = torch.randn(6, 8, generator=torch.Generator().manual_seed(100 + rank))
++    y = torch.randn(6, 3, generator=torch.Generator().manual_seed(200 + rank))
++    ((ref(x) - y) ** 2).mean().backward()  # this rank's local gradient, no DDP
++    local = [p.grad.clone() for p in ref.parameters()]
++    st = GnsState(model, "cpu")
++    ddp = DistributedDataParallel(model, bucket_cap_mb=0.0001)  # several buckets
++    ddp.register_comm_hook(st, gns_hook(False))
++    st.begin()
++    ((ddp(x) - y) ** 2).mean().backward()
++    acc = st.acc.clone()
++    signal, noise, k = st.finish(model, True, world)
++    gathered = [None] * world
++    dist.all_gather_object(gathered, local)
++    if rank == 0:
++        torch.save({"acc": acc, "signal": signal, "noise": noise, "k": k, "local": gathered,
++                    "synced": [p.grad.clone() for p in model.parameters()], "names": st.names}, out)
++    dist.destroy_process_group()
++
++
++def test_hook_sees_local_gradients_and_estimates_from_one_collective(tmp_path):
++    out = str(tmp_path / "gns.pt")
++    mp.spawn(_hook_worker, args=(2, _free_port(), out), nprocs=2, join=True)
++    r = torch.load(out)
++    assert r["names"] == ["0", "2"] and r["k"] == 2.0
++    grp = [0, 0, 1, 1]  # weight, bias of layer "0"; weight, bias of layer "2"
++    local_sq = torch.zeros(2, dtype=torch.float64)
++    for gr, gt in zip(grp, r["local"][0], strict=True):
++        local_sq[gr] += float(gt.double().pow(2).sum())
++    assert torch.allclose(r["acc"], local_sq, rtol=1e-5)  # rank 0's own pre-reduction gradient
++    mean = [(a + b) / 2 for a, b in zip(r["local"][0], r["local"][1], strict=True)]
++    for m, s in zip(mean, r["synced"], strict=True):
++        assert torch.allclose(m, s, atol=1e-6)  # the hook still averaged the gradients
++    sum_local = torch.zeros(2, dtype=torch.float64)
++    g2 = torch.zeros(2, dtype=torch.float64)
++    for gr, a, b, m in zip(grp, r["local"][0], r["local"][1], mean, strict=True):
++        sum_local[gr] += float(a.double().pow(2).sum() + b.double().pow(2).sum())
++        g2[gr] += float(m.double().pow(2).sum())
++    s_ref, n_ref = estimate(sum_local, g2, 2.0, 2)
++    assert torch.allclose(r["signal"], s_ref, rtol=1e-4) and torch.allclose(r["noise"], n_ref, rtol=1e-4)
++
++
++def _trainer_worker(rank, world, port, run_dir, out, native, gns):
++    os.environ.update(MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port), RANK=str(rank), WORLD_SIZE=str(world))
++    torch.set_num_threads(1)
++    import torch.distributed as dist
++
++    dist.init_process_group("gloo")
++    torch.manual_seed(0)
++    t = _tiny_trainer(os.path.join(run_dir, f"r{rank}"), log_every=2, ddp_native=native, gns_every=gns)
++    from train.dist import broadcast_state
++
++    broadcast_state(t.model)
++    t.run(max_steps=4)
++    if rank == 0:
++        torch.save(t.model.state_dict(), out)
++    dist.destroy_process_group()
++
++
++@pytest.mark.parametrize("native", [False, True])
++def test_telemetry_leaves_training_bit_identical_and_logs_interval_sums(tmp_path, native):
++    outs = {}
++    for gns in (0, 1):
++        out = str(tmp_path / f"m{gns}.pt")
++        mp.spawn(_trainer_worker, args=(2, _free_port(), str(tmp_path / f"g{gns}"), out, native, gns),
++                 nprocs=2, join=True)
++        outs[gns] = torch.load(out)
++    for k, v in outs[0].items():
++        assert torch.equal(v, outs[1][k]), k
++    with open(tmp_path / "g1" / "r0" / "train.jsonl") as fh:
++        recs = [json.loads(line) for line in fh if '"kind": "train"' in line]
++    assert [r["gns_steps"] for r in recs] == [2, 2]
++    for r in recs:
++        assert r["gns_noise"] > 0 and np.isfinite(r["gns_signal"]) and r["gns_b_simple_tokens"] is not None
++        assert set(r["gns_groups"]) >= {"encoder.stem", "encoder.blocks.0", "joiner", "predictor"}
++    with open(tmp_path / "g0" / "r0" / "train.jsonl") as fh:
++        assert all("gns_steps" not in json.loads(line) for line in fh)

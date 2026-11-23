@@ -1,0 +1,4 @@
+{"utts": 6, "seconds": [1.72, 2.17, 3.15, 3.2, 3.48, 4.08]}
+base {"step_s": [76.95, 76.04], "last": {"loss": 1.2069, "rnnt": 0.2419, "ctc": 0.3933}}
+mwer {"step_s": [292.49, 102.69], "last": {"loss": 1.1489, "rnnt": 0.2419, "ctc": 0.3933, "mwer": -0.058, "mwer_utts": 6.0, "mwer_active": 6.0, "mwer_cands": 25.0, "mwer_ref_in_beam": 3.0, "mwer_top_err": 4.0, "mwer_exp_err": 3.6882, "mwer_words": 39.0}}
+seq {"step_s": 235.87, "seqkd": 0.2235, "seqkd_tokens": 80.0, "seq_utts": 6.0, "seq_cands": 18.0, "seq_q_ref": 0.994, "counts": {"accepted": 6, "missing": 0, "ref_mismatch": 0}, "gnorm_human": 7.107, "gnorm_seqkd": 0.969}

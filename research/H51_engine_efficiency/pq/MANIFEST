@@ -1,0 +1,30 @@
+# H51-PQ MANIFEST (paths and sha256; no weights or audio in the repo)
+
+## Model and data
+checkpoint A1-49000-ema-as-model.pt (EMA as model) sha256 4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c (eval-lane: bin/derive_ema_ckpt.py from A1 ckpt-00049000.pt; copied from /dev/shm/eval-lane/ckpt/)
+INT8 export /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/: weights.int8.safetensors 4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285, weights.safetensors 0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe, arch.json b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f, bpe.model c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5
+DEV panel npz (730 utts, docs/ultra/data/dev_selection_panel.json manifest 76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36) sha256 ebf031ff3faaee753e63b1ca3ccc50afaf10dc1e994db13c0013793a31b91835, 1.461 h
+TRAIN subset npz (300 utts, seed 51, picks in results/data_manifest.json) sha256 76308710b9e1cf42f020b6006019a1d00b74b34f21829e25c09850a7b6fe84d3, 1.076 h, 30 speakers
+panel73.npz (every 10th panel utt, for the quiet profile) sha256 edfc06acd49726ff37973fc6a77e3cfdfc2bf74788212ddd651c69f32b91748f
+
+## Binaries (origin/main e61121e, unmodified)
+ultra-engine-eval (glibc, H0 / xbabe2) sha256 968d3ea766d93fdd5e3698c71e877020ec45001898ec21d530e919c4dbc86ca0
+ultra-engine-eval (static musl, x9 / x6) sha256 88a18659bdc493df8ed660815a869f84946d1797fba3388ea5de123b1bb27dfa
+ultra-score (canonical) sha256 d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1
+h51_lutcheck example (ultra-kernels CodebookMatrix harness, scratch only) built in the same source copy
+
+## Derived (kept off the repo, on the data drive / RAM scratch)
+TRAIN Sigma / held-out rows: /mnt/xbabe3-external/jsr/h51-pq/derived/trace/{sigma,mean,held}.<layer>.npy (393 files, 776 MB; first written to /dev/shm/h51-pq/trace/, moved at clean-up)
+PQ fit caches: /mnt/xbabe3-external/jsr/h51-pq/derived/fits/{s4R1k16w,s4R1k16wg,s4R2k16u,s4R2k16w,s4R2k16wg}/<layer>.pt (codes, int8 codebooks, gains; w = activation-weighted, u = unweighted, g = GPTQ; first written to /dev/shm/h51-pq/fits/)
+Per-variant hypotheses: results/engine_sens/<tag>/hyps/*.score-input.jsonl on the data drive
+
+## Addendum A (4-bit screen, 2026-11-23)
+int4_sens.py final file 69a544ea33f7a83840da99e9b5974bc043451989cb90e9e153fbcce351626a19 (adds --keep-int8 / --tag / --decode-if-fails for A4-GM, which was stopped unread; earlier code paths unchanged). As run: GPTQ per-row arm 017f30bc734fa5586f5a4deba78e1f763a005d8e6b04b80d5652a80309cfbc89; GPTQ g128 arm 25bc583748acbe2eb346aa5c0730debd93e99e0b5fbde803bda187d807616087 (adds lazy group scales inside gptq(); the per-row path is unchanged); RTN arm 52f355be62a1b7e9f0253cbefae0b45b4c9fc2ecd4603d61716c333b162e51d5 (launched before a one-line fix inside gptq(), a function the RTN arm never calls)
+h51lib.py 92ac83b29c937495a4a2dead17ea8af9766c86d326328e6d2c62ebc29e7fab95
+h51_int4_bench example (ultra-engine crate of the e61121e export, scratch only): run 1 (timings, core 36) source 48775527bf005f24b2c84ab41a4f56b751155aecda9bc82bb8d98922889e3224, binary 2bafd36d8721684424e4c82d2ecf2d2cdce5240a0e1f97adb0c19213c563cc96; run 2 (adds the scalar-reference exactness check, core 60) source 2cc2f9c323117ce27e02ce3f0f798330759a533bec1528e8a118cafc19d3ebb3, binary 5a07473c396938fcd486b719544c255aedd1892d3194073215a480f9e68f8fa5 (the staged quiet-assay build; /mnt/xbabe3-external/jsr/h51-pq/bench/h51-int4/)
+quiet-assay wrapper h51_int4.sh 421b8c28ceaba2807ebbea75d22231c0f4c60ad934cd24a6f0ff0e699f21970f (receipt records a role label, never hostname output; the 088c9cb2… copy bench-open validated wrote hostname and never ran)
+Joint int4 variants: weights.int8.safetensors rewritten in RAM scratch, decoded once and deleted; each variant's sha256 is in results/int4/int4_<arm>.json
+h51_int4g_bench example (K2 vs K2g128 kernel cost, scratch only): source 730b0977e4ed016ab502cc365570883032fc14e35fcf831348325a346dfc6dd0, binary 8179cd63f0658c60128b836a2d37260f538a5c84b75db934111bed041cd3a5f1
+Addendum A status (closed 09:55Z by the owner's wrap-up directive): A4-R and A4-G decoded and scored; A4-G128 stopped at 09:53:59Z mid-fit (no variant, no decode); A4-GM stopped at 09:51:59Z mid-fit (no variant, no decode)
+Not in the repo: hypotheses (results/int4/*.score-input.jsonl) and run logs stay on the data drive under /mnt/xbabe3-external/jsr/h51-pq/{results/int4,logs/run_logs/int4}/; binaries stay in /mnt/xbabe3-external/jsr/h51-pq/bench/h51-int4/
+Quiet-profile wrapper h51_prof.sh: ran as 14h at 6974c6c08cdeae3260f2155569032c4fd7fc0dd16046d20e33f4d060ac12dbb2; the record copy 438ff29ba5d672a96dec6d68c0e14eed9517b88bcf1ab5477940275de91efcd5 differs only in its receipt line (role label instead of hostname output); 14h's receipts stay on the data drive

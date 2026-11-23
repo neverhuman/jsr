@@ -1,0 +1,680 @@
+{
+ "schema": "alwayson-bench.summary/v1",
+ "exploratory": true,
+ "ours_reference": {
+  "nonspeech": "/home/ubuntu/jsr/target/paper-evidence/alwayson-ablation/nonspeech/summary.json (H22ctl-79800 EMA INT8: 0 words in 10 h)",
+  "endless": "/home/ubuntu/jsr/target/paper-evidence/alwayson-ablation/endless-27h/"
+ },
+ "nonspeech": {
+  "r0-zipformer-int8": {
+   "host": "xbabe3",
+   "runtime": "sherpa-onnx 2.0.2 Python binding (same core libraries as the paper's ultra-cold-wav rows), numpy 1.26.4",
+   "threads": "1 (sherpa-onnx num_threads=1; OMP/MKL 1; 1 thread observed)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "total_normalised": 0,
+   "total_scorer": 0,
+   "per_hour_normalised": 0.0,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [],
+    "white_-30dBFS": [],
+    "white_-20dBFS": [],
+    "pink_-40dBFS": [],
+    "pink_-30dBFS": [],
+    "pink_-20dBFS": [],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": []
+   },
+   "rss_peak_mb_max": 180.98,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/r0-zipformer-int8/nonspeech/summary.json"
+  },
+  "moonshine-tiny-streaming": {
+   "host": "xbabe3",
+   "runtime": "Moonshine Voice Linux SDK v0.1.6 native streaming C API (ORT single thread, CPU)",
+   "threads": "1 (MOONSHINE_ORT_SINGLE_THREAD=1, as the cold harness)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "total_normalised": 0,
+   "total_scorer": 0,
+   "per_hour_normalised": 0.0,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [],
+    "white_-30dBFS": [],
+    "white_-20dBFS": [],
+    "pink_-40dBFS": [],
+    "pink_-30dBFS": [],
+    "pink_-20dBFS": [],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": []
+   },
+   "rss_peak_mb_max": 156.63,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-tiny-streaming/nonspeech/summary.json"
+  },
+  "vosk-small-en-us-0.15": {
+   "host": "xbabe2",
+   "runtime": "vosk 0.3.45 (Kaldi online nnet3), its own endpointing; model files verified against the candidate manifest",
+   "threads": "1 (one KaldiRecognizer per process; Kaldi has no intra-op thread knob)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 179,
+    "white_-30dBFS": 179,
+    "white_-20dBFS": 46,
+    "pink_-40dBFS": 179,
+    "pink_-30dBFS": 179,
+    "pink_-20dBFS": 13,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 173
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 179,
+    "white_-30dBFS": 179,
+    "white_-20dBFS": 46,
+    "pink_-40dBFS": 179,
+    "pink_-30dBFS": 179,
+    "pink_-20dBFS": 13,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 173
+   },
+   "total_normalised": 948,
+   "total_scorer": 948,
+   "per_hour_normalised": 94.8,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "white_-30dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "white_-20dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "pink_-40dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "pink_-30dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "pink_-20dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": [
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh",
+     "huh"
+    ]
+   },
+   "rss_peak_mb_max": 221.16,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/vosk-small-en-us-0.15/nonspeech/summary.json"
+  },
+  "vosk-large-en-us-0.22": {
+   "host": "xbabe2",
+   "runtime": "vosk 0.3.45 (Kaldi online nnet3), its own endpointing; model files verified against the candidate manifest",
+   "threads": "1 per stream (10 KaldiRecognizer threads sharing one loaded model in one process)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 179,
+    "white_-40dBFS": 179,
+    "white_-30dBFS": 179,
+    "white_-20dBFS": 179,
+    "pink_-40dBFS": 179,
+    "pink_-30dBFS": 179,
+    "pink_-20dBFS": 179,
+    "brown_-40dBFS": 179,
+    "brown_-30dBFS": 179,
+    "brown_-20dBFS": 179
+   },
+   "false_words_scorer": {
+    "silence": 179,
+    "white_-40dBFS": 179,
+    "white_-30dBFS": 179,
+    "white_-20dBFS": 179,
+    "pink_-40dBFS": 179,
+    "pink_-30dBFS": 179,
+    "pink_-20dBFS": 179,
+    "brown_-40dBFS": 179,
+    "brown_-30dBFS": 179,
+    "brown_-20dBFS": 179
+   },
+   "total_normalised": 1790,
+   "total_scorer": 1790,
+   "per_hour_normalised": 179.0,
+   "first_words": {
+    "silence": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "white_-40dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "white_-30dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "white_-20dBFS": [
+     "three",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "pink_-40dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "pink_-30dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "pink_-20dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "brown_-40dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "brown_-30dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ],
+    "brown_-20dBFS": [
+     "the",
+     "the",
+     "the",
+     "the",
+     "the",
+     "the"
+    ]
+   },
+   "rss_peak_mb_max": 7261.91,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/vosk-large-en-us-0.22/nonspeech/summary.json"
+  },
+  "moonshine-small-streaming": {
+   "host": "xbabe3",
+   "runtime": "Moonshine Voice Linux SDK v0.1.6 native streaming C API (ORT single thread, CPU)",
+   "threads": "1 (MOONSHINE_ORT_SINGLE_THREAD=1, as the cold harness)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "total_normalised": 0,
+   "total_scorer": 0,
+   "per_hour_normalised": 0.0,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [],
+    "white_-30dBFS": [],
+    "white_-20dBFS": [],
+    "pink_-40dBFS": [],
+    "pink_-30dBFS": [],
+    "pink_-20dBFS": [],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": []
+   },
+   "rss_peak_mb_max": 396.26,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-small-streaming/nonspeech/summary.json"
+  },
+  "nemotron-en-560ms": {
+   "host": "xbabe1",
+   "runtime": "NeMo-Speech.cpp 0.3.0 @ e790e46 (pinned binary 41b19d48), bench asr --mode stream",
+   "threads": "1 (--asr.backend.threads 1, OMP/MKL 1; runtime shows up to 4 threads, ~1 core busy)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 0,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "total_normalised": 0,
+   "total_scorer": 0,
+   "per_hour_normalised": 0.0,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [],
+    "white_-30dBFS": [],
+    "white_-20dBFS": [],
+    "pink_-40dBFS": [],
+    "pink_-30dBFS": [],
+    "pink_-20dBFS": [],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": []
+   },
+   "rss_peak_mb_max": 1121.52,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/nemotron-en-560ms/nonspeech/summary.json"
+  },
+  "nemotron-en-160ms": {
+   "status": "PARTIAL: prefixes of the 10 non-speech blocks (4.07 h of 10 h)",
+   "why_stopped": "stopped 2026-11-23T09:01:10Z by memguard_x1.sh (SIGTERM to my recorded PGIDs) when xbabe1 MemAvailable stayed under 4 GB: three other-user qemu VMs (~24 GB) had started 08:15-08:42Z; swap full",
+   "host": "xbabe1",
+   "threads": "1 (--asr.backend.threads 1, OMP/MKL 1; runtime shows up to 4 threads, ~1 core busy)",
+   "hours": 4.0744,
+   "total_normalised": 0,
+   "upper95_per_hour": 0.7353,
+   "max_words_ever_shown": 0,
+   "hours_by_block": {
+    "brown_-20dBFS": 0.2857,
+    "brown_-30dBFS": 0.2899,
+    "brown_-40dBFS": 0.3397,
+    "pink_-20dBFS": 0.332,
+    "pink_-30dBFS": 0.3276,
+    "pink_-40dBFS": 0.3592,
+    "silence": 0.7233,
+    "white_-20dBFS": 0.332,
+    "white_-30dBFS": 0.4091,
+    "white_-40dBFS": 0.6759
+   },
+   "false_words_normalised": {
+    "brown_-20dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-40dBFS": 0,
+    "pink_-20dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-40dBFS": 0,
+    "silence": 0,
+    "white_-20dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-40dBFS": 0
+   },
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/nemotron-en-160ms/nonspeech/PARTIAL.run.json"
+  },
+  "whispercpp-stream-tiny-en": {
+   "host": "xbabe2",
+   "runtime": "pywhispercpp 1.4.1 (whisper.cpp 1.8.2), Picovoice 3 s chunk engine @ 272be8f",
+   "threads": "1 (pywhispercpp n_threads=1; OMP/MKL 1)",
+   "blocks_scored": 10,
+   "false_words_normalised": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 1438,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "false_words_scorer": {
+    "silence": 0,
+    "white_-40dBFS": 0,
+    "white_-30dBFS": 0,
+    "white_-20dBFS": 0,
+    "pink_-40dBFS": 0,
+    "pink_-30dBFS": 0,
+    "pink_-20dBFS": 1438,
+    "brown_-40dBFS": 0,
+    "brown_-30dBFS": 0,
+    "brown_-20dBFS": 0
+   },
+   "total_normalised": 1438,
+   "total_scorer": 1438,
+   "per_hour_normalised": 143.8,
+   "first_words": {
+    "silence": [],
+    "white_-40dBFS": [],
+    "white_-30dBFS": [],
+    "white_-20dBFS": [],
+    "pink_-40dBFS": [],
+    "pink_-30dBFS": [],
+    "pink_-20dBFS": [
+     "(engine",
+     "revving)",
+     "(engine",
+     "revving)",
+     "(engine",
+     "revving)"
+    ],
+    "brown_-40dBFS": [],
+    "brown_-30dBFS": [],
+    "brown_-20dBFS": []
+   },
+   "rss_peak_mb_max": 195.88,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/whispercpp-stream-tiny-en/nonspeech/summary.json"
+  }
+ },
+ "endless": {
+  "endless27h.t0": {
+   "run_json": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/r0-zipformer-int8/endless-27h/endless27h.t0.run.json",
+   "host": "xbabe2",
+   "protocol": "one process, one stream over part-1..4.wav (27.56 h), 20 ms packets as fast as possible, no endpointing, no reset (the paper's Zipformer configuration); the whole hypothesis is read with get_result after every decoded chunk (live-caption read policy) and committed words are traced",
+   "stopped": "2026-11-23T07:07:30Z SIGINT pid 3298114: RssAnon 6155 MB > limit 6144 MB; last rss line: {\"wall_s\": 4195.33, \"audio_s\": 25128.15, \"rss_mb\": 6164.83, \"hwm_mb\": 6175.35, \"anon_mb\": 6151.75, \"file_mb\": 13.08, \"shmem_mb\": 0.0, \"words\": 26339}",
+   "memory": {
+    "rss_start_mb": 172.02,
+    "anon_start_mb": 137.36,
+    "anon_end_mb": 6151.75,
+    "rss_end_mb": 6164.83
+   },
+   "scores_prefix": {
+    "eval_lane_rule_allowance_0.5s": {
+     "pooled_wer": 6.906,
+     "dev_clean": 4.271,
+     "dev_other": 9.666,
+     "gap_false_words_total": {
+      "words": 98,
+      "hours": 4.3195,
+      "per_hour": 22.69
+     },
+     "lag_ms_all": {
+      "n": 24938,
+      "p50": 530.8999999997468,
+      "p90": 690.3000000002066,
+      "p95": 729.8999999999864,
+      "p99": 806.9999999988795
+     },
+     "utterances": 1418,
+     "summary": "endless27h.t0.prefix6.98h.scored.summary.json"
+    },
+    "latency_tolerant_tail_1.5s": {
+     "pooled_wer": 6.78,
+     "dev-clean": 4.206,
+     "dev-other": 9.475,
+     "gap_false_words_total": {
+      "words": 10,
+      "hours": 4.3195,
+      "per_hour": 2.315,
+      "upper95_per_hour": 3.927
+     },
+     "lag_ms": {
+      "n": 24994,
+      "p50": 531.4999999991414,
+      "p95": 730.7999999975436
+     }
+    },
+    "note": "eval-lane's rule assigns a word by (emission - 0.5 s); Zipformer's late tail words (lag p95 730 ms) then land in the following gap. The tolerant rule assigns each word to the last utterance started before it, if it comes within 1.5 s of that utterance's end."
+   },
+   "prefix_until_s": "25128",
+   "stopped_reason": "safety watchdog at 6,144 MB anonymous memory (shared host); the run did not finish"
+  },
+  "endless27h.endpoint": {
+   "run_json": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/r0-zipformer-int8/endless-27h/endless27h.endpoint.run.json",
+   "host": "xbabe2",
+   "protocol": "one process, one stream over part-1..4.wav in order (27.56 h), 20 ms packets as fast as possible, sherpa-onnx endpoint rules with a stream reset at each endpoint (the library's always-on mode)",
+   "stopped": true,
+   "memory": {
+    "anon_mb_start": 136.58,
+    "anon_mb_end": 151.23,
+    "anon_mb_peak": 151.23,
+    "rss_mb_peak": 178.94,
+    "anon_mb_by_audio_hour": {
+     "0": 136.58,
+     "1": 141.78,
+     "2": 142.28,
+     "3": 142.82,
+     "4": 143.37,
+     "5": 143.96,
+     "6": 144.49,
+     "7": 145.07,
+     "8": 145.65,
+     "9": 146.18,
+     "10": 146.76,
+     "11": 147.29,
+     "12": 147.88,
+     "13": 148.41,
+     "14": 148.97,
+     "15": 149.55,
+     "16": 150.13,
+     "17": 150.68,
+     "18": 151.22
+    }
+   },
+   "scores_prefix": {
+    "eval_lane_rule_allowance_0.5s": {
+     "pooled_wer": 6.865,
+     "gap_false_words_total": {
+      "words": 242,
+      "hours": 11.1229,
+      "per_hour": 21.76
+     },
+     "lag_ms": {
+      "n": 64681,
+      "p50": 528.6999999989348,
+      "p90": 688.2000000041444,
+      "p95": 728.099999999813,
+      "p99": 806.2999999965541
+     }
+    },
+    "latency_tolerant_tail_1.5s": {
+     "pooled_wer": 6.726,
+     "gap_false_words_total": {
+      "words": 28,
+      "hours": 11.1229,
+      "per_hour": 2.517,
+      "upper95_per_hour": 3.451
+     },
+     "lag_ms": {
+      "n": 64825,
+      "p50": 529.0000000022701,
+      "p95": 729.099999999903
+     }
+    },
+    "ours_h22ctl_same_prefix_tolerant_1.5s": {
+     "endless27h.t0": {
+      "pooled_wer": 9.773,
+      "gap_false_words_total": {
+       "words": 0,
+       "hours": 11.1229,
+       "per_hour": 0.0,
+       "upper95_per_hour": 0.269
+      },
+      "lag_ms": {
+       "n": 62866,
+       "p50": 312.13750000461005,
+       "p95": 440.8000000003085
+      }
+     },
+     "endless27h.t1500_r1000": {
+      "pooled_wer": 9.145,
+      "gap_false_words_total": {
+       "words": 0,
+       "hours": 11.1229,
+       "per_hour": 0.0,
+       "upper95_per_hour": 0.269
+      },
+      "lag_ms": {
+       "n": 63338,
+       "p50": 313.28750000102445,
+       "p95": 441.39999999970314
+      }
+     }
+    },
+    "note": "prefix = utterances and gaps ending at or before until_s; the eval-lane rule counts this system's late words (lag p50 ~0.53 s) as gap words, so the tolerant rule is the comparator (eval-lane agreed)"
+   },
+   "prefix_until_s": "64850",
+   "stopped_reason": "stopped 2026-11-23T09:55:46Z by SIGINT (flush) on the owner's research wrap-up directive (lead 09:53Z), at 64,859 s of 99,216 s"
+  },
+  "ours_endless27h.t0_extra": "/mnt/xbabe3-external/jsr/alwayson-bench/ours/endless27h.t0.extra.json",
+  "ours_endless27h.t1500_r1000_extra": "/mnt/xbabe3-external/jsr/alwayson-bench/ours/endless27h.t1500_r1000.extra.json"
+ },
+ "nonspeech_extra_20h": {
+  "r0-zipformer-int8": {
+   "words": 0,
+   "hours": 9.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.3329,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/r0-zipformer-int8/nonspeech-extra/EXTRA20H.ao.nonspeech.json"
+  },
+  "moonshine-tiny-streaming": {
+   "words": 0,
+   "hours": 20.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.1498,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-tiny-streaming/nonspeech-extra/EXTRA20H.ao.nonspeech.json"
+  },
+  "moonshine-small-streaming": {
+   "words": 0,
+   "hours": 20.0,
+   "per_hour": 0.0,
+   "upper95_per_hour": 0.1498,
+   "summary": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-small-streaming/nonspeech-extra/EXTRA20H.ao.nonspeech.json"
+  }
+ },
+ "tier_a_rollups": [
+  "/mnt/xbabe3-external/jsr/evals/alwayson-bench/ROLLUP.tierA.json",
+  "/mnt/xbabe3-external/jsr/evals/alwayson-bench/ROLLUP.tierA.B0-C0-vs-C1.json"
+ ]
+}

@@ -1,0 +1,273 @@
+{
+ "schema": "ultra.h43.latency/v1",
+ "name": "H48c-a-c4-fulldev",
+ "label": "exploratory",
+ "clock": "design (audio sample clock); paced numbers are from the trace host, not quiet",
+ "normaliser_id": "ultra-en-wer-norm/v1",
+ "normaliser_rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "mfa_sha256": {
+  "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+  "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+ },
+ "traces": {
+  "shard-00.trace.jsonl": "de51982fa5cfccd31b43c50e6640ba05264a4433e0ebb6518034956c476545e7",
+  "shard-01.trace.jsonl": "cda2ab458d4a4e6ed0df5a7526e9612ac952c39fd994e81e8a1f5d9b869a5a8c",
+  "shard-02.trace.jsonl": "ca02310542eaf3b651f8c71a42b97653c10bbb00b65bcd11b9ce810b250361c5",
+  "shard-03.trace.jsonl": "62fdab8282f9b6e3bd179133f065dfbb7073f4713ca688a2459cf21eb8a8526c",
+  "shard-04.trace.jsonl": "4d788ed69fe55e9134c27b198139051b9d5bdf46ecda9e950d6d97ed1b98a06f",
+  "shard-05.trace.jsonl": "a10c52f9744f7b05915c8f12a33de00ec2b8c32a188dbbd30fc4774b5eadf0a2",
+  "shard-06.trace.jsonl": "d6047cb678e31c27ba1b3e80c75d69e37b44f334f3dc1abee84fc6007bc7ca71",
+  "shard-07.trace.jsonl": "644e73ab999a0171b96b2af24f10e79212e0a397b99ae7ae66170f98dce8b4ff",
+  "shard-08.trace.jsonl": "d968f313e9526103c6b429b17c19c66752f6109399d04e2e2294020a30485875",
+  "shard-09.trace.jsonl": "715f3b4e6cb3cdab900d76d440c443af304324b75863d43da800c78f394fd333",
+  "shard-10.trace.jsonl": "ed5ab7ba75e24b87d6cca52a1b6c188ad9f5301d2a413c6ebf0c4566583e2b3c",
+  "shard-11.trace.jsonl": "060ada23bcd45c9d67fa84eb6ba2d08b68ada521453dc45f95b4225ec902673b",
+  "shard-12.trace.jsonl": "b37ccb55390e9d9c0ba58919a15e5f47e5026e7a5ff1048c11b447dfb76a2925",
+  "shard-13.trace.jsonl": "985fa7a75ee0af70c7822696e93b53612d87a269812abdd623a53f5c8c3a3dbb",
+  "shard-14.trace.jsonl": "758c043f2c9e18aebde81d0a9dfeda3ae978ecafafb4fb15299069d3eaa608e1",
+  "shard-15.trace.jsonl": "1b71150e87cf4134df101480d43cae9567ea680b64df606f2d3786709d8c2a43",
+  "shard-16.trace.jsonl": "5039e4d7ffcbca12befb5312598d8cefb7467793366c42c9b0da27bb7947af70",
+  "shard-17.trace.jsonl": "fbbc73a57ea448192a2c08f327d6faa1cd1ea5f96eec9d4c893032917f63358f",
+  "shard-18.trace.jsonl": "ca6740ce7214470414b9db426ee9b96b7c660160a61e39fd8be69585bb315161",
+  "shard-19.trace.jsonl": "e7bd360678ed42aa8a5d88637602dacc1cc6d943f17c8d04226639ca34b4b41e",
+  "shard-20.trace.jsonl": "9769eb797a1464222b902ab244755146b008d9f889d0463d0e6e933e9ae76e02",
+  "shard-21.trace.jsonl": "65178455ddc3bcf7aec5c7a16aabfa864be44c07a21359d99a7be24bdec22c91",
+  "shard-22.trace.jsonl": "c9e98b8e7ff99f4c58864dd8ec2849cd11f94692b694eb29f36b4c0755f7f07d",
+  "shard-23.trace.jsonl": "99118831af776d1c96053f08548e80a3e4d0cfccb659235fccf36e636e0b2fa7"
+ },
+ "aggregate": {
+  "utterances": 5567,
+  "ref_words": 106054,
+  "timed_ref_words": 106054,
+  "utterances_with_text": 5567,
+  "ftl_end": {
+   "n": 5567,
+   "mean_ms": 221.2,
+   "p50_ms": 230.0,
+   "p95_ms": 440.0
+  },
+  "ftl_onset": {
+   "n": 5567,
+   "mean_ms": 490.2,
+   "p50_ms": 480.0,
+   "p95_ms": 690.0
+  },
+  "ftl_paced_end_trace_host": {
+   "n": 5567,
+   "mean_ms": 291.6,
+   "p50_ms": 247.2,
+   "p95_ms": 668.0
+  },
+  "paced_capture_clock_trace_host": {
+   "ftl_end": {
+    "n": 5567,
+    "mean_ms": 236.4,
+    "p50_ms": 226.6,
+    "p95_ms": 466.5
+   },
+   "fcw_end": {
+    "n": 5038,
+    "mean_ms": 273.5,
+    "p50_ms": 248.9,
+    "p95_ms": 466.8
+   },
+   "fcw_onset": {
+    "n": 5038,
+    "mean_ms": 557.0,
+    "p50_ms": 505.3,
+    "p95_ms": 947.6
+   }
+  },
+  "fcw_coverage": 0.905,
+  "fcw_end": {
+   "n": 5038,
+   "mean_ms": 254.8,
+   "p50_ms": 250.0,
+   "p95_ms": 440.0
+  },
+  "fcw_onset": {
+   "n": 5038,
+   "mean_ms": 516.9,
+   "p50_ms": 490.0,
+   "p95_ms": 820.0
+  },
+  "first_cq_end": {
+   "150": 0.1523,
+   "250": 0.4559,
+   "300": 0.5928,
+   "500": 0.8946,
+   "1000": 0.905
+  },
+  "first_cq_onset": {
+   "300": 0.0787,
+   "500": 0.4753,
+   "1000": 0.8953
+  },
+  "cq_stable": {
+   "150": 0.148,
+   "300": 0.6144,
+   "500": 0.9201
+  },
+  "cq_provisional": {
+   "150": 0.148,
+   "300": 0.6144,
+   "500": 0.9201
+  },
+  "stable_lag": {
+   "n": 97980,
+   "mean_ms": 251.5,
+   "p50_ms": 260.0,
+   "p95_ms": 410.0
+  },
+  "revision": {
+   "revised_words_per_100_final": 0.079,
+   "partial_word_completions_per_100_final": 43.26,
+   "utterances_with_any_revision": 0.014,
+   "mean_flicker_ms": 173.3
+  },
+  "finalization": {
+   "n": 5567,
+   "mean_ms": 329.5,
+   "p50_ms": 335.0,
+   "p95_ms": 515.0
+  }
+ },
+ "bootstrap_95": {
+  "ftl_end_mean_ms": {
+   "point": 221.23136,
+   "lo95": 213.5764,
+   "hi95": 228.94161
+  },
+  "ftl_onset_mean_ms": {
+   "point": 490.17514,
+   "lo95": 481.13199,
+   "hi95": 498.70856
+  },
+  "fcw_coverage": {
+   "point": 0.90498,
+   "lo95": 0.88969,
+   "hi95": 0.91954
+  },
+  "fcw_end_mean_ms": {
+   "point": 254.78067,
+   "lo95": 249.21301,
+   "hi95": 259.87177
+  },
+  "fcw_onset_mean_ms": {
+   "point": 516.8946,
+   "lo95": 505.09843,
+   "hi95": 527.65328
+  },
+  "revised_per_100_final": {
+   "point": 0.07924,
+   "lo95": 0.05711,
+   "hi95": 0.10378
+  },
+  "cq_stable_150": {
+   "point": 0.14797,
+   "lo95": 0.14005,
+   "hi95": 0.15613
+  },
+  "cq_prov_150": {
+   "point": 0.14803,
+   "lo95": 0.14008,
+   "hi95": 0.15622
+  },
+  "cq_stable_300": {
+   "point": 0.61436,
+   "lo95": 0.60012,
+   "hi95": 0.63022
+  },
+  "cq_prov_300": {
+   "point": 0.61441,
+   "lo95": 0.60017,
+   "hi95": 0.63029
+  },
+  "cq_stable_500": {
+   "point": 0.92013,
+   "lo95": 0.90836,
+   "hi95": 0.93134
+  },
+  "cq_prov_500": {
+   "point": 0.92014,
+   "lo95": 0.90837,
+   "hi95": 0.93134
+  },
+  "first_cq_end_150": {
+   "point": 0.15233,
+   "lo95": 0.13596,
+   "hi95": 0.16858
+  },
+  "first_cq_end_250": {
+   "point": 0.4559,
+   "lo95": 0.43312,
+   "hi95": 0.48035
+  },
+  "first_cq_end_300": {
+   "point": 0.59278,
+   "lo95": 0.57029,
+   "hi95": 0.61684
+  },
+  "first_cq_end_500": {
+   "point": 0.89456,
+   "lo95": 0.87777,
+   "hi95": 0.91046
+  },
+  "first_cq_end_1000": {
+   "point": 0.90498,
+   "lo95": 0.88969,
+   "hi95": 0.91954
+  },
+  "first_cq_onset_300": {
+   "point": 0.07868,
+   "lo95": 0.06717,
+   "hi95": 0.09099
+  },
+  "first_cq_onset_500": {
+   "point": 0.4753,
+   "lo95": 0.44652,
+   "hi95": 0.50572
+  },
+  "first_cq_onset_1000": {
+   "point": 0.89528,
+   "lo95": 0.87897,
+   "hi95": 0.91013
+  },
+  "ftl_end_p50_ms": {
+   "point": 230.0,
+   "lo95": 220.0,
+   "hi95": 230.0
+  },
+  "ftl_end_p95_ms": {
+   "point": 440.0,
+   "lo95": 430.0,
+   "hi95": 450.0
+  },
+  "fcw_end_p50_ms": {
+   "point": 250.0,
+   "lo95": 250.0,
+   "hi95": 260.0
+  },
+  "fcw_end_p95_ms": {
+   "point": 440.0,
+   "lo95": 430.0,
+   "hi95": 440.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": 490.0,
+   "lo95": 480.0,
+   "hi95": 510.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": 820.0,
+   "lo95": 800.0,
+   "hi95": 860.0
+  }
+ },
+ "bootstrap": {
+  "replicates": 1000,
+  "seed": 20261122,
+  "clusters": "speaker",
+  "strata": "dataset"
+ }
+}

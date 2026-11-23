@@ -28,5 +28,5 @@ fi
 ci_step "actionlint"
 actionlint .github/workflows/*.yml
 ci_step "shellcheck"
-{ git ls-files '*.sh'; git ls-files ops/git-hooks tools/jankurai-hooks; } | sort -u | xargs -r shellcheck -x -S warning
+ci_shell_scripts | xargs -r shellcheck -x -S warning
 echo "security lane: pass"

@@ -1,0 +1,31 @@
+{
+ "name": "amend23 A1L vs A1C c16 (conf)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/A1L_dp0.005-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": "h43/dev_split_v2.json:confirmation",
+ "margin_pp": 0.36,
+ "margin_registry_entry": {
+  "endpoint": "h48-amend23-A1L-vs-A1C-ni-ema-pooled-conf-c16",
+  "margin_pp": 0.36,
+  "direction": "lower_is_better",
+  "note": "amendment 23: A1L (dp 0.005) vs A1C (dp 0, same steps / re-warm / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread at this chunk. 'dp 0.005 costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16.",
+  "registered_utc": "2026-11-23T07:07:11Z"
+ },
+ "delta_pp": -0.0093,
+ "alpha": 0.05,
+ "lower_pp": -0.1217,
+ "upper_pp": 0.0997,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl": "2c08be28e84752ca4a35501566289bdc02944d3ff06b74db24221972640bb537",
+  "h41/A1L_dp0.005-8000.ema.c16.ms8.score-input.jsonl": "774190b3cb00691b1bfbdb7a2e42b5dd1bff3e35adec36714aae8f8e0f10dfb6"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

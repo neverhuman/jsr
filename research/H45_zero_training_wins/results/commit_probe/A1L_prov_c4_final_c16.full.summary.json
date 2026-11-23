@@ -1,0 +1,76 @@
+{
+ "name": "A1L_prov_c4_final_c16.full",
+ "subset": null,
+ "utterances": 5567,
+ "ref_words": 106054,
+ "wer_prov": 8.4259,
+ "wer_final": 7.895,
+ "delta_pp": -0.5309,
+ "delta_lower_pp": -0.6331,
+ "delta_upper_pp": -0.4335,
+ "port_check_edits": {
+  "prov": 8936,
+  "final": 8373
+ },
+ "segments_changed_pct": 31.02,
+ "revision_word_edits_per_100_words": 2.882,
+ "fixes_per_100_words": 1.012,
+ "breaks_per_100_words": 0.544,
+ "insertions_prov": 849,
+ "insertions_final": 782,
+ "fix_to_break_ratio": 1.86,
+ "utts_better": 780,
+ "utts_worse": 412,
+ "first_word_err_pct": {
+  "prov": 9.664,
+  "final": 8.82
+ },
+ "last_word_err_pct": {
+  "prov": 9.466,
+  "final": 8.568
+ },
+ "by_ref_length": {
+  "1-4": {
+   "utts": 192,
+   "N": 609,
+   "e_prov": 105,
+   "e_final": 96,
+   "wer_prov": 17.241,
+   "wer_final": 15.764
+  },
+  "5-9": {
+   "utts": 1090,
+   "N": 7915,
+   "e_prov": 869,
+   "e_final": 808,
+   "wer_prov": 10.979,
+   "wer_final": 10.208
+  },
+  "10-19": {
+   "utts": 2129,
+   "N": 29844,
+   "e_prov": 2844,
+   "e_final": 2630,
+   "wer_prov": 9.53,
+   "wer_final": 8.812
+  },
+  "20-inf": {
+   "utts": 2156,
+   "N": 67686,
+   "e_prov": 5118,
+   "e_final": 4839,
+   "wer_prov": 7.561,
+   "wer_final": 7.149
+  }
+ },
+ "per_set": {
+  "dev-clean": {
+   "prov": 4.6351,
+   "final": 4.3572
+  },
+  "dev-other": {
+   "prov": 12.4623,
+   "final": 11.6621
+  }
+ }
+}

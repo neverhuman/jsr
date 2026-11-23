@@ -1,0 +1,273 @@
+{
+ "schema": "ultra.h43.latency/v1",
+ "name": "A1C-c4-fulldev",
+ "label": "exploratory",
+ "clock": "design (audio sample clock); paced numbers are from the trace host, not quiet",
+ "normaliser_id": "ultra-en-wer-norm/v1",
+ "normaliser_rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "mfa_sha256": {
+  "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+  "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+ },
+ "traces": {
+  "shard-00.trace.jsonl": "7d0ac4262b7f516b679786e829d101e4e9437ae816d908deacfa555dabc50e1e",
+  "shard-01.trace.jsonl": "a26a72ada4ad9b5811d6a4c729657c8f3db9ef578f3d889e66516ef1e764a598",
+  "shard-02.trace.jsonl": "43ceea898d9c49e0f43ca500dc9bb8d6f019e915d91aa5c51cbc48e38c620cf6",
+  "shard-03.trace.jsonl": "91d0be1ba8c790a26536a5b2f28c8cea9c9dbaf761f5911e73db29a0537054f2",
+  "shard-04.trace.jsonl": "f81bb7efbf88fbff9be5c23bf19f66e8a18c4b1c710d240941ca65f9cc276587",
+  "shard-05.trace.jsonl": "22a3cdc7bcd78a73fcae3e5ad746ce12fff5b6bcfdb950428131affb00e88c17",
+  "shard-06.trace.jsonl": "d058d7a5700cb984d2c85accfa6f113cdad17503d4434ca2c3cd6ed39933e0dd",
+  "shard-07.trace.jsonl": "b121f9a5d7a35f6f8650d8f86e0a16e72b6bf7b97a62a3caaed5eb2a58acea60",
+  "shard-08.trace.jsonl": "e02549c644cbafa85cf9a7ace962e1d2c6df649d3362ab1d284769343bc94a85",
+  "shard-09.trace.jsonl": "1c88ad4cbd3e07fe5fe2ce160615762990985a248e64b4dd2aaa22af0e0f8154",
+  "shard-10.trace.jsonl": "66aeb43925e33f8bfcef39a17d364677f0038df13e951ec60c16fb5e0763cbe0",
+  "shard-11.trace.jsonl": "a5e1938578090296f88cb81e99741740da355e6b769b972759761a9486916b4f",
+  "shard-12.trace.jsonl": "b1c89b11ebedf625a1d5e514e78e3cce5cd6a846804073934d7b75b383a18a24",
+  "shard-13.trace.jsonl": "a23ea988465412ba17f5d20167b613775cceb5fcd7c3f1e3cc23a333b76d4fd2",
+  "shard-14.trace.jsonl": "5bdc8b505e418e41ea86ce3c2001f5d3186d2127722d4b4f92762caafaa13ada",
+  "shard-15.trace.jsonl": "5d10a59b745399578ea2c281eba1222f91125881003e3ff1c608c9d10ede298a",
+  "shard-16.trace.jsonl": "0da84d2d837aa5bd4205cc406f0453a8be69123fec9b9b76a0eb53f33fc1e52b",
+  "shard-17.trace.jsonl": "65b8f73f354e4fa876e0ed1177805d16f6958ecf6c6401b35a16c922488b049e",
+  "shard-18.trace.jsonl": "d4aa5998c4fcf77d902d03f48672b1abc7ed0abc80931a76e73dac62eb89c9f9",
+  "shard-19.trace.jsonl": "6bd7615014089315bcace7ac019ea58b397ed3801f88c0c6e66d8ca8b21e78c5",
+  "shard-20.trace.jsonl": "a8bce591a6798a55f95cbaae1fbe54df4a1d66cf3fba41d17649f43da689e0a3",
+  "shard-21.trace.jsonl": "b80e7a1796838786f1170dd9ec15d954aa1c716e0d684d18ca0a9236e0430729",
+  "shard-22.trace.jsonl": "00b32c78e87c6df6406a026d0be040c623793515e83686961ca3f06ecdda3e75",
+  "shard-23.trace.jsonl": "f8e239c5d4e9badc0f67d2ecc57276547de6d2bb76ffd36c87cf8a53b2a36918"
+ },
+ "aggregate": {
+  "utterances": 5567,
+  "ref_words": 106054,
+  "timed_ref_words": 106054,
+  "utterances_with_text": 5567,
+  "ftl_end": {
+   "n": 5567,
+   "mean_ms": 312.0,
+   "p50_ms": 340.0,
+   "p95_ms": 480.0
+  },
+  "ftl_onset": {
+   "n": 5567,
+   "mean_ms": 580.9,
+   "p50_ms": 580.0,
+   "p95_ms": 750.0
+  },
+  "ftl_paced_end_trace_host": {
+   "n": 5567,
+   "mean_ms": 450.2,
+   "p50_ms": 366.9,
+   "p95_ms": 1413.4
+  },
+  "paced_capture_clock_trace_host": {
+   "ftl_end": {
+    "n": 5567,
+    "mean_ms": 346.4,
+    "p50_ms": 333.0,
+    "p95_ms": 614.5
+   },
+   "fcw_end": {
+    "n": 5041,
+    "mean_ms": 405.0,
+    "p50_ms": 352.2,
+    "p95_ms": 866.4
+   },
+   "fcw_onset": {
+    "n": 5041,
+    "mean_ms": 712.5,
+    "p50_ms": 606.6,
+    "p95_ms": 1634.3
+   }
+  },
+  "fcw_coverage": 0.9055,
+  "fcw_end": {
+   "n": 5041,
+   "mean_ms": 354.2,
+   "p50_ms": 360.0,
+   "p95_ms": 480.0
+  },
+  "fcw_onset": {
+   "n": 5041,
+   "mean_ms": 615.9,
+   "p50_ms": 590.0,
+   "p95_ms": 910.0
+  },
+  "first_cq_end": {
+   "150": 0.0142,
+   "250": 0.0886,
+   "300": 0.21,
+   "500": 0.8795,
+   "1000": 0.9055
+  },
+  "first_cq_onset": {
+   "300": 0.0,
+   "500": 0.1924,
+   "1000": 0.8892
+  },
+  "cq_stable": {
+   "150": 0.0567,
+   "300": 0.3272,
+   "500": 0.9113
+  },
+  "cq_provisional": {
+   "150": 0.0568,
+   "300": 0.3273,
+   "500": 0.9113
+  },
+  "stable_lag": {
+   "n": 97994,
+   "mean_ms": 322.7,
+   "p50_ms": 330.0,
+   "p95_ms": 460.0
+  },
+  "revision": {
+   "revised_words_per_100_final": 0.079,
+   "partial_word_completions_per_100_final": 46.767,
+   "utterances_with_any_revision": 0.0147,
+   "mean_flicker_ms": 176.0
+  },
+  "finalization": {
+   "n": 5567,
+   "mean_ms": 329.5,
+   "p50_ms": 335.0,
+   "p95_ms": 515.0
+  }
+ },
+ "bootstrap_95": {
+  "ftl_end_mean_ms": {
+   "point": 311.96605,
+   "lo95": 304.59089,
+   "hi95": 318.81652
+  },
+  "ftl_onset_mean_ms": {
+   "point": 580.90983,
+   "lo95": 572.81255,
+   "hi95": 588.59843
+  },
+  "fcw_coverage": {
+   "point": 0.90551,
+   "lo95": 0.88975,
+   "hi95": 0.92099
+  },
+  "fcw_end_mean_ms": {
+   "point": 354.18369,
+   "lo95": 351.15916,
+   "hi95": 357.36697
+  },
+  "fcw_onset_mean_ms": {
+   "point": 615.90557,
+   "lo95": 605.86241,
+   "hi95": 625.74101
+  },
+  "revised_per_100_final": {
+   "point": 0.07926,
+   "lo95": 0.05885,
+   "hi95": 0.10098
+  },
+  "cq_stable_150": {
+   "point": 0.05671,
+   "lo95": 0.05251,
+   "hi95": 0.06126
+  },
+  "cq_prov_150": {
+   "point": 0.05676,
+   "lo95": 0.05256,
+   "hi95": 0.0613
+  },
+  "cq_stable_300": {
+   "point": 0.32724,
+   "lo95": 0.31993,
+   "hi95": 0.33527
+  },
+  "cq_prov_300": {
+   "point": 0.32731,
+   "lo95": 0.31998,
+   "hi95": 0.33532
+  },
+  "cq_stable_500": {
+   "point": 0.91126,
+   "lo95": 0.899,
+   "hi95": 0.92298
+  },
+  "cq_prov_500": {
+   "point": 0.91126,
+   "lo95": 0.899,
+   "hi95": 0.92298
+  },
+  "first_cq_end_150": {
+   "point": 0.01419,
+   "lo95": 0.01015,
+   "hi95": 0.01819
+  },
+  "first_cq_end_250": {
+   "point": 0.08856,
+   "lo95": 0.07868,
+   "hi95": 0.09851
+  },
+  "first_cq_end_300": {
+   "point": 0.20999,
+   "lo95": 0.19692,
+   "hi95": 0.22383
+  },
+  "first_cq_end_500": {
+   "point": 0.87947,
+   "lo95": 0.86184,
+   "hi95": 0.89581
+  },
+  "first_cq_end_1000": {
+   "point": 0.90551,
+   "lo95": 0.88975,
+   "hi95": 0.92099
+  },
+  "first_cq_onset_300": {
+   "point": 0.0,
+   "lo95": 0.0,
+   "hi95": 0.0
+  },
+  "first_cq_onset_500": {
+   "point": 0.19238,
+   "lo95": 0.16975,
+   "hi95": 0.21793
+  },
+  "first_cq_onset_1000": {
+   "point": 0.88917,
+   "lo95": 0.87275,
+   "hi95": 0.90488
+  },
+  "ftl_end_p50_ms": {
+   "point": 340.0,
+   "lo95": 330.0,
+   "hi95": 340.0
+  },
+  "ftl_end_p95_ms": {
+   "point": 480.0,
+   "lo95": 480.0,
+   "hi95": 490.0
+  },
+  "fcw_end_p50_ms": {
+   "point": 360.0,
+   "lo95": 350.0,
+   "hi95": 360.0
+  },
+  "fcw_end_p95_ms": {
+   "point": 480.0,
+   "lo95": 480.0,
+   "hi95": 490.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": 590.0,
+   "lo95": 590.0,
+   "hi95": 600.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": 910.0,
+   "lo95": 870.0,
+   "hi95": 920.0
+  }
+ },
+ "bootstrap": {
+  "replicates": 1000,
+  "seed": 20261122,
+  "clusters": "speaker",
+  "strata": "dataset"
+ }
+}

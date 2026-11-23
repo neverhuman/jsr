@@ -1,0 +1,14 @@
+{
+ "what": "A1-49000 EMA encoder weights: mean over rows of max|w| / rms(w) per output row (crest/row), the same per 128-column group (crest/g128), and per-row kurtosis E[(w-mean)^4]/var^2 (3 for a Gaussian); averaged over the layers of each kind",
+ "why": "a per-row symmetric int4 step is max|w|/7, so per-weight quantisation noise relative to the row rms scales with the crest factor (rel. noise ~ crest / (7*sqrt(12)))",
+ "checkpoint_sha256": "4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c",
+ "kinds": {
+  "stem.out": {"n": 1, "crest_row": 4.69, "crest_g128": 3.20, "kurtosis": 3.92},
+  "ff*.w1": {"n": 32, "crest_row": 3.31, "crest_g128": 2.94, "kurtosis": 3.16},
+  "ff*.w2": {"n": 32, "crest_row": 4.10, "crest_g128": 3.05, "kurtosis": 3.42},
+  "att.qkv": {"n": 16, "crest_row": 3.28, "crest_g128": 2.89, "kurtosis": 3.15},
+  "att.out": {"n": 16, "crest_row": 3.22, "crest_g128": 2.85, "kurtosis": 3.02},
+  "conv.pw1": {"n": 16, "crest_row": 3.19, "crest_g128": 2.85, "kurtosis": 3.00},
+  "conv.pw2": {"n": 16, "crest_row": 3.21, "crest_g128": 2.86, "kurtosis": 3.05}
+ }
+}

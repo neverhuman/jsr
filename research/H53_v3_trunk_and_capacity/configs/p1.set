@@ -1,0 +1,12 @@
+# H53 P1 matched capacity pilot (README B5). All arms: h41_replay.sh from B0 raw weights (the H41 replay schedule),
+# seed 1234, chunk_modes 4,8,16, eval_chunks 8,16, delay_penalty 0, guard 0.87, one pinned tree incl. patch 0001.
+#   C0 = A1C (trainer-lane H41 amendment 23, x9, 07:04Z; A1L's tree 99bce400): already running, not relaunched here.
+#   Growth arms run on A1L's tree + patches/0001a-encoder-blocks-a1l-tree-d5f231e.patch (default off).
+#   G32: INIT_FROM=<seeds/H53/A1-49000_grow32_model.pt>     RUN_NAME=H53_P1_G32_s1234  + encoder_blocks=32
+#   G24: INIT_FROM=<seeds/H53/A1-49000_grow24_model.pt>     RUN_NAME=H53_P1_G24_s1234  + encoder_blocks=24
+# Seeds are made once with tools/grow_depth.py --weights model (sha256 into MANIFEST before launch).
+# Batch pinned at A1C's 650 s / 144 (owner rule: paired arms keep their pinned batch). A100 only (G32 ~29 GB, G24 ~22 GB).
+seed=1234
+chunk_modes=4,8,16
+eval_chunks=8,16
+delay_penalty=0.0

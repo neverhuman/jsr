@@ -1,0 +1,241 @@
+{
+ "schema": "ultra.h43.latency/v1",
+ "name": "B0-A1-49000-c8-fulldev",
+ "label": "exploratory",
+ "clock": "design (audio sample clock); paced numbers are from the trace host, not quiet",
+ "normaliser_id": "ultra-en-wer-norm/v1",
+ "normaliser_rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "mfa_sha256": {
+  "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+  "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+ },
+ "traces": {
+  "shard-00.trace.jsonl": "5c60eca58c340411ed28bc04aad1cfc7e00aa9c605e16ce559d74d3c9422f1b1",
+  "shard-01.trace.jsonl": "6e3ba47d6ed3f5d9cb6bcf3617777ca5da1eac9d02c5f7a42265f5eca6a13e00",
+  "shard-02.trace.jsonl": "5a46b4a96466c5b61a65bb014ee6439a793c83d47f6621030d210d57f05a0c5d",
+  "shard-03.trace.jsonl": "3cbbabe2d283b9006d17037583d5077466233acc4fe0380e066bdd1bc7e0d816",
+  "shard-04.trace.jsonl": "c7ddc6e5f2b6a9d76abf80d193d910e1a4e4ef75761ff28c6f3d4e49f31d61b9",
+  "shard-05.trace.jsonl": "d6fa1f61e9a81b864a780a1080d61b6daf7837f68274273380a3d9f943d85f66",
+  "shard-06.trace.jsonl": "3cfc05a39fc16ff53e3227b5759e1be57a5752e3d089063d2cbddab4efd7f9a8",
+  "shard-07.trace.jsonl": "069927cc97274e38c7c65b42345e83ba12a5a7efafda122d711bddfe99219fab",
+  "shard-08.trace.jsonl": "bad8557e8f698de967d1f440aefefbf06e797bf461440b6a9c4a735d2a8b5eb1",
+  "shard-09.trace.jsonl": "63deb595f1d78dc893bc300880ba336ecdf430bb51386e8f8284bac614b10501",
+  "shard-10.trace.jsonl": "f3f3fd7723af26aa6fdd6b62053488af27dd81b0e08d72b2c40a2bdf20bf9836",
+  "shard-11.trace.jsonl": "908f7a1dced15a0c5ca126fdd6531e0318502e8d5707b9acaec550563e79fdbc"
+ },
+ "aggregate": {
+  "utterances": 5567,
+  "ref_words": 106054,
+  "timed_ref_words": 106054,
+  "utterances_with_text": 5567,
+  "ftl_end": {
+   "n": 5567,
+   "mean_ms": 397.3,
+   "p50_ms": 410.0,
+   "p95_ms": 620.0
+  },
+  "ftl_onset": {
+   "n": 5567,
+   "mean_ms": 666.2,
+   "p50_ms": 680.0,
+   "p95_ms": 860.0
+  },
+  "ftl_paced_end_trace_host": {
+   "n": 5567,
+   "mean_ms": 680.4,
+   "p50_ms": 575.9,
+   "p95_ms": 1483.4
+  },
+  "fcw_coverage": 0.9078,
+  "fcw_end": {
+   "n": 5054,
+   "mean_ms": 436.8,
+   "p50_ms": 440.0,
+   "p95_ms": 620.0
+  },
+  "fcw_onset": {
+   "n": 5054,
+   "mean_ms": 698.4,
+   "p50_ms": 700.0,
+   "p95_ms": 1010.0
+  },
+  "first_cq_end": {
+   "150": 0.0084,
+   "250": 0.0503,
+   "300": 0.1284,
+   "500": 0.6151,
+   "1000": 0.9077
+  },
+  "first_cq_onset": {
+   "300": 0.0,
+   "500": 0.1223,
+   "1000": 0.8619
+  },
+  "cq_stable": {
+   "150": 0.0324,
+   "300": 0.1937,
+   "500": 0.7101
+  },
+  "cq_provisional": {
+   "150": 0.0324,
+   "300": 0.1937,
+   "500": 0.7101
+  },
+  "stable_lag": {
+   "n": 98429,
+   "mean_ms": 401.6,
+   "p50_ms": 410.0,
+   "p95_ms": 600.0
+  },
+  "revision": {
+   "revised_words_per_100_final": 0.054,
+   "partial_word_completions_per_100_final": 23.841,
+   "utterances_with_any_revision": 0.0101,
+   "mean_flicker_ms": 311.8
+  },
+  "finalization": {
+   "n": 5567,
+   "mean_ms": 329.5,
+   "p50_ms": 335.0,
+   "p95_ms": 515.0
+  }
+ },
+ "bootstrap_95": {
+  "ftl_end_mean_ms": {
+   "point": 397.29028,
+   "lo95": 389.45025,
+   "hi95": 404.66619
+  },
+  "ftl_onset_mean_ms": {
+   "point": 666.23406,
+   "lo95": 657.34687,
+   "hi95": 674.04367
+  },
+  "fcw_coverage": {
+   "point": 0.90785,
+   "lo95": 0.89147,
+   "hi95": 0.92388
+  },
+  "fcw_end_mean_ms": {
+   "point": 436.83815,
+   "lo95": 432.40528,
+   "hi95": 441.13897
+  },
+  "fcw_onset_mean_ms": {
+   "point": 698.4448,
+   "lo95": 688.0515,
+   "hi95": 708.13533
+  },
+  "revised_per_100_final": {
+   "point": 0.05377,
+   "lo95": 0.03716,
+   "hi95": 0.07244
+  },
+  "cq_stable_150": {
+   "point": 0.03244,
+   "lo95": 0.02984,
+   "hi95": 0.03536
+  },
+  "cq_prov_150": {
+   "point": 0.03244,
+   "lo95": 0.02984,
+   "hi95": 0.03536
+  },
+  "cq_stable_300": {
+   "point": 0.19369,
+   "lo95": 0.18853,
+   "hi95": 0.19925
+  },
+  "cq_prov_300": {
+   "point": 0.19369,
+   "lo95": 0.18853,
+   "hi95": 0.19925
+  },
+  "cq_stable_500": {
+   "point": 0.7101,
+   "lo95": 0.69972,
+   "hi95": 0.72027
+  },
+  "cq_prov_500": {
+   "point": 0.7101,
+   "lo95": 0.69972,
+   "hi95": 0.72027
+  },
+  "first_cq_end_150": {
+   "point": 0.00844,
+   "lo95": 0.0061,
+   "hi95": 0.01076
+  },
+  "first_cq_end_250": {
+   "point": 0.0503,
+   "lo95": 0.04384,
+   "hi95": 0.05683
+  },
+  "first_cq_end_300": {
+   "point": 0.12844,
+   "lo95": 0.11778,
+   "hi95": 0.13924
+  },
+  "first_cq_end_500": {
+   "point": 0.61505,
+   "lo95": 0.59698,
+   "hi95": 0.63319
+  },
+  "first_cq_end_1000": {
+   "point": 0.90767,
+   "lo95": 0.89145,
+   "hi95": 0.92343
+  },
+  "first_cq_onset_300": {
+   "point": 0.0,
+   "lo95": 0.0,
+   "hi95": 0.0
+  },
+  "first_cq_onset_500": {
+   "point": 0.12233,
+   "lo95": 0.10703,
+   "hi95": 0.14
+  },
+  "first_cq_onset_1000": {
+   "point": 0.86186,
+   "lo95": 0.84281,
+   "hi95": 0.87944
+  },
+  "ftl_end_p50_ms": {
+   "point": 410.0,
+   "lo95": 400.0,
+   "hi95": 420.0
+  },
+  "ftl_end_p95_ms": {
+   "point": 620.0,
+   "lo95": 610.0,
+   "hi95": 630.0
+  },
+  "fcw_end_p50_ms": {
+   "point": 440.0,
+   "lo95": 430.0,
+   "hi95": 450.0
+  },
+  "fcw_end_p95_ms": {
+   "point": 620.0,
+   "lo95": 610.0,
+   "hi95": 630.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": 700.0,
+   "lo95": 690.0,
+   "hi95": 720.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": 1010.0,
+   "lo95": 970.0,
+   "hi95": 1050.0
+  }
+ },
+ "bootstrap": {
+  "replicates": 1000,
+  "seed": 20261122,
+  "clusters": "speaker",
+  "strata": "dataset"
+ }
+}

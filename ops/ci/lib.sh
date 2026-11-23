@@ -46,6 +46,13 @@ ci_lane_failed() {
     "$CI_LANE_NAME" "$1" "$CI_LANE_RERUN" >&2
 }
 
+# ci_shell_scripts: every shell script the security lane lints. research/** holds as-ran experiment
+# records, kept verbatim for reproducibility and never run by CI, so it is skipped; every product,
+# ops and hook script is still linted.
+ci_shell_scripts() {
+  { git ls-files '*.sh' ':!:research/**'; git ls-files ops/git-hooks tools/jankurai-hooks; } | sort -u
+}
+
 # ci_require_tool <command> [hint]: fail with an install hint when a tool is absent.
 ci_require_tool() {
   local tool="$1" hint="${2:-see scripts/ci-doctor.sh}"

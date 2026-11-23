@@ -1,0 +1,14 @@
+{
+ "shape": {
+  "B": 8,
+  "T": 250,
+  "S": 60,
+  "vocab": 501,
+  "prune_range": 5
+ },
+ "threads": 2,
+ "base_ms_median": 24018.482789979316,
+ "anchored_ms_median": 21227.547790971585,
+ "ratio_median": 0.96083664097897,
+ "note": "loss part only (no encoder); contended H0 CPU; relative figure only"
+}

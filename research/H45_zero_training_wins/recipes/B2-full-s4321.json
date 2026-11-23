@@ -1,0 +1,44 @@
+{
+ "name": "B2-full-s4321",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_s4321-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_predctx4_s4321-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_s4321-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_specaug_s4321-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_s4321-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_left256-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  }
+ ],
+ "note": "seed check: chunk_s4321 + tau16r + tau18r (vs chunk_s4321) + tau17 (seed 1234)",
+ "pred_ctx": 4,
+ "left_context": 256,
+ "config_from": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_s4321-model-00008000.pt"
+}

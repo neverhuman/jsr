@@ -1,0 +1,76 @@
+{
+ "name": "lmcommit.prov_beam4.final_T4c16.full",
+ "subset": null,
+ "utterances": 5567,
+ "ref_words": 106054,
+ "wer_prov": 8.2232,
+ "wer_final": 6.5099,
+ "delta_pp": -1.7133,
+ "delta_lower_pp": -1.9107,
+ "delta_upper_pp": -1.5209,
+ "port_check_edits": {
+  "prov": 8721,
+  "final": 6904
+ },
+ "segments_changed_pct": 39.88,
+ "revision_word_edits_per_100_words": 4.015,
+ "fixes_per_100_words": 2.002,
+ "breaks_per_100_words": 0.447,
+ "insertions_prov": 871,
+ "insertions_final": 703,
+ "fix_to_break_ratio": 4.479,
+ "utts_better": 1418,
+ "utts_worse": 285,
+ "first_word_err_pct": {
+  "prov": 9.413,
+  "final": 7.562
+ },
+ "last_word_err_pct": {
+  "prov": 10.975,
+  "final": 7.616
+ },
+ "by_ref_length": {
+  "1-4": {
+   "utts": 192,
+   "N": 609,
+   "e_prov": 97,
+   "e_final": 81,
+   "wer_prov": 15.928,
+   "wer_final": 13.3
+  },
+  "5-9": {
+   "utts": 1090,
+   "N": 7915,
+   "e_prov": 893,
+   "e_final": 685,
+   "wer_prov": 11.282,
+   "wer_final": 8.654
+  },
+  "10-19": {
+   "utts": 2129,
+   "N": 29844,
+   "e_prov": 2782,
+   "e_final": 2173,
+   "wer_prov": 9.322,
+   "wer_final": 7.281
+  },
+  "20-inf": {
+   "utts": 2156,
+   "N": 67686,
+   "e_prov": 4949,
+   "e_final": 3965,
+   "wer_prov": 7.312,
+   "wer_final": 5.858
+  }
+ },
+ "per_set": {
+  "dev-clean": {
+   "prov": 4.487,
+   "final": 3.4375
+  },
+  "dev-other": {
+   "prov": 12.2014,
+   "final": 9.7814
+  }
+ }
+}

@@ -1,0 +1,15 @@
+69a544ea33f7a83840da99e9b5974bc043451989cb90e9e153fbcce351626a19  scripts/int4_sens.py
+3616c16522571583f202eadc82b965c1dbb39b674c2da9185c90b6876359becf  scripts/int4_report.py
+03ef7cd2ab9e7435459ae79752d6b5f79a2aea238dd1dc43ef7b2bd281b71c8c  scripts/copy_int4_record.sh
+92ac83b29c937495a4a2dead17ea8af9766c86d326328e6d2c62ebc29e7fab95  scripts/h51lib.py
+2cc2f9c323117ce27e02ce3f0f798330759a533bec1528e8a118cafc19d3ebb3  src/crates/ultra-engine/examples/h51_int4_bench.rs
+730b0977e4ed016ab502cc365570883032fc14e35fcf831348325a346dfc6dd0  src/crates/ultra-engine/examples/h51_int4g_bench.rs
+421b8c28ceaba2807ebbea75d22231c0f4c60ad934cd24a6f0ff0e699f21970f  bench/h51-int4/h51_int4.sh
+017f30bc734fa5586f5a4deba78e1f763a005d8e6b04b80d5652a80309cfbc89  scripts/int4_sens.py (as the A4-G per-row arm ran)
+52f355be62a1b7e9f0253cbefae0b45b4c9fc2ecd4603d61716c333b162e51d5  scripts/int4_sens.py (as the A4-R arm ran: before the one-line gptq() fix it never calls)
+25bc583748acbe2eb346aa5c0730debd93e99e0b5fbde803bda187d807616087  scripts/int4_sens.py (as the A4-G128 arm ran, stopped mid-fit)
+69a544ea33f7a83840da99e9b5974bc043451989cb90e9e153fbcce351626a19  scripts/int4_sens.py (as the A4-GM arm ran, stopped mid-fit)
+48775527bf005f24b2c84ab41a4f56b751155aecda9bc82bb8d98922889e3224  h51_int4_bench.rs (run 1, before the scalar-reference check)
+2bafd36d8721684424e4c82d2ecf2d2cdce5240a0e1f97adb0c19213c563cc96  h51_int4_bench binary (run 1)
+5a07473c396938fcd486b719544c255aedd1892d3194073215a480f9e68f8fa5  h51_int4_bench binary (run 2, the staged quiet-assay build)
+8179cd63f0658c60128b836a2d37260f538a5c84b75db934111bed041cd3a5f1  h51_int4g_bench binary

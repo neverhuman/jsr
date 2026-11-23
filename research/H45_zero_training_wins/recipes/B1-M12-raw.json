@@ -1,0 +1,22 @@
+{
+ "name": "B1-M12-raw",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/jsr-data/runs/train/H41_chunk_low/model-00008000.pt",
+   "key": "model",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/jsr-data/runs/train/H41_streamctx/model-00008000.pt",
+   "key": "model",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/jsr-data/runs/train/H41_control/model-00008000.pt",
+   "key": "model",
+   "coef": -1.0
+  }
+ ],
+ "note": "control + tau10 + tau11 = arm10 + arm11 - control",
+ "config_from": "/mnt/amphora-backup/jsr-data/runs/train/H41_chunk_low/model-00008000.pt"
+}

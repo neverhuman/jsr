@@ -1,0 +1,18 @@
+{
+ "config": "results/rescore/c4.S.config.json",
+ "subset": null,
+ "base": {
+  "greedy": 8.301431346295283,
+  "beam1": 8.217511833594207,
+  "oracle": 6.156297735116073,
+  "mean_nbest": 7.190767019938926,
+  "ctc_null_share": 0.0
+ },
+ "port_wer": {
+  "greedy": 8.3014,
+  "beam1": 8.2175,
+  "d1": 8.1355,
+  "d2a": 8.2175,
+  "d2b": 8.1364
+ }
+}

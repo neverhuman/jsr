@@ -1,0 +1,34 @@
+# H49 MANIFEST (paths and sha256 only; no weights in the repo)
+
+## Models and fixed inputs
+- B0 = A1-49000 EMA weights: /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/source/A1-49000-ema-as-model.pt sha256 4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c
+- A1C / H49 init (raw): A1_S_r0bpe_960h ckpt-00049000.pt sha256 2a3dd9fb... (H41 amendment 23)
+- Tokenizer (R0 bpe.model): sha256 c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5
+- Canonical normaliser ultra-en-wer-norm/v1 rule table sha256 988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8; pinned ultra-score sha256 d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1
+- CMU lexicon /usr/share/pocketsphinx/model/en-us/cmudict-en-us.dict sha256 9de99dd2a24b63c653c1c30ab39388d05185cae36d0875f15c319b4ad6dc43af
+- TRAIN word counts: canonical words of /mnt/xbabe3-external/jsr/tokenizers/librispeech_train_text.txt sha256 504dcb7988a2197dde6636d73f807630764678c3b7fc3cdc0573b00102eec18e
+- R0 INT8 full-DEV control (eval-lane, published competitor row): /mnt/xbabe3-external/jsr/evals/eval-lane/r0-fulldev/R0-int8.fulldev.score-input.jsonl sha256 a6dea4a37a8984ccf198b58eaa8c0a0e44e4f4e58d281cdd31fc6de022af5043
+
+## Large result files kept on the data drive (/mnt/xbabe3-external/jsr/h49-seqkd/results/)
+- d68155cbbb21fc17b5dea3b5fce6b4571f608048cb5b76b1804c46d30841175a  dev_headroom/dev_student_nbest.jsonl
+- af1c790c787000a4456418bd92d99dbca8cabe9525eb021aa4574ae905d746eb  dev_headroom/greedy.score-input.jsonl
+- 973487db731866c275e489e80191c8b34a82eb9ba981081fa8b33918904fc6c3  dev_headroom/dev_student_r0top.utts.jsonl
+- a3addf665fb7fce73873a10a5f412559edd58bbd1c98f89f6314192002c030ab  dev_headroom/dev_student.utts.jsonl
+- 77688deb52986351dcf3b1bc9a57f5f8c0f8eb053a299f83e2b94d8775aa6e18  dev_headroom/dev_student_r0top.r0_1best_top.score-input.jsonl
+- a65318933038f7d92f30b9d04b512286ede2efc908b05c41e9453060da0c956d  dev_headroom/dev_student_r0top.union_s8_r0_1best_oracle.score-input.jsonl
+- 273a10d1f07b0387ea95a0c2999fb63783f2a625b61c969665521c7d1a3bfb37  dev_headroom/dev_student.student_1best.score-input.jsonl
+- 66c7b2327e2b116a8435bf52cfb113c9021d29001a499fe7b449d41a1967b6a2  dev_headroom/dev_student.student_b16_oracle.score-input.jsonl
+- b9fe785b1c52a0722228b9c67fce5b669f0c6adda8fbc04ceeef22d2626fbd0f  dev_headroom/dev_student.student_b16_top.score-input.jsonl
+- b38ce3858aa62ce7fd2bcfcceae59cdaf896d0a46dffcf7d0e415d024f6597d5  dev_headroom/dev_student.student_b4_oracle.score-input.jsonl
+- 85462245220357597f4e3707cc8cf71911c16a6e30d42492ed093fed03c181eb  dev_headroom/dev_student.student_b4_top.score-input.jsonl
+- 857a5fe017c667074d5afa46975ae30139a0f178a56835dea74ec8d4e1196865  dev_headroom/dev_student.student_b8_oracle.score-input.jsonl
+- 218dd965c7c2e5d6234710acca179fb814db1975ba02a4a205f171942ccfbf94  dev_headroom/dev_student.student_b8_top.score-input.jsonl
+- af1c790c787000a4456418bd92d99dbca8cabe9525eb021aa4574ae905d746eb  dev_headroom/greedy.score-input.jsonl
+
+## TRAIN pilot inputs (kd-cache, r0-fp32-gpu-v1; xbabe2:~/jsr-data/kd-cache/r0gpu-out/)
+- pilot/student/ (B0 beam 8, 200 units), pilot-student-b4/student/ (beam 4, 200 units), pilot/seq/ (R0 unions; the 84 units with header code_sha256 9246a42c... / 33d75fb0... were used)
+
+## Patches (trainer-lane lands; /mnt/xbabe3-external/jsr/h49-seqkd/patches/)
+- 773e6037b64f844a354e83421c06b1d04b424d9fec0502b25317bbbd71425ed3  h49-trainer.on-4d51bf2.patch
+- 06d201b8feb9cd579c4ca8945094d9d364c075bd781a8a8cae7a9d8cb01fe880  h49-trainer.on-6f2d850.patch
+- acef9b8e4c3c2fee633525f7a9f9b540785db0d145059dcaddc9ab8443a5b087  h49-trainer.on-fd0f64f.patch

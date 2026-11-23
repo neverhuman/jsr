@@ -1,0 +1,11 @@
+# D1 island i (i = 0 on x5 GPU0, i = 1 on x5 GPU1): ONE process each (world 1), same common.set, plus:
+#   data_rank=<i> data_world=2           -> reads exactly D0 rank i's share of every global step
+#   diloco_worker=x5-g<i>                -> fixed roster x5-g0,x5-g1
+# The GPU cap must use the same step-boundary throttle as D0 (needs the world-1 StepThrottle option, see
+# h50-fleet 06:5xZ note), not a SIGSTOP guard, so the two arms' wall clocks compare.
+data_world=2
+diloco_hub=http://127.0.0.1:29610
+diloco_every=500
+diloco_dtype=float32
+stratify_chunks=false
+seed=1234

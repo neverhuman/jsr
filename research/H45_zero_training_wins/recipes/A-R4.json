@@ -1,0 +1,26 @@
+{
+ "name": "A-R4",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "model",
+   "coef": 0.25
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "model",
+   "coef": 0.25
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00045000.pt",
+   "key": "model",
+   "coef": 0.25
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00042500.pt",
+   "key": "model",
+   "coef": 0.25
+  }
+ ],
+ "note": "uniform mean of A1 raw at the last 4 snapshots"
+}

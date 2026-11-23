@@ -1,0 +1,174 @@
+{
+ "schema": "alwayson-bench.run/v1",
+ "system": "nemotron-en-160ms",
+ "host": "xbabe1",
+ "exploratory": true,
+ "status": "PARTIAL: prefixes of the 10 non-speech blocks (4.07 h of 10 h)",
+ "why_stopped": "stopped 2026-11-23T09:01:10Z by memguard_x1.sh (SIGTERM to my recorded PGIDs) when xbabe1 MemAvailable stayed under 4 GB: three other-user qemu VMs (~24 GB) had started 08:15-08:42Z; swap full",
+ "threads": "1 (--asr.backend.threads 1, OMP/MKL 1; runtime shows up to 4 threads, ~1 core busy)",
+ "speed_note": "~0.16-0.27x real time on one core of a contended 3995WX host (~4-6 CPU-s per audio-s)",
+ "identity": {
+  "runtime": "NeMo-Speech.cpp 0.3.0 @ e790e46 (pinned binary 41b19d48), bench asr --mode stream",
+  "model_files": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/models/nemotron/nemotron-speech-streaming-en-0.6b.q8_0.gguf": "d9a01898d2a611c8764e23a1c2f45e70bbd5a425dc4de93692ac951dd603812d",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/models/nemotron/tokenizer.json": "60dc0361763fa3cd62df60f34fca3e61134676a939967853931db5f3869b2db2"
+  },
+  "runtime_libraries": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/libggml-base.so": "026e2ecfac47510c9822d8605db05b3d7dd2ac79cb2b39c3195acf7fd522371c",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/libggml-cpu.so": "07cb7e97b44f8030cf1b4f54ebec3849671bc513d3c8f42531c9aa621b94d5e7",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/libggml.so": "fe6b8cf93bc45dec088f576ab1b06973453a890fcedb8444a11e795a628c68fb",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/libnemo_speech_asr.so": "135ffc64f30c3d473fdd0f05708d4acf9a80c4e82c4747ad3e4476e0d2b22a57",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/libnemo_speech_asr_c.so": "9e9a55594bb33332e52eb9936b1ae0a4ab8de24e77b0f0988bdc5a738fe26ad7",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/bin/nemo-speech/nemo-speech": "41b19d48dcdc53af10baec48d543033f534e4cc5ad09b05227def417adfbe435"
+  },
+  "driver_and_binary": {
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/nemo_alwayson.py": "4b9b03f11d0198b5626ddd64178e99c9ca76dd815db08c87984010e1bcd872fb",
+   "/mnt/xbabe3-external/jsr/alwayson-bench/drivers/common.py": "9cda311563d56ba8bed6482bf00e9c3e83455b606472472af4d74f204cdc00ad"
+  }
+ },
+ "score": {
+  "schema": "alwayson-bench.ao-nonspeech/v1",
+  "blocks": [
+   {
+    "block": "brown_-20dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.2857
+   },
+   {
+    "block": "brown_-30dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.2899
+   },
+   {
+    "block": "brown_-40dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.3397
+   },
+   {
+    "block": "pink_-20dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.332
+   },
+   {
+    "block": "pink_-30dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.3276
+   },
+   {
+    "block": "pink_-40dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.3592
+   },
+   {
+    "block": "silence",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.7233
+   },
+   {
+    "block": "white_-20dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.332
+   },
+   {
+    "block": "white_-30dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.4091
+   },
+   {
+    "block": "white_-40dBFS",
+    "words_normalised": 0,
+    "words_raw": 0,
+    "hours": 0.6759
+   }
+  ],
+  "words": 0,
+  "hours": 4.0744,
+  "per_hour": 0.0,
+  "upper95_poisson_per_hour": 0.7353,
+  "upper95_block_bootstrap_per_hour": 0.0,
+  "upper95_per_hour": 0.7353
+ },
+ "blocks": {
+  "brown_-20dBFS": {
+   "audio_s": 1028.64,
+   "hours": 0.28573333333333334,
+   "trace_events": 6429,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.06
+  },
+  "brown_-30dBFS": {
+   "audio_s": 1043.68,
+   "hours": 0.2899111111111111,
+   "trace_events": 6523,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1117.98
+  },
+  "brown_-40dBFS": {
+   "audio_s": 1222.88,
+   "hours": 0.33968888888888893,
+   "trace_events": 7643,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.93
+  },
+  "pink_-20dBFS": {
+   "audio_s": 1195.36,
+   "hours": 0.3320444444444444,
+   "trace_events": 7471,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.08
+  },
+  "pink_-30dBFS": {
+   "audio_s": 1179.2,
+   "hours": 0.32755555555555554,
+   "trace_events": 7370,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1123.02
+  },
+  "pink_-40dBFS": {
+   "audio_s": 1292.96,
+   "hours": 0.35915555555555556,
+   "trace_events": 8081,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.04
+  },
+  "silence": {
+   "audio_s": 2603.84,
+   "hours": 0.723288888888889,
+   "trace_events": 16274,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.38
+  },
+  "white_-20dBFS": {
+   "audio_s": 1195.2,
+   "hours": 0.332,
+   "trace_events": 7470,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1127.02
+  },
+  "white_-30dBFS": {
+   "audio_s": 1472.64,
+   "hours": 0.4090666666666667,
+   "trace_events": 9204,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1121.79
+  },
+  "white_-40dBFS": {
+   "audio_s": 2433.28,
+   "hours": 0.6759111111111111,
+   "trace_events": 15208,
+   "final_words_raw": 0,
+   "rss_peak_mb": 1118.8
+  }
+ },
+ "max_words_ever_shown": 0,
+ "packaged_by": "drivers/partial_nemo.py + score_ao_bench.py nonspeech --hours-from-trace"
+}

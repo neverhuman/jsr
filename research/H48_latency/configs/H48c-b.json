@@ -1,0 +1,4 @@
+{"arm": "H48c-b", "label": "MFA-anchored", "base_command": "A1C (trainer-lane amendment 23): A1-49000 raw init, EMA restart, A1 recipe, chunk_modes=4,8,16, 8,000 steps (200 warmup to 2.476e-4, cosine to 3.0e-5), seed 1234, batch 650 s / 144",
+ "set": {"mfa_anchors": "<x5/x9 copy of mfa_anchors_train960_v1.npz, sha256 58a8bd0f65231138cb0f10cd62d1b59a28c56c6247732ae4b59f570f13e60b2b>", "anchor_kappa": 0.01, "anchor_margin": 1, "anchor_cap": 12.0, "anchor_simple": true, "delay_penalty": 0.005},
+ "decodes": "EMA full dev at chunks 2 / 4 / 8 / 16; latency traces at chunks 2 and 4 (eval-lane)",
+ "kill": "step-2,000 dev-clean400 EMA chunk 4 > 6.150; raw chunk-4 > 20%; divergence guard or anchor_risk rising 1,000 steps"}

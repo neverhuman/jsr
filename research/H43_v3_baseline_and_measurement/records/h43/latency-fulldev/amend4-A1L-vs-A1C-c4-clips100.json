@@ -1,0 +1,138 @@
+{
+ "schema": "ultra.h43.latency-compare/v1",
+ "a": "/dev/shm/eval-lane/amend4/A1C.clips.jsonl",
+ "b": "/dev/shm/eval-lane/amend4/A1L.clips.jsonl",
+ "shared_utterances": 100,
+ "b_minus_a_95": {
+  "ftl_end_mean_ms": {
+   "point": -94.4,
+   "lo95": -110.4,
+   "hi95": -80.0
+  },
+  "ftl_onset_mean_ms": {
+   "point": -94.4,
+   "lo95": -110.4,
+   "hi95": -80.0
+  },
+  "fcw_coverage": {
+   "point": -0.01,
+   "lo95": -0.03,
+   "hi95": 0.0
+  },
+  "fcw_end_mean_ms": {
+   "point": -87.74356,
+   "lo95": -105.7979,
+   "hi95": -73.33333
+  },
+  "fcw_onset_mean_ms": {
+   "point": -88.59351,
+   "lo95": -107.78947,
+   "hi95": -73.33333
+  },
+  "revised_per_100_final": {
+   "point": -0.04904,
+   "lo95": -0.16484,
+   "hi95": 6e-05
+  },
+  "cq_stable_150": {
+   "point": 0.08948,
+   "lo95": 0.07222,
+   "hi95": 0.10587
+  },
+  "cq_prov_150": {
+   "point": 0.08948,
+   "lo95": 0.07222,
+   "hi95": 0.10587
+  },
+  "cq_stable_300": {
+   "point": 0.2237,
+   "lo95": 0.2092,
+   "hi95": 0.24084
+  },
+  "cq_prov_300": {
+   "point": 0.2237,
+   "lo95": 0.2092,
+   "hi95": 0.24084
+  },
+  "cq_stable_500": {
+   "point": 0.0059,
+   "lo95": 0.00223,
+   "hi95": 0.00931
+  },
+  "cq_prov_500": {
+   "point": 0.0059,
+   "lo95": 0.00223,
+   "hi95": 0.00931
+  },
+  "first_cq_end_150": {
+   "point": 0.15,
+   "lo95": 0.09,
+   "hi95": 0.21
+  },
+  "first_cq_end_250": {
+   "point": 0.32,
+   "lo95": 0.26,
+   "hi95": 0.39
+  },
+  "first_cq_end_300": {
+   "point": 0.33,
+   "lo95": 0.25,
+   "hi95": 0.41
+  },
+  "first_cq_end_500": {
+   "point": -0.01,
+   "lo95": -0.03,
+   "hi95": 0.0
+  },
+  "first_cq_end_1000": {
+   "point": -0.01,
+   "lo95": -0.03,
+   "hi95": 0.0
+  },
+  "first_cq_onset_300": {
+   "point": 0.08,
+   "lo95": 0.03,
+   "hi95": 0.15
+  },
+  "first_cq_onset_500": {
+   "point": 0.27,
+   "lo95": 0.19,
+   "hi95": 0.37
+  },
+  "first_cq_onset_1000": {
+   "point": 0.01,
+   "lo95": -0.02,
+   "hi95": 0.04
+  },
+  "ftl_end_p50_ms": {
+   "point": -110.0,
+   "lo95": -130.0,
+   "hi95": -70.0
+  },
+  "ftl_end_p95_ms": {
+   "point": -60.0,
+   "lo95": -120.0,
+   "hi95": -10.0
+  },
+  "fcw_end_p50_ms": {
+   "point": -80.0,
+   "lo95": -120.0,
+   "hi95": -50.0
+  },
+  "fcw_end_p95_ms": {
+   "point": -60.0,
+   "lo95": -120.0,
+   "hi95": -20.0
+  },
+  "fcw_onset_p50_ms": {
+   "point": -120.0,
+   "lo95": -140.0,
+   "hi95": -40.0
+  },
+  "fcw_onset_p95_ms": {
+   "point": -80.0,
+   "lo95": -150.0,
+   "hi95": 0.0
+  }
+ }
+}

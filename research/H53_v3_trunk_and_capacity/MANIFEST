@@ -1,0 +1,19 @@
+# H53 MANIFEST: checkpoint and data paths with sha256 (never weights in the research record).
+# Filled as runs happen; every launch adds its init, run dir and BP checkpoints here before the run counts.
+B0.ckpt        xbabe5:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt  sha256 2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146 (rank 0; H48a README)
+B0.copy        xbabe9:~/jsr-data/seeds/A1/ckpt-00049000.pt  sha256 2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146 (A1C's init)
+NOT-B0         xbabe9:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt  sha256 9e8bba41521bc126e8872f9944ea258d22bee54c10a76fd44270c8945a6e1ef2 (A1 rank 3's checkpoint; do not use as B0)
+B0.int8        /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/weights.int8.safetensors  sha256 4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285
+A1L.ckpt       xbabe9:~/jsr-data/runs/train/A1L_dp0.005/ckpt-00008000.pt  sha256 fb2c9bc41ebb1d6ce0294cbf32084a354ecff0adf24b1b451563886f8c7d067a (codex-lead 06:14Z)
+tokenizer      $D/models/zipformer-en-2023-06-26/bpe.model  sha256 c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5
+data.960h      ~/jsr-data/corpora/librispeech/hf_parquet/all/{train.clean.100,train.clean.360,train.other.500}  name+size manifest 18d27570447f8da0 (identical on xbabe5 and xbabe9, preflight 07:1xZ)
+librilight.small.tar  sha256 cbd68b0998c7742ca45302cd653c914f4b1eb1c12bddbfb7064c69c7f2fc91b2 (h52 06:49Z); overlap verdict analysis/overlap_small/overlap_verdict.json
+P1.tree        xbabe5:~/jsr/.agent/worktrees/trainer-p1  python/ultra content sha256 1254ca23... (A1L's 99bce400 + patch 0001a; trainer-lane 07:23Z)
+P1.seed.G32    xbabe5:~/jsr-data/seeds/H53/A1-49000_grow32_model.pt  sha256 4eaa6c0786cfa9b4553d62228e899b1cb422e7ce0b5c02267496352b146de878
+P1.seed.G24    xbabe5:~/jsr-data/seeds/H53/A1-49000_grow24_model.pt  sha256 df2b956521f4e5c1754344b6f20b8f5c6a2d49e939be1aa702090dfc0d52ab11
+S2.pin        main 90b7f4d56f1046ff6e12e38780028fd14fa9b9d8  python/ultra content sha256 3780b4518a3bb02614316f61fce8a2ae393280321591558b31417b9d61487631 (Amendment 5)
+S2.data.small.v11  x5/x7/x9:~/jsr-data/librilight/shards/r0_v11/librilight.small  manifest SHA256SUMS sha256 8f371a65...59f3 (h52 10:00:10Z; 99,109 rows, 378.65 h; v1.1 labels only)
+S2.launch.x5  ~/x5_s2.sh (checked 10:0xZ against Amendment 5: launcher e783ea45, set file 72dc74e7, world-4 row, dp 0.005, port 29754)
+# pending: S2 run dir H53_S2_small_s7919 (receipts), S2a/S2b BP checkpoints, RC1 base + endpoint
+S2.receipt    H53_S2_small_s7919 fired 10:01:31Z (trainer-lane 10:02Z): world 4, ranks x5 GPU0/1 + x7 GPU0/1, DDP checksums 44357.99961... equal, cursor (0,0,0), init B0 2a3dd9fb, data small v1.1 8f371a65..., config.json = Amendment 5 world-4 row + dp 0.005 (checked by h53-trunk 10:0xZ)
+S2b.mix.inputs  a_LS = 1,199 audio-s per row group (2,886 rg, 281,241 rows, 961 h); a_small = 1,363 (1,000 rg, 99,109 rows, 378.65 h); extra_base_weight for 0.5 LS audio = a_LL/(a_LS+a_LL) = 0.532 if a_medium = a_small (re-measure at finalisation)

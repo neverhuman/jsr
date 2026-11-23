@@ -1,0 +1,58 @@
+{
+ "formats": {
+  "int8": {
+   "codes_mb": 55.480896,
+   "codebooks_mb": 0.0,
+   "side_mb": 1.267836,
+   "total_mb": 56.748732,
+   "ws_kvfp32_mb": 65.736892,
+   "ws_kvint8_mb": 61.06548592
+  },
+  "s4R1": {
+   "codes_mb": 6.935112,
+   "codebooks_mb": 1.426432,
+   "side_mb": 1.267836,
+   "total_mb": 9.62938,
+   "ws_kvfp32_mb": 18.617539999999998,
+   "ws_kvint8_mb": 13.94613392
+  },
+  "s8R2": {
+   "codes_mb": 6.935112,
+   "codebooks_mb": 2.852864,
+   "side_mb": 1.267836,
+   "total_mb": 11.055812,
+   "ws_kvfp32_mb": 20.043971999999997,
+   "ws_kvint8_mb": 15.37256592
+  },
+  "s4R2": {
+   "codes_mb": 13.870224,
+   "codebooks_mb": 2.852864,
+   "side_mb": 1.267836,
+   "total_mb": 17.990924,
+   "ws_kvfp32_mb": 26.979083999999997,
+   "ws_kvint8_mb": 22.307677919999996
+  },
+  "k4R4(staged)": {
+   "codes_mb": 13.870224,
+   "codebooks_mb": 5.705728,
+   "side_mb": 1.267836,
+   "total_mb": 20.843788,
+   "ws_kvfp32_mb": 29.831947999999997,
+   "ws_kvint8_mb": 25.160541919999996
+  },
+  "k4R2(staged)": {
+   "codes_mb": 6.935112,
+   "codebooks_mb": 2.852864,
+   "side_mb": 1.267836,
+   "total_mb": 11.055812,
+   "ws_kvfp32_mb": 20.043971999999997,
+   "ws_kvint8_mb": 15.37256592
+  }
+ },
+ "other": {
+  "kv_fp32_mb": 6.684672,
+  "kv_int8_mb": 2.01326592,
+  "conv_state_mb": 0.344064,
+  "fp32_params_mb": 1.959424
+ }
+}

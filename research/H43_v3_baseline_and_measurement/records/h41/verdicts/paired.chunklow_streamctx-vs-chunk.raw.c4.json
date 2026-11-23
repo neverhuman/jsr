@@ -1,0 +1,204 @@
+{
+  "schema": "ultra.score-report/v1",
+  "normaliser_id": "ultra-en-wer-norm/v1",
+  "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+  "weights": {
+    "dev-clean": 0.5,
+    "dev-other": 0.5
+  },
+  "weights_sha256": "01dbcb5f901deeb0179fc9eea2ecad5e322c37f198603634ae53211c353f10be",
+  "system_a": {
+    "utterances": 5567,
+    "datasets": {
+      "dev-clean": {
+        "counts": {
+          "ref_words": 54691,
+          "hyp_words": 54678,
+          "matches": 52167,
+          "substitutions": 2273,
+          "deletions": 251,
+          "insertions": 238
+        },
+        "wer": 0.050501910734855826,
+        "utterances": 2703,
+        "speakers": 40,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      },
+      "dev-other": {
+        "counts": {
+          "ref_words": 51363,
+          "hyp_words": 51216,
+          "matches": 44992,
+          "substitutions": 5587,
+          "deletions": 784,
+          "insertions": 637
+        },
+        "wer": 0.13644062846796332,
+        "utterances": 2864,
+        "speakers": 33,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      }
+    },
+    "pooled_wer": 0.09212288079657532,
+    "macro_wer": 0.09347126960140957
+  },
+  "system_b": {
+    "utterances": 5567,
+    "datasets": {
+      "dev-clean": {
+        "counts": {
+          "ref_words": 54691,
+          "hyp_words": 54672,
+          "matches": 52113,
+          "substitutions": 2306,
+          "deletions": 272,
+          "insertions": 253
+        },
+        "wer": 0.051763544276023477,
+        "utterances": 2703,
+        "speakers": 40,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      },
+      "dev-other": {
+        "counts": {
+          "ref_words": 51363,
+          "hyp_words": 51172,
+          "matches": 44857,
+          "substitutions": 5668,
+          "deletions": 838,
+          "insertions": 647
+        },
+        "wer": 0.13926367229328504,
+        "utterances": 2864,
+        "speakers": 33,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      }
+    },
+    "pooled_wer": 0.09414072076489335,
+    "macro_wer": 0.09551360828465426
+  },
+  "comparison": {
+    "macro_delta": {
+      "observed_a": 0.09347126960140957,
+      "observed_b": 0.09551360828465426,
+      "delta": 0.0020423386832446877,
+      "relative_delta": 0.021849908447310624,
+      "lower": 0.0011232239080702228,
+      "upper": 0.0029698129664999795,
+      "replicates": 10000,
+      "seed": 20261122,
+      "alpha": 0.05,
+      "strata": [
+        {
+          "dataset": "dev-clean",
+          "clusters": 40,
+          "den": 54691,
+          "sparse": false
+        },
+        {
+          "dataset": "dev-other",
+          "clusters": 33,
+          "den": 51363,
+          "sparse": false
+        }
+      ],
+      "limited": false
+    },
+    "pooled_delta": {
+      "observed_a": 0.09212288079657532,
+      "observed_b": 0.09414072076489335,
+      "delta": 0.0020178399683180304,
+      "relative_delta": 0.021903787103377727,
+      "lower": 0.0011066590345353983,
+      "upper": 0.0029271038558964374,
+      "replicates": 10000,
+      "seed": 20261122,
+      "alpha": 0.05,
+      "strata": [
+        {
+          "dataset": "dev-clean",
+          "clusters": 40,
+          "den": 54691,
+          "sparse": false
+        },
+        {
+          "dataset": "dev-other",
+          "clusters": 33,
+          "den": 51363,
+          "sparse": false
+        }
+      ],
+      "limited": false
+    },
+    "per_dataset": {
+      "dev-clean": {
+        "observed_a": 0.050501910734855826,
+        "observed_b": 0.051763544276023477,
+        "delta": 0.0012616335411676505,
+        "relative_delta": 0.02498189717595944,
+        "lower": 0.00012832499220883503,
+        "upper": 0.002439646069256819,
+        "replicates": 10000,
+        "seed": 20261122,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 40,
+            "den": 54691,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "dev-other": {
+        "observed_a": 0.13644062846796332,
+        "observed_b": 0.13926367229328504,
+        "delta": 0.002823043825321725,
+        "relative_delta": 0.02069063926940636,
+        "lower": 0.0013797796132836715,
+        "upper": 0.004291034195950921,
+        "replicates": 10000,
+        "seed": 20261122,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-other",
+            "clusters": 33,
+            "den": 51363,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      }
+    }
+  }
+}

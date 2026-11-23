@@ -1,0 +1,20 @@
+# H52 data archives (not systems; for claude-lead to place in docs/ultra/CANDIDATES.lock or a data lock section)
+data:
+  - id: librilight-small
+    url: https://dl.fbaipublicfiles.com/librilight/data/small.tar
+    bytes: 35135006720
+    md5: c49207eb86a8e8ac895561c37232041e        # = official (libri-light data_preparation/README.md, S3 metadata)
+    sha256: cbd68b0998c7742ca45302cd653c914f4b1eb1c12bddbfb7064c69c7f2fc91b2  # ours, streamed (ll_index.py)
+    members: {flac: 2588, json: 2588, anomalies: 0}
+    approval: owner 2026-11-23 (Libri-Light with R0 labels; results labelled "semi-supervised (R0 labels)")
+  - id: librilight-medium
+    url: https://dl.fbaipublicfiles.com/librilight/data/medium.tar
+    bytes: 320792217600
+    md5: c75e7ac62471bfbf2db77528d62a9b74        # = official (ours, streamed)
+    sha256: 3987255ff3b0fa278f36478037bbc8e8ed6ad60779a9b7749cfef64a2774295a
+    members: {flac: 18739, json: 18739, anomalies: 0}
+    approval: owner 2026-11-23
+  - id: librispeech-dev-clean-metadata
+    url: https://www.openslr.org/resources/12/dev-clean.tar.gz
+    md5: 42e2234ba48799c1f50f24a7926300a1        # = OpenSLR md5sum.txt; only SPEAKERS/CHAPTERS/BOOKS/README/LICENSE.TXT kept
+    kept_sha256: {SPEAKERS.TXT: 3350f093382f8baa1d589c9f5a5cee8ec3705e656f521d6eafbaa31a5fcd8f76, CHAPTERS.TXT: 2e9db25c250a143b031ca003180acfce84b364e31fbc79250e306303e6f25306, BOOKS.TXT: 2e5a277207aeecad9f85db53f97e46320419c3d80e330d6524193b283ff5edb0}

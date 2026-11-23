@@ -1,0 +1,77 @@
+{
+ "schema": "alwayson-bench.ours-endless/v1",
+ "system": "H22ctl-79800 EMA INT8 (ours, paper reference), ultra-engine-endless",
+ "rule": "latency-tolerant, tail 1.5 s",
+ "runs": {
+  "ours.h22ctl.endless27h.t0.full": {
+   "pooled_wer": 9.892,
+   "gap_false_words_total": {
+    "words": 0,
+    "hours": 17.0551,
+    "per_hour": 0.0,
+    "upper95_per_hour": 0.176
+   },
+   "lag_ms": {
+    "n": 95711,
+    "p50": 309.89999999997053,
+    "p95": 438.5374999983469
+   }
+  },
+  "ours.h22ctl.endless27h.t0.prefix18.01h": {
+   "pooled_wer": 9.773,
+   "gap_false_words_total": {
+    "words": 0,
+    "hours": 11.1229,
+    "per_hour": 0.0,
+    "upper95_per_hour": 0.269
+   },
+   "lag_ms": {
+    "n": 62866,
+    "p50": 312.13750000461005,
+    "p95": 440.8000000003085
+   }
+  },
+  "ours.h22ctl.endless27h.t1500_r1000.full": {
+   "pooled_wer": 9.237,
+   "gap_false_words_total": {
+    "words": 0,
+    "hours": 17.0551,
+    "per_hour": 0.0,
+    "upper95_per_hour": 0.176
+   },
+   "lag_ms": {
+    "n": 96457,
+    "p50": 311.10000000626314,
+    "p95": 439.23749999521533
+   }
+  },
+  "ours.h22ctl.endless27h.t1500_r1000.prefix18.01h": {
+   "pooled_wer": 9.145,
+   "gap_false_words_total": {
+    "words": 0,
+    "hours": 11.1229,
+    "per_hour": 0.0,
+    "upper95_per_hour": 0.269
+   },
+   "lag_ms": {
+    "n": 63338,
+    "p50": 313.28750000102445,
+    "p95": 441.39999999970314
+   }
+  },
+  "ours.h22ctl.t0.prefix6.98h": {
+   "pooled_wer": 9.759,
+   "gap_false_words_total": {
+    "words": 0,
+    "hours": 4.3195,
+    "per_hour": 0.0,
+    "upper95_per_hour": 0.694
+   },
+   "lag_ms": {
+    "n": 24255,
+    "p50": 314.8999999998523,
+    "p95": 444.4999999996071
+   }
+  }
+ }
+}

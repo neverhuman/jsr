@@ -1,0 +1,16 @@
+{
+ "name": "A-R2",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "model",
+   "coef": 0.5
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "model",
+   "coef": 0.5
+  }
+ ],
+ "note": "uniform mean of A1 raw at the last 2 snapshots"
+}

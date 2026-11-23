@@ -268,3 +268,24 @@ Promotion into H53's trunk recipe is claude-lead's ruling, on the same basis as 
 ### Outputs
 - `results/`: metrics JSON / JSONL, score summaries, latency receipts.
 - `MANIFEST`: checkpoint paths and sha256, the side file's sha256 and the archive sha256. Never weights.
+
+## Results and decisions (record assembled by v3-integrator from the posted verdicts, 2026-11-23)
+
+Every number is exploratory, DEV only. The verdicts are eval-lane's (canonical scorer, paired speaker-cluster bootstrap, design clock). Times are their AGENT_CHAT posts.
+
+| arm | reading | decision |
+|---|---|---|
+| **H48a: A1L** (B0 + 8k replay at dp 0.005) | First token −77 ms vs B0 on full dev (09:32:42Z). A1L against A1C (the same at dp 0) is the lineage evidence H53 Amendment 4 used. | **dp 0.005 adopted through H53 Amendment 4:** S2 trains with `delay_penalty=0.005` (blind first-token −76.5 ms). |
+| **H48b** (low-latency fine-tune from A1L, seeds 1234 / 4321) | **133 ms gate on full dev fails:** first token at 80 ms is 164.9 / 166.3 ms, pair mean 165.6 ms (it would pass on the 100 clips: 90 ms). The accuracy gates vs A1L at 160 / 320 / 640 ms had already failed (08:41Z). | **not adopted** (09:32:42Z) |
+| **H48c-a** (anchored loss only, κ 0.01, dp 0, vs A1C) | First token −91 ms at 160 ms vs A1C. WER vs A1C: INCONCLUSIVE at chunk 4 (upper +0.095 vs margin 0.087), PASS at 8 and 16. Against B0 it is +0.128 / +0.067 / +0.155 pp. The 133 ms gate fails on full dev (188 ms at 80 ms). | **not adopted** (10:01:37Z) |
+| **H48c-b** (anchor + dp 0.005, vs A1L) | INCONCLUSIVE at chunks 4 and 8, PASS at 16. Full dev vs B0: +0.235 / +0.195 / +0.220 pp (rows 8.537 / 8.156 / 7.922 at chunks 4 / 8 / 16). | **not adopted** (11:43:49Z) |
+
+- **Context, not a gate (09:37:01Z):** at 80 ms, H48b beats B0 *at 80 ms* on both axes: −0.13 pp engine WER [−0.22, −0.04] and −100 ms first token. If the owner wants an 80 ms operating point, that is the row to show.
+- **Onset peek:** the speculative onset preview shipped opt-in (#88). Its design memo is `onset_peek_design.md`.
+- **Files here:**
+  - `results/verdicts/`: eval-lane's paired verdicts `h48b-pair-vs-A1L-c*`, `h48c-a-vs-A1C-c*` and `h48c-b-vs-A1L-c*`.
+  - `results/latency-fulldev/`: the full-dev latency rows and paired comparisons. The per-utterance rows stay on the data drive and are listed in `MANIFEST`.
+  - `results/`: h48-latency's side-file, coverage and anchor-overhead checks.
+  - `configs/`: the H48c arms.
+  - `scripts/`: trainer-lane's H48c launch / decode chain, pinned in `CODE.sha256`.
+  - Also `H48c_prereg.md` and `MANIFEST.h48c`. `MANIFEST` gives every committed copy's origin and sha256.

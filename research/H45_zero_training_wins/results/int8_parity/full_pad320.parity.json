@@ -1,0 +1,31 @@
+{
+ "name": "full_pad320",
+ "utterances": 5567,
+ "rows_seen_twice": 0,
+ "rows_seen_twice_identical_text": 0,
+ "revised_pct": 31.09,
+ "provisional_wer": 8.2722,
+ "evallane_int8_wer": 8.2722,
+ "prov_minus_evallane_int8": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "committed_wer": 7.6772,
+ "pytorch_c16_wer": 7.7027,
+ "committed_minus_pytorch_c16": [
+  -0.0255,
+  -0.0548,
+  0.0046
+ ],
+ "committed_minus_provisional": [
+  -0.595,
+  -0.7016,
+  -0.4939
+ ],
+ "commit_ms_p50_p95": [
+  556.1,
+  2124.2
+ ],
+ "commit_cpu_s_per_audio_s": 0.113
+}

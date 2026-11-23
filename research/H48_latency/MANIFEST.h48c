@@ -1,0 +1,25 @@
+# H48c MANIFEST (h48-latency, 2026-11-23). Data paths and sha256 only; never weights or data files in git.
+# Source archive (Zenodo record 2619474 v1.0, DOI 10.5281/zenodo.2619474, Lugosch et al. 2019, MFA; CC BY 4.0)
+archive  /mnt/xbabe3-external/jsr/h48-latency/data/zenodo2619474_dl/librispeech_alignments.zip
+  bytes   623023332
+  md5     2bab567d0ace651a4ba254e813629f46   # equals Zenodo's published md5 (verified 2026-11-23T06:19Z)
+  sha256  6ac1d003cf54dbf7968adc8f3a0ce59e0345d8458847477bb70d57f49c577b16
+  members train-clean-100 28538 TextGrid + unaligned.txt; train-clean-360 104008 + unaligned.txt;
+          train-other-500 148645 + unaligned.txt; dev/test members present in the zip, never opened by h48-latency
+# Side files (train only; built by `python -m train.mfa_anchors build`, patch below)
+side     /mnt/xbabe3-external/jsr/h48-latency/data/mfa_train960_v1/mfa_anchors_train960_v1.npz   # ultra.mfa-anchors/v1
+  sha256  58a8bd0f65231138cb0f10cd62d1b59a28c56c6247732ae4b59f570f13e60b2b   # 160,520,322 bytes
+phones   /mnt/xbabe3-external/jsr/h48-latency/data/mfa_train960_v1/mfa_phones_train960_v1.npz    # ultra.mfa-phones/v1
+  sha256  473b9fffeb020fea53194f6096a529dd1852b968f0d931ad7ae9a315cd359293   # 506,142,891 bytes
+coverage /mnt/xbabe3-external/jsr/h48-latency/data/mfa_train960_v1/MANIFEST.json
+  sha256  d4603ea469c0934a6c251e811a2f29068e06a35c7b355d3be10d3ea425d2d9c5
+# Code (patch for trainer-lane against origin/main e61121e; applies on lane/trainer 14edeba, 3-way on PR #72 head 1efd2cd)
+patch    /mnt/xbabe3-external/jsr/h48-latency/src/h48c_anchored_latency.patch
+  sha256  347fc941bbfad128014029f58d2e7e0bcc7c979c5c3c9d41d6ade5940553fd8f
+tests    /mnt/xbabe3-external/jsr/h48-latency/results/h48c_tests.txt   # 24 passed
+patch_pr80 /mnt/xbabe3-external/jsr/h48-latency/src/h48c_anchored_latency.on-pr80-fd0f64f.patch   # same change rebased on PR #80 head fd0f64f
+  sha256  dc9c63a7a350c2e7e63a68652fbd56af077a5e39b11184e85c3f3ff2bee6f80a
+# Coverage (train, vs our parquet transcripts): 281,127 / 281,241 utterances, 9,399,766 / 9,403,555 words (99.96%);
+#   50 without TextGrid (= the archive's unaligned.txt), 64 MFA apostrophe-split mismatches; 0 last words past audio end.
+# Real-data check (train-clean-100 shard 0, R0 BPE-500 tokenizer c53433de...): 2,039 / 2,039 anchored at 0.9 / 1.0 / 1.1,
+#   anchors monotone, last-token anchor <= last encoder frame + 1  ->  results/side_file_check_tc100_shard0.json

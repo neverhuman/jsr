@@ -1,0 +1,117 @@
+{
+ "B0-C0": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.305,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c0/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 278.5999999998694,
+   "duty05_r1_Q": 306.39999999999645,
+   "duty05_r6_N20": 77.99999999997453,
+   "duty05_r6_Q": 133.1000000000131,
+   "duty20_r1_N20": 302.9999999998836,
+   "duty20_r1_Q": 318.2000000001608,
+   "duty20_r6_N20": 293.200000000013,
+   "duty20_r6_Q": 318.0999999999585,
+   "duty50_r1_N20": 306.3000000001921,
+   "duty50_r1_Q": 309.1999999999189,
+   "duty50_r6_N20": 302.0000000001346,
+   "duty50_r6_Q": 311.59999999999854
+  }
+ },
+ "B0-C1": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.336,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/b0-A1-49000-ema-int8/tierA-c1/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 336.400000000026,
+   "duty05_r1_Q": 333.10000000005857,
+   "duty05_r6_N20": 231.40000000000782,
+   "duty05_r6_Q": 241.80000000023938,
+   "duty20_r1_N20": 341.20000000029904,
+   "duty20_r1_Q": 333.0000000000837,
+   "duty20_r6_N20": 348.19999999990614,
+   "duty20_r6_Q": 341.0999999998694,
+   "duty50_r1_N20": 319.39999999997326,
+   "duty50_r6_N20": 345.299999999952,
+   "duty50_r6_Q": 338.4000000000924
+  }
+ },
+ "Zipformer-R0": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.527,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/r0-zipformer-int8/tierA/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 521.8999999997322,
+   "duty05_r1_Q": 528.6000000000968,
+   "duty05_r6_N20": 471.3000000000136,
+   "duty05_r6_Q": 432.09999999999127,
+   "duty20_r1_N20": 526.8999999999977,
+   "duty20_r1_Q": 529.3000000001484,
+   "duty20_r6_N20": 534.4000000000051,
+   "duty20_r6_Q": 535.0999999999999,
+   "duty50_r1_N20": 522.199999999998,
+   "duty50_r1_Q": 524.1000000000895,
+   "duty50_r6_N20": 527.8000000002976,
+   "duty50_r6_Q": 531.2999999998738
+  }
+ },
+ "Vosk-Small": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.291,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/vosk-small-en-us-0.15/tierA/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 302.30000000000246,
+   "duty05_r1_Q": 273.5000000002401,
+   "duty05_r6_N20": 264.5999999999731,
+   "duty05_r6_Q": 292.4999999997908,
+   "duty20_r1_N20": 377.50000000005457,
+   "duty20_r1_Q": 324.6999999998934,
+   "duty20_r6_N20": 281.10000000015134,
+   "duty20_r6_Q": 273.9000000001397,
+   "duty50_r1_N20": 337.89999999999054,
+   "duty50_r1_Q": 319.0999999999349,
+   "duty50_r6_N20": 289.8000000000138,
+   "duty50_r6_Q": 280.5000000000746
+  }
+ },
+ "Moonshine-Tiny": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.713,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-tiny-streaming/tierA/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 743.50000000004,
+   "duty05_r1_Q": 692.8000000002612,
+   "duty05_r6_N20": 526.2000000002445,
+   "duty05_r6_Q": 539.0000000002146,
+   "duty20_r1_N20": 733.199999999897,
+   "duty20_r1_Q": 736.8999999999985,
+   "duty20_r6_N20": 676.6000000000076,
+   "duty20_r6_Q": 649.4000000000142,
+   "duty50_r1_N20": 719.2000000000007,
+   "duty50_r1_Q": 730.9000000000196,
+   "duty50_r6_N20": 737.9999999999427,
+   "duty50_r6_Q": 707.0999999998548
+  }
+ },
+ "Moonshine-Small": {
+  "schema": "alwayson-bench.shift/v1",
+  "shift_s": 0.695,
+  "rule": "median of per-cell lag p50 (plain tolerant rule, shift 0, tail 3.5 s) over the gapped duty cells",
+  "source_scored_dir": "/mnt/xbabe3-external/jsr/evals/alwayson-bench/moonshine-small-streaming/tierA/scored",
+  "source_cells_lag_p50_ms": {
+   "duty05_r1_N20": 700.1000000000204,
+   "duty05_r1_Q": 712.4999999996362,
+   "duty05_r6_N20": 539.0000000002146,
+   "duty05_r6_Q": 580.0000000000001,
+   "duty20_r1_N20": 726.9000000000005,
+   "duty20_r1_Q": 775.3000000000156,
+   "duty20_r6_N20": 690.4999999999859,
+   "duty20_r6_Q": 669.399999999996
+  }
+ }
+}

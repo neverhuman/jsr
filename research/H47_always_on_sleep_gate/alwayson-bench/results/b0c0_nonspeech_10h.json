@@ -1,0 +1,71 @@
+{
+ "schema": "alwayson-bench.ao-nonspeech/v1",
+ "blocks": [
+  {
+   "block": "brown_-20dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "brown_-30dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "brown_-40dBFS",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "pink_-20dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  },
+  {
+   "block": "pink_-30dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  },
+  {
+   "block": "pink_-40dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  },
+  {
+   "block": "silence",
+   "words_normalised": 0,
+   "words_raw": 0,
+   "hours": 1.0
+  },
+  {
+   "block": "white_-20dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  },
+  {
+   "block": "white_-30dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  },
+  {
+   "block": "white_-40dBFS",
+   "words_normalised": 1,
+   "words_raw": 1,
+   "hours": 1.0
+  }
+ ],
+ "words": 6,
+ "hours": 10.0,
+ "per_hour": 0.6,
+ "upper95_poisson_per_hour": 1.1842,
+ "upper95_block_bootstrap_per_hour": 0.8,
+ "upper95_per_hour": 1.1842
+}

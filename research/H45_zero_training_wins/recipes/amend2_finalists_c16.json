@@ -1,0 +1,60 @@
+[
+ {
+  "name": "b4_nolm",
+  "family": "b4_nolm",
+  "beam": 4,
+  "blank_penalty": 0.0
+ },
+ {
+  "name": "b4_l0.65_r0.45",
+  "family": "b4_lm",
+  "beam": 4,
+  "blank_penalty": 0.0,
+  "lm": "/home/ubuntu/jsr-data/h45-wins/lm/tok5.p00149.trie.bin",
+  "lm_weight": 0.65,
+  "lodr": "/home/ubuntu/jsr-data/h45-wins/lm/lodr2.train960.bin",
+  "lodr_weight": 0.45
+ },
+ {
+  "name": "b8_nolm",
+  "family": "b8_nolm",
+  "beam": 8,
+  "blank_penalty": 0.0
+ },
+ {
+  "name": "b8_l0.80_r0.60",
+  "family": "b8_lm",
+  "beam": 8,
+  "blank_penalty": 0.0,
+  "lm": "/home/ubuntu/jsr-data/h45-wins/lm/tok5.p00149.trie.bin",
+  "lm_weight": 0.8,
+  "lodr": "/home/ubuntu/jsr-data/h45-wins/lm/lodr2.train960.bin",
+  "lodr_weight": 0.6
+ },
+ {
+  "name": "b16_nolm",
+  "family": "b16_nolm",
+  "beam": 16,
+  "blank_penalty": 0.0
+ },
+ {
+  "name": "b16_l0.80_r0.60",
+  "family": "b16_lm",
+  "beam": 16,
+  "blank_penalty": 0.0,
+  "lm": "/home/ubuntu/jsr-data/h45-wins/lm/tok5.p00149.trie.bin",
+  "lm_weight": 0.8,
+  "lodr": "/home/ubuntu/jsr-data/h45-wins/lm/lodr2.train960.bin",
+  "lodr_weight": 0.6
+ },
+ {
+  "name": "b4_l0.60_r0.45_T4",
+  "family": "b4_T4",
+  "beam": 4,
+  "blank_penalty": 0.0,
+  "lm": "/home/ubuntu/jsr-data/h45-wins/lm/tok5.p00149.trie.bin",
+  "lm_weight": 0.6,
+  "lodr": "/home/ubuntu/jsr-data/h45-wins/lm/lodr2.train960.bin",
+  "lodr_weight": 0.45
+ }
+]

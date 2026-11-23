@@ -1,0 +1,44 @@
+{
+ "name": "B2-full",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_predctx4-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_left256-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk_specaug-model-00008000.pt",
+   "key": "ema",
+   "coef": 1.0
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt",
+   "key": "ema",
+   "coef": -1.0
+  }
+ ],
+ "note": "chunk + tau16 + tau17 + tau18",
+ "pred_ctx": 4,
+ "left_context": 256,
+ "config_from": "/mnt/amphora-backup/h45-wins/weights/src/H41_chunk-model-00008000.pt"
+}

@@ -1,0 +1,7 @@
+# D0 = TOPOLOGY.md T2L in the winning NCCL arm (expected "tuned"), 2 ranks on x5 GPU0+GPU1, torchrun nproc 2.
+# Env (tuned): NCCL_SOCKET_IFNAME=eno1 NCCL_IB_DISABLE=0 NCCL_IB_HCA=mlx5_0 NCCL_IB_GID_INDEX=3
+#              NCCL_SHM_USE_CUDA_MEMCPY=1 NCCL_SHM_MEMCPY_MODE=3 NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,NET
+# Seeds: seed=1234 (D0a) and seed=4321 (D0b). Everything else from common.set.
+ddp_native=true
+ddp_bf16_comm=false
+seed=1234

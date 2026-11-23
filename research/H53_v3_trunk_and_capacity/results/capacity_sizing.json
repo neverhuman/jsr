@@ -1,0 +1,164 @@
+{
+ "schema": "h53.capacity_sizing/v1",
+ "c_B0": 0.0351,
+ "cost_law_ps": {
+  "a": 51.0,
+  "c": 14.0
+ },
+ "gemm_share": 0.9,
+ "phi": 0.02,
+ "rt_cap_ratio": 2.849,
+ "r_max_by_g15": {
+  "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 2.849,
+  "0.24 (AO-bench items, mean 3.0 s)": 2.849,
+  "0.35 (with false wakes)": 2.849,
+  "0.50 (approved plan's 'about half on a 15%-speech stream')": 2.042
+ },
+ "rows": [
+  {
+   "model": "S (B0) d384x16",
+   "inference_params": 56381226,
+   "int8_MB": 56.4,
+   "cpu_ratio_vs_B0": 1.0,
+   "cpu_s_per_audio_s": 0.0351,
+   "rt_margin_x": 28.5,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.19,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.24,
+    "0.35 (with false wakes)": 0.35,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.5
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "yes (B0)",
+   "warm_start": "-"
+  },
+  {
+   "model": "S-24 d384x24",
+   "inference_params": 83645226,
+   "int8_MB": 83.6,
+   "cpu_ratio_vs_B0": 1.441,
+   "cpu_s_per_audio_s": 0.0506,
+   "rt_margin_x": 19.8,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.265,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.3371,
+    "0.35 (with false wakes)": 0.4956,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.7118
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "dense path; verify",
+   "warm_start": "exact growth from B0"
+  },
+  {
+   "model": "S-32 d384x32",
+   "inference_params": 110909226,
+   "int8_MB": 110.9,
+   "cpu_ratio_vs_B0": 1.882,
+   "cpu_s_per_audio_s": 0.0661,
+   "rt_margin_x": 15.1,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.34,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.4341,
+    "0.35 (with false wakes)": 0.6412,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.9236
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "dense path; verify",
+   "warm_start": "exact growth from B0"
+  },
+  {
+   "model": "M-16 d512x16",
+   "inference_params": 99091242,
+   "int8_MB": 99.1,
+   "cpu_ratio_vs_B0": 1.69,
+   "cpu_s_per_audio_s": 0.0593,
+   "rt_margin_x": 16.9,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.3072,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.3917,
+    "0.35 (with false wakes)": 0.5775,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.831
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "dense path; verify",
+   "warm_start": "from scratch"
+  },
+  {
+   "model": "M-18 d512x18",
+   "inference_params": 111193898,
+   "int8_MB": 111.2,
+   "cpu_ratio_vs_B0": 1.885,
+   "cpu_s_per_audio_s": 0.0662,
+   "rt_margin_x": 15.1,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.3405,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.4348,
+    "0.35 (with false wakes)": 0.6422,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.925
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "dense path; verify",
+   "warm_start": "from scratch"
+  },
+  {
+   "model": "M-20 d512x20",
+   "inference_params": 123296554,
+   "int8_MB": 123.3,
+   "cpu_ratio_vs_B0": 2.081,
+   "cpu_s_per_audio_s": 0.0731,
+   "rt_margin_x": 13.7,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.3738,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.4779,
+    "0.35 (with false wakes)": 0.7068,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 1.019
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": false,
+   "engine": "dense path; verify",
+   "warm_start": "from scratch"
+  },
+  {
+   "model": "W448-24 d448x24",
+   "inference_params": 113312554,
+   "int8_MB": 113.3,
+   "cpu_ratio_vs_B0": 1.921,
+   "cpu_s_per_audio_s": 0.0674,
+   "rt_margin_x": 14.8,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.3465,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.4425,
+    "0.35 (with false wakes)": 0.6538,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.9418
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "dense path; verify",
+   "warm_start": "from scratch"
+  },
+  {
+   "model": "M_MR (L3) d512 4/10/2",
+   "inference_params": 100141354,
+   "int8_MB": 100.1,
+   "cpu_ratio_vs_B0": 1.446,
+   "cpu_s_per_audio_s": 0.0507,
+   "rt_margin_x": 19.7,
+   "gated15_over_B0_ungated": {
+    "0.19 (eval-lane stream items, mean 6.8 s, R 1 s batched replay, hangover 1.5 s)": 0.2658,
+    "0.24 (AO-bench items, mean 3.0 s)": 0.3381,
+    "0.35 (with false wakes)": 0.4971,
+    "0.50 (approved plan's 'about half on a 15%-speech stream')": 0.714
+   },
+   "passes_rt_10x": true,
+   "passes_gated_all_scenarios": true,
+   "engine": "yes (L3 INT8 verified)",
+   "warm_start": "L3-86400 exists (spm512 tokenizer)"
+  }
+ ],
+ "note": "estimates; the decision uses r measured on xbabe0 (grown-at-init export) and g15 measured by H47 on B0 with the real gate"
+}

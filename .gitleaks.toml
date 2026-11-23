@@ -3,10 +3,13 @@
 useDefault = true
 
 [allowlist]
-description = "lane worktrees/build output; SHA-256 pins (a *sha256 key holding exactly 64 hex chars, YAML or JSON form)"
+description = "lane worktrees/build output; SHA-256 pins (a *sha256 key, or a JSON file-name key such as \"tokens.txt\", holding exactly 64 hex chars)"
 paths = ['''^\.agent/''', '''(^|/)target/''']
 regexTarget = "line"
 regexes = [
   '''^\s*[a-z_]*sha256:\s*[0-9a-f]{64}\s*$''',
   '''^\s*"[a-z_]*sha256"\s*:\s*"[0-9a-f]{64}",?\s*$''',
+  # receipt hash maps keyed by a file name with a known file-type extension (e.g. "tokens.txt",
+  # "libsherpa-onnx-c-api.so"): a file's sha256, not a key. Explicit list, so "api.key" or "app.token" stay scanned.
+  '''^\s*"[A-Za-z0-9_./+-]+\.(txt|json|jsonl|so|dylib|c|h|rs|py|sh|onnx|bin|pt|int8|ulm|arpa|wav|flac|toml|yaml|yml|md|csv|tsv|gz|zst|tar|log|safetensors|npz)"\s*:\s*"[0-9a-f]{64}",?\s*$''',
 ]

@@ -1,0 +1,30 @@
+{
+ "schema": "ultra.h43.family/v1",
+ "label": "exploratory",
+ "registered_utc": "2026-11-23T07:20:07Z",
+ "study": "H53 P1 capacity pilot (G32, G24 vs A1C)",
+ "rule": "Holm step-down over the 2 one-sided superiority comparisons at chunk 4 (familywise alpha 0.05), EMA pooled FULL dev; used for PROMISING's 'Holm-adjusted bound < 0'. HARM / NEUTRAL and the chunk 8 / 16 non-inferiority checks use the per-chunk margins in h43/margins.json (h53-P1-*).",
+ "file_names": "as trainer-lane names the G32 / G24 / A1C decodes; fixed by arm, chunk, kind, comparator and population",
+ "comparisons": [
+  {
+   "name": "G32 vs A1C, chunk 4, EMA pooled full dev",
+   "kind": "superiority",
+   "a": [
+    "h41/A1C-8000.ema.c4.ms8.score-input.jsonl"
+   ],
+   "b": [
+    "h41/H53_P1_G32-8000.ema.c4.ms8.score-input.jsonl"
+   ]
+  },
+  {
+   "name": "G24 vs A1C, chunk 4, EMA pooled full dev",
+   "kind": "superiority",
+   "a": [
+    "h41/A1C-8000.ema.c4.ms8.score-input.jsonl"
+   ],
+   "b": [
+    "h41/H53_P1_G24-8000.ema.c4.ms8.score-input.jsonl"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,76 @@
+{
+ "name": "amend2.confirmation.beam_8_+_LM_(l0.80_r0.60).greedy_c4",
+ "subset": "uids_confirmation.txt",
+ "utterances": 2785,
+ "ref_words": 53858,
+ "wer_prov": 8.2086,
+ "wer_final": 6.0975,
+ "delta_pp": -2.1111,
+ "delta_lower_pp": -2.4463,
+ "delta_upper_pp": -1.7863,
+ "port_check_edits": {
+  "prov": 4421,
+  "final": 3284
+ },
+ "segments_changed_pct": 45.03,
+ "revision_word_edits_per_100_words": 4.824,
+ "fixes_per_100_words": 2.523,
+ "breaks_per_100_words": 0.589,
+ "insertions_prov": 419,
+ "insertions_final": 324,
+ "fix_to_break_ratio": 4.287,
+ "utts_better": 823,
+ "utts_worse": 168,
+ "first_word_err_pct": {
+  "prov": 9.443,
+  "final": 7.145
+ },
+ "last_word_err_pct": {
+  "prov": 10.377,
+  "final": 7.181
+ },
+ "by_ref_length": {
+  "1-4": {
+   "utts": 106,
+   "N": 327,
+   "e_prov": 50,
+   "e_final": 42,
+   "wer_prov": 15.291,
+   "wer_final": 12.844
+  },
+  "5-9": {
+   "utts": 526,
+   "N": 3826,
+   "e_prov": 431,
+   "e_final": 328,
+   "wer_prov": 11.265,
+   "wer_final": 8.573
+  },
+  "10-19": {
+   "utts": 1046,
+   "N": 14645,
+   "e_prov": 1408,
+   "e_final": 1014,
+   "wer_prov": 9.614,
+   "wer_final": 6.924
+  },
+  "20-inf": {
+   "utts": 1107,
+   "N": 35060,
+   "e_prov": 2532,
+   "e_final": 1900,
+   "wer_prov": 7.222,
+   "wer_final": 5.419
+  }
+ },
+ "per_set": {
+  "dev-clean": {
+   "prov": 4.5271,
+   "final": 3.3482
+  },
+  "dev-other": {
+   "prov": 11.9258,
+   "final": 8.8735
+  }
+ }
+}

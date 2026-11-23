@@ -1,0 +1,37 @@
+{
+ "name": "amend21 interim: 14+14r+14s3 vs chunk+19 c16",
+ "kind": "noninferiority",
+ "base": [
+  "h41/H41_chunk-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H41_chunk_s4321-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H41_chunk_dp0.005-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H41_chunk_dp0.005_s4321-8000.ema.c16.ms8.score-input.jsonl",
+  "h41/H41_chunk_dp0.005_s5678-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": null,
+ "margin_pp": 0.36,
+ "margin_registry_entry": {
+  "endpoint": "h41-amend21-dp0.005-3seeds-vs-chunkpair-ema-pooled-c16",
+  "margin_pp": 0.36,
+  "direction": "lower_is_better",
+  "note": "amendment 21 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19), chunk 16: four-run control spread (control, aa, aa2, aa3) at this chunk; PASS iff the one-sided 95% upper bound <= margin",
+  "registered_utc": "2026-11-23T06:23:58Z"
+ },
+ "delta_pp": 0.0112,
+ "alpha": 0.05,
+ "lower_pp": -0.0353,
+ "upper_pp": 0.0588,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/H41_chunk-8000.ema.c16.ms8.score-input.jsonl": "24b4ec2e9ce9ba5959a435872f9e983654b3b32576603fcbb0312f8136e42748",
+  "h41/H41_chunk_s4321-8000.ema.c16.ms8.score-input.jsonl": "cd7a79113baad08b317e8fd665ebad486912f8c5287779ccbbc1b8d396440788",
+  "h41/H41_chunk_dp0.005-8000.ema.c16.ms8.score-input.jsonl": "22ab9a2b9380f056569f30a2a335011739b4f982df7c38ecb805523efd89b788",
+  "h41/H41_chunk_dp0.005_s4321-8000.ema.c16.ms8.score-input.jsonl": "e2420d50024bd48c7a2a4bfe08d873e6e326c139c0ddd244cd21fe03c77e76a2",
+  "h41/H41_chunk_dp0.005_s5678-8000.ema.c16.ms8.score-input.jsonl": "cfa5e906e3267763ea6174dc70c639e17d37fc645a07f7ef88c949fb7208d262"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

@@ -1,0 +1,356 @@
+{
+ "schema": "ultra.h43.margins/v1",
+ "entries": [
+  {
+   "endpoint": "v3-runtime-change-pooled-wer-full-dev",
+   "margin_pp": 0.2,
+   "direction": "lower_is_better",
+   "note": "Final plan section 10.1: a runtime / approximation change against identical-weight B0 passes only if the one-sided paired 95% upper bound on pooled WER change <= +0.20 pp (point <= +0.10 pp checked separately)",
+   "registered_utc": "2026-11-23T06:14:30Z"
+  },
+  {
+   "endpoint": "v3-first-word-error-increase",
+   "margin_pp": 0.5,
+   "direction": "lower_is_better",
+   "note": "Final plan 10.1: one-sided paired 95% upper bound on first-word error probability increase <= +0.50 pp",
+   "registered_utc": "2026-11-23T06:14:30Z"
+  },
+  {
+   "endpoint": "v3-correct-by-300ms-decrease",
+   "margin_pp": 0.5,
+   "direction": "lower_is_better",
+   "note": "Final plan 10.1: one-sided paired 95% lower bound on correct-by-300 ms change >= -0.50 pp (registered as a 0.50 pp margin on the decrease)",
+   "registered_utc": "2026-11-23T06:14:30Z"
+  },
+  {
+   "endpoint": "h41-amend21-dp0.005-3seeds-vs-chunkpair-ema-pooled-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "amendment 21 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19), chunk 4: four-run control spread (control, aa, aa2, aa3) at this chunk; PASS iff the one-sided 95% upper bound <= margin",
+   "registered_utc": "2026-11-23T06:23:57Z"
+  },
+  {
+   "endpoint": "h41-amend21-dp0.005-3seeds-vs-chunkpair-ema-pooled-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "amendment 21 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19), chunk 8: four-run control spread (control, aa, aa2, aa3) at this chunk; PASS iff the one-sided 95% upper bound <= margin",
+   "registered_utc": "2026-11-23T06:23:58Z"
+  },
+  {
+   "endpoint": "h41-amend21-dp0.005-3seeds-vs-chunkpair-ema-pooled-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "amendment 21 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19), chunk 16: four-run control spread (control, aa, aa2, aa3) at this chunk; PASS iff the one-sided 95% upper bound <= margin",
+   "registered_utc": "2026-11-23T06:23:58Z"
+  },
+  {
+   "endpoint": "h41-amend22-dp0.005-3seeds-vs-chunk3seeds-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "amendment 22 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19 + arm 19-s3), EMA pooled FULL dev, chunk 4, non-inferiority; margin = four-run control spread at this chunk. PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. dp 0.005 adopted iff PASS at chunks 4, 8 AND 16 (intersection-union). This 3-vs-3 reading DECIDES; amendment 21's 3-vs-2 reading is interim only.",
+   "registered_utc": "2026-11-23T07:07:04Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1C-vs-B0-superiority-ema-pooled-conf-c4",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1C (B0 + 8,000 replay steps, dp 0) vs B0 = A1-49000, EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 4, SUPERIORITY (margin 0). PASS iff one-sided 95% upper < 0; FAIL iff point >= 0; else INCONCLUSIVE. 'Continuation helps' claimed iff PASS at chunks 4, 8 AND 16 (intersection-union).",
+   "registered_utc": "2026-11-23T07:07:06Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1L-vs-A1C-ni-ema-pooled-conf-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1L (dp 0.005) vs A1C (dp 0, same steps / re-warm / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 4, NON-INFERIORITY; margin = four-run control spread at this chunk. 'dp 0.005 costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:07:07Z"
+  },
+  {
+   "endpoint": "h48c-a-anchor-vs-A1C-ni-ema-pooled-conf-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H48c-a (anchor only: dp 0, kappa 0.01) vs A1C (replay-only control, matched schedule), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 4, NON-INFERIORITY; margin = four-run control spread. The anchored loss 'costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. h48-latency's own adoption gate (vs B0, full dev) is separate.",
+   "registered_utc": "2026-11-23T07:07:07Z"
+  },
+  {
+   "endpoint": "h41-amend22-dp0.005-3seeds-vs-chunk3seeds-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "amendment 22 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19 + arm 19-s3), EMA pooled FULL dev, chunk 8, non-inferiority; margin = four-run control spread at this chunk. PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. dp 0.005 adopted iff PASS at chunks 4, 8 AND 16 (intersection-union). This 3-vs-3 reading DECIDES; amendment 21's 3-vs-2 reading is interim only.",
+   "registered_utc": "2026-11-23T07:07:07Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1C-vs-B0-superiority-ema-pooled-conf-c8",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1C (B0 + 8,000 replay steps, dp 0) vs B0 = A1-49000, EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 8, SUPERIORITY (margin 0). PASS iff one-sided 95% upper < 0; FAIL iff point >= 0; else INCONCLUSIVE. 'Continuation helps' claimed iff PASS at chunks 4, 8 AND 16 (intersection-union).",
+   "registered_utc": "2026-11-23T07:07:09Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1L-vs-A1C-ni-ema-pooled-conf-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1L (dp 0.005) vs A1C (dp 0, same steps / re-warm / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 8, NON-INFERIORITY; margin = four-run control spread at this chunk. 'dp 0.005 costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:07:09Z"
+  },
+  {
+   "endpoint": "h48c-a-anchor-vs-A1C-ni-ema-pooled-conf-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H48c-a (anchor only: dp 0, kappa 0.01) vs A1C (replay-only control, matched schedule), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 8, NON-INFERIORITY; margin = four-run control spread. The anchored loss 'costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. h48-latency's own adoption gate (vs B0, full dev) is separate.",
+   "registered_utc": "2026-11-23T07:07:09Z"
+  },
+  {
+   "endpoint": "h41-amend22-dp0.005-3seeds-vs-chunk3seeds-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "amendment 22 (arm 14 + 14-r + 14-s3 vs chunk arm + arm 19 + arm 19-s3), EMA pooled FULL dev, chunk 16, non-inferiority; margin = four-run control spread at this chunk. PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. dp 0.005 adopted iff PASS at chunks 4, 8 AND 16 (intersection-union). This 3-vs-3 reading DECIDES; amendment 21's 3-vs-2 reading is interim only.",
+   "registered_utc": "2026-11-23T07:07:09Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1C-vs-B0-superiority-ema-pooled-conf-c16",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1C (B0 + 8,000 replay steps, dp 0) vs B0 = A1-49000, EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, SUPERIORITY (margin 0). PASS iff one-sided 95% upper < 0; FAIL iff point >= 0; else INCONCLUSIVE. 'Continuation helps' claimed iff PASS at chunks 4, 8 AND 16 (intersection-union).",
+   "registered_utc": "2026-11-23T07:07:09Z"
+  },
+  {
+   "endpoint": "h48-amend23-A1L-vs-A1C-ni-ema-pooled-conf-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "amendment 23: A1L (dp 0.005) vs A1C (dp 0, same steps / re-warm / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread at this chunk. 'dp 0.005 costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:07:11Z"
+  },
+  {
+   "endpoint": "h48c-a-anchor-vs-A1C-ni-ema-pooled-conf-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H48c-a (anchor only: dp 0, kappa 0.01) vs A1C (replay-only control, matched schedule), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread. The anchored loss 'costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. h48-latency's own adoption gate (vs B0, full dev) is separate.",
+   "registered_utc": "2026-11-23T07:07:11Z"
+  },
+  {
+   "endpoint": "h48c-b-anchor-dp-vs-A1L-ni-ema-pooled-conf-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H48c-b (anchor kappa 0.01 + dp 0.005) vs A1L (dp 0.005, same fork / 8k schedule / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 4, NON-INFERIORITY; margin = four-run control spread. 'Anchored loss on top of dp costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. Requested by h48-latency 07:19Z.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G32-vs-A1C-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G32 (B0 grown to 32 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 4; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G24-vs-A1C-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G24 (B0 grown to 24 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 4; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h48c-b-anchor-dp-vs-A1L-ni-ema-pooled-conf-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H48c-b (anchor kappa 0.01 + dp 0.005) vs A1L (dp 0.005, same fork / 8k schedule / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 8, NON-INFERIORITY; margin = four-run control spread. 'Anchored loss on top of dp costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. Requested by h48-latency 07:19Z.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G32-vs-A1C-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G32 (B0 grown to 32 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 8; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G24-vs-A1C-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G24 (B0 grown to 24 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 8; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h48c-b-anchor-dp-vs-A1L-ni-ema-pooled-conf-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H48c-b (anchor kappa 0.01 + dp 0.005) vs A1L (dp 0.005, same fork / 8k schedule / data), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread. 'Anchored loss on top of dp costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. Requested by h48-latency 07:19Z.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G32-vs-A1C-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G32 (B0 grown to 32 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 16; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h53-P1-G24-vs-A1C-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H53 P1 arm G24 (B0 grown to 24 blocks, A1C's recipe) vs C0 = A1C, EMA pooled FULL dev, chunk 16; margin = four-run spread at this chunk. Readings fixed in h53 README (07:15Z): HARM iff point > 0 and upper > margin at chunk 4 or 8; PROMISING iff point <= -0.087 at chunk 4 AND Holm-adjusted (2 arms, chunk-4 superiority) upper < 0 AND upper <= margin at 8 and 16 (eval-lane reads 'no worse than the margin' as the v3 non-inferiority pass); NEUTRAL otherwise.",
+   "registered_utc": "2026-11-23T07:20:07Z"
+  },
+  {
+   "endpoint": "h48b-seedpair-vs-A1L-ni-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H48b (A1L + chunk modes {2,4,8,16}, dp 0.0075, seeds 1234 + 4321) vs A1L, EMA pooled FULL dev, chunk 4, NON-INFERIORITY, seed-pair mean vs A1L (README c996396: 'within the four-run spread of A1L's own values (paired bootstrap)', 'the pair's mean decides'); margin = four-run control spread. v3 rule: PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. Accuracy gate passes iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:33:28Z"
+  },
+  {
+   "endpoint": "h48b-seedpair-vs-A1L-ni-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H48b (A1L + chunk modes {2,4,8,16}, dp 0.0075, seeds 1234 + 4321) vs A1L, EMA pooled FULL dev, chunk 8, NON-INFERIORITY, seed-pair mean vs A1L (README c996396: 'within the four-run spread of A1L's own values (paired bootstrap)', 'the pair's mean decides'); margin = four-run control spread. v3 rule: PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. Accuracy gate passes iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:33:28Z"
+  },
+  {
+   "endpoint": "h48b-seedpair-vs-A1L-ni-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H48b (A1L + chunk modes {2,4,8,16}, dp 0.0075, seeds 1234 + 4321) vs A1L, EMA pooled FULL dev, chunk 16, NON-INFERIORITY, seed-pair mean vs A1L (README c996396: 'within the four-run spread of A1L's own values (paired bootstrap)', 'the pair's mean decides'); margin = four-run control spread. v3 rule: PASS iff one-sided 95% upper <= margin; FAIL iff lower > margin; else INCONCLUSIVE. Accuracy gate passes iff PASS at chunks 4, 8 AND 16.",
+   "registered_utc": "2026-11-23T07:33:28Z"
+  },
+  {
+   "endpoint": "h52-P-vs-C-superiority-ema-pooled-fulldev-c16",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "H52 P (C + Libri-Light small via extra_splits, seeds 1234 + 4321) vs C (the chunk-arm triple at the adopted dp: dp 0 = H41_chunk + arm 19 + 19-s3, dp 0.005 = arm 14 / 14-r / 14-s3), EMA pooled FULL dev, chunk 16, 2 vs 3 seeds (all pairings, speakers kept). Gate (trainer-lane 07:42Z): PASS iff point d = mean(P) - mean(C) <= -0.17 pp AND one-sided 95% upper < 0 AND each P seed alone vs C's mean has d < 0 ('both seeds better'). Else FAIL if point >= 0, else INCONCLUSIVE.",
+   "registered_utc": "2026-11-23T07:43:49Z"
+  },
+  {
+   "endpoint": "h52-P-vs-C-ni-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H52 P vs C (as for chunk 16), EMA pooled FULL dev, chunk 4, NON-INFERIORITY, margin 0.087 at both chunks 4 and 8 as trainer-lane wrote it (07:42Z; the chunk-8 four-run spread is 0.094, so this is stricter). PASS iff one-sided 95% upper <= 0.087.",
+   "registered_utc": "2026-11-23T07:43:49Z"
+  },
+  {
+   "endpoint": "h52-P-vs-C-ni-ema-pooled-fulldev-c8",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "H52 P vs C (as for chunk 16), EMA pooled FULL dev, chunk 8, NON-INFERIORITY, margin 0.087 at both chunks 4 and 8 as trainer-lane wrote it (07:42Z; the chunk-8 four-run spread is 0.094, so this is stricter). PASS iff one-sided 95% upper <= 0.087.",
+   "registered_utc": "2026-11-23T07:43:49Z"
+  },
+  {
+   "endpoint": "h52-amend1-P-vs-C-primary-superiority-ema-pooled-fulldev-c4",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. PRIMARY chunk 4 (160 ms): PASS iff point mean(P) - mean(C) <= -0.17 pp AND one-sided 95% upper < 0 AND both P seeds alone better than C's mean; FAIL if point >= 0; INCONCLUSIVE otherwise (incl. seeds disagree).",
+   "registered_utc": "2026-11-23T08:25:13Z"
+  },
+  {
+   "endpoint": "h52-amend1-P-vs-C-guard-ni-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. GUARD chunk 8 (320 ms): non-inferiority at its own four-run spread 0.094; v3 rule, PASS iff one-sided 95% upper <= 0.094.",
+   "registered_utc": "2026-11-23T08:25:14Z"
+  },
+  {
+   "endpoint": "h52-amend1-P-vs-C-guard-ni-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H52 \u00a76 AMENDMENT 1 (trainer-lane 2026-11-23T08:17Z, before any pilot run; SUPERSEDES the 07:44Z h52-P-vs-C-* entries): P (C + Libri-Light small, seeds 1234 + 4321) vs C (the 3-seed chunk-arm triple at the adopted dp), EMA pooled FULL dev, all pairings (2 vs 3), speakers kept; dev_split_v2 confirmation half reported, not gated (default (a)) unless the lead rules (b) before launch. GUARD chunk 16 (640 ms): non-inferiority at its own four-run spread 0.360; v3 rule, PASS iff one-sided 95% upper <= 0.360.",
+   "registered_utc": "2026-11-23T08:25:14Z"
+  },
+  {
+   "endpoint": "v3-combined-C-vs-B0-release-gate-fulldev",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "Combined artifact C vs B0 (native runtime, frozen audio, canonical full dev): PASS iff edits <= 7,895 AND pooled one-sided 95% upper < 0 AND both split uppers <= +0.20 pp; plus E2 (protected paced first-correct p95 <= +20 ms vs B0). Plan: h43/families/v3-combined-artifact-plan.json.",
+   "registered_utc": "2026-11-23T09:02:07Z"
+  },
+  {
+   "endpoint": "v3-combined-C-vs-best-single-ni-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "Combined artifact C vs its best single-intervention row, full-dev pooled WER at 160 ms, NON-INFERIORITY at the chunk-4 four-run spread (v3 rule, upper <= 0.087). If not met, ship the single and report the interaction.",
+   "registered_utc": "2026-11-23T09:02:07Z"
+  },
+  {
+   "endpoint": "h53-bridge-S2p-vs-S2c-primary-ema-pooled-fulldev-c4",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "H53 B0 BRIDGE (lead 09:04:35Z; registered before either arm runs): S2p = B0 + 960 h + Libri-Light small (pilot mix) vs S2c = B0 + 960 h only, both at S2's low re-warm, per-rank batch, EMA, same seed, ~1R each; EMA pooled FULL dev, canonical scorer, paired speaker bootstrap. PRIMARY chunk 4: PASS iff point d = S2p - S2c <= -0.087 pp (one four-run spread) AND one-sided 95% upper < 0; FAIL iff point >= 0; else INCONCLUSIVE. The bridge PASSES iff primary PASS and both guards PASS.",
+   "registered_utc": "2026-11-23T09:05:48Z"
+  },
+  {
+   "endpoint": "h53-bridge-S2p-vs-S2c-guard-ni-ema-pooled-fulldev-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H53 B0 BRIDGE (lead 09:04:35Z; registered before either arm runs): S2p = B0 + 960 h + Libri-Light small (pilot mix) vs S2c = B0 + 960 h only, both at S2's low re-warm, per-rank batch, EMA, same seed, ~1R each; EMA pooled FULL dev, canonical scorer, paired speaker bootstrap. GUARD chunk 8: non-inferiority at 0.094 (v3 rule).",
+   "registered_utc": "2026-11-23T09:05:48Z"
+  },
+  {
+   "endpoint": "h53-bridge-S2p-vs-S2c-guard-ni-ema-pooled-fulldev-c16",
+   "margin_pp": 0.36,
+   "direction": "lower_is_better",
+   "note": "H53 B0 BRIDGE (lead 09:04:35Z; registered before either arm runs): S2p = B0 + 960 h + Libri-Light small (pilot mix) vs S2c = B0 + 960 h only, both at S2's low re-warm, per-rank batch, EMA, same seed, ~1R each; EMA pooled FULL dev, canonical scorer, paired speaker bootstrap. GUARD chunk 16: non-inferiority at 0.360 (v3 rule).",
+   "registered_utc": "2026-11-23T09:05:48Z"
+  },
+  {
+   "endpoint": "h53-bridge-S2p-vs-B0-release-question-ema-pooled-fulldev-c4",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "H53 B0 BRIDGE (lead 09:04:35Z; registered before either arm runs): S2p = B0 + 960 h + Libri-Light small (pilot mix) vs S2c = B0 + 960 h only, both at S2's low re-warm, per-rank batch, EMA, same seed, ~1R each; EMA pooled FULL dev, canonical scorer, paired speaker bootstrap. RELEASE QUESTION (reported, not a gate; the first S2 branch point is the promotion gate): S2p vs B0 at chunk 4, superiority (one-sided 95% upper < 0), chunks 8 / 16 reported.",
+   "registered_utc": "2026-11-23T09:05:48Z"
+  },
+  {
+   "endpoint": "h53-amend4-a-A1L-vs-A1C-c16-final-text-ni-conf",
+   "margin_pp": 0.1,
+   "direction": "lower_is_better",
+   "note": "H53 AMENDMENT 4 (lead 09:07:28Z audit item 1; trainer-lane writes it): dp 0.005 for S2 on B0's lineage = A1L (B0 + dp 0.005 + 8k replay) vs A1C (B0 + 8k replay, dp 0), EMA pooled, canonical scorer. All three criteria (a)(b)(c) required. (a) chunk-16 final text: one-sided 95% upper <= +0.10 pp vs A1C, dev_split_v2 CONFIRMATION half (the population of the evidence the audit quotes), full dev reported. DISCLOSURE: registered AFTER the A1L - A1C chunk-16 WER results were posted (09:01:14Z: conf -0.009 [-0.122, +0.100], full dev 0.000 [-0.068, +0.067]); the threshold was set with that data in view, so this is NOT a blind pre-registration.",
+   "registered_utc": "2026-11-23T09:08:33Z"
+  },
+  {
+   "endpoint": "h53-amend4-c-A1L-vs-A1C-c4-provisional-ni-conf",
+   "margin_pp": 0.15,
+   "direction": "lower_is_better",
+   "note": "H53 AMENDMENT 4 (lead 09:07:28Z audit item 1; trainer-lane writes it): dp 0.005 for S2 on B0's lineage = A1L (B0 + dp 0.005 + 8k replay) vs A1C (B0 + 8k replay, dp 0), EMA pooled, canonical scorer. All three criteria (a)(b)(c) required. (c) provisional chunk-4 WER: one-sided 95% upper <= +0.15 pp vs A1C, CONFIRMATION half, full dev reported. DISCLOSURE: registered AFTER the A1L - A1C chunk-4 WER results were posted (09:01:14Z: conf -0.007 [-0.143, +0.123], full dev +0.042 [-0.050, +0.132]); NOT a blind pre-registration.",
+   "registered_utc": "2026-11-23T09:08:33Z"
+  },
+  {
+   "endpoint": "v3-rule-chunk16-final-text-ni-margin",
+   "margin_pp": 0.2,
+   "direction": "lower_is_better",
+   "note": "FUTURE GATE RULE (lead 09:07:28Z item 2b): where chunk 16 produces the final text (commit pass), the chunk-16 non-inferiority margin is 0.20 pp (v3 rule: PASS iff one-sided 95% upper <= 0.20). Rules file: h43/families/v3-gate-rules-and-amend4.json.",
+   "registered_utc": "2026-11-23T09:08:33Z"
+  },
+  {
+   "endpoint": "h53-S2-gate-a-safety-every-BP-c4",
+   "margin_pp": 0.2,
+   "direction": "lower_is_better",
+   "note": "H53 S2/S2b gates (Amendment 5 09:51:52Z + Amendment 7 09:58Z; registered by eval-lane before any S2 evaluation exists) GATE (a) SAFETY at every S2a / S2b branch point: the BP's own EMA weights, chunk 4, pinned PyTorch evaluator greedy, canonical full dev, paired vs B0 (EMA greedy chunk 4 = 8.302): STOP at the next checkpoint iff the POINT estimate BP - B0 > +0.20 pp (one-sided 95% interval reported). B0 stays the candidate; the lead re-plans. (Also trainer-lane's 10:02Z kill switch.)",
+   "registered_utc": "2026-11-23T10:04:18Z"
+  },
+  {
+   "endpoint": "h53-S2-gate-b-decisive-BPm-c4",
+   "margin_pp": 0.0,
+   "direction": "lower_is_better",
+   "note": "H53 S2/S2b gates (Amendment 5 09:51:52Z + Amendment 7 09:58Z; registered by eval-lane before any S2 evaluation exists) GATE (b) DECISIVE at BP-m (= S2b-BP1, Amendment 7 naming), read on BP-m's FAST COOLDOWN (annealed, Amendment 5 recipe), canonical full dev EMA greedy, paired vs B0: PASS iff chunk 4 one-sided 95% upper < 0 AND chunk 8 upper <= 0.094 AND chunk 16 upper <= 0.20; else FAIL -> stop S2 and re-plan, B0 stays the candidate. BP-m's own EMA reading reported beside it.",
+   "registered_utc": "2026-11-23T10:04:20Z"
+  },
+  {
+   "endpoint": "h53-S2-gate-b-decisive-BPm-c8",
+   "margin_pp": 0.094,
+   "direction": "lower_is_better",
+   "note": "H53 S2/S2b gates (Amendment 5 09:51:52Z + Amendment 7 09:58Z; registered by eval-lane before any S2 evaluation exists) GATE (b) at BP-m, chunk 8 non-inferiority 0.094 (part of the (b) conjunction).",
+   "registered_utc": "2026-11-23T10:04:20Z"
+  },
+  {
+   "endpoint": "h53-S2-gate-b-decisive-BPm-c16",
+   "margin_pp": 0.2,
+   "direction": "lower_is_better",
+   "note": "H53 S2/S2b gates (Amendment 5 09:51:52Z + Amendment 7 09:58Z; registered by eval-lane before any S2 evaluation exists) GATE (b) at BP-m, chunk 16 non-inferiority 0.20 (commit-pass final-text margin, rule 2b).",
+   "registered_utc": "2026-11-23T10:04:20Z"
+  },
+  {
+   "endpoint": "h50-D1-vs-D0-24GB-islands-ni-ema-pooled-fulldev-c4",
+   "margin_pp": 0.087,
+   "direction": "lower_is_better",
+   "note": "D0/D1 weight-sharing proof on the 24 GB cards (lead 10:16:15Z item 4; registered before any proof run): D1 = two islands (xbabe2 3090 + H0 3090) with DiLoCo H=250 vs D0 = synchronous across the same two cards (or the closest valid control the amendment names), S2's data and recipe at one card's share, matched audio exposure, seed pair each; EMA pooled FULL dev, chunk 4, canonical scorer, seed-pair reading (all pairings, speakers kept). NON-INFERIORITY: PASS iff one-sided 95% upper <= 0.087; FAIL iff lower > 0.087; else INCONCLUSIVE. Islands join S2b / S3 only on PASS. Exact arm definitions follow the amendment text when posted (same rule).",
+   "registered_utc": "2026-11-23T10:18:23Z"
+  }
+ ],
+ "entries_sha256": "f28850c6e7239c6632ce9fe43a302c6a3bfe295b4fc3b9ebe480dbae4bce41d5"
+}

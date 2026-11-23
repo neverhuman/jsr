@@ -1,0 +1,217 @@
+{
+ "tool": "ll_overlap.py",
+ "librispeech_lists": {
+  "SPEAKERS.TXT": "3350f093382f8baa1d589c9f5a5cee8ec3705e656f521d6eafbaa31a5fcd8f76",
+  "CHAPTERS.TXT": "2e9db25c250a143b031ca003180acfce84b364e31fbc79250e306303e6f25306",
+  "BOOKS.TXT": "2e5a277207aeecad9f85db53f97e46320419c3d80e330d6524193b283ff5edb0"
+ },
+ "librispeech_counts": {
+  "speakers": 2484,
+  "chapters": 5831,
+  "books": 1564,
+  "dev-clean": {
+   "speakers": 40,
+   "chapters": 97,
+   "projects": 63,
+   "gutenberg_books": 63,
+   "titles": 85
+  },
+  "dev-other": {
+   "speakers": 33,
+   "chapters": 91,
+   "projects": 66,
+   "gutenberg_books": 62,
+   "titles": 88
+  },
+  "test-clean": {
+   "speakers": 40,
+   "chapters": 87,
+   "projects": 54,
+   "gutenberg_books": 54,
+   "titles": 74
+  },
+  "test-other": {
+   "speakers": 33,
+   "chapters": 90,
+   "projects": 50,
+   "gutenberg_books": 48,
+   "titles": 71
+  }
+ },
+ "librispeech_eval_chapters_with_reader_not_in_subset": 0,
+ "test_audio_or_transcripts_read": false,
+ "librilight_statement": "Kahn et al. 2020 (arXiv 1912.07875) sec. 2: 'We then removed corrupted files, files with unknown or multiple speakers, and speakers appearing in LibriSpeech dev and test sets.' and 'All dev or test set audio has been removed from training sets.' (books are not mentioned)",
+ "subsets": {
+  "medium": {
+   "json_meta": "meta/medium/json_meta.jsonl",
+   "json_meta_sha256": "df6837e84549735281f4d07154ddc1470dab753f3e0e8c9be9353295bfffc661",
+   "files": 18739,
+   "bad_json": 0,
+   "vad_hours": 4747.47,
+   "speakers": 1596,
+   "projects": 1006,
+   "files_without_gutenberg_id": 6462,
+   "speaker_dir_vs_json_mismatch": 0,
+   "overlap": {
+    "dev-clean": {
+     "speaker": [],
+     "project": [
+      "1037",
+      "1069",
+      "1319",
+      "152",
+      "1592",
+      "1676",
+      "1874",
+      "2364",
+      "2510",
+      "2528",
+      "2614",
+      "3592",
+      "605"
+     ],
+     "gutenberg": [
+      "10136",
+      "135",
+      "18435",
+      "1857",
+      "1906",
+      "19810",
+      "2981",
+      "326",
+      "3424",
+      "4363",
+      "4770",
+      "5946",
+      "6634",
+      "77"
+     ],
+     "title": [
+      "beyond good and evil",
+      "book of household management",
+      "don quixote vol 2",
+      "erewhon",
+      "for the term of his natural life",
+      "good things to eat as suggested by rufus",
+      "house of the seven gables",
+      "initials only",
+      "memoirs of jacques casanova vol 1",
+      "sister carrie",
+      "steep trails",
+      "work a story of experience"
+     ]
+    },
+    "dev-other": {
+     "speaker": [],
+     "project": [
+      "1011",
+      "1253",
+      "2747",
+      "2752",
+      "2769",
+      "76"
+     ],
+     "gutenberg": [
+      "1079",
+      "17611",
+      "18561",
+      "2600",
+      "4028",
+      "4926",
+      "6107",
+      "8918"
+     ],
+     "title": [
+      "age of chivalry",
+      "autobiography of benvenuto cellini vol 1",
+      "life of samuel johnson vol i",
+      "ontario readers third book",
+      "truth about jesus is he a myth",
+      "war and peace book 03 1805"
+     ]
+    },
+    "test-clean": {
+     "speaker": [],
+     "project": [
+      "1591",
+      "2319",
+      "2635"
+     ],
+     "gutenberg": [
+      "1041",
+      "135",
+      "15265",
+      "1549",
+      "2981",
+      "833"
+     ],
+     "title": [
+      "commentary on st paul s epistle to the galatians",
+      "quest of the silver fleece",
+      "theory of the leisure class"
+     ]
+    },
+    "test-other": {
+     "speaker": [],
+     "project": [
+      "1319",
+      "2382",
+      "2447",
+      "2467",
+      "2539",
+      "2614",
+      "3065",
+      "3158",
+      "3238",
+      "3273"
+     ],
+     "gutenberg": [
+      "10136",
+      "12544",
+      "135",
+      "1399",
+      "14958",
+      "26379",
+      "3436",
+      "4028",
+      "4602",
+      "540"
+     ],
+     "title": [
+      "anna karenina book 2",
+      "book of a thousand nights and a night volume 02",
+      "book of household management",
+      "kingdom of god is within you",
+      "love letters of dorothy osborne",
+      "mother west wind why stories",
+      "red fairy book",
+      "vice in its proper shape"
+     ]
+    }
+   },
+   "speaker_overlap_any_eval": [],
+   "excluded_files": 1051,
+   "excluded_vad_hours": 256.589,
+   "excluded_reason_counts": {
+    "project": 811,
+    "gutenberg": 1384,
+    "title": 632
+   },
+   "info_librispeech_train_overlap": {
+    "speakers": 937,
+    "files_by_train_speaker": 17266,
+    "vad_hours_by_train_speaker": 4521.72,
+    "reader_project_pairs": 539,
+    "files_same_reader_and_project": 3130,
+    "vad_hours_same_reader_and_project": 822.79
+   }
+  }
+ },
+ "verdict": {
+  "speaker_overlap_with_dev_test": "NONE",
+  "book_overlap_with_dev_test": "FOUND (those files are excluded)",
+  "excluded_files": {
+   "medium": 1051
+  }
+ }
+}

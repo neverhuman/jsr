@@ -1,0 +1,56 @@
+{
+ "name": "A-M10",
+ "terms": [
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "ema",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-ckpt-00049000.pt",
+   "key": "model",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "ema",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00047500.pt",
+   "key": "model",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00045000.pt",
+   "key": "ema",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00045000.pt",
+   "key": "model",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00042500.pt",
+   "key": "ema",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00042500.pt",
+   "key": "model",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00040000.pt",
+   "key": "ema",
+   "coef": 0.1
+  },
+  {
+   "ckpt": "/mnt/amphora-backup/h45-wins/weights/src/A1-model-00040000.pt",
+   "key": "model",
+   "coef": 0.1
+  }
+ ],
+ "note": "uniform mean of all ten (raw+EMA, five steps)"
+}

@@ -1,0 +1,3704 @@
+{
+ "utts": 5567,
+ "spread_pp": 0.087,
+ "systems": {
+  "student_1best": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 7076,
+    "D": 889,
+    "I": 840,
+    "errors": 8805,
+    "wer": 8.302,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 2112,
+      "student_1best": 2112,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 690,
+      "student_1best": 690,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 205,
+      "student_1best": 205,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 2717,
+      "student_1best": 2717,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 1783,
+      "student_1best": 1783,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 1298,
+      "student_1best": 1298,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 1783,
+     "D:function": 525,
+     "S:rare": 1252,
+     "S:acoustic": 2112,
+     "S:convention": 205,
+     "D:content": 318,
+     "I:function": 468,
+     "S:function": 1724,
+     "I:content": 372,
+     "D:rare": 46
+    },
+    "ultra_score": {
+     "S": 7076,
+     "D": 889,
+     "I": 840,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1991,
+    "D": 224,
+    "I": 235,
+    "errors": 2450,
+    "wer": 4.48,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 345,
+      "student_1best": 345,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 215,
+      "student_1best": 215,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 128,
+      "student_1best": 128,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 681,
+      "student_1best": 681,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 550,
+      "student_1best": 550,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 531,
+      "student_1best": 531,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 550,
+     "D:function": 111,
+     "S:rare": 511,
+     "S:acoustic": 345,
+     "S:convention": 128,
+     "D:content": 93,
+     "I:function": 113,
+     "S:function": 457,
+     "I:content": 122,
+     "D:rare": 20
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 73,
+    "D": 6,
+    "I": 13,
+    "errors": 92,
+    "wer": 15.107,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 17,
+      "student_1best": 17,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 14,
+      "student_1best": 14,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 6,
+      "student_1best": 6,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 14,
+      "student_1best": 14,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 17,
+      "student_1best": 17,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 24,
+      "student_1best": 24,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 17,
+     "S:rare": 23,
+     "S:function": 10,
+     "I:content": 11,
+     "S:convention": 6,
+     "D:content": 3,
+     "S:acoustic": 17,
+     "I:function": 2,
+     "D:rare": 1,
+     "D:function": 2
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 2239,
+    "D": 284,
+    "I": 274,
+    "errors": 2797,
+    "wer": 9.372,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 687,
+      "student_1best": 687,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 198,
+      "student_1best": 198,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 51,
+      "student_1best": 51,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 904,
+      "student_1best": 904,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 557,
+      "student_1best": 557,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 400,
+      "student_1best": 400,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 557,
+     "S:acoustic": 687,
+     "S:convention": 51,
+     "D:content": 89,
+     "I:function": 165,
+     "S:function": 560,
+     "S:rare": 384,
+     "I:content": 109,
+     "D:function": 179,
+     "D:rare": 16
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 4097,
+    "D": 485,
+    "I": 447,
+    "errors": 5029,
+    "wer": 7.43,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 1212,
+      "student_1best": 1212,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 401,
+      "student_1best": 401,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 135,
+      "student_1best": 135,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 1497,
+      "student_1best": 1497,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 1060,
+      "student_1best": 1060,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 724,
+      "student_1best": 724,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "D:function": 274,
+     "S:rare": 700,
+     "S:acoustic": 1212,
+     "S:near": 1060,
+     "S:function": 990,
+     "I:content": 214,
+     "D:content": 187,
+     "I:function": 233,
+     "D:rare": 24,
+     "S:convention": 135
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 667,
+    "D": 114,
+    "I": 106,
+    "errors": 887,
+    "wer": 11.207,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 196,
+      "student_1best": 196,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 77,
+      "student_1best": 77,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 13,
+      "student_1best": 13,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 302,
+      "student_1best": 302,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 149,
+      "student_1best": 149,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 150,
+      "student_1best": 150,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "I:function": 68,
+     "S:function": 164,
+     "S:acoustic": 196,
+     "I:content": 38,
+     "S:rare": 145,
+     "S:convention": 13,
+     "S:near": 149,
+     "D:content": 39,
+     "D:function": 70,
+     "D:rare": 5
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 5085,
+    "D": 665,
+    "I": 605,
+    "errors": 6355,
+    "wer": 12.373,
+    "headroom_pp": 0.0,
+    "headroom_spreads": 0.0,
+    "by_category": {
+     "acoustic": {
+      "errors": 1767,
+      "student_1best": 1767,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 475,
+      "student_1best": 475,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 77,
+      "student_1best": 77,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 2036,
+      "student_1best": 2036,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "near": {
+      "errors": 1233,
+      "student_1best": 1233,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "rare": {
+      "errors": 767,
+      "student_1best": 767,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:rare": 741,
+     "S:function": 1267,
+     "S:acoustic": 1767,
+     "S:near": 1233,
+     "I:function": 355,
+     "D:content": 225,
+     "S:convention": 77,
+     "D:function": 414,
+     "I:content": 250,
+     "D:rare": 26
+    }
+   }
+  },
+  "student_b16_oracle": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 4765,
+    "D": 493,
+    "I": 553,
+    "errors": 5811,
+    "wer": 5.479,
+    "headroom_pp": 2.823,
+    "headroom_spreads": 32.45,
+    "by_category": {
+     "acoustic": {
+      "errors": 1516,
+      "student_1best": 2112,
+      "fixed_net": 596,
+      "headroom_pp": 0.562
+     },
+     "content": {
+      "errors": 403,
+      "student_1best": 690,
+      "fixed_net": 287,
+      "headroom_pp": 0.271
+     },
+     "convention": {
+      "errors": 101,
+      "student_1best": 205,
+      "fixed_net": 104,
+      "headroom_pp": 0.098
+     },
+     "function": {
+      "errors": 1686,
+      "student_1best": 2717,
+      "fixed_net": 1031,
+      "headroom_pp": 0.972
+     },
+     "near": {
+      "errors": 1022,
+      "student_1best": 1783,
+      "fixed_net": 761,
+      "headroom_pp": 0.718
+     },
+     "rare": {
+      "errors": 1083,
+      "student_1best": 1298,
+      "fixed_net": 215,
+      "headroom_pp": 0.203
+     }
+    },
+    "by_op_category": {
+     "S:near": 1022,
+     "S:acoustic": 1516,
+     "S:rare": 1054,
+     "S:function": 1072,
+     "I:content": 225,
+     "I:function": 328,
+     "D:content": 178,
+     "D:function": 286,
+     "S:convention": 101,
+     "D:rare": 29
+    },
+    "ultra_score": {
+     "S": 4765,
+     "D": 493,
+     "I": 553,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1095,
+    "D": 98,
+    "I": 120,
+    "errors": 1313,
+    "wer": 2.401,
+    "headroom_pp": 2.079,
+    "headroom_spreads": 23.9,
+    "by_category": {
+     "acoustic": {
+      "errors": 179,
+      "student_1best": 345,
+      "fixed_net": 166,
+      "headroom_pp": 0.304
+     },
+     "content": {
+      "errors": 106,
+      "student_1best": 215,
+      "fixed_net": 109,
+      "headroom_pp": 0.199
+     },
+     "convention": {
+      "errors": 57,
+      "student_1best": 128,
+      "fixed_net": 71,
+      "headroom_pp": 0.13
+     },
+     "function": {
+      "errors": 321,
+      "student_1best": 681,
+      "fixed_net": 360,
+      "headroom_pp": 0.658
+     },
+     "near": {
+      "errors": 246,
+      "student_1best": 550,
+      "fixed_net": 304,
+      "headroom_pp": 0.556
+     },
+     "rare": {
+      "errors": 404,
+      "student_1best": 531,
+      "fixed_net": 127,
+      "headroom_pp": 0.232
+     }
+    },
+    "by_op_category": {
+     "S:near": 246,
+     "S:acoustic": 179,
+     "S:rare": 389,
+     "S:function": 224,
+     "I:content": 59,
+     "I:function": 61,
+     "D:content": 47,
+     "D:function": 36,
+     "S:convention": 57,
+     "D:rare": 15
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 43,
+    "D": 1,
+    "I": 6,
+    "errors": 50,
+    "wer": 8.21,
+    "headroom_pp": 6.897,
+    "headroom_spreads": 79.27,
+    "by_category": {
+     "acoustic": {
+      "errors": 10,
+      "student_1best": 17,
+      "fixed_net": 7,
+      "headroom_pp": 1.149
+     },
+     "content": {
+      "errors": 6,
+      "student_1best": 14,
+      "fixed_net": 8,
+      "headroom_pp": 1.314
+     },
+     "convention": {
+      "errors": 1,
+      "student_1best": 6,
+      "fixed_net": 5,
+      "headroom_pp": 0.821
+     },
+     "function": {
+      "errors": 6,
+      "student_1best": 14,
+      "fixed_net": 8,
+      "headroom_pp": 1.314
+     },
+     "near": {
+      "errors": 8,
+      "student_1best": 17,
+      "fixed_net": 9,
+      "headroom_pp": 1.478
+     },
+     "rare": {
+      "errors": 19,
+      "student_1best": 24,
+      "fixed_net": 5,
+      "headroom_pp": 0.821
+     }
+    },
+    "by_op_category": {
+     "S:rare": 19,
+     "S:function": 5,
+     "I:content": 5,
+     "S:convention": 1,
+     "S:near": 8,
+     "S:acoustic": 10,
+     "D:content": 1,
+     "I:function": 1
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 1415,
+    "D": 134,
+    "I": 161,
+    "errors": 1710,
+    "wer": 5.73,
+    "headroom_pp": 3.642,
+    "headroom_spreads": 41.87,
+    "by_category": {
+     "acoustic": {
+      "errors": 454,
+      "student_1best": 687,
+      "fixed_net": 233,
+      "headroom_pp": 0.781
+     },
+     "content": {
+      "errors": 96,
+      "student_1best": 198,
+      "fixed_net": 102,
+      "headroom_pp": 0.342
+     },
+     "convention": {
+      "errors": 21,
+      "student_1best": 51,
+      "fixed_net": 30,
+      "headroom_pp": 0.101
+     },
+     "function": {
+      "errors": 512,
+      "student_1best": 904,
+      "fixed_net": 392,
+      "headroom_pp": 1.313
+     },
+     "near": {
+      "errors": 305,
+      "student_1best": 557,
+      "fixed_net": 252,
+      "headroom_pp": 0.844
+     },
+     "rare": {
+      "errors": 322,
+      "student_1best": 400,
+      "fixed_net": 78,
+      "headroom_pp": 0.261
+     }
+    },
+    "by_op_category": {
+     "S:near": 305,
+     "S:acoustic": 454,
+     "S:function": 324,
+     "S:rare": 311,
+     "I:function": 107,
+     "I:content": 54,
+     "S:convention": 21,
+     "D:function": 81,
+     "D:content": 42,
+     "D:rare": 11
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 2924,
+    "D": 293,
+    "I": 329,
+    "errors": 3546,
+    "wer": 5.239,
+    "headroom_pp": 2.191,
+    "headroom_spreads": 25.18,
+    "by_category": {
+     "acoustic": {
+      "errors": 936,
+      "student_1best": 1212,
+      "fixed_net": 276,
+      "headroom_pp": 0.408
+     },
+     "content": {
+      "errors": 265,
+      "student_1best": 401,
+      "fixed_net": 136,
+      "headroom_pp": 0.201
+     },
+     "convention": {
+      "errors": 74,
+      "student_1best": 135,
+      "fixed_net": 61,
+      "headroom_pp": 0.09
+     },
+     "function": {
+      "errors": 1012,
+      "student_1best": 1497,
+      "fixed_net": 485,
+      "headroom_pp": 0.717
+     },
+     "near": {
+      "errors": 640,
+      "student_1best": 1060,
+      "fixed_net": 420,
+      "headroom_pp": 0.621
+     },
+     "rare": {
+      "errors": 619,
+      "student_1best": 724,
+      "fixed_net": 105,
+      "headroom_pp": 0.155
+     }
+    },
+    "by_op_category": {
+     "S:acoustic": 936,
+     "S:near": 640,
+     "S:rare": 604,
+     "I:content": 151,
+     "S:function": 670,
+     "D:content": 114,
+     "I:function": 178,
+     "D:function": 164,
+     "S:convention": 74,
+     "D:rare": 15
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 383,
+    "D": 65,
+    "I": 57,
+    "errors": 505,
+    "wer": 6.38,
+    "headroom_pp": 4.826,
+    "headroom_spreads": 55.47,
+    "by_category": {
+     "acoustic": {
+      "errors": 116,
+      "student_1best": 196,
+      "fixed_net": 80,
+      "headroom_pp": 1.011
+     },
+     "content": {
+      "errors": 36,
+      "student_1best": 77,
+      "fixed_net": 41,
+      "headroom_pp": 0.518
+     },
+     "convention": {
+      "errors": 5,
+      "student_1best": 13,
+      "fixed_net": 8,
+      "headroom_pp": 0.101
+     },
+     "function": {
+      "errors": 156,
+      "student_1best": 302,
+      "fixed_net": 146,
+      "headroom_pp": 1.845
+     },
+     "near": {
+      "errors": 69,
+      "student_1best": 149,
+      "fixed_net": 80,
+      "headroom_pp": 1.011
+     },
+     "rare": {
+      "errors": 123,
+      "student_1best": 150,
+      "fixed_net": 27,
+      "headroom_pp": 0.341
+     }
+    },
+    "by_op_category": {
+     "I:function": 42,
+     "S:rare": 120,
+     "S:function": 73,
+     "S:near": 69,
+     "D:rare": 3,
+     "S:acoustic": 116,
+     "D:function": 41,
+     "D:content": 21,
+     "S:convention": 5,
+     "I:content": 15
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 3670,
+    "D": 395,
+    "I": 433,
+    "errors": 4498,
+    "wer": 8.757,
+    "headroom_pp": 3.615,
+    "headroom_spreads": 41.56,
+    "by_category": {
+     "acoustic": {
+      "errors": 1337,
+      "student_1best": 1767,
+      "fixed_net": 430,
+      "headroom_pp": 0.837
+     },
+     "content": {
+      "errors": 297,
+      "student_1best": 475,
+      "fixed_net": 178,
+      "headroom_pp": 0.347
+     },
+     "convention": {
+      "errors": 44,
+      "student_1best": 77,
+      "fixed_net": 33,
+      "headroom_pp": 0.064
+     },
+     "function": {
+      "errors": 1365,
+      "student_1best": 2036,
+      "fixed_net": 671,
+      "headroom_pp": 1.306
+     },
+     "near": {
+      "errors": 776,
+      "student_1best": 1233,
+      "fixed_net": 457,
+      "headroom_pp": 0.89
+     },
+     "rare": {
+      "errors": 679,
+      "student_1best": 767,
+      "fixed_net": 88,
+      "headroom_pp": 0.171
+     }
+    },
+    "by_op_category": {
+     "S:rare": 665,
+     "S:function": 848,
+     "S:acoustic": 1337,
+     "S:near": 776,
+     "I:function": 267,
+     "D:content": 131,
+     "S:convention": 44,
+     "D:function": 250,
+     "I:content": 166,
+     "D:rare": 14
+    }
+   }
+  },
+  "student_b16_top": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 7041,
+    "D": 797,
+    "I": 871,
+    "errors": 8709,
+    "wer": 8.212,
+    "headroom_pp": 0.091,
+    "headroom_spreads": 1.04,
+    "by_category": {
+     "acoustic": {
+      "errors": 2085,
+      "student_1best": 2112,
+      "fixed_net": 27,
+      "headroom_pp": 0.025
+     },
+     "content": {
+      "errors": 662,
+      "student_1best": 690,
+      "fixed_net": 28,
+      "headroom_pp": 0.026
+     },
+     "convention": {
+      "errors": 210,
+      "student_1best": 205,
+      "fixed_net": -5,
+      "headroom_pp": -0.005
+     },
+     "function": {
+      "errors": 2693,
+      "student_1best": 2717,
+      "fixed_net": 24,
+      "headroom_pp": 0.023
+     },
+     "near": {
+      "errors": 1784,
+      "student_1best": 1783,
+      "fixed_net": -1,
+      "headroom_pp": -0.001
+     },
+     "rare": {
+      "errors": 1275,
+      "student_1best": 1298,
+      "fixed_net": 23,
+      "headroom_pp": 0.022
+     }
+    },
+    "by_op_category": {
+     "S:near": 1784,
+     "D:function": 468,
+     "S:rare": 1235,
+     "S:acoustic": 2085,
+     "S:convention": 210,
+     "D:content": 289,
+     "I:function": 498,
+     "S:function": 1727,
+     "I:content": 373,
+     "D:rare": 40
+    },
+    "ultra_score": {
+     "S": 7041,
+     "D": 797,
+     "I": 871,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1992,
+    "D": 216,
+    "I": 239,
+    "errors": 2447,
+    "wer": 4.474,
+    "headroom_pp": 0.005,
+    "headroom_spreads": 0.06,
+    "by_category": {
+     "acoustic": {
+      "errors": 349,
+      "student_1best": 345,
+      "fixed_net": -4,
+      "headroom_pp": -0.007
+     },
+     "content": {
+      "errors": 214,
+      "student_1best": 215,
+      "fixed_net": 1,
+      "headroom_pp": 0.002
+     },
+     "convention": {
+      "errors": 128,
+      "student_1best": 128,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 670,
+      "student_1best": 681,
+      "fixed_net": 11,
+      "headroom_pp": 0.02
+     },
+     "near": {
+      "errors": 568,
+      "student_1best": 550,
+      "fixed_net": -18,
+      "headroom_pp": -0.033
+     },
+     "rare": {
+      "errors": 518,
+      "student_1best": 531,
+      "fixed_net": 13,
+      "headroom_pp": 0.024
+     }
+    },
+    "by_op_category": {
+     "S:near": 568,
+     "D:function": 103,
+     "S:rare": 499,
+     "S:acoustic": 349,
+     "S:convention": 128,
+     "D:content": 94,
+     "I:function": 119,
+     "S:function": 448,
+     "I:content": 120,
+     "D:rare": 19
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 76,
+    "D": 6,
+    "I": 15,
+    "errors": 97,
+    "wer": 15.928,
+    "headroom_pp": -0.821,
+    "headroom_spreads": -9.44,
+    "by_category": {
+     "acoustic": {
+      "errors": 18,
+      "student_1best": 17,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "content": {
+      "errors": 14,
+      "student_1best": 14,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 7,
+      "student_1best": 6,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "function": {
+      "errors": 16,
+      "student_1best": 14,
+      "fixed_net": -2,
+      "headroom_pp": -0.328
+     },
+     "near": {
+      "errors": 19,
+      "student_1best": 17,
+      "fixed_net": -2,
+      "headroom_pp": -0.328
+     },
+     "rare": {
+      "errors": 23,
+      "student_1best": 24,
+      "fixed_net": 1,
+      "headroom_pp": 0.164
+     }
+    },
+    "by_op_category": {
+     "S:near": 19,
+     "S:rare": 22,
+     "S:function": 10,
+     "I:content": 11,
+     "S:convention": 7,
+     "I:function": 4,
+     "D:content": 3,
+     "S:acoustic": 18,
+     "D:rare": 1,
+     "D:function": 2
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 2243,
+    "D": 255,
+    "I": 276,
+    "errors": 2774,
+    "wer": 9.295,
+    "headroom_pp": 0.077,
+    "headroom_spreads": 0.89,
+    "by_category": {
+     "acoustic": {
+      "errors": 704,
+      "student_1best": 687,
+      "fixed_net": -17,
+      "headroom_pp": -0.057
+     },
+     "content": {
+      "errors": 184,
+      "student_1best": 198,
+      "fixed_net": 14,
+      "headroom_pp": 0.047
+     },
+     "convention": {
+      "errors": 49,
+      "student_1best": 51,
+      "fixed_net": 2,
+      "headroom_pp": 0.007
+     },
+     "function": {
+      "errors": 896,
+      "student_1best": 904,
+      "fixed_net": 8,
+      "headroom_pp": 0.027
+     },
+     "near": {
+      "errors": 548,
+      "student_1best": 557,
+      "fixed_net": 9,
+      "headroom_pp": 0.03
+     },
+     "rare": {
+      "errors": 393,
+      "student_1best": 400,
+      "fixed_net": 7,
+      "headroom_pp": 0.023
+     }
+    },
+    "by_op_category": {
+     "S:near": 548,
+     "S:acoustic": 704,
+     "S:convention": 49,
+     "D:content": 77,
+     "I:function": 169,
+     "S:function": 564,
+     "S:rare": 378,
+     "I:content": 107,
+     "D:function": 163,
+     "D:rare": 15
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 4046,
+    "D": 433,
+    "I": 471,
+    "errors": 4950,
+    "wer": 7.313,
+    "headroom_pp": 0.117,
+    "headroom_spreads": 1.34,
+    "by_category": {
+     "acoustic": {
+      "errors": 1173,
+      "student_1best": 1212,
+      "fixed_net": 39,
+      "headroom_pp": 0.058
+     },
+     "content": {
+      "errors": 388,
+      "student_1best": 401,
+      "fixed_net": 13,
+      "headroom_pp": 0.019
+     },
+     "convention": {
+      "errors": 140,
+      "student_1best": 135,
+      "fixed_net": -5,
+      "headroom_pp": -0.007
+     },
+     "function": {
+      "errors": 1489,
+      "student_1best": 1497,
+      "fixed_net": 8,
+      "headroom_pp": 0.012
+     },
+     "near": {
+      "errors": 1051,
+      "student_1best": 1060,
+      "fixed_net": 9,
+      "headroom_pp": 0.013
+     },
+     "rare": {
+      "errors": 709,
+      "student_1best": 724,
+      "fixed_net": 15,
+      "headroom_pp": 0.022
+     }
+    },
+    "by_op_category": {
+     "D:function": 241,
+     "S:rare": 690,
+     "S:acoustic": 1173,
+     "S:near": 1051,
+     "S:function": 992,
+     "I:content": 215,
+     "D:content": 173,
+     "I:function": 256,
+     "S:convention": 140,
+     "D:rare": 19
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 676,
+    "D": 103,
+    "I": 109,
+    "errors": 888,
+    "wer": 11.219,
+    "headroom_pp": -0.013,
+    "headroom_spreads": -0.15,
+    "by_category": {
+     "acoustic": {
+      "errors": 190,
+      "student_1best": 196,
+      "fixed_net": 6,
+      "headroom_pp": 0.076
+     },
+     "content": {
+      "errors": 76,
+      "student_1best": 77,
+      "fixed_net": 1,
+      "headroom_pp": 0.013
+     },
+     "convention": {
+      "errors": 14,
+      "student_1best": 13,
+      "fixed_net": -1,
+      "headroom_pp": -0.013
+     },
+     "function": {
+      "errors": 292,
+      "student_1best": 302,
+      "fixed_net": 10,
+      "headroom_pp": 0.126
+     },
+     "near": {
+      "errors": 166,
+      "student_1best": 149,
+      "fixed_net": -17,
+      "headroom_pp": -0.215
+     },
+     "rare": {
+      "errors": 150,
+      "student_1best": 150,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 166,
+     "I:function": 69,
+     "S:function": 161,
+     "S:acoustic": 190,
+     "I:content": 40,
+     "S:rare": 145,
+     "S:convention": 14,
+     "D:content": 36,
+     "D:function": 62,
+     "D:rare": 5
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 5049,
+    "D": 581,
+    "I": 632,
+    "errors": 6262,
+    "wer": 12.192,
+    "headroom_pp": 0.181,
+    "headroom_spreads": 2.08,
+    "by_category": {
+     "acoustic": {
+      "errors": 1736,
+      "student_1best": 1767,
+      "fixed_net": 31,
+      "headroom_pp": 0.06
+     },
+     "content": {
+      "errors": 448,
+      "student_1best": 475,
+      "fixed_net": 27,
+      "headroom_pp": 0.053
+     },
+     "convention": {
+      "errors": 82,
+      "student_1best": 77,
+      "fixed_net": -5,
+      "headroom_pp": -0.01
+     },
+     "function": {
+      "errors": 2023,
+      "student_1best": 2036,
+      "fixed_net": 13,
+      "headroom_pp": 0.025
+     },
+     "near": {
+      "errors": 1216,
+      "student_1best": 1233,
+      "fixed_net": 17,
+      "headroom_pp": 0.033
+     },
+     "rare": {
+      "errors": 757,
+      "student_1best": 767,
+      "fixed_net": 10,
+      "headroom_pp": 0.019
+     }
+    },
+    "by_op_category": {
+     "I:content": 253,
+     "S:rare": 736,
+     "S:function": 1279,
+     "S:acoustic": 1736,
+     "S:near": 1216,
+     "I:function": 379,
+     "D:content": 195,
+     "S:convention": 82,
+     "D:function": 365,
+     "D:rare": 21
+    }
+   }
+  },
+  "student_b4_oracle": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 5970,
+    "D": 666,
+    "I": 736,
+    "errors": 7372,
+    "wer": 6.951,
+    "headroom_pp": 1.351,
+    "headroom_spreads": 15.53,
+    "by_category": {
+     "acoustic": {
+      "errors": 1850,
+      "student_1best": 2112,
+      "fixed_net": 262,
+      "headroom_pp": 0.247
+     },
+     "content": {
+      "errors": 556,
+      "student_1best": 690,
+      "fixed_net": 134,
+      "headroom_pp": 0.126
+     },
+     "convention": {
+      "errors": 158,
+      "student_1best": 205,
+      "fixed_net": 47,
+      "headroom_pp": 0.044
+     },
+     "function": {
+      "errors": 2219,
+      "student_1best": 2717,
+      "fixed_net": 498,
+      "headroom_pp": 0.47
+     },
+     "near": {
+      "errors": 1396,
+      "student_1best": 1783,
+      "fixed_net": 387,
+      "headroom_pp": 0.365
+     },
+     "rare": {
+      "errors": 1193,
+      "student_1best": 1298,
+      "fixed_net": 105,
+      "headroom_pp": 0.099
+     }
+    },
+    "by_op_category": {
+     "S:near": 1396,
+     "D:function": 390,
+     "S:acoustic": 1850,
+     "I:function": 418,
+     "S:function": 1411,
+     "I:content": 318,
+     "S:rare": 1155,
+     "D:content": 238,
+     "S:convention": 158,
+     "D:rare": 38
+    },
+    "ultra_score": {
+     "S": 5970,
+     "D": 666,
+     "I": 736,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1548,
+    "D": 167,
+    "I": 185,
+    "errors": 1900,
+    "wer": 3.474,
+    "headroom_pp": 1.006,
+    "headroom_spreads": 11.56,
+    "by_category": {
+     "acoustic": {
+      "errors": 270,
+      "student_1best": 345,
+      "fixed_net": 75,
+      "headroom_pp": 0.137
+     },
+     "content": {
+      "errors": 169,
+      "student_1best": 215,
+      "fixed_net": 46,
+      "headroom_pp": 0.084
+     },
+     "convention": {
+      "errors": 96,
+      "student_1best": 128,
+      "fixed_net": 32,
+      "headroom_pp": 0.059
+     },
+     "function": {
+      "errors": 492,
+      "student_1best": 681,
+      "fixed_net": 189,
+      "headroom_pp": 0.346
+     },
+     "near": {
+      "errors": 401,
+      "student_1best": 550,
+      "fixed_net": 149,
+      "headroom_pp": 0.272
+     },
+     "rare": {
+      "errors": 472,
+      "student_1best": 531,
+      "fixed_net": 59,
+      "headroom_pp": 0.108
+     }
+    },
+    "by_op_category": {
+     "S:near": 401,
+     "D:function": 73,
+     "S:acoustic": 270,
+     "I:function": 91,
+     "S:function": 328,
+     "I:content": 94,
+     "S:rare": 453,
+     "D:content": 75,
+     "S:convention": 96,
+     "D:rare": 19
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 57,
+    "D": 2,
+    "I": 9,
+    "errors": 68,
+    "wer": 11.166,
+    "headroom_pp": 3.941,
+    "headroom_spreads": 45.3,
+    "by_category": {
+     "acoustic": {
+      "errors": 15,
+      "student_1best": 17,
+      "fixed_net": 2,
+      "headroom_pp": 0.328
+     },
+     "content": {
+      "errors": 10,
+      "student_1best": 14,
+      "fixed_net": 4,
+      "headroom_pp": 0.657
+     },
+     "convention": {
+      "errors": 2,
+      "student_1best": 6,
+      "fixed_net": 4,
+      "headroom_pp": 0.657
+     },
+     "function": {
+      "errors": 9,
+      "student_1best": 14,
+      "fixed_net": 5,
+      "headroom_pp": 0.821
+     },
+     "near": {
+      "errors": 10,
+      "student_1best": 17,
+      "fixed_net": 7,
+      "headroom_pp": 1.149
+     },
+     "rare": {
+      "errors": 22,
+      "student_1best": 24,
+      "fixed_net": 2,
+      "headroom_pp": 0.328
+     }
+    },
+    "by_op_category": {
+     "S:near": 10,
+     "S:rare": 22,
+     "S:function": 8,
+     "I:content": 8,
+     "S:convention": 2,
+     "D:content": 2,
+     "S:acoustic": 15,
+     "I:function": 1
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 1824,
+    "D": 199,
+    "I": 231,
+    "errors": 2254,
+    "wer": 7.553,
+    "headroom_pp": 1.819,
+    "headroom_spreads": 20.91,
+    "by_category": {
+     "acoustic": {
+      "errors": 595,
+      "student_1best": 687,
+      "fixed_net": 92,
+      "headroom_pp": 0.308
+     },
+     "content": {
+      "errors": 154,
+      "student_1best": 198,
+      "fixed_net": 44,
+      "headroom_pp": 0.147
+     },
+     "convention": {
+      "errors": 32,
+      "student_1best": 51,
+      "fixed_net": 19,
+      "headroom_pp": 0.064
+     },
+     "function": {
+      "errors": 702,
+      "student_1best": 904,
+      "fixed_net": 202,
+      "headroom_pp": 0.677
+     },
+     "near": {
+      "errors": 411,
+      "student_1best": 557,
+      "fixed_net": 146,
+      "headroom_pp": 0.489
+     },
+     "rare": {
+      "errors": 360,
+      "student_1best": 400,
+      "fixed_net": 40,
+      "headroom_pp": 0.134
+     }
+    },
+    "by_op_category": {
+     "S:near": 411,
+     "S:acoustic": 595,
+     "I:function": 139,
+     "S:function": 443,
+     "S:rare": 343,
+     "I:content": 92,
+     "S:convention": 32,
+     "D:rare": 17,
+     "D:function": 120,
+     "D:content": 62
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 3566,
+    "D": 383,
+    "I": 415,
+    "errors": 4364,
+    "wer": 6.447,
+    "headroom_pp": 0.982,
+    "headroom_spreads": 11.29,
+    "by_category": {
+     "acoustic": {
+      "errors": 1083,
+      "student_1best": 1212,
+      "fixed_net": 129,
+      "headroom_pp": 0.191
+     },
+     "content": {
+      "errors": 342,
+      "student_1best": 401,
+      "fixed_net": 59,
+      "headroom_pp": 0.087
+     },
+     "convention": {
+      "errors": 114,
+      "student_1best": 135,
+      "fixed_net": 21,
+      "headroom_pp": 0.031
+     },
+     "function": {
+      "errors": 1289,
+      "student_1best": 1497,
+      "fixed_net": 208,
+      "headroom_pp": 0.307
+     },
+     "near": {
+      "errors": 861,
+      "student_1best": 1060,
+      "fixed_net": 199,
+      "headroom_pp": 0.294
+     },
+     "rare": {
+      "errors": 675,
+      "student_1best": 724,
+      "fixed_net": 49,
+      "headroom_pp": 0.072
+     }
+    },
+    "by_op_category": {
+     "D:function": 216,
+     "S:acoustic": 1083,
+     "S:function": 850,
+     "S:near": 861,
+     "I:content": 192,
+     "S:rare": 658,
+     "D:content": 150,
+     "I:function": 223,
+     "S:convention": 114,
+     "D:rare": 17
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 523,
+    "D": 82,
+    "I": 81,
+    "errors": 686,
+    "wer": 8.667,
+    "headroom_pp": 2.539,
+    "headroom_spreads": 29.19,
+    "by_category": {
+     "acoustic": {
+      "errors": 157,
+      "student_1best": 196,
+      "fixed_net": 39,
+      "headroom_pp": 0.493
+     },
+     "content": {
+      "errors": 50,
+      "student_1best": 77,
+      "fixed_net": 27,
+      "headroom_pp": 0.341
+     },
+     "convention": {
+      "errors": 10,
+      "student_1best": 13,
+      "fixed_net": 3,
+      "headroom_pp": 0.038
+     },
+     "function": {
+      "errors": 219,
+      "student_1best": 302,
+      "fixed_net": 83,
+      "headroom_pp": 1.049
+     },
+     "near": {
+      "errors": 114,
+      "student_1best": 149,
+      "fixed_net": 35,
+      "headroom_pp": 0.442
+     },
+     "rare": {
+      "errors": 136,
+      "student_1best": 150,
+      "fixed_net": 14,
+      "headroom_pp": 0.177
+     }
+    },
+    "by_op_category": {
+     "I:function": 55,
+     "S:function": 110,
+     "S:rare": 132,
+     "S:near": 114,
+     "S:acoustic": 157,
+     "D:function": 54,
+     "D:rare": 4,
+     "S:convention": 10,
+     "I:content": 26,
+     "D:content": 24
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 4422,
+    "D": 499,
+    "I": 551,
+    "errors": 5472,
+    "wer": 10.654,
+    "headroom_pp": 1.719,
+    "headroom_spreads": 19.76,
+    "by_category": {
+     "acoustic": {
+      "errors": 1580,
+      "student_1best": 1767,
+      "fixed_net": 187,
+      "headroom_pp": 0.364
+     },
+     "content": {
+      "errors": 387,
+      "student_1best": 475,
+      "fixed_net": 88,
+      "headroom_pp": 0.171
+     },
+     "convention": {
+      "errors": 62,
+      "student_1best": 77,
+      "fixed_net": 15,
+      "headroom_pp": 0.029
+     },
+     "function": {
+      "errors": 1727,
+      "student_1best": 2036,
+      "fixed_net": 309,
+      "headroom_pp": 0.602
+     },
+     "near": {
+      "errors": 995,
+      "student_1best": 1233,
+      "fixed_net": 238,
+      "headroom_pp": 0.463
+     },
+     "rare": {
+      "errors": 721,
+      "student_1best": 767,
+      "fixed_net": 46,
+      "headroom_pp": 0.09
+     }
+    },
+    "by_op_category": {
+     "S:rare": 702,
+     "S:function": 1083,
+     "S:acoustic": 1580,
+     "S:near": 995,
+     "I:function": 327,
+     "D:content": 163,
+     "S:convention": 62,
+     "D:function": 317,
+     "I:content": 224,
+     "D:rare": 19
+    }
+   }
+  },
+  "student_b4_top": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 7042,
+    "D": 808,
+    "I": 871,
+    "errors": 8721,
+    "wer": 8.223,
+    "headroom_pp": 0.079,
+    "headroom_spreads": 0.91,
+    "by_category": {
+     "acoustic": {
+      "errors": 2098,
+      "student_1best": 2112,
+      "fixed_net": 14,
+      "headroom_pp": 0.013
+     },
+     "content": {
+      "errors": 658,
+      "student_1best": 690,
+      "fixed_net": 32,
+      "headroom_pp": 0.03
+     },
+     "convention": {
+      "errors": 209,
+      "student_1best": 205,
+      "fixed_net": -4,
+      "headroom_pp": -0.004
+     },
+     "function": {
+      "errors": 2699,
+      "student_1best": 2717,
+      "fixed_net": 18,
+      "headroom_pp": 0.017
+     },
+     "near": {
+      "errors": 1778,
+      "student_1best": 1783,
+      "fixed_net": 5,
+      "headroom_pp": 0.005
+     },
+     "rare": {
+      "errors": 1279,
+      "student_1best": 1298,
+      "fixed_net": 19,
+      "headroom_pp": 0.018
+     }
+    },
+    "by_op_category": {
+     "S:near": 1778,
+     "D:function": 478,
+     "S:rare": 1237,
+     "S:acoustic": 2098,
+     "S:convention": 209,
+     "D:content": 288,
+     "I:function": 501,
+     "S:function": 1720,
+     "I:content": 370,
+     "D:rare": 42
+    },
+    "ultra_score": {
+     "S": 7042,
+     "D": 808,
+     "I": 871,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1998,
+    "D": 219,
+    "I": 237,
+    "errors": 2454,
+    "wer": 4.487,
+    "headroom_pp": -0.007,
+    "headroom_spreads": -0.08,
+    "by_category": {
+     "acoustic": {
+      "errors": 349,
+      "student_1best": 345,
+      "fixed_net": -4,
+      "headroom_pp": -0.007
+     },
+     "content": {
+      "errors": 214,
+      "student_1best": 215,
+      "fixed_net": 1,
+      "headroom_pp": 0.002
+     },
+     "convention": {
+      "errors": 128,
+      "student_1best": 128,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 675,
+      "student_1best": 681,
+      "fixed_net": 6,
+      "headroom_pp": 0.011
+     },
+     "near": {
+      "errors": 568,
+      "student_1best": 550,
+      "fixed_net": -18,
+      "headroom_pp": -0.033
+     },
+     "rare": {
+      "errors": 520,
+      "student_1best": 531,
+      "fixed_net": 11,
+      "headroom_pp": 0.02
+     }
+    },
+    "by_op_category": {
+     "S:near": 568,
+     "D:function": 104,
+     "S:rare": 499,
+     "S:acoustic": 349,
+     "S:convention": 128,
+     "D:content": 94,
+     "I:function": 117,
+     "S:function": 454,
+     "I:content": 120,
+     "D:rare": 21
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 77,
+    "D": 6,
+    "I": 14,
+    "errors": 97,
+    "wer": 15.928,
+    "headroom_pp": -0.821,
+    "headroom_spreads": -9.44,
+    "by_category": {
+     "acoustic": {
+      "errors": 19,
+      "student_1best": 17,
+      "fixed_net": -2,
+      "headroom_pp": -0.328
+     },
+     "content": {
+      "errors": 14,
+      "student_1best": 14,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 7,
+      "student_1best": 6,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "function": {
+      "errors": 15,
+      "student_1best": 14,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "near": {
+      "errors": 19,
+      "student_1best": 17,
+      "fixed_net": -2,
+      "headroom_pp": -0.328
+     },
+     "rare": {
+      "errors": 23,
+      "student_1best": 24,
+      "fixed_net": 1,
+      "headroom_pp": 0.164
+     }
+    },
+    "by_op_category": {
+     "S:near": 19,
+     "S:rare": 22,
+     "S:function": 10,
+     "I:content": 11,
+     "S:convention": 7,
+     "I:function": 3,
+     "S:acoustic": 19,
+     "D:content": 3,
+     "D:rare": 1,
+     "D:function": 2
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 2240,
+    "D": 264,
+    "I": 278,
+    "errors": 2782,
+    "wer": 9.322,
+    "headroom_pp": 0.05,
+    "headroom_spreads": 0.58,
+    "by_category": {
+     "acoustic": {
+      "errors": 709,
+      "student_1best": 687,
+      "fixed_net": -22,
+      "headroom_pp": -0.074
+     },
+     "content": {
+      "errors": 186,
+      "student_1best": 198,
+      "fixed_net": 12,
+      "headroom_pp": 0.04
+     },
+     "convention": {
+      "errors": 48,
+      "student_1best": 51,
+      "fixed_net": 3,
+      "headroom_pp": 0.01
+     },
+     "function": {
+      "errors": 897,
+      "student_1best": 904,
+      "fixed_net": 7,
+      "headroom_pp": 0.023
+     },
+     "near": {
+      "errors": 547,
+      "student_1best": 557,
+      "fixed_net": 10,
+      "headroom_pp": 0.034
+     },
+     "rare": {
+      "errors": 395,
+      "student_1best": 400,
+      "fixed_net": 5,
+      "headroom_pp": 0.017
+     }
+    },
+    "by_op_category": {
+     "S:near": 547,
+     "S:acoustic": 709,
+     "S:convention": 48,
+     "D:content": 79,
+     "I:function": 171,
+     "S:function": 557,
+     "S:rare": 379,
+     "I:content": 107,
+     "D:function": 169,
+     "D:rare": 16
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 4043,
+    "D": 435,
+    "I": 471,
+    "errors": 4949,
+    "wer": 7.312,
+    "headroom_pp": 0.118,
+    "headroom_spreads": 1.36,
+    "by_category": {
+     "acoustic": {
+      "errors": 1176,
+      "student_1best": 1212,
+      "fixed_net": 36,
+      "headroom_pp": 0.053
+     },
+     "content": {
+      "errors": 382,
+      "student_1best": 401,
+      "fixed_net": 19,
+      "headroom_pp": 0.028
+     },
+     "convention": {
+      "errors": 140,
+      "student_1best": 135,
+      "fixed_net": -5,
+      "headroom_pp": -0.007
+     },
+     "function": {
+      "errors": 1494,
+      "student_1best": 1497,
+      "fixed_net": 3,
+      "headroom_pp": 0.004
+     },
+     "near": {
+      "errors": 1046,
+      "student_1best": 1060,
+      "fixed_net": 14,
+      "headroom_pp": 0.021
+     },
+     "rare": {
+      "errors": 711,
+      "student_1best": 724,
+      "fixed_net": 13,
+      "headroom_pp": 0.019
+     }
+    },
+    "by_op_category": {
+     "D:function": 244,
+     "S:rare": 691,
+     "S:acoustic": 1176,
+     "S:near": 1046,
+     "S:function": 990,
+     "I:content": 211,
+     "D:content": 171,
+     "I:function": 260,
+     "D:rare": 20,
+     "S:convention": 140
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 682,
+    "D": 103,
+    "I": 108,
+    "errors": 893,
+    "wer": 11.282,
+    "headroom_pp": -0.076,
+    "headroom_spreads": -0.87,
+    "by_category": {
+     "acoustic": {
+      "errors": 194,
+      "student_1best": 196,
+      "fixed_net": 2,
+      "headroom_pp": 0.025
+     },
+     "content": {
+      "errors": 76,
+      "student_1best": 77,
+      "fixed_net": 1,
+      "headroom_pp": 0.013
+     },
+     "convention": {
+      "errors": 14,
+      "student_1best": 13,
+      "fixed_net": -1,
+      "headroom_pp": -0.013
+     },
+     "function": {
+      "errors": 293,
+      "student_1best": 302,
+      "fixed_net": 9,
+      "headroom_pp": 0.114
+     },
+     "near": {
+      "errors": 166,
+      "student_1best": 149,
+      "fixed_net": -17,
+      "headroom_pp": -0.215
+     },
+     "rare": {
+      "errors": 150,
+      "student_1best": 150,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 166,
+     "I:function": 67,
+     "S:function": 163,
+     "S:acoustic": 194,
+     "I:content": 41,
+     "S:rare": 145,
+     "S:convention": 14,
+     "D:content": 35,
+     "D:function": 63,
+     "D:rare": 5
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 5044,
+    "D": 589,
+    "I": 634,
+    "errors": 6267,
+    "wer": 12.201,
+    "headroom_pp": 0.171,
+    "headroom_spreads": 1.97,
+    "by_category": {
+     "acoustic": {
+      "errors": 1749,
+      "student_1best": 1767,
+      "fixed_net": 18,
+      "headroom_pp": 0.035
+     },
+     "content": {
+      "errors": 444,
+      "student_1best": 475,
+      "fixed_net": 31,
+      "headroom_pp": 0.06
+     },
+     "convention": {
+      "errors": 81,
+      "student_1best": 77,
+      "fixed_net": -4,
+      "headroom_pp": -0.008
+     },
+     "function": {
+      "errors": 2024,
+      "student_1best": 2036,
+      "fixed_net": 12,
+      "headroom_pp": 0.023
+     },
+     "near": {
+      "errors": 1210,
+      "student_1best": 1233,
+      "fixed_net": 23,
+      "headroom_pp": 0.045
+     },
+     "rare": {
+      "errors": 759,
+      "student_1best": 767,
+      "fixed_net": 8,
+      "headroom_pp": 0.016
+     }
+    },
+    "by_op_category": {
+     "I:content": 250,
+     "S:rare": 738,
+     "S:function": 1266,
+     "S:acoustic": 1749,
+     "S:near": 1210,
+     "I:function": 384,
+     "D:content": 194,
+     "S:convention": 81,
+     "D:function": 374,
+     "D:rare": 21
+    }
+   }
+  },
+  "student_b8_oracle": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 5321,
+    "D": 576,
+    "I": 634,
+    "errors": 6531,
+    "wer": 6.158,
+    "headroom_pp": 2.144,
+    "headroom_spreads": 24.65,
+    "by_category": {
+     "acoustic": {
+      "errors": 1672,
+      "student_1best": 2112,
+      "fixed_net": 440,
+      "headroom_pp": 0.415
+     },
+     "content": {
+      "errors": 469,
+      "student_1best": 690,
+      "fixed_net": 221,
+      "headroom_pp": 0.208
+     },
+     "convention": {
+      "errors": 124,
+      "student_1best": 205,
+      "fixed_net": 81,
+      "headroom_pp": 0.076
+     },
+     "function": {
+      "errors": 1948,
+      "student_1best": 2717,
+      "fixed_net": 769,
+      "headroom_pp": 0.725
+     },
+     "near": {
+      "errors": 1179,
+      "student_1best": 1783,
+      "fixed_net": 604,
+      "headroom_pp": 0.57
+     },
+     "rare": {
+      "errors": 1139,
+      "student_1best": 1298,
+      "fixed_net": 159,
+      "headroom_pp": 0.15
+     }
+    },
+    "by_op_category": {
+     "S:near": 1179,
+     "S:acoustic": 1672,
+     "S:function": 1240,
+     "S:rare": 1106,
+     "I:content": 259,
+     "I:function": 375,
+     "D:content": 210,
+     "S:convention": 124,
+     "D:function": 333,
+     "D:rare": 33
+    },
+    "ultra_score": {
+     "S": 5321,
+     "D": 576,
+     "I": 634,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1282,
+    "D": 124,
+    "I": 149,
+    "errors": 1555,
+    "wer": 2.843,
+    "headroom_pp": 1.636,
+    "headroom_spreads": 18.81,
+    "by_category": {
+     "acoustic": {
+      "errors": 219,
+      "student_1best": 345,
+      "fixed_net": 126,
+      "headroom_pp": 0.23
+     },
+     "content": {
+      "errors": 132,
+      "student_1best": 215,
+      "fixed_net": 83,
+      "headroom_pp": 0.152
+     },
+     "convention": {
+      "errors": 74,
+      "student_1best": 128,
+      "fixed_net": 54,
+      "headroom_pp": 0.099
+     },
+     "function": {
+      "errors": 389,
+      "student_1best": 681,
+      "fixed_net": 292,
+      "headroom_pp": 0.534
+     },
+     "near": {
+      "errors": 300,
+      "student_1best": 550,
+      "fixed_net": 250,
+      "headroom_pp": 0.457
+     },
+     "rare": {
+      "errors": 441,
+      "student_1best": 531,
+      "fixed_net": 90,
+      "headroom_pp": 0.165
+     }
+    },
+    "by_op_category": {
+     "S:near": 300,
+     "S:acoustic": 219,
+     "S:function": 264,
+     "S:rare": 425,
+     "I:content": 71,
+     "I:function": 78,
+     "D:content": 61,
+     "S:convention": 74,
+     "D:function": 47,
+     "D:rare": 16
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 46,
+    "D": 2,
+    "I": 7,
+    "errors": 55,
+    "wer": 9.031,
+    "headroom_pp": 6.076,
+    "headroom_spreads": 69.83,
+    "by_category": {
+     "acoustic": {
+      "errors": 11,
+      "student_1best": 17,
+      "fixed_net": 6,
+      "headroom_pp": 0.985
+     },
+     "content": {
+      "errors": 9,
+      "student_1best": 14,
+      "fixed_net": 5,
+      "headroom_pp": 0.821
+     },
+     "convention": {
+      "errors": 2,
+      "student_1best": 6,
+      "fixed_net": 4,
+      "headroom_pp": 0.657
+     },
+     "function": {
+      "errors": 5,
+      "student_1best": 14,
+      "fixed_net": 9,
+      "headroom_pp": 1.478
+     },
+     "near": {
+      "errors": 8,
+      "student_1best": 17,
+      "fixed_net": 9,
+      "headroom_pp": 1.478
+     },
+     "rare": {
+      "errors": 20,
+      "student_1best": 24,
+      "fixed_net": 4,
+      "headroom_pp": 0.657
+     }
+    },
+    "by_op_category": {
+     "S:rare": 20,
+     "S:function": 5,
+     "I:content": 7,
+     "S:convention": 2,
+     "S:near": 8,
+     "D:content": 2,
+     "S:acoustic": 11
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 1608,
+    "D": 163,
+    "I": 191,
+    "errors": 1962,
+    "wer": 6.574,
+    "headroom_pp": 2.798,
+    "headroom_spreads": 32.16,
+    "by_category": {
+     "acoustic": {
+      "errors": 516,
+      "student_1best": 687,
+      "fixed_net": 171,
+      "headroom_pp": 0.573
+     },
+     "content": {
+      "errors": 118,
+      "student_1best": 198,
+      "fixed_net": 80,
+      "headroom_pp": 0.268
+     },
+     "convention": {
+      "errors": 27,
+      "student_1best": 51,
+      "fixed_net": 24,
+      "headroom_pp": 0.08
+     },
+     "function": {
+      "errors": 616,
+      "student_1best": 904,
+      "fixed_net": 288,
+      "headroom_pp": 0.965
+     },
+     "near": {
+      "errors": 347,
+      "student_1best": 557,
+      "fixed_net": 210,
+      "headroom_pp": 0.704
+     },
+     "rare": {
+      "errors": 338,
+      "student_1best": 400,
+      "fixed_net": 62,
+      "headroom_pp": 0.208
+     }
+    },
+    "by_op_category": {
+     "S:near": 347,
+     "S:acoustic": 516,
+     "S:function": 392,
+     "S:rare": 326,
+     "I:function": 123,
+     "S:convention": 27,
+     "I:content": 68,
+     "D:function": 101,
+     "D:content": 50,
+     "D:rare": 12
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 3226,
+    "D": 336,
+    "I": 370,
+    "errors": 3932,
+    "wer": 5.809,
+    "headroom_pp": 1.621,
+    "headroom_spreads": 18.63,
+    "by_category": {
+     "acoustic": {
+      "errors": 1011,
+      "student_1best": 1212,
+      "fixed_net": 201,
+      "headroom_pp": 0.297
+     },
+     "content": {
+      "errors": 304,
+      "student_1best": 401,
+      "fixed_net": 97,
+      "headroom_pp": 0.143
+     },
+     "convention": {
+      "errors": 89,
+      "student_1best": 135,
+      "fixed_net": 46,
+      "headroom_pp": 0.068
+     },
+     "function": {
+      "errors": 1139,
+      "student_1best": 1497,
+      "fixed_net": 358,
+      "headroom_pp": 0.529
+     },
+     "near": {
+      "errors": 737,
+      "student_1best": 1060,
+      "fixed_net": 323,
+      "headroom_pp": 0.477
+     },
+     "rare": {
+      "errors": 652,
+      "student_1best": 724,
+      "fixed_net": 72,
+      "headroom_pp": 0.106
+     }
+    },
+    "by_op_category": {
+     "S:acoustic": 1011,
+     "S:near": 737,
+     "S:rare": 635,
+     "I:content": 168,
+     "S:function": 754,
+     "D:content": 136,
+     "I:function": 202,
+     "D:function": 183,
+     "S:convention": 89,
+     "D:rare": 17
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 441,
+    "D": 75,
+    "I": 66,
+    "errors": 582,
+    "wer": 7.353,
+    "headroom_pp": 3.853,
+    "headroom_spreads": 44.29,
+    "by_category": {
+     "acoustic": {
+      "errors": 134,
+      "student_1best": 196,
+      "fixed_net": 62,
+      "headroom_pp": 0.783
+     },
+     "content": {
+      "errors": 38,
+      "student_1best": 77,
+      "fixed_net": 39,
+      "headroom_pp": 0.493
+     },
+     "convention": {
+      "errors": 6,
+      "student_1best": 13,
+      "fixed_net": 7,
+      "headroom_pp": 0.088
+     },
+     "function": {
+      "errors": 188,
+      "student_1best": 302,
+      "fixed_net": 114,
+      "headroom_pp": 1.44
+     },
+     "near": {
+      "errors": 87,
+      "student_1best": 149,
+      "fixed_net": 62,
+      "headroom_pp": 0.783
+     },
+     "rare": {
+      "errors": 129,
+      "student_1best": 150,
+      "fixed_net": 21,
+      "headroom_pp": 0.265
+     }
+    },
+    "by_op_category": {
+     "S:function": 89,
+     "I:function": 50,
+     "S:rare": 125,
+     "S:near": 87,
+     "S:acoustic": 134,
+     "D:rare": 4,
+     "D:function": 49,
+     "S:convention": 6,
+     "D:content": 22,
+     "I:content": 16
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 4039,
+    "D": 452,
+    "I": 485,
+    "errors": 4976,
+    "wer": 9.688,
+    "headroom_pp": 2.685,
+    "headroom_spreads": 30.86,
+    "by_category": {
+     "acoustic": {
+      "errors": 1453,
+      "student_1best": 1767,
+      "fixed_net": 314,
+      "headroom_pp": 0.611
+     },
+     "content": {
+      "errors": 337,
+      "student_1best": 475,
+      "fixed_net": 138,
+      "headroom_pp": 0.269
+     },
+     "convention": {
+      "errors": 50,
+      "student_1best": 77,
+      "fixed_net": 27,
+      "headroom_pp": 0.053
+     },
+     "function": {
+      "errors": 1559,
+      "student_1best": 2036,
+      "fixed_net": 477,
+      "headroom_pp": 0.929
+     },
+     "near": {
+      "errors": 879,
+      "student_1best": 1233,
+      "fixed_net": 354,
+      "headroom_pp": 0.689
+     },
+     "rare": {
+      "errors": 698,
+      "student_1best": 767,
+      "fixed_net": 69,
+      "headroom_pp": 0.134
+     }
+    },
+    "by_op_category": {
+     "S:rare": 681,
+     "S:function": 976,
+     "S:acoustic": 1453,
+     "S:near": 879,
+     "I:function": 297,
+     "D:content": 149,
+     "S:convention": 50,
+     "D:function": 286,
+     "I:content": 188,
+     "D:rare": 17
+    }
+   }
+  },
+  "student_b8_top": {
+   "all": {
+    "N": 106054,
+    "utts": 5567,
+    "S": 7042,
+    "D": 802,
+    "I": 871,
+    "errors": 8715,
+    "wer": 8.218,
+    "headroom_pp": 0.085,
+    "headroom_spreads": 0.98,
+    "by_category": {
+     "acoustic": {
+      "errors": 2084,
+      "student_1best": 2112,
+      "fixed_net": 28,
+      "headroom_pp": 0.026
+     },
+     "content": {
+      "errors": 665,
+      "student_1best": 690,
+      "fixed_net": 25,
+      "headroom_pp": 0.024
+     },
+     "convention": {
+      "errors": 210,
+      "student_1best": 205,
+      "fixed_net": -5,
+      "headroom_pp": -0.005
+     },
+     "function": {
+      "errors": 2688,
+      "student_1best": 2717,
+      "fixed_net": 29,
+      "headroom_pp": 0.027
+     },
+     "near": {
+      "errors": 1791,
+      "student_1best": 1783,
+      "fixed_net": -8,
+      "headroom_pp": -0.008
+     },
+     "rare": {
+      "errors": 1277,
+      "student_1best": 1298,
+      "fixed_net": 21,
+      "headroom_pp": 0.02
+     }
+    },
+    "by_op_category": {
+     "S:near": 1791,
+     "D:function": 472,
+     "S:rare": 1237,
+     "S:acoustic": 2084,
+     "S:convention": 210,
+     "D:content": 290,
+     "I:function": 496,
+     "S:function": 1720,
+     "I:content": 375,
+     "D:rare": 40
+    },
+    "ultra_score": {
+     "S": 7042,
+     "D": 802,
+     "I": 871,
+     "agrees": true
+    }
+   },
+   "clean": {
+    "N": 54691,
+    "utts": 2703,
+    "S": 1993,
+    "D": 216,
+    "I": 238,
+    "errors": 2447,
+    "wer": 4.474,
+    "headroom_pp": 0.005,
+    "headroom_spreads": 0.06,
+    "by_category": {
+     "acoustic": {
+      "errors": 345,
+      "student_1best": 345,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "content": {
+      "errors": 214,
+      "student_1best": 215,
+      "fixed_net": 1,
+      "headroom_pp": 0.002
+     },
+     "convention": {
+      "errors": 128,
+      "student_1best": 128,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "function": {
+      "errors": 669,
+      "student_1best": 681,
+      "fixed_net": 12,
+      "headroom_pp": 0.022
+     },
+     "near": {
+      "errors": 571,
+      "student_1best": 550,
+      "fixed_net": -21,
+      "headroom_pp": -0.038
+     },
+     "rare": {
+      "errors": 520,
+      "student_1best": 531,
+      "fixed_net": 11,
+      "headroom_pp": 0.02
+     }
+    },
+    "by_op_category": {
+     "S:near": 571,
+     "D:function": 104,
+     "S:rare": 501,
+     "S:acoustic": 345,
+     "S:convention": 128,
+     "D:content": 93,
+     "I:function": 117,
+     "S:function": 448,
+     "I:content": 121,
+     "D:rare": 19
+    }
+   },
+   "len:1-4": {
+    "N": 609,
+    "utts": 192,
+    "S": 76,
+    "D": 6,
+    "I": 14,
+    "errors": 96,
+    "wer": 15.764,
+    "headroom_pp": -0.657,
+    "headroom_spreads": -7.55,
+    "by_category": {
+     "acoustic": {
+      "errors": 18,
+      "student_1best": 17,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "content": {
+      "errors": 14,
+      "student_1best": 14,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     },
+     "convention": {
+      "errors": 7,
+      "student_1best": 6,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "function": {
+      "errors": 15,
+      "student_1best": 14,
+      "fixed_net": -1,
+      "headroom_pp": -0.164
+     },
+     "near": {
+      "errors": 19,
+      "student_1best": 17,
+      "fixed_net": -2,
+      "headroom_pp": -0.328
+     },
+     "rare": {
+      "errors": 23,
+      "student_1best": 24,
+      "fixed_net": 1,
+      "headroom_pp": 0.164
+     }
+    },
+    "by_op_category": {
+     "S:near": 19,
+     "S:rare": 22,
+     "S:function": 10,
+     "I:content": 11,
+     "S:convention": 7,
+     "I:function": 3,
+     "D:content": 3,
+     "S:acoustic": 18,
+     "D:rare": 1,
+     "D:function": 2
+    }
+   },
+   "len:10-19": {
+    "N": 29844,
+    "utts": 2129,
+    "S": 2244,
+    "D": 257,
+    "I": 280,
+    "errors": 2781,
+    "wer": 9.318,
+    "headroom_pp": 0.054,
+    "headroom_spreads": 0.62,
+    "by_category": {
+     "acoustic": {
+      "errors": 702,
+      "student_1best": 687,
+      "fixed_net": -15,
+      "headroom_pp": -0.05
+     },
+     "content": {
+      "errors": 186,
+      "student_1best": 198,
+      "fixed_net": 12,
+      "headroom_pp": 0.04
+     },
+     "convention": {
+      "errors": 49,
+      "student_1best": 51,
+      "fixed_net": 2,
+      "headroom_pp": 0.007
+     },
+     "function": {
+      "errors": 896,
+      "student_1best": 904,
+      "fixed_net": 8,
+      "headroom_pp": 0.027
+     },
+     "near": {
+      "errors": 553,
+      "student_1best": 557,
+      "fixed_net": 4,
+      "headroom_pp": 0.013
+     },
+     "rare": {
+      "errors": 395,
+      "student_1best": 400,
+      "fixed_net": 5,
+      "headroom_pp": 0.017
+     }
+    },
+    "by_op_category": {
+     "S:near": 553,
+     "S:acoustic": 702,
+     "S:convention": 49,
+     "D:content": 78,
+     "I:function": 172,
+     "S:function": 560,
+     "S:rare": 380,
+     "I:content": 108,
+     "D:function": 164,
+     "D:rare": 15
+    }
+   },
+   "len:20+": {
+    "N": 67686,
+    "utts": 2156,
+    "S": 4048,
+    "D": 435,
+    "I": 469,
+    "errors": 4952,
+    "wer": 7.316,
+    "headroom_pp": 0.114,
+    "headroom_spreads": 1.31,
+    "by_category": {
+     "acoustic": {
+      "errors": 1176,
+      "student_1best": 1212,
+      "fixed_net": 36,
+      "headroom_pp": 0.053
+     },
+     "content": {
+      "errors": 389,
+      "student_1best": 401,
+      "fixed_net": 12,
+      "headroom_pp": 0.018
+     },
+     "convention": {
+      "errors": 140,
+      "student_1best": 135,
+      "fixed_net": -5,
+      "headroom_pp": -0.007
+     },
+     "function": {
+      "errors": 1485,
+      "student_1best": 1497,
+      "fixed_net": 12,
+      "headroom_pp": 0.018
+     },
+     "near": {
+      "errors": 1053,
+      "student_1best": 1060,
+      "fixed_net": 7,
+      "headroom_pp": 0.01
+     },
+     "rare": {
+      "errors": 709,
+      "student_1best": 724,
+      "fixed_net": 15,
+      "headroom_pp": 0.022
+     }
+    },
+    "by_op_category": {
+     "D:function": 243,
+     "S:rare": 690,
+     "S:acoustic": 1176,
+     "S:near": 1053,
+     "S:function": 989,
+     "I:content": 216,
+     "D:content": 173,
+     "I:function": 253,
+     "S:convention": 140,
+     "D:rare": 19
+    }
+   },
+   "len:5-9": {
+    "N": 7915,
+    "utts": 1090,
+    "S": 674,
+    "D": 104,
+    "I": 108,
+    "errors": 886,
+    "wer": 11.194,
+    "headroom_pp": 0.013,
+    "headroom_spreads": 0.15,
+    "by_category": {
+     "acoustic": {
+      "errors": 188,
+      "student_1best": 196,
+      "fixed_net": 8,
+      "headroom_pp": 0.101
+     },
+     "content": {
+      "errors": 76,
+      "student_1best": 77,
+      "fixed_net": 1,
+      "headroom_pp": 0.013
+     },
+     "convention": {
+      "errors": 14,
+      "student_1best": 13,
+      "fixed_net": -1,
+      "headroom_pp": -0.013
+     },
+     "function": {
+      "errors": 292,
+      "student_1best": 302,
+      "fixed_net": 10,
+      "headroom_pp": 0.126
+     },
+     "near": {
+      "errors": 166,
+      "student_1best": 149,
+      "fixed_net": -17,
+      "headroom_pp": -0.215
+     },
+     "rare": {
+      "errors": 150,
+      "student_1best": 150,
+      "fixed_net": 0,
+      "headroom_pp": 0.0
+     }
+    },
+    "by_op_category": {
+     "S:near": 166,
+     "I:function": 68,
+     "S:function": 161,
+     "S:acoustic": 188,
+     "I:content": 40,
+     "S:rare": 145,
+     "S:convention": 14,
+     "D:content": 36,
+     "D:function": 63,
+     "D:rare": 5
+    }
+   },
+   "other": {
+    "N": 51363,
+    "utts": 2864,
+    "S": 5049,
+    "D": 586,
+    "I": 633,
+    "errors": 6268,
+    "wer": 12.203,
+    "headroom_pp": 0.169,
+    "headroom_spreads": 1.95,
+    "by_category": {
+     "acoustic": {
+      "errors": 1739,
+      "student_1best": 1767,
+      "fixed_net": 28,
+      "headroom_pp": 0.055
+     },
+     "content": {
+      "errors": 451,
+      "student_1best": 475,
+      "fixed_net": 24,
+      "headroom_pp": 0.047
+     },
+     "convention": {
+      "errors": 82,
+      "student_1best": 77,
+      "fixed_net": -5,
+      "headroom_pp": -0.01
+     },
+     "function": {
+      "errors": 2019,
+      "student_1best": 2036,
+      "fixed_net": 17,
+      "headroom_pp": 0.033
+     },
+     "near": {
+      "errors": 1220,
+      "student_1best": 1233,
+      "fixed_net": 13,
+      "headroom_pp": 0.025
+     },
+     "rare": {
+      "errors": 757,
+      "student_1best": 767,
+      "fixed_net": 10,
+      "headroom_pp": 0.019
+     }
+    },
+    "by_op_category": {
+     "I:content": 254,
+     "S:rare": 736,
+     "S:function": 1272,
+     "S:acoustic": 1739,
+     "S:near": 1220,
+     "I:function": 379,
+     "D:content": 197,
+     "S:convention": 82,
+     "D:function": 368,
+     "D:rare": 21
+    }
+   }
+  }
+ },
+ "recall": {
+  "student_b16": {
+   "all": {
+    "positions": 7965,
+    "recall": 0.3859,
+    "by_category": {
+     "acoustic": {
+      "positions": 2112,
+      "recall": 0.2997
+     },
+     "content": {
+      "positions": 318,
+      "recall": 0.3774
+     },
+     "convention": {
+      "positions": 205,
+      "recall": 0.5317
+     },
+     "function": {
+      "positions": 2249,
+      "recall": 0.4642
+     },
+     "near": {
+      "positions": 1783,
+      "recall": 0.5238
+     },
+     "rare": {
+      "positions": 1298,
+      "recall": 0.1803
+     }
+    }
+   },
+   "clean": {
+    "positions": 2215,
+    "recall": 0.5138,
+    "by_category": {
+     "acoustic": {
+      "positions": 345,
+      "recall": 0.4754
+     },
+     "content": {
+      "positions": 93,
+      "recall": 0.4731
+     },
+     "convention": {
+      "positions": 128,
+      "recall": 0.5859
+     },
+     "function": {
+      "positions": 568,
+      "recall": 0.6303
+     },
+     "near": {
+      "positions": 550,
+      "recall": 0.6618
+     },
+     "rare": {
+      "positions": 531,
+      "recall": 0.2505
+     }
+    }
+   },
+   "len:1-4": {
+    "positions": 79,
+    "recall": 0.5063,
+    "by_category": {
+     "acoustic": {
+      "positions": 17,
+      "recall": 0.5294
+     },
+     "content": {
+      "positions": 3,
+      "recall": 0.6667
+     },
+     "convention": {
+      "positions": 6,
+      "recall": 0.8333
+     },
+     "function": {
+      "positions": 12,
+      "recall": 0.5833
+     },
+     "near": {
+      "positions": 17,
+      "recall": 0.7059
+     },
+     "rare": {
+      "positions": 24,
+      "recall": 0.2083
+     }
+    }
+   },
+   "len:10-19": {
+    "positions": 2523,
+    "recall": 0.436,
+    "by_category": {
+     "acoustic": {
+      "positions": 687,
+      "recall": 0.3552
+     },
+     "content": {
+      "positions": 89,
+      "recall": 0.4045
+     },
+     "convention": {
+      "positions": 51,
+      "recall": 0.5686
+     },
+     "function": {
+      "positions": 739,
+      "recall": 0.525
+     },
+     "near": {
+      "positions": 557,
+      "recall": 0.5727
+     },
+     "rare": {
+      "positions": 400,
+      "recall": 0.21
+     }
+    }
+   },
+   "len:20+": {
+    "positions": 4582,
+    "recall": 0.342,
+    "by_category": {
+     "acoustic": {
+      "positions": 1212,
+      "recall": 0.2475
+     },
+     "content": {
+      "positions": 187,
+      "recall": 0.3476
+     },
+     "convention": {
+      "positions": 135,
+      "recall": 0.4889
+     },
+     "function": {
+      "positions": 1264,
+      "recall": 0.4074
+     },
+     "near": {
+      "positions": 1060,
+      "recall": 0.4774
+     },
+     "rare": {
+      "positions": 724,
+      "recall": 0.1588
+     }
+    }
+   },
+   "len:5-9": {
+    "positions": 781,
+    "recall": 0.4699,
+    "by_category": {
+     "acoustic": {
+      "positions": 196,
+      "recall": 0.4082
+     },
+     "content": {
+      "positions": 39,
+      "recall": 0.4359
+     },
+     "convention": {
+      "positions": 13,
+      "recall": 0.6923
+     },
+     "function": {
+      "positions": 234,
+      "recall": 0.5726
+     },
+     "near": {
+      "positions": 149,
+      "recall": 0.651
+     },
+     "rare": {
+      "positions": 150,
+      "recall": 0.2
+     }
+    }
+   },
+   "other": {
+    "positions": 5750,
+    "recall": 0.3367,
+    "by_category": {
+     "acoustic": {
+      "positions": 1767,
+      "recall": 0.2654
+     },
+     "content": {
+      "positions": 225,
+      "recall": 0.3378
+     },
+     "convention": {
+      "positions": 77,
+      "recall": 0.4416
+     },
+     "function": {
+      "positions": 1681,
+      "recall": 0.4081
+     },
+     "near": {
+      "positions": 1233,
+      "recall": 0.4623
+     },
+     "rare": {
+      "positions": 767,
+      "recall": 0.1317
+     }
+    }
+   }
+  },
+  "student_b4": {
+   "all": {
+    "positions": 7965,
+    "recall": 0.1831,
+    "by_category": {
+     "acoustic": {
+      "positions": 2112,
+      "recall": 0.1359
+     },
+     "content": {
+      "positions": 318,
+      "recall": 0.1447
+     },
+     "convention": {
+      "positions": 205,
+      "recall": 0.2244
+     },
+     "function": {
+      "positions": 2249,
+      "recall": 0.2223
+     },
+     "near": {
+      "positions": 1783,
+      "recall": 0.2614
+     },
+     "rare": {
+      "positions": 1298,
+      "recall": 0.0871
+     }
+    }
+   },
+   "clean": {
+    "positions": 2215,
+    "recall": 0.2433,
+    "by_category": {
+     "acoustic": {
+      "positions": 345,
+      "recall": 0.2174
+     },
+     "content": {
+      "positions": 93,
+      "recall": 0.1505
+     },
+     "convention": {
+      "positions": 128,
+      "recall": 0.2344
+     },
+     "function": {
+      "positions": 568,
+      "recall": 0.3187
+     },
+     "near": {
+      "positions": 550,
+      "recall": 0.32
+     },
+     "rare": {
+      "positions": 531,
+      "recall": 0.1186
+     }
+    }
+   },
+   "len:1-4": {
+    "positions": 79,
+    "recall": 0.2911,
+    "by_category": {
+     "acoustic": {
+      "positions": 17,
+      "recall": 0.1765
+     },
+     "content": {
+      "positions": 3,
+      "recall": 0.3333
+     },
+     "convention": {
+      "positions": 6,
+      "recall": 0.6667
+     },
+     "function": {
+      "positions": 12,
+      "recall": 0.4167
+     },
+     "near": {
+      "positions": 17,
+      "recall": 0.4706
+     },
+     "rare": {
+      "positions": 24,
+      "recall": 0.0833
+     }
+    }
+   },
+   "len:10-19": {
+    "positions": 2523,
+    "recall": 0.2172,
+    "by_category": {
+     "acoustic": {
+      "positions": 687,
+      "recall": 0.1499
+     },
+     "content": {
+      "positions": 89,
+      "recall": 0.1798
+     },
+     "convention": {
+      "positions": 51,
+      "recall": 0.3137
+     },
+     "function": {
+      "positions": 739,
+      "recall": 0.2666
+     },
+     "near": {
+      "positions": 557,
+      "recall": 0.3106
+     },
+     "rare": {
+      "positions": 400,
+      "recall": 0.1075
+     }
+    }
+   },
+   "len:20+": {
+    "positions": 4582,
+    "recall": 0.1504,
+    "by_category": {
+     "acoustic": {
+      "positions": 1212,
+      "recall": 0.1122
+     },
+     "content": {
+      "positions": 187,
+      "recall": 0.0963
+     },
+     "convention": {
+      "positions": 135,
+      "recall": 0.163
+     },
+     "function": {
+      "positions": 1264,
+      "recall": 0.1788
+     },
+     "near": {
+      "positions": 1060,
+      "recall": 0.2198
+     },
+     "rare": {
+      "positions": 724,
+      "recall": 0.0746
+     }
+    }
+   },
+   "len:5-9": {
+    "positions": 781,
+    "recall": 0.2535,
+    "by_category": {
+     "acoustic": {
+      "positions": 196,
+      "recall": 0.2296
+     },
+     "content": {
+      "positions": 39,
+      "recall": 0.2821
+     },
+     "convention": {
+      "positions": 13,
+      "recall": 0.3077
+     },
+     "function": {
+      "positions": 234,
+      "recall": 0.3077
+     },
+     "near": {
+      "positions": 149,
+      "recall": 0.349
+     },
+     "rare": {
+      "positions": 150,
+      "recall": 0.0933
+     }
+    }
+   },
+   "other": {
+    "positions": 5750,
+    "recall": 0.1598,
+    "by_category": {
+     "acoustic": {
+      "positions": 1767,
+      "recall": 0.12
+     },
+     "content": {
+      "positions": 225,
+      "recall": 0.1422
+     },
+     "convention": {
+      "positions": 77,
+      "recall": 0.2078
+     },
+     "function": {
+      "positions": 1681,
+      "recall": 0.1898
+     },
+     "near": {
+      "positions": 1233,
+      "recall": 0.2352
+     },
+     "rare": {
+      "positions": 767,
+      "recall": 0.0652
+     }
+    }
+   }
+  },
+  "student_b8": {
+   "all": {
+    "positions": 7965,
+    "recall": 0.2909,
+    "by_category": {
+     "acoustic": {
+      "positions": 2112,
+      "recall": 0.2216
+     },
+     "content": {
+      "positions": 318,
+      "recall": 0.2516
+     },
+     "convention": {
+      "positions": 205,
+      "recall": 0.3805
+     },
+     "function": {
+      "positions": 2249,
+      "recall": 0.3477
+     },
+     "near": {
+      "positions": 1783,
+      "recall": 0.4128
+     },
+     "rare": {
+      "positions": 1298,
+      "recall": 0.1333
+     }
+    }
+   },
+   "clean": {
+    "positions": 2215,
+    "recall": 0.3968,
+    "by_category": {
+     "acoustic": {
+      "positions": 345,
+      "recall": 0.3623
+     },
+     "content": {
+      "positions": 93,
+      "recall": 0.2903
+     },
+     "convention": {
+      "positions": 128,
+      "recall": 0.4062
+     },
+     "function": {
+      "positions": 568,
+      "recall": 0.5018
+     },
+     "near": {
+      "positions": 550,
+      "recall": 0.5309
+     },
+     "rare": {
+      "positions": 531,
+      "recall": 0.1846
+     }
+    }
+   },
+   "len:1-4": {
+    "positions": 79,
+    "recall": 0.443,
+    "by_category": {
+     "acoustic": {
+      "positions": 17,
+      "recall": 0.4118
+     },
+     "content": {
+      "positions": 3,
+      "recall": 0.3333
+     },
+     "convention": {
+      "positions": 6,
+      "recall": 0.6667
+     },
+     "function": {
+      "positions": 12,
+      "recall": 0.5833
+     },
+     "near": {
+      "positions": 17,
+      "recall": 0.7059
+     },
+     "rare": {
+      "positions": 24,
+      "recall": 0.1667
+     }
+    }
+   },
+   "len:10-19": {
+    "positions": 2523,
+    "recall": 0.3333,
+    "by_category": {
+     "acoustic": {
+      "positions": 687,
+      "recall": 0.2606
+     },
+     "content": {
+      "positions": 89,
+      "recall": 0.3258
+     },
+     "convention": {
+      "positions": 51,
+      "recall": 0.4314
+     },
+     "function": {
+      "positions": 739,
+      "recall": 0.3897
+     },
+     "near": {
+      "positions": 557,
+      "recall": 0.4596
+     },
+     "rare": {
+      "positions": 400,
+      "recall": 0.1675
+     }
+    }
+   },
+   "len:20+": {
+    "positions": 4582,
+    "recall": 0.2514,
+    "by_category": {
+     "acoustic": {
+      "positions": 1212,
+      "recall": 0.1815
+     },
+     "content": {
+      "positions": 187,
+      "recall": 0.1818
+     },
+     "convention": {
+      "positions": 135,
+      "recall": 0.3333
+     },
+     "function": {
+      "positions": 1264,
+      "recall": 0.3046
+     },
+     "near": {
+      "positions": 1060,
+      "recall": 0.367
+     },
+     "rare": {
+      "positions": 724,
+      "recall": 0.1091
+     }
+    }
+   },
+   "len:5-9": {
+    "positions": 781,
+    "recall": 0.37,
+    "by_category": {
+     "acoustic": {
+      "positions": 196,
+      "recall": 0.3163
+     },
+     "content": {
+      "positions": 39,
+      "recall": 0.4103
+     },
+     "convention": {
+      "positions": 13,
+      "recall": 0.5385
+     },
+     "function": {
+      "positions": 234,
+      "recall": 0.4359
+     },
+     "near": {
+      "positions": 149,
+      "recall": 0.5302
+     },
+     "rare": {
+      "positions": 150,
+      "recall": 0.1533
+     }
+    }
+   },
+   "other": {
+    "positions": 5750,
+    "recall": 0.2501,
+    "by_category": {
+     "acoustic": {
+      "positions": 1767,
+      "recall": 0.1941
+     },
+     "content": {
+      "positions": 225,
+      "recall": 0.2356
+     },
+     "convention": {
+      "positions": 77,
+      "recall": 0.3377
+     },
+     "function": {
+      "positions": 1681,
+      "recall": 0.2957
+     },
+     "near": {
+      "positions": 1233,
+      "recall": 0.3601
+     },
+     "rare": {
+      "positions": 767,
+      "recall": 0.0978
+     }
+    }
+   }
+  }
+ },
+ "candidates_per_utt": {
+  "student_b4": 3.57,
+  "student_b8": 7.02,
+  "student_b16": 14.02,
+  "r0": 0.0
+ },
+ "title": "H49 DEV oracle headroom (analysis only)",
+ "normaliser": "ultra-en-wer-norm/v1",
+ "rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+ "cmudict": "/usr/share/pocketsphinx/model/en-us/cmudict-en-us.dict",
+ "cmudict_sha256": "9de99dd2a24b63c653c1c30ab39388d05185cae36d0875f15c319b4ad6dc43af",
+ "cmudict_expected": true,
+ "rare_below_train_count": 10,
+ "function_words_sha256": "6585743e969c04da744005e20a123844b8bbf393726581b672c6ac0212a192d8",
+ "script_sha256": "0be2c5d43df0467588c293875fe174e72aaede6f65b6519f75cc09e7f0c8a7ec",
+ "inputs": {
+  "dev_rows": "dev/dev_student_nbest.jsonl",
+  "r0_seq": null,
+  "seq_dir": null,
+  "student_dir": ""
+ },
+ "ultra_score_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

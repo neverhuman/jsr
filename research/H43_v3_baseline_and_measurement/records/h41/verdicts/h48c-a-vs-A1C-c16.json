@@ -1,0 +1,31 @@
+{
+ "name": "H48c-a vs A1C c16 (conf)",
+ "kind": "noninferiority",
+ "base": [
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "arm": [
+  "h41/H48c_a_s1234-8000.ema.c16.ms8.score-input.jsonl"
+ ],
+ "subset": "h43/dev_split_v2.json:confirmation",
+ "margin_pp": 0.36,
+ "margin_registry_entry": {
+  "endpoint": "h48c-a-anchor-vs-A1C-ni-ema-pooled-conf-c16",
+  "margin_pp": 0.36,
+  "direction": "lower_is_better",
+  "note": "H48c-a (anchor only: dp 0, kappa 0.01) vs A1C (replay-only control, matched schedule), EMA pooled, dev_split_v2 confirmation half (h43/dev_split_v2.json sha256 002ac7ae\u2026, 2,785 utterances, 37 speakers), chunk 16, NON-INFERIORITY; margin = four-run control spread. The anchored loss 'costs no WER beyond the spread' iff PASS at chunks 4, 8 AND 16. h48-latency's own adoption gate (vs B0, full dev) is separate.",
+  "registered_utc": "2026-11-23T07:07:11Z"
+ },
+ "delta_pp": -0.0241,
+ "alpha": 0.05,
+ "lower_pp": -0.1369,
+ "upper_pp": 0.0939,
+ "p_one_sided": 0.0001,
+ "decision": "PASS",
+ "inputs_sha256": {
+  "h41/A1C_dp0-8000.ema.c16.ms8.score-input.jsonl": "2c08be28e84752ca4a35501566289bdc02944d3ff06b74db24221972640bb537",
+  "h41/H48c_a_s1234-8000.ema.c16.ms8.score-input.jsonl": "df43b3cfd0696b64223942fcfdef038d91456ac54aa87cef44f5eb5feb66b468"
+ },
+ "label": "exploratory",
+ "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+}

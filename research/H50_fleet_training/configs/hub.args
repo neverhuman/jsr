@@ -1,0 +1,6 @@
+# DiLoCo hub for D1 on x5 (loopback only; port 29610, never 8766 = the training dashboard on H0):
+#   --host 127.0.0.1 --port 29610 --roster x5-g0,x5-g1 --init-anchor <the H41 seed's raw weights>
+#   --outer-lr 0.7 --outer-momentum 0.9 --weights uniform --member-order roster --delta-dtype float32
+#   --barrier-timeout-s 900 --work-dir $D/runs/diloco/D1_H500_s<seed> --keep-anchors 4 --keep-every 4
+# D1-H2 protocol run: --outer-lr 1.0 --outer-momentum 0.0 first (plain average), then 0.7 / 0.9; diloco_every=2.
+# D1-H50 smoke: diloco_every=50, --max-steps 2000.

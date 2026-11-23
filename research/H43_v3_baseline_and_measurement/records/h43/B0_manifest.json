@@ -1,0 +1,1262 @@
+{
+ "schema": "ultra.h43.b0-manifest/v1",
+ "label": "exploratory receipts, read-only record",
+ "made_utc": "2026-11-23T10:05:16Z",
+ "b0": {
+  "name": "A1 final",
+  "run": "A1_S_r0bpe_960h",
+  "step": 49000,
+  "weights": "EMA (decay 0.9995)",
+  "checkpoint": {
+   "host_path": "xbabe5:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt",
+   "sha256": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146"
+  },
+  "ema_weights_sha256": "4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c",
+  "int8": {
+   "weights.int8.safetensors": "4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285",
+   "arch.json": "b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f"
+  },
+  "decoder": "greedy, max 8 symbols per frame (PyTorch) / native greedy (engine)",
+  "chunk_ms_default": 160,
+  "tokenizer": "R0 bpe.model (c53433de...)"
+ },
+ "evaluator": {
+  "pinned_source": "git d5f231e python/ultra snapshot",
+  "snapshot_fingerprint_sha256_of_sorted_sha256_list": "0f2334751fdf84ad2dd05702dc209257236906818ba818c230bd791f255b8e22"
+ },
+ "canonical_scorer": {
+  "normaliser_id": "ultra-en-wer-norm/v1",
+  "rule_table_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+  "bootstrap": "paired speaker clusters, strata = dev subset, 10,000 replicates, seed 20261122, one-sided 95%"
+ },
+ "results": {
+  "pytorch_full_dev": {
+   "ema.c4": {
+    "dev-clean": {
+     "S": 1991,
+     "D": 224,
+     "I": 235,
+     "N": 54691,
+     "wer_pct": 4.48
+    },
+    "dev-other": {
+     "S": 5085,
+     "D": 665,
+     "I": 605,
+     "N": 51363,
+     "wer_pct": 12.373
+    },
+    "pooled_wer_pct": 8.302
+   },
+   "ema.c8": {
+    "dev-clean": {
+     "S": 1918,
+     "D": 212,
+     "I": 216,
+     "N": 54691,
+     "wer_pct": 4.29
+    },
+    "dev-other": {
+     "S": 4882,
+     "D": 635,
+     "I": 580,
+     "N": 51363,
+     "wer_pct": 11.87
+    },
+    "pooled_wer_pct": 7.961
+   },
+   "ema.c16": {
+    "dev-clean": {
+     "S": 1851,
+     "D": 202,
+     "I": 213,
+     "N": 54691,
+     "wer_pct": 4.143
+    },
+    "dev-other": {
+     "S": 4717,
+     "D": 607,
+     "I": 579,
+     "N": 51363,
+     "wer_pct": 11.493
+    },
+    "pooled_wer_pct": 7.703
+   },
+   "raw.c4": {
+    "dev-clean": {
+     "S": 2000,
+     "D": 228,
+     "I": 238,
+     "N": 54691,
+     "wer_pct": 4.509
+    },
+    "dev-other": {
+     "S": 5070,
+     "D": 652,
+     "I": 613,
+     "N": 51363,
+     "wer_pct": 12.334
+    },
+    "pooled_wer_pct": 8.299
+   },
+   "raw.c8": {
+    "dev-clean": {
+     "S": 1904,
+     "D": 213,
+     "I": 216,
+     "N": 54691,
+     "wer_pct": 4.266
+    },
+    "dev-other": {
+     "S": 4867,
+     "D": 625,
+     "I": 584,
+     "N": 51363,
+     "wer_pct": 11.83
+    },
+    "pooled_wer_pct": 7.929
+   },
+   "raw.c16": {
+    "dev-clean": {
+     "S": 1846,
+     "D": 201,
+     "I": 213,
+     "N": 54691,
+     "wer_pct": 4.132
+    },
+    "dev-other": {
+     "S": 4746,
+     "D": 610,
+     "I": 581,
+     "N": 51363,
+     "wer_pct": 11.559
+    },
+    "pooled_wer_pct": 7.729
+   },
+   "ema.c4.beam4": {
+    "dev-clean": {
+     "S": 1998,
+     "D": 219,
+     "I": 237,
+     "N": 54691,
+     "wer_pct": 4.487
+    },
+    "dev-other": {
+     "S": 5044,
+     "D": 589,
+     "I": 634,
+     "N": 51363,
+     "wer_pct": 12.201
+    },
+    "pooled_wer_pct": 8.223
+   }
+  },
+  "int8_engine_full_dev": {
+   "dev-clean": {
+    "S": 1985,
+    "D": 225,
+    "I": 230,
+    "N": 54691,
+    "wer_pct": 4.461
+   },
+   "dev-other": {
+    "S": 5057,
+    "D": 669,
+    "I": 607,
+    "N": 51363,
+    "wer_pct": 12.33
+   },
+   "pooled_wer_pct": 8.272
+  },
+  "latency_full_dev_design_clock": {
+   "c2": {
+    "ftl_end": {
+     "n": 5567,
+     "mean_ms": 265.4,
+     "p50_ms": 300.0,
+     "p95_ms": 420.0
+    },
+    "ftl_onset": {
+     "n": 5567,
+     "mean_ms": 534.3,
+     "p50_ms": 520.0,
+     "p95_ms": 690.0
+    },
+    "fcw_end": {
+     "n": 5023,
+     "mean_ms": 308.9,
+     "p50_ms": 310.0,
+     "p95_ms": 420.0
+    },
+    "fcw_onset": {
+     "n": 5023,
+     "mean_ms": 570.3,
+     "p50_ms": 540.0,
+     "p95_ms": 850.0
+    },
+    "fcw_coverage": 0.9023,
+    "cq_stable": {
+     "150": 0.099,
+     "300": 0.5061,
+     "500": 0.9182
+    },
+    "first_cq_end": {
+     "150": 0.0278,
+     "250": 0.1613,
+     "300": 0.3616,
+     "500": 0.8971,
+     "1000": 0.9023
+    },
+    "first_cq_onset": {
+     "300": 0.0011,
+     "500": 0.3219,
+     "1000": 0.8922
+    },
+    "stable_lag": {
+     "n": 97538,
+     "mean_ms": 274.7,
+     "p50_ms": 290.0,
+     "p95_ms": 400.0
+    },
+    "revision": {
+     "revised_words_per_100_final": 0.163,
+     "partial_word_completions_per_100_final": 76.07,
+     "utterances_with_any_revision": 0.0284,
+     "mean_flicker_ms": 140.5
+    },
+    "bootstrap_95": {
+     "ftl_end_mean_ms": {
+      "point": 265.40596,
+      "lo95": 257.99793,
+      "hi95": 272.66305
+     },
+     "ftl_onset_mean_ms": {
+      "point": 534.34974,
+      "lo95": 526.6508,
+      "hi95": 541.77054
+     },
+     "fcw_coverage": {
+      "point": 0.90228,
+      "lo95": 0.88562,
+      "hi95": 0.91798
+     },
+     "fcw_end_mean_ms": {
+      "point": 308.93191,
+      "lo95": 305.90039,
+      "hi95": 312.03978
+     },
+     "fcw_onset_mean_ms": {
+      "point": 570.28967,
+      "lo95": 560.26761,
+      "hi95": 579.96923
+     },
+     "revised_per_100_final": {
+      "point": 0.16315,
+      "lo95": 0.1224,
+      "hi95": 0.20272
+     },
+     "cq_stable_150": {
+      "point": 0.09903,
+      "lo95": 0.09256,
+      "hi95": 0.10536
+     },
+     "cq_prov_150": {
+      "point": 0.09918,
+      "lo95": 0.09275,
+      "hi95": 0.10552
+     },
+     "cq_stable_300": {
+      "point": 0.50606,
+      "lo95": 0.49392,
+      "hi95": 0.5183
+     },
+     "cq_prov_300": {
+      "point": 0.50656,
+      "lo95": 0.49441,
+      "hi95": 0.51891
+     },
+     "cq_stable_500": {
+      "point": 0.91821,
+      "lo95": 0.90642,
+      "hi95": 0.9294
+     },
+     "cq_prov_500": {
+      "point": 0.91821,
+      "lo95": 0.90642,
+      "hi95": 0.9294
+     },
+     "first_cq_end_150": {
+      "point": 0.02784,
+      "lo95": 0.02264,
+      "hi95": 0.03316
+     },
+     "first_cq_end_250": {
+      "point": 0.16131,
+      "lo95": 0.14774,
+      "hi95": 0.17578
+     },
+     "first_cq_end_300": {
+      "point": 0.3616,
+      "lo95": 0.34411,
+      "hi95": 0.37976
+     },
+     "first_cq_end_500": {
+      "point": 0.89707,
+      "lo95": 0.88007,
+      "hi95": 0.91304
+     },
+     "first_cq_end_1000": {
+      "point": 0.90228,
+      "lo95": 0.88562,
+      "hi95": 0.91798
+     },
+     "first_cq_onset_300": {
+      "point": 0.00108,
+      "lo95": 0.00036,
+      "hi95": 0.00196
+     },
+     "first_cq_onset_500": {
+      "point": 0.3219,
+      "lo95": 0.2876,
+      "hi95": 0.35896
+     },
+     "first_cq_onset_1000": {
+      "point": 0.89222,
+      "lo95": 0.87537,
+      "hi95": 0.90831
+     },
+     "ftl_end_p50_ms": {
+      "point": 300.0,
+      "lo95": 300.0,
+      "hi95": 300.0
+     },
+     "ftl_end_p95_ms": {
+      "point": 420.0,
+      "lo95": 410.0,
+      "hi95": 430.0
+     },
+     "fcw_end_p50_ms": {
+      "point": 310.0,
+      "lo95": 310.0,
+      "hi95": 320.0
+     },
+     "fcw_end_p95_ms": {
+      "point": 420.0,
+      "lo95": 410.0,
+      "hi95": 430.0
+     },
+     "fcw_onset_p50_ms": {
+      "point": 540.0,
+      "lo95": 530.0,
+      "hi95": 540.0
+     },
+     "fcw_onset_p95_ms": {
+      "point": 850.0,
+      "lo95": 830.0,
+      "hi95": 870.0
+     }
+    }
+   },
+   "c4": {
+    "ftl_end": {
+     "n": 5567,
+     "mean_ms": 312.2,
+     "p50_ms": 340.0,
+     "p95_ms": 480.0
+    },
+    "ftl_onset": {
+     "n": 5567,
+     "mean_ms": 581.1,
+     "p50_ms": 580.0,
+     "p95_ms": 750.0
+    },
+    "fcw_end": {
+     "n": 5036,
+     "mean_ms": 354.4,
+     "p50_ms": 360.0,
+     "p95_ms": 480.0
+    },
+    "fcw_onset": {
+     "n": 5036,
+     "mean_ms": 616.1,
+     "p50_ms": 590.0,
+     "p95_ms": 910.0
+    },
+    "fcw_coverage": 0.9046,
+    "cq_stable": {
+     "150": 0.0571,
+     "300": 0.3256,
+     "500": 0.912
+    },
+    "first_cq_end": {
+     "150": 0.0146,
+     "250": 0.0904,
+     "300": 0.2116,
+     "500": 0.877,
+     "1000": 0.9046
+    },
+    "first_cq_onset": {
+     "300": 0.0,
+     "500": 0.1913,
+     "1000": 0.8881
+    },
+    "stable_lag": {
+     "n": 98118,
+     "mean_ms": 323.2,
+     "p50_ms": 330.0,
+     "p95_ms": 460.0
+    },
+    "revision": {
+     "revised_words_per_100_final": 0.086,
+     "partial_word_completions_per_100_final": 46.672,
+     "utterances_with_any_revision": 0.0156,
+     "mean_flicker_ms": 181.8
+    },
+    "bootstrap_95": {
+     "ftl_end_mean_ms": {
+      "point": 312.19598,
+      "lo95": 304.64398,
+      "hi95": 319.23288
+     },
+     "ftl_onset_mean_ms": {
+      "point": 581.13975,
+      "lo95": 573.20755,
+      "hi95": 588.71634
+     },
+     "fcw_coverage": {
+      "point": 0.90462,
+      "lo95": 0.88848,
+      "hi95": 0.91988
+     },
+     "fcw_end_mean_ms": {
+      "point": 354.44599,
+      "lo95": 351.13873,
+      "hi95": 357.67069
+     },
+     "fcw_onset_mean_ms": {
+      "point": 616.11994,
+      "lo95": 605.75492,
+      "hi95": 625.82061
+     },
+     "revised_per_100_final": {
+      "point": 0.08585,
+      "lo95": 0.06354,
+      "hi95": 0.1081
+     },
+     "cq_stable_150": {
+      "point": 0.05709,
+      "lo95": 0.05285,
+      "hi95": 0.06174
+     },
+     "cq_prov_150": {
+      "point": 0.05716,
+      "lo95": 0.05292,
+      "hi95": 0.06178
+     },
+     "cq_stable_300": {
+      "point": 0.32557,
+      "lo95": 0.31793,
+      "hi95": 0.33392
+     },
+     "cq_prov_300": {
+      "point": 0.32566,
+      "lo95": 0.31805,
+      "hi95": 0.33402
+     },
+     "cq_stable_500": {
+      "point": 0.91198,
+      "lo95": 0.89974,
+      "hi95": 0.9234
+     },
+     "cq_prov_500": {
+      "point": 0.91199,
+      "lo95": 0.89974,
+      "hi95": 0.9234
+     },
+     "first_cq_end_150": {
+      "point": 0.01455,
+      "lo95": 0.01072,
+      "hi95": 0.01838
+     },
+     "first_cq_end_250": {
+      "point": 0.09035,
+      "lo95": 0.08112,
+      "hi95": 0.10016
+     },
+     "first_cq_end_300": {
+      "point": 0.2116,
+      "lo95": 0.19827,
+      "hi95": 0.22582
+     },
+     "first_cq_end_500": {
+      "point": 0.87695,
+      "lo95": 0.859,
+      "hi95": 0.89395
+     },
+     "first_cq_end_1000": {
+      "point": 0.90462,
+      "lo95": 0.88848,
+      "hi95": 0.91988
+     },
+     "first_cq_onset_300": {
+      "point": 0.0,
+      "lo95": 0.0,
+      "hi95": 0.0
+     },
+     "first_cq_onset_500": {
+      "point": 0.19131,
+      "lo95": 0.16877,
+      "hi95": 0.21653
+     },
+     "first_cq_onset_1000": {
+      "point": 0.88809,
+      "lo95": 0.87172,
+      "hi95": 0.90416
+     },
+     "ftl_end_p50_ms": {
+      "point": 340.0,
+      "lo95": 330.0,
+      "hi95": 340.0
+     },
+     "ftl_end_p95_ms": {
+      "point": 480.0,
+      "lo95": 480.0,
+      "hi95": 490.0
+     },
+     "fcw_end_p50_ms": {
+      "point": 360.0,
+      "lo95": 350.0,
+      "hi95": 360.0
+     },
+     "fcw_end_p95_ms": {
+      "point": 480.0,
+      "lo95": 480.0,
+      "hi95": 490.0
+     },
+     "fcw_onset_p50_ms": {
+      "point": 590.0,
+      "lo95": 590.0,
+      "hi95": 600.0
+     },
+     "fcw_onset_p95_ms": {
+      "point": 910.0,
+      "lo95": 870.0,
+      "hi95": 920.0
+     }
+    }
+   },
+   "c8": {
+    "ftl_end": {
+     "n": 5567,
+     "mean_ms": 397.3,
+     "p50_ms": 410.0,
+     "p95_ms": 620.0
+    },
+    "ftl_onset": {
+     "n": 5567,
+     "mean_ms": 666.2,
+     "p50_ms": 680.0,
+     "p95_ms": 860.0
+    },
+    "fcw_end": {
+     "n": 5054,
+     "mean_ms": 436.8,
+     "p50_ms": 440.0,
+     "p95_ms": 620.0
+    },
+    "fcw_onset": {
+     "n": 5054,
+     "mean_ms": 698.4,
+     "p50_ms": 700.0,
+     "p95_ms": 1010.0
+    },
+    "fcw_coverage": 0.9078,
+    "cq_stable": {
+     "150": 0.0324,
+     "300": 0.1937,
+     "500": 0.7101
+    },
+    "first_cq_end": {
+     "150": 0.0084,
+     "250": 0.0503,
+     "300": 0.1284,
+     "500": 0.6151,
+     "1000": 0.9077
+    },
+    "first_cq_onset": {
+     "300": 0.0,
+     "500": 0.1223,
+     "1000": 0.8619
+    },
+    "stable_lag": {
+     "n": 98429,
+     "mean_ms": 401.6,
+     "p50_ms": 410.0,
+     "p95_ms": 600.0
+    },
+    "revision": {
+     "revised_words_per_100_final": 0.054,
+     "partial_word_completions_per_100_final": 23.841,
+     "utterances_with_any_revision": 0.0101,
+     "mean_flicker_ms": 311.8
+    },
+    "bootstrap_95": {
+     "ftl_end_mean_ms": {
+      "point": 397.29028,
+      "lo95": 389.45025,
+      "hi95": 404.66619
+     },
+     "ftl_onset_mean_ms": {
+      "point": 666.23406,
+      "lo95": 657.34687,
+      "hi95": 674.04367
+     },
+     "fcw_coverage": {
+      "point": 0.90785,
+      "lo95": 0.89147,
+      "hi95": 0.92388
+     },
+     "fcw_end_mean_ms": {
+      "point": 436.83815,
+      "lo95": 432.40528,
+      "hi95": 441.13897
+     },
+     "fcw_onset_mean_ms": {
+      "point": 698.4448,
+      "lo95": 688.0515,
+      "hi95": 708.13533
+     },
+     "revised_per_100_final": {
+      "point": 0.05377,
+      "lo95": 0.03716,
+      "hi95": 0.07244
+     },
+     "cq_stable_150": {
+      "point": 0.03244,
+      "lo95": 0.02984,
+      "hi95": 0.03536
+     },
+     "cq_prov_150": {
+      "point": 0.03244,
+      "lo95": 0.02984,
+      "hi95": 0.03536
+     },
+     "cq_stable_300": {
+      "point": 0.19369,
+      "lo95": 0.18853,
+      "hi95": 0.19925
+     },
+     "cq_prov_300": {
+      "point": 0.19369,
+      "lo95": 0.18853,
+      "hi95": 0.19925
+     },
+     "cq_stable_500": {
+      "point": 0.7101,
+      "lo95": 0.69972,
+      "hi95": 0.72027
+     },
+     "cq_prov_500": {
+      "point": 0.7101,
+      "lo95": 0.69972,
+      "hi95": 0.72027
+     },
+     "first_cq_end_150": {
+      "point": 0.00844,
+      "lo95": 0.0061,
+      "hi95": 0.01076
+     },
+     "first_cq_end_250": {
+      "point": 0.0503,
+      "lo95": 0.04384,
+      "hi95": 0.05683
+     },
+     "first_cq_end_300": {
+      "point": 0.12844,
+      "lo95": 0.11778,
+      "hi95": 0.13924
+     },
+     "first_cq_end_500": {
+      "point": 0.61505,
+      "lo95": 0.59698,
+      "hi95": 0.63319
+     },
+     "first_cq_end_1000": {
+      "point": 0.90767,
+      "lo95": 0.89145,
+      "hi95": 0.92343
+     },
+     "first_cq_onset_300": {
+      "point": 0.0,
+      "lo95": 0.0,
+      "hi95": 0.0
+     },
+     "first_cq_onset_500": {
+      "point": 0.12233,
+      "lo95": 0.10703,
+      "hi95": 0.14
+     },
+     "first_cq_onset_1000": {
+      "point": 0.86186,
+      "lo95": 0.84281,
+      "hi95": 0.87944
+     },
+     "ftl_end_p50_ms": {
+      "point": 410.0,
+      "lo95": 400.0,
+      "hi95": 420.0
+     },
+     "ftl_end_p95_ms": {
+      "point": 620.0,
+      "lo95": 610.0,
+      "hi95": 630.0
+     },
+     "fcw_end_p50_ms": {
+      "point": 440.0,
+      "lo95": 430.0,
+      "hi95": 450.0
+     },
+     "fcw_end_p95_ms": {
+      "point": 620.0,
+      "lo95": 610.0,
+      "hi95": 630.0
+     },
+     "fcw_onset_p50_ms": {
+      "point": 700.0,
+      "lo95": 690.0,
+      "hi95": 720.0
+     },
+     "fcw_onset_p95_ms": {
+      "point": 1010.0,
+      "lo95": 970.0,
+      "hi95": 1050.0
+     }
+    }
+   }
+  }
+ },
+ "files": [
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/arch.json",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 9490,
+   "sha256": "b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/bpe.model",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 244865,
+   "sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/mel_fbank.f32",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 82240,
+   "sha256": "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/tokens.txt",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 5044,
+   "sha256": "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/weights.int8.safetensors",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 56512984,
+   "sha256": "4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/weights.safetensors",
+   "role": "INT8 engine bundle (all six files are loaded; the FP32 file is still required, H39)",
+   "bytes": 226988160,
+   "sha256": "0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/SHA256SUMS",
+   "role": "export hashes incl. bundle/ and fp32/ intermediates",
+   "bytes": 1544,
+   "sha256": "cffa3915a45c03710af6af541c43d67be85933aa575492bbf815112ca8b2e33d"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/tools.sha256",
+   "role": "converter + preparer hashes",
+   "bytes": 286,
+   "sha256": "c618f31d2bbe691b5ecb2571cf5f1a453512bcad92c7e7b1be9ea8d4326fa44b"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/source/A1-49000-ema-as-model.pt",
+   "role": "derived EMA weights-only checkpoint (input of the export)",
+   "bytes": 227096574,
+   "sha256": "4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/source/A1-49000-ema-as-model.sha256",
+   "role": "its hash marker",
+   "bytes": 65,
+   "sha256": "f064d951063a80864599f1648b65306dd9d35b1ac04afc67758e2cc30372bd07"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema.derive.json",
+   "role": "derivation record (source ckpt sha, EMA decay, step)",
+   "bytes": 383,
+   "sha256": "4233b46e7ad1c56340e8aba1260adfef7a510f8168e698028f43979766d6d3a0"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump ema chunk 4 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085112,
+   "sha256": "67b74241150c107042b694887416577cebd9225bbdb973139795121451f076f9"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump ema chunk 4 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1027758,
+   "sha256": "44bc77cb42200b3f9291719d43a5759f277ecdedbebffbb5b6bc1b892e1e93a0"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.score.json",
+   "role": "canonical score ema chunk 4",
+   "bytes": 1651,
+   "sha256": "10fb6bc583cb698c7284271dd1f40737e07e4cd3a8a80adeb8f08e3ab24e4f35"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.score-input.jsonl",
+   "role": "canonical score input ema chunk 4",
+   "bytes": 1726463,
+   "sha256": "b1eae8e7aab0b014ae91200589d097de620bf8f7e50138092e215b01f7bb2a82"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c8.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump ema chunk 8 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085201,
+   "sha256": "cda0970f90fe8d46b1d7075c4d9eb32e70fa4dcaeb0736ca7da3b921d232b3e9"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c8.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump ema chunk 8 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1028162,
+   "sha256": "e5af6008b590297ee7bd261d7c664c5b3accd7056ef08087622ff7a3ef5dcf58"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c8.ms8.score.json",
+   "role": "canonical score ema chunk 8",
+   "bytes": 1652,
+   "sha256": "675abfde40d46ad2f007a979533988432d8ec68a36cf44ca1ccacdc9e5a876ff"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c8.ms8.score-input.jsonl",
+   "role": "canonical score input ema chunk 8",
+   "bytes": 1726688,
+   "sha256": "67ef782ca724bc020988efd6328c2c9316453dd180243b7450537328aa244cea"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c16.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump ema chunk 16 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085228,
+   "sha256": "e1a65d19cfce97ae4f18b2807ce76f8f2030174fae164fd4cd4d64344d26ab3d"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c16.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump ema chunk 16 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1028381,
+   "sha256": "1c5c4e5171b4c8056e6acc2953b1fe46899a162099405f77f3b994073596ba3b"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c16.ms8.score.json",
+   "role": "canonical score ema chunk 16",
+   "bytes": 1652,
+   "sha256": "c825c1c0be1a12cdacef6269ae30a92aa452270b1ae686238095f5fe28071dea"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c16.ms8.score-input.jsonl",
+   "role": "canonical score input ema chunk 16",
+   "bytes": 1726849,
+   "sha256": "4311df038e063d51533492425c8f2a8791a6fc4aebe8e7b1d440cd803b29ca22"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c4.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump raw chunk 4 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085129,
+   "sha256": "38961e2e0879dd9a699c4fc825bd9e828e6e1a021c7ca2e684b8f275177cd2ea"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c4.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump raw chunk 4 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1027869,
+   "sha256": "ffbfd8478133b4c5e4deefbadd7774d5e4405ac8d3a1616b5aaf93460335ced6"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c4.ms8.score.json",
+   "role": "canonical score raw chunk 4",
+   "bytes": 1653,
+   "sha256": "aa7e16c986be5753d9cafe221cba79798374ab9afcf15862f371e2ac978e29f1"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c4.ms8.score-input.jsonl",
+   "role": "canonical score input raw chunk 4",
+   "bytes": 1726585,
+   "sha256": "0904b877c4c72fe9c247f06f0f5a1a844761a6e17bef0d57fd5c182184de88fa"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c8.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump raw chunk 8 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085155,
+   "sha256": "2b1dbdee43529fe47c18d6af6febdd1f18350cdc92454819479dbfb7f5c836d8"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c8.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump raw chunk 8 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1028210,
+   "sha256": "780ef9c18507bca95cfe3fa01666763073ab290bcdc6c2873f129a2334684f06"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c8.ms8.score.json",
+   "role": "canonical score raw chunk 8",
+   "bytes": 1651,
+   "sha256": "b1e82053ef74ee2bee57ca51e37355c47f5ed560fa0057e83e2b36841018b6ca"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c8.ms8.score-input.jsonl",
+   "role": "canonical score input raw chunk 8",
+   "bytes": 1726718,
+   "sha256": "b0622cdba1b515385c95b0850856af2279fa3e5b2dc13db1473b86653103a6fa"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c16.ms8.dev-clean.jsonl",
+   "role": "PyTorch greedy dump raw chunk 16 dev-clean (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1085254,
+   "sha256": "18a2f6b3258228e6188dcf1731c5407b06a56509eea6d603b5df4ca46c5ef860"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c16.ms8.dev-other.jsonl",
+   "role": "PyTorch greedy dump raw chunk 16 dev-other (uid, ref, hyp, ctc_hyp)",
+   "bytes": 1028363,
+   "sha256": "bd1a74afe850c16bf66fc8715a78d76782d1d31271be2f6d10bc4c73a390daef"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c16.ms8.score.json",
+   "role": "canonical score raw chunk 16",
+   "bytes": 1651,
+   "sha256": "4e877e17387eb83601d525ca8be9c38f4871af492a34e1bb136779c8e7f7377c"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.raw.c16.ms8.score-input.jsonl",
+   "role": "canonical score input raw chunk 16",
+   "bytes": 1726819,
+   "sha256": "95ad03417056db4298cf7947cea8b329fd0b7961d199822f8f0457a4b5171828"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.b4.dev-clean.jsonl",
+   "role": "PyTorch beam-4 dump dev-clean (hyp and beam_hyp)",
+   "bytes": 1416445,
+   "sha256": "762023ff8fbbcf3ec1db8693ff3a42eb5c6679801fe6d382c6dce1543c52a633"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.b4.dev-other.jsonl",
+   "role": "PyTorch beam-4 dump dev-other (hyp and beam_hyp)",
+   "bytes": 1338198,
+   "sha256": "21488b50a06c455fa1a124b982c45828470480362112a6e60ea2d6959abd4dab"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.b4.beam.score.json",
+   "role": "canonical score beam 4",
+   "bytes": 1652,
+   "sha256": "975e28e603b28e3cd72044b9fe6373315de1ea793a8eba3e8f0b23f71cca0ba9"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/curve/A1-49000.ema.c4.ms8.b4.beam.score-input.jsonl",
+   "role": "canonical score input beam 4",
+   "bytes": 1726909,
+   "sha256": "5a66554bd4779f3e746cd1430aeb95b33f5578fee13f7dae5fcad6478d7a1571"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/predictions.all.jsonl",
+   "role": "INT8 engine e2ef608 full-dev predictions (12 shards concatenated)",
+   "bytes": 691408,
+   "sha256": "acdc8a36f8ee42386989cb088223675420a07b733faed7d30d9907123802bdbd"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.pytorch-v-engine.json",
+   "role": "canonical paired INT8 vs PyTorch, full dev",
+   "bytes": 5390,
+   "sha256": "f04ecf58c45fe1f56026ec777c15e308a95487541a564310325f3d35d5476e94"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.engine.score-input.jsonl",
+   "role": "INT8 score input",
+   "bytes": 1729583,
+   "sha256": "936136a3a906e0fe3113320d9e49ebf144327a35416554ee365ab42f08ef5213"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.pytorch.score-input.jsonl",
+   "role": "PyTorch score input (same ids)",
+   "bytes": 1729605,
+   "sha256": "fa9a7cf58b2d80a595879a08e3c6da902fd8721a1500d807c536d56d4e031400"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/panel-int8/predictions.jsonl",
+   "role": "INT8 engine, 730 panel",
+   "bytes": 94224,
+   "sha256": "02130669bc943da5c17c06ff5c11091a04701a259619abf806676f9a8a343e27"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/panel-int8/panel730.pytorch-v-engine.json",
+   "role": "canonical paired panel INT8 vs PyTorch",
+   "bytes": 5342,
+   "sha256": "45f98bef9399a9e794980a371e36a8b55e5829c0d94394ee50fba67f431c5ce4"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/wordlag/A1-49000/A1-49000-c4.trace.jsonl",
+   "role": "paced word-lag trace, 100 MFA clips, chunk 4",
+   "bytes": 3495231,
+   "sha256": "9c568a0b389d2151ed268a8a86773766e336960444b962e3c285460bf55e54c7"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/wordlag/traces/A1-49000-c4-compact.trace.jsonl",
+   "role": "its compact conversion, chunk 4",
+   "bytes": 516034,
+   "sha256": "dc5861de0e8d7b31669bfddcd07a3631be14c15363542c9fc9025cb93eb9410b"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/wordlag/A1-49000/A1-49000-c8.trace.jsonl",
+   "role": "paced word-lag trace, 100 MFA clips, chunk 8",
+   "bytes": 3287913,
+   "sha256": "af8b2117600c3151af704dc87036aa45570e5c2c7db7529dcf6756e1b7799f06"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/wordlag/traces/A1-49000-c8-compact.trace.jsonl",
+   "role": "its compact conversion, chunk 8",
+   "bytes": 325776,
+   "sha256": "50985ab6fa661662d81a0d87778af66862f735114516e8b9ab335174f10104a6"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-100clips/A1-49000-c4.json",
+   "role": "H43 latency metrics, 100 clips, 160 ms (both clocks, CQ, first-correct-word, revisions)",
+   "bytes": 4193,
+   "sha256": "ebd9f968234a746ce4b83a251cdd5608c81a21221436fd1cd3f1aeb31751aaae"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/dev_split_v2.json",
+   "role": "fixed dev speaker split (selection / confirmation)",
+   "bytes": 126874,
+   "sha256": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c2.json",
+   "role": "H43 latency metrics, FULL dev, chunk 2 (80 ms): from x5 traces completed on x6 (salvaged, 5,567 / 5,567 complete utterances)",
+   "bytes": 4925,
+   "sha256": "52420faa285c350e20157bba62fad9821d729906a21c2e64cc09789a0b80e53d"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c2.utts.jsonl",
+   "role": "H43 per-utterance latency rows, FULL dev, chunk 2",
+   "bytes": 4109330,
+   "sha256": "d4799c179056a702783f744783d899c2e7d4859338ba432e3bcf17f39bf1e5ca"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/engine-wer/B0-A1-49000-c2.score.json",
+   "role": "B0 engine WER at 80 ms from the trace finals (8.954)",
+   "bytes": 1438,
+   "sha256": "fdf02a62d975f20afc6c3c1a1f1cc99d5e35df3018ae7edd55a4749dd21dbf59"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c4.json",
+   "role": "H43 latency metrics, FULL dev (5,567), chunk 4: both clocks, first-correct-word, CQ, revisions; speaker bootstrap",
+   "bytes": 5424,
+   "sha256": "5867128b1d24c1d14dd16ea05e30a3431bd9d49b009346183e3b57a91171fbf5"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c4.utts.jsonl",
+   "role": "H43 per-utterance latency rows, FULL dev, chunk 4",
+   "bytes": 3530952,
+   "sha256": "e672573bf15705ea33dab81979ff7c2f46bd441ea1c326275dfd68f4ee1152a7"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/traces/B0-A1-49000-c4/SHA256SUMS",
+   "role": "sha256 of the 12 paced full-dev trace + prediction shards, chunk 4 (design clock; H0 loaded, not quiet)",
+   "bytes": 2160,
+   "sha256": "ee8b36e1e6b12ff5eeae9251c13fce13bfefab9d9f29a6833ff67091cd0c6581"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c8.json",
+   "role": "H43 latency metrics, FULL dev (5,567), chunk 8: both clocks, first-correct-word, CQ, revisions; speaker bootstrap",
+   "bytes": 5427,
+   "sha256": "c3deb911dac8f64633327891b6e94d96418fadfbd33871dc0634dade0b91bb5b"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/latency-fulldev/B0-c8.utts.jsonl",
+   "role": "H43 per-utterance latency rows, FULL dev, chunk 8",
+   "bytes": 3449377,
+   "sha256": "e4c469b3bedd72092290c8cd30d14900677ef3ab51a2a5f68337eb7cd6c517d4"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/traces/B0-A1-49000-c8/SHA256SUMS",
+   "role": "sha256 of the 12 paced full-dev trace + prediction shards, chunk 8 (design clock; H0 loaded, not quiet)",
+   "bytes": 2160,
+   "sha256": "75308e27f9f7f8eb90df8cf4db3a11378f649691777ac4d0e453e8840b305086"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/h43/gain-panel/summary.json",
+   "role": "B0 gain-stress panel: 730 panel x 0 / -10 / -20 / -30 dB, WER + first-word error",
+   "bytes": 1321,
+   "sha256": "d19b35fde7e6bd65f53108e1d6fb6467117636c39e50e6949577c507eeb3f69e"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/r0-fulldev/summary.json",
+   "role": "R0 Zipformer INT8 canonical full-dev control (comparison receipt)",
+   "bytes": 11247,
+   "sha256": "850e2b28aceadfae8aed86090edba2b6a4ca38f5e7883bf164786aed067e0c2a"
+  }
+ ],
+ "tools": [
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/engine-tools/ultra-cold-wav.e2ef608-release",
+   "role": "release engine e2ef608 (panel + full-dev INT8)",
+   "bytes": 7090328,
+   "sha256": "457a4db7423b61b616b060fbd1d0f957926a076d4f7314f15ee383d23ed63e98"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/engine-tools/ultra-cold-wav.paced-chunk-h41arm10",
+   "role": "paced word-lag engine with --chunk (traces)",
+   "bytes": 7201256,
+   "sha256": "beb61399d6e014f8c6fa1e32aa620827bcae4e11922057ed1f1f0d6e22c2f0ec"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/engine-tools/ultra-engine-prepare.energy-debug-2225",
+   "role": "INT8 preparer (reproduces D2e prepared 5633a93e byte for byte)",
+   "bytes": 10239224,
+   "sha256": "818644c74f2529c73346ac9c97080f6e942d88de7fbe0ad85fad5a19097e2be9"
+  },
+  {
+   "path": "/home/ubuntu/jsr/target/paper-evidence/runtime/ultra-score",
+   "role": "canonical scorer (normaliser ultra-en-wer-norm/v1, rule-table sha 988c59ac...)",
+   "bytes": 4207152,
+   "sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/derive_ema_ckpt.py",
+   "role": "EMA derivation",
+   "bytes": 1646,
+   "sha256": "273ec51a889425bfe4cf59a830036efe5249741bf335a9f25d8d4258f7bd3d1c"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/export_model.sh",
+   "role": "export pipeline",
+   "bytes": 2506,
+   "sha256": "673b3cfccf32aa269017c8a4d2c0e3b2348b650ede92f15f907af903c14504dc"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/h43_latency.py",
+   "role": "H43 latency scorer",
+   "bytes": 24019,
+   "sha256": "34a47172455894287befef40dc9112b67b63312a89d7e52615f7a29f72201640"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/h43_stats.py",
+   "role": "H43 statistics tool",
+   "bytes": 9353,
+   "sha256": "9e8f4ef2856552d692e5e1aafb0dab3c6a1bc9227bf1eb562eac95866b31904d"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/corpora/librispeech/word_timing/dev-clean.jsonl",
+   "role": "locked MFA word times, dev-clean",
+   "bytes": 2347503,
+   "sha256": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/corpora/librispeech/word_timing/dev-other.jsonl",
+   "role": "locked MFA word times, dev-other",
+   "bytes": 2203694,
+   "sha256": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+  },
+  {
+   "path": "/home/ubuntu/jsr/target/paper-evidence/word-lag/timestamps_100_mfa.json",
+   "role": "100-clip MFA word ends (word-lag set)",
+   "bytes": 67266,
+   "sha256": "5fab94be0e17a9d39ad444e1526a4dd539a460bdb45ac2614acaa96248a60392"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/fulldev-wav.index.json",
+   "role": "full-dev staged WAV index (5,567 ids)",
+   "bytes": 1383331,
+   "sha256": "4fb67d7e4b933729dbafa0df5a9ac9856369594ec75e9782c8beb041ad57245e"
+  },
+  {
+   "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/export/fulldev-wav.audio.json",
+   "role": "full-dev staged audio digests",
+   "bytes": 1238255,
+   "sha256": "27b1f8c7b5facce2e856588793fd1881d402b69293e6f177bd7cb019c44f28d7"
+  }
+ ],
+ "timing_quiet_xbabe0": {
+  "source": "bench-open AGENT_CHAT 2026-11-23T06:21:26Z (TIMING 14br, receipts in bench-open's next PR)",
+  "binary_sha256_prefix": "457a4db7",
+  "panel": "730 utterances, 1 core (CPUs 4 / 24 / 28 at 4.2 GHz), 3 cold reps, chunk 4, greedy",
+  "cpu_s_per_audio_s": [
+   0.0351,
+   0.035,
+   0.03533
+  ],
+  "median_cpu_s_per_audio_s": 0.0351,
+  "x_real_time": 28.45,
+  "peak_rss_mb": 74.4,
+  "panel_wer_pct": {
+   "dev-clean": 4.26,
+   "dev-other": 11.86,
+   "pooled": 7.39
+  },
+  "watts_per_live_stream_core_register": [
+   0.334,
+   0.348,
+   0.349
+  ],
+  "watts_scope": "core-register energy per live stream (energy's tool and method), not whole-device watts"
+ },
+ "endless_stream_27h": {
+  "source": "h47-sleep AGENT_CHAT 2026-11-23T07:12:20Z (score_alwayson, A1-49000 INT8, same build)",
+  "wer_pct": {
+   "C0 continuous, no reset": 10.989,
+   "C1 reset-with-replay T=1500 / R=1000": 8.377,
+   "O0 isolated": 8.273
+  },
+  "gap_words": {
+   "C0": 426,
+   "C1": 5,
+   "O0": 1
+  },
+  "first_word_after_sleep_pct": {
+   "C0": 74.9,
+   "C1": 88.8,
+   "O0": 89.9
+  }
+ },
+ "pending": [
+  {
+   "receipt": "TIMING 14br receipt files (values above)",
+   "owner": "bench-open (next PR)",
+   "value": null
+  },
+  {
+   "receipt": "whole-device watts on the owner's metered target device",
+   "owner": "energy / bench-open (H54)",
+   "value": null
+  },
+  {
+   "receipt": "receipt files for the 27.56 h endless-stream values above (h47-sleep branch h47/sleep-gate 7a06cef)",
+   "owner": "h47-sleep (PR)",
+   "value": null
+  },
+  {
+   "receipt": "A1-49000 on the 10 x 1 h non-speech blocks (false words per hour)",
+   "owner": "alwayson-bench (H47)",
+   "value": null
+  },
+  {
+   "receipt": "canonical per-utterance ledger for B0",
+   "owner": "codex-wer-evidence",
+   "value": null
+  }
+ ],
+ "files_sha256_of_list": "055beeedcd8f6338d5e2edda4f5eec8ea2ce776a845c47532f4ba07ec67c0ce3"
+}
