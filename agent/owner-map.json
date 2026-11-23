@@ -89,7 +89,9 @@
     "python/ultra/train/diloco_http.py": "training",
     "python/ultra/train/diloco_client.py": "training",
     "python/ultra/train/diloco_promote.py": "training",
+    "python/ultra/train/diloco_d1.py": "training",
     "python/ultra/tests/test_diloco_hub.py": "training",
-    "python/ultra/tests/test_diloco_faults.py": "training"
+    "python/ultra/tests/test_diloco_faults.py": "training",
+    "python/ultra/tests/test_diloco_d1.py": "training"
   }
 }

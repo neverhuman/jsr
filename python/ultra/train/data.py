@@ -173,6 +173,40 @@ def weighted_share(group: list[int], durations: list[float], weights, rank: int)
     return mine
 
 
+def stratified_parts(groups: list[list[int]], durations: list[float], world: int, rank: int,
+                     seed) -> list[list[int]]:
+    """This rank's groups under duration stratification (frontier OPT-2.2): groups (a multiple of
+    `world`) are ordered by their longest member, cut into `world` equal strata and shuffled within
+    each stratum; at step i rank r takes the i-th group of stratum (r + i) % world."""
+    if len(groups) % world:
+        raise DataError("stratified parts need a multiple of world groups")
+    order = sorted(range(len(groups)), key=lambda k: (max(durations[i] for i in groups[k]), k))
+    per = len(order) // world
+    rng = np.random.default_rng(list(seed) + [7919])
+    strata = []
+    for j in range(world):
+        s = order[j * per:(j + 1) * per]
+        rng.shuffle(s)
+        strata.append(s)
+    return [groups[strata[(rank + i) % world][i]] for i in range(per)]
+
+
+def apply_data_shard(source, cfg, world: int) -> None:
+    """H50 DiLoCo island: one process (data_world > 0) reads exactly what DDP rank data_rank of
+    data_world reads from the same ordered global batches (global-batch split, no rank weights)."""
+    if getattr(cfg, "ddp_stratify_lengths", False) and cfg.ddp_global_batches:
+        raise ValueError("ddp_stratify_lengths stratifies per-rank batches; it needs ddp_global_batches=false")
+    if cfg.data_world <= 0:
+        return
+    if world != 1:
+        raise ValueError("data_rank / data_world name a single-process island's shard; DDP ranks use their own")
+    if not 0 <= cfg.data_rank < cfg.data_world or not hasattr(source, "world"):
+        raise ValueError("need 0 <= data_rank < data_world and a source that shards (ParquetBatches)")
+    if cfg.ddp_rank_weights or getattr(cfg, "ddp_stratify_lengths", False):
+        raise ValueError("island shards use the plain global-batch split")
+    source.rank, source.world, source.ddp_global_batches = cfg.data_rank, cfg.data_world, True
+
+
 class Featurizer:
     def __init__(self, tok_rnnt: Tokenizer, tok_ctc: Tokenizer):
         self.logmel = LogMel()
@@ -351,6 +385,7 @@ class ParquetBatches:
         self.ddp_global_batches = False
         self.stream_ctx_s, self.stream_ctx_cap, self._ctx_bank = 0.0, 1.5, None  # H41 arm 11 (0 = off)
         self.rank_weights: tuple | None = None  # per-rank relative speed (None = equal shares)
+        self.stratify_lengths = False  # per-rank batches: every step spans every duration stratum
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.synth_aug = bool(synth_aug)
@@ -540,7 +575,10 @@ class ParquetBatches:
             if n % self.world:
                 target = n + self.world - n % self.world  # repeat the first groups up to a multiple
                 groups = (groups * -(-target // max(1, n)))[:target]
-            parts = groups[self.rank::self.world]
+            if self.stratify_lengths:
+                parts = stratified_parts(groups, dur, self.world, self.rank, [self.seed, epoch, window])
+            else:
+                parts = groups[self.rank::self.world]
             active = [True] * len(parts)
         mine = [[rows[keep[i]] for i in g] for g in parts]
         flat = [r for g in mine for r in g]

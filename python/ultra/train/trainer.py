@@ -97,7 +97,10 @@ class TrainConfig:
     # score it with `train.evaluate --ema`.
     ema_decay: float = 0.0
     ema_half_life_h: float = 0.0  # exposure-indexed EMA half-life in audio-hours (0 = use ema_decay)
-    stratify_chunks: bool = False  # DDP: rank r runs modes[(r + step) % len(modes)]
+    data_rank: int = 0  # H50 DiLoCo island shard (data_world 0 = use DDP rank/world)
+    data_world: int = 0
+    stratify_chunks: bool = False  # rank r: modes[(draw + data_rank) % len] when data_world > 1
+    ddp_stratify_lengths: bool = False  # needs ddp_global_batches=false
     diloco_hub: str = ""  # live DiLoCoHub URL; diloco_every > 0 enables hot-swap sync
     diloco_worker: str = ""
     diloco_every: int = 0
@@ -216,6 +219,8 @@ class Trainer:
                  log: bool = True, rank: int = 0, world: int = 1, local_rank: int = 0):
         self.run_dir, self.cfg, self.source, self.dev, self.tok = run_dir, cfg, source, dev, tokenizer
         self.rank, self.world, self.local_rank = rank, world, local_rank
+        self.data_rank, self.data_world = (cfg.data_rank, cfg.data_world) if cfg.data_world > 0 else (rank, world)
+        self._diloco_state: dict | None = None
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         if world > 1 and self.device.type == "cuda":
             self.device = torch.device("cuda", local_rank)
@@ -249,15 +254,12 @@ class Trainer:
     # ---- state -------------------------------------------------------------------------------
     def payload(self) -> dict:
         return {"model": self.model.state_dict(), "optimizer": self.opt.state_dict(),
-                "scheduler": self.sched.state_dict(), "position": self.pos.to_dict(),
-                "precision": self.precision, "train_config": asdict(self.cfg),
-                "model_config": self.model_cfg.to_dict(),
-                "manifest": list(getattr(self.source, "manifest", [])),
-                "tokenizer_sha256": getattr(self.tok, "sha256", None),
-                "ctc_stats": self.stats.summary(),
-                "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm, "ema": self.ema,
-                "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
-                "watch_sig": self._watch_sig(),
+                "scheduler": self.sched.state_dict(), "position": self.pos.to_dict(), "precision": self.precision,
+                "train_config": asdict(self.cfg), "model_config": self.model_cfg.to_dict(),
+                "manifest": list(getattr(self.source, "manifest", [])), "tokenizer_sha256": getattr(self.tok, "sha256", None),
+                "ctc_stats": self.stats.summary(), "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm,
+                "ema": self.ema, "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
+                "watch_sig": self._watch_sig(), **({"diloco": self._diloco_state} if self._diloco_state else {}),
                 **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
 
     def _step_chunk(self) -> int | None:
@@ -265,10 +267,9 @@ class Trainer:
         if not c.chunk_modes:
             return c.chunk or None
         modes = [int(v) for v in c.chunk_modes.split(",") if v.strip()]
-        if c.stratify_chunks and self.world > 1:
-            return modes[(self.rank + self.step) % len(modes)]
         pick = torch.Generator().manual_seed(c.seed * 1_000_003 + self.step + 500_009)
-        return modes[int(torch.randint(0, len(modes), (1,), generator=pick))]
+        draw = int(torch.randint(0, len(modes), (1,), generator=pick))
+        return modes[(draw + self.data_rank) % len(modes) if c.stratify_chunks and self.data_world > 1 else draw]
 
     def _watch_sig(self) -> dict:
         c = self.cfg
@@ -318,6 +319,10 @@ class Trainer:
             # the new width starts at the next epoch; this epoch finishes with the old one
             self.source.carry_width = (old_wg, self.pos.epoch)
         self.step = p["step"]
+        self._diloco_state = p.get("diloco")
+        if self.cfg.diloco_hub and self.cfg.diloco_every > 0:
+            from train.diloco_d1 import validate_diloco_resume
+            validate_diloco_resume(self, p)
         self.qkv_caps = p.get("qkv_caps")
         self.qkv_ref_norm = p.get("qkv_ref_norm")
         # divergence baselines carry over only while they measure the same thing: a resume that
@@ -407,7 +412,7 @@ class Trainer:
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
             self._fwd_s = getattr(self, "_fwd_s", 0.0) + (time.time() - t_fwd)
-        loss = out["loss"]
+        loss = out["loss"] if self.world > 1 or b.active else out["loss"] * 0.0  # island zero-support step
         if self.world > 1:
             hb = self._hb_acc()
             hb["loss"] += float(loss.detach()) if b.active else 0.0
@@ -777,38 +782,29 @@ class Trainer:
                 acc = {k: 0.0 if isinstance(v, float) else 0 for k, v in acc.items()}
                 t0 = time.time()
             epoch_end = new_epoch and self.cfg.eval_each_epoch and self.dev
-            if epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0):
+            do_eval, ep_flag = (diloco.gate.allow_eval(self.step, self.cfg.eval_every, bool(epoch_end), diloco.just_synced)
+                                if diloco is not None else (bool(epoch_end or (self.cfg.eval_every and self.step % self.cfg.eval_every == 0)), bool(epoch_end)))
+            if do_eval:
                 ev = self.evaluate() if self.rank == 0 else {}
-                ema = self._evaluate_ema() if self.rank == 0 else {}
-                ema.update(self._evaluate_extra_chunks() if self.rank == 0 else {})
-                self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split,
-                          "epoch": pos.epoch, "epoch_end": bool(epoch_end),
-                          **ev, **ema, **self.stats.summary()})
+                ema = {**(self._evaluate_ema() if self.rank == 0 else {}), **(self._evaluate_extra_chunks() if self.rank == 0 else {})}
+                self.log({"kind": "eval", "step": self.step, "split": self.cfg.dev_split, "epoch": pos.epoch, "epoch_end": ep_flag, **ev, **ema, **self.stats.summary()})
                 wer = ev.get("wer")
                 if self.world > 1:
                     from train.dist import broadcast_value
-
-                    wer = broadcast_value(wer, self.device)  # every rank takes the same branch
+                    wer = broadcast_value(wer, self.device)
                 self._watch_wer(wer)
                 t0 = time.time()
-            if self.cfg.weights_every and self.step % self.cfg.weights_every == 0 \
-                    and self.local_rank == 0:
-                with eval_weights(self.opt):  # snapshot copies on this thread
-                    self.saver.save(self.run_dir, self.step,
-                                    {"model": self.model.state_dict(),
-                                     "model_config": self.model_cfg.to_dict(),
-                                     "train_config": asdict(self.cfg),
-                                     "tokenizer_sha256": getattr(self.tok, "sha256", None),
-                                     "ema": self.ema},
-                                    weights_only=True)
-            due = (self.step % self.cfg.ckpt_every_steps == 0
-                   or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)
-            if due or self.stop_requested:
-                self.save()
-                last_ckpt = time.time()
-            if self.stop_requested or (max_steps and steps_here >= max_steps) \
-                    or self.step >= self.cfg.total_steps:
-                if not due and not self.stop_requested:
+            do_w = (diloco.gate.allow_weights(self.step, self.cfg.weights_every, diloco.just_synced)
+                    if diloco is not None else bool(self.cfg.weights_every and self.step % self.cfg.weights_every == 0))
+            if do_w and self.local_rank == 0:
+                with eval_weights(self.opt):
+                    self.saver.save(self.run_dir, self.step, {"model": self.model.state_dict(), "model_config": self.model_cfg.to_dict(), "train_config": asdict(self.cfg), "tokenizer_sha256": getattr(self.tok, "sha256", None), "ema": self.ema}, weights_only=True)
+            raw_due = self.step % self.cfg.ckpt_every_steps == 0 or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes
+            due = diloco.gate.allow_ckpt(raw_due, diloco.just_synced) if diloco is not None else raw_due
+            if due or (self.stop_requested and diloco is None):
+                self.save(); last_ckpt = time.time()
+            if self.stop_requested or (max_steps and steps_here >= max_steps) or self.step >= self.cfg.total_steps:
+                if not due and not self.stop_requested and (diloco is None or diloco.just_synced):
                     self.save()
                 self.saver.wait()
                 return
@@ -817,13 +813,15 @@ class Trainer:
 
 def _shard_batches(self):
     """Batches for this rank: sources that shard natively (ParquetBatches.world) yield only this
-    rank's batches; any other source is sharded by batch index (rank, rank + world, ...)."""
+    rank's batches; any other source is sharded by batch index (data_rank, data_rank + data_world, ...)."""
     it = self.source.iterate(self.pos)
-    if self.world <= 1 or getattr(self.source, "world", 1) == self.world:
+    dw = getattr(self, "data_world", self.world)
+    dr = getattr(self, "data_rank", self.rank)
+    if dw <= 1 or getattr(self.source, "world", 1) == dw:
         yield from it
         return
     for i, item in enumerate(it):
-        if i % self.world == self.rank:
+        if i % dw == dr:
             yield item
 
 
@@ -886,7 +884,7 @@ def main(argv=None) -> int:
         cur = getattr(cfg, k)
         setattr(cfg, k, type(cur)(json.loads(v)) if not isinstance(cur, str) else v)
 
-    from train.data import Featurizer, ParquetBatches, parse_extra_splits
+    from train.data import Featurizer, ParquetBatches, apply_data_shard, parse_extra_splits
     from train.tokenizer import Tokenizer, tokenizer_path
 
     tok_r = Tokenizer(cfg.tokenizer or tokenizer_path(cfg.rnnt_pieces))
@@ -922,9 +920,10 @@ def main(argv=None) -> int:
 
     dev_type = (a.device or ("cuda" if torch.cuda.is_available() else "cpu")).split(":")[0]
     rank, world, local_rank = init_from_env(dev_type)
+    apply_data_shard(source, cfg, world)
     if world > 1 and hasattr(source, "world"):
         source.rank, source.world = rank, world
-        source.ddp_global_batches = cfg.ddp_global_batches
+        source.ddp_global_batches, source.stratify_lengths = cfg.ddp_global_batches, cfg.ddp_stratify_lengths
         if cfg.ddp_rank_weights:
             w = tuple(float(v) for v in cfg.ddp_rank_weights.split(","))
             if len(w) != world or min(w) <= 0 or not cfg.ddp_global_batches:
@@ -990,8 +989,8 @@ def main(argv=None) -> int:
     except NonFiniteLossError as e:
         tr.log({"kind": "paused", "error": str(e)})
         return 3
-    tr.log({"kind": "eval", "step": tr.step, "split": cfg.dev_split, **tr.evaluate(),
-            **tr.stats.summary()})
+    if not (cfg.diloco_hub and cfg.diloco_every > 0) or (tr._diloco_state and tr._diloco_state.get("step") == tr.step):
+        tr.log({"kind": "eval", "step": tr.step, "split": cfg.dev_split, **tr.evaluate(), **tr.stats.summary()})
     return 0
 
 
