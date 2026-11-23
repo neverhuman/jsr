@@ -56,6 +56,13 @@ eval-lane's release-decoder row, 5.476% (5,808 edits; -0.610 pp [-0.737, -0.489]
 CPU per round 0.0706 / 0.0704 / 0.0705; the package figure carries about +-0.1 W of floor noise per round. Join:
 `joins/14p.jsonl`.
 
+**The paper's energy method for this row (`rc1-ema-final-zen2-t1`, the v3.0.0 final point):** `joins/14p-energy.jsonl`,
+computed from these receipts with the same tool as every cold row's energy join (`energy_report.join_run` / `join_lines`):
+the service core's register over the one `ultra-engine-commit` process (`out/phases.tsv` run_start..run_end, widened by
+1.5 s), divided by the panel's 5,259.56 audio-s. **core_msr_active 0.720 W per stream** (rounds 0.705 / 0.724 / 0.720),
+core_msr_dynamic 0.719 (the core's idle level in the assay's 60 s idle phases: 0.018 W), package 92.8 W, no other busy core in any round;
+receipt = round 3's measurement.json (3e812eda..., the median-CPU round).
+
 ## 14k: streaming-L4 fallback vs B0, paced (latency and memory)
 
 panel73 (73 DEV utterances, 597.1 s, staged under full-dev ids), one core per run, physically paced at 1x in 20 ms packets,
