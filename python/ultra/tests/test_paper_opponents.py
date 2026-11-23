@@ -261,7 +261,12 @@ def test_turn_plan_parsing_and_turn_rules(tmp_path):
     jobs, anchors = turn.read_plan("anchor ours 3.5 0.5\n5 full a 1 4 0 17\n5 full a 2 24 1 17  # second\n\n"
                                    "12 p73 b 1 4 0 4.5\nanchor ours-s8 1 0.3 12,20\n")
     assert [(job["entry"], job["panel"], job["arm"], job["round"], job["est_s"]) for job in jobs] == [
-        (5, "full", "a", 1, 1020.0), (5, "full", "a", 2, 1020.0), (12, "p73", "b", 1, 270.0)]
+        ("5", "full", "a", 1, 1020.0), ("5", "full", "a", 2, 1020.0), ("12", "p73", "b", 1, 270.0)]
+    assert [job["entry"] for job in turn.read_plan("6b full x 1 4 0 3\n")[0]] == ["6b"]
+    with pytest.raises(ValueError):
+        turn.read_plan("6-b full x 1 4 0 3\n")
+    assert turn.turn_has_come("6b", "DONE 1 t a\nDONE 2 t a\nDONE 3 t a\nDONE 4 t a\nDONE 5 t a\n")
+    assert not turn.turn_has_come("7", "DONE 6 t a\n", "6 | a | x\n6b | b | x\n7 | c | x\n")
     assert turn.anchor_for(anchors, 5) == {"arm": "ours", "est_s": {"full": 210.0, "p73": 30.0}}
     assert turn.anchor_for(anchors, 12)["arm"] == turn.anchor_for(anchors, 20)["arm"] == "ours-s8"
     assert turn.anchor_for({}, 5) is None
@@ -410,6 +415,8 @@ def test_arm_definitions_build_the_documented_commands(tmp_path):
     assert zipformer[0].endswith("/env") and zipformer[1].startswith("ULTRA_SHERPA_LIB=")
     assert zipformer[3] == "zipformer-int8" and zipformer[5:7] == ["/panel/wav", "/run/predictions.jsonl"]
     assert "zipformer-int8" in open_arm(tmp_path, "r0-zipformer-int8-w8").stdout.split("--\n")[1]
+    a1 = open_arm(tmp_path, "jsr-a1-30000-ema-int8").stdout.split("\n")
+    assert a1[0].endswith("ultra-cold-wav-457a4db7") and a1[2].endswith("opponents/models/A1-30000-ema/int8")
     ours = open_arm(tmp_path, "jsr-h22ctl-79800-ema-int8").stdout.split("\n")
     assert ours[0].endswith("opponents/bench-open/anchor/ultra-cold-wav-457a4db7") and ours[1] == "r1-engine-int8"
     assert ours[2].endswith("opponents/models/H22ctl-79800-ema/int8") and ours[3] == "/panel/wav"
@@ -425,7 +432,8 @@ def test_run_cold_dispatches_the_open_arms_to_their_definitions():
     case = next(line for line in script.splitlines() if "parakeet-v3-onnxasr-int8" in line)
     assert set(case.strip().rstrip(")").split("|")) == {
         "vosk-large", "vosk-small", "whispercpp-stream-base", "whispercpp-stream-tiny",
-        "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
+        "parakeet-v3-onnxasr-int8", "jsr-h22ctl-79800-ema-int8", "jsr-a1-30000-ema-int8", "jsr-d2e-16457-int8",
+        "r0-zipformer-int8"}
     assert 'source "$PWD/docs/paper/opponents/open-arms.sh"' in script
 
 

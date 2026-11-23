@@ -69,7 +69,7 @@ configure() {
             cmd=("$cold_wav" r1-ort-fp32 "$model" "$wav" "$run/predictions.jsonl")
             files=("$model/manifest.json")
             ;;
-        vosk-large|vosk-small|whispercpp-stream-base|whispercpp-stream-tiny|parakeet-v3-onnxasr-int8|jsr-h22ctl-79800-ema-int8|jsr-d2e-16457-int8|r0-zipformer-int8)
+        vosk-large|vosk-small|whispercpp-stream-base|whispercpp-stream-tiny|parakeet-v3-onnxasr-int8|jsr-h22ctl-79800-ema-int8|jsr-a1-30000-ema-int8|jsr-d2e-16457-int8|r0-zipformer-int8)
             # Open-source opponents and their same-session anchors (docs/paper/opponents/open-arms.sh).
             # shellcheck source=docs/paper/opponents/open-arms.sh
             source "$PWD/docs/paper/opponents/open-arms.sh"

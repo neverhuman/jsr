@@ -68,6 +68,9 @@ SYSTEMS = {
     "jsr-h22ctl-79800-ema-int8": (
         "JSR H22ctl 79800 EMA INT8", "JSR H22ctl INT8", "JsrHtwentytwo", "ultra-engine e2ef608 (ultra-cold-wav)",
         "streaming", "ours", "H22ctl step 79800 EMA, prepared INT8, greedy, 20 ms packets (session anchor)"),
+    "jsr-a1-30000-ema-int8": (
+        "JSR A1 30000 EMA INT8", "JSR A1 30k INT8", "JsrAoneThirtyK", "ultra-engine e2ef608 (ultra-cold-wav)",
+        "streaming", "ours", "A1 step 30000 EMA, prepared INT8, greedy, 20 ms packets (TIMING entry 6b)"),
     "jsr-d2e-16457-int8": (
         "JSR D2e 16457 INT8", "JSR D2e INT8", "JsrDtwoE", "ultra-engine e2ef608 (ultra-cold-wav)", "streaming", "ours",
         "D2e step 16457, prepared INT8, greedy, 20 ms packets (session anchor)"),
@@ -79,7 +82,7 @@ SYSTEMS = {
 ANCHORS = {"jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
 # The paper's variant names where they differ from the arm names (the anchors join the primary rows).
 PAPER_VARIANT = {"jsr-h22ctl-79800-ema-int8": "h22ctl-79800-ema-int8", "jsr-d2e-16457-int8": "d2e-16457-int8",
-                 "r0-zipformer-int8": "r0-int8"}
+                 "r0-zipformer-int8": "r0-int8", "jsr-a1-30000-ema-int8": "a1-30000-ema-int8"}
 SHARED_MODEL = ("vosk-",)  # --workers N shares one loaded model between N recogniser threads
 PANEL_LABEL = {
     "full": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",

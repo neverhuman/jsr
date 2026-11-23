@@ -66,19 +66,21 @@ def read_plan(text):
                 raise ValueError(f"expected anchor ARM EST_MIN_FULL EST_MIN_P73 [ENTRIES]: {line!r}")
             spec = {"arm": fields[1], "est_s": {"full": 60 * float(fields[2]), "p73": 60 * float(fields[3])}}
             for entry in (fields[4].split(",") if len(fields) == 5 else [None]):
-                anchors[None if entry is None else int(entry)] = spec
+                anchors[entry] = spec
             continue
         if len(fields) != 7:
             raise ValueError(f"expected ENTRY PANEL ARM ROUND SERVICE_CPUS OBSERVER_CPU EST_MIN: {line!r}")
         entry, panel, arm, round_id, service, observer, minutes = fields
-        jobs.append({"entry": int(entry), "panel": panel, "arm": arm, "round": int(round_id), "service": service,
+        if not re.fullmatch(r"[0-9]+[a-z]?", entry):
+            raise ValueError(f"entry ids look like 12 or 6b: {line!r}")
+        jobs.append({"entry": entry, "panel": panel, "arm": arm, "round": int(round_id), "service": service,
                      "observer": int(observer), "est_s": 60 * float(minutes), "status": "pending"})
     return jobs, anchors
 
 
 def anchor_for(anchors, entry):
     """The anchor of an entry: its own, else the general one, else None."""
-    return anchors.get(entry, anchors.get(None))
+    return anchors.get(str(entry), anchors.get(None))
 
 
 def anchor_service(arm, service):
@@ -107,7 +109,7 @@ def turn_has_come(entry, done_text, order_text=""):
     finished, order, entry = finished_entries(done_text), order_ids(order_text), str(entry)
     if entry in order:
         return set(order[:order.index(entry)]) <= finished
-    return {str(number) for number in range(1, int(entry))} <= finished
+    return {str(number) for number in range(1, int(re.match(r"[0-9]+", entry).group()))} <= finished
 
 
 def fits(job, held_s, ran_in_hold):
