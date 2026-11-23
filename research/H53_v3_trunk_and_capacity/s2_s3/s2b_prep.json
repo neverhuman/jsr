@@ -1,0 +1,108 @@
+{
+ "bw": {
+  "librispeech": {
+   "files": 126,
+   "groups": 2886,
+   "rows": 281241,
+   "hours": 961.0543984027773,
+   "a": 1198.8204553880798
+  },
+  "small": {
+   "files": 50,
+   "groups": 1000,
+   "rows": 99109,
+   "hours": 378.6452244444441,
+   "a": 1363.1228079999987
+  },
+  "medium": {
+   "files": 444,
+   "groups": 9145,
+   "rows": 888265,
+   "hours": 3395.8058547222067,
+   "a": 1336.7852462547778
+  },
+  "a_LL_pooled": 1339.3813587974314,
+  "extra_base_weight": 0.527689,
+  "ls_audio_share_check": 0.5
+ },
+ "audits": [
+  {
+   "batches": 2000,
+   "windows_read": 116,
+   "epochs_touched": 3,
+   "base_weight": 0.527689,
+   "window_groups": 96,
+   "n_epoch_units": 5470,
+   "windows_per_epoch0": 57,
+   "extra": [
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.small",
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.medium"
+   ],
+   "ll_share_median": 0.4973,
+   "ll_share_p95": 0.8295,
+   "ll_share_p5": 0.2185,
+   "ll_share_mean": 0.5078,
+   "ll_audio_share_pooled": 0.4999,
+   "pass": false
+  },
+  {
+   "batches": 2000,
+   "windows_read": 18,
+   "epochs_touched": 3,
+   "base_weight": 0.527689,
+   "window_groups": 768,
+   "n_epoch_units": 5470,
+   "windows_per_epoch0": 8,
+   "extra": [
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.small",
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.medium"
+   ],
+   "ll_share_median": 0.4887,
+   "ll_share_p95": 0.6813,
+   "ll_share_p5": 0.3607,
+   "ll_share_mean": 0.4989,
+   "ll_audio_share_pooled": 0.499,
+   "pass": false
+  },
+  {
+   "batches": 2000,
+   "windows_read": 13,
+   "epochs_touched": 3,
+   "base_weight": 0.527689,
+   "window_groups": 1024,
+   "n_epoch_units": 5470,
+   "windows_per_epoch0": 6,
+   "extra": [
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.small",
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.medium"
+   ],
+   "ll_share_median": 0.489,
+   "ll_share_p95": 0.6656,
+   "ll_share_p5": 0.3661,
+   "ll_share_mean": 0.4989,
+   "ll_audio_share_pooled": 0.4992,
+   "pass": false
+  },
+  {
+   "batches": 2000,
+   "windows_read": 9,
+   "epochs_touched": 3,
+   "base_weight": 0.527689,
+   "window_groups": 1536,
+   "n_epoch_units": 5470,
+   "windows_per_epoch0": 4,
+   "extra": [
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.small",
+    "/home/ubuntu/jsr-data/librilight/shards/r0_v11/librilight.medium"
+   ],
+   "ll_share_median": 0.4876,
+   "ll_share_p95": 0.6638,
+   "ll_share_p5": 0.3742,
+   "ll_share_mean": 0.4986,
+   "ll_audio_share_pooled": 0.4995,
+   "pass": false
+  }
+ ],
+ "chosen_window_groups": 1536,
+ "rule": "neither passes; the best p95 of {768, 1024, 1536}"
+}

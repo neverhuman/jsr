@@ -114,6 +114,16 @@ Details:
   - The 468 rows with no mean log-prob are empty hyps, which H1 drops (unchanged).
   - Small is unaffected: its S1 threshold was finite.
 
+**Amendment 5 (2026-11-23T14:25Z, before the large tier-A cut): byte-capped writes for large.**
+- The lead set the tier-A cut at 15:30Z, for S3. A full tier-A final (~480 GB) fits neither x6 (next to its raw shards) nor x8 / x9.
+- So `ll_finalize_par.py --max-final-gb G` writes only the first M buckets that fit G GB.
+  - The seeded global shuffle makes every bucket a uniform random sample of the kept rows, so the written shards, and any prefix of them, are uniform samples.
+  - FILTER_REPORT records the full kept set and the written subset: `output_shards_total` / `output_shards_written`, `rows_written`, `hours_written`.
+  - The remaining buckets can be written later from the same frozen inputs.
+- Large rows have no A1 hyps, so S2 never applies to them. `--allow-unlabeled` drops rows still unlabelled at the cut, and counts them.
+- Small and medium are unchanged: with G = 0 the output is byte-identical.
+- **Test on 20 large shards (14:22Z):** 10 with per-shard labels and 10 joined to from-source units by id; 16,000 / 16,000 rows labelled, 0 cut mismatches, a partial write of 2 / 7 shards, sealed OK.
+
 **Operations note (lead's scoped exception, 10:15Z).** Medium's finaliser on xbabe5 runs at nice 19 + `ionice -c3`.
 - It pauses only if a live trainer's rate (median of its last 3 step records) falls more than 5% below its 10-min pre-start baseline, or its data wait exceeds 8%. It resumes on recovery.
 - This replaces the generic ≤ 5% data-wait gate, because S2's own loader sits at ~5.5% with no co-tenant.
@@ -186,8 +196,21 @@ Details:
   - **Selection v1:** 176,814 eligible files → list sha256 8e7a7e2259f579a0…, posted 11:51:16Z before any cut. tier A 48,248 files / 10,000.4 VAD h / 4,978 speakers / 639.4 GB FLAC; tier B 18,943 files / 3,449.8 VAD h / 4,092 speakers / 220.8 GB FLAC.
   - Tier B stops at 3,449.8 VAD h because the 15 h per-speaker cap exhausts the eligible pool. The rule is unchanged.
   - Tier-A segmentation started 11:51Z on x6. The labels are v1.1 R0 with frame-KD, per shard, beside each shard (`lab_drive_large.py`).
+  - **From-source labellers (H0 / x1 / x2, lead 12:1xZ), when their cards are free:**
+    - They re-cut tier-A members from the official source with the same `ll_segment` / `ll_pass2` that pass 2 runs (2,438 units of ~250 MB, worked from the end of tier A). The labels land in x6 `librilight.large/r0src/`, joined by id like medium.
+    - **Identity check (12:16Z):** one member re-cut on H0 matched x6's shards on 151 / 151 ids and t0 / t1, and on 151 / 151 PCM sha256 and n_samples against x6's per-shard labels.
+  - **No partial large final for v3.0.0 (lead 12:1xZ):** RC1 / RC2 add no data. Large tier A feeds S3 after the release; the cut time is named after the RC (~16:00Z).
 
 ## 7. Results so far (semi-supervised (R0 labels))
+
+**large tier A, cut `large.s3`** (lead's 15:30Z cut for S3; finalised 2026-11-23T15:56:12Z on x6 with `ll_finalize_par.py --max-final-gb 300`, amendment 5):
+- **Inputs frozen at 15:30:21Z:** 3,256 raw shards (all of tier A; segmentation done at 14:57Z), 913 with per-shard labels and the rest joined by id to 1,768 from-source units. All are v1.1 R0 labels, with frame-KD beside them.
+- **Labelled and kept:** 2,292,842 / 2,601,489 rows (88.1%) = **8,732.45 / 9,835.26 h**. 4 rows were still unlabelled at the cut, and 4 had a cut mismatch; both are dropped.
+- **Drops:** S1 254,757 (threshold -0.1806); H4 47,099; H5 2,960; H1 2,334; H3 1,324; H2 173. There are no A1 hyps, so S2 does not apply. 22 NaN log-prob rows ranked lowest (amendment 4).
+- **Written:** 696 of 1146 shards = 1,392,696 rows = **5,303.66 h**, 316.9 GB at `x6:~/jsr-data/librilight/shards/r0_v11/librilight.large.s3/`.
+  - Each shard, and any prefix, is a uniform random sample of the kept rows.
+  - trainer-lane stages one identical prefix to the four A100 nodes.
+- **Manifest SHA256SUMS sha256 59bfbd4cc4d744f68bc62283b23131e9b48f23ce229d792c17bae83827b8e5e7.**
 
 **small, final shards** (finalised 08:34Z on x5; 50 shards; SHA256SUMS verified):
 - R0 labels: 100% (h52-labeler, r0-fp32-gpu-v1). A1 student hyps: 100%.
@@ -241,6 +264,10 @@ Details:
 - 11:07Z: medium finaliser started on x5 (`ll_finalize_par.py`, 8 processes, guard v2 + disk floor).
 - 11:13Z: stopped at the filter step (S1 threshold NaN; amendment 4); clean relaunches at 11:17Z and, with the S2-rate trigger dropped (lead), 11:25Z.
 - 11:43Z: medium sealed (444 shards, manifest 7e87f000…).
+- 11:49Z: large index verified; 11:51Z: selection v1 posted (list 8e7a7e22…); tier-A segmentation started on x6.
+- 11:52Z → 15:25Z: tier-A labels (x6 per shard; x1 / x2 / H0 / x6 from source, de-duplicated both ways).
+- 15:30Z: tier-A cut `large.s3` frozen; 15:59Z sealed (696 / 1,146 shards, 5,303.66 h written; manifest 59bfbd4c…).
+- 15:25Z: tier-B labels started from source (842 units; labels in x6 `r0src_tierB/`; segmentation deferred).
 
 ## MANIFEST
 
