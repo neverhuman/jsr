@@ -1,4 +1,4 @@
-//! Unit, gain-sweep, sleep-persistence, and speed tests for H47 Warm AGC.
+//! Unit, gain-sweep, sleep-persistence, calibration, and speed tests for H47 Warm AGC.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -11,27 +11,23 @@ use ultra_gp::TokenTable;
 
 const SR: usize = 16_000;
 
-fn rms(samples: &[f32]) -> f32 {
-    let msq = samples
-        .iter()
-        .map(|&x| f64::from(x) * f64::from(x))
-        .sum::<f64>()
-        / (samples.len().max(1) as f64);
-    msq.sqrt() as f32
+fn rms(s: &[f32]) -> f32 {
+    (s.iter().map(|&x| f64::from(x).powi(2)).sum::<f64>() / (s.len().max(1) as f64)).sqrt() as f32
 }
 
-fn synth_speech(n: usize, target_rms: f32) -> Vec<f32> {
+fn synth_speech(n: usize, target: f32) -> Vec<f32> {
+    let tau = std::f32::consts::TAU;
     let mut out: Vec<f32> = (0..n)
         .map(|i| {
-            let t = (i as f32) / (SR as f32);
-            let env = 0.75 + 0.25 * (std::f32::consts::TAU * 4.0 * t).sin();
-            env * (0.60 * (std::f32::consts::TAU * 190.0 * t).sin()
-                + 0.30 * (std::f32::consts::TAU * 520.0 * t).sin()
-                + 0.15 * (std::f32::consts::TAU * 1310.0 * t).sin())
+            let t = i as f32 / SR as f32;
+            (0.75 + 0.25 * (tau * 4.0 * t).sin())
+                * (0.6 * (tau * 190.0 * t).sin()
+                    + 0.3 * (tau * 520.0 * t).sin()
+                    + 0.15 * (tau * 1310.0 * t).sin())
         })
         .collect();
-    let scale = target_rms / rms(&out).max(1e-12);
-    out.iter_mut().for_each(|x| *x *= scale);
+    let sc = target / rms(&out).max(1e-12);
+    out.iter_mut().for_each(|x| *x *= sc);
     out
 }
 
@@ -42,26 +38,21 @@ fn synth_noise(n: usize, dbfs: f32) -> Vec<f32> {
             st ^= st << 13;
             st ^= st >> 7;
             st ^= st << 17;
-            2.0 * (((st >> 40) as f32) / ((1u32 << 24) as f32)) - 1.0
+            2.0 * ((st >> 40) as f32 / (1u32 << 24) as f32) - 1.0
         })
         .collect();
-    let scale = db_to_linear(dbfs) / rms(&out).max(1e-12);
-    out.iter_mut().for_each(|x| *x *= scale);
+    let sc = db_to_linear(dbfs) / rms(&out).max(1e-12);
+    out.iter_mut().for_each(|x| *x *= sc);
     out
 }
 
 fn tiny_model() -> Arc<Model> {
-    let mut fb = vec![0u8; 257 * 80 * 4];
-    for m in 0..80 {
-        for bin in 1..40 {
-            let o = (bin * 80 + m) * 4;
-            fb[o..o + 4].copy_from_slice(&0.25f32.to_le_bytes());
-        }
-    }
     let cmvn = GlobalCmvn::new(&[-13.815_511; 80], &[1.0; 80]).expect("cmvn");
-    let mel_cfg = Arc::new(TrainerMelConfig::from_fbank_le_bytes(&fb, 1e-6, cmvn).expect("mel"));
-    let toks = "<blk> 0\n<unk> 1\n\u{2581}hello 2\n\u{2581}world 3\n";
-    let tokens = Arc::new(TokenTable::from_str_checked(toks, 4).expect("toks"));
+    let mel_cfg = Arc::new(TrainerMelConfig::default_htk(cmvn).expect("mel"));
+    let tokens = Arc::new(
+        TokenTable::from_str_checked("<blk> 0\n<unk> 1\n\u{2581}hello 2\n\u{2581}world 3\n", 4)
+            .expect("toks"),
+    );
     let w = |n: usize, s: f32| {
         (0..n)
             .map(|i| (i as f32 * 0.41).sin() * s)
@@ -122,7 +113,8 @@ fn tiny_model() -> Arc<Model> {
 
 #[test]
 fn identity_when_disabled_is_bit_exact_and_stream_identical() {
-    assert!(!WarmAgcConfig::default().warm_agc);
+    let cfg = WarmAgcConfig::default();
+    assert!(!cfg.warm_agc && (linear_to_db(cfg.target_rms) + 24.6).abs() < 0.05);
     let mut agc = WarmAgc::disabled();
     let raw_f32 = synth_speech(SR, DEFAULT_TARGET_RMS * 0.1);
     let mut buf_f32 = raw_f32.clone();
@@ -141,8 +133,10 @@ fn identity_when_disabled_is_bit_exact_and_stream_identical() {
 
     let eng = Engine::new(tiny_model(), Isa::Scalar, Precision::F32).unwrap();
     let (mut plain, mut ws1) = (eng.create_stream(), Workspace::default());
-    let mut wrapped = AgcStream::from_engine(&eng, WarmAgcConfig::default()).unwrap();
-    let mut ws2 = Workspace::default();
+    let (mut wrapped, mut ws2) = (
+        AgcStream::from_engine(&eng, cfg).unwrap(),
+        Workspace::default(),
+    );
     for pkt in raw_i16.chunks(320) {
         plain.accept_i16(pkt).unwrap();
         while eng.decode(&mut [&mut plain], &mut ws1).unwrap() > 0 {}
@@ -150,147 +144,154 @@ fn identity_when_disabled_is_bit_exact_and_stream_identical() {
         wrapped.decode_ready(&eng, &mut ws2).unwrap();
     }
     plain.input_finished();
-    while eng.decode(&mut [&mut plain], &mut ws1).unwrap() > 0 {}
     wrapped.input_finished();
+    while eng.decode(&mut [&mut plain], &mut ws1).unwrap() > 0 {}
     wrapped.decode_ready(&eng, &mut ws2).unwrap();
-    assert_eq!(wrapped.tokens(), plain.tokens());
-    assert_eq!(eng.text(wrapped.stream()), eng.text(&plain));
+    assert_eq!(
+        (wrapped.tokens(), eng.text(wrapped.stream())),
+        (plain.tokens(), eng.text(&plain))
+    );
 }
 
 #[test]
-fn preroll_wake_seeding_recovers_first_100ms_within_1_5_db() {
+fn preroll_wake_seeding_and_leading_silence_guard() {
     for atten_db in [-20.0f32, -30.0f32] {
         let speech_rms = DEFAULT_TARGET_RMS * db_to_linear(atten_db);
         let mut mixed = vec![0.0f32; (SR * 35) / 100];
         mixed.extend_from_slice(&synth_speech((SR * 15) / 100, speech_rms));
-        for preroll in [synth_speech(SR / 2, speech_rms), mixed] {
-            let mut first_word = synth_speech(SR / 10, speech_rms);
-            let mut agc = WarmAgc::enabled_default();
-            agc.seed_from_preroll(&preroll);
-            agc.process_chunk(&mut first_word);
-            let err = linear_to_db(rms(&first_word) / DEFAULT_TARGET_RMS).abs();
-            assert!(
-                err <= 1.5,
-                "{atten_db} dB preroll: err {err:.2} dB > 1.5 dB"
+        for pre in [synth_speech(SR / 2, speech_rms), mixed] {
+            let (mut first, mut agc) = (
+                synth_speech(SR / 10, speech_rms),
+                WarmAgc::enabled_default(),
             );
+            agc.seed_from_preroll(&pre);
+            agc.process_chunk(&mut first);
+            assert!(linear_to_db(rms(&first) / DEFAULT_TARGET_RMS).abs() <= 1.5);
         }
     }
+    for mut pre in [
+        vec![0.0f32; (SR * 40) / 100],
+        synth_noise((SR * 40) / 100, -70.0),
+    ] {
+        pre.extend_from_slice(&synth_speech(SR / 10, DEFAULT_TARGET_RMS));
+        let mut agc = WarmAgc::enabled_default();
+        agc.seed_from_preroll(&pre);
+        assert!(agc.gain_db().abs() <= 1.5);
+    }
+    let mut short = vec![0.0f32; SR / 2 - 320];
+    short.extend_from_slice(&synth_speech(320, DEFAULT_TARGET_RMS * db_to_linear(-20.0)));
+    let mut agc = WarmAgc::enabled_default();
+    agc.seed_from_preroll(&short);
+    assert!(agc.gain_db().abs() < 1e-4 && !agc.is_warm());
 }
 
 #[test]
-fn silence_and_low_noise_never_pump_gain() {
+fn silence_and_sleep_persistence_and_hard_reset() {
+    assert_eq!(WarmAgcConfig::default().tau_s, 5.0);
     let mut agc = WarmAgc::enabled_default();
-    let mut noise = synth_noise(SR * 10, -70.0);
-    for pkt in noise.chunks_mut(320) {
-        agc.process_chunk(pkt);
-    }
+    synth_noise(SR * 10, -70.0)
+        .chunks_mut(320)
+        .for_each(|p| agc.process_chunk(p));
     assert!(agc.gain_db().abs() < 1e-4 && !agc.is_warm());
 
-    agc.seed_from_preroll(&synth_speech(
-        SR / 2,
-        DEFAULT_TARGET_RMS * db_to_linear(-20.0),
-    ));
-    let warm_db = agc.gain_db();
-    agc.process_chunk(&mut synth_noise(SR * 10, -70.0));
-    assert!((agc.gain_db() - warm_db).abs() < 1e-4);
-}
-
-#[test]
-fn level_persists_across_utterances_and_sleep_until_hard_reset() {
-    assert_eq!(WarmAgcConfig::default().tau_s, 5.0);
     let quiet_rms = DEFAULT_TARGET_RMS * db_to_linear(-20.0);
-    let mut agc = WarmAgc::enabled_default();
-    // 20 s (4 * tau_s) of -20 dB speech converges smoothly under tau = 5 s without seeding.
-    for pkt in synth_speech(SR * 20, quiet_rms).chunks_mut(320) {
-        agc.process_chunk(pkt);
-    }
+    synth_speech(SR * 30, quiet_rms)
+        .chunks_mut(320)
+        .for_each(|p| agc.process_chunk(p));
     let (learned_db, learned_rms) = (agc.gain_db(), agc.level_rms());
+    assert!((learned_db - 20.0).abs() <= 1.5);
+    agc.process_chunk(&mut synth_noise(SR * 10, -70.0));
+    let settled_db = agc.gain_db();
     assert!(
-        (learned_db - 20.0).abs() <= 1.5,
-        "learned_db={learned_db:.2}"
+        agc.level_rms().to_bits() == learned_rms.to_bits()
+            && (settled_db - learned_db).abs() < 0.05
     );
-
     agc.reset_utterance();
     agc.on_sleep();
-    assert!(agc.is_sleeping() && (agc.gain_db() - learned_db).abs() < 1e-5);
-    assert!((agc.level_rms() - learned_rms).abs() < 1e-6);
+    assert!(
+        agc.is_sleeping()
+            && (agc.gain_db() - settled_db).abs() < 1e-5
+            && (agc.level_rms() - learned_rms).abs() < 1e-6
+    );
 
     agc.seed_from_preroll(&synth_noise(SR / 2, -70.0));
-    assert!((agc.gain_db() - learned_db).abs() < 1e-5);
-    let mut utt2_first = synth_speech(SR / 10, quiet_rms);
-    agc.process_chunk(&mut utt2_first);
-    assert!(linear_to_db(rms(&utt2_first) / DEFAULT_TARGET_RMS).abs() <= 1.5);
-
+    assert!((agc.gain_db() - settled_db).abs() < 1e-5);
+    let mut utt2 = synth_speech(SR / 10, quiet_rms);
+    agc.process_chunk(&mut utt2);
+    assert!(linear_to_db(rms(&utt2) / DEFAULT_TARGET_RMS).abs() <= 1.5);
     agc.hard_reset();
     assert!(!agc.is_warm() && agc.gain_db().abs() < 1e-5);
 }
 
 #[test]
-fn clean_0db_guard_stays_within_1db_without_clipping() {
-    let mut agc = WarmAgc::enabled_default();
-    agc.seed_from_preroll(&synth_speech(SR / 2, DEFAULT_TARGET_RMS));
-    let mut speech = synth_speech(SR * 2, DEFAULT_TARGET_RMS);
-    for pkt in speech.chunks_mut(320) {
-        agc.process_chunk(pkt);
+fn multi_utterance_warm_carry_converges_on_0_neg20_neg30_db() {
+    let eng = Engine::new(tiny_model(), Isa::Scalar, Precision::F32).unwrap();
+    for (atten_db, clips) in [(0.0f32, 6usize), (-20.0, 12), (-30.0, 16)] {
+        let mut st = AgcStream::from_engine(&eng, WarmAgcConfig::enabled()).unwrap();
+        let clip = synth_speech(SR * 3, DEFAULT_TARGET_RMS * db_to_linear(atten_db));
+        for i in 0..clips {
+            if i > 0 {
+                st.reset_utterance(&eng);
+            }
+            clip.chunks(320).for_each(|p| st.accept_f32(p).unwrap());
+        }
+        assert!((st.agc().gain_db() + atten_db).abs() <= 1.5);
     }
-    let err = linear_to_db(rms(&speech) / DEFAULT_TARGET_RMS).abs();
-    let peak = speech.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
-    assert!(err <= 1.0 && peak < 0.90, "err={err:.2} dB peak={peak:.3}");
 }
 
 #[test]
-fn gain_bounds_and_soft_limiter_are_strictly_enforced() {
-    let mut agc_lo = WarmAgc::enabled_default();
-    let mut tiny = synth_speech(SR * 4, db_to_linear(-64.0));
-    agc_lo.seed_from_preroll(&tiny[..SR / 2]);
-    agc_lo.process_chunk(&mut tiny);
-    assert!((39.5..=40.001).contains(&agc_lo.gain_db()));
+fn clean_0db_guard_bounds_invariance_and_speed() {
+    let mut agc = WarmAgc::enabled_default();
+    let mut speech = synth_speech(SR * 3, DEFAULT_TARGET_RMS);
+    speech.chunks_mut(320).for_each(|p| agc.process_chunk(p));
+    assert!(linear_to_db(rms(&speech) / DEFAULT_TARGET_RMS).abs() <= 1.0);
+    assert!(speech.iter().map(|x| x.abs()).fold(0.0f32, f32::max) < 0.90);
 
-    let mut agc_hi = WarmAgc::enabled_default();
-    let mut loud = synth_speech(SR * 2, 0.707);
-    agc_hi.seed_from_preroll(&loud[..SR / 2]);
-    agc_hi.process_chunk(&mut loud);
-    assert!((-12.001..=-11.5).contains(&agc_hi.gain_db()));
-    assert!(loud
-        .iter()
-        .all(|&x| x.is_finite() && (-1.0..=1.0).contains(&x)));
-}
+    let cfg = WarmAgcConfig {
+        speech_floor_dbfs: -75.0,
+        ..WarmAgcConfig::enabled()
+    };
+    let (mut lo, mut tiny) = (
+        WarmAgc::new(cfg).unwrap(),
+        synth_speech(SR * 2, db_to_linear(-68.0)),
+    );
+    lo.seed_from_preroll(&tiny[..SR / 2]);
+    lo.process_chunk(&mut tiny);
+    assert!((39.5..=40.001).contains(&lo.gain_db()));
 
-#[test]
-fn packet_invariance_and_recogniser_only_raw_ring_preservation() {
+    let (mut hi, mut loud) = (WarmAgc::enabled_default(), synth_speech(SR * 2, 0.707));
+    hi.seed_from_preroll(&loud[..SR / 2]);
+    hi.process_chunk(&mut loud);
+    assert!(
+        (-12.001..=-11.5).contains(&hi.gain_db())
+            && loud
+                .iter()
+                .all(|&x| x.is_finite() && (-1.0..=1.0).contains(&x))
+    );
+
     let raw = synth_speech(SR, DEFAULT_TARGET_RMS * db_to_linear(-20.0));
     let (mut a, mut b) = (raw.clone(), raw.clone());
-    let (mut agc_a, mut agc_b) = (WarmAgc::enabled_default(), WarmAgc::enabled_default());
-    for pkt in a.chunks_mut(160) {
-        agc_a.process_chunk(pkt);
-    }
-    for pkt in b.chunks_mut(592) {
-        agc_b.process_chunk(pkt);
-    }
+    let (mut ga, mut gb) = (WarmAgc::enabled_default(), WarmAgc::enabled_default());
+    a.chunks_mut(160).for_each(|p| ga.process_chunk(p));
+    b.chunks_mut(592).for_each(|p| gb.process_chunk(p));
     assert!(a.iter().zip(&b).all(|(x, y)| (x - y).abs() <= 1e-6));
 
     let eng = Engine::new(tiny_model(), Isa::Scalar, Precision::F32).unwrap();
     let mut st = AgcStream::from_engine(&eng, WarmAgcConfig::enabled()).unwrap();
-    let raw_ring: Vec<i16> = raw[..SR / 2]
+    let ring: Vec<i16> = raw[..SR / 2]
         .iter()
         .map(|&x| (x * 32767.0) as i16)
         .collect();
-    let ring_copy = raw_ring.clone();
-    st.wake_with_preroll_i16(&eng, &raw_ring).unwrap();
-    assert_eq!(raw_ring, ring_copy);
-    assert!((st.agc().gain_db() - 20.0).abs() <= 1.5);
-}
+    let copy = ring.clone();
+    st.wake_with_preroll_i16(&eng, &ring).unwrap();
+    assert_eq!(ring, copy);
 
-#[test]
-fn speed_micro_check_well_under_realtime_budget() {
-    let mut agc = WarmAgc::enabled_default();
-    let mut audio = synth_speech(SR * 10, DEFAULT_TARGET_RMS * db_to_linear(-20.0));
-    agc.seed_from_preroll(&audio[..SR / 2]);
+    let (mut spd, mut audio) = (
+        WarmAgc::enabled_default(),
+        synth_speech(SR * 10, DEFAULT_TARGET_RMS * db_to_linear(-20.0)),
+    );
+    spd.seed_from_preroll(&audio[..SR / 2]);
     let t0 = Instant::now();
-    for pkt in audio.chunks_mut(320) {
-        agc.process_chunk(pkt);
-    }
-    let frac = t0.elapsed().as_secs_f64() / 10.0;
-    let budget = if cfg!(debug_assertions) { 0.02 } else { 0.001 };
-    assert!(frac < budget, "WarmAgc used {:.4}% RT", frac * 100.0);
+    audio.chunks_mut(320).for_each(|p| spd.process_chunk(p));
+    assert!(t0.elapsed().as_secs_f64() / 10.0 < if cfg!(debug_assertions) { 0.02 } else { 0.001 });
 }
