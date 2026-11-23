@@ -146,3 +146,33 @@ Paired comparisons (B − A; speaker-cluster bootstrap; one-sided 95% bounds una
 - **Wake:** the first hot hop at or after the MFA first-word onset comes within the 1 s ring on **5,567 / 5,567** transitions; delay p50 / p95 / p99 / max = 10 / 60 / 90 / 450 ms (worst gap types pink −40 and white −30). Criterion 1 (≥ 99.8%) holds on the real gaps, not only on PR #75's synthetic pre-onset background.
 - **Sleep opportunity:** the gate is cold over the last 80 ms of 98.7% of the gaps; the exceptions are all brown noise (35 / 310 at −30 dBFS, 30 / 310 at −20, 4 / 309 at −40).
 - **Hot hops inside the gaps:** silence 0.15%, brown −40 0.7%, brown −30 / −20 7–11%, pink and white ~13% (mostly the ~1.5 s the floor needs to forget the utterance's quiet tail when a noise gap starts).
+
+### Amendments 3 and 4: the close, the pre-roll, and the real Sentinel-0 segments (exploratory; post-hoc arms labelled; report `results/O_oracle_report_all.json`)
+| Arm | WER | Gap false words (95% upper / h) | First word, all / after sleep / after noise gaps | Decoded duty |
+|---|---:|---:|---:|---:|
+| C1 continuous, T=1500 / R=1000 | 8.377% | 5 (0.62) | 88.92 / 88.81 / 88.72% | 100% |
+| O0 isolated | 8.273% | 1 (0.28) | 90.07 / 89.94 / 90.51% | 38.1% |
+| O3 (flush at close) | 8.297% | 10 (1.00) | 89.35 / 89.37 / 89.36% | 49.9% |
+| O3n (no flush) | 8.297% | **0** (0.18) | 89.35 / 89.37 / 89.36% | 49.9% |
+| O3n-r500 (pre-roll 500 ms) | **8.132%** | 0 (0.18) | 90.12 / 89.99 / 90.48% | 47.1% |
+| O3n-r300 (pre-roll 300 ms) | 8.115% | 2 (0.37) | 90.10 / 89.98 / 90.48% | 46.0% |
+| S1n real Sentinel-0 segments, R 1 s, no flush | 8.341% | 8 (0.85) | 88.70 / 88.85 / 88.11% | 53.7% |
+| S1f the same with flush | 8.342% | 20 (1.70) | 88.70 / 88.85 / 88.11% | 53.7% |
+
+| B − A | ΔWER pp | bounds | Bonferroni (family) | Δ first word, after sleep (bounds) |
+|---|---:|---|---|---|
+| O3n − O3 | 0.000 | [0.000, 0.000] | (5) | 0.00 |
+| O3n-r500 − O3n | −0.165 | [−0.248, −0.076] | [−0.284, −0.042] | +0.63 [+0.18, +1.07] |
+| O3n-r300 − O3n | −0.182 | [−0.277, −0.083] | [−0.316, −0.042] | +0.61 [0.00, +1.22] |
+| O3n − O0 | +0.024 | [−0.070, +0.116] | [−0.109, +0.156] | −0.57 [−1.06, −0.08] |
+| O3n-r500 − O0 | −0.141 | [−0.222, −0.064] | [−0.254, −0.034] | +0.06 [−0.33, +0.45] |
+| **S1n − C1** | **−0.036** | [−0.113, +0.041] | [−0.129, +0.054] (2) | +0.04 [−0.43, +0.51] |
+| S1f − S1n | +0.001 | [0.000, +0.003] | [0.000, +0.003] (2) | 0.00 |
+| O3n-r500 − C1 (descriptive) | −0.245 | [−0.340, −0.151] | [−0.369, −0.121] (3) | +1.18 [+0.67, +1.69] |
+
+**Readings (as pre-registered in amendments 3 and 4):**
+- **(3a) PASS: the close must not flush.** O3n has 0 gap false words where O3 had 10, at an identical WER (|Δ| = 0.000 ≤ 0.05 pp). On the real gate's segments, flushing adds 12 false words (S1f 20 vs S1n 8). The session must close on complete chunks only and never emit text at a close; Q checks this on #77's session.
+- **(3b) PASS: recommend a 500 ms pre-roll.** O3n-r500 recovers all of O3n's first-word loss against O0 (−0.57 → +0.06 pp after sleep; after noise gaps 89.36 → 90.48%, O0 90.51%) and also lowers WER by 0.165 pp (Bonferroni [−0.284, −0.042]). Sentinel-0's measured wake delay on this stream is ≤ 450 ms, so 500 ms covers every onset. O3n-r300 shows the same trend. Input to the swarm's B-6 sweep.
+- **(4) PASS: criterion 2 of the skip-gate simulation.** With the swarm's real Sentinel-0 segments (R 1 s, gate-driven close after 1.5 s cold, no flush), the stream WER is −0.036 pp against C1 (upper bound +0.041, ≤ +0.20) and first-word recall after sleep +0.04 pp (lower bound −0.43, ≥ −0.5). Gap false words: 8 against C1's 5. 2 are genuine last words emitted more than 0.5 s after the utterance end (a scorer-allowance artefact), 5 are "SH" / "W" decoded inside the 1.5 s hangover in loud white / pink noise, and 1 is a first word emitted less than 0.5 s after its utterance start (the same artefact). Added rate 3 / 17.06 h.
+- **Not yet passing on the real segments: first words after noise gaps.** S1n keeps 88.11% against C1's 88.72% there; S1n − O3n is −0.65 pp overall. Amendment 5 tests R = 500 ms on the real segments.
+- **The ideal configuration** (word-onset wake, 500 ms pre-roll, no-flush close) beats today's always-on configuration by 0.245 pp WER and 1.18 pp first-word recall, at 47.1% decoded duty.
