@@ -24,8 +24,10 @@ test-crate crate:
     cargo clippy -p {{crate}} --all-targets -- -D warnings
     cargo test -p {{crate}} -q
 
+# Without a full .venv (torch etc.), run at least the torch-free CI lane instead of skipping silently:
+# a gate that skipped pytest let main go red twice on 2026-11-22/23.
 pytest:
-    if [ -x {{py}} ]; then {{py}} -m pytest -q python/ultra/tests; else echo "pytest: no .venv yet (run just venv)"; fi
+    if [ -x {{py}} ]; then {{py}} -m pytest -q python/ultra/tests; else echo "pytest: no .venv; running the torch-free CI lane (ops/ci/pytest-light.sh) instead"; bash ops/ci/pytest-light.sh; fi
 
 venv:
     uv venv --python 3.12 .venv
