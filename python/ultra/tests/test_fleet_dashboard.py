@@ -1,6 +1,6 @@
 from tools.fleet_dashboard.parse import RunState, classify_cohort, global_summary, parse_line, parse_nvidia
 from tools.fleet_dashboard.remote_tail import infer_total_steps_from_cmd, parse_remote_payload
-from tools.fleet_dashboard.server import host_for
+from tools.fleet_dashboard.server import LINUX_PROBE, MAC_PROBE, host_for
 
 
 def test_parse_train_and_eval_lines():
@@ -107,3 +107,27 @@ def test_rank_heartbeat_summary():
                         "audio_s": 3600.0 * 5, "interval_s": 3.6, "loss": 1.4, "compute_s": 2.1, "comm_s": 0.9,
                         "wait_s": 0.1, "sleep_s": 0.5}, now=1000.0)
     assert r["ahh"] == 5000.0 and r["rank"] == 3 and r["age"] == 10.0 and r["comm_s"] == 0.9
+
+
+def test_probe_counts_trainer_and_mwer_runs():
+    """The probe names a node's runs from `-m train.trainer --run-dir D` and `-m train.mwer --out D/model.pt`
+    (an MWER fine-tune is a training run too; missing it marked busy GPUs idle on 2026-11-22)."""
+    import shutil
+    import subprocess
+
+    import pytest
+
+    if shutil.which("bash") is None:
+        pytest.skip("needs bash")
+    ps_out = "\n".join([
+        "python -m train.trainer --run-dir /data/runs/train/A1_S/ --preset S",
+        "python -m train.mwer --init /data/x/model.pt --out /data/runs/train/MWER_S/model-final.pt --steps 10",
+        "python -m train.evaluate --run-dir /data/runs/train/NOT_A_RUN",
+        "grep -E -- -m train.trainer",
+    ]) + "\n"
+    for probe, ps in ((LINUX_PROBE, "ps -eo args"), (MAC_PROBE, "ps -axo command")):
+        line = next(ln for ln in probe.splitlines() if ln.startswith(ps))
+        pipe = "cat" + line[len(ps):].split("; echo GPUS")[0]
+        out = subprocess.run(["bash", "-c", pipe], input=ps_out, capture_output=True, text=True, check=True).stdout
+        assert out.split() == ["RUN", "A1_S", "RUN", "MWER_S"], (ps, out)
+

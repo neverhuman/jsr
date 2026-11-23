@@ -169,6 +169,9 @@ Averaging the last 3 snapshots is free at inference and recovers about as much a
 - A blank penalty never helps D2 and helps D2MR only marginally at 0.5, so it is not worth a separate per-model setting.
 - All of this is DEV-chosen. Test sets were never decoded.
 
+## Ops that feed this wave
+`python/ultra/train/evaluate.py --nbest` writes each final beam and the N-best oracle WER. The NVMe-local backfill (`python/ultra/train/ops/stage_h0_cache.sh`, `backfill_h0_local.sh`, `eval_queue.sh`) reads caches from internal disk, so those jobs do not share the exFAT volume a trainer reads. The numbers they produce stay exploratory until a qualifying window.
+
 ## Next (proposed)
 - Bounded native beam (width 2–4) in `ultra-engine` as a measured product option: WER vs CPU-s/s on the panel. This is engine lane work.
 - Dual-mode fine-tune of D2 (streaming + full-context branch, consistency loss), 20–30k steps, against a control with the same steps. Measure at chunk 4 and at chunk 8.

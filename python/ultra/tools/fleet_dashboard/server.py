@@ -43,13 +43,13 @@ LINUX_PROBE = r"""read -r _ a b c d e f g h _ < /proc/stat; t1=$((a+b+c+d+e+f+g+
 read -r _ a b c d e f g h _ < /proc/stat; t2=$((a+b+c+d+e+f+g+h)); i2=$((d+e))
 echo "CPU $(( 1000*((t2-t1)-(i2-i1))/(t2-t1) ))"; echo "NCPU $(nproc)"
 free -m | awk '/Mem/{print "MEM",$3,$2}'; awk '{print "LOAD",$1}' /proc/loadavg
-ps -eo args | grep -E -- '-m train[.]trainer ' | grep -oE -- '--run-dir [^ ]+' | sed 's#.*/#RUN #'; echo GPUS
+ps -eo args | grep -E -- '-m train[.](trainer|mwer) ' | grep -oE -- '--(run-dir|out) [^ ]+' | sed -E 's#/+$##; s#/[^/]*[.]pt$##; s#.*/#RUN #'; echo GPUS
 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits 2>/dev/null || true"""
 
 MAC_PROBE = r"""idle=$(top -l 2 -n 0 -s 1 | awk '/CPU usage/ {v=$7} END {sub("%","",v); print v}')
 echo "CPU $(awk -v i="$idle" 'BEGIN{printf "%d", (100-i)*10}')"; echo "NCPU $(sysctl -n hw.ncpu)"
 echo "LOAD $(sysctl -n vm.loadavg | awk '{print $2}')"
-ps -axo command | grep -E -- '-m train[.]trainer ' | grep -oE -- '--run-dir [^ ]+' | sed 's#.*/#RUN #' 
+ps -axo command | grep -E -- '-m train[.](trainer|mwer) ' | grep -oE -- '--(run-dir|out) [^ ]+' | sed -E 's#/+$##; s#/[^/]*[.]pt$##; s#.*/#RUN #' 
 g=$(ioreg -r -d 1 -w 0 -c IOAccelerator | grep -o 'Device Utilization %.=[0-9]*' | head -1 | grep -o '[0-9]*$')
 echo GPUS; echo "0, M3 Ultra (MPS), ${g:-0}, 0, 0, 0, 0" """
 
