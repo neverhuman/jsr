@@ -283,3 +283,28 @@ def test_swap_weights_keeps_optimizer_and_schedule(workdir):
     for k, v in opt_before.items():
         assert torch.equal(u.opt.state_dict()["state"][0][k], v)
     assert u.sched.state_dict() == sched_before and u.step == 3 and info["kept"] == []
+
+
+def test_divergence_guard_keeps_a_margin_when_the_best_loss_is_negative(workdir):
+    """A delay penalty can push the train loss below zero. The rule best + ratio x |best| equals
+    (1 + ratio) x best for a positive best; for a negative best it must not trip on a small rise
+    (H41 arm 13b stopped on -0.783 against a best of -0.846), and must still trip on a real one."""
+    import pytest
+
+    from train.errors import DivergenceError
+
+    t = _trainer(workdir)
+    t.cfg.diverge_after, t.cfg.diverge_patience, t.cfg.diverge_ratio = 0, 0, 0.3
+    t.best_ema, t.step = -0.846, 1300
+    for _ in range(50):
+        t._watch_loss({"loss": -0.783, "grad_norm": 1.0})
+    assert t.over_since is None and t.best_ema == -0.846
+    with pytest.raises(DivergenceError):
+        for _ in range(500):
+            t._watch_loss({"loss": 0.5, "grad_norm": 1.0})
+    u = _trainer(workdir + "_pos")
+    u.cfg.diverge_after, u.cfg.diverge_patience, u.cfg.diverge_ratio = 0, 0, 0.3
+    u.best_ema = 1.0
+    u.loss_ema = 1.29
+    u._watch_loss({"loss": 1.29, "grad_norm": 1.0})  # under (1 + 0.3) x 1.0: unchanged behaviour
+    assert u.over_since is None

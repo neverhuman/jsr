@@ -36,6 +36,7 @@ class Example:
     rnnt: list[int]
     ctc: list[int]
     kd: tuple | None = None  # H22 teacher targets (ids, lp, u, ok) from train.kd.TeacherStore
+    ctx: int = 0  # H41 arm 11: prepended stream-context feature frames (not part of the utterance)
 
     @property
     def seconds(self) -> float:
@@ -54,16 +55,18 @@ class Batch:
     ctc_lens: torch.Tensor
     kd: tuple | None = None  # (kd_ids, kd_lp, kd_u, kd_mask), padded to the longest teacher track
     active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
+    ctx: torch.Tensor | None = None  # per-row prepended context frames (train.stream_ctx)
 
     @property
     def audio_seconds(self) -> float:
-        return float(self.feat_lens.sum()) / 100.0 if self.active else 0.0
+        n = float(self.feat_lens.sum()) - (float(self.ctx.sum()) if self.ctx is not None else 0.0)
+        return n / 100.0 if self.active else 0.0
 
     def to(self, device) -> Batch:
         return Batch(self.uids, self.texts, *(t.to(device) for t in (
             self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
             kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
-            active=self.active)
+            active=self.active, ctx=self.ctx.to(device) if self.ctx is not None else None)
 
 
 @dataclass(frozen=True)
@@ -99,7 +102,8 @@ def collate(exs: list[Example], pad_frames: int = 0, pad_tokens: int = 0) -> Bat
                  torch.tensor([e.feats.shape[0] for e in exs]),
                  pad([e.rnnt for e in exs], torch.long), torch.tensor([len(e.rnnt) for e in exs]),
                  pad([e.ctc for e in exs], torch.long), torch.tensor([len(e.ctc) for e in exs]),
-                 kd=_collate_kd(exs))
+                 kd=_collate_kd(exs),
+                 ctx=torch.tensor([e.ctx for e in exs]) if any(e.ctx for e in exs) else None)
 
 
 def _collate_kd(exs: list[Example]):
@@ -276,6 +280,7 @@ class ParquetBatches:
         self.carry_width: tuple[int, int] | None = None
         self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
         self.ddp_global_batches = False
+        self.stream_ctx_s, self.stream_ctx_cap, self._ctx_bank = 0.0, 1.5, None  # H41 arm 11 (0 = off)
         self.rank_weights: tuple | None = None  # per-rank relative speed (None = equal shares)
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
@@ -454,6 +459,15 @@ class ParquetBatches:
             return list(zip(out, active, strict=True))
         return out
 
+    def _with_context(self, exs: list, epoch: int) -> list:
+        if not self.stream_ctx_s:
+            return exs
+        from train.stream_ctx import ContextBank, add_context
+
+        if self._ctx_bank is None:
+            self._ctx_bank = ContextBank(self.feat.logmel)
+        return add_context(exs, self._ctx_bank, self.seed, epoch, self.stream_ctx_s, self.stream_ctx_cap)
+
     def iterate(self, start: Position):
         """Yield (position after this batch, Batch) forever, from `start`; one window prefetched."""
         q: queue.Queue = queue.Queue(maxsize=2)
@@ -497,10 +511,10 @@ class ParquetBatches:
                     group = batches[bi]
                     if self.ddp_global_batches and self.world > 1:
                         examples, active = group
-                        batch = collate(examples, self.pad_frames, self.pad_tokens)
+                        batch = collate(self._with_context(examples, ep), self.pad_frames, self.pad_tokens)
                         batch.active = active
                     else:
-                        batch = collate(group, self.pad_frames, self.pad_tokens)
+                        batch = collate(self._with_context(group, ep), self.pad_frames, self.pad_tokens)
                     yield nxt, batch
         finally:
             stop.set()
