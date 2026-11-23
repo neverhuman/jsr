@@ -28,6 +28,10 @@ use crate::EngineError;
 #[derive(Debug, Clone)]
 pub struct Hyp {
     pub tokens: Vec<u32>,
+    /// Index in `tokens` where the current predictor/LM context begins (advanced on
+    /// [`BeamState::reset_context`] so previously emitted tokens remain preserved while
+    /// predictor and LM context reset to the configured start tokens and BOS).
+    pub ctx_start: usize,
     pub score: f32,
     dec: Arc<Vec<f32>>,
     dec_ok: bool,
@@ -45,6 +49,7 @@ impl BeamState {
         Self {
             hyps: vec![Hyp {
                 tokens: Vec::new(),
+                ctx_start: 0,
                 score: 0.0,
                 dec: Arc::new(vec![0.0; m.arch.joiner]),
                 dec_ok: false,
@@ -53,24 +58,43 @@ impl BeamState {
         }
     }
 
-    /// The best hypothesis' tokens (first of equal maxima in insertion order).
-    pub fn best(&self) -> &[u32] {
+    /// The best hypothesis (first of equal maxima in insertion order).
+    pub(crate) fn best_hyp(&self) -> &Hyp {
         let mut b = 0;
         for (i, h) in self.hyps.iter().enumerate() {
             if h.score > self.hyps[b].score {
                 b = i;
             }
         }
-        &self.hyps[b].tokens
+        &self.hyps[b]
+    }
+
+    /// The best hypothesis' tokens (first of equal maxima in insertion order).
+    pub fn best(&self) -> &[u32] {
+        &self.best_hyp().tokens
+    }
+
+    pub(crate) fn shared_prefix(&self) -> &[u32] {
+        let first = &self.hyps[0].tokens;
+        let common = self.hyps[1..].iter().fold(first.len(), |len, hyp| {
+            first[..len]
+                .iter()
+                .zip(&hyp.tokens)
+                .take_while(|(a, b)| a == b)
+                .count()
+        });
+        &first[..common]
     }
 
     /// Collapse the beam to a single hypothesis at the start of a fresh utterance segment,
-    /// preserving the emitted tokens while clearing stale predictor context.
+    /// preserving previously emitted tokens while resetting predictor and LM context cleanly.
     pub fn reset_context(&mut self, m: &Model) {
         let best_tokens = self.best().to_vec();
+        let ctx_start = best_tokens.len();
         self.hyps.clear();
         self.hyps.push(Hyp {
             tokens: best_tokens,
+            ctx_start,
             score: 0.0,
             dec: Arc::new(vec![0.0; m.arch.joiner]),
             dec_ok: false,
@@ -107,13 +131,16 @@ fn logaddexp(a: f32, b: f32) -> f32 {
     m + (-(a - b).abs()).exp().ln_1p()
 }
 
-/// The predictor context of a hypothesis, BLANK-padded as in beam.py.
-fn context(tokens: &[u32], blank: usize) -> [usize; 2] {
-    let n = tokens.len();
-    [
-        if n > 1 { tokens[n - 2] as usize } else { blank },
-        if n > 0 { tokens[n - 1] as usize } else { blank },
-    ]
+/// The predictor context of a hypothesis, padded with the configured initial context.
+pub(crate) fn context<'a>(
+    tokens: &'a [u32],
+    initial: &'a [usize],
+) -> impl Iterator<Item = usize> + 'a {
+    let kept = tokens.len().min(initial.len());
+    initial[kept..]
+        .iter()
+        .copied()
+        .chain(tokens[tokens.len() - kept..].iter().map(|&id| id as usize))
 }
 
 /// A candidate: (score, hypothesis index, token).
@@ -134,11 +161,14 @@ fn refresh_beam_pred(m: &Model, isa: Isa, states: &mut [&mut BeamState], ws: &mu
     if ws.beam_need.is_empty() {
         return;
     }
-    let (jn, e, blank) = (m.arch.joiner, m.arch.pred_emb, m.arch.blank);
+    let (jn, e) = (m.arch.joiner, m.arch.pred_emb);
+    let initial = &m.arch.ctx_init;
     if let Some(pc) = &m.pred_cache {
         for &(s, h) in &ws.beam_need {
             let hy = &mut states[s].hyps[h];
-            let [t0, t1] = context(&hy.tokens, blank);
+            let mut tokens = context(&hy.tokens[hy.ctx_start..], initial);
+            let t0 = tokens.next().expect("first cached context position");
+            let t1 = tokens.next().expect("second cached context position");
             let a = &pc.h0[t0 * jn..(t0 + 1) * jn];
             let b = &pc.h1[t1 * jn..(t1 + 1) * jn];
             let dec = Arc::make_mut(&mut hy.dec);
@@ -150,14 +180,12 @@ fn refresh_beam_pred(m: &Model, isa: Isa, states: &mut [&mut BeamState], ws: &mu
         return;
     }
     let need_len = ws.beam_need.len();
-    let inp = grow(&mut ws.emb_in, need_len * 2 * e);
+    let inp = grow(&mut ws.emb_in, need_len * initial.len() * e);
     for (r, &(s, h)) in ws.beam_need.iter().enumerate() {
-        for (half, tok) in context(&states[s].hyps[h].tokens, blank)
-            .into_iter()
-            .enumerate()
-        {
-            inp[(2 * r + half) * e..(2 * r + half + 1) * e]
-                .copy_from_slice(&m.emb[tok * e..(tok + 1) * e]);
+        let hy = &states[s].hyps[h];
+        for (position, tok) in context(&hy.tokens[hy.ctx_start..], initial).enumerate() {
+            let start = (initial.len() * r + position) * e;
+            inp[start..start + e].copy_from_slice(&m.emb[tok * e..(tok + 1) * e]);
         }
     }
     let out = grow(&mut ws.dec_out, need_len * jn);
@@ -165,7 +193,7 @@ fn refresh_beam_pred(m: &Model, isa: Isa, states: &mut [&mut BeamState], ws: &mu
         isa,
         Precision::F32,
         &m.pred_proj,
-        &ws.emb_in[..need_len * 2 * e],
+        &ws.emb_in[..need_len * initial.len() * e],
         need_len,
         out,
         &mut ws.q,
@@ -309,7 +337,7 @@ pub fn beam_chunk_with_lm(
                 for &s in &ws.beam_active {
                     for hy in &mut states[s].hyps {
                         if hy.lm_ctx.is_none() {
-                            hy.lm_ctx = Some(ngram.ctx_state(&hy.tokens));
+                            hy.lm_ctx = Some(ngram.ctx_state(&hy.tokens[hy.ctx_start..]));
                         }
                     }
                 }
@@ -575,6 +603,7 @@ pub fn beam_chunk_with_lm(
                             &mut next,
                             Hyp {
                                 tokens,
+                                ctx_start: parent.ctx_start,
                                 score: c.score,
                                 dec: Arc::clone(&parent.dec),
                                 dec_ok,
@@ -593,6 +622,7 @@ pub fn beam_chunk_with_lm(
                                 &mut done[s],
                                 Hyp {
                                     tokens: parent.tokens.clone(),
+                                    ctx_start: parent.ctx_start,
                                     score: c.score,
                                     dec: Arc::clone(&parent.dec),
                                     dec_ok: parent.dec_ok,
@@ -606,6 +636,7 @@ pub fn beam_chunk_with_lm(
                                 &mut expand,
                                 Hyp {
                                     tokens: tk,
+                                    ctx_start: parent.ctx_start,
                                     score: c.score,
                                     dec: Arc::clone(&parent.dec),
                                     dec_ok: false,
@@ -654,6 +685,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn predictor_uses_the_configured_initial_context_until_displaced() {
+        let initial = [5, 6, 7];
+        assert!(context(&[], &initial).eq([5, 6, 7]));
+        assert!(context(&[8], &initial).eq([6, 7, 8]));
+        assert!(context(&[8, 9, 10, 11], &initial).eq([9, 10, 11]));
+    }
+
+    #[test]
     fn logaddexp_and_log_softmax_basics() {
         assert!((logaddexp(0.0, 0.0) - std::f32::consts::LN_2).abs() < 1e-7);
         assert_eq!(logaddexp(-1e30, 3.0), 3.0);
@@ -662,8 +701,46 @@ mod tests {
         let s: f32 = r.iter().map(|v| (v - lse).exp()).sum();
         assert!((s - 1.0).abs() < 1e-6);
         assert!(logsumexp(Isa::Scalar, &[f32::NAN]).is_err());
-        assert_eq!(context(&[], 0), [0, 0]);
-        assert_eq!(context(&[7], 0), [0, 7]);
-        assert_eq!(context(&[5, 7, 9], 0), [7, 9]);
+        assert!(context(&[], &[0, 0]).eq([0, 0]));
+        assert!(context(&[7], &[0, 0]).eq([0, 7]));
+        assert!(context(&[5, 7, 9], &[0, 0]).eq([7, 9]));
+    }
+
+    #[test]
+    fn context_respects_ctx_start_after_reset() {
+        let tokens = vec![12u32, 34, 56];
+        assert!(context(&tokens[0..], &[0, 0]).eq([34, 56]));
+        assert!(context(&tokens[3..], &[0, 0]).eq([0, 0]));
+        let mut extended = tokens.clone();
+        extended.push(78);
+        assert!(context(&extended[3..], &[0, 0]).eq([0, 78]));
+        extended.push(90);
+        assert!(context(&extended[3..], &[0, 0]).eq([78, 90]));
+    }
+
+    #[test]
+    fn shared_prefix_stops_at_first_divergence_across_beam_hyps() {
+        let mk = |tokens: Vec<u32>| Hyp {
+            tokens,
+            ctx_start: 0,
+            score: 0.0,
+            dec: Arc::new(Vec::new()),
+            dec_ok: false,
+            lm_ctx: None,
+        };
+        let single = BeamState {
+            hyps: vec![mk(vec![1, 2, 3])],
+        };
+        assert_eq!(single.shared_prefix(), &[1, 2, 3]);
+
+        let partial = BeamState {
+            hyps: vec![mk(vec![1, 2, 3]), mk(vec![1, 2, 4, 5])],
+        };
+        assert_eq!(partial.shared_prefix(), &[1, 2]);
+
+        let empty = BeamState {
+            hyps: vec![mk(vec![1, 2, 3]), mk(vec![1, 2, 4]), mk(vec![9, 2, 3])],
+        };
+        assert_eq!(empty.shared_prefix(), &[] as &[u32]);
     }
 }

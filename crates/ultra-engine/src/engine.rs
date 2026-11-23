@@ -130,9 +130,13 @@ impl EngineStream {
         self.rows.clear();
         self.mel.push_i16_into(pcm, &mut self.rows);
         self.ring.push_rows(&self.rows);
-        if self.replay_cap > 0 {
-            let extra = self.rows.clone();
-            self.push_replay(&extra);
+        if self.replay_cap > 0 && !self.rows.is_empty() {
+            self.replay_rows.extend_from_slice(&self.rows);
+            if self.replay_rows.len() > self.replay_cap {
+                let drop_n = self.replay_rows.len() - self.replay_cap;
+                self.replay_rows.drain(..drop_n);
+                self.replay_base += drop_n;
+            }
         }
         Ok(())
     }
@@ -142,9 +146,13 @@ impl EngineStream {
         self.rows.clear();
         self.mel.push_f32_into(samples, &mut self.rows);
         self.ring.push_rows(&self.rows);
-        if self.replay_cap > 0 {
-            let extra = self.rows.clone();
-            self.push_replay(&extra);
+        if self.replay_cap > 0 && !self.rows.is_empty() {
+            self.replay_rows.extend_from_slice(&self.rows);
+            if self.replay_rows.len() > self.replay_cap {
+                let drop_n = self.replay_rows.len() - self.replay_cap;
+                self.replay_rows.drain(..drop_n);
+                self.replay_base += drop_n;
+            }
         }
         Ok(())
     }
@@ -629,7 +637,25 @@ impl Engine {
 
     /// Detokenised transcript so far.
     pub fn text(&self, s: &EngineStream) -> String {
-        let ids: Vec<i64> = s.dec.tokens.iter().map(|&t| i64::from(t)).collect();
+        self.text_from(s, 0)
+    }
+
+    /// In beam mode, only text shared by every continuation can be committed.
+    pub fn shared_beam_text(&self, s: &EngineStream) -> Option<String> {
+        s.dec.beam.as_ref().map(|beam| {
+            let ids: Vec<i64> = beam
+                .shared_prefix()
+                .iter()
+                .map(|&token| i64::from(token))
+                .collect();
+            self.model.tokens.decode_ids(&ids)
+        })
+    }
+
+    /// Detokenise only tokens from `start..` (O(delta) for bounded-memory long sessions).
+    pub fn text_from(&self, s: &EngineStream, start: usize) -> String {
+        let slice = s.dec.tokens.get(start..).unwrap_or(&[]);
+        let ids: Vec<i64> = slice.iter().map(|&t| i64::from(t)).collect();
         self.model.tokens.decode_ids(&ids)
     }
 }

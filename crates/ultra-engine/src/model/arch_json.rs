@@ -103,7 +103,7 @@ pub(super) struct RawDecoder {
     pub(super) joiner_activation: String,
     pub(super) blank_id: usize,
     pub(super) max_symbols: usize,
-    pub(super) ctx_init: [usize; 2],
+    pub(super) ctx_init: Vec<usize>,
 }
 
 /// Resolve a declared file inside `root` (no separators, no escaping symlinks) and, when

@@ -106,11 +106,15 @@ pub fn speculative_preview(
         return Ok(None);
     }
     let mut sc = committed.clone();
-    if engine.beam > 1 {
-        let (b, t) = (engine.model.arch.blank, &sc.dec.tokens);
-        let p0 = t.len().checked_sub(2).map_or(b, |i| t[i] as usize);
-        sc.dec.ctx = [p0, t.last().map_or(b, |&v| v as usize)];
-        (sc.dec.dec_ok, sc.dec.beam) = (false, None);
+    if let Some(beam) = sc.dec.beam.take() {
+        let best = beam.best_hyp();
+        sc.dec.ctx =
+            crate::beam::context(&best.tokens[best.ctx_start..], &engine.model.arch.ctx_init)
+                .collect();
+        sc.dec.dec_ok = false;
+    } else if engine.beam > 1 {
+        sc.dec.ctx = crate::beam::context(&sc.dec.tokens, &engine.model.arch.ctx_init).collect();
+        sc.dec.dec_ok = false;
     }
     Ok((pe.decode(&mut [&mut sc], peek_ws)? > 0).then(|| pe.text(&sc)))
 }

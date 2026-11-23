@@ -59,7 +59,7 @@ fn tiny_model() -> Arc<Model> {
         joiner: 4,
         blank: 0,
         max_symbols: 1,
-        ctx_init: [0, 0],
+        ctx_init: vec![0, 0],
         log_floor: 1e-6,
         checkpoint_sha256: String::new(),
         weights_sha256: String::new(),
@@ -285,4 +285,61 @@ fn peek_real_weights_int8_smoke_parity() {
     let st = s.stats();
     let (mis, lead) = (st.word_mismatch_proxy(), st.mean_first_lead_ms_proxy());
     eprintln!("H48d INT8 (4 clips, c=4): {st:?} mismatch_proxy={mis:.3} lead_proxy={lead:.1}ms");
+}
+
+#[test]
+fn peek_preserves_width3_context_and_beam_reset_ctx_start() {
+    use ultra_engine::beam::BeamState;
+
+    let mut base = Arc::try_unwrap(tiny_model()).expect("unique model");
+    base.arch.ctx_init = vec![0, 0, 0];
+    base.enc_proj = Linear::from_fp32(&[0.0; 16], 4, 4, None);
+    let mut emb = vec![0.0f32; 8 * 4];
+    emb[2 * 4] = 1.0; // token 2 ("hello") -> dim 0
+    emb[3 * 4 + 1] = 1.0; // token 3 ("world") -> dim 1
+    emb[4 * 4 + 2] = 1.0; // token 4 ("yes")   -> dim 2
+    base.emb = emb;
+
+    let mut pw = vec![0.0f32; 4 * 12];
+    pw[0] = 4.0; // row 0 reads slot 0, dim 0 (token 2 in oldest of 3 context slots)
+    pw[12 + 10] = 4.0; // row 1 reads slot 2, dim 2 (token 4 in newest context slot)
+    base.pred_proj = Linear::from_fp32(&pw, 4, 12, Some(&[0.0, 0.0, 4.0, 0.0]));
+
+    let mut jw = vec![0.0f32; 8 * 4];
+    jw[5 * 4 + 2] = 5.0; // token 5 ("no"): wins on fresh reset context [0, 0, 0]
+    jw[6 * 4] = 10.0; // token 6 ("go"): wins iff oldest context slot 0 == token 2
+    jw[7 * 4] = -10.0;
+    jw[7 * 4 + 1] = 10.0; // token 7 ("ok"): would win if slot 0 were truncated away
+    base.joiner_out = Linear::from_fp32(&jw, 8, 4, Some(&[0.0; 8]));
+
+    let model = Arc::new(base);
+    let eng = Engine::new(model.clone(), Isa::Scalar, Precision::F32)
+        .unwrap()
+        .with_beam(4);
+    let mut st = eng.create_stream();
+    let mut beam = BeamState::new(&model);
+    beam.hyps[0].tokens = vec![2, 3, 4];
+    st.dec.tokens = vec![2, 3, 4];
+    st.dec.beam = Some(beam);
+    st.accept_i16(&tone(1_600, 440.0)).unwrap();
+
+    // Before reset: full width-3 context [2, 3, 4] must emit "go" (not truncated "ok") while
+    // keeping committed tokens intact and leaving `st` unmutated.
+    let mut pws = Workspace::default();
+    let before = speculative_preview(&eng, &st, 1, &mut pws)
+        .expect("width-3 preview")
+        .expect("ready for 1-frame peek");
+    assert_eq!(before, "hello world yes go");
+    assert_eq!(st.tokens(), &[2, 3, 4]);
+    assert!(st.dec.beam.is_some());
+
+    // After beam reset: `ctx_start == 3` must reconstruct [0, 0, 0] -> emits "no", while still
+    // preserving the committed prefix "hello world yes" and dropping only the clone's beam state.
+    st.dec.reset_context(&model);
+    let after = speculative_preview(&eng, &st, 1, &mut pws)
+        .expect("post-reset preview")
+        .expect("ready for 1-frame peek");
+    assert_eq!(after, "hello world yes no");
+    assert_eq!(st.tokens(), &[2, 3, 4]);
+    assert!(st.dec.beam.is_some());
 }

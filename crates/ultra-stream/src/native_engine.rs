@@ -277,31 +277,37 @@ impl NativeEngineAsrStream {
         self.processed_samples =
             ((self.raw.enc.t as u64) * R1_SAMPLES_PER_ENC_FRAME).min(self.accepted_samples);
         let hyp = self.backend.engine.text(&self.raw);
-        if hyp != self.last_hyp {
-            self.last_hyp.clone_from(&hyp);
+        let changed = hyp != self.last_hyp;
+        let (suffix, commit) = match self.cfg.policy {
+            OutputPolicy::EditableDictation => (hyp.as_str(), None),
+            OutputPolicy::Commit => {
+                let suffix = self.hypothesis_suffix(&hyp)?;
+                let shared = self.backend.engine.shared_beam_text(&self.raw);
+                let committable = shared.as_deref().unwrap_or(&hyp);
+                let stable = self.hypothesis_suffix(committable)?;
+                (suffix, stable.rfind(' ').filter(|&sp| sp > 0))
+            }
+        };
+        if changed || commit.is_some() {
             let ts = self.clock.now_ns();
             let owned_to = self.processed_samples;
-            match self.cfg.policy {
-                OutputPolicy::EditableDictation => {
-                    let ev = self.emitter.preview(ts, &hyp, owned_to)?;
-                    self.events_emitted += 1;
-                    self.events.push_back(ev);
-                }
-                OutputPolicy::Commit => {
-                    let imm_len = self.emitter.immutable().len();
-                    if hyp.starts_with(self.emitter.immutable()) && hyp.len() > imm_len {
-                        let tail = &hyp[imm_len..];
-                        let ev = match tail.rfind(' ').filter(|&sp| sp > 0) {
-                            Some(sp) => self.emitter.commit(ts, tail, sp, owned_to)?,
-                            None => self.emitter.preview(ts, tail, owned_to)?,
-                        };
-                        self.events_emitted += 1;
-                        self.events.push_back(ev);
-                    }
-                }
-            }
+            let ev = match commit {
+                Some(bytes) => self.emitter.commit(ts, suffix, bytes, owned_to)?,
+                None => self.emitter.preview(ts, suffix, owned_to)?,
+            };
+            self.last_hyp = hyp;
+            self.events_emitted += 1;
+            self.events.push_back(ev);
         }
         Ok(())
+    }
+
+    fn hypothesis_suffix<'a>(&mut self, hyp: &'a str) -> Result<&'a str, StreamError> {
+        hyp.strip_prefix(self.emitter.immutable()).ok_or_else(|| {
+            let message = "native hypothesis revised the committed prefix";
+            self.failed = Some(message.into());
+            StreamError::Runtime(message.into())
+        })
     }
 }
 
@@ -363,14 +369,7 @@ impl AsrStream for NativeEngineAsrStream {
                 self.wakeups += 1;
             }
             let hyp = self.backend.engine.text(&self.raw);
-            let imm_len = self.emitter.immutable().len();
-            let suffix = if imm_len == 0 {
-                hyp.as_str()
-            } else if hyp.len() > imm_len && hyp.is_char_boundary(imm_len) {
-                &hyp[imm_len..]
-            } else {
-                ""
-            };
+            let suffix = self.hypothesis_suffix(&hyp)?;
             let ts = self.clock.now_ns();
             let ev = self.emitter.finalize(
                 ts,
@@ -411,5 +410,155 @@ impl AsrStream for NativeEngineAsrStream {
             refiner_charged_cpu_s: 0.0,
             retained_bytes: self.retained_stream_bytes(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use ultra_engine::model::{Arch, Linear};
+    use ultra_frontend::{GlobalCmvn, TrainerMelConfig};
+    use ultra_gp::TokenTable;
+
+    use super::*;
+
+    fn tiny_commit_stream() -> NativeEngineAsrStream {
+        let (vocab, pred_emb, joiner) = (4, 4, 8);
+        let arch = Arch {
+            n_mels: 80,
+            d: 4,
+            n_blocks: 0,
+            lower: 0,
+            mid: 0,
+            fin: 0,
+            heads: 1,
+            dh: 4,
+            ffn: 16,
+            kernel: 3,
+            stem_ch: 4,
+            f1: 39,
+            f2: 19,
+            chunk: 4,
+            left: 16,
+            post_block_norm: false,
+            vocab,
+            pred_emb,
+            joiner,
+            blank: 0,
+            max_symbols: 1,
+            ctx_init: vec![0, 0],
+            log_floor: 1e-6,
+            checkpoint_sha256: String::new(),
+            weights_sha256: String::new(),
+            qat_stem_int8: false,
+        };
+        let tokens = Arc::new(
+            TokenTable::from_str_checked(
+                "<blk> 0\n\u{2581}hello 1\n\u{2581}world 2\n\u{2581}halo 3\n",
+                vocab,
+            )
+            .expect("tokens"),
+        );
+        let cmvn = GlobalCmvn::new(&[0.0; 80], &[1.0; 80]).expect("cmvn");
+        let mel_cfg = Arc::new(
+            TrainerMelConfig::from_fbank_le_bytes(&vec![0u8; 257 * 80 * 4], 1e-6, cmvn)
+                .expect("mel_cfg"),
+        );
+        let dummy = Linear::from_fp32(&[0.0], 1, 1, None);
+        let model = Arc::new(Model {
+            arch,
+            root: PathBuf::new(),
+            c1_w: Vec::new(),
+            c1_b: Vec::new(),
+            c2: dummy.clone(),
+            stem_out: dummy.clone(),
+            blocks: Vec::new(),
+            final_norm: None,
+            pair: None,
+            restore: None,
+            enc_proj: dummy,
+            emb: vec![0.0f32; vocab * pred_emb],
+            pred_proj: Linear::from_fp32(
+                &vec![0.0f32; joiner * 2 * pred_emb],
+                joiner,
+                2 * pred_emb,
+                Some(&vec![0.0f32; joiner]),
+            ),
+            pred_cache: None,
+            joiner_out: Linear::from_fp32(
+                &vec![0.0f32; vocab * joiner],
+                vocab,
+                joiner,
+                Some(&vec![0.0f32; vocab]),
+            ),
+            blank_cert_f32: None,
+            blank_cert_i8: None,
+            rope_inv: Vec::new(),
+            mel_cfg,
+            tokens,
+            int8_prepared: None,
+        });
+        let engine = Engine::new(model, Isa::Scalar, Precision::F32).expect("tiny engine");
+        let backend = Arc::new(NativeEngineBackend {
+            engine,
+            arch_sha256: String::new(),
+            int8_source: "n/a",
+        });
+        let cfg = StreamConfig {
+            stream_id: "prefix-divergence".into(),
+            policy: OutputPolicy::Commit,
+            ..StreamConfig::default()
+        };
+        let raw = backend.engine.create_stream();
+        NativeEngineAsrStream {
+            backend,
+            raw,
+            ws: Workspace::default(),
+            clock: StreamClock::custom(|| 1),
+            emitter: Emitter::new(&cfg.stream_id, "tiny"),
+            cfg,
+            accepted_samples: 0,
+            processed_samples: 0,
+            wakeups: 0,
+            events_emitted: 0,
+            last_hyp: String::new(),
+            finished: false,
+            cancelled: false,
+            failed: None,
+            events: VecDeque::new(),
+        }
+    }
+
+    #[test]
+    fn commit_policy_fails_loudly_on_prefix_divergence_and_finish() {
+        let mut s = tiny_commit_stream();
+        let _ev = s.emitter.commit(1, "hello world", 6, 320).expect("commit");
+        assert_eq!(s.emitter.immutable(), "hello ");
+        assert_eq!(s.hypothesis_suffix("hello world").expect("suffix"), "world");
+
+        let err = s
+            .hypothesis_suffix("halo world")
+            .expect_err("committed prefix revision must error");
+        assert!(matches!(err, StreamError::Runtime(_)));
+        assert!(s.failed.is_some());
+        assert!(matches!(
+            s.poll_event().expect("poll terminal"),
+            PollResult::Ended(TerminalOutcome::Failed(_))
+        ));
+
+        // Finalize path must also return a terminal error rather than an empty final suffix.
+        let mut s2 = tiny_commit_stream();
+        let _ev = s2.emitter.commit(1, "hello world", 6, 320).expect("commit");
+        s2.raw.dec.tokens = vec![3, 2]; // decodes to "halo world"
+        let err = s2
+            .finish_input()
+            .expect_err("finish_input must error on committed prefix divergence");
+        assert!(matches!(err, StreamError::Runtime(_)));
+        assert!(s2.failed.is_some());
+        assert!(matches!(
+            s2.poll_event().expect("poll terminal"),
+            PollResult::Ended(TerminalOutcome::Failed(_))
+        ));
     }
 }
