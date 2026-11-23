@@ -21,7 +21,8 @@ excluded_paths = ["tips/", ".agent/", ".claude/worktrees/",
   "research/H51_engine_efficiency/pq/scripts/", "research/H51_engine_efficiency/pq/bench/",
   "research/H52_libri_light_semi_supervised/scripts/", "research/H53_v3_trunk_and_capacity/tools/",
   "research/H53_v3_trunk_and_capacity/tests/", "research/H53_v3_trunk_and_capacity/patches/",
-  "research/H48_latency/scripts/"]
+  "research/H48_latency/scripts/", "research/H53_v3_trunk_and_capacity/s2_s3/tools/",
+  "research/H53_v3_trunk_and_capacity/s2_s3/redacted/"]
 
 [smart_scan]
 # After a clean full scan, only scan git-status changed files by default.

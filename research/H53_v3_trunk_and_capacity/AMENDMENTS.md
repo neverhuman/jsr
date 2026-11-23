@@ -292,3 +292,95 @@ S2b starts as a **new run** at the first S2a checkpoint that lands **exactly on 
   - **S2c s4321** on x9 now;
   - **S2p s4321** on x8 after S2p s1234 (~10:25Z).
 - **Reading:** eval-lane's registered bridge rule, applied to the **seed-pair means** once all four arms exist. Until then the s1234 pair is reported alone and is not decisive by itself.
+
+## Amendment 6.0a (recorded 2026-11-23T12:2xZ by trainer-lane for h53-trunk; the lead's ruling of 10:20:04Z, made before any S2b data or result): gain augmentation is DROPPED from v3.0's training
+- **Supersedes:** Amendment 5's "gain augmentation joins at the medium boundary", Amendment 6's "Gain augmentation joins here if it missed the launch", and Amendment 7's "gain augmentation as in S2b".
+- **So:** S2b = S2a's recipe + medium (this file's Amendment 6), nothing else. RC1 inherits S2b's recipe without gain augmentation.
+- **Why** (the lead):
+  - (1) The engine-side warm AGC recovers most of the quiet-input loss.
+  - (2) With the factorial cut there's no matched control, and gain at S2b would confound gate (b).
+  - (3) Gain code wasn't written or pinned at 90b7f4d.
+- Quiet-mic robustness ships as the engine's opt-in warm-AGC flag. Gain-aug training is deferred to v3.1.
+
+## Gate (b) Amendment 1 (cross-reference; the lead's 11:20:26Z design, registered by eval-lane at 11:23:12Z before S2b-BP1 existed)
+- **Two-stage gate (b) at BP-m = S2b-BP1, Bonferroni across stages** (each one-sided 97.5%):
+  - **Stage 1:** S2b-BP1's stable-phase EMA vs B0, canonical full dev (decode only). PASS iff chunk 4's upper < 0 and chunks 8 / 16 are non-inferior by the registry margins. Stage-1 PASS = gate (b) PASS.
+  - **Stage 2, only if stage 1 doesn't pass:** Amendment 5's fast cooldown from BP-m's raw weights on x9 alone. S2b pauses at an exact window boundary meanwhile and resumes at world 6 from it.
+- **Registry:** `h53-S2-gate-b-amend1-stage{1,2}-c{4,8,16}`, entries_sha256 176ca6fb…; plan `h43/families/h53-gate-b-amendment-1.json` (54ce5206…).
+- It answers the data-locality blocker (cloud → on-prem measured at 16 MB/s, so the 24 GB cards can't hold S2b's ~280 GB mix in time) without taking an A100 from S2b.
+
+## Amendment 6.1 (2026-11-23T12:2xZ, trainer-lane; the lead's ACK 12:16:33Z): S2b's window_groups = 96, a disclosed deviation from the 11:19Z audit rule, for throughput
+- **The audit rule** (posted 11:19Z before medium was sealed; lead ACK 11:17:33Z): the smallest of {768, 1024} that passes median 0.45-0.55 / p95 ≤ 0.65; if neither passes, 768 when its p95 is within 0.01 of the best of {768, 1024, 1536}, else the best.
+- **The audit on the sealed medium** (fast_audit.py, the pin's packing, exact per-row FLAC frames, first 2,000 global batches, bw 0.527689):
+
+| window_groups | pooled LL audio share | median | p5 | p95 |
+|---:|---:|---:|---:|---:|
+| 96 | 0.4999 | 0.4973 | 0.218 | 0.830 |
+| 768 | 0.4990 | 0.4887 | 0.361 | 0.681 |
+| 1024 | 0.4992 | 0.4890 | 0.366 | 0.666 |
+| 1536 | 0.4995 | 0.4876 | 0.374 | 0.664 |
+
+  - No value passes. The rule chose **1536**, and S2b first fired at 1536 at 12:02:10Z.
+  - p95 levels off because packing sorts each window by duration and the sources' length profiles differ: LibriSpeech has 49.7% of its audio at 14-16 s, while Libri-Light has 12.5% at 17-20 s.
+- **Throughput at 1536** (12:06:18-12:13Z, steps 25-496):
+  - Mean 0.88 s per step against S2a's 0.54 s at 96, i.e. **~30-35% slower**. Forward and backward + comm were normal; every rank's step time inflated whenever the loader built its next window.
+  - Each rank packs a 1536-group window from ~151k rows' headers (~33 GB of row bytes as Python objects) inside the training process. Trainer RSS was 67 GB per rank. Logged data wait stayed 2-7%.
+  - The first window took 3m51s to load.
+- **Decision:** S2b was stopped at ckpt-00000496 (12:13:00Z, by recorded PID), and the attempt was renamed `H53_S2b_medium_s7919_wg1536_aborted` (kept; **its 496 steps are not counted**). S2b **re-fired fresh at 12:15:40Z with window_groups 96**, from the same init (S2a ckpt-00010516, 0f2a089b…) and with everything else identical.
+  - At 96 the pooled share (the cap this amendment enforces) and the median are on target. Only the per-batch spread is wider: p95 0.830 / p5 0.218.
+  - S2a ran 96 at world 6 at a steady ~13k audio-h/h.
+- **Measured at 96 after the re-fire:** 25-step walls of 13.2-14.2 s, 13.0-13.5k audio-h/h, data wait 4-6%.
+- **BP exposure is measured from the 12:15:40Z attempt only.** S2b-BP1 = the first 500-step checkpoint past 10,000 audio-h of that attempt.
+
+## Amendment 8 (2026-11-23T14:2xZ, trainer-lane; the lead's 14:13:25Z plan; written BEFORE the large tier-A manifest exists and before any S3 data or result): S3 = the trunk + Libri-Light large tier A
+### Scope
+- **v3.0.0 tags on RC1's candidate.** S3 and RC2 feed the next release.
+- Right after RC1 ends (~14:50Z), **the trunk (S2b) resumes at world 6 from its cut ckpt-00010818**, exactly: same pin, config and window_groups 96. It trains until the S3 switch.
+### Data: large tier A, a disk-budget subset
+- h52's large tier A, v1.1 labels only, under h52's pre-registered filters (as for medium: amendment 4's NaN rule, no A1-agreement rule).
+  - It is finalised by h52's finaliser in medium's shard layout (2,000 rows per shard, 100-row row groups, bucketed global shuffle). Large cut 15:30Z, sealed manifest ~15:45Z.
+  - The overlap verdict against dev / test is logged in LOOKS before use (as Amendment 6 condition 3).
+- **The subset:** S3's large = the longest prefix, in manifest order, of h52's sealed shard list whose total size fits **min over the four island nodes of (free − floor)**, measured at staging time.
+  - Floors: 60 GB on x5 (the finaliser host), 20 GB on x7 / x8 / x9 (trainer checkpoints only).
+  - The finaliser's bucketed global shuffle makes any prefix a uniform random subset of the cut.
+  - The S3 manifest is the first K lines of h52's SHA256SUMS; its own sha256 is posted. Path `~/jsr-data/librilight/shards/r0_v11/librilight.large.s3/` on all four nodes.
+- **Disk at writing** (x8 / x9 hold 497 GB, with medium 200 GB, small 22, LibriSpeech 57 and their run dirs):
+
+| node | free now | floor | budget | + superseded v1-small copies (never read by S2 / S3) |
+|---|---:|---:|---:|---|
+| x5 | 212 GB | 60 | 152 | + 22 (`shards/r0`) |
+| x7 | 512 | 20 | 492 | + 44 (`r0`, `r0_small_tl`) |
+| x8 | 65 | 20 | 45 | + 22 (`r0_small_tl`) |
+| x9 | 76 | 20 | 56 | — |
+
+  - So x9 sets the subset at **~55 GB ≈ 950 h of large** (at medium's ~58 MB per audio-h). Superseded copies are removed only after their survivor is checked.
+  - More room on x8 / x9 needs the lead's decision. The candidates there are old research run dirs (x9: ~50 GB of D2* / H41* / H48* / H53 bridge runs, plus `A1_S_r0bpe_960h` = A1 rank 3's non-canonical copy, 11 GB). They are deleted only after a canonical copy is confirmed, and never on my own call.
+  - Alternatively S3 runs at world 4 on x5 / x7 (budget ~150-170 GB ≈ 2.6-2.9k h), with x8 / x9 released.
+  - The choice is recorded before the switch.
+### The mix (extends Amendments 6 and 6.1)
+- **LibriSpeech = 0.5 of the audio (cap unchanged).** Within the Libri-Light half, small + medium + the large subset run at their natural share by row groups.
+- **extra_base_weight = a_LL / (a_LS + a_LL)**, with a_LL = the row-group-weighted mean audio seconds per row group over the three Libri-Light sources. It's computed from every row's FLAC frames (`dur_table.py` / `bw_compute.py`, as for S2b) and recorded in the launch line.
+- **window_groups = 96** (Amendment 6.1). The per-batch audit (`fast_audit.py`, first 2,000 batches) is run and recorded, with no window_groups remedy (6.1's throughput measurement).
+### Staging (one writer: trainer-lane; data wait ≤ 5%)
+- From the finaliser host to x5, pre-copying completed shards as they land (as for medium), then x5 → x7 / x8 / x9 over the cloud LAN.
+- **Rate limit:** ≤ 250 MB/s per target, the copy processes pinned to the spare cores at idle IO priority. **A guard pauses the copy while the trunk's logged data wait is > 5% on two consecutive records** and resumes below it.
+- `sha256sum -c` against the S3 manifest on all four nodes; each node's file set must equal the manifest's.
+### The switch
+- At **the first trunk window boundary after all four nodes verify the S3 manifest** (`boundary.sh`), **S3 starts as a new run, `H53_S3_large_s7919`:**
+  - init = that boundary checkpoint's raw weights; fresh AdamW; 500 warmup steps back to 4.30e-4, then WSD-stable; EMA restarts (0.999398, τ 3,600 audio-h);
+  - seed 7919, dp 0.005, chunk modes {4, 8, 16}, world 6, the 0.5-capped mix above;
+  - pin 90b7f4d (unchanged: everything S3 needs is there).
+  - The launch line is posted before the fire, the receipts after.
+### Branch points, gates, RC2
+- **S3-BPk** = the first 500-step checkpoint past k × 10,000 audio-h of S3. Gate (a) on each BP's EMA (the stop rule is unchanged).
+- **RC2 (the registered rule, unchanged):**
+  - only after RC1 is scored;
+  - from a trunk window-boundary checkpoint ≥ 20,000 audio-h after RC1's cut (S2b + S3 exposure);
+  - Amendment 7's cooldown recipe on the trunk's then-current mix;
+  - the better of RC1 / RC2 on the selection half takes the remaining A6 look (Holm, ≤ 2 looks). For the next release.
+
+### Amendment 8 addendum 1 (2026-11-23T15:1xZ, trainer-lane; the lead's ACK of 15:0xZ; before any S3 data or result)
+- **The move guard is baseline-relative.** It pauses while the trunk's last 2 logged records BOTH exceed max(5%, baseline + 0.5 pp) data wait, or its rate is below 0.95 × baseline; baseline = the median of the 40 records before the first move. The reason: the resumed trunk sat at ~5.65% with nothing moving, so a fixed 5% line would never let a move start.
+- **The S3 launch is the data-wait fix point (cap ≤ 5%).** The launch line sets **`workers=24` per rank** (was 20), or whatever brings every rank ≤ 5%, provided x5 / x7 stay ≤ ~80% CPU with two trainers each (they run at load ~8-10 of 60 cores now).
+  - workers is part of the world-6 row and is recorded in the launch line. It changes loader parallelism only: the ordered loader output is identical.
+  - S3's first telemetry reports per-rank data wait. The trunk isn't restarted for this.
