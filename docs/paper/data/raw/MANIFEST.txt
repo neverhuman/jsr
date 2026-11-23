@@ -385,72 +385,98 @@ a3101a29c691aec64ec4ca83843b98ffcbcc7e149974fc69809ab5ddb0b4581f  ladder_e_ce589
 689d60794db1270ca96ac8a9fe8d110b90565ebbf34fa31c59241bde9f600797  ladder_e_ce58952_avg3/zipformer-int8.scores.jsonl  xbabe0:~/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.scores.jsonl
 3710421e057bea1173d137ad42020e75798380fbcff517d5c10a52c97ee1a98a  ladder_e_ce58952_avg3/zipformer-int8.sustained.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.sustained.receipt.json
 732f07bd04cf5f95b59ef6f666222c80f6344092e8e8c07e0823489000781337  ladder_e_ce58952_avg3/zipformer-int8.sustained.series.jsonl  xbabe0:~/jsr-data/runtime-dryrun/out-ladder-d2avg3-ce58952-20261122T024516Z/zipformer-int8.sustained.series.jsonl
-42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-1/arm  unknown-origin
-332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-1/artifact.bytes  unknown-origin
-77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-1/audio.seconds  unknown-origin
-dfc0536bb0c97f8fdb47990b90efa481fbababd4c8d6e4c5f922a46928667dc2  opponents/jsr-a1-30000-ema-int8/round-1/command  unknown-origin
-e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-1/config.sha256  unknown-origin
-edf76ae11c362fbf65e3a4a41942e18f57f868d08cd99e45d7dd467b85e028e9  opponents/jsr-a1-30000-ema-int8/round-1/finished  unknown-origin
-18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-1/host  unknown-origin
-0caf45b6053e0ae51756e6612a91e29ba661e48f69be212317b2db42c6638bed  opponents/jsr-a1-30000-ema-int8/round-1/host.after  unknown-origin
-3e215d2dd66416bc13d49931c5bb13a67e93c4b39d3036d723b5d14db185a688  opponents/jsr-a1-30000-ema-int8/round-1/host.before  unknown-origin
-585268906e9d85666191302ffefc1f1903db28ce2a204342d7c7990e4b8ef77e  opponents/jsr-a1-30000-ema-int8/round-1/host.cpu.json  unknown-origin
-26a1dc2139497f26dc25c72e40d65717cc7af7487856ddeacf65c98c54c8ed9c  opponents/jsr-a1-30000-ema-int8/round-1/host.freq.tsv  unknown-origin
-622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-1/host.gate.json  unknown-origin
-fbd4366f596ff06c519e46e7f27d8cf74bae087a6734f597fe2fbd204c54a56e  opponents/jsr-a1-30000-ema-int8/round-1/measurement.json  unknown-origin
-0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-1/panel  unknown-origin
-6ea137c011c05af1bd7d2c76a675636c615100b5c13df50531e84b0677b54c62  opponents/jsr-a1-30000-ema-int8/round-1/predictions.jsonl  unknown-origin
-4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  opponents/jsr-a1-30000-ema-int8/round-1/round  unknown-origin
-f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-1/runtime-libraries.sha256  unknown-origin
-7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-1/score.json  unknown-origin
-4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-1/scores.jsonl.sha256  unknown-origin
-e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-1/service.stderr  unknown-origin
-f8f556b320e6ea9bcb7d4e5e72093e5ac7fbea9ecbb8eea7d9ddc134563c9f67  opponents/jsr-a1-30000-ema-int8/round-1/started  unknown-origin
-0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-1/workload.sha256  unknown-origin
-42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-2/arm  unknown-origin
-332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-2/artifact.bytes  unknown-origin
-77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-2/audio.seconds  unknown-origin
-6b34e250a4af132d23758c34a89c91cd34b04d55925dbc3d3b42354489e3c351  opponents/jsr-a1-30000-ema-int8/round-2/command  unknown-origin
-e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-2/config.sha256  unknown-origin
-cb5e4eaa7c632d11a8c65ea1e9fc6af7916c676ee38832b4188db85c1a1130aa  opponents/jsr-a1-30000-ema-int8/round-2/finished  unknown-origin
-18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-2/host  unknown-origin
-e30b4e46fa22cdb6ad293a42489c7c98d2b609a2e750febd214fe292a323360b  opponents/jsr-a1-30000-ema-int8/round-2/host.after  unknown-origin
-4bdeb58905d033db5c0baf022ecc36d5412ed4fbc5d9865ef7285a130026c66d  opponents/jsr-a1-30000-ema-int8/round-2/host.before  unknown-origin
-fe734aa3c86a89b1de5bd2b028e3f22f66ebc60b67048554118f3aa1ed665a17  opponents/jsr-a1-30000-ema-int8/round-2/host.cpu.json  unknown-origin
-9ca49e12b71f5d111057e6cd872370f1c953c4dcd9e401e09b5d9ca8deb2a5e9  opponents/jsr-a1-30000-ema-int8/round-2/host.freq.tsv  unknown-origin
-622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-2/host.gate.json  unknown-origin
-df0e5dff43435321ad0941b222d15c333d17eb30aa6fc1034ba825aa44600251  opponents/jsr-a1-30000-ema-int8/round-2/measurement.json  unknown-origin
-0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-2/panel  unknown-origin
-edfbd43712a91c9e6af724e2a0175392046cd409e3e0eda2bfa73423f05e15c3  opponents/jsr-a1-30000-ema-int8/round-2/predictions.jsonl.ref  unknown-origin
-53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3  opponents/jsr-a1-30000-ema-int8/round-2/round  unknown-origin
-f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-2/runtime-libraries.sha256  unknown-origin
-7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-2/score.json  unknown-origin
-4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-2/scores.jsonl.sha256  unknown-origin
-e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-2/service.stderr  unknown-origin
-ae7f4561f33520c6fed9943171486676e29e31faaf2bbfa303c585298e72ac8f  opponents/jsr-a1-30000-ema-int8/round-2/started  unknown-origin
-0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-2/workload.sha256  unknown-origin
-42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-3/arm  unknown-origin
-332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-3/artifact.bytes  unknown-origin
-77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-3/audio.seconds  unknown-origin
-5e09b8722c00cddb62c775e41597114f2870faed6625102d4adb6dc25f21ec9c  opponents/jsr-a1-30000-ema-int8/round-3/command  unknown-origin
-e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-3/config.sha256  unknown-origin
-393ce1ecf2caaf2bb6b6c9966f89f394ff59113b69edec18f84c4e265eae03f5  opponents/jsr-a1-30000-ema-int8/round-3/finished  unknown-origin
-18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-3/host  unknown-origin
-957db17904d41173908ab0995ab27a26a7bfcccf6494bf363a082bb4c1339337  opponents/jsr-a1-30000-ema-int8/round-3/host.after  unknown-origin
-93d164ec3db5ab63c8839d2f135ed7f4bf916bd93700c8a890193aae2b894f3c  opponents/jsr-a1-30000-ema-int8/round-3/host.before  unknown-origin
-9f107fe23cf2709e239e305b887abe92b4f4f3e7427d12b929b3555c3743c81c  opponents/jsr-a1-30000-ema-int8/round-3/host.cpu.json  unknown-origin
-f14b156302806ca91f91d2dafebb0f41ea0a5083371d095c5fa218815b3aec08  opponents/jsr-a1-30000-ema-int8/round-3/host.freq.tsv  unknown-origin
-622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-3/host.gate.json  unknown-origin
-45d29cdb0c3d80438270f004e1bfaf2f6684d632d13408297266b5b5f08a91bf  opponents/jsr-a1-30000-ema-int8/round-3/measurement.json  unknown-origin
-0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-3/panel  unknown-origin
-edfbd43712a91c9e6af724e2a0175392046cd409e3e0eda2bfa73423f05e15c3  opponents/jsr-a1-30000-ema-int8/round-3/predictions.jsonl.ref  unknown-origin
-1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2  opponents/jsr-a1-30000-ema-int8/round-3/round  unknown-origin
-f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-3/runtime-libraries.sha256  unknown-origin
-7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-3/score.json  unknown-origin
-4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-3/scores.jsonl.sha256  unknown-origin
-e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-3/service.stderr  unknown-origin
-1734537fc98e1cead566bafa062237cad7acfc53a3779b415085f6e0a5b96f8a  opponents/jsr-a1-30000-ema-int8/round-3/started  unknown-origin
-0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-3/workload.sha256  unknown-origin
+42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-1/arm  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-1/artifact.bytes  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-1/audio.seconds  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+dfc0536bb0c97f8fdb47990b90efa481fbababd4c8d6e4c5f922a46928667dc2  opponents/jsr-a1-30000-ema-int8/round-1/command  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-1/config.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+edf76ae11c362fbf65e3a4a41942e18f57f868d08cd99e45d7dd467b85e028e9  opponents/jsr-a1-30000-ema-int8/round-1/finished  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-1/host  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+0caf45b6053e0ae51756e6612a91e29ba661e48f69be212317b2db42c6638bed  opponents/jsr-a1-30000-ema-int8/round-1/host.after  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+3e215d2dd66416bc13d49931c5bb13a67e93c4b39d3036d723b5d14db185a688  opponents/jsr-a1-30000-ema-int8/round-1/host.before  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+585268906e9d85666191302ffefc1f1903db28ce2a204342d7c7990e4b8ef77e  opponents/jsr-a1-30000-ema-int8/round-1/host.cpu.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+26a1dc2139497f26dc25c72e40d65717cc7af7487856ddeacf65c98c54c8ed9c  opponents/jsr-a1-30000-ema-int8/round-1/host.freq.tsv  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-1/host.gate.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+fbd4366f596ff06c519e46e7f27d8cf74bae087a6734f597fe2fbd204c54a56e  opponents/jsr-a1-30000-ema-int8/round-1/measurement.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-1/panel  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+6ea137c011c05af1bd7d2c76a675636c615100b5c13df50531e84b0677b54c62  opponents/jsr-a1-30000-ema-int8/round-1/predictions.jsonl  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  opponents/jsr-a1-30000-ema-int8/round-1/round  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-1/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-1/score.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-1/scores.jsonl.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-1/service.stderr  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+f8f556b320e6ea9bcb7d4e5e72093e5ac7fbea9ecbb8eea7d9ddc134563c9f67  opponents/jsr-a1-30000-ema-int8/round-1/started  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-1/workload.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-1, compact receipt, bench-open)
+42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-2/arm  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-2/artifact.bytes  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-2/audio.seconds  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+6b34e250a4af132d23758c34a89c91cd34b04d55925dbc3d3b42354489e3c351  opponents/jsr-a1-30000-ema-int8/round-2/command  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-2/config.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+cb5e4eaa7c632d11a8c65ea1e9fc6af7916c676ee38832b4188db85c1a1130aa  opponents/jsr-a1-30000-ema-int8/round-2/finished  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-2/host  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+e30b4e46fa22cdb6ad293a42489c7c98d2b609a2e750febd214fe292a323360b  opponents/jsr-a1-30000-ema-int8/round-2/host.after  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+4bdeb58905d033db5c0baf022ecc36d5412ed4fbc5d9865ef7285a130026c66d  opponents/jsr-a1-30000-ema-int8/round-2/host.before  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+fe734aa3c86a89b1de5bd2b028e3f22f66ebc60b67048554118f3aa1ed665a17  opponents/jsr-a1-30000-ema-int8/round-2/host.cpu.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+9ca49e12b71f5d111057e6cd872370f1c953c4dcd9e401e09b5d9ca8deb2a5e9  opponents/jsr-a1-30000-ema-int8/round-2/host.freq.tsv  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-2/host.gate.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+df0e5dff43435321ad0941b222d15c333d17eb30aa6fc1034ba825aa44600251  opponents/jsr-a1-30000-ema-int8/round-2/measurement.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-2/panel  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+edfbd43712a91c9e6af724e2a0175392046cd409e3e0eda2bfa73423f05e15c3  opponents/jsr-a1-30000-ema-int8/round-2/predictions.jsonl.ref  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3  opponents/jsr-a1-30000-ema-int8/round-2/round  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-2/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-2/score.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-2/scores.jsonl.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-2/service.stderr  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+ae7f4561f33520c6fed9943171486676e29e31faaf2bbfa303c585298e72ac8f  opponents/jsr-a1-30000-ema-int8/round-2/started  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-2/workload.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-2, compact receipt, bench-open)
+42dfa886b9b565637529111c684ef2679923817b81c948a2d3b64348f7ed5f79  opponents/jsr-a1-30000-ema-int8/round-3/arm  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+332a5a701a9e541f39dc0007484d362161fece61c5cf8ad639c44b8ad4c0ecc4  opponents/jsr-a1-30000-ema-int8/round-3/artifact.bytes  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+77d375363706cfaa275e2588e1b1d2e548f23bbf13e5ffe6fba5f1ee159be552  opponents/jsr-a1-30000-ema-int8/round-3/audio.seconds  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+5e09b8722c00cddb62c775e41597114f2870faed6625102d4adb6dc25f21ec9c  opponents/jsr-a1-30000-ema-int8/round-3/command  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+e868f73d3d82b31a334909178582ff2ec2aef02c3bf1fae9e7064654dc297f87  opponents/jsr-a1-30000-ema-int8/round-3/config.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+393ce1ecf2caaf2bb6b6c9966f89f394ff59113b69edec18f84c4e265eae03f5  opponents/jsr-a1-30000-ema-int8/round-3/finished  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+18f51b41f9dead2dcd9af67b9ea1add9f9dbf885d067fe6d7106930296b109df  opponents/jsr-a1-30000-ema-int8/round-3/host  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+957db17904d41173908ab0995ab27a26a7bfcccf6494bf363a082bb4c1339337  opponents/jsr-a1-30000-ema-int8/round-3/host.after  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+93d164ec3db5ab63c8839d2f135ed7f4bf916bd93700c8a890193aae2b894f3c  opponents/jsr-a1-30000-ema-int8/round-3/host.before  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+9f107fe23cf2709e239e305b887abe92b4f4f3e7427d12b929b3555c3743c81c  opponents/jsr-a1-30000-ema-int8/round-3/host.cpu.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+f14b156302806ca91f91d2dafebb0f41ea0a5083371d095c5fa218815b3aec08  opponents/jsr-a1-30000-ema-int8/round-3/host.freq.tsv  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+622d9d7ba8db41558301103b40c17eb8f8082eaedc20045d592f2a2a8891c112  opponents/jsr-a1-30000-ema-int8/round-3/host.gate.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+45d29cdb0c3d80438270f004e1bfaf2f6684d632d13408297266b5b5f08a91bf  opponents/jsr-a1-30000-ema-int8/round-3/measurement.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+0e716a5fef4e6dc1bcfff22ad52f73ca4eee3f4ea8292f4a1918daa32592889f  opponents/jsr-a1-30000-ema-int8/round-3/panel  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+edfbd43712a91c9e6af724e2a0175392046cd409e3e0eda2bfa73423f05e15c3  opponents/jsr-a1-30000-ema-int8/round-3/predictions.jsonl.ref  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2  opponents/jsr-a1-30000-ema-int8/round-3/round  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  opponents/jsr-a1-30000-ema-int8/round-3/runtime-libraries.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+7f3dcbe3bd05c1e469fa60ecf7d9a33355f2f70c0c95cf59b1c0a927ba4ef494  opponents/jsr-a1-30000-ema-int8/round-3/score.json  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+4f3834fc8d1c2b91fbfbbb10611fcac0a6e3e157e612e149021ec88172a6afac  opponents/jsr-a1-30000-ema-int8/round-3/scores.jsonl.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+e875419479926fdc86de49d894bbbcddf1c616aaae6ce3f112fc7ac5eb21fe73  opponents/jsr-a1-30000-ema-int8/round-3/service.stderr  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+1734537fc98e1cead566bafa062237cad7acfc53a3779b415085f6e0a5b96f8a  opponents/jsr-a1-30000-ema-int8/round-3/started  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+0f80b72958a5788dc6d4920f06bc28f8d62162f57aaa288bf7c1c74d04d6aee4  opponents/jsr-a1-30000-ema-int8/round-3/workload.sha256  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-a1-30000-ema-int8 round-3, compact receipt, bench-open)
+6a24212840cfb2600e39eded180ba5307ddf8e29889923fb29a2c1711480cd1c  opponents/jsr-arm13a-ema-int8-c1/wer-full/command  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/command (full-panel WER-only pass, bench-open)
+0f8f38ab1e804ef87b6161714e06802f6008b65be12d9b55e1ebcd861709d51e  opponents/jsr-arm13a-ema-int8-c1/wer-full/config.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/config.sha256 (full-panel WER-only pass, bench-open)
+f0d5d32c46bb442e9a410a87d9aaf1bd2460419679b583a362308f07c488b6d2  opponents/jsr-arm13a-ema-int8-c1/wer-full/finished  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/finished (full-panel WER-only pass, bench-open)
+dcbf493f0500cec6a53b1744a6bb7207bb3a1867c3e8a70582fa109708c75143  opponents/jsr-arm13a-ema-int8-c1/wer-full/harness.commit  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/harness.commit (full-panel WER-only pass, bench-open)
+b431d103111f2ad363bb0324b8170ff6906c05fa4b747b84e0ef658f32f3766c  opponents/jsr-arm13a-ema-int8-c1/wer-full/host  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/host (full-panel WER-only pass, bench-open)
+6ec9014a1e0ca8c9c2ae46a37f66d0fc9113ef56b4c12775296d8d12fa432dee  opponents/jsr-arm13a-ema-int8-c1/wer-full/host.after  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/host.after (full-panel WER-only pass, bench-open)
+d4e21c9e896a6a196a3566cb3ede9b353c8f5c6040b9b3dbf5b000e56e820bc6  opponents/jsr-arm13a-ema-int8-c1/wer-full/host.before  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/host.before (full-panel WER-only pass, bench-open)
+93b41ec494817e62b1c1f4c5c55463ca86f4b741fad01f740f44aa2defd4695e  opponents/jsr-arm13a-ema-int8-c1/wer-full/predictions.jsonl  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/predictions.jsonl (full-panel WER-only pass, bench-open)
+f2e7c1566093b94d465d052853270bed3c9a54765c5528e07ac389149654784e  opponents/jsr-arm13a-ema-int8-c1/wer-full/score.json  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/score.json (full-panel WER-only pass, bench-open)
+ae85a405e99610d00db98346f7276ddfdc72383c63bc3fce5f9cffe6bac90e4b  opponents/jsr-arm13a-ema-int8-c1/wer-full/scores.jsonl.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/scores.jsonl.sha256 (full-panel WER-only pass, bench-open)
+7358feae2949e9c07bf407f774c3750933084cc8761b1f527fa281f17beb19aa  opponents/jsr-arm13a-ema-int8-c1/wer-full/service.stderr  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/service.stderr (full-panel WER-only pass, bench-open)
+5cb999952bed7b30685b8a5b6b557ead74671c4787dece3813b2cf8c93f5833e  opponents/jsr-arm13a-ema-int8-c1/wer-full/started  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/started (full-panel WER-only pass, bench-open)
+8562f49d771d8a59738f41de1bc8c712c3976c4497378df11f3c1b6267e16c7c  opponents/jsr-arm13a-ema-int8-c1/wer-full/workload.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c1/workload.sha256 (full-panel WER-only pass, bench-open)
+0fb7aa725e52af9a1bc818b4646414ca17365f3a1657def23f3dd270d570ec68  opponents/jsr-arm13a-ema-int8-c2/wer-full/command  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/command (full-panel WER-only pass, bench-open)
+244ba9385ec98db1aafdebfe74b0d879f034558d188fe20c8658e64d9d21ee82  opponents/jsr-arm13a-ema-int8-c2/wer-full/config.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/config.sha256 (full-panel WER-only pass, bench-open)
+200c69fe7e9ff78b3380141b9c40f48a3c9a5636730f316c9903b58e81913c60  opponents/jsr-arm13a-ema-int8-c2/wer-full/finished  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/finished (full-panel WER-only pass, bench-open)
+d555d032ae568afad0fb59d27e074a735aff770c8c3ab3367d72df624a5f6067  opponents/jsr-arm13a-ema-int8-c2/wer-full/harness.commit  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/harness.commit (full-panel WER-only pass, bench-open)
+b431d103111f2ad363bb0324b8170ff6906c05fa4b747b84e0ef658f32f3766c  opponents/jsr-arm13a-ema-int8-c2/wer-full/host  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/host (full-panel WER-only pass, bench-open)
+e17e3e9f0652c7796e39952e6c159030896d59796ac7e77ffb83d2719c69864a  opponents/jsr-arm13a-ema-int8-c2/wer-full/host.after  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/host.after (full-panel WER-only pass, bench-open)
+fcd954039cf1b7428950213636f78c6edd32630628c8474bf33646233900dc41  opponents/jsr-arm13a-ema-int8-c2/wer-full/host.before  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/host.before (full-panel WER-only pass, bench-open)
+f98e0148fd553997c6c3c8b705930bd780b39da7532c895340471d84e50f10ae  opponents/jsr-arm13a-ema-int8-c2/wer-full/predictions.jsonl  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/predictions.jsonl (full-panel WER-only pass, bench-open)
+396707ff0a0e55762693235513fc427d58adec3257174cc5ad0626c73d1f23c4  opponents/jsr-arm13a-ema-int8-c2/wer-full/score.json  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/score.json (full-panel WER-only pass, bench-open)
+8970c85a228acdb73de82e0ea8ce4657fa46c45c6474055ceba01694032a4842  opponents/jsr-arm13a-ema-int8-c2/wer-full/scores.jsonl.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/scores.jsonl.sha256 (full-panel WER-only pass, bench-open)
+f49304118dcbea37bf64f970685cfb295f04a5d9f7aeb795d251bc8b35514def  opponents/jsr-arm13a-ema-int8-c2/wer-full/service.stderr  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/service.stderr (full-panel WER-only pass, bench-open)
+e7f7ff78b531d2d880a44347e0a70fa0f32b4f6f729e4193a3d4833c9b00b55a  opponents/jsr-arm13a-ema-int8-c2/wer-full/started  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/started (full-panel WER-only pass, bench-open)
+8562f49d771d8a59738f41de1bc8c712c3976c4497378df11f3c1b6267e16c7c  opponents/jsr-arm13a-ema-int8-c2/wer-full/workload.sha256  xbabe3:/mnt/xbabe3-external/jsr/opponents/bench-open/wer-passes-h0/jsr-arm13a-ema-int8-c2/workload.sha256 (full-panel WER-only pass, bench-open)
 9413e7eb4721940c7a6f6e3d82c19960f9c5047f1cd075e10f86f60b343da1fd  opponents/jsr-h22ctl-79800-ema-int8/p73-round-1/arm  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-h22ctl-79800-ema-int8 p73-round-1, compact receipt, bench-open)
 c4ffad3a835e0b6751f9fe4b6a705f2f9cbb9076b4b12ecf1f1252081485e93c  opponents/jsr-h22ctl-79800-ema-int8/p73-round-1/artifact.bytes  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-h22ctl-79800-ema-int8 p73-round-1, compact receipt, bench-open)
 d8400a0b892fb4c77f9bdf8582de40db97646dcb0d9502b5d7f416fc066844e0  opponents/jsr-h22ctl-79800-ema-int8/p73-round-1/audio.seconds  xbabe0:~/jsr-data/opponents/bench-open/runs-v3 (jsr-h22ctl-79800-ema-int8 p73-round-1, compact receipt, bench-open)
