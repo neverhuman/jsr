@@ -1,30 +1,17 @@
-//! Candidate resolution and single-file / paced-stream CLI execution (`transcribe`, `stream`).
+//! Candidate resolution and backend instantiation (`transcribe`, `stream`, `bench`).
 
-use std::fs::File;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
-use nix::sys::resource::{getrusage, UsageWho};
-use ultra_core::events::{Body, TranscriptEvent};
-use ultra_core::receipt::{
-    sha256_hex, ChunkMs, Hashes, HonestyLabel, Partition, Receipt, RECEIPT_SCHEMA,
-};
-use ultra_eval::pace::PacedReplay;
-use ultra_eval::procfs::TreeSampler;
-use ultra_eval::stream::TimedEvent;
-use ultra_frontend::read_audio_16k_mono;
 use ultra_gp::{R1Precision, R1_EXPORT_SCHEMA, R1_EXPORT_SCHEMA_V1_1};
 use ultra_model::verify_bundle_dir;
-use ultra_stream::sherpa_ffi::verify_cpu_only_process;
 use ultra_stream::{
-    AsrStream, Backend, FakeBackend, FakeBackendConfig, NativeEngineBackend, OfflineModelKind,
-    OperatingProfile, OrtTransducerBackend, OutputPolicy, PollResult, SherpaLib,
-    SherpaOfflineBackend, SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig,
-    StreamClock, StreamConfig, StreamCoordinator,
+    Backend, FakeBackend, FakeBackendConfig, NativeEngineBackend, OfflineModelKind,
+    OperatingProfile, OrtTransducerBackend, OutputPolicy, SherpaLib, SherpaOfflineBackend,
+    SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig,
 };
 
-use crate::{git_short_commit, jsr_data_root, CliError};
+pub use crate::stream_run::{transcribe_audio_file, transcribe_audio_file_with_wake, WakeCadence};
+use crate::{jsr_data_root, CliError};
 
 fn peek_manifest_schema(bundle_dir: &Path) -> Option<String> {
     let bytes = std::fs::read(bundle_dir.join("manifest.json")).ok()?;
@@ -248,244 +235,72 @@ pub fn resolve_offline_config(
     }
 }
 
-fn self_cpu_s() -> Result<f64, CliError> {
-    let ru = getrusage(UsageWho::RUSAGE_SELF)
-        .map_err(|e| CliError::Internal(format!("getrusage: {e}")))?;
-    let u = ru.user_time();
-    let s = ru.system_time();
-    Ok((u.tv_sec() as f64 + u.tv_usec() as f64 / 1e6)
-        + (s.tv_sec() as f64 + s.tv_usec() as f64 / 1e6))
-}
-
-pub fn transcribe_audio_file(
-    candidate_id: &str,
-    audio_path: &Path,
-    profile: OperatingProfile,
-    policy: OutputPolicy,
-    packet_ms: u32,
-    pace: f64,
-    threads: i32,
-) -> Result<(String, Vec<TimedEvent>, Receipt), CliError> {
-    let pcm = read_audio_16k_mono(audio_path)
-        .map_err(|e| CliError::Config(format!("{}: {e}", audio_path.display())))?;
-    let backend = instantiate_backend(candidate_id, threads)?;
-    let model_cfg_id = backend.capabilities().name;
-    let stream_cfg = StreamConfig {
-        stream_id: "cli-stream-0".into(),
-        model_config_id: model_cfg_id.clone(),
-        policy,
-        profile,
-        ..StreamConfig::default()
-    };
-    let mut sampler = TreeSampler::new(std::process::id() as i32);
-    sampler.sample();
-    let cpu0 = self_cpu_s()?;
-    let shared_clock = StreamClock::real();
-    let inner = backend.create_stream_with_clock(&stream_cfg, shared_clock.clone())?;
-    let mut coord = StreamCoordinator::with_clock(stream_cfg.clone(), inner, shared_clock);
-    let mut timed_events = Vec::new();
-    let mut chunk_ms_samples = Vec::new();
-
-    for pkt in
-        PacedReplay::new(&pcm, packet_ms, pace).map_err(|e| CliError::Config(e.to_string()))?
-    {
-        let step_t0 = Instant::now();
-        coord.push_pcm(pkt.start_sample, pkt.pcm)?;
-        chunk_ms_samples.push(step_t0.elapsed().as_secs_f64() * 1000.0);
-        while let PollResult::Event(ev) = coord.poll_event()? {
-            let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
-            timed_events.push(TimedEvent { t_s, event: *ev });
-        }
-    }
-    let flush_t0 = Instant::now();
-    coord.finish_input()?;
-    chunk_ms_samples.push(flush_t0.elapsed().as_secs_f64() * 1000.0);
-    while let PollResult::Event(ev) = coord.poll_event()? {
-        let t_s = (ev.observed_monotonic_ns as f64) * 1e-9;
-        timed_events.push(TimedEvent { t_s, event: *ev });
-    }
-
-    let cpu_used = (self_cpu_s()? - cpu0).max(1e-6);
-    sampler.sample();
-    let rsum = sampler.summary();
-    let m = coord.metrics();
-    let committed = coord.ledger().committed_text();
-
-    chunk_ms_samples.sort_by(f64::total_cmp);
-    let pick = |q: f64| -> f64 {
-        if chunk_ms_samples.is_empty() {
-            return 0.0;
-        }
-        let idx = (((chunk_ms_samples.len() - 1) as f64) * q).round() as usize;
-        (chunk_ms_samples[idx] * 1000.0).round() / 1000.0
-    };
-
-    let mut preview_concat = String::new();
-    let mut status_events = Vec::new();
-    let mut gaps = Vec::new();
-    for te in &timed_events {
-        match &te.event.body {
-            Body::Preview(u) => {
-                preview_concat.push_str(&u.snapshot_utf8);
-                preview_concat.push('\n');
-            }
-            Body::Status { code, .. } => status_events.push(code.clone()),
-            Body::Gap {
-                start_sample: Some(s),
-                end_sample: Some(e),
-                ..
-            } => gaps.push((*s, *e)),
-            _ => {}
-        }
-    }
-
-    let raw_events: Vec<&TranscriptEvent> = timed_events.iter().map(|te| &te.event).collect();
-    let ev_bytes =
-        serde_json::to_vec(&raw_events).map_err(|e| CliError::Internal(e.to_string()))?;
-    let receipt = Receipt {
-        schema: RECEIPT_SCHEMA.into(),
-        bundle: model_cfg_id,
-        source_commit: git_short_commit(),
-        hardware: "H0".into(),
-        target: std::env::consts::ARCH.into(),
-        configured_threads: threads.max(1) as u32,
-        observed_threads: Some(rsum.max_threads.max(1) as u32),
-        cpu_only_verified: verify_cpu_only_process(),
-        audio_seconds: (pcm.len() as f64 / 16_000.0 * 1000.0).round() / 1000.0,
-        process_tree_cpu_seconds: Some((cpu_used * 1000.0).round() / 1000.0),
-        peak_rss_bytes: Some(rsum.peak_rss_bytes.max(1)),
-        events: Some(m.events_emitted),
-        wakeups: Some(m.wakeups),
-        cap_hits: Some(m.cap_hits),
-        chunk_ms: ChunkMs {
-            p50: Some(pick(0.50)),
-            p95: Some(pick(0.95)),
-            p99: Some(pick(0.99)),
-        },
-        status_events,
-        gaps,
-        hashes: Hashes {
-            events: sha256_hex(&ev_bytes),
-            preview: sha256_hex(preview_concat.as_bytes()),
-            commit: sha256_hex(committed.as_bytes()),
-            final_: sha256_hex(committed.as_bytes()),
-        },
-        label: HonestyLabel::InCorpus,
-        partition: Partition::Dev,
-        completion_status: "complete".into(),
-    };
-    receipt
-        .validate_as_evidence()
-        .map_err(|e| CliError::Internal(e.to_string()))?;
-    Ok((committed, timed_events, receipt))
-}
-
 pub(crate) fn cmd_transcribe(args: &[String], stream_mode: bool) -> Result<(), CliError> {
-    let mut candidate: Option<String> = None;
-    let mut audio: Option<PathBuf> = None;
-    let mut profile = OperatingProfile::Live;
-    let mut policy = OutputPolicy::EditableDictation;
-    let mut packet_ms = 20u32;
-    let mut pace = if stream_mode { 1.0 } else { 0.0 };
-    let mut threads = 1i32;
-    let mut events_out: Option<PathBuf> = None;
-    let mut receipt_out: Option<PathBuf> = None;
-
+    let (mut candidate, mut audio, mut wake_override) = (None, None, None);
+    let (mut profile, mut policy) = (OperatingProfile::Live, OutputPolicy::EditableDictation);
+    let (mut packet_ms, mut pace, mut threads) = (20u32, if stream_mode { 1.0 } else { 0.0 }, 1i32);
+    let (mut events_out, mut receipt_out) = (None, None);
     let mut i = 0;
     while i < args.len() {
+        let next = |idx: &mut usize, name: &str| -> Result<&str, CliError> {
+            *idx += 1;
+            args.get(*idx)
+                .map(String::as_str)
+                .ok_or_else(|| CliError::Config(format!("missing value for {name}")))
+        };
+        let p_err = |f: &str| CliError::Config(format!("invalid {f}"));
         match args[i].as_str() {
-            "--candidate" => {
-                i += 1;
-                candidate = args.get(i).cloned();
-            }
-            "--audio" | "--input" => {
-                i += 1;
-                audio = args.get(i).map(PathBuf::from);
-            }
+            "--candidate" => candidate = Some(next(&mut i, "--candidate")?.to_owned()),
+            "--audio" | "--input" => audio = Some(PathBuf::from(next(&mut i, "--input")?)),
             "--profile" => {
-                i += 1;
-                profile = match args.get(i).map(String::as_str) {
-                    Some("live") => OperatingProfile::Live,
-                    Some("efficient") => OperatingProfile::Efficient,
-                    Some("accurate") => OperatingProfile::Accurate,
-                    _ => return Err(CliError::Config("invalid --profile".into())),
-                };
+                profile = match next(&mut i, "--profile")? {
+                    "live" => OperatingProfile::Live,
+                    "efficient" => OperatingProfile::Efficient,
+                    "accurate" => OperatingProfile::Accurate,
+                    _ => return Err(p_err("--profile")),
+                }
             }
             "--policy" => {
-                i += 1;
-                policy = match args.get(i).map(String::as_str) {
-                    Some("dictate") => OutputPolicy::EditableDictation,
-                    Some("commit") => OutputPolicy::Commit,
-                    _ => return Err(CliError::Config("invalid --policy".into())),
-                };
+                policy = match next(&mut i, "--policy")? {
+                    "dictate" => OutputPolicy::EditableDictation,
+                    "commit" => OutputPolicy::Commit,
+                    _ => return Err(p_err("--policy")),
+                }
             }
             "--packet-ms" => {
-                i += 1;
-                packet_ms = args
-                    .get(i)
-                    .and_then(|v| v.parse().ok())
-                    .ok_or_else(|| CliError::Config("invalid --packet-ms".into()))?;
+                packet_ms = next(&mut i, "--packet-ms")?
+                    .parse()
+                    .map_err(|_| p_err("--packet-ms"))?
             }
             "--pace" => {
-                i += 1;
-                pace = args
-                    .get(i)
-                    .and_then(|v| v.parse().ok())
-                    .ok_or_else(|| CliError::Config("invalid --pace".into()))?;
+                pace = next(&mut i, "--pace")?
+                    .parse()
+                    .map_err(|_| p_err("--pace"))?
             }
+            "--wake-per-chunk" => wake_override = Some(WakeCadence::PerChunk),
+            "--wake-per-packet" => wake_override = Some(WakeCadence::PerPacket),
             "--threads" => {
-                i += 1;
-                threads = args
-                    .get(i)
-                    .and_then(|v| v.parse().ok())
-                    .ok_or_else(|| CliError::Config("invalid --threads".into()))?;
+                threads = next(&mut i, "--threads")?
+                    .parse()
+                    .map_err(|_| p_err("--threads"))?
             }
-            "--events" => {
-                i += 1;
-                events_out = args.get(i).map(PathBuf::from);
-            }
-            "--receipt" => {
-                i += 1;
-                receipt_out = args.get(i).map(PathBuf::from);
-            }
+            "--events" => events_out = Some(PathBuf::from(next(&mut i, "--events")?)),
+            "--receipt" => receipt_out = Some(PathBuf::from(next(&mut i, "--receipt")?)),
             x => return Err(CliError::Config(format!("unknown option `{x}`"))),
         }
         i += 1;
     }
-
     let cand = candidate.ok_or_else(|| CliError::Config("missing --candidate".into()))?;
     let path = audio.ok_or_else(|| CliError::Config("missing --audio / --input".into()))?;
-    let (text, timed, receipt) =
-        transcribe_audio_file(&cand, &path, profile, policy, packet_ms, pace, threads)?;
-
-    if let Some(ep) = events_out {
-        if let Some(parent) = ep.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let mut f = File::create(ep)?;
-        for te in &timed {
-            writeln!(
-                f,
-                "{}",
-                serde_json::to_string(te).map_err(|e| CliError::Internal(e.to_string()))?
-            )?;
-        }
-    }
-    if let Some(rp) = receipt_out {
-        if let Some(parent) = rp.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(
-            rp,
-            serde_json::to_vec_pretty(&receipt).map_err(|e| CliError::Internal(e.to_string()))?,
-        )?;
-    }
+    let cadence = wake_override.unwrap_or(WakeCadence::PerPacket);
+    let (text, timed, receipt, paced_wakeups) = transcribe_audio_file_with_wake(
+        &cand, &path, profile, policy, packet_ms, pace, threads, cadence,
+    )?;
+    crate::stream_run::write_stream_outputs(events_out, receipt_out, &timed, &receipt)?;
     let out = serde_json::json!({
-        "candidate": cand,
-        "text": text,
-        "events": timed.len(),
-        "audio_seconds": receipt.audio_seconds,
-        "cpu_seconds": receipt.process_tree_cpu_seconds,
+        "candidate": cand, "text": text, "events": timed.len(),
+        "wake_cadence": cadence.as_str(), "paced_wakeups": paced_wakeups,
+        "audio_seconds": receipt.audio_seconds, "cpu_seconds": receipt.process_tree_cpu_seconds,
         "peak_rss_bytes": receipt.peak_rss_bytes,
     });
     println!(

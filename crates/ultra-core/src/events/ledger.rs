@@ -94,16 +94,21 @@ impl Ledger {
             .event_sequence
             .checked_add(1)
             .ok_or(contract("event_sequence overflow"))?;
-        // Stage on a copy; commit only if every check passes.
+        // Stage on a copy without cloning `seen` (untouched by `apply_body`); commit only if every check passes.
+        let mut seen = std::mem::take(&mut self.seen);
         let mut staged = self.clone();
-        staged.apply_body(ev)?;
+        if let Err(e) = staged.apply_body(ev) {
+            self.seen = seen;
+            return Err(e);
+        }
         staged.stream_id = Some(ev.stream_id.clone());
         staged.epoch = ev.state_epoch;
         staged.next_seq = Some(next_seq);
-        staged.seen.insert(ev.event_sequence, hash);
-        while staged.seen.len() > DEDUP_WINDOW {
-            staged.seen.pop_first();
+        seen.insert(ev.event_sequence, hash);
+        while seen.len() > DEDUP_WINDOW {
+            seen.pop_first();
         }
+        staged.seen = seen;
         *self = staged;
         Ok(Applied::New)
     }

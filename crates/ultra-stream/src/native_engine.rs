@@ -176,6 +176,7 @@ impl NativeEngineBackend {
             processed_samples: 0,
             wakeups: 0,
             events_emitted: 0,
+            last_tokens: Vec::new(),
             last_hyp: String::new(),
             finished: false,
             cancelled: false,
@@ -228,6 +229,7 @@ struct NativeEngineAsrStream {
     processed_samples: u64,
     wakeups: u64,
     events_emitted: u64,
+    last_tokens: Vec<u32>,
     last_hyp: String,
     finished: bool,
     cancelled: bool,
@@ -244,7 +246,8 @@ impl NativeEngineAsrStream {
         let enc_bytes = self.raw.enc.retained_bytes();
         let dec_bytes = self.raw.dec.tokens.capacity() * std::mem::size_of::<u32>()
             + self.raw.dec.dec.capacity() * std::mem::size_of::<f32>();
-        let stream_overhead = self.last_hyp.capacity()
+        let stream_overhead = self.last_tokens.capacity() * std::mem::size_of::<u32>()
+            + self.last_hyp.capacity()
             + self.events.capacity() * std::mem::size_of::<TranscriptEvent>()
             + std::mem::size_of::<Self>();
         (enc_bytes + dec_bytes + stream_overhead) as u64
@@ -276,6 +279,14 @@ impl NativeEngineAsrStream {
         }
         self.processed_samples =
             ((self.raw.enc.t as u64) * R1_SAMPLES_PER_ENC_FRAME).min(self.accepted_samples);
+        self.publish_decoded_step()
+    }
+
+    fn publish_decoded_step(&mut self) -> Result<(), StreamError> {
+        if self.raw.dec.beam.is_none() && self.raw.dec.tokens == self.last_tokens {
+            return Ok(());
+        }
+        self.last_tokens.clone_from(&self.raw.dec.tokens);
         let hyp = self.backend.engine.text(&self.raw);
         let changed = hyp != self.last_hyp;
         let (suffix, commit) = match self.cfg.policy {
@@ -522,6 +533,7 @@ mod tests {
             processed_samples: 0,
             wakeups: 0,
             events_emitted: 0,
+            last_tokens: Vec::new(),
             last_hyp: String::new(),
             finished: false,
             cancelled: false,
@@ -560,5 +572,47 @@ mod tests {
             s2.poll_event().expect("poll terminal"),
             PollResult::Ended(TerminalOutcome::Failed(_))
         ));
+    }
+
+    #[test]
+    fn beam_commit_emits_when_shared_prefix_grows_with_unchanged_best_tokens() {
+        let mut s = tiny_commit_stream();
+        let mut beam = ultra_engine::beam::BeamState::new(&s.backend.engine.model);
+        let mut alt = beam.hyps[0].clone();
+        beam.hyps[0].tokens = vec![1, 2]; // "hello world"
+        alt.tokens = vec![3, 2]; // "halo world"
+        beam.hyps.push(alt);
+        s.raw.dec.beam = Some(beam);
+        s.raw.dec.tokens = vec![1, 2];
+        s.accepted_samples = 2_560;
+        s.processed_samples = 2_560;
+
+        // Chunk 1: beams disagree -> Preview("hello world"), nothing committed yet.
+        s.publish_decoded_step().expect("preview step");
+        match s.poll_event().expect("poll preview") {
+            PollResult::Event(ev) => {
+                assert!(matches!(ev.body, ultra_core::events::Body::Preview(_)))
+            }
+            other => panic!("expected Preview, got {other:?}"),
+        }
+        assert_eq!(s.emitter.immutable(), "");
+
+        // Chunk 2: competing beam pruned; best tokens are UNCHANGED ([1, 2]),
+        // but shared beam prefix grew to "hello world" -> must emit Commit("hello ")!
+        s.raw.dec.beam.as_mut().expect("beam").hyps.truncate(1);
+        s.accepted_samples = 5_120;
+        s.processed_samples = 5_120;
+        s.publish_decoded_step().expect("commit step");
+        match s.poll_event().expect("poll commit") {
+            PollResult::Event(ev) => match ev.body {
+                ultra_core::events::Body::Commit(u) => {
+                    assert_eq!(u.snapshot_utf8, "hello world");
+                    assert_eq!(&u.snapshot_utf8[..u.immutable_after_utf8_bytes], "hello");
+                }
+                other => panic!("expected Commit, got {other:?}"),
+            },
+            other => panic!("expected Commit event, got {other:?}"),
+        }
+        assert_eq!(s.emitter.immutable(), "hello");
     }
 }
