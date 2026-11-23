@@ -1,0 +1,110 @@
+H46 item 4 ("+text") integration for trainer-lane (research/H46_lm_and_text/README.md, amendment 3).
+Applies on top of lane branch h46/lm, which adds python/ultra/train/text_tables.py and
+python/ultra/tests/test_text_tables.py. Apply from the repo root with: patch -p1 < this file.
+
+What the diff below does (asr.py, mwer.py, beam.py):
+  * ModelConfig gains pred_text_tables (default False) and pred_text_dim (64). With the flag on,
+    ASRModel builds train.text_tables.TextPredictor (dense path = pred_ctx tokens, tables over
+    the last 4), and every context builder reads predictor.context_len instead of cfg.pred_ctx.
+  * With the flag off, nothing changes. With it on and the model initialised from B0
+    (load_state_dict(strict=False): only predictor.text.* missing), pred_p and every loss equal
+    B0's exactly (checked on a small config).
+
+Trainer hook for trainer.py (trainer-lane's file; not part of the diff). Suggested TrainConfig
+fields: text_weight: float = 0.0, text_batch: int = 8192, text_stream: str = "" (a
+`python -m train.nlm tokens` train.u16, e.g. sha256 8e249254...), text_enull_batches: int = 250.
+  setup (rank 0 computes, all ranks load the same tensor):
+      from train.text_tables import TextStream, mean_enc_proj
+      self._text = TextStream(cfg.text_stream, model.predictor.context_len, seed=cfg.seed + rank)
+      self._e_null = mean_enc_proj(model, first cfg.text_enull_batches TRAIN batches)  # save it
+  init from B0: model.predictor.load_plain(b0_predictor_state) (or strict=False as above)
+  in train_step, after `loss = out["loss"]` and before backward:
+      if self.cfg.text_weight > 0:
+          from train.text_tables import text_loss
+          ctx_t, tgt_t = self._text.batch(self.cfg.text_batch)
+          lt = text_loss(self.model.predictor, self.model.joiner, ctx_t.to(self.device),
+                         tgt_t.to(self.device), self._e_null)
+          loss = loss + self.cfg.text_weight * lt   # under DDP: before the gradient sync
+          out["text"] = lt
+Arms, gate and kill rule: amendment 3 (T0 continuation control, T1 tables + text 0.3, T1a
+tables only; seeds 1234 / 4321; > 2x the four-run spread against T0 on both seeds).
+
+diff -ru a/python/ultra/train/asr.py b/python/ultra/train/asr.py
+--- a/python/ultra/train/asr.py	2026-11-23 08:39:30.096341414 +0000
++++ b/python/ultra/train/asr.py	2026-11-23 08:39:30.144342362 +0000
+@@ -26,6 +26,10 @@
+     vocab_ctc: int = 1025  # 1,024 pieces + blank
+     pred_emb: int = 256
+     pred_ctx: int = 2  # stateless predictor context length (2 = v1 default, 4 = v2 BPE-500)
++    # H46 "+text" (research/H46_lm_and_text, amendment 3): hashed 2/3/4-token tables added to
++    # the predictor through a zero-initialised projection (train.text_tables.TextPredictor).
++    pred_text_tables: bool = False
++    pred_text_dim: int = 64
+     joiner: int = 320
+     joiner_act: str = "tanh"
+     ctc_weight: float = 0.3
+@@ -156,8 +160,14 @@
+                    if (cfg.inter_ctc and cfg.encoder.inter_ctc_vocab == 0) else cfg.encoder)
+         self.encoder = Encoder(enc_cfg)
+         self.ctc_head = nn.Linear(cfg.encoder.d_model, cfg.vocab_ctc)
+-        self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
+-                                            context_len=cfg.pred_ctx)
++        if cfg.pred_text_tables:
++            from train.text_tables import TextPredictor
++
++            self.predictor = TextPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
++                                           dense_len=cfg.pred_ctx, dim=cfg.pred_text_dim)
++        else:
++            self.predictor = StatelessPredictor(cfg.vocab_rnnt, cfg.pred_emb, cfg.joiner,
++                                                context_len=cfg.pred_ctx)
+         self.joiner = Joiner(cfg.encoder.d_model, cfg.joiner, cfg.vocab_rnnt, cfg.joiner_act)
+         if cfg.rnnt_loss == "pruned":
+             if cfg.prune_range < 2:
+@@ -218,7 +228,8 @@
+             ctc_sum, ctc_tokens, ok = ctc_loss(ctc_lp, enc_lens, ctc_tgt, ctc_lens, stats)
+             # Transducer.
+             enc_p = self.joiner.enc_proj(enc).float()
+-            pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt, self.cfg.pred_ctx)).float()
++            pred_p = self.predictor(StatelessPredictor.contexts(
++                rnnt_tgt, self.predictor.context_len)).float()
+             zl = None
+             if self.cfg.rnnt_loss == "pruned":
+                 nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
+diff -ru a/python/ultra/train/beam.py b/python/ultra/train/beam.py
+--- a/python/ultra/train/beam.py	2026-11-23 08:39:30.116341809 +0000
++++ b/python/ultra/train/beam.py	2026-11-23 08:39:30.145342382 +0000
+@@ -30,11 +30,12 @@
+     if blank_penalty < 0:
+         raise ValueError("blank_penalty must be >= 0")
+     out = []
++    k_ctx = int(getattr(predictor, "context_len", 2))  # 2, or 4 with the +text tables
+     for b in range(enc_p.shape[0]):
+         hyps: dict[tuple[int, ...], float] = {(): 0.0}
+         for t in range(int(lens[b])):
+             seqs = list(hyps)
+-            ctx = torch.tensor([[(s[-2] if len(s) > 1 else BLANK), (s[-1] if s else BLANK)]
++            ctx = torch.tensor([[BLANK] * (k_ctx - len(s[-k_ctx:])) + list(s[-k_ctx:])
+                                 for s in seqs], dtype=torch.long, device=enc_p.device)
+             logp = torch.log_softmax(
+                 joiner.logits(enc_p[b, t].expand(len(seqs), -1), predictor(ctx)).float(), dim=-1)
+diff -ru a/python/ultra/train/mwer.py b/python/ultra/train/mwer.py
+--- a/python/ultra/train/mwer.py	2026-11-23 08:39:30.106341611 +0000
++++ b/python/ultra/train/mwer.py	2026-11-23 08:39:30.145342382 +0000
+@@ -33,7 +33,7 @@
+ 
+ 
+ def _pred_contexts(model: ASRModel, tgt: torch.Tensor) -> torch.Tensor:
+-    k_ctx = int(getattr(model.cfg, "pred_ctx", 2))
++    k_ctx = int(getattr(model.predictor, "context_len", 2))  # +text widens it to the tables'
+     return StatelessPredictor.contexts(tgt) if k_ctx == 2 else StatelessPredictor.contexts(tgt, k_ctx)
+ 
+ 
+@@ -43,7 +43,7 @@
+     k = len(cands)
+     max_u = max((len(c) for c in cands), default=0)
+     dev = enc_p_1.device
+-    k_ctx = int(getattr(model.cfg, "pred_ctx", 2))
++    k_ctx = int(getattr(model.predictor, "context_len", 2))
+     if max_u == 0:
+         # Empty hypothesis: sum of blank log-probs along u=0.
+         pred_ctx = torch.zeros(1, 1, k_ctx, dtype=torch.long, device=dev)

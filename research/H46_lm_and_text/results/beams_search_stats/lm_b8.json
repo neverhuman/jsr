@@ -1,0 +1,25 @@
+{
+ "config": {
+  "name": "lm_b8",
+  "beam": 8,
+  "blank_penalty": 0.0,
+  "lm": "/dev/shm/h46-lm/lm/tok5.p00149.trie.bin",
+  "lm_weight": 0.7,
+  "lodr": "/dev/shm/h46-lm/lm/lodr2.train960.bin",
+  "lodr_weight": 0.525
+ },
+ "checkpoint_sha256": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146",
+ "utterances": 200,
+ "audio_s": 1252.8,
+ "frames": 31400,
+ "output_tokens": 6941,
+ "live_hyps_per_frame_mean": 6.448,
+ "live_hyps_per_frame_max": 8,
+ "new_lm_contexts_per_frame_mean": 0.845,
+ "new_lm_contexts_per_frame_max": 7,
+ "new_lm_contexts_per_audio_s": 21.19,
+ "full_row_lookups_per_audio_s": 10593.1,
+ "python_search_s": 35.9,
+ "shard_glob": "s0[0-1]",
+ "limit_per_shard": 50
+}

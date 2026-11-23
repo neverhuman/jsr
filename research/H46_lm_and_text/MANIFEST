@@ -1,0 +1,51 @@
+# H46 MANIFEST: inputs, tools and kept artifacts with sha256. No weights are committed; paths are on H0's data drive unless noted.
+# format: sha256  path  (role)
+
+## acoustic model (B0 = A1 step 49,000, EMA)
+2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146  xbabe5:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt  (source checkpoint; sidecar .sha256)
+4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c  /dev/shm/eval-lane/ckpt/A1-49000-ema-as-model.pt  (eval-lane's EMA-as-model file; derived_from = the source)
+73de4f552251982d725e1a26019e78997250bf33c276963067cadfb01611c583  /dev/shm/h46-lm/am/A1-49000-ema.slim.pt  (decode copy, train/ops/h46_slim_from_derived.py; source_sha256 = 2a3dd9fb...)
+# check (results/item1_source_ema_check.json): the source copied from xbabe5 hashes to 2a3dd9fb... (= its sidecar), and its 471 EMA tensors are bit-equal (torch.equal) to the decode copy's
+b1581cbb1f22707ed16b146b0b04bdbcc181cdb6def5a68ad1108cc9af9db39f  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/arch.json  (prepared INT8 dir used by the engine runs)
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/bpe.model  (prepared INT8 dir used by the engine runs)
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/mel_fbank.f32  (prepared INT8 dir used by the engine runs)
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/tokens.txt  (prepared INT8 dir used by the engine runs)
+4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/weights.int8.safetensors  (prepared INT8 dir used by the engine runs)
+0fa7261e585eb97c4be851f265988f9c5cce2085c671a5dd249670ddd6094ffe  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/int8/weights.safetensors  (prepared INT8 dir used by the engine runs)
+
+## language models
+00b5588eb91715ff7c640927b43b121fec6755fd69254a5f143f40ec3399f55a  /mnt/xbabe3-external/jsr/lm/models/token/lodr2.train960.bin  (H42 asset)
+aaec33c6bacdc19844932b99905fc9a6305ee318bfd7fd14d55a962d0b5103c1  /mnt/xbabe3-external/jsr/lm/models/token/tok5.p00149.trie.bin  (H42 asset)
+f569972371f871f30b0a31ede248631a57680eb26523b9094bc74cdcc1c331dd  /mnt/xbabe3-external/jsr/lm/models/token/lodr2.train960.arpa  (H42 asset)
+72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982  /mnt/xbabe3-external/jsr/lm/models/engine/M5.ulm  (H42 asset)
+73d82f7a654ee14ae52a7b8f3db8ce908da9395fb9894264c90941adef390a0b  /mnt/xbabe3-external/jsr/lm/models/engine/S4.ulm  (H42 asset)
+9e2d3f986ed87eb126406153dd267de9d57adf0eb8843c38c1d647a44847d383  /mnt/xbabe3-external/jsr/lm/models/engine/S5.ulm  (H42 asset)
+b3080f21f8182c65748d1131feac870aae4de7f807606711c49f49d6aae84aa5  /mnt/xbabe3-external/jsr/h46-lm/packs/lodr2.v2.ulm  (item 2 v2 repacks; lodr2.v2 = LODR alone)
+58ef726bfb33a1958c6975d197c496803d4e7f367e4b4a2ba90e799ed8fe69ff  /mnt/xbabe3-external/jsr/h46-lm/packs/M5.v2.ulm  (item 2 v2 repacks; lodr2.v2 = LODR alone)
+3a9b6885786fe20f4a4e20fd440c570acb8b192cc9809ee6dbb6e64d8a2f31e2  /mnt/xbabe3-external/jsr/h46-lm/packs/S4.v2.ulm  (item 2 v2 repacks; lodr2.v2 = LODR alone)
+185381f1ad99dbedd84c622a54c99c0035a9f138f22e8156a4123dbc4f2f5465  /mnt/xbabe3-external/jsr/h46-lm/packs/S5.v2.ulm  (item 2 v2 repacks; lodr2.v2 = LODR alone)
+
+## data (DEV only; test sets sealed)
+bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6  /mnt/xbabe3-external/jsr/cache/librispeech_pcm/dev-clean.npz
+2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8  /mnt/xbabe3-external/jsr/cache/librispeech_pcm/dev-other.npz
+8c9d2243acb83fddf9b18b4a0df1f9169dd50c08879e816eed131064ba880078  encoder cache dev-clean.enc_p.npy (train.lm_decode encode, A1-49000 EMA, chunk 4)
+5dc0080fae11309febcc934a8171d07c020037bfa11508a81926898ff8f6e8d7  encoder cache dev-other.enc_p.npy
+002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac  /mnt/xbabe3-external/jsr/evals/eval-lane/h43/dev_split_v2.json  (eval-lane split v2)
+199c6843d857b13245c26596ff0b60a5828e46d2eb27beb752d0bee5a569ab5a  dev_selection_panel.json  (730-utterance panel)
+927d47656638c2ca93566640e56bcbeb2aa4ca237b8490fe1eff7d6e610a53c7  /mnt/xbabe3-external/jsr/lm/downloads/openslr11/librispeech-lm-norm.txt.gz.d/librispeech-lm-norm.txt.gz  (OpenSLR 11 LM text, CANDIDATES.lock)
+8e24925423e8fc8d76b31b6992eae88f954d3f3bb8171edbc052f6d50743bdf7  train.u16  (train.nlm tokens: leak-free token stream, 1,576,271,317 tokens; not kept)
+cff58b8c1debbeb21bb3cd1e2abf3ff5c453c891f0303f7224240ee7891ab5ee  valid.u16  (every 1000th line, 1,573,512 tokens)
+
+## tools
+a9b552e96b1343842f43bc154f76b54bc968f6d0e4130d9a4f648dd16f68dff9  /mnt/xbabe3-external/jsr/cargo-target/h46/release/ultra-engine-eval  (built from main e61121e, release)
+f55967857ced4e2899972b62a7ec7014b1e8889d0c73cddd98229e8b23fcdbb8  /mnt/xbabe3-external/jsr/cargo-target/h46/release/ultra-score  (built from main e61121e, release)
+208fe3ce983a9090abf578ba9d68db6d89cba0cd6ec1a627d58f5a86e39c85f3  /mnt/xbabe3-external/jsr/cargo-target/h46/release/ultra-lm-pack  (built from main e61121e, release)
+d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1  /home/ubuntu/jsr/target/paper-evidence/runtime/ultra-score  (eval-lane's pinned scorer, same 8.3024 on the greedy dump)
+2700b1d46e7738c1c1a84937d4d281025856b87077f692a816e443f897a2ce32  torch 2.7.0+cpu torch/lib/libtorch_cpu.so (MKL 2024.2; xbabe2:~/jsr-data/venvs/torch270-cpu)
+
+## kept artifacts (data drive, not committed)
+9b8e63e592e52289243e00614d79958d9bfbf130a9b20732c159b70383a31d3f  /mnt/xbabe3-external/jsr/h46-lm/nlm/runs/0.5m/model.pt  (item 3 FFNN runs and ultra.lm-ffnn/v1 exports)
+13639e505f2c53c138fa91014a038d2aa9d146bbb4119eb73ec4c4880d1115b5  /mnt/xbabe3-external/jsr/h46-lm/nlm/runs/2.0m/model.pt  (item 3 FFNN runs and ultra.lm-ffnn/v1 exports)
+1188a4cfb5430c11ccc9068718fc3b7a6bec2c0d0c1f230d3646acd6708650f3  /mnt/xbabe3-external/jsr/h46-lm/nlm/export/ffnn-0.5m.ulmff  (item 3 FFNN runs and ultra.lm-ffnn/v1 exports)
+17476f0d2bc78de88fa28c130ea54e8b521a38d7c6166822b0279ca3c2a496f1  /mnt/xbabe3-external/jsr/h46-lm/nlm/export/ffnn-2.0m.ulmff  (item 3 FFNN runs and ultra.lm-ffnn/v1 exports)
+-  /mnt/xbabe3-external/jsr/h46-lm/results/  (raw ultra-score reports, uncompressed hypotheses, engine runs)

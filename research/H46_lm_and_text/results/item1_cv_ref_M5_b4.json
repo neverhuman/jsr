@@ -1,0 +1,310 @@
+{
+ "baseline": "b4",
+ "sweep": "fusion_M5_b4cv.json",
+ "exploratory": true,
+ "search": "train.beam.modified_beam_search + train.lm_fusion.NgramFusion",
+ "families": {
+  "M5_b4_fusion": {
+   "chosen": {
+    "tuned_on_A_scored_on_B": {
+     "name": "M5_b4_l0.50_r0.00_p1.50",
+     "lm_weight": 0.5,
+     "blank_penalty": 1.5
+    },
+    "tuned_on_B_scored_on_A": {
+     "name": "M5_b4_l0.50_r0.00_p1.50",
+     "lm_weight": 0.5,
+     "blank_penalty": 1.5
+    }
+   },
+   "held_out": {
+    "dev-clean": {
+     "arm": {
+      "wer": 3.788,
+      "sub": 1671,
+      "del": 184,
+      "ins": 206,
+      "ref_words": 54402,
+      "utts": 2703
+     },
+     "baseline": {
+      "wer": 4.526,
+      "sub": 2004,
+      "del": 205,
+      "ins": 253,
+      "ref_words": 54402,
+      "utts": 2703
+     },
+     "rel_change_pct": -16.31,
+     "bootstrap": {
+      "diff_pp": -0.737,
+      "lo": -0.846,
+      "hi": -0.631,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -0.737,
+      "lo": -0.93,
+      "hi": -0.575,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    },
+    "dev-other": {
+     "arm": {
+      "wer": 10.711,
+      "sub": 4294,
+      "del": 616,
+      "ins": 547,
+      "ref_words": 50948,
+      "utts": 2864
+     },
+     "baseline": {
+      "wer": 12.267,
+      "sub": 5055,
+      "del": 568,
+      "ins": 627,
+      "ref_words": 50948,
+      "utts": 2864
+     },
+     "rel_change_pct": -12.68,
+     "bootstrap": {
+      "diff_pp": -1.556,
+      "lo": -1.727,
+      "hi": -1.385,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.556,
+      "lo": -1.802,
+      "hi": -1.327,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    },
+    "pooled": {
+     "arm": {
+      "wer": 7.136,
+      "sub": 5965,
+      "del": 800,
+      "ins": 753,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "baseline": {
+      "wer": 8.27,
+      "sub": 7059,
+      "del": 773,
+      "ins": 880,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "rel_change_pct": -13.71,
+     "bootstrap": {
+      "diff_pp": -1.133,
+      "lo": -1.235,
+      "hi": -1.033,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.133,
+      "lo": -1.285,
+      "hi": -0.988,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "sweep_held_out_pooled_wer": 7.136,
+   "identical_to_sweep_decode": {
+    "M5_b4_l0.50_r0.00_p1.50": "5567/5567"
+   },
+   "cost": {
+    "M5_b4_l0.50_r0.00_p1.50": {
+     "decode_seconds": 809.6,
+     "lm_contexts": 461801,
+     "lm_contexts_per_utt": 83.0,
+     "lm_contexts_per_audio_s": 12.24,
+     "lm_contexts_per_output_token": 2.27,
+     "output_tokens": 203703
+    }
+   },
+   "audio_seconds": 37733.1,
+   "baseline_decode_seconds": 274.9
+  },
+  "M5_b4_fusion_lodr": {
+   "chosen": {
+    "tuned_on_A_scored_on_B": {
+     "name": "M5_b4_l0.80_r0.75_p0.25",
+     "lm_weight": 0.8,
+     "lodr_weight": 0.6,
+     "blank_penalty": 0.25
+    },
+    "tuned_on_B_scored_on_A": {
+     "name": "M5_b4_l0.70_r0.75_p0.00",
+     "lm_weight": 0.7,
+     "lodr_weight": 0.525,
+     "blank_penalty": 0.0
+    }
+   },
+   "held_out": {
+    "dev-clean": {
+     "arm": {
+      "wer": 3.774,
+      "sub": 1666,
+      "del": 189,
+      "ins": 198,
+      "ref_words": 54402,
+      "utts": 2703
+     },
+     "baseline": {
+      "wer": 4.526,
+      "sub": 2004,
+      "del": 205,
+      "ins": 253,
+      "ref_words": 54402,
+      "utts": 2703
+     },
+     "rel_change_pct": -16.62,
+     "bootstrap": {
+      "diff_pp": -0.752,
+      "lo": -0.872,
+      "hi": -0.631,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -0.752,
+      "lo": -0.982,
+      "hi": -0.565,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    },
+    "dev-other": {
+     "arm": {
+      "wer": 10.491,
+      "sub": 4227,
+      "del": 609,
+      "ins": 509,
+      "ref_words": 50948,
+      "utts": 2864
+     },
+     "baseline": {
+      "wer": 12.267,
+      "sub": 5055,
+      "del": 568,
+      "ins": 627,
+      "ref_words": 50948,
+      "utts": 2864
+     },
+     "rel_change_pct": -14.48,
+     "bootstrap": {
+      "diff_pp": -1.776,
+      "lo": -1.962,
+      "hi": -1.587,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.776,
+      "lo": -2.102,
+      "hi": -1.467,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    },
+    "pooled": {
+     "arm": {
+      "wer": 7.022,
+      "sub": 5893,
+      "del": 798,
+      "ins": 707,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "baseline": {
+      "wer": 8.27,
+      "sub": 7059,
+      "del": 773,
+      "ins": 880,
+      "ref_words": 105350,
+      "utts": 5567
+     },
+     "rel_change_pct": -15.09,
+     "bootstrap": {
+      "diff_pp": -1.247,
+      "lo": -1.359,
+      "hi": -1.138,
+      "excludes_zero": true,
+      "unit": "utterance",
+      "resamples": 10000,
+      "seed": 20261122
+     },
+     "bootstrap_speaker": {
+      "diff_pp": -1.247,
+      "lo": -1.442,
+      "hi": -1.063,
+      "excludes_zero": true,
+      "unit": "speaker",
+      "resamples": 10000,
+      "seed": 20261122
+     }
+    }
+   },
+   "sweep_held_out_pooled_wer": 7.022,
+   "identical_to_sweep_decode": {
+    "M5_b4_l0.70_r0.75_p0.00": "5567/5567",
+    "M5_b4_l0.80_r0.75_p0.25": "5567/5567"
+   },
+   "cost": {
+    "M5_b4_l0.70_r0.75_p0.00": {
+     "decode_seconds": 963.7,
+     "lm_contexts": 469934,
+     "lm_contexts_per_utt": 84.4,
+     "lm_contexts_per_audio_s": 12.45,
+     "lm_contexts_per_output_token": 2.31,
+     "output_tokens": 203588
+    },
+    "M5_b4_l0.80_r0.75_p0.25": {
+     "decode_seconds": 1031.4,
+     "lm_contexts": 475883,
+     "lm_contexts_per_utt": 85.5,
+     "lm_contexts_per_audio_s": 12.61,
+     "lm_contexts_per_output_token": 2.33,
+     "output_tokens": 203889
+    }
+   },
+   "audio_seconds": 37733.1,
+   "baseline_decode_seconds": 274.9
+  }
+ },
+ "no_lm_timing_run": {
+  "name": "ref_M5_b4cv_nolm_timing",
+  "decode_seconds": 227.0,
+  "identical_to_baseline": 5567
+ }
+}

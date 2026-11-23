@@ -1,0 +1,34 @@
+{
+ "dev-clean": {
+  "utterances": 2703,
+  "identical": 2702,
+  "different": 1,
+  "examples": [
+   [
+    "6319-64726-0000",
+    "WHEN AT LAST THE QUEEN GAVE BIRTH TO A DAUGHTER THE KING WAS SO OVERJOYED THAT HE GAVE A GREAT CHRISTENING FEAST THE LIKE OF WHICH HAD NEVER BEFORE BEEN KNOWN",
+    "WHEN AT LAST THE QUEEN GAVE BIRTH TO A DAUGHTER THE KING WAS SO OVERJOYED THAT HE GAVE A GREAT CHRISTENING FEAST A LIKE OF WHICH HAD NEVER BEFORE BEEN KNOWN"
+   ]
+  ],
+  "checkpoint_sha256": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146",
+  "frames": 484680,
+  "encode_cpu_seconds": 6145.8
+ },
+ "dev-other": {
+  "utterances": 2864,
+  "identical": 2864,
+  "different": 0,
+  "examples": [],
+  "checkpoint_sha256": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146",
+  "frames": 460689,
+  "encode_cpu_seconds": 7766.8
+ },
+ "explanation": {
+  "uid": "6319-64726-0000",
+  "decision": "hyp position 42, frame 196: 'THE' (cache, CPU torch 2.7.0+cpu MKL) vs 'A' (eval-lane's dump)",
+  "logp_margin_top2": 0.001559,
+  "reason": "near-tie; eval-lane's curve passes run on H0's GPU queue (curve_snapshot2.sh -> jobs/gpu_h0b.txt), whose arithmetic differs from the CPU MKL build",
+  "next_smallest_margin_on_this_utt": 0.063632,
+  "reference_text_has": "THE LIKE OF WHICH"
+ }
+}

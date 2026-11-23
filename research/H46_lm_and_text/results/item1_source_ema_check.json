@@ -1,0 +1,9 @@
+{
+ "source": "/mnt/xbabe3-external/jsr/h46-lm/am/ckpt-00049000.pt",
+ "source_sha256": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146",
+ "sidecar": "2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146",
+ "step": 49000,
+ "tensors": 471,
+ "same_keys": true,
+ "ema_tensors_bit_equal": true
+}
