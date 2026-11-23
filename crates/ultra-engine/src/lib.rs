@@ -24,6 +24,7 @@ pub mod kernels;
 pub mod lm;
 pub mod model;
 pub mod panel;
+pub mod peek;
 pub mod pool;
 pub mod prof;
 pub mod quant;
@@ -36,6 +37,7 @@ pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
 pub use lm::{FfnnActivation, FfnnLm, LmConfig, NgramLm, TokenLm};
 pub use model::{Arch, Model};
+pub use peek::{PeekConfig, PeekEvent, PeekSession, PeekStats};
 
 /// Errors from loading an engine weight directory or running a chunk.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
