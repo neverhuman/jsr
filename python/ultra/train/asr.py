@@ -124,13 +124,19 @@ class SpecAugConfig:
     freq_width: int = 27
     time_masks_per_10s: int = 2
     time_width: int = 40
+    time_warp: int = 0  # lhotse-style SpecAugment time warp (0 = off, bit-exact)
 
 
 def spec_augment(x: torch.Tensor, lens: torch.Tensor, cfg: SpecAugConfig, gen: torch.Generator):
     """In-place-free masking with an explicit generator (reproducible from the step seed)."""
     if not cfg.enabled:
         return x
-    x = x.clone()
+    if cfg.time_warp > 0:
+        from train.features import time_warp
+
+        x = time_warp(x, lens, cfg.time_warp, gen)
+    else:
+        x = x.clone()
     B, T, F_ = x.shape
     for b in range(B):
         n = int(lens[b])
@@ -191,7 +197,9 @@ class ASRModel(nn.Module):
                inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0,
                view: torch.Tensor | None = None, cr_target: torch.Tensor | None = None,
                ctx: torch.Tensor | None = None, anchor: torch.Tensor | None = None,
-               anchor_spec=None) -> dict:
+               anchor_spec=None, mcr_weight: float = 0.0, loss_trunc=None,
+               loss_trunc_step: int = 0, etm_kd: tuple | None = None,
+               etm_kd_weight: float = 0.0, etm_kd_mode: str = "exact") -> dict:
         """`view` / `cr_target` serve the full-form CR-CTC step (trainer.cr_ctc_full), which runs one
         view per call: `view` is that view's normalised, already augmented input (no augmentation
         here), `cr_target` the other view's detached CTC log-posteriors; the result then carries
@@ -223,19 +231,40 @@ class ASRModel(nn.Module):
             # Transducer.
             enc_p = self.joiner.enc_proj(enc).float()
             pred_p = self.predictor(StatelessPredictor.contexts(rnnt_tgt, self.cfg.pred_ctx)).float()
-            zl, adiag = None, None
+            zl, adiag, mcr_out = None, None, None
+            etm_res: tuple[torch.Tensor, int] | None = None
             anchored = anchor is not None and anchor_spec is not None and anchor_spec.active
-            if self.cfg.rnnt_loss == "pruned" and anchored:  # H48c: train/anchored_rnnt.py
+            if mcr_weight > 0.0:
+                from train.mcr_rnnt import mcr_forward
+
+                mcr_out = mcr_forward(
+                    self, x, feat_lens, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens,
+                    ctx=ctx, enc_lens0=enc_lens0, simple_detach=simple_detach,
+                    zloss=zloss_weight > 0, delay_penalty=delay_penalty,
+                )
+                nll = 0.5 * (mcr_out["nll_stream"] + mcr_out["nll_full"])
+                simple, zl = mcr_out["simple"], mcr_out["zloss"]
+            elif self.cfg.rnnt_loss == "pruned" and anchored:  # H48c: train/anchored_rnnt.py
                 from train.anchored_rnnt import anchored_pruned_rnnt
 
                 nll, simple, zl, adiag = anchored_pruned_rnnt(
                     self, enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens, anchor, anchor_spec,
                     simple_detach, zloss=zloss_weight > 0, delay_penalty=delay_penalty)
             elif self.cfg.rnnt_loss == "pruned":
-                nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
-                                                    rnnt_lens, simple_detach,
-                                                    zloss=zloss_weight > 0,
-                                                    delay_penalty=delay_penalty)
+                if etm_kd is not None and etm_kd_weight > 0.0:
+                    nll, simple, zl, pr_logits, pr_ranges, pr_bd = self._pruned_rnnt(
+                        enc, enc_p, pred_p, rnnt_tgt, enc_lens, rnnt_lens, simple_detach,
+                        zloss=zloss_weight > 0, delay_penalty=delay_penalty, return_band=True)
+                    from train.etm_kd import etm_kd_pruned_loss, label_occupancy_pruned
+
+                    occ = label_occupancy_pruned(pr_logits, rnnt_tgt, pr_ranges, pr_bd)
+                    etm_res = etm_kd_pruned_loss(pr_logits, pr_ranges, etm_kd[0], occ, etm_kd[1],
+                                                 mode=etm_kd_mode)
+                else:
+                    nll, simple, zl = self._pruned_rnnt(enc, enc_p, pred_p, rnnt_tgt, enc_lens,
+                                                        rnnt_lens, simple_detach,
+                                                        zloss=zloss_weight > 0,
+                                                        delay_penalty=delay_penalty)
             else:
                 if delay_penalty:
                     raise ValueError("delay_penalty needs rnnt_loss='pruned' (k2)")
@@ -243,11 +272,21 @@ class ASRModel(nn.Module):
                     raise ValueError("the MFA-anchored latency loss needs rnnt_loss='pruned' (k2)")
                 lpb, lpl = joiner_logprobs(self.joiner, enc_p, pred_p, rnnt_tgt)
                 nll, simple = rnnt_nll(lpb, lpl, enc_lens, rnnt_lens), None
+                if etm_kd is not None and etm_kd_weight > 0.0:
+                    from train.etm_kd import etm_kd_loss, label_occupancy_exact
+
+                    occ = label_occupancy_exact(lpb, lpl, enc_lens, rnnt_lens)
+                    z_full = self.joiner.logits(enc_p[:, :, None, :], pred_p[:, None, :, :]).float()
+                    etm_res = etm_kd_loss(z_full, etm_kd[0], occ, etm_kd[1], mode=etm_kd_mode)
                 if zloss_weight > 0:  # H23: train/optim/zloss.py
                     from train.optim.zloss import diagonal_zloss
 
                     zl = diagonal_zloss(self.joiner, enc_p, pred_p, enc_lens, rnnt_lens)
-        rnnt_tokens = int(rnnt_lens.sum())
+        trunc_stats = None
+        if loss_trunc is not None:
+            nll, rnnt_tokens, trunc_stats = loss_trunc(nll, rnnt_lens, loss_trunc_step)
+        else:
+            rnnt_tokens = int(rnnt_lens.sum())
         rnnt = nll.sum() / max(1, rnnt_tokens)
         ctc = ctc_sum / max(1, ctc_tokens)
         total = self.cfg.ctc_weight * ctc
@@ -315,11 +354,19 @@ class ASRModel(nn.Module):
         if zl is not None:
             total = total + zloss_weight * zl
             out["zloss"] = zl  # live: the DDP path rebuilds the loss from these parts
+        if mcr_out is not None:
+            total = total + mcr_weight * mcr_out["mcr_kl"]
+            out["mcr_kl"], out["mcr_cells"] = mcr_out["mcr_kl"], mcr_out["mcr_cells"]
+        if etm_res is not None:
+            total = total + etm_kd_weight * etm_res[0]
+            out["etm_kd"], out["etm_tokens"] = etm_res[0], etm_res[1]
+        if trunc_stats is not None:
+            out["trunc_dropped"] = trunc_stats["trunc_dropped"]
         out["loss"] = total
         return out
 
     def _pruned_rnnt(self, enc, enc_p, pred_p, tgt, enc_lens, tgt_lens, simple_detach=False,
-                     zloss: bool = False, delay_penalty: float = 0.0):
+                     zloss: bool = False, delay_penalty: float = 0.0, return_band: bool = False):
         """(pruned per-sequence NLL, simple-joiner smoothed per-sequence loss, band z-loss or
         None) via k2. delay_penalty > 0 (H34) applies k2's emission-delay regulariser to both
         the smoothed and the pruned loss (as icefall does); 0 leaves the calls unchanged."""
@@ -346,10 +393,11 @@ class ASRModel(nn.Module):
                                   termination_symbol=BLANK, boundary=bd, rnnt_type="regular",
                                   reduction="none", **dp)
         if not zloss:
-            return nll, simple, None
+            return (nll, simple, None, logits, ranges, bd) if return_band else (nll, simple, None)
         from train.optim.zloss import band_zloss
 
-        return nll, simple, band_zloss(logits, enc_lens)
+        zl = band_zloss(logits, enc_lens)
+        return (nll, simple, zl, logits, ranges, bd) if return_band else (nll, simple, zl)
 
     @torch.no_grad()
     def greedy(self, feats, feat_lens, chunk=None, max_symbols: int = 8):

@@ -332,7 +332,8 @@ class ParquetBatches:
                  pad_tokens: int = 0, loader: str = "thread", synth_aug: bool = False,
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
                  base_weight: float = 0.0, anchors=None, dur_tables: str = "",
-                 node_shards: str = ""):
+                 node_shards: str = "", bpe_dropout_p: float = 0.0,
+                 bpe_dropout_alpha: float = 0.1):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -413,6 +414,7 @@ class ParquetBatches:
         self.synth_aug = bool(synth_aug)
         self.teacher = teacher
         self.anchors = anchors  # H48c train.mfa_anchors.MfaAnchors (None = off)
+        self.bpe_dropout_p, self.bpe_dropout_alpha = float(bpe_dropout_p), float(bpe_dropout_alpha)
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
         if loader not in ("thread", "process"):
             raise DataError(f"unknown loader {loader!r}")
@@ -502,6 +504,19 @@ class ParquetBatches:
             rows = kept
         return rows
 
+    def _apply_bpe_dropout(self, ex: Example, epoch: int) -> None:
+        """Wave 2D BPE-Dropout: auto-disabled on frame-KD rows to keep teacher lattice alignment."""
+        if self.bpe_dropout_p <= 0.0 or (ex.kd is not None and bool(ex.kd[3])):
+            return
+        import hashlib
+
+        h = hashlib.sha256(f"bpe:{self.seed}:{epoch}:{ex.uid}".encode()).digest()
+        rng = np.random.default_rng(int.from_bytes(h[:8], "little"))
+        ex.rnnt = self.feat.tok_rnnt.encode(ex.text, dropout_p=self.bpe_dropout_p,
+                                            alpha=self.bpe_dropout_alpha, rng=rng)
+        ex.ctc = self.feat.tok_ctc.encode(ex.text, dropout_p=self.bpe_dropout_p,
+                                          alpha=self.bpe_dropout_alpha, rng=rng)
+
     def _decode(self, row: dict, epoch: int = 0) -> Example | None:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
         if sr != 16000 or pcm.ndim != 1:
@@ -518,9 +533,11 @@ class ParquetBatches:
             ex.anchor = self.anchors.token_anchors(row["id"], f, ex.rnnt, row["text"])
         if self.teacher is not None:
             ex.kd = self.teacher.get_checked(row["id"], f, ex.rnnt, n_mel=ex.feats.shape[0])
+        if getattr(self, "bpe_dropout_p", 0.0) > 0.0:
+            self._apply_bpe_dropout(ex, epoch)
         return ex
 
-    def _attach(self, x):
+    def _attach(self, x, epoch: int = 0):
         """Process-path result -> Example in the main process (teacher lookup lives here)."""
         if x is None:
             return None
@@ -530,6 +547,8 @@ class ParquetBatches:
             ex.anchor = self.anchors.token_anchors(uid, f, rnnt, text)
         if self.teacher is not None:
             ex.kd = self.teacher.get_checked(uid, f, rnnt, n_mel=feats.shape[0])
+        if getattr(self, "bpe_dropout_p", 0.0) > 0.0:
+            self._apply_bpe_dropout(ex, epoch)
         return ex
 
     def _speed(self, uid: str, epoch: int) -> float:
