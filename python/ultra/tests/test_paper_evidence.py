@@ -341,16 +341,19 @@ def test_label_width_estimates_cover_the_typeset_labels(tmp_path):
     layout = (DATA / "money_layout.tex").read_text()
     labels = re.findall(r"\\moneylabel\{[\d.-]+\}\{[\d.-]+\}\{(\w+)\}\{([^}]*)\}% \S+ w=([\d.]+)", layout)
     assert labels
-    body = "".join(f"\\setbox0\\hbox{{\\scriptsize{'' if role == 'comparator' else chr(92) + 'bfseries'} {text}}}"
-                   f"\\typeout{{LABELWIDTH {i} \\the\\wd0}}\n" for i, (role, text, _) in enumerate(labels))
+    body = "".join(f"\\setbox0\\hbox{{\\scriptsize{'' if role == 'comparator' else chr(92) + 'bfseries'} {line}}}"
+                   f"\\typeout{{LABELWIDTH {i}-{n} \\the\\wd0}}\n" for i, (role, text, _) in enumerate(labels)
+                   for n, line in enumerate(text.split("\\\\")))  # a two-line label: each line on its own
     tex = tmp_path / "labels.tex"
     tex.write_text("\\documentclass[conference]{IEEEtran}\\usepackage[T1]{fontenc}\\usepackage{lmodern}\n"
                    "\\begin{document}\n" + body + "x\\end{document}\n")
     subprocess.run(["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "-output-directory", str(tmp_path),
                     str(tex)], capture_output=True, text=True, timeout=120, check=True)
-    real = dict(re.findall(r"LABELWIDTH (\d+) ([\d.]+)pt", (tmp_path / "labels.log").read_text()))
+    real: dict[str, float] = {}
+    for key, width in re.findall(r"LABELWIDTH (\d+)-\d+ ([\d.]+)pt", (tmp_path / "labels.log").read_text()):
+        real[key] = max(real.get(key, 0.0), float(width))
     for i, (_, text, est) in enumerate(labels):
-        typeset = float(real[str(i)]) + 1.2  # the node's inner sep on both sides
+        typeset = real[str(i)] + 1.2  # the node's inner sep on both sides
         assert typeset <= float(est), f"{text!r}: typeset {typeset:.1f} pt exceeds the estimate {est} pt"
         assert float(est) <= 1.3 * typeset + 2, f"{text!r}: estimate {est} pt is far too loose ({typeset:.1f} pt)"
 
@@ -397,3 +400,35 @@ def test_every_label_sits_nearest_the_point_it_names():
             if j != i:
                 assert labels_mod.gap(box, x, y) >= own + labels_mod.NEAREST, f"{i}'s label is nearer {j}"
         assert not any(labels_mod.seg_hits_box(seg, box) for seg in FIG1_R4_LINES), f"{i}'s label is on the frontier"
+
+
+# Figure 1 as refresh 6 draws it: in refresh 5 the onnx-asr Parakeet label ran under the Zipformer point at a corner
+FIG1_R6 = (("a1-30000-ema-int8-zen2-t1", "ULTRA-S (ours) - 0.35 W", True, 163.76, 63.23, 3.3),
+           ("r0-int8-zen2-t1", "Zipformer - 0.59 W", False, 136.58, 41.72, 2.3),
+           ("moonshine-tiny-zen2-t1", "Moonshine Tiny - 1.08 W", False, 113.56, 89.91, 2.3),
+           ("moonshine-small-zen2-t1-xbabe3", "Moonshine Small", False, 56.66, 54.66, 2.3),
+           ("nemotron-en-560-zen2-t1-xbabe3", "Nemotron 560 ms", False, 60.47, 35.9, 2.3),
+           ("nemotron-en-160-zen2-t1-xbabe3", "Nemotron 160 ms", False, 38.14, 39.94, 2.3),
+           ("nemotron-35-zen2-t1-xbabe3", "Nemotron 3.5", False, 21.21, 56.92, 2.3),
+           ("parakeet-tdt-v3-int8-zen2-t1", "Parakeet v3 · sherpa-onnx - 1.71 W", False, 100.32, 33.47, 2.3),
+           ("parakeet-v3-onnxasr-int8-zen2-t1", "Parakeet v3 · onnx-asr", False, 105.3, 34.6, 2.3),
+           ("vosk-small-zen2-t1", "Vosk Small", False, 106.45, 147.64, 2.3),
+           ("vosk-large-zen2-t1", "Vosk Large", False, 85.74, 82.15, 2.3),
+           ("whispercpp-stream-tiny-zen2-t1", "Whisper.cpp Tiny", False, 24.47, 199.55, 2.3))
+FIG1_R6_LINES = (((136.58, 41.72), (136.58, 63.23)), ((136.58, 63.23), (163.76, 63.23)))
+
+
+def test_no_label_runs_under_a_frontier_system_and_ours_keeps_its_name():
+    """Another system's label never sits right under or over a frontier system's point, a long label avoids a
+    marker's corner when it can, and our own label is never replaced by a number."""
+    money._layout.cache_clear()
+    placed = {i: (number, box) for i, number, box, _ in money._layout(FIG1_R6, FIG1_R6_LINES)}
+    frontier = [(px, py) for i, _, _, px, py, _ in FIG1_R6 if i in ("r0-int8-zen2-t1", "a1-30000-ema-int8-zen2-t1")]
+    for i, (number, box) in placed.items():
+        if i == "a1-30000-ema-int8-zen2-t1":
+            assert number is None, "our own label was replaced by a number"
+            continue
+        for fx, fy in frontier:
+            near = box[0] <= fx <= box[2] and not box[1] <= fy <= box[3]
+            assert not (near and min(abs(fy - box[1]), abs(fy - box[3])) < 2 * labels_mod.LINE_PT), f"{i} runs under a frontier system"
+    assert placed["r0-int8-zen2-t1"][0] is None, "the Zipformer, the frontier's other system, keeps its name"

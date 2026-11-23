@@ -135,7 +135,8 @@ def test_page_one_facts_print_the_receipts_numbers_with_their_checkpoint():
     assert sil["blocks"] == 10 and sil["words"] == 0 and "no word" in rec["AbsSilence"]["value"]
     assert f"{sil['gap_words']} in the" in rec["AbsSilence"]["value"], "the stream's own pauses must be reported too"
     end = alwayson.endless(pd.REPO)
-    assert end["resets"] == 0 and end["utts"] == 5567, "the endless run is no longer one unbroken stream"
+    assert end["off"]["resets"] == 0 < end["resets"] and end["utts"] == 5567, "the endless runs are not what the text says"
+    assert end["wer"] < end["off"]["wer"] and end["cpu"] > end["off"]["cpu"], "the always-on configuration's trade-off flipped"
     assert end["end"] <= end["peak"] < 1.05 * end["warm"], "memory grew over the endless run; rewrite the claim"
     assert abs(end["second"] - end["first"]) < 0.5, "WER drifted over the endless run; rewrite the claim"
     st = alwayson.stream(pd.REPO)

@@ -5,7 +5,7 @@ capacity    energy's paced capacity test: N live streams on one core (TIMING ent
 silence     eval-lane's ten 1-hour non-speech blocks, and the pauses of the whole endless stream
 stream      that first hour as one continuous stream against the same utterances decoded one by one,
             with no reset and with reset-with-replay (eval-lane's paired reports, its own scorer)
-endless     runtime-lane's whole endless run without a reset: memory, word lag, WER (its scored summary)
+endless     runtime-lane's two whole endless runs: with reset-with-replay (the always-on configuration) and without
 int8        FP32 PyTorch against the INT8 engine on full dev (eval-lane's paired report)
 same_words  one checkpoint's panel transcripts on Zen 2 (AVX2), Xeon (AVX-512) and Apple M3 (NEON)
 m3          bench-cross's one-core Apple M3 Ultra row of that checkpoint
@@ -25,8 +25,9 @@ FLAT_PCT = 5.0  # a p95 lag whose spread over N stays within this share of its l
 REPLAY = {"t_s": 1.5, "r_s": 1.0, "report": AO / "stream/replay/p.isolated-v-T1500R1000.json",
           "summary": AO / "stream/replay/hour1-replay-t1500_r1000.summary.json"}
 WARM_S = 10.0  # memory samples before this much audio include the model load and the first chunks
-ENDLESS = {k: AO / f"endless/endless27h.t0.{v}" for k, v in (("run", "run.json"), ("summary", "scored.summary.json"),
-                                                            ("rss", "rss.jsonl"))}
+ENDLESS = {run: {k: AO / f"endless/endless27h.{run}.{v}" for k, v in (("run", "run.json"), ("summary", "scored.summary.json"),
+                                                                     ("rss", "rss.jsonl"))}
+           for run in ("t0", "t1500_r1000")}  # without a reset; with reset-with-replay, the always-on configuration
 INT8 = {"a1-20000-ema-int8": "A1-20000-ema", "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
 XISA = (("Zen 2 (AVX2)", RAW / "crossisa/xbabe0-h22ctl-entry2.predictions.jsonl"),
         ("Xeon (AVX-512)", RAW / "opponents/xeon8358/jsr-h22ctl-int8-t1/predictions.6ac85d6ff9dc.jsonl"),
@@ -76,8 +77,8 @@ def capacity(root: Path) -> dict | None:
 
 
 def silence(root: Path) -> dict | None:
-    """The ten 1-hour non-speech blocks, and the pauses of the whole endless stream (no reset)."""
-    man, full = AO / "nonspeech/MANIFEST.json", ENDLESS["summary"]
+    """The ten 1-hour non-speech blocks, and the pauses of the whole endless stream (always-on configuration)."""
+    man, full = AO / "nonspeech/MANIFEST.json", ENDLESS["t1500_r1000"]["summary"]
     blocks = sorted(p for p in (root / AO / "nonspeech/h22ctl").glob("*") if p.is_dir()) if _have(root, man) else []
     if not blocks or not _have(root, full):
         return None
@@ -106,13 +107,9 @@ def stream(root: Path) -> dict | None:
             **_src(root, pen, diag, t0, REPLAY["report"], REPLAY["summary"])}
 
 
-def endless(root: Path) -> dict | None:
-    """The whole endless stream without a reset: memory, word lag, WER by half (runtime-lane's run, its scorer)."""
-    run, summ, rss = ENDLESS["run"], ENDLESS["summary"], ENDLESS["rss"]
-    if not _have(root, run, summ, rss):
-        return None
-    r, s = _json(root, run), _json(root, summ)
-    warm = next(x["rss_mb"] for x in _jsonl(root, rss) if x["audio_s"] >= WARM_S)
+def _run(root: Path, files: dict) -> dict:
+    r, s = _json(root, files["run"]), _json(root, files["summary"])
+    warm = next(x["rss_mb"] for x in _jsonl(root, files["rss"]) if x["audio_s"] >= WARM_S)
     hours = [s["wer_per_hour"][k] for k in sorted(s["wer_per_hour"], key=int)]
     half = len(hours) // 2
 
@@ -120,9 +117,19 @@ def endless(root: Path) -> dict | None:
         return sum(h["pooled_wer"] * h["utts"] for h in part) / sum(h["utts"] for h in part)
 
     return {"hours": r["audio_h"], "start": r["rss_start_mb"], "warm": warm, "peak": r["rss_peak_mb"],
-            "end": r["rss_end_mb"], "resets": r["endpoint_resets"], "utts": s["utterances"],
+            "end": r["rss_end_mb"], "resets": r["endpoint_resets"], "cpu": r["cpu_s_per_audio_s"], "utts": s["utterances"],
             "words": s["lag_ms"]["all"]["n"], "lag50": s["lag_ms"]["all"]["p50"], "lag95": s["lag_ms"]["all"]["p95"],
-            "wer": s["pooled_wer"], "first": wer(hours[:half]), "second": wer(hours[half:]), **_src(root, run, summ, rss)}
+            "wer": s["pooled_wer"], "first": wer(hours[:half]), "second": wer(hours[half:]),
+            "gap_words": s["gap_false_words_total"]["words"], **_src(root, *files.values())}
+
+
+def endless(root: Path) -> dict | None:
+    """The whole endless stream with reset-with-replay (the always-on configuration), and without a reset (`off`):
+    memory, word lag, WER by half, CPU (runtime-lane's runs, eval-lane's scorer)."""
+    if not all(_have(root, *f.values()) for f in ENDLESS.values()):
+        return None
+    on, off = _run(root, ENDLESS["t1500_r1000"]), _run(root, ENDLESS["t0"])
+    return {**on, "off": off, "t_s": REPLAY["t_s"], "r_s": REPLAY["r_s"], "source": f"{on['source']}; {off['source']}"}
 
 
 def int8(root: Path, variant: str) -> dict | None:

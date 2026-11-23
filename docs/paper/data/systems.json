@@ -148,7 +148,7 @@
     },
     "parakeet-tdt-v3-int8": {
       "system": "Parakeet TDT v3 (sherpa)",
-      "short": "Parakeet v3 sherpa",
+      "short": "Parakeet v3 · sherpa-onnx",
       "macro": "ParakeetTdt",
       "order": 50,
       "runtime_short": "sherpa-onnx",
@@ -161,7 +161,7 @@
     },
     "parakeet-v3-onnxasr-int8": {
       "system": "Parakeet TDT v3 (onnx-asr)",
-      "short": "Parakeet v3 onnx-asr",
+      "short": "Parakeet v3 · onnx-asr",
       "macro": "ParakeetOnnxAsr",
       "order": 51,
       "runtime_short": "onnx-asr",
@@ -204,6 +204,16 @@
         "vosk"
       ],
       "segmenter": "no"
+    },
+    "whispercpp-stream-tiny": {
+      "system": "Whisper.cpp Streaming Tiny",
+      "short": "Whisper.cpp Tiny",
+      "macro": "WhisperCppTiny",
+      "order": 70,
+      "runtime_short": "whisper.cpp 1.8.2",
+      "cite": [
+        "whispercpp"
+      ]
     }
   },
   "headline": {

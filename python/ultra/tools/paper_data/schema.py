@@ -39,7 +39,7 @@ TIMING_PANELS = ("full", "p73")
 PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail", "segmenter",
                 "checkpoint")
 MIN_REPS = 3
-SHORT_MAX = 22
+SHORT_MAX = 26
 MAX_OTHER_BUSY = 2  # a primary row has at most this many other busy cores on the host in every repetition
 _DIGITS = "Zero One Two Three Four Five Six Seven Eight Nine".split()
 

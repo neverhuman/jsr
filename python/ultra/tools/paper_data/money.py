@@ -17,11 +17,11 @@ import statistics
 from .cold import ENERGY_WORDS, speed_text
 from .common import PaperDataError, csv_text, fmt
 from .evidence import HEADLINE, derived
-from .labels import place
+from .labels import LINE_PT, place
 from .records import Records
 from .words import name
 
-AXIS_W, AXIS_H = 197.0, 180.0  # pt; with tick and axis labels the figure stays under 243 pt wide
+AXIS_W, AXIS_H = 197.0, 205.0  # pt; with tick and axis labels the figure stays under 243 pt wide
 FONT_PT = 7.0  # \scriptsize labels
 MARK_R = {"ours": 3.3, "comparator": 2.3}  # half-extent of the drawn marker
 BETTER = (AXIS_W - 47.0, 3.0, AXIS_W - 3.0, 14.0)  # the "better" arrow, bottom right
@@ -32,7 +32,7 @@ _WIDTHS = {**dict.fromkeys("il.,:;'", 0.32), **dict.fromkeys("fj", 0.36), **dict
            **dict.fromkeys("cez", 0.51), **dict.fromkeys("ago0123456789/", 0.57), **dict.fromkeys("kqvxy", 0.60),
            **dict.fromkeys("bdhnpu", 0.64), "w": 0.82, "m": 0.95, " ": 0.39, "-": 0.39, "I": 0.43, "J": 0.59,
            **dict.fromkeys("SZL", 0.71), **dict.fromkeys("FEPB", 0.80), **dict.fromkeys("CTR", 0.83),
-           **dict.fromkeys("AHNUVXYDKGOQ", 0.89), "M": 1.04, "W": 1.16}
+           **dict.fromkeys("AHNUVXYDKGOQ", 0.89), "M": 1.04, "W": 1.16, "\u00b7": 0.32}
 
 
 def text_width(text: str, bold: bool = False) -> float:
@@ -42,7 +42,7 @@ def text_width(text: str, bold: bool = False) -> float:
 def axis_limits(points: list[dict]) -> dict:
     lo = min(p["speed"] for p in points)
     hi = max(p["speed"] for p in points)
-    top = max(p["wer"] for p in points) + 1.5
+    top = max(p["wer"] for p in points) + 0.5  # the top point's label goes beside it, not above
     step = 2 if top <= 20 else 5
     return {"xmin": 2.0 ** math.floor(math.log2(lo * 0.75)), "xmax": 2.0 ** math.ceil(math.log2(hi * 1.6)),
             "ymax": step * math.ceil(top / step), "ystep": step}
@@ -89,8 +89,9 @@ def watts_axis(points: list[dict], lim: dict) -> dict | None:
 @lru_cache(maxsize=32)
 def _layout(spec: tuple, lines: tuple) -> tuple:
     """Place the labels; a label that cannot be placed becomes a number. Cached: builds repeat it."""
-    pts = [{"id": i, "label": label, "bold": bold, "px": px, "py": py, "r": r, "w": text_width(label, bold) + 1.2,
-            "number": None} for i, label, bold, px, py, r in spec]  # label: the plain text, watts callout included
+    pts = [{"id": i, "label": label, "bold": bold, "px": px, "py": py, "r": r, "number": None,
+            "w": max(text_width(line, bold) for line in label.split("\n")) + 1.2,  # label: plain text, callout included
+            "h": LINE_PT * (1 + 1.15 * label.count("\n"))} for i, label, bold, px, py, r in spec]
     numbered: list[dict] = []
     for _ in range(8):
         res = place(pts, [BETTER, BAND], list(lines), (AXIS_W, AXIS_H))
@@ -110,7 +111,8 @@ def _layout(spec: tuple, lines: tuple) -> tuple:
 
 
 def _tex(text: str) -> str:
-    return text.replace("&", "\\&").replace("%", "\\%").replace("_", "\\_").replace("#", "\\#")
+    return (text.replace("&", "\\&").replace("%", "\\%").replace("_", "\\_").replace("#", "\\#")
+            .replace(" \u00b7 ", "\\,$\\cdot$\\,"))
 
 
 def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) -> str:
