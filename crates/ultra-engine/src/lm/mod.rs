@@ -157,6 +157,7 @@ pub struct NgramLm {
     pub vocab: usize,
     pub order: usize,
     pub quantized: bool,
+    pub has_eos: bool,
     pub(super) uni_prob: Vec<f32>,
     pub(super) uni_bow: Vec<f32>,
     pub(super) seen: Vec<bool>,
@@ -178,8 +179,18 @@ impl NgramLm {
     }
 
     #[inline]
+    pub fn has_eos(&self) -> bool {
+        self.has_eos
+    }
+
+    #[inline]
     pub fn bos_id(&self) -> u16 {
         self.vocab as u16
+    }
+
+    #[inline]
+    pub fn eos_id(&self) -> Option<u16> {
+        self.has_eos.then_some((self.vocab + 1) as u16)
     }
 
     pub fn memory_bytes(&self) -> usize {
@@ -271,8 +282,7 @@ impl NgramLm {
     }
 
     #[inline]
-    pub fn lm_logp(&self, ctx: &LmCtx, tok: usize) -> f32 {
-        let k = usize::from(self.map_tok(tok));
+    fn lookup_logp(&self, ctx: &LmCtx, k: usize) -> f32 {
         let mut best_prob = self.uni_prob[k];
         let mut matched = 1usize;
         let clen = usize::from(ctx.len);
@@ -297,13 +307,69 @@ impl NgramLm {
         ctx.bow_sum[matched] + best_prob
     }
 
+    #[inline]
+    pub fn lm_logp(&self, ctx: &LmCtx, tok: usize) -> f32 {
+        let k = usize::from(self.map_tok(tok));
+        self.lookup_logp(ctx, k)
+    }
+
+    /// Natural-log end-of-sentence probability `ln P(</s> | ctx)` (`0.0` if `!self.has_eos`).
+    #[inline]
+    pub fn eos_logp(&self, ctx: &LmCtx) -> f32 {
+        if !self.has_eos {
+            return 0.0;
+        }
+        self.lookup_logp(ctx, self.vocab + 1)
+    }
+
+    /// Natural-log end-of-sentence probability `ln P(</s> | history)` (`0.0` if `!self.has_eos`).
+    #[inline]
+    pub fn score_eos(&self, history: &[u32]) -> f32 {
+        if !self.has_eos {
+            return 0.0;
+        }
+        let ctx = self.ctx_state(history);
+        self.eos_logp(&ctx)
+    }
+
+    /// Select the highest-scoring hypothesis index after adding `eos_weight * score_eos(tokens)`.
+    pub fn select_best_with_eos(&self, hyps: &[(&[u32], f32)], eos_weight: f32) -> Option<usize> {
+        if hyps.is_empty() {
+            return None;
+        }
+        let mut best_idx = 0usize;
+        let mut best_score = f32::NEG_INFINITY;
+        for (i, &(toks, score)) in hyps.iter().enumerate() {
+            let s = if self.has_eos && eos_weight != 0.0 {
+                score + eos_weight * self.score_eos(toks)
+            } else {
+                score
+            };
+            if s > best_score {
+                best_score = s;
+                best_idx = i;
+            }
+        }
+        Some(best_idx)
+    }
+
     pub fn from_arpa_str(
         lm_arpa: &str,
         lodr_arpa: Option<&str>,
         vocab: usize,
         quantize_bits8: bool,
     ) -> Result<Self, EngineError> {
-        arpa::from_arpa_str(lm_arpa, lodr_arpa, vocab, quantize_bits8)
+        arpa::from_arpa_str_with_eos(lm_arpa, lodr_arpa, vocab, quantize_bits8, false)
+    }
+
+    pub fn from_arpa_str_with_eos(
+        lm_arpa: &str,
+        lodr_arpa: Option<&str>,
+        vocab: usize,
+        quantize_bits8: bool,
+        include_eos: bool,
+    ) -> Result<Self, EngineError> {
+        arpa::from_arpa_str_with_eos(lm_arpa, lodr_arpa, vocab, quantize_bits8, include_eos)
     }
 
     pub fn from_arpa_files(
@@ -312,7 +378,17 @@ impl NgramLm {
         vocab: usize,
         quantize_bits8: bool,
     ) -> Result<Self, EngineError> {
-        arpa::from_arpa_files(lm_path, lodr_path, vocab, quantize_bits8)
+        arpa::from_arpa_files_with_eos(lm_path, lodr_path, vocab, quantize_bits8, false)
+    }
+
+    pub fn from_arpa_files_with_eos(
+        lm_path: &Path,
+        lodr_path: Option<&Path>,
+        vocab: usize,
+        quantize_bits8: bool,
+        include_eos: bool,
+    ) -> Result<Self, EngineError> {
+        arpa::from_arpa_files_with_eos(lm_path, lodr_path, vocab, quantize_bits8, include_eos)
     }
 
     pub fn save(&self, path: &Path) -> Result<(), EngineError> {
