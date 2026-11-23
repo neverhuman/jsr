@@ -1,9 +1,10 @@
 \section{Conclusion}\label{sec:conclusion}
 
-\AbsCost{} We measured \ultra and \ColdComparatorCount{} published recognisers on one pinned Zen~2
-core under one protocol, and ran the tests an always-on recogniser must pass. So far it emits no
-word in silence or noise, holds its stable-word lag flat up to \AoCapacityStreams{} live streams on one
-core, and keeps its memory flat over hours of continuous audio, at a fraction of the other
-systems' CPU time and watts. It trails on accuracy. The engine that gives the speed is
-batch-invariant and bit-identical across x86 and ARM, and it does not change with the weights, so
-the accuracy gap is a training problem.
+An always-on speech recogniser should barely register on the CPU budget of the machine hosting it.
+We presented \ultra{} \ReleaseVer{}, a compact streaming Conformer transducer and pure-Rust
+integer-exact CPU engine evaluated against all \ColdCompleteCompCount{} complete-panel public
+open-weights CPU comparators on the same 730-utterance LibriSpeech DEV panel. On one pinned quiet
+Zen~2 core and one prepared INT8 artifact, \ultra{} \ReleaseVer{} delivers \ColdConclusionResult{},
+sustains sixteen real-time paced live streams at \RelCapSixteenBusy\% of one core
+(\RelCapSixteenNetW\,W net per stream, \RelCapSixteenLagPninetyFive\,ms p95 lag), and maintains
+batch-invariant, repeatable INT8 execution within \RelIntEightDelta\pp of FP32.

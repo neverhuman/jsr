@@ -1,16 +1,7 @@
 # ULTRA paper (IEEE two-column, double-blind)
 
-`paper.tex` is the main file; `paper.pdf` is committed on purpose. **Every result in the current
-draft is exploratory.** Qualified results replace them after `bench-freeze-v1` by regenerating
-`data/metrics.tex`; the prose does not change.
-
-The [six-page IEEE checkpoint edition](jsr-cpu-asr.pdf) gives the
-preliminary DEV results for prepared INT8 D2MR at step 50,000. The portable
-build runs with `make -C docs/paper/checkpoint check` and writes the PDF to
-`target/paper-checkpoint/`. Its source, pinned evidence, bibliography and
-figure generator are in [checkpoint/](checkpoint/). The matched cold plot
-populates from completed three-repetition measurements. The paced rehearsal
-has its own measured figure and table.
+`paper.tex` is the main file; `paper.pdf` is committed on purpose. All numbers are LibriSpeech DEV
+measurements generated deterministically from SHA-256-pinned receipts in `docs/paper/data/`.
 
 ## Build
 
@@ -20,39 +11,34 @@ just paper-refresh  # the same, plus docs/paper/money.png, the README block and 
 ```
 
 The recipe:
-1. regenerates `data/metrics.tex` and `figures/*.tex` with `python -m tools.paper_data` (in
-   `python/ultra`), when that tool exists;
+1. regenerates `data/metrics.tex`, `data/cold_dev.csv`, `data/money_layout.tex`, and `data/table_*.tex`
+   with `python -m tools.paper_data` (in `python/ultra`);
 2. runs `pdflatex`, `bibtex`, `pdflatex`, `pdflatex` in `docs/paper` with `SOURCE_DATE_EPOCH`
    set to the last commit time;
 3. fails on undefined references or citations, any overfull hbox, a non-Type-1 font, or a missing
    `Fig. 1.` on page 1.
 
-Needs TeX Live with IEEEtran, pgfplots, cleveref, microtype, booktabs, draftwatermark and
-poppler-utils (`pdffonts`, `pdftotext`, `pdfinfo`). siunitx is not used.
+Needs TeX Live with IEEEtran, pgfplots, cleveref, microtype, booktabs and poppler-utils
+(`pdffonts`, `pdftotext`, `pdfinfo`). `siunitx` is not used.
 
 ## Layout
 
-| Path | Owner | What |
-|---|---|---|
-| `paper.tex` | paper-writer | preamble, title, section order, protocol constants |
-| `sections/*.tex` | paper-writer (except `related.tex`: paper-related) | prose, tables, Fig. 1 float |
-| `sections/fallbacks.tex` | paper-writer | `\providecommand` fallback for every metric macro the sections use |
-| `data/metrics.tex`, `data/SOURCES.md` | paper-data (generated) | one macro per number, with provenance |
-| `figures/*.tex` | paper-data | pgfplots bodies: `money.tex` (Fig. 1: speed on one core against WER, every system measured here), `frontier_warm.tex` (streams per core), `density.tex` (warm ladder) |
-| `data/evidence/*.jsonl` | the agent that measured the row | measured comparison rows (schema: `data/README.md`) |
-| `sections/tab_measured.tex`, `data/table_measured.tex` | paper-writer; paper-data (generated body) | the "measured here" table |
-| `data/systems.json`, `data/reported.json` | paper-writer | names of the measured variants and the headline row; numbers published by others, each with its quoted source line |
-| `refs.bib` | paper-related | bibliography |
+| Path | What |
+|---|---|
+| `paper.tex` | preamble, title, section order, design constants |
+| `sections/*.tex` | prose, tables, Fig. 1 float |
+| `sections/fallbacks.tex` | `\providecommand` fallback for every metric macro used in `sections/*.tex` |
+| `data/metrics.tex`, `data/SOURCES.md` | one generated macro per number, with provenance |
+| `figures/money.tex`, `figures/money_standalone.tex` | Fig. 1 pgfplots body (single-core throughput vs pooled WER) |
+| `data/evidence/*.jsonl` | measured comparison rows (schema v2) |
+| `data/systems.json` | plotted systems (our single release artifact in live + final modes + top 4 comparators) |
+| `refs.bib` | bibliography |
 
 ## Rules
 
-- **Measured and reported never mix.** A number someone else published is a `\Rep...` macro from
-  `data/reported.json`; it appears only in the "reported elsewhere" table and in prose beside its citation.
-- **No literal result numbers in `sections/`.** Use a macro from `data/metrics.tex`. A test rejects
-  bare decimals in sections; design constants (12.5 Hz, gate margins) live in `paper.tex`.
-- A macro that `metrics.tex` does not define yet prints a red **??** (`\PH`). After adding a macro
-  to a section, add it to `sections/fallbacks.tex` (the list is every `\CapitalisedMacro` used in
-  `sections/*.tex` except LaTeX's own).
-- Every speed number is printed beside the WER **of the same checkpoint**. Warm (in-process,
-  single harness) and cold (process tree, model load included) cost boundaries are never mixed.
-- The `PRELIMINARY` watermark and the red banner stay until `bench-freeze-v1`.
+- **Measured and reported never mix.** Published third-party numbers (`data/reported.json`) never enter
+  any measured CSV, figure, or table.
+- **No literal result numbers in `sections/`.** Every result number comes from `data/metrics.tex`.
+- **Single release artifact.** Only our latest release model (live and utterance-segmented final modes
+  on the same INT8 weights) is plotted and tabulated; historical checkpoints stay in `research/` and
+  release records.

@@ -1,0 +1,311 @@
+{
+ "schema": "eval-lane.paper-14p-wer/v1",
+ "label": "exploratory",
+ "what": "bench-open 14p hold: v3.0.0 candidate (RC1 EMA INT8 edac19d8) on the release decoder ultra-engine-commit 9a142e8e (bb1071a), M5.ulm 72a621c2",
+ "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+ "workload_digest": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963",
+ "audio_seconds": 5259.5599375,
+ "workload_checks": {
+  "staged_audio_json_sha256": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963",
+  "staged_index_json_sha256": "8119965046158634fa3d465417b2af14be414cb64fac41e483cf1ad0b56a7085",
+  "staged_wavs_match_audio_json": true,
+  "rounds_inputs_sha256_record_digest": true,
+  "panel_refs_equal_canonical_librispeech_refs": true
+ },
+ "scorer": {
+  "ultra_score_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+  "score_input_builder": "python/ultra/tools/paper_dev_audio.py score (replicated)"
+ },
+ "median_cpu_round": 3,
+ "rounds_cpu_s_per_audio_s": {
+  "1": 0.07071061940911667,
+  "2": 0.07051130767724995,
+  "3": 0.07054360600677155
+ },
+ "evidence_fields": {
+  "final_committed": {
+   "wer_pct": 5.059523809523809,
+   "wer_clean_pct": 3.245913207103375,
+   "wer_other_pct": 7.653490328006729,
+   "wer_reps": [
+    5.059523809523809,
+    5.059523809523809,
+    5.059523809523809
+   ],
+   "wer_source": "the timed repetitions (median repetition = round 3), committed (final) text",
+   "repeated_hypotheses_identical": true,
+   "edits": 731,
+   "edits_clean": 276,
+   "edits_other": 455,
+   "ref_words": 14448,
+   "source": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/measurement.json",
+   "receipt_sha256": "3e812eda2ed0175759b58e016e4103a85d3a81268fb5eb59e2f50ccdda2d114a",
+   "hypotheses_source": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/out/commit.jsonl",
+   "hypotheses_sha256": "76d7f2ea3f464b7b7c36b7a8021921403d8c8a892b0b4eb55dbecda4a0b8f8fb"
+  },
+  "live_provisional": {
+   "wer_pct": 6.845238095238096,
+   "wer_clean_pct": 4.116194284370223,
+   "wer_other_pct": 10.748528174936922,
+   "wer_reps": [
+    6.845238095238096,
+    6.845238095238096,
+    6.845238095238096
+   ],
+   "wer_source": "the timed repetitions (median repetition = round 3), provisional (live) text",
+   "repeated_hypotheses_identical": true,
+   "edits": 989,
+   "edits_clean": 350,
+   "edits_other": 639,
+   "ref_words": 14448,
+   "source": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/measurement.json",
+   "receipt_sha256": "3e812eda2ed0175759b58e016e4103a85d3a81268fb5eb59e2f50ccdda2d114a",
+   "hypotheses_source": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/out/commit.jsonl",
+   "hypotheses_sha256": "76d7f2ea3f464b7b7c36b7a8021921403d8c8a892b0b4eb55dbecda4a0b8f8fb"
+  }
+ },
+ "cross_check_vs_eval_lane_x2_fulldev_run": {
+  "texts_identical_on_panel": {
+   "committed": 730,
+   "provisional": 730
+  },
+  "of": 730
+ },
+ "rounds": {
+  "1": {
+   "commit_jsonl": "docs/paper/data/raw/opponents/bench-open-release/14p/round-1/commit-lm16-cand/out/commit.jsonl",
+   "commit_jsonl_sha256": "918297cd53441e7e7409f3b0d4f082dc61f8c0983027e88ceb1f8c0289d3f1f4",
+   "measurement": "docs/paper/data/raw/opponents/bench-open-release/14p/round-1/commit-lm16-cand/measurement.json",
+   "measurement_sha256": "0dc2dcbf87d2f2c7a564ab183c83a26bc5684c6da55c3e3998cf2dabd4bb3d51",
+   "cpu_s_per_audio_s": 0.07071061940911667,
+   "settings": {
+    "commit_beam": 16,
+    "commit_chunk": 16,
+    "lm_scale": 0.800000011920929,
+    "lodr_scale": 0.6000000238418579,
+    "tail_pad_ms": 320,
+    "threads": 1,
+    "precision": "Int8",
+    "isa": "avx2fma",
+    "commit_max_audio_s": 40.0
+   },
+   "committed": {
+    "wer_pct": 5.059523809523809,
+    "wer_clean_pct": 3.245913207103375,
+    "wer_other_pct": 7.653490328006729,
+    "edits": 731,
+    "edits_clean": 276,
+    "edits_other": 455,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8498,
+      "matches": 8254,
+      "substitutions": 217,
+      "deletions": 32,
+      "insertions": 27
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5943,
+      "matches": 5536,
+      "substitutions": 361,
+      "deletions": 48,
+      "insertions": 46
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-1.committed.scores.jsonl",
+    "score_input_sha256": "5b19b88277591d414b9de74a5ec2959a1385113883626a32618b0545ccd262ae",
+    "score_json_sha256": "5d590902129cbea02668d8678f7cfaa5cf5d6c0729cc9dab5c4bbf698a676210"
+   },
+   "provisional": {
+    "wer_pct": 6.845238095238096,
+    "wer_clean_pct": 4.116194284370223,
+    "wer_other_pct": 10.748528174936922,
+    "edits": 989,
+    "edits_clean": 350,
+    "edits_other": 639,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8509,
+      "matches": 8193,
+      "substitutions": 276,
+      "deletions": 34,
+      "insertions": 40
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5944,
+      "matches": 5369,
+      "substitutions": 512,
+      "deletions": 64,
+      "insertions": 63
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-1.provisional.scores.jsonl",
+    "score_input_sha256": "23c15331290dbe8bb8d0d4ed1dd9a8f9caa703652fb09891a75bee73b3390f2a",
+    "score_json_sha256": "899db25ecdaa0d7dc33bbd89c949f3615e9293dcb1093d2543b7abf2a93ec490"
+   }
+  },
+  "2": {
+   "commit_jsonl": "docs/paper/data/raw/opponents/bench-open-release/14p/round-2/commit-lm16-cand/out/commit.jsonl",
+   "commit_jsonl_sha256": "c0e751f30c300cb820680c05cbdf1aad1e156bae617ff33593b692f1c6a7e8b8",
+   "measurement": "docs/paper/data/raw/opponents/bench-open-release/14p/round-2/commit-lm16-cand/measurement.json",
+   "measurement_sha256": "3c4402ad0aa99e8196e688d1a059018008a3eea70885347c08757b3e7a1a81c9",
+   "cpu_s_per_audio_s": 0.07051130767724995,
+   "settings": {
+    "commit_beam": 16,
+    "commit_chunk": 16,
+    "lm_scale": 0.800000011920929,
+    "lodr_scale": 0.6000000238418579,
+    "tail_pad_ms": 320,
+    "threads": 1,
+    "precision": "Int8",
+    "isa": "avx2fma",
+    "commit_max_audio_s": 40.0
+   },
+   "committed": {
+    "wer_pct": 5.059523809523809,
+    "wer_clean_pct": 3.245913207103375,
+    "wer_other_pct": 7.653490328006729,
+    "edits": 731,
+    "edits_clean": 276,
+    "edits_other": 455,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8498,
+      "matches": 8254,
+      "substitutions": 217,
+      "deletions": 32,
+      "insertions": 27
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5943,
+      "matches": 5536,
+      "substitutions": 361,
+      "deletions": 48,
+      "insertions": 46
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-2.committed.scores.jsonl",
+    "score_input_sha256": "5b19b88277591d414b9de74a5ec2959a1385113883626a32618b0545ccd262ae",
+    "score_json_sha256": "5d590902129cbea02668d8678f7cfaa5cf5d6c0729cc9dab5c4bbf698a676210"
+   },
+   "provisional": {
+    "wer_pct": 6.845238095238096,
+    "wer_clean_pct": 4.116194284370223,
+    "wer_other_pct": 10.748528174936922,
+    "edits": 989,
+    "edits_clean": 350,
+    "edits_other": 639,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8509,
+      "matches": 8193,
+      "substitutions": 276,
+      "deletions": 34,
+      "insertions": 40
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5944,
+      "matches": 5369,
+      "substitutions": 512,
+      "deletions": 64,
+      "insertions": 63
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-2.provisional.scores.jsonl",
+    "score_input_sha256": "23c15331290dbe8bb8d0d4ed1dd9a8f9caa703652fb09891a75bee73b3390f2a",
+    "score_json_sha256": "899db25ecdaa0d7dc33bbd89c949f3615e9293dcb1093d2543b7abf2a93ec490"
+   }
+  },
+  "3": {
+   "commit_jsonl": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/out/commit.jsonl",
+   "commit_jsonl_sha256": "76d7f2ea3f464b7b7c36b7a8021921403d8c8a892b0b4eb55dbecda4a0b8f8fb",
+   "measurement": "docs/paper/data/raw/opponents/bench-open-release/14p/round-3/commit-lm16-cand/measurement.json",
+   "measurement_sha256": "3e812eda2ed0175759b58e016e4103a85d3a81268fb5eb59e2f50ccdda2d114a",
+   "cpu_s_per_audio_s": 0.07054360600677155,
+   "settings": {
+    "commit_beam": 16,
+    "commit_chunk": 16,
+    "lm_scale": 0.800000011920929,
+    "lodr_scale": 0.6000000238418579,
+    "tail_pad_ms": 320,
+    "threads": 1,
+    "precision": "Int8",
+    "isa": "avx2fma",
+    "commit_max_audio_s": 40.0
+   },
+   "committed": {
+    "wer_pct": 5.059523809523809,
+    "wer_clean_pct": 3.245913207103375,
+    "wer_other_pct": 7.653490328006729,
+    "edits": 731,
+    "edits_clean": 276,
+    "edits_other": 455,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8498,
+      "matches": 8254,
+      "substitutions": 217,
+      "deletions": 32,
+      "insertions": 27
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5943,
+      "matches": 5536,
+      "substitutions": 361,
+      "deletions": 48,
+      "insertions": 46
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-3.committed.scores.jsonl",
+    "score_input_sha256": "5b19b88277591d414b9de74a5ec2959a1385113883626a32618b0545ccd262ae",
+    "score_json_sha256": "5d590902129cbea02668d8678f7cfaa5cf5d6c0729cc9dab5c4bbf698a676210"
+   },
+   "provisional": {
+    "wer_pct": 6.845238095238096,
+    "wer_clean_pct": 4.116194284370223,
+    "wer_other_pct": 10.748528174936922,
+    "edits": 989,
+    "edits_clean": 350,
+    "edits_other": 639,
+    "ref_words": 14448,
+    "counts": {
+     "dev-clean": {
+      "ref_words": 8503,
+      "hyp_words": 8509,
+      "matches": 8193,
+      "substitutions": 276,
+      "deletions": 34,
+      "insertions": 40
+     },
+     "dev-other": {
+      "ref_words": 5945,
+      "hyp_words": 5944,
+      "matches": 5369,
+      "substitutions": 512,
+      "deletions": 64,
+      "insertions": 63
+     }
+    },
+    "score_input": "/mnt/xbabe3-external/jsr/evals/eval-lane/paper/14p-wer/round-3.provisional.scores.jsonl",
+    "score_input_sha256": "23c15331290dbe8bb8d0d4ed1dd9a8f9caa703652fb09891a75bee73b3390f2a",
+    "score_json_sha256": "899db25ecdaa0d7dc33bbd89c949f3615e9293dcb1093d2543b7abf2a93ec490"
+   }
+  }
+ }
+}

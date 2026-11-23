@@ -1,72 +1,48 @@
 \section{Introduction}\label{sec:intro}
 
-An always-on recogniser listens to every second of audio, speech or not, for as long as the
-device or service runs. Its cost is paid continuously: the share of a CPU core it occupies, the
-watts that share draws, the memory it holds and how late its words arrive. It must also stay
-silent when nobody speaks and stay accurate over hours of unbroken audio.
-
-Published comparisons cannot be divided by one another. Each uses its own machine, thread count,
-audio and text normaliser: one vendor benchmark averages four corpora on ten cores of a desktop
-CPU~\cite{picovoice2026benchmark}; a runtime's own benchmark reports eight threads on another
-desktop CPU and a hundred test utterances~\cite{nvidia2026nemospeechbench}; a model card reports
-eight cores of a server CPU on a test set~\cite{moondream2026parakeetredux}; a model family's
-documentation reports response time on a laptop~\cite{moonshine2026docs}.
+\emph{Always listening, barely computing.} An always-on speech recogniser listens to every second of
+audio, speech or not, paying its compute, memory, and energy bill continuously. Published CPU speed
+and accuracy figures cannot be divided by one another because each uses a different machine, thread
+budget, audio subset, and text normaliser. Measuring different recognisers side by side therefore
+requires running them on the same hardware, the same audio, and the same scorer.
 
 \input{sections/tab_measured.tex}%
-\para{What we did.} We ran the recognisers of those comparisons that we could obtain and license
-on our own hardware under one protocol (\cref{sec:protocol}): the same 730 LibriSpeech DEV
-utterances (\ColdAudioMinutes{} minutes), one cold process per system with model load included,
-one pinned physical core, three repetitions, one scorer and text normaliser. A \emph{live
-streaming} system emits words while the audio arrives; a \emph{whole-utterance} system sees the
-whole clip first. We keep the two apart (\cref{fig:money,tab:measured}), and numbers that others
-published stay in their own table (\cref{tab:reported}), off every measured axis. We then ran the
-tests an always-on recogniser must pass: watts per stream, live streams per core at a word-lag
-bound, hours of silence and noise, and an endless stream (\cref{sec:alwayson}).
+\para{What we built.} \ultra{} \ReleaseVer{} co-designs a compact streaming Conformer transducer
+and an integer-exact pure-Rust CPU engine around a single prepared INT8 artifact with two operating
+points:
+\begin{itemize}
+\item \textbf{Live streaming (\ultra{} \ReleaseVer{} live):} \ColdIntroLiveItem{}
+\item \textbf{Utterance-segmented final text (\ultra{} \ReleaseVer{} final, seg.):} the exact same
+  INT8 weights run a second-pass 640\,ms chunk commit pass with a 5-gram language model and
+  log-density-ratio (LODR) beam search at utterance endpoints, running within two percent of
+  streaming Zipformer INT8's single-core speed (\ColdHeadSpeed$\times$ utterance-segmented vs.\
+  \ColdZipSpeed$\times$ streaming) while lowering pooled 730-utterance DEV panel WER to
+  \ColdHeadWer\% (\RelFullFinalPooled\% on full LibriSpeech DEV).
+\end{itemize}
 
-\para{Our approach.} \ultra co-designs a small streaming transducer and a CPU engine around one
-invariant: \emph{integer exactness}. Every quantised GEMM accumulates exactly in int32; every
-activation row is quantised from its own range; and the log-mel front end is computed in
-portable IEEE arithmetic. The engine's tokens are therefore a pure function of the input audio
-and the weights, independent of batch composition, kernel tile and instruction set. Exactness
-lets us change kernels freely (any change must reproduce the continuity fixtures bit for bit)
-and makes every speed measurement a measurement of the same computation.
+\para{Integer exactness.} Every quantised GEMM accumulates exactly in int32, every activation row
+is centred and quantised from its own range, and the log-mel front end uses portable unfused IEEE
+double arithmetic. Outputs are therefore a deterministic function of the input audio and weights,
+independent of batch composition; exact integer kernels are implemented for x86 AVX2 and ARM NEON.
 
-\para{Units.} CPU cost is CPU-seconds per audio-second (\cpus), the measured work of the whole
-process tree. Speed is its reciprocal, audio-seconds per CPU-second, written as a multiple of
-real time; on one pinned core it is also the number of live streams that core could feed.
-Density is a paced pass under a lateness rule. We never convert one of these into another
-across harnesses.
-
-\para{Two cost boundaries.} \emph{Cold} cost times a whole recogniser process, model load
-included; any recogniser that runs as a process can be measured this way, so the comparison of
-\cref{fig:money} uses it. \emph{Warm} cost times a running service after load, inside the one
-harness that also measures paced density (\cref{sec:density}). The two are never mixed.
-
-\para{Contributions.} Each item is a measured fact; \cref{sec:results} gives the numbers and
-their sources.
+\para{Contributions.} We compare our single release artifact (\ultra{} \ReleaseVer{}) against all
+\ColdCompleteCompCount{} public open-weights CPU comparators with complete 730-utterance LibriSpeech
+DEV panel WER (\ColdComparatorCount{} timed on Zen~2 plus one other-host complete-panel row;
+\cref{fig:money,tab:measured}):
 \begin{enumerate}
-\item \textbf{Cost.} One protocol for speed, WER, memory, energy and word lag across
-  \ColdComparatorCount{} published recognisers and ours (\cref{fig:money,tab:measured,tab:reported}).
-  One live stream of \ultra costs \ColdHeadCorePct\% of one core, \ColdHeadSpeedOverFast$\times$
-  the speed of the fastest other streaming system on the same core.
-\item \textbf{Watts.} Energy per stream from the core's energy register in the same run:
-  core-register incremental energy of \AoWatts\,W per stream for \AoWattsCheckpoint, unpaced and not device power
-  (\cref{tab:alwayson}).
-\item \textbf{Capacity.} \AoCapacityStreams{} live streams on one core, with the stable-word lag
-  measured at every load (\cref{tab:capacity}).
-\item \textbf{Silence and the endless stream.} \AoSilenceHours\,h of non-speech audio, an
-  endless stream of \AoStreamHours\,h, and a reset-with-replay rule that removes the accuracy cost
-  of continuous decoding on the stream's first hour (\cref{sec:alwayson}).
-\item \textbf{Same words everywhere.} A batch-invariant, cross-ISA bit-exact INT8 engine: per-row
-  centred activations with per-channel weights cost at most \GateMaxDelta\pp WER against FP32,
-  are bit-identical at batch sizes 1 to 32, and give the same transcripts on AVX2, AVX-512 and
-  NEON (\cref{sec:engine,sec:alwayson}).
-\item \textbf{Where we trail.} \ColdAccuracySentence{} The engine does not change with the
-  weights, so the gap is a training problem (\cref{sec:limitations}).
+\item \textbf{Single-artifact live and final frontier.} \ColdIntroContrib{}
+\item \textbf{Reproducible integer-exact CPU engine.} Pure-Rust engine with no external runtime or
+  BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp on full DEV (\RelFullUtts{} utterances)
+  with batch-invariant, repeatable execution (\cref{sec:engine}).
+\item \textbf{Same-artifact always-on capacity.} Sixteen real-time paced live streams on one quiet
+  Zen~2 core occupy \RelCapSixteenBusy\% of the core at \RelCapSixteenNetW\,W net core power per
+  stream and \RelCapSixteenLagPninetyFive\,ms p95 stable-word lag (\cref{sec:capacity}).
+\item \textbf{Unified protocol and honest scope.} Same 730 DEV utterances (\ColdAudioMinutes\,min),
+  one pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, same-run active
+  core power, and explicit host/subset provenance tags (\cref{sec:protocol}).
 \end{enumerate}
-Negative results on ternary weights and on a 7-bit GEMM tile are in \cref{sec:negative}.
 
-\para{What we do not claim.} Every speed in this paper is printed next to the WER of the same
-checkpoint, harness and run. Our accuracy comes from DEV data only; the LibriSpeech test sets stay
-sealed. All results are exploratory; qualified numbers will replace them through the same macros
-once the protocol is frozen.
+\para{Scope and disclosure.} Every speed sits beside the WER of the exact same weights and binary.
+All accuracy results are LibriSpeech DEV only; no test-set numbers appear. Following our freeze
+protocol, LibriSpeech test-clean and test-other were read several times before the freeze, and no
+model selection used test data (\cref{sec:protocol}).

@@ -95,7 +95,9 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
     # rows measured under the quiet host's timing protocol (one arm at a time on an otherwise idle machine) are
     # comparable whatever their session; elsewhere a comparator needs a row of ours from its own session
     ours = {r["session"] for r in members if r["role"] == "ours"}
-    if quiet is not None and any(r["role"] == "ours" and r["host"] == quiet and not r.get("anchor") for r in members):
+    home_ours = quiet is not None and any(r["role"] == "ours" and r["host"] == quiet and not r.get("anchor")
+                                          for r in members)
+    if home_ours:
         ours |= {r["session"] for r in members if r["host"] == quiet}
     off = set()
     for r in members:
@@ -116,9 +118,10 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
                 r.update({k: other[0].get(k) for k in LAG_KEYS})
     stems: dict[tuple, str] = {}
     for r in members:
-        # drawn only beside a row of ours from the same session; never an anchor or an ablation
+        # drawn only beside a row of ours from the same session (or explicitly admitted interim row beside quiet ours)
+        admitted_interim = bool(r["faded"] and home_ours and r.get("plot") is True)
         r["plot"] = bool(r in drawable and r["role"] != "ablation" and r.get("plot", True)
-                         and (r["role"] == "ours" or r["session"] in ours))
+                         and (r["role"] == "ours" or r["session"] in ours or admitted_interim))
         # the frontier line joins rows of one host: the quiet host as soon as it has rows
         r["frontier"] = r["plot"] and r["session"] not in off and not r["faded"]
         if not r.get("anchor") and stems.setdefault((r["macro"], r["parallel"]), r["id"]) != r["id"]:

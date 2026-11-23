@@ -152,7 +152,7 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
         ("ColdRowsLag", sum(r.get("lag_p50_ms") is not None for r in drawn),
          "Figure 1 systems with a measured word lag (0 = lag pending)"),
         ("ColdRowsUndrawn", sum(not r["plot"] and r["role"] == "comparator" for r in group),
-         "one-core Zen 2 comparator rows not drawn because their session holds no row of ours"),
+         "one-core Zen 2 comparator rows excluded because their session holds no row of ours"),
         ("ColdRowsOffFrontier", sum(r["plot"] and not r["frontier"] for r in group),
          "drawn rows kept out of the frontier line because their session's anchor is more than 10% off"),
         ("ColdAnchorCount", len(anchors), "cross-check rows (a variant measured on a second host or session)"),

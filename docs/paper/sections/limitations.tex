@@ -1,48 +1,19 @@
 \section{Limitations}\label{sec:limitations}
 
-\para{Where \ultra loses.} \ColdAccuracySentence{} Its speed is therefore compared across
-operating points, never at equal accuracy. It is trained on LibriSpeech alone; our Fig.~\ref{fig:money}
-point is \ColdHeadDetail. An optional $n$-gram language model
-lowers the pooled WER of H22ctl by \LmHeldOutGain{} points held out on full DEV (PyTorch, weights
-chosen on the other speaker fold); in the engine it gives \LmEngineGain{} points on the panel (beam~4,
-from \LmEngineNoLm\% to \LmEngineWithLm\%, weights chosen on DEV, so a parity check rather than a
-held-out number). Its \LmPackMb\,MB pack is held in memory,
-and no row in our tables uses it. Its training text contains \LmOverlapCount{} of the
-\LmOverlapOf{} longer DEV transcripts verbatim; without them the relative gain is unchanged.
+\para{Utterance-segmented final mode and memory.} \ColdLimitLive{} Shrinking LM memory
+(\LmPackMb\,MB on disk) and commit CPU without losing accuracy is active work.
 
-\para{Always on, as far as shown.} The capacity, silence and endless-stream tests ran on
-\AoCheckpoint, not on our Fig.~\ref{fig:money} checkpoint, and the watts we quote come from the newest
-checkpoint with a same-run energy line, which the text names. The endless stream ran over all of its \AoStreamHours\,h twice,
-with reset-with-replay (the always-on configuration) and without a reset, on a shared host, so its CPU
-times are comparable with each other but not with the quiet-host rows. The non-speech audio is digital silence and
-synthetic noise, not music, television or babble. The capacity test fed every stream the same
-short excerpt of the panel, and its ceilings come from CPU cost, not from a run at that load.
+\para{Training data and LM overlap.} \ultra{} \ReleaseVer{} is trained on LibriSpeech 960\,h plus
+Libri-Light pseudo-labelled by R0 (the Zipformer comparator). All evaluations use read English
+LibriSpeech DEV audio, which is in-domain for both \ultra{} and Zipformer; rankings on
+conversational, accented, or noisy speech may differ. The OpenSLR-11 training text of
+\texttt{M5.ulm} contains \LmOverlapCount{} of the \LmOverlapOf{} longer DEV transcripts verbatim;
+removing them leaves the relative LM WER gain unchanged.
 
-\para{Exploratory measurements.} Every number comes from outside a qualifying window.
-\ColdHostSentence{} Each cost is the median of three runs. On the shared host the three runs of
-one system spanned a factor of two as the load changed, and on the quiet host other benchmark arms
-slowed a recognizer by up to three quarters; this is why rows are now admitted only from an
-otherwise idle machine, which has four of its eight memory channels populated; we have not
-measured how much a fully populated machine would change any row. The density ladder used 20\,s rungs and a single
-repeat, not the frozen three 120\,s repeats with 300\,s confirmations. The qualified run may move
-every ratio in either direction.
-
-\para{What the comparison does not cover.} Each recognizer runs in its own released
-configuration and native streaming interface; we did not tune the other systems. The cold cost
-includes one model load per \ColdAudioMinutes{} minutes of audio, so it measures neither start-up
-time nor the cost of short sessions. \ColdLagSentence{} \ColdWattsSentence{} \ColdEightSentence{}
-\ColdMachinesSentence{} Two engines of \cref{tab:reported} have no measured row: one needs a
-vendor key and restricts benchmarking in its terms of use, and the runtime of the other is
-licensed separately.
-
-\para{Domain and data.} All audio is LibriSpeech DEV: read English, in-domain for \ultra and for
-the Zipformer baseline, which are trained on LibriSpeech alone. The other systems are trained on
-other data whose overlap with LibriSpeech we do not know. A system's rank here says little about
-its rank on conversational or noisy speech; the published averages in \cref{tab:reported} cover
-more corpora.
-
-\para{Test sets and scope.} All results are DEV; the LibriSpeech test sets and the sealed
-VoxPopuli and AMI sets are unread for this paper (earlier test reads are disclosed in
-\cref{sec:protocol}). Paced density is measured only for \ultra and Zipformer, in the warm
-harness; the other systems have no path in that harness, so they have no density row and no
-implied ceiling.
+\para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
+Shared-host (H0) rows stay marked interim until quiet H1 holds complete. Energy measurements are
+active core (CPU-domain) watts per stream from RAPL registers (\texttt{core\_msr\_active}, including
+the core idle floor, plus package domain for the commit pass), never board or wall power, and are
+measured unpaced for apples-to-apples comparison across recognisers. All accuracy numbers are LibriSpeech DEV only; as disclosed in
+\cref{sec:protocol}, LibriSpeech test-clean and test-other were read several times before our
+benchmark freeze, and no test-set numbers appear here.

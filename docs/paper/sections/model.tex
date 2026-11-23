@@ -1,63 +1,54 @@
 \section{Model}\label{sec:model}
 
-\para{Transducer.} \ultra is a streaming RNN-T~\cite{graves2012rnnt} with a Conformer
-encoder~\cite{gulati2020conformer}, a stateless predictor~\cite{ghodsi2020stateless} and an
-auxiliary CTC head. The front end computes 80-band log-mel features at 100\,Hz; a causal
-two-layer convolutional stem subsamples by four to 25\,Hz at width $d=384$. Each Conformer block
-is macaron-style (half-step FFN, attention, causal depthwise convolution with kernel 15, FFN),
-with six heads of width 64, an FFN expansion of four, rotary position
-embeddings~\cite{su2021roformer}, and pre-norm residuals closed by a single final LayerNorm (a
-post-norm variant of our first model collapsed to near time-invariant output). The predictor
-embeds the last two non-blank tokens (256 dimensions each) and projects them to a 320-wide
-joiner over 4,096 SentencePiece units plus blank. The CTC head (1,024 units) is weighted \CtcWeight{} in
-training and unused at inference.
+\para{Streaming Conformer transducer.} \ultra{} \ReleaseVer{} is a dense 16-block streaming
+Conformer~\cite{gulati2020conformer} RNN-T~\cite{graves2012rnnt} with a stateless
+predictor~\cite{ghodsi2020stateless} and an auxiliary CTC head (weighted \CtcWeight{} in training,
+unused at inference). The front end computes 80-band log-mel features at 100\,Hz; a causal
+two-layer convolutional stem subsamples by four to 25\,Hz at width $d=384$. Each Conformer block is
+macaron-style (half-step FFN, multi-head self-attention with 6 heads of width 64 and rotary
+position embeddings~\cite{su2021roformer}, causal depthwise convolution with kernel 15, half-step
+FFN) with pre-norm residuals and a final LayerNorm. The predictor embeds the last two non-blank
+tokens (256 dimensions each) into a 320-wide joiner over a compact 500-token SentencePiece BPE
+vocabulary plus blank.
 
-\para{Streaming.} The encoder consumes 160\,ms chunks (four 25\,Hz frames). Attention in chunk
-$c$ sees the current chunk and a bounded left context of 128 frames (\LeftCtxSec\,s) and nothing after
-the chunk; the convolution is causal. Hence every encoder frame depends only on audio up to the
-end of its chunk, and the streaming model is the training model, not an approximation of it: a
-unit test perturbs all future log-mel frames and checks that past encoder frames do not change.
-Per stream, the state is a ring of keys and values per block, the convolution tail and two
-predictor tokens.
+\para{Live streaming mode (160\,ms chunks).} In live mode, the encoder consumes 160\,ms chunks
+(four 25\,Hz frames) with a bounded left context of 128 frames (\LeftCtxSec\,s) and zero right
+context; the depthwise convolution is strictly causal. Every encoder frame depends only on audio up
+to the end of its chunk, so streaming inference matches training exactly. Decoding is greedy (up to
+8 symbols per frame), emitting live words continuously without needing an endpoint detector.
 
-\para{Multirate encoder (S\_MR).} Dense Conformers spend most of their arithmetic in the middle of
-the stack at the full 25\,Hz rate. The multirate variant keeps the same width and block type but
-changes where the frames are: four lower blocks run at 25\,Hz; a learned projection maps each
-pair of frames to one \MidRateHz\,Hz frame; ten middle blocks run at \MidRateHz\,Hz with half the
-chunk and half the left context; a learned restoration maps each frame back to two 25\,Hz
-positions, added to a skip from the lower blocks; and two final blocks run at 25\,Hz
-(\cref{fig:arch}). Per 160\,ms chunk the dense encoder applies $16\times4=64$ block-frame
-operations and the multirate encoder $6\times4+10\times2=44$, before the two rate-change
-projections. Weight bytes are the same, so the saving is in arithmetic, not memory traffic; how
-much of it survives depends on whether the engine is compute-bound, which on our CPUs it is
-(\cref{sec:engine}). The joiner and CTC head always read 25\,Hz states,
-so decoding is unchanged. An odd final frame in a chunk is paired with zeros, both in the
-engine and, after a fix we describe in \cref{sec:training}, in batched training.
+\para{Utterance-segmented commit pass (640\,ms + LM/LODR).} To improve final transcript accuracy
+without changing the acoustic weights, the release decoder pairs the 160\,ms live stream with a
+second-pass commit decoder triggered at each utterance endpoint (\cref{fig:arch}). The commit pass
+re-encodes the buffered segment (up to a 40\,s hard cap) with wider 640\,ms chunks (16 frames) and
+a 320\,ms synthetic zero tail pad, then runs a width-16 beam search fusing a 5-gram word-level
+language model (M5, scale \LmScale) with internal log-density-ratio (LODR) subtraction (scale
+\LodrScale). The commit pass revises \RelCommitRevisedPct\% of panel utterances with a median
+final-text delay of \RelCommitDelayPfifty\,ms after endpoint declaration
+(95th percentile \RelCommitDelayPninetyFive\,ms).
 
 \begin{figure}[t]
 \centering
 \resizebox{\columnwidth}{!}{%
 \begin{tikzpicture}[
   font=\footnotesize, >={Stealth[length=4pt]},
-  blk/.style={draw, rounded corners=2pt, minimum height=6mm, inner sep=2pt, align=center},
-  fast/.style={blk, fill=blue!10, minimum width=17mm},
-  slow/.style={blk, fill=orange!18, minimum width=17mm},
-  io/.style={blk, fill=gray!10, minimum width=17mm},
-  op/.style={blk, fill=white, minimum width=13mm, dashed}]
-\node[io] (mel) {log-mel\\100\,Hz};
-\node[io, right=4mm of mel] (stem) {causal stem\\$\downarrow$4};
-\node[fast, right=4mm of stem] (low) {4 blocks\\25\,Hz};
-\node[op, right=4mm of low] (pair) {pair\\$\downarrow$2};
-\node[slow, below=6mm of pair, xshift=-10mm] (mid) {10 blocks\\\MidRateHz\,Hz};
-\node[op, left=4mm of mid] (rest) {restore\\$\uparrow$2};
-\node[fast, left=4mm of rest] (fin) {2 blocks\\25\,Hz};
-\node[io, left=4mm of fin] (dec) {joiner\\+ CTC};
-\draw[->] (mel) -- (stem); \draw[->] (stem) -- (low); \draw[->] (low) -- (pair);
-\draw[->] (pair) |- (mid); \draw[->] (mid) -- (rest); \draw[->] (rest) -- (fin);
-\draw[->] (fin) -- (dec);
-\draw[->, densely dotted] (low.south) -- ++(0,-3mm) -| node[near start, below, inner sep=1pt]{skip} (rest.north);
+  blk/.style={draw, rounded corners=2pt, minimum height=6.5mm, inner sep=2.5pt, align=center},
+  enc/.style={blk, fill=blue!10, minimum width=22mm},
+  live/.style={blk, fill=green!10, minimum width=20mm},
+  fin/.style={blk, fill=orange!15, minimum width=24mm},
+  io/.style={blk, fill=gray!10, minimum width=15mm}]
+\node[io] (pcm) {PCM16\\16\,kHz};
+\node[io, right=3mm of pcm] (mel) {log-mel\\100\,Hz};
+\node[enc, right=3mm of mel] (enc) {16$\times$ Conformer-S\\$d=384$, INT8};
+\node[live, above right=2mm and 4mm of enc] (lout) {Live stream\\$c=4$, greedy};
+\node[fin, below right=2mm and 4mm of enc] (fout) {Commit (seg.)\\$c=16$, M5/LODR b16};
+\draw[->] (pcm) -- (mel);
+\draw[->] (mel) -- (enc);
+\draw[->] (enc.east) -- ++(2mm,0) |- (lout.west);
+\draw[->] (enc.east) -- ++(2mm,0) |- (fout.west);
 \end{tikzpicture}}
-\caption{The multirate encoder (S\_MR). Ten of sixteen Conformer blocks run at half rate inside
-each 160\,ms chunk; the dense model (S) runs all sixteen at 25\,Hz.}
+\caption{Dual operating points of \ultra{} \ReleaseVer{} on one prepared INT8 artifact: a
+continuous 160\,ms greedy live stream ($c=4$) and an utterance-segmented 640\,ms commit pass
+($c=16$) with 5-gram LM and LODR beam search.}
 \label{fig:arch}
 \end{figure}
