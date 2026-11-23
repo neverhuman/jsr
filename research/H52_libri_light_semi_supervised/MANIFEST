@@ -67,3 +67,6 @@ ead57be772be9c7e5c7e5c8ad7c4355d9449be1ecd1fee0ddbf02d876eb670ee  analysis/overl
 461b54d545f002ca7f1f9ca77cf1fe33a0b3d4d0d668425ca75b6bc2c51995fe  bin/ll_finalize_par.py (the medium run)
 25560587d8fa9bef5924fdbc3a93a96eb3b4333c7a0e2bc2e34ff97d40d124ec  bin/finalize_par_x5.sh
 # small v1.1 final (09:57Z; adopted for S2): x5:~/jsr-data/librilight/shards/r0_v11/librilight.small/SHA256SUMS sha256 8f371a650591ff0663712f3b2603d963abeb69798636f008eb7fcadd5a5d59f3 (reproduced byte for byte by ll_finalize_par.py at 11:06Z)
+# large tier-A cut large.s3 (sealed 2026-11-23T15:56:12Z; x6:~/jsr-data/librilight/shards/r0_v11/librilight.large.s3/, 696 of 1146 shards)
+59bfbd4cc4d744f68bc62283b23131e9b48f23ce229d792c17bae83827b8e5e7  shards/r0_v11/librilight.large.s3/SHA256SUMS
+401992c03f01ef527e3ec46bc4a426efa56ac46d2b21d5ae1ac7b8561b5983dd  shards/r0_v11/librilight.large.s3/FILTER_REPORT.json

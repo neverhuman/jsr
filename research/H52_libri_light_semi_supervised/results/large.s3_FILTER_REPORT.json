@@ -1,0 +1,65 @@
+{
+ "subset": "large.s3",
+ "result_label": "semi-supervised (R0 labels)",
+ "rules": {
+  "H3_min_wps": 0.6,
+  "H3_max_wps": 4.6,
+  "H5_max_copies": 3,
+  "S1_drop_frac": 0.1,
+  "S2_max_disagree": 0.5,
+  "H4_pattern": "\\bLIB[A-Z]*\\s?VO[CX][A-Z]*\\b|RECORDINGS? (?:IS|ARE) IN THE PUBLIC DOMAIN|TO VOLUNTEER PLEASE VISIT",
+  "H4_amendment": "2026-11-23T07:58Z: R0 cannot spell LIBRIVOX (writes LIBERVOX / LIBRAVOX / LIBREVOX / LIBRAVOC ...), so the literal 'LIBRIVOX' test matched nothing; the pattern now implements the pre-registered intent (LibriVox preambles / disclaimers). Seen before any filter result was used."
+ },
+ "seed": 52,
+ "input_shards": 3256,
+ "checks": {
+  "shards": 3256,
+  "missing_labels": 0,
+  "missing_student": 0,
+  "rows_unlabeled": 4,
+  "glabel_cut_mismatch": 4,
+  "rows_missing_student": 2601493,
+  "lp_nan_as_lowest": 22
+ },
+ "rows_in": 2601489,
+ "rows_kept": 2292842,
+ "kept_fraction_rows": 0.8814,
+ "hours_in": 9835.26,
+ "hours_kept": 8732.45,
+ "kept_fraction_hours": 0.8879,
+ "drop_counts": {
+  "H4_librivox": 47099,
+  "H3_rate": 1324,
+  "H1_empty": 2334,
+  "H2_length": 173,
+  "H5_duplicate": 2960,
+  "S1_low_lp": 254757
+ },
+ "S1_lp_threshold": -0.18056,
+ "output_shards": 696,
+ "kept_lp_mean_quantiles": [
+  -0.1786,
+  -0.1658,
+  -0.1353,
+  -0.1048
+ ],
+ "kept_agree_wer_mean": null,
+ "all_agree_wer_mean": null,
+ "labels": {
+  "schema": "h52.r0labels/v1",
+  "convention": "r0-fp32-gpu-v1",
+  "teacher": "R0 zipformer-en-2023-06-26 chunk-16-left-128 fp32",
+  "model_sha256": {
+   "encoder": "a423883ce5754507fd941755ab0b5bc426a84ac670cbe21cf060e9e2c66dc660",
+   "decoder": "7bf787f90b194b307e5a4ad6a34fadb4e748304c35f78a8d66358a05b13ee6ef",
+   "joiner": "210591f72b3c56b8364f85f345dca240bc2b4c00632848f4aa923630d5639d3b"
+  },
+  "tokenizer_sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5"
+ },
+ "finished_utc": "2026-11-23T15:56:12Z",
+ "output_shards_total": 1146,
+ "output_shards_written": 696,
+ "rows_written": 1392696,
+ "hours_written": 5303.66,
+ "max_final_gb": 300.0
+}

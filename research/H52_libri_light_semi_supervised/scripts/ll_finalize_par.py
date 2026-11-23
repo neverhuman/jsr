@@ -213,6 +213,9 @@ def main():
     ap.add_argument("--rate-drop", type=float, default=0.05)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--min-free-gb", type=float, default=60.0, help="pause while the output disk has less free space")
+    ap.add_argument("--max-final-gb", type=float, default=0.0,
+                    help="write only the first M buckets (each a uniform random sample of the kept rows) so the written "
+                         "shards fit this many GB; 0 = write all (small / medium behaviour, byte-identical)")
     a = ap.parse_args()
     out_dir = os.path.join(a.out, f"librilight.{a.subset}")
     guard = Guard(a.guard_mode, a.guard_runs, a.max_wait_pct, a.rate_drop, a.out, a.min_free_gb)
@@ -424,14 +427,21 @@ def main():
         if schema is not None:
             break
     raw_gb = sum(os.path.getsize(p) for p in paths) / 1e9
-    need_gb = raw_gb * len(kept) / max(1, len(rows)) * 1.10
+    M = n_out
+    if a.max_final_gb > 0:
+        raw_rows = sum(json.load(open(os.path.join(a.raw, k + ".ready")))["rows"] for k in keys)
+        per_shard_gb = raw_gb / max(1, raw_rows) * a.rows_per_shard * 0.96  # medium: final / raw bytes per row = 0.945
+        M = max(1, min(n_out, int(a.max_final_gb / per_shard_gb)))
+    write_of = bucket_of if M == n_out else {u: b for u, b in bucket_of.items() if b < M}
+    log(f"output: {M} of {n_out} buckets written ({len(write_of)} of {len(kept)} kept rows)")
+    need_gb = raw_gb * len(write_of) / max(1, len(rows)) * 1.10
     log(f"DISK plan: raw parquet {raw_gb:.0f} GB -> buckets peak ~{need_gb:.0f} GB (parts deleted as each final shard is "
         f"verified); free {free_gb(a.out):.0f} GB; floor {a.min_free_gb:.0f} GB")
     if free_gb(a.out) - need_gb < a.min_free_gb:
         raise SystemExit(f"disk: {free_gb(a.out):.0f} GB free cannot hold ~{need_gb:.0f} GB above the {a.min_free_gb:.0f} GB floor")
     W = max(1, min(a.workers, len(keys)))
     blocks = [list(x) for x in np.array_split(np.array(keys, dtype=object), W)]
-    G.update(raw=a.raw, rows=rows, bucket_of=bucket_of, extra=extra, schema=schema, tmp_dir=tmp_dir, out_dir=out_dir,
+    G.update(raw=a.raw, rows=rows, bucket_of=write_of, extra=extra, schema=schema, tmp_dir=tmp_dir, out_dir=out_dir,
              seed=a.seed, rows_per_group=a.rows_per_group, n_workers=W)
     log(f"bucket pass: {W} workers x ~{len(blocks[0])} raw shards -> {n_out} buckets")
     run_workers("bucket", bucket_worker, [(w, blocks[w]) for w in range(W)], guard, go)
@@ -440,7 +450,7 @@ def main():
         rp = os.path.join(tmp_dir, f"res-w{w:02d}.jsonl")
         if os.path.exists(rp):
             os.remove(rp)
-    run_workers("write", write_worker, [(w, list(range(w, n_out, W))) for w in range(W)], guard, go)
+    run_workers("write", write_worker, [(w, list(range(w, M, W))) for w in range(W)], guard, go)
     res = {}
     for w in range(W):
         for line in open(os.path.join(tmp_dir, f"res-w{w:02d}.jsonl")):
@@ -456,9 +466,9 @@ def main():
             os.rmdir(wd)
     os.rmdir(tmp_dir)
     n_rows_out = sum(r["rows"] for r in res.values())
-    if n_rows_out != len(kept):
-        raise SystemExit(f"final shards hold {n_rows_out} rows, expected {len(kept)}")
-    sums = [f"{res[b]['sha256']}  {b:04d}.parquet" for b in range(n_out) if b in res]
+    if n_rows_out != len(write_of):
+        raise SystemExit(f"final shards hold {n_rows_out} rows, expected {len(write_of)}")
+    sums = [f"{res[b]['sha256']}  {b:04d}.parquet" for b in range(M) if b in res]
     with open(os.path.join(out_dir, "SHA256SUMS"), "w") as f:
         f.write("\n".join(sums) + "\n")
     lpk = np.array([rows[u]["lp"] for u in kept]) if kept else np.array([0.0])
@@ -470,8 +480,12 @@ def main():
               "drop_counts": rc, "S1_lp_threshold": thr, "output_shards": len(sums),
               "kept_lp_mean_quantiles": np.quantile(lpk, [0.01, 0.1, 0.5, 0.9]).round(4).tolist(),
               "kept_agree_wer_mean": round(float(agr.mean()), 4) if len(agr) else None,
-              "all_agree_wer_mean": round(float(np.nanmean([f["agree"] for f in rows.values()])), 4) if rows else None,
+              "all_agree_wer_mean": (round(float(np.mean(_ag)), 4) if (_ag := [f["agree"] for f in rows.values()
+                                                                              if not math.isnan(f["agree"])]) else None),
               "labels": label_header, "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if M != n_out:  # partial write (--max-final-gb): every written shard is a uniform random sample of the kept rows
+        report.update(output_shards_total=n_out, output_shards_written=M, rows_written=len(write_of),
+                      hours_written=round(sum(rows[u]["dur"] for u in write_of) / 3600, 2), max_final_gb=a.max_final_gb)
     with open(os.path.join(out_dir, "FILTER_REPORT.json"), "w") as f:
         json.dump(report, f, indent=1)
     log(json.dumps({k: report[k] for k in ("rows_in", "rows_kept", "kept_fraction_rows", "hours_in", "hours_kept",
