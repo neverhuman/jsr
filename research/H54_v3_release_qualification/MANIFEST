@@ -1,0 +1,80 @@
+# H54 MANIFEST: the receipts behind the v3.0.0 release record, with full sha256 (never weights or audio here).
+# Paths are on the data drive (/mnt/xbabe3-external/jsr = $D) unless they name a host role (x5:) or a repo path.
+# paper-lane re-hashed every receipt, score input and binary below on 2026-11-23 between 13:55Z and 14:15Z; every posted prefix matches.
+# Not re-hashed (too large for the USB drive, or on another host): B0.ckpt, B0.int8, lm.M5, LL.small, LL.medium, B.cut, B.RC1. Their values are
+# copied from the receipts that recorded them (B0_manifest.json, the run receipts' inputs, h52-librilight's post and H52 README).
+# The release candidate's rows were filled from its posts (eval-lane 15:02-15:38Z, bench-open 15:40Z).
+
+# --- release decoder and shared pins
+bin.release      $D/runtime-lane/release_bb1071a/ultra-engine-commit  sha256 9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2 (main bb1071a, PR #107; 6,876,512 bytes)
+bin.pr106        $D/runtime-lane/h45_commit_lm_main/ultra-engine-commit  sha256 fb8a95e54f311a6efc2d6a5f95e48a8cd912d7132ea26ada23637b9b6558d361 (#106, 30 s cap; parity and second-host rows only)
+lm.M5            $D/lm/models/engine/M5.ulm  sha256 72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982 (334,427,094 bytes; token 5-gram + LODR bigram)
+scorer           $D/h45-wins/bin/ultra-score  sha256 d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1 (ultra-en-wer-norm/v1, rule table 988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8)
+
+# --- artifact A: B0 + release decoder
+B0.ckpt          x5:~/jsr-data/runs/train/A1_S_r0bpe_960h/ckpt-00049000.pt  sha256 2a3dd9fb6c7856126b3455fb65babc4295e27b10e011d18a8806b8be5181e146 (rank 0; EMA weights 4055c989c3822b326c52f5a0abb055810ddef7dab7ea85acffa388d134a3a70c)
+B0.int8          $D/evals/eval-lane/export/A1-49000-ema/int8/weights.int8.safetensors  sha256 4701787c94d320953c42367bf0cf3be1ce2378e66bc811935af9f0f135b1e285 (all bundle files: docs/paper/data/raw/bundle/a1-49000-ema-int8.files.json)
+B0.manifest      $D/evals/eval-lane/h43/B0_manifest.json  sha256 d37415924cc34ada32a3569e605432f71bed894031b8d655752f66155c1a8912
+A.E1             $D/evals/eval-lane/h41/verdicts/release-row-B0-CP-LM-pad320-bb1071a.json  sha256 0c11b85712d2378cad7fa7deb91563f8bd3a72a143d9a70e96962958cfe2ae97 (E1 PASS, 6,455 edits)
+A.run            $D/runtime-lane/release_bb1071a_pad320_fulldev/release_bb1071a_pad320_fulldev.receipt.json  sha256 d860ea86fedf5f6638dba2a6dee4aad67d3e936bb61ff6f2c8ffcc9fa7b1b78a
+A.committed      $D/runtime-lane/release_bb1071a_pad320_fulldev/release_bb1071a_pad320_fulldev.committed.score-input.jsonl  sha256 65fb4ddda953dc1192544bf420d9899462c00fc00e00a29733da253004fd8239
+A.provisional    $D/runtime-lane/release_bb1071a_pad320_fulldev/release_bb1071a_pad320_fulldev.provisional.score-input.jsonl  sha256 33fed77bb4a101db29eccc7f83a132930342631d2d8f0b388980e8b83b9b5ac2
+A.x0-repro       $D/opponents/bench-open/release-eval/rows/B0-A1-49000/ROW.json  sha256 137376ab76d1f17b71e1bad19302332ffa27fdb428bc6042d7008826a3431306 (#106 binary, 6,471 edits)
+A.int8-parity    $D/runtime-lane/pr106_c_half_parity/pr106_c_half_parity.json  sha256 2125f120a53982a8bde2446e4fa0b82feab7834bb4f326715bb0a1b2e5847e9b
+A.session-35min  $D/runtime-lane/release_bb1071a_35min_exposure/exposure_35min_summary.json  sha256 151f741f9b08e3f511a4bb2d9ff74dc23337ae990de2d6f1e41d15b789b282ff (CommitPassSession at bb1071a, 35 min, no full reset; SHA256SUMS 8 / 8 OK)
+B0.stream-C1     $D/h47-sleep/analysis/r1/C1.summary.json  sha256 6056c9711300f3c7c68726b3d86a1b89589750eb71d2b1c75a89c703ad7faaf8 (B0's live stream on the 27.56 h continuous DEV stream, C1: 8.377%)
+A.latency-B0     $D/evals/eval-lane/h43/latency-fulldev/B0-c4.json  sha256 5867128b1d24c1d14dd16ea05e30a3431bd9d49b009346183e3b57a91171fbf5 (B0's stream = A's provisional stream)
+A.timing-14m     $D/opponents/bench-open/watts-join/14m.jsonl  sha256 90a58ddde9f01eac80fff1231dc1673b4d9dabb61e194bdeea687f46250b18cc (9 reps; commit.jsonl of beam 16 rounds 1-3 beda38a0 / a620cc54 / d6bcfb7b)
+
+# --- S2 gates and the reference branch-point row
+S2.gate-a-BP1    $D/evals/eval-lane/h41/verdicts/s2-gate-a-BP1.json  sha256 fa8567837cf49e087102a0c90f8b6fc71ca7a7788db77f51e49e26bfca5ed7a1
+S2.gate-a-BP2    $D/evals/eval-lane/h41/verdicts/s2-gate-a-BP2.json  sha256 deb7b6df3bfe4e27fb2ee8c3de502c15287b4cae0d6687d64c0439228b73f896
+S2.gate-a-S2bBP1 $D/evals/eval-lane/h41/verdicts/s2-gate-a-S2b-BP1.json  sha256 c31d9fff2c225ed2b19b7e68b4b886069fbb44238e53c98f68ded468e92121dd
+S2.gate-a-S2bBP2 $D/evals/eval-lane/h41/verdicts/s2-gate-a-S2b-BP2.json  sha256 d67e6bdfe24c3d58eaf74a5620e709e937ce24c72724b6111b6dcaa6d9f18146
+S2.gate-b        $D/evals/eval-lane/h41/verdicts/gate-b-S2b-BP1.json  sha256 1f8c6b422459b7e37c539871f74469fc98e15322407c6e74a8c4c79a03050091 (stage 1 PASS)
+S2.gates-plan    $D/evals/eval-lane/h43/families/h53-release-gates.json  sha256 e1dba4c298f10e96bcccbe937261926be87e2c1e8f5564d6705dcdea3ecdd253
+E.plan           $D/evals/eval-lane/h43/families/v3-combined-artifact-plan.json  sha256 5ab94dcafd02a3c23e058679366661a260e1c18a1e1080582abefaf854b23abf (E1-E4)
+S2BP1.row        $D/opponents/bench-open/release-eval/rows/H53_S2_BP1-ema/ROW.json  sha256 00bdc4bbf75a718ac55796151e3c1b1c8f53693e705344b8ad34353bbc118b09 (weights.int8 0f35bfb1caa914a9aa58c466d652ec2240df5b6fae1820cbe656325721ad9990)
+S2BP1.paired     $D/opponents/bench-open/release-eval/rows/H53_S2_BP1-ema/paired_vs_B0_release_bb1071a.json  sha256 44240ccbcf6f30b29e53081492fab8e54ef9d975252fa9a3c42a0f0bd608e9d4
+S2aBP2.row       $D/runtime-lane/release_bb1071a_s2a_bp2_fulldev/summary.json  sha256 860401314b2832926f23cb458fae0d99bb9b38f9075695b2e0a06997c85f71f2 (5.883%; weights.int8 4215fe4ef463ab18e342658fe4070a0fe2eaf34eab9c332987aae84c8512e1c0)
+S2bBP1.row       $D/runtime-lane/release_bb1071a_s2b_bp1_fulldev/summary.json  sha256 1e444d133e70b5b84b14998721026b15b4d504433737289df69e10cfcbbe0a5b (5.4915%; weights.int8 3ddc1419a84511e220331158145c1ce439d969807486d20bf0b4e5b5f7f687d4)
+S2bBP1.committed $D/runtime-lane/release_bb1071a_s2b_bp1_fulldev/s2b_bp1_fulldev.committed.score-input.jsonl  sha256 1a224ef2448c1f41d2b5c3e76473a356f39636774179dbc3574b21c16db2f337
+L4.latency       $D/evals/eval-lane/h43/latency-fulldev/B0-L4-c4.json  sha256 1e279b9e4027003db9a7a2315de65cdefb533a279bc0a15bbbabb0db5d24e0d3 (4.475 revised words / 100; B0 0.086 in A.latency-B0)
+L4.vs-B0         $D/evals/eval-lane/h43/latency-fulldev/B0-L4-c4-vs-B0-c4.json  sha256 999ac6eba452ce1f18aa665cbbc92c490cb67cfea866abfc78a49a265b191492
+S2BP1.committed  $D/opponents/bench-open/release-eval/rows/H53_S2_BP1-ema/committed.score-input.jsonl  sha256 6a10525163307614b71b3fb3939d2b671bcc3753d10f6f08f7e768e5fb3fe47f
+
+# --- artifact B: the S2 release candidate + release decoder
+B.cut            x5:~/jsr-data/runs/train/H53_S2b_medium_s7919/ckpt-00010818.pt  sha256 69d77c59d78e16fbe19c544b8d46403b9e54a9a53dfab84a08662b797d2113ec (cut 14:01:44Z; E_main 41,658 audio-h; copied from trainer-lane's 14:04:00Z post)
+B.RC1            x5:~/jsr-data/protected/H53_RC1_s7919/ckpt-00005095.pt  sha256 ee40e83392d86dbb0bdfe227a14111538538a072ca3504dffc9ad2f04dd0a5a6 (raw + EMA; 5,095 steps, D = 10,000 audio-h; copied from trainer-lane's 14:52:37Z post)
+B.weights-rule   $D/evals/eval-lane/h41/verdicts/rc-RC1-weights-rule.json  sha256 fc4376cccef6cf26cc7b1f9fd4bd7e1902191c700a5f370432657cca8ed406ab (raw - EMA on S +0.027 pp: EMA)
+B.A6-conf-c4     $D/evals/eval-lane/h41/verdicts/rc-RC1-A6-conf-c4.json  sha256 6012ad56f1a7cb5e19330c016bb44381570146c26bd26b993549a1018d8d0a8f (PASS)
+B.A6-int8        $D/evals/eval-lane/h41/verdicts/rc-RC1-A6-int8.json  sha256 dbe4ed3ec8ca1d9ac24bd7be494229cfc0cc4a2132b9a76d5dd3fcd6d1153674 (INT8 7.447%, PASS)
+B.A6-c16         $D/evals/eval-lane/h41/verdicts/rc-RC1-A6-c16.json  sha256 21388c07b03ad1d78db8df2e4c4e8e11241725a2b269e2bf92a2ba4fb0b91a16 (PASS)
+B.fulldev-c4     $D/evals/eval-lane/h41/verdicts/rc-RC1-fulldev-c4.json  sha256 5c3d5dc3280ffe96df88d2fef04d37bd074614504ea1ac7d142308fbd76bf907 (reported)
+B.fulldev-c8     $D/evals/eval-lane/h41/verdicts/rc-RC1-fulldev-c8.json  sha256 597e922aea045e8a4b772604dcb1b7b7e5bc60a1977e40e9565c197f5a4e5bbf (reported)
+B.A6-latency     $D/evals/eval-lane/h43/latency-fulldev/RC1-c4-vs-B0-c4.json  sha256 a88f107da1908a4a15231079ae4d10bb8a16317841671b3a762775c38c201cef (paired vs B0: FCW median -170 ms, p95 -60 ms; PASS)
+B.latency        $D/evals/eval-lane/h43/latency-fulldev/RC1-c4.json  sha256 b62ce43eac37ef022e3e3c30e9c7793b361e4b13bbd395f48b8fb55f69b00a1c (first token mean 165.7 ms; CQ300 stable 71.86%)
+B.int8           $D/evals/eval-lane/export/H53_RC1-ema/int8/weights.int8.safetensors  sha256 edac19d8d6f6968994c4235362155b726c26b107b3d85f0b79405a2b90acd46a (RC1 EMA; weights.safetensors dd4121aa600aa82e9f41edbed523f0df33f7a68f14fc6fdbf3adfbcc14a7c349; arch.json 880a38c0d6a21ea9f2b0ba4123f58b48590b00bfc98a2625f21368b93e4dcc5a; all in ../int8.SHA256SUMS.datadrive)
+B.E1             $D/evals/eval-lane/h41/verdicts/release-row-RC1-release-decoder.json  sha256 55e75640e0b8c609714fc944ec097ed17aeb58705db85396ebd2bb25cd06dede (E1 PASS, 5,808 edits = 5.476%)
+B.vs-A           $D/evals/eval-lane/h41/verdicts/release-row-RC1-vs-B0-release-row.json  sha256 6ed83245dcadd82e77c6f360d9d0cd3bb9dbbfe3edc3593f29565eeaff935406 (-0.610 pp against row A)
+B.committed      $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.committed.score-input.jsonl  sha256 e293e4fdb2afa1ae4d953e446c16093ee34a2a5452763981c359fbbdadc6284f
+B.provisional    $D/evals/eval-lane/rc/RC1/release-decoder/release-decoder.provisional.score-input.jsonl  sha256 434803ddc1a66413ab8b01c0ba0b18a896cd5588b074cbd2a8bcf81cd7a68550 (live stream 7.447%: 2,148 + 5,750 = 7,898 edits)
+B.timing-14p     $D/opponents/bench-open/watts-join/14p.jsonl  sha256 7f7eec35b6f74d7f0a9441e1a82e163b0814098e0bce1d74028eb51d2aa1c196 (3 reps, all clean; 0.0705 CPU-s per audio-s, 14.3x, 686 MiB, 211 / 586 ms, 0.72 / 1.64 W)
+
+# --- data
+LL.small         x5:~/jsr-data/librilight/shards/r0_v11/librilight.small/SHA256SUMS  sha256 8f371a650591ff0663712f3b2603d963abeb69798636f008eb7fcadd5a5d59f3 (99,109 utts, 378.65 h)
+LL.medium        x5:~/jsr-data/librilight/shards/r0_v11/librilight.medium/SHA256SUMS  sha256 7e87f000be40a0d028db8b83fa0229c39cff7c2698fee9fa8383a25f98e25892 (888,265 utts, 3,395.81 h)
+
+# --- flags, limits and context rows
+E2.L4-14k        $D/evals/eval-lane/h43/protected-e2/14k-pooled-l4-vs-b0.paced.json  sha256 c9e0d52414beee919e3f9eae0b44f8418bb88a1d4a8283f755024a244a90bb63 (E2 FAIL)
+gate.14i         $D/opponents/bench-open/watts-join/14i_q_cpu_summary.json  sha256 6f938e7e75e3284d733991d1c2ced154cc73fc90b5385351f112928d6d8efb7c (Q2, Q6, duty05 watts)
+gate.Q4b         research/H47_always_on_sleep_gate/results/Q4b_tierB_torture.json  sha256 e5e4b825a88b3e273ab53c74d34d7e48234d0d94b7ab1d64676ae8f641b65085 (on main via #110)
+gate.Q5          research/H47_always_on_sleep_gate/results/Q_5ca3583_r500_i1500_Q5_30h.json  sha256 bb1e0f7aae4a339859d95db878eb98a41ba9c68e1486c90f9dfef3cb0b59dfca (on main via #110)
+agc.C1C2.warm    $D/evals/eval-lane/h43/gain-panel-fresh/v2-02e1fa4cd1f7/primary/criteria_1_2.json  sha256 ee627a19451cebb2f0bc03aeda38240b9cc0db00c8eec55904217f2cc919d842
+agc.C1C2.cold    $D/evals/eval-lane/h43/gain-panel-fresh/v2-02e1fa4cd1f7/secondary/criteria_1_2.json  sha256 e598d99aaf44190ca4278e1b1c0f95a4838a180da7ab55e8ee0b42c00f3ff124
+agc.C3           $D/evals/eval-lane/h43/agc-c3/pieces-02e1fa4cd1f7/criterion3.json  sha256 e65699cf6f297c8dcb96a43232c6de810960bc8f33d4e0f01307c86ac41c6de5 (FAIL, +0.447 pp)
+agc.C4           not run (dropped as moot after C3 failed; claude-lead 14:05:37Z)
+level.B0         $D/evals/eval-lane/h43/gain-panel/summary.json  sha256 d19b35fde7e6bd65f53108e1d6fb6467117636c39e50e6949577c507eeb3f69e
+power.14f        $D/opponents/bench-open/watts-join/power_holds_14f.summary  sha256 2a83180f16f20021a214a7c97a0517d3a153b5794feb140481b4a9dca2c252d2 (per-hold rows: power_holds_14f.jsonl 3331568cb55d20b9c88995827cf1e21f2d63b1473aebaec6ba262a842d6c16f5)
+B0.cold-1c       $D/opponents/bench-open/receipts-mirror/1c/cold/round-{1,2,3}/jsr-a1-49000-ema-int8/measurement.json  sha256 4159f63c36cf164dc0ceb321aed3646fe519400027040ef1bc3773cef8decf82 / 5b6a5245164139bc1896464e868c69acd276347fd512bc80f734faf9bac8102f / b0522cb22bf94622543acd74b9274e291e8b62e09431baf452ed05632289a1f7
+diloco.postmortem $D/h50-fleet/D0D1/TRANSPORT_POSTMORTEM.md  sha256 1e95fb81ccfb0feecf0f58f45da112ab9a17be05b3938a5003f4cd2d48473a80
