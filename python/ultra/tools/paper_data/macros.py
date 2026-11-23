@@ -35,8 +35,8 @@ def metrics_tex(rec: Records) -> str:
              "matched \\MatchedRung-stream rung against WER on the panel's 400 dev-clean utterances, measured in the same "
              "harness and executable. "
              "Right: highest sustained streams per CCX, with each checkpoint's WER.")
-    cap_m = ("Each point is one cold process on one pinned Zen~2 core decoding the same 730 DEV utterances, model "
-             "load included, median of three runs; vertical axis: dev-clean WER. \\MoneyMarksCaption{} "
+    cap_m = ("Cold throughput is the median of three runs on one pinned Zen~2 core, including model load. "
+             "The vertical axis shows dev-clean WER from the 730-utterance LibriSpeech DEV panel. \\MoneyMarksCaption{} "
              "\\MoneyWattsCaption{} \\MoneyOursWatts{} \\ColdHostShort{} \\ColdSubsetSentence{} Exploratory.")
     cap_f = ("Warm, single harness, exploratory, Zen~2 (AMD Threadripper PRO 3995WX, shared host). Live streams per "
              "core sustained at p99 lateness of at most \\LatenessBoundMs\\,ms (top axis: per CCX, \\DenWorkers{} "

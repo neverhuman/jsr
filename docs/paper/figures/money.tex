@@ -31,7 +31,19 @@
   xmode=log, log basis x=2, xmin=\MoneyXmin, xmax=\MoneyXmax, ymin=0, ymax=\MoneyYmax,
   xtick/.expanded=\MoneyXticks, ytick distance=\MoneyYstep, xtick pos=bottom,
   xticklabel={\pgfmathparse{2^\tick}\pgfmathprintnumber[fixed, precision=2]{\pgfmathresult}$\times$},
-  xlabel={Always-on streams per CPU core\\($\times$ real time on one core, log scale)},
+  title={\ifx\MoneyComparisonRows\empty
+    \textbf{Exploratory DEV}%
+  \else
+    \shortstack{\textbf{Quiet Zen~2 comparison (exploratory DEV)}\\[3pt]
+      \setlength{\tabcolsep}{2pt}%
+      \begin{tabular}{@{}lrrrr@{}}
+        System & Cold speed & W/stream & Dev-clean WER & Pooled WER \\
+        \hline
+        \MoneyComparisonRows
+      \end{tabular}}%
+  \fi},
+  title style={font=\scriptsize},
+  xlabel={Cold throughput per core\\($\times$ real time, log scale)},
   ylabel={dev-clean WER (\%), 400 utterances},
   xlabel style={yshift=1pt, align=center}, ylabel style={yshift=-3pt},
   legend columns=2, legend cell align=left,
@@ -102,7 +114,7 @@
 \fi
 \else
 \begin{axis}[ultra/base, width=0.87\columnwidth, height=5.2cm, xmode=log, xmin=0.5, xmax=64, ymin=0, ymax=18,
-  xlabel={Speed on one CPU core ($\times$ real time, log scale)}, ylabel={dev-clean WER (\%), 400 utterances}]
+  xlabel={Cold throughput per core ($\times$ real time, log scale)}, ylabel={dev-clean WER (\%), 400 utterances}]
   \node[align=center, font=\footnotesize, text=okGrey, fill=gray!6, draw=gray!50, inner sep=6pt]
     at (rel axis cs:0.5,0.5) {\textbf{PENDING}\\[2pt]matched cold-DEV receipts\\not yet admitted\\[1pt]
     \scriptsize (730-utt panel, one pinned core, median of 3)};
