@@ -1,0 +1,1 @@
+{"capabilities":{"chunk_samples":640,"cpu_only_verified":true,"name":"ultra-engine-dense-int8-4a02420b0d28","right_context_samples":0,"supports_batch_step":true,"supports_commit_policy":true,"supports_partial_push":false},"runtime_libraries":{}}

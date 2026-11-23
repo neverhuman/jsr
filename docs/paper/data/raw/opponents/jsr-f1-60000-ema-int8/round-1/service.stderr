@@ -1,0 +1,1 @@
+{"capabilities":{"chunk_samples":2560,"cpu_only_verified":true,"name":"ultra-engine-multirate-int8-c894274d12e6","right_context_samples":0,"supports_batch_step":true,"supports_commit_policy":true,"supports_partial_push":false},"runtime_libraries":{}}

@@ -1,0 +1,47 @@
+{
+ "schema": "open-opponents.host-guard/v2",
+ "rule": "arm alone on its CCX (other cores and all SMT siblings of the CCX idle); with other_active_cores_limit also alone on the host",
+ "started_utc": "2026-11-23T06:08:10Z",
+ "finished_utc": "2026-11-23T06:11:16Z",
+ "seconds": 185.309,
+ "loadavg_before": [
+  "1.50",
+  "1.24",
+  "0.91"
+ ],
+ "loadavg_after": [
+  "1.44",
+  "1.34",
+  "1.01"
+ ],
+ "service_cpus": [
+  4
+ ],
+ "service_busy": {
+  "4": 0.9969
+ },
+ "smt_siblings_busy": {
+  "68": 0.0009
+ },
+ "ccx_neighbours_busy": {
+  "5": 0.0021,
+  "6": 0.0024,
+  "7": 0.004,
+  "69": 0.0009,
+  "70": 0.001,
+  "71": 0.0015
+ },
+ "limits": {
+  "smt_sibling": 0.01,
+  "ccx_neighbour": 0.02,
+  "other_active_cores": 2
+ },
+ "other_busy_cpus": {
+  "0": 0.1953,
+  "127": 0.0836
+ },
+ "other_active_cores": [],
+ "host_busy_mean": 0.0123,
+ "verdict": "clean",
+ "reasons": []
+}
