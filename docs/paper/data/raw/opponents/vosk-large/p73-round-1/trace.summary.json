@@ -1,0 +1,8 @@
+{
+ "schema": "open-opponents.trace-summary/v1",
+ "events": 29950,
+ "utterances": 73,
+ "audio_seconds": 597.09,
+ "recogniser_seconds": 133.275,
+ "note": "recogniser_seconds is the unpaced time from each utterance's first packet to its final result, summed; model load and process start are outside it"
+}
