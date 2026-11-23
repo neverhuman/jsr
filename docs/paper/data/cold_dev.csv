@@ -1,5 +1,6 @@
 id,variant,short,role,class,machine,threads,series,cpu,speed,rtfx,wer,wer_clean,wer_other,rss_mb,model_mb,lag_p50_ms,lag_p95_ms,watts,label,host,plot,lag_design_p50_ms,lag_design_p95_ms,final_latency_p50_ms,final_latency_p95_ms,faded,timing_panel
-h22ctl-79800-ema-int8-zen2-t1,h22ctl-79800-ema-int8,ULTRA-S (ours),ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03596,27.811,27.796,8.06,5.20,12.16,73.9,283.8,350,494,0.334,exploratory,xbabe0,1,320,440,,,0,full
+a1-20000-ema-int8-zen2-t1,a1-20000-ema-int8,ULTRA-S (ours),ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03649,27.404,27.390,7.68,4.66,11.99,74.0,56.9,,,,exploratory,xbabe0,1,,,,,0,full
+h22ctl-79800-ema-int8-zen2-t1,h22ctl-79800-ema-int8,ULTRA-S H22ctl,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03596,27.811,27.796,8.06,5.20,12.16,73.9,283.8,350,494,0.334,exploratory,xbabe0,0,320,440,,,0,full
 d2e-16457-int8-zen2-t1,d2e-16457-int8,ULTRA D2e step 16457,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03523,28.382,28.365,9.09,5.84,13.74,78.5,304.4,,,0.343,exploratory,xbabe0,0,,,,,0,full
 dense-r1-int8-zen2-t1-xbabe3,dense-r1-int8,ULTRA dense,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03857,25.927,25.906,11.33,7.54,16.75,78.4,292.8,,,,exploratory,xbabe3,0,,,,,1,full
 mr-r1-int8-zen2-t1-xbabe3,mr-r1-int8,ULTRA multirate,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.03668,27.265,26.587,15.93,11.56,22.19,76.8,295.8,262,406,,exploratory,xbabe3,0,240,380,,,1,full
@@ -13,3 +14,4 @@ moonshine-small-zen2-t1-xbabe3,moonshine-small,Moonshine Small,comparator,stream
 nemotron-en-560-zen2-t1-xbabe3,nemotron-en-560,Nemotron 560 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.45103,2.217,2.217,3.56,2.61,4.93,1290.4,699.9,,,,exploratory,xbabe3,1,410,790,,,1,full
 nemotron-en-160-zen2-t1-xbabe3,nemotron-en-160,Nemotron 160 ms,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.78168,1.279,1.278,3.94,2.90,5.42,1286.7,699.9,,,,exploratory,xbabe3,1,260,550,,,1,full
 nemotron-35-zen2-t1-xbabe3,nemotron-35,Nemotron 3.5,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,1.18629,0.843,0.843,6.14,4.14,9.00,1277.2,742.1,,,,exploratory,xbabe3,1,310,510,,,1,full
+parakeet-tdt-v3-int8-zen2-t1,parakeet-tdt-v3-int8,Parakeet TDT v3,comparator,whole_utterance,zen2,1,zen2-t1-comparator-whole,0.16901,5.917,5.911,3.40,2.43,4.78,1403.3,670.6,,,1.711,exploratory,xbabe0,1,,,,,0,full

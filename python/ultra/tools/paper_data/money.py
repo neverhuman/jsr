@@ -177,7 +177,7 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records) -> str:
            "stream": any(p["class"] == "streaming" and p["role"] != "ours" and not p["row"]["faded"] for p in pts),
            "whole": any(p["class"] == "whole_utterance" and not p["row"]["faded"] for p in pts),
            "faded": any(p["row"]["faded"] for p in pts)}
-    marks = ["Diamond: ours (\\ColdHeadDetail)."]
+    marks = ["Diamond: ours."]
     if has["whole"] or any(p["class"] == "whole_utterance" for p in pts):
         marks.append("Hollow: whole-utterance systems, which see the whole clip before they emit a word.")
     if has["frontier"]:

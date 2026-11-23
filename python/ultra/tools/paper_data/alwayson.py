@@ -1,0 +1,138 @@
+"""Receipts of the always-on tests, read into plain numbers. Every file is under docs/paper/data/raw/ and
+pinned in raw/MANIFEST.txt; a missing receipt returns None, and the sentence built on it says "pending".
+
+capacity    energy's paced capacity test: N live streams on one core (TIMING entry 4b, quiet host)
+silence     eval-lane's ten 1-hour non-speech blocks, and the pauses of the endless stream's first hour
+stream      that first hour as one continuous stream against the same utterances decoded one by one,
+            with no reset and with reset-with-replay (eval-lane's paired reports, its own scorer)
+endless     runtime-lane's 1 Hz memory samples of the endless run (a snapshot of a run still going)
+int8        FP32 PyTorch against the INT8 engine on full dev (eval-lane's paired report)
+same_words  one checkpoint's panel transcripts on Zen 2 (AVX2), Xeon (AVX-512) and Apple M3 (NEON)
+m3          bench-cross's one-core Apple M3 Ultra row of that checkpoint
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+import json
+
+from .common import RAW, PaperDataError, sha256_file
+
+AO = RAW / "alwayson"
+CAPACITY = RAW / "energy/derived/capacity-test-entry4b.jsonl"
+CAP_ARMS = {"h22ctl-79800-ema-int8": "paced-h22ctl", "r0-int8": "paced-zipformer"}  # variant: arm stem
+FLAT_PCT = 5.0  # a p95 lag whose spread over N stays within this share of its lowest value is "flat"
+REPLAY = {"t_s": 1.5, "r_s": 1.0, "report": AO / "stream/replay/p.isolated-v-T1500R1000.json",
+          "summary": AO / "stream/replay/hour1-replay-t1500_r1000.summary.json"}
+WARM_S = 10.0  # memory samples before this much audio include the model load and the first chunks
+INT8 = {"a1-20000-ema-int8": "A1-20000-ema", "h22ctl-79800-ema-int8": "H22ctl-79800-ema"}  # variant: report
+XISA = (("Zen 2 (AVX2)", RAW / "crossisa/xbabe0-h22ctl-entry2.predictions.jsonl"),
+        ("Xeon (AVX-512)", RAW / "opponents/xeon8358/jsr-h22ctl-int8-t1/predictions.6ac85d6ff9dc.jsonl"),
+        ("Apple M3 (NEON)", RAW / "opponents/m3ultra/jsr-h22ctl-int8-enginetool-t1/predictions.6ac85d6ff9dc.jsonl"))
+XISA_VARIANT = "h22ctl-79800-ema-int8"
+M3 = (RAW / "opponents/rows/m3ultra-bench-cross.jsonl", "h22ctl-79800-ema-int8-enginetool-m3ultra-t1")
+
+
+def _json(root: Path, rel: Path):
+    return json.loads((root / rel).read_text(encoding="utf-8"))
+
+
+def _jsonl(root: Path, rel: Path) -> list[dict]:
+    return [json.loads(x) for x in (root / rel).read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
+def _have(root: Path, *rels: Path) -> bool:
+    return all((root / r).is_file() for r in rels)
+
+
+def _src(root: Path, *rels: Path) -> dict:
+    return {"source": "; ".join(str(r) for r in rels), "digest": sha256_file(root / rels[0])}
+
+
+def _pooled(root: Path, rel: Path) -> dict:
+    """A paired report's pooled WER of system A and B, B - A and its bootstrap bounds, in percent."""
+    c = _json(root, rel)["comparison"]["pooled_delta"]
+    return {k: 100.0 * c[k] for k in ("observed_a", "observed_b", "delta", "lower", "upper")}
+
+
+def capacity(root: Path) -> dict | None:
+    if not _have(root, CAPACITY):
+        return None
+    arms = _jsonl(root, CAPACITY)
+    out = {"systems": {}, **_src(root, CAPACITY)}
+    for variant, stem in CAP_ARMS.items():
+        mine = sorted((a for a in arms if a["arm"].startswith(stem + "-n")), key=lambda a: a["streams"])
+        if not mine:
+            raise PaperDataError(f"{CAPACITY}: no arm {stem}-n*")
+        top, p95 = mine[-1], [a["lag_p95_ms"] for a in mine]
+        out["systems"][variant] = {
+            "n": top["streams"], "n_min": mine[0]["streams"], "lo": min(p95), "hi": max(p95),
+            "flat": max(p95) - min(p95) <= FLAT_PCT / 100.0 * min(p95), "w": top["watts_per_stream_core"],
+            "gross": top["gross_watts_per_stream_core"], "ceiling": 1.0 / top["cpu_s_per_audio_s_per_stream"],
+            "busy": 100.0 * top["core_busy_fraction"], "arms": mine}
+    return out
+
+
+def silence(root: Path) -> dict | None:
+    man, hour = AO / "nonspeech/MANIFEST.json", AO / "stream/hour1/hour1.A0.5.summary.json"
+    blocks = sorted(p for p in (root / AO / "nonspeech/h22ctl").glob("*") if p.is_dir()) if _have(root, man) else []
+    if not blocks or not _have(root, hour):
+        return None
+    files = _json(root, man)["files"]
+    if sorted(files) != sorted(f"{b.name}.wav" for b in blocks):
+        raise PaperDataError(f"{AO}/nonspeech: decoded blocks {[b.name for b in blocks]} differ from the manifest")
+    words = sum(len(json.loads(x)["hyp"].split()) for b in blocks
+                for x in (b / "predictions.jsonl").read_text(encoding="utf-8").splitlines() if x.strip())
+    gaps = _json(root, hour)["gap_false_words_total"]
+    return {"blocks": len(blocks), "hours": sum(f["seconds"] for f in files.values()) / 3600.0, "words": words,
+            "levels": sorted({f["level_dbfs"] for f in files.values() if f["level_dbfs"] is not None}),
+            "gap_words": gaps["words"], "gap_hours": gaps["hours"], **_src(root, man, hour)}
+
+
+def stream(root: Path) -> dict | None:
+    pen, diag, t0 = (AO / "stream/hour1/isolated-v-stream.json", AO / "stream/hour1/p.isolated-v-diagA.json",
+                     AO / "stream/replay/p.isolated-v-T0.json")
+    if not _have(root, pen, diag, t0, REPLAY["report"], REPLAY["summary"], AO / "stream/hour1/CUT.json"):
+        return None
+    cut, rep = _json(root, AO / "stream/hour1/CUT.json"), _json(root, REPLAY["summary"])
+    return {"utts": cut["utterances"], "minutes": cut["seconds"] / 60.0, "penalty": _pooled(root, pen),
+            "left": _pooled(root, diag), "t0": _pooled(root, t0), "replay": _pooled(root, REPLAY["report"]),
+            "replay_gap_words": rep["gap_false_words_total"]["words"], "t_s": REPLAY["t_s"], "r_s": REPLAY["r_s"],
+            **_src(root, pen, diag, t0, REPLAY["report"], REPLAY["summary"])}
+
+
+def endless(root: Path) -> dict | None:
+    rss, man = AO / "endless/endless27h.t0.rss.jsonl", AO / "stream/MANIFEST.json"
+    if not _have(root, rss, man):
+        return None
+    s = _jsonl(root, rss)
+    warm = [x for x in s if x["audio_s"] >= WARM_S]
+    return {"hours": s[-1]["audio_s"] / 3600.0, "total": _json(root, man)["total_s"] / 3600.0,
+            "lo": min(x["rss_mb"] for x in warm), "hi": max(x["hwm_mb"] for x in s), **_src(root, rss, man)}
+
+
+def int8(root: Path, variant: str) -> dict | None:
+    rel = RAW / f"export/{INT8.get(variant, variant)}.fulldev.pytorch-v-engine.json"
+    if variant not in INT8 or not _have(root, rel):
+        return None
+    return {"utts": _json(root, rel)["system_a"]["utterances"], **_pooled(root, rel), **_src(root, rel)}
+
+
+def same_words(root: Path) -> dict | None:
+    if not _have(root, *(p for _, p in XISA)):
+        return None
+    hyps = [{r["id"]: r["hyp"] for r in _jsonl(root, p)} for _, p in XISA]
+    if any(set(h) != set(hyps[0]) for h in hyps):
+        raise PaperDataError("cross-ISA transcripts cover different utterances")
+    same = sum(all(h[i] == hyps[0][i] for h in hyps) for i in hyps[0])
+    return {"same": same, "total": len(hyps[0]), "isas": [n for n, _ in XISA], **_src(root, *(p for _, p in XISA))}
+
+
+def m3(root: Path) -> dict | None:
+    if not _have(root, M3[0]):
+        return None
+    row = next((r for r in _jsonl(root, M3[0]) if r["id"] == M3[1]), None)
+    if row is None:
+        raise PaperDataError(f"{M3[0]}: no row {M3[1]}")
+    return {"speed": 1.0 / row["cpu_s_per_audio_s"], "cpu": row["cpu_s_per_audio_s"], "hardware": row["hardware"],
+            **_src(root, M3[0])}

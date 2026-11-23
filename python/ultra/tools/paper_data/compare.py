@@ -31,8 +31,8 @@ def _pending(rows: list[dict], say) -> None:
     say("ColdEightSentence", f"{len(eight)} rows have also been measured with eight pinned cores." if eight else
         "The eight-core budget has not been measured yet.", "eight-core rows")
     say("ColdMachinesSentence", "Rows from " + _names([MACHINES[m]["name"] for m in away]) + " have been admitted."
-        if away else "Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are being "
-        "measured; none is reported yet.", "rows from other machines")
+        if away else "Rows from a second x86 machine with AVX-512 VNNI and from an Apple M-series machine are measured "
+        "but not yet admitted to \\cref{tab:measured}.", "rows from other machines")
 
 
 def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
@@ -59,7 +59,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
         f"{'s are' if len(subset) != 1 else ' is'} timed on a 73-utterance subset of the panel "
         f"({_names([_name(r) for r in subset])}); their WER is from the full panel.", "rows timed on the subset")
     if not ours or not others:
-        for rid in ("ColdPackageSentence", "ColdSubtitle", "ColdAlwaysOnSentence", "ColdAbstractSentence", "ColdAbstractAccuracy", "ColdHeadSentence", "ColdSpeedSentence", "ColdAccuracySentence",
+        for rid in ("ColdPackageSentence", "ColdSubtitle", "ColdAbstractSentence", "ColdAbstractAccuracy",
+                    "ColdHeadSentence", "ColdSpeedSentence", "ColdAccuracySentence",
                     "ColdMemorySentence", "ColdOrderSentence", "ColdLagSentence", "ColdWattsSentence"):
             say(rid, "The measured comparison is pending." if rid == "ColdHeadSentence" else NOTHING, "pending")
         say("ColdHeadDetail", "no row of ours is drawn yet", "pending")
@@ -71,6 +72,12 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     if head is None:
         raise PaperDataError(f"systems.json names the headline row {want!r}, which is not drawn in Figure 1")
     h, n = head["_d"], len(others)
+    aon = head if head["watts"] is not None else next(
+        (r for r in rows if r["variant"] == headline.get("always_on") and not r.get("anchor")
+         and (r["machine"], r["threads"]) == HEADLINE), head)  # the row the always-on tests ran on
+
+    def ckname(r: dict) -> str:
+        return "\\ultra{}" if r is head else f"\\ultra{{}} ({(r.get('detail') or r['short']).split(',')[0]})"
 
     def src(*rs: dict) -> dict:
         return dict(label=head["label"], workload=head["workload"], workload_digest=head["workload_digest"],
@@ -99,18 +106,14 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     # ---- always on: the share of one core, the watts and the live word lag of our headline row
     share = 100.0 * h["cpu"]
     num("ColdHeadCorePct", share, fmt(share, 1), "% of one core", "CPU share of one core for one always-on stream", head)
-    parts = [f"{fmt(share, 1)}\\% of one CPU core"]
+    parts = [f"{fmt(share, 1)}\\% of one CPU core", f"{fmt(h['rss_mb'], 0)}\\,MB of memory"]
     if head["watts"] is not None:
         num("ColdHeadWatts", head["watts"], fmt(head["watts"], 2), "W per always-on stream", "watts one always-on "
             f"stream of ours costs ({head['energy_method']}, same run)", head)
-        parts.append(f"{fmt(head['watts'], 2)}\\,W per stream")
-    lag_on = head.get("lag_p50_ms") is not None
-    say("ColdSubtitle", "Always-on transcription at " + " and ".join(parts)
-        + (f", with live words in {fmt(head['lag_p50_ms'], 0)}\\,ms" if lag_on else ""), "subtitle")
-    say("ColdAlwaysOnSentence", f"\\ultra transcribes an always-on audio stream at {' and '.join(parts)}"
-        + (f", and its words appear {fmt(head['lag_p50_ms'], 0)}\\,ms (median) after they are spoken" if lag_on else "")
-        + (" (lag measured on a shared host)" if lag_on and head.get("lag_host") not in (None, head["host"]) else "")
-        + ".", "the abstract's first sentence")
+        parts.append(f"{fmt(head['watts'], 2)}\\,W")
+    if head.get("lag_p50_ms") is not None:
+        parts.append(f"live words in {fmt(head['lag_p50_ms'], 0)}\\,ms")
+    say("ColdSubtitle", "One live stream: " + ", ".join(parts[:-1]) + " and " + parts[-1], "subtitle")
 
     # ---- speed: only against systems measured on the same host
     peers = [r for r in others if r["host"] == head["host"]]
@@ -185,13 +188,14 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
     else:
         say("ColdAblationSentence", "The three rows are not all measured on one host yet.", "ablation rows pending")
     # ---- measurements that may not exist yet
-    watts = [r for r in group if r["watts"] is not None and r["host"] == head["host"]]
-    if head["watts"] is not None and len(watts) > 1:
-        rest = sorted((r for r in watts if r is not head), key=lambda r: r["watts"])
-        say("ColdWattsSentence", f"One always-on stream of \\ultra{{}} costs {fmt(head['watts'], 2)}\\,W, against "
+    rest = sorted((r for r in group if r["watts"] is not None and r["host"] == aon["host"] and r is not aon
+                   and r["role"] != "ours"), key=lambda r: r["watts"])
+    watts = [aon] + rest
+    if aon["watts"] is not None and rest:
+        say("ColdWattsSentence", f"One always-on stream of {ckname(aon)} costs {fmt(aon['watts'], 2)}\\,W, against "
             f"{fmt(rest[0]['watts'], 2)}\\,W for {_name(rest[0])}"
             + (f" and {fmt(rest[-1]['watts'], 2)}\\,W for {_name(rest[-1])}" if len(rest) > 1 else "")
-            + f" ({ENERGY_WORDS[head['energy_method']]}, same host).", "energy rows")
+            + f" ({ENERGY_WORDS[aon['energy_method']]}, same host).", "energy rows")
         quiet = [r for r in watts if r.get("package_factor", {}).get(r["energy_method"])]
         if quiet:
             def pkg(r):
@@ -207,14 +211,15 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records) -> None:
         say("ColdPackageSentence", NOTHING, "no energy rows yet")
         say("ColdWattsSentence", "Energy per audio-second (the watts one always-on stream costs) is being measured; no "
             "value has been admitted yet.", "no energy row is admitted yet")
-    where = head.get("lag_host")
-    lag = [r for r in group if r.get("lag_p50_ms") is not None and r.get("lag_host") == where]
-    if head.get("lag_p50_ms") is not None and len(lag) > 1:
-        rest = sorted((r for r in lag if r is not head), key=lambda r: r["lag_p50_ms"])
+    lh = head if head.get("lag_p50_ms") is not None else aon
+    where = lh.get("lag_host")
+    lag = [r for r in group if r.get("lag_p50_ms") is not None and r.get("lag_host") == where and r["role"] != "ours"]
+    if lh.get("lag_p50_ms") is not None and lag:
+        rest = sorted(lag, key=lambda r: r["lag_p50_ms"])
         kind = "the quiet host" if where == MACHINES[HEADLINE[0]]["primary_host"] else "the shared host"
         say("ColdLagSentence", f"With the input paced at real time on one core of {kind} "
-            f"{HOST_NAMES.get(where, where)}, the median word lag of \\ultra{{}} is {fmt(head['lag_p50_ms'], 0)}\\,ms "
-            f"(95th percentile {fmt(head['lag_p95_ms'], 0)}\\,ms); "
+            f"{HOST_NAMES.get(where, where)}, the median word lag of {ckname(lh)} is {fmt(lh['lag_p50_ms'], 0)}\\,ms "
+            f"(95th percentile {fmt(lh['lag_p95_ms'], 0)}\\,ms); "
             + (f"{_name(rest[0])} measured there has {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms." if len(rest) == 1 else
                f"the other streaming systems measured there range from {fmt(rest[0]['lag_p50_ms'], 0)}\\,ms "
                f"({_name(rest[0])}) to {fmt(rest[-1]['lag_p50_ms'], 0)}\\,ms ({_name(rest[-1])})."),

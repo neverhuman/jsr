@@ -16,8 +16,8 @@ def _records():
 
 
 def test_claims_made_in_words_hold_in_the_measured_rows():
-    """The section headed "Where ULTRA wins and where it loses" is generated, so its sentences stay true.
-    The story around them (title, contributions) assumes three things; if one flips, rewrite the text."""
+    """The comparison sentences are generated, so they stay true. The story around them (title, abstract,
+    contributions, README lead) assumes three things; if one flips, rewrite the text."""
     rec = _records()
     if "ColdHeadSpeedOverFast" in rec:  # absent until another system has a row from the headline row's host
         assert rec["ColdHeadSpeedOverFast"]["raw"] > 1.0, "ULTRA is no longer the fastest system on its host"
@@ -48,7 +48,10 @@ def test_readme_shows_the_current_figure_block():
     assert shown == block, f"README.md shows an old Figure 1 block; {REFRESH}"
     drawn = [ln for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
              if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
-    assert len(re.findall(r"^\| ", block, flags=re.M)) == len(drawn) + 1, "one table line per plotted system"
+    table = [ln for ln in re.findall(r"^\| .*", block, flags=re.M) if ", not drawn" not in ln]
+    assert len(table) == len(drawn) + 1, "one table line per plotted system (plus the always-on row, marked)"
+    labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
+    assert labels == ["Cost", "Watts", "Capacity", "Silence", "Endless", "Same words everywhere", "Where we trail"]
 
 
 def test_money_png_was_exported_from_the_current_inputs():
@@ -115,3 +118,44 @@ def test_related_work_claims_hold_in_the_reported_values():
     rec = _records()
     # related.tex and results.tex: two published sources differ by more than a factor of two on one model
     assert rec["RepPvMoonSmallWerClean"]["raw"] > 2.0 * rec["RepMsSmallWerShipped"]["raw"]
+
+
+def test_page_one_facts_print_the_receipts_numbers_with_their_checkpoint():
+    """The abstract and the README lead with facts generated from receipts; each names its checkpoint."""
+    from tools.paper_data import alwayson
+
+    rec = _records()
+    cap = alwayson.capacity(pd.REPO)["systems"]["h22ctl-79800-ema-int8"]
+    assert f"{cap['n']} such streams" in rec["AbsCapacity"]["value"]
+    assert rec["AoCapacityStreams"]["raw"] == cap["n"] and cap["flat"]
+    sil = alwayson.silence(pd.REPO)
+    assert sil["blocks"] == 10 and sil["words"] == 0 and "no word" in rec["AbsSilence"]["value"]
+    end = alwayson.endless(pd.REPO)
+    assert end["hi"] - end["lo"] < 0.05 * end["lo"], "memory over the endless run is no longer flat; rewrite the claim"
+    st = alwayson.stream(pd.REPO)
+    assert abs(st["replay"]["delta"]) < 0.2 and st["replay"]["lower"] < 0 < st["replay"]["upper"]
+    assert st["penalty"]["lower"] > 0, "the continuous-stream penalty is no longer outside its bounds"
+    head = json.loads((DATA / "systems.json").read_text())["headline"]
+    aon = rec["AoCheckpoint"]["value"]
+    if head["ours"] != head["always_on"]:  # the always-on tests ran on another checkpoint: every fact says so
+        assert aon in rec["AbsWatts"]["value"] and aon in rec["AoCapacity"]["value"] and aon in rec["AoEndless"]["value"]
+        assert aon in rec["MoneyOursWatts"]["value"], "Figure 1 must say whose watts the text quotes"
+    readme = (DATA / "money_readme.md").read_text()
+    for rid in ("AbsCost", "AbsWatts", "AbsCapacity", "AbsSilence", "AbsEndless", "AbsAccuracy"):
+        assert "pending" not in rec[rid]["value"], rid
+    assert f"{cap['n']} live streams on one core" in readme
+
+
+def test_a_missing_receipt_makes_its_fact_pending(tmp_path):
+    import shutil
+
+    root = tmp_path / "repo"
+    shutil.copytree(DATA, root / pd.DATA)
+    shutil.copytree(pd.REPO / "research" / "curves", root / "research" / "curves")
+    (root / pd.DATA / "raw/energy/derived/capacity-test-entry4b.jsonl").unlink()
+    manifest = root / pd.DATA / "raw/MANIFEST.txt"
+    manifest.write_text("".join(ln + "\n" for ln in manifest.read_text().splitlines() if "capacity-test-entry4b" not in ln))
+    files, _ = pd.build(root)
+    assert "\\newcommand{\\AbsCapacity}{Capacity: pending.}" in files["metrics.tex"]
+    assert "- **Capacity.** pending" in files["money_readme.md"]
+    assert "capacity test pending" in files["table_capacity.tex"]

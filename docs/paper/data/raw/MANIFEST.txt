@@ -6,6 +6,41 @@
 6d27ddb0cf3a0b137c65f712e8fed69f949df4ec042d1bc6092ec75d23364e0b  abab_manifests/zipformer-int8.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/zipformer-int8.job_manifest.json
 1dd05fcd8e82585b4f4b25ff8447ef65c82acc36866c6bc779679e5f6182e336  abab_manifests/zipformer-int8.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/zipformer-int8.receipt.json
 add1100793bd2f3d613b6f1a1935b9f1c64ecb53eba4d7f63cdbd4d25d577687  abab_timing.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/abab_timing.json
+e622abb6f5f69f544fa0b2b3060e51c929b84b8f9f47d9c3166dfae831529814  alwayson/endless/endless27h.t0.rss.jsonl  /home/ubuntu/jsr/target/paper-evidence/alwayson-ablation/endless-27h/endless27h.t0.rss.jsonl (snapshot 2026-11-23T00:41Z, 4731 complete lines; run still going)
+fceaa363353f542f50d7fbb25c053f960bb75d1025f9b5067218c576ecb24fa8  alwayson/nonspeech/MANIFEST.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech/MANIFEST.json
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/brown_-20dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-20dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/brown_-20dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-20dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/brown_-30dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-30dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/brown_-30dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-30dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/brown_-40dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-40dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/brown_-40dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/brown_-40dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/pink_-20dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-20dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/pink_-20dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-20dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/pink_-30dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-30dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/pink_-30dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-30dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/pink_-40dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-40dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/pink_-40dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/pink_-40dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/silence/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/silence/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/silence/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/silence/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/white_-20dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-20dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/white_-20dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-20dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/white_-30dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-30dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/white_-30dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-30dBFS/stderr.log
+15029eb12f87927e10d1d867b975c806f84891336755d33acbdabb85a4f8b610  alwayson/nonspeech/h22ctl/white_-40dBFS/predictions.jsonl  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-40dBFS/predictions.jsonl
+bfbd4a0a76e235d09377a1f81489de49abd1eaa417ce5d21b0c77d09161d02b3  alwayson/nonspeech/h22ctl/white_-40dBFS/stderr.log  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/nonspeech-check-H22ctl/white_-40dBFS/stderr.log
+40f8c63d6048f89f9787b452ba2816b10b2b29fa1f56780ad49c70ba8fbb750d  alwayson/stream/MANIFEST.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/stream/MANIFEST.json
+5b4d369bc3424a73abde3c59f1001e59295a338fd999f58b49a3bcc46e972d3e  alwayson/stream/hour1/CUT.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/CUT.json
+dc28208106dc2201f7fd46795f08cd167f52ebee7007a11ff953c03ad55e60df  alwayson/stream/hour1/hour1.A0.5.summary.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/hour1.A0.5.summary.json
+a0989773c86edf64cec85c1106e1fbb3317018fb99559b6f80193c3f9a72c843  alwayson/stream/hour1/isolated-v-stream.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/isolated-v-stream.json
+220fa9c9df6cd72f2cb6477753a5ae957d0b3006a6ce04cf50d43463288adb53  alwayson/stream/hour1/p.diagA-v-hour1.A0.5.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/p.diagA-v-hour1.A0.5.json
+a93a98c5340ee6e4151a447443a7c550a6dfb21bffbf93826570683257cb95ac  alwayson/stream/hour1/p.isolated-v-diagA.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/p.isolated-v-diagA.json
+181308f76fd08b0102ee2bbc030cfd848ac47ff8ff6daa5698f114ca2423aa9d  alwayson/stream/hour1/p.isolated-v-diagB.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/hour1-check/p.isolated-v-diagB.json
+11fc077df979fd3beca5faa2518f4c6b69836963022e1f3233d9727bc1c7d7d9  alwayson/stream/replay/hour1-replay-t1500_r1000.summary.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/rescore-runtime/hour1-replay-t1500_r1000.summary.json
+29ac3632010b9e194b578b8b0365fd054cf9e84e3304c17dd89e89be60677a78  alwayson/stream/replay/hour1-t0.summary.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/rescore-runtime/hour1-t0.summary.json
+14b6c127d2238ed59afd9c3c7454f005c65b276149b758c28c27fee1b146bb86  alwayson/stream/replay/p.T0-v-T1500R1000.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/rescore-runtime/p.T0-v-T1500R1000.json
+aeff0c3b9274c8550fc62590c13f99e62865f0c22e5195caa36488172caae218  alwayson/stream/replay/p.isolated-v-T0.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/rescore-runtime/p.isolated-v-T0.json
+1d9b170b82ca993750a20c6d41729f814ad94e72e47442d8a8f6e999761fc968  alwayson/stream/replay/p.isolated-v-T1500R1000.json  /mnt/xbabe3-external/jsr/evals/eval-lane/alwayson/rescore-runtime/p.isolated-v-T1500R1000.json
+9a4f7a5568f073fa6f916f741a27c45166f4aedfbf7809920f24900d810289cd  crossisa/xbabe0-h22ctl-entry2.predictions.jsonl  /home/ubuntu/jsr/target/paper-evidence/xbabe0/entry2-h22ctl/round-1/h22ctl-79800-ema-int8/predictions.jsonl (rounds 2 and 3 byte-identical)
 4a71e34a079063965cbc96597ad044580fa500841f2175819b041082a04ddeff  d2_decode_sweep/b2_bp0.0_lnoff_dev-clean.json  /mnt/xbabe3-external/jsr/runs/train/D2_S_960h/decode_sweep_x0/b2_bp0.0_lnoff_dev-clean.json
 bc9974caed3c155f661dbc653c45ca31ca6c3ab9b47fcc8dc407f6a072d91526  d2_decode_sweep/b2_bp0.0_lnoff_dev-other.json  /mnt/xbabe3-external/jsr/runs/train/D2_S_960h/decode_sweep/b2_bp0.0_lnoff_dev-other.json
 cc2537ac32d53ae29a858d0373f8218cc168dea78e6ae6ba869244d786c5ea5b  d2_decode_sweep/b2_bp0.0_lnon_dev-clean.json  /mnt/xbabe3-external/jsr/runs/train/D2_S_960h/decode_sweep_x0/b2_bp0.0_lnon_dev-clean.json
@@ -236,6 +271,7 @@ f25d718d61a3f4fcc88b04fcfebd09c1e51bcd1d20b663021f3ca0d657838713  energy/cold/zi
 8b16d2f742cc0b06e9f74d2433a260598d87d0866926d1e444e2b114f910b7b2  energy/cold/zipformer-int8/round-5/service.stderr  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/service.stderr
 bbfab7f9cdaf582d5f1d5526bf6faa456729cd7a438bdaa6ba8b48cc93bc8093  energy/cold/zipformer-int8/round-5/started  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/started
 87eb61e316b81ecd7943997a43393ccbfbdead82be7e4a4ef03323fd8fb5a4f7  energy/cold/zipformer-int8/round-5/workload.sha256  xbabe0:~/jsr-data/opponents/energy/cold/round-5/zipformer-int8/workload.sha256
+271d9f08e5559074df8375678a8f69d94be01cbd1eadc5c46e46d18287099134  energy/derived/capacity-test-entry4b.jsonl  energy commit 221cf5a docs/paper/data/raw/energy/derived/capacity-test-entry4b.jsonl (TIMING entry 4b, xbabe0)
 92cf4fed11754fb4145398ae3f46aa1b87939eafd394f759ddb58ed3a84836a0  energy/derived/cold-rounds-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 f38daf0ffb38ba3d36c8481c7389a2cfce87dd01e8dd0722ba2c7e7dd9d5ec09  energy/derived/engine-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 485266bc008c9698bbc256f011951f5b2687278bbad52468170c2ced99a7be9a  energy/derived/entry2-h22ctl-energy.jsonl  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
@@ -244,6 +280,14 @@ df7d0c44a8c224ecc1ddd17150447bdb3b2d7f1258b70be75603f4d254e09ed2  energy/derived
 cc429824aeb844d2007fc57e02fc7d529de7a029ecd4a1eb8d23524fea911377  energy/derived/zipformer-stair-a.levels.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 8a3213722a67f12e3190902bb78005deadc2d69e0b5123ff969361b90484a523  energy/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 0ce510219967d911e7b0618a7f127373dd0be14f4c17ccd852ff59870055cc84  energy/evidence/xbabe0-energy.jsonl  schema-v2 rows and energy lines (energy agent); copy to data/evidence/ with the v2 loader
+b9aac134b95a4eb98ea4d78b22ba1eca2c79c1b931c096c548938916cf8b7efa  energy/paced/paced-h22ctl-n1.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n1.json (TIMING entry 4b, xbabe0)
+e2e87953f1bb208b7692466db139222032771c1de1ec645d5bf1492bc60ef90e  energy/paced/paced-h22ctl-n16.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n16.json (TIMING entry 4b, xbabe0)
+031685ac5c038137c9c81300be7a2b4e42572211975a300a49ec456d104651e9  energy/paced/paced-h22ctl-n4.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n4.json (TIMING entry 4b, xbabe0)
+86b34acf8a4b85f65d3a4837adf6a448c73c70c7fefb39bf74614e6e002b7620  energy/paced/paced-h22ctl-n8.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-h22ctl-n8.json (TIMING entry 4b, xbabe0)
+b0b2df5dd20f69d4710f5198e2bf8de53aaab10d26c3af9e2f76c07f944815b1  energy/paced/paced-zipformer-n1.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n1.json (TIMING entry 4b, xbabe0)
+3b044332411406dbc47e1cc0a0e0ef5277b339378361fd3441489512edb6e824  energy/paced/paced-zipformer-n2.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n2.json (TIMING entry 4b, xbabe0)
+f8601fb9be73850f11e301850bfa70a8e8683cffbb17732ae30993656253bba1  energy/paced/paced-zipformer-n4.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n4.json (TIMING entry 4b, xbabe0)
+040f3436a1664c95e2ad411a53dbbcea7cad5bd7836467781103fc75205ff669  energy/paced/paced-zipformer-n8.json  energy commit 221cf5a docs/paper/data/raw/energy/paced/paced-zipformer-n8.json (TIMING entry 4b, xbabe0)
 683b9b8ec5d9dd6d6d8a078a446061062db36b32f3514b97c02da56110590567  energy/series/engine-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 2f93f046017525c9ce09a1cefa7e6262551fb2694f69625061e85c844a3806fa  energy/series/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 7820892f07f681b39b25a3d18ed4c8f4bb84952b76e846aff5e5d4586db2a23e  energy/v1-idle-vs-idle.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
@@ -253,6 +297,8 @@ d832dc0335220e7342670dfdf500fadf6d40090c454a4f4cc725d2c79bc8fb8b  energy/v2-spin
 0f7843d14129278cde65da993ba85860ed02595769fb72ed0a3cf2b16cf455e5  energy/v2-spin-8.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 fc1ad7439643ca98984239fb188bf1053c30b4a508fb50541293cb86e8f0f28b  energy/zipformer-stair-a.json  energy agent (H39), xbabe0 runs; see research/H39_energy/README.md
 c628016f68f8e94d5d6ef08b3fd86b60d97df9c9021924e5648f01ebe06d0dc8  evidence_codex.json  /home/ubuntu/jsr/docs/paper/evidence.json (Codex Evidence, untracked in main checkout, copied 2026-11-22)
+94f3c9463dbbb097d617aba2aba94900d925b19061fae9db23346d3d60bdde9c  export/A1-20000-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-20000-ema/fulldev-int8/fulldev.pytorch-v-engine.json
+51e4f1885d697397115acb90443ef59ae37a41772dfd87975a24744bc878a2c0  export/H22ctl-79800-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/H22ctl-79800-ema/fulldev-int8/fulldev.pytorch-v-engine.json
 b59f4a7e93495a2749c65333623778c192239d9f0b6c80a0dd52cdc0a93d73c8  frontier.json  xbabe0:~/jsr-data/runtime-dryrun/out-abab-4fafb45-20261122T004755Z/frontier.json
 7c355dec2266f6ef5f445f8e0cd8dfe312e78acf1a3b640980f14607ffdfe227  frontier_panel.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/frontier.json
 22d1668d0fb65912c077fc93713b4c1800254768eb2e1a6a16de51cb006e0e91  job_g/ladder-g1-d2avg556065-greedy/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-ladder-g1-d2avg556065-greedy-43f31a1-20261122T041016Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.job_manifest.json

@@ -1,0 +1,89 @@
+{
+ "schema": "eval-lane.alwayson-stream/v1",
+ "seed": 20261122,
+ "sample_rate": 16000,
+ "format": "WAV PCM16 mono",
+ "generator": {
+  "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/bin/gen_alwayson.py",
+  "sha256": "8b96323102daf356d0d5123eb8043c940a7f2470734d631eb6b7a021da180f18",
+  "numpy": "1.26.4"
+ },
+ "sources": {
+  "dev_caches_sha256": {
+   "dev-clean": "bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6",
+   "dev-other": "2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8"
+  },
+  "word_timing_sha256": {
+   "dev-clean": "af8eb43d2c1aeeb46aab64b73bbb8a6bcbb808f586488ddb9f24067c8a29dd1a",
+   "dev-other": "c96a564dc858b013ac75dfd6f011c72e30f74edc64e16790811189f49b68557f"
+  }
+ },
+ "utterances": 5567,
+ "speech_s": 37832.386,
+ "total_samples": 1587689251,
+ "total_s": 99230.5781875,
+ "gap_s_by_type": {
+  "brown_-20": 3421.06,
+  "brown_-30": 3360.482,
+  "brown_-40": 3408.149,
+  "pink_-20": 3309.956,
+  "pink_-30": 3317.53,
+  "pink_-40": 3465.434,
+  "silence": 30999.694,
+  "white_-20": 3285.881,
+  "white_-30": 3438.79,
+  "white_-40": 3391.218
+ },
+ "gaps_by_type": {
+  "brown_-20": 310,
+  "brown_-30": 310,
+  "brown_-40": 309,
+  "pink_-20": 309,
+  "pink_-30": 309,
+  "pink_-40": 309,
+  "silence": 2784,
+  "white_-20": 309,
+  "white_-30": 309,
+  "white_-40": 309
+ },
+ "utterances_without_mfa": 0,
+ "parts": [
+  {
+   "file": "part-1.wav",
+   "start": 0,
+   "end": 396872239,
+   "seconds": 24804.5149375,
+   "pcm_sha256": "d3fb6b9d7f40586bf21f85c70c033065e23b1af376cdc8c3d886f1e6d7146c71",
+   "wav_sha256": "977c3fe23aef64a8b3e0ae4728632e3fef8d36a6d025942fa3c5341fcebab052"
+  },
+  {
+   "file": "part-2.wav",
+   "start": 396872239,
+   "end": 793803147,
+   "seconds": 24808.18175,
+   "pcm_sha256": "986978dda3b4feb3cee1cd497ae9f062549ef9f9217bf24caf791afe98b72230",
+   "wav_sha256": "01abe4747593325852e59650e428d9de7392664702fdf7677934757b06b32fb2"
+  },
+  {
+   "file": "part-3.wav",
+   "start": 793803147,
+   "end": 1190883344,
+   "seconds": 24817.5123125,
+   "pcm_sha256": "f6286cbad31444614ce97911a11d84a3acd07c65be68f9e426fe97e2a5240656",
+   "wav_sha256": "fdc4c05ed83b7c302cfc63a48f79f1dbf881a7fe55aa63b3a86bfb29d83c1580"
+  },
+  {
+   "file": "part-4.wav",
+   "start": 1190883344,
+   "end": 1587689251,
+   "seconds": 24800.3691875,
+   "pcm_sha256": "111cd696e926ed674ef5a713aff6dec36b808663118254bf74a39f41a2be0d8d",
+   "wav_sha256": "1a3a6c89022d16c30fb88e5a3c04f1019cc00bc034eb040e1dfe7d203975a84a"
+  }
+ ],
+ "files": {
+  "index.jsonl": "ff26c1c770e927b8a839e818572b0f2575298bb302307c6cce5405ec874cf7e4",
+  "refs.jsonl": "1d761ed562cfe24c8f61d335f63de7986e840a65cd32aa4cfba0bd14c86f34e1",
+  "words.jsonl": "78dde38cfdf816231334af5e49dd1504786b25077305462541ab016625ca06d8"
+ }
+}

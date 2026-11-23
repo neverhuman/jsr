@@ -1,0 +1,113 @@
+{
+ "trace_format": "words",
+ "allowance_s": 0.5,
+ "words_in_trace": 3978,
+ "utterances": 204,
+ "words_outside_scored_range": 0,
+ "dev-clean": {
+  "wer": 4.358,
+  "S": 78,
+  "D": 8,
+  "I": 5,
+  "N": 2088,
+  "utts": 106
+ },
+ "dev-other": {
+  "wer": 13.041,
+  "S": 205,
+  "D": 25,
+  "I": 20,
+  "N": 1917,
+  "utts": 98
+ },
+ "pooled_wer": 8.514,
+ "gap_false_words": {
+  "brown_-20": {
+   "words": 0,
+   "hours": 0.0272,
+   "per_hour": 0.0
+  },
+  "brown_-30": {
+   "words": 0,
+   "hours": 0.0361,
+   "per_hour": 0.0
+  },
+  "brown_-40": {
+   "words": 0,
+   "hours": 0.0293,
+   "per_hour": 0.0
+  },
+  "pink_-20": {
+   "words": 0,
+   "hours": 0.0347,
+   "per_hour": 0.0
+  },
+  "pink_-30": {
+   "words": 0,
+   "hours": 0.0383,
+   "per_hour": 0.0
+  },
+  "pink_-40": {
+   "words": 0,
+   "hours": 0.0382,
+   "per_hour": 0.0
+  },
+  "silence": {
+   "words": 0,
+   "hours": 0.3061,
+   "per_hour": 0.0
+  },
+  "white_-20": {
+   "words": 0,
+   "hours": 0.0321,
+   "per_hour": 0.0
+  },
+  "white_-30": {
+   "words": 0,
+   "hours": 0.0298,
+   "per_hour": 0.0
+  },
+  "white_-40": {
+   "words": 0,
+   "hours": 0.0339,
+   "per_hour": 0.0
+  }
+ },
+ "gap_false_words_total": {
+  "words": 0,
+  "hours": 0.6057,
+  "per_hour": 0.0
+ },
+ "lag_ms": {
+  "dev-clean": {
+   "n": 1994,
+   "p50": 314.9000000000797,
+   "p90": 417.1000000000049,
+   "p95": 439.9000000000228,
+   "p99": 482.99999999994725,
+   "mean": 304.5
+  },
+  "dev-other": {
+   "n": 1671,
+   "p50": 317.50000000010914,
+   "p90": 424.20000000015534,
+   "p95": 447.0000000001164,
+   "p99": 486.4999999999782,
+   "mean": 307.5
+  },
+  "all": {
+   "n": 3665,
+   "p50": 315.8000000000811,
+   "p90": 419.8999999998705,
+   "p95": 445.09999999991123,
+   "p99": 485.10000000000275
+  }
+ },
+ "wer_per_hour": {
+  "0": {
+   "utts": 204,
+   "pooled_wer": 8.514,
+   "false_words_in_gaps": 0
+  }
+ }
+}
