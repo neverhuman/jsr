@@ -190,3 +190,16 @@ Paired comparisons (B − A; speaker-cluster bootstrap; one-sided 95% bounds una
 | **S2n (R 500 ms)** | **8.185%** | 7 (0.77) | 89.60 / 89.77% | **51.0%** |
 - S2n − C1: WER −0.192 pp (one-sided 95% [−0.280, −0.106]); first word after sleep +0.95 pp [+0.52, +1.39]. S2n − S1n (descriptive): −0.157 pp, +0.91 pp. Segments `oracle/segs/S2.segs.jsonl` (`00111435…`, 5,415 segments).
 - **Reading: PASS, recommend R = 500 ms with a no-flush close.** On the real gate's segments, the shorter pre-roll is more accurate than today's always-on configuration in both WER and first words, with about half the decoded audio.
+
+### Amendment 6: B-6 sweep of pre-roll and idle on the real Sentinel-0 segments (exploratory, post-hoc; report `results/O_oracle_report_all.json`)
+All arms: PR #75's segmenter (gate-driven close after `idle` ms of gate-cold hops) on this wave's Sentinel-0 trace, each segment decoded from a fresh engine stream, no flush.
+| (pre-roll, idle) ms | WER | ΔWER vs C1 [one-sided 95%] | first word after sleep, Δ vs C1 [lower 95%] | gap false words (95% upper / h) | decoded duty |
+|---|---:|---|---|---:|---:|
+| (1000, 1500) S1n | 8.341% | −0.036 [−0.113, +0.041] | +0.04 [−0.43] | 8 (0.85) | 53.7% |
+| (500, 1500) S2n | 8.185% | −0.192 [−0.280, −0.106] | +0.95 [+0.52] | 7 (0.77) | 51.0% |
+| (500, 1000) | 8.147% | −0.230 [−0.324, −0.140] | +1.01 [+0.57] | 4 (0.54) | 48.3% |
+| **(500, 700)** | **8.138%** | −0.239 [−0.330, −0.151] | +1.01 [+0.57] | 3 (0.46) | **46.6%** |
+| (300, 1500) | 8.160% | −0.217 [−0.302, −0.132] | +1.03 [+0.53] | 6 (0.69) | 49.9% |
+| (300, 1000) | 8.143% | −0.234 [−0.320, −0.148] | +1.05 [+0.54] | 3 (0.46) | 47.1% |
+- **Reading (pre-registered rule): (500, 700) is recommended.** Every arm with a pre-roll ≤ 500 ms passes, with WER below C1 and positive first-word lower bounds; (500, 700) has the lowest decoded duty. A shorter idle also lowers the gap false words (8 → 3), because the session decodes less noise after each utterance. A 300 ms pre-roll is not needed: 500 ms already covers the measured wake delays (max 450 ms), and 300 ms gains nothing measurable.
+- **Caveat for #77:** these segments close on the gate (cold hops), while #77's session closes on recogniser blanks (T_idle). The pre-roll result carries over directly; the idle result says that a shorter hangover costs nothing on this stream, and Q measures #77's own T_idle.
