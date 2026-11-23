@@ -96,6 +96,32 @@ require 14i bench-open/assays/h47-q/run.sh
 14i assay h47-q                    2 24 1 10
 14i assay h47-q                    3 28 2 10
 # Entry 14j (h51-pq's int4 assay) was dropped before it ran: research wrapped up (owner 09:50Z).
+
+# Entry 14k (lead 09:55Z: the first protected slot goes to the streaming-L4 FALLBACK release configuration, ahead of
+# 14i; codex-full-fleet 08:16:53Z / 08:44:49Z): latency and memory. L4 = B0 INT8 (4701787c...) + M5.ulm (72a621c2...)
+# run by codex-full-fleet's h46-native-l4-paced (d561d65d...; chunk 4, beam 4, 0.8 / 0.6 / 0 fixed in the binary);
+# its paired control = B0 greedy at chunk 4 in eval-lane's paced runner (beb61399..., the H43 B0 binary, same trace
+# schema). Each is physically paced at 1x over panel73 (597.1 s, staged under its full-dev ids) on one core, L4 / B0
+# order alternating by round (ABBA). eval-lane reads paced first-correct p95 from the traces (E2: L4 within +20 ms of
+# B0); peak RSS from the runner and the meter.
+require 14k bench-open/assays/l4-kit/h46-native-l4-paced
+require 14k bench-open/assays/l4-stream/run.sh
+require 14k bench-open/assays/b0-stream/run.sh
+14k assay l4-stream                1 4  0 10.5
+14k assay b0-stream                1 4  0 10.5
+14k assay b0-stream                2 24 1 10.5
+14k assay l4-stream                2 24 1 10.5
+14k assay l4-stream                3 28 2 10.5
+14k assay b0-stream                3 28 2 10.5
+
+# Entry 14l: the L4 fallback's power holds, the twin of 14f (B0's pair 1) with the L4 runner: one L4 stream at 1x on
+# the same 600 s of speech-only DEV audio and 600 s of pink noise at -30 dBFS (idle 3 / X 10 / Y 10 / idle 3 min,
+# ABBA across the three holds), joined with energy's 1 Hz power log for the gross 5%-duty number.
+require 14l bench-open/assays/l4-kit/h46-native-l4-paced
+require 14l bench-open/assays/l4-power/run.sh
+14l assay l4-power                 1 4  0 26.5
+14l assay l4-power                 2 24 1 26.5
+14l assay l4-power                 3 28 2 26.5
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
