@@ -37,6 +37,22 @@ def test_store_indexes_frames_and_flags(tmp_path):
     assert st.get("a", 0.9) is None
 
 
+def test_speed_without_cache_gets_no_teacher(tmp_path):
+    """Only speed 1.0 is cached: a speed-perturbed sample must get no KD target (not the 1.0 one),
+    and a batch of such samples must collate with no KD term at all."""
+    _cache(str(tmp_path))
+    st = TeacherStore(str(tmp_path))
+    for f in (0.9, 1.1, 0.95, 0.96, 1.04, 1.05):
+        assert st.get("a", f) is None, f
+    assert st.get("a", 1.0) is not None and st.get("a", float("1.0")) is not None
+    exs = [Example("a", "x", torch.zeros(20, 80), [1, 2], [1], kd=st.get("a", 0.9)),
+           Example("b", "y", torch.zeros(10, 80), [1], [1], kd=st.get("b", 1.1))]
+    assert collate(exs).kd is None
+    exs.append(Example("a", "x", torch.zeros(20, 80), [1, 2], [1], kd=st.get("a", 1.0)))
+    _, _, _, mask = collate(exs).kd
+    assert mask.tolist() == [[False] * 4, [False] * 4, [True] * 4]
+
+
 def test_collate_masks_teacher_frames(tmp_path):
     _cache(str(tmp_path))
     st = TeacherStore(str(tmp_path))

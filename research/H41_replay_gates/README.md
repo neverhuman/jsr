@@ -126,3 +126,61 @@ Written and posted in the chat before arm 12 started; committed here afterwards.
 - The guard now uses best + ratio x |best| (identical for a positive best) with a test for a negative best. Arm 13b resumed from its step-1,300 checkpoint at 02:08Z with the fixed guard (`DIVERGED.json` kept as `DIVERGED.json.false-positive-0207Z`). Nothing else changed.
 - Arms 13a and 13c have positive total losses (about 1.02-1.13 EMA) and were not at risk; the fix is on their hosts' trees for any later restart.
 
+
+### Arm 13b outcome (recorded 2026-11-23)
+- Arm 13b **collapsed at 0.03** (transducer WER ~94% from step 2,000; CTC healthy). Its kill rule was not re-armed after the guard restart, so ~50 min of the 3090 were lost. Every later arm has an automated kill rule armed from the start that reads the run's `train.jsonl`, so it survives restarts (`train/ops/h41_killrule.sh`).
+
+## Amendments 12-17 (2026-11-23, each posted in AGENT_CHAT before its arm started; committed here afterwards)
+Common to all: fork H22ctl step 60,000, 200 warmup steps to 2.476e-4, cosine to 3.0e-5 at step 8,000, batch 650 s / 144, seed 1234 unless stated, launcher `train/ops/h41_replay.sh`, guard at 0.87. Kill rules are automated from the start: stop by recorded PID if the step-2,000 dev-clean400 EMA at chunk 4 is more than 1.5 pp worse than the comparator's (6.605 vs arm 10, 6.592 vs the chunk arm), or if raw chunk-4 WER exceeds 20% at any eval.
+- **Amendment 12 (02:37Z): arm 13a-r** = arm 13a's settings (`chunk_modes=1,2,4,8,16 eval_chunks=1,2,8 delay_penalty=0.01`) with `seed=4321` (xbabe1). It replicates 13a's latency result (93 / 105 / 146 ms at chunks 1 / 2 / 4, against arm 10's 176 / 199 / 239 ms), since a latency claim needs a seed pair. Reading as for 13a: latency per seed and the pair's mean; WER against arm 10 at chunks 4 and 8 with the four-run spread as the guard.
+- **Amendment 13 (02:54Z): arm 13d** = arm 10's recipe with `delay_penalty=0.0075` (xbabe2), the midpoint between 13c (0.005) and 13a (0.01). Outcome: latency at chunks 1 / 2 / 4. WER guard against arm 10 at chunks 4 and 8.
+- **Amendment 14 (03:03Z): arm 14** = the adopted chunk-arm recipe (`chunk_modes=4,8,16`, A1's) with `delay_penalty=0.005` and `eval_chunks=8,16` (xbabe6, A10). WER gate against the chunk arm at chunks 4 / 8 / 16: no loss beyond the four-run spread at any of them. Reported outcome: latency at chunks 4 and 8. It is a candidate for A1's successor if it holds WER and cuts latency.
+- **Amendment 15 (03:06Z): five arms on A1's recipe**, one per A100 freed by A1, compared with the chunk arm at chunks 4 / 8 / 16. Accuracy arms (16-18) are adopted only on a win of more than 2× the four-run spread. Latency arms (14-r, 15) must not lose more than the spread.
+  - **14-r:** `delay_penalty=0.005`, `seed=4321` (arm 14's seed pair).
+  - **15:** `delay_penalty=0.0025`.
+  - **16:** stateless predictor context 4 instead of 2 (`pred_ctx=4`). The fork's predictor projection is widened function-preservingly (zero weights for the two older positions), so step 0 equals the fork.
+  - **17:** left attention context 256 frames (10.24 s) instead of 128 (`left_context=256`). Reported with the always-on interaction noted, since a longer window holds more of a preceding gap. Not an always-on candidate on its own.
+  - **18:** stronger SpecAugment: time masks 4 per 10 s (was 2) of up to 60 frames (was 40), frequency masks unchanged. About 12% of frames are masked on average (was about 4%).
+  - Code: `train/recipe_opts.py` (config keys `pred_ctx`, `left_context`, `specaug_time_masks`, `specaug_time_width`, and the predictor widening), with a test.
+- **Amendment 16 (03:20Z): arm 19** = the chunk arm with `seed=4321` (xbabe8). This is the comparator's own seed pair, so eval-lane can see how much of each amendment-15 difference is the comparator's seed noise. Not a candidate itself. The pre-registered primary comparator stays the seed-1234 chunk arm; the pair's mean is a secondary reading.
+- **Amendment 17 (03:25Z): arm 20** = the chunk arm's recipe with `chunk_modes=2,4,8,16` (80 ms added) and `delay_penalty=0.01`, `eval_chunks=2,8,16`. Placed on xbabe2's 3090 after arm 13d (a start on xbabe1 was stopped at step 50 and set aside unread when the lead moved that card to eval-lane). The question: can one model on the adopted recipe family serve both an 80 ms low-latency mode (target first token < 133 ms) and the 160 / 320 ms normal modes? Outcome: first-token latency at chunks 2 and 4. WER guard against the chunk arm at chunks 4 / 8 / 16 under the spread rule. WER at chunk 2 is reported.
+
+### Burst verdict decodes (2026-11-23, lead 03:26Z)
+For arms 14, 14-r and 15-19, the full-dev EMA decodes run on each arm's own GPU as soon as it ends (`train/ops/h41_after_end.sh` → `train/ops/h41_burst_decode.sh`):
+- They use eval-lane's pinned d5f231e evaluator and its command lines and file layout: greedy, max 8 symbols, batch 8, chunks 4 / 8 / 16, dev-clean + dev-other.
+- The six decodes run at once, under the GPU lease and the fleet guard.
+- eval-lane computes the verdicts from those files.
+- **Fix (03:50Z):** the pinned evaluator rejects config keys added after d5f231e, so the first decodes of arms 14-r and 15 all failed at load, and the script still wrote `DONE`. Now `train/ops/h41_compat_ckpt.py` writes a copy without those keys, but only when they hold the values that rebuild d5f231e's model; strict loading still rejects any parameter mismatch. Arm 16 (pred_ctx 4) cannot be built by d5f231e and is decoded with the lane tree's evaluator. `DONE` is written only when every decode succeeded.
+
+## Amendments 18-19 (2026-11-23, posted in AGENT_CHAT before the arms started)
+- **Amendment 18 (03:50Z): arms 16-r and 18-r** = arms 16 and 18 with `seed=4321` (x5 GPU0 / GPU1). If arm 16 or 18 passes its gate, adoption uses the seed pair: the mean of the two seeds, each against the chunk-arm pair (1234 / 4321). If it fails, the replicate is reported and closes the question. Arm 17 gets no replicate yet.
+- **Amendment 19 (03:59Z): arm 20-r** = arm 20 with `seed=4321` (x9), read as arm 20 for each seed and as the pair's mean. **Arms 21a / 21b / 21c** = the chunk arm plus KD from R0 (H22's loss, R0 speed-1.0 cache), `kd_weight` 0.1 / 0.3 / 1.0, seed 1234 (x7 GPU0 / x7 GPU1 / x8).
+  - Gate: adopted only on a win over the chunk arm of more than 2× the four-run spread (EMA pooled full dev, chunks 4 / 8 / 16).
+  - The KD weight pick is the lowest dev-clean400 WER at step 8,000, as H22 pre-registered.
+  - Speed-perturbed samples (0.9 / 1.1) have no cache entry and train without the KD term. `TeacherStore.get` now matches the speed exactly; it used to round to 0.1, so a factor like 0.96 would have got the 1.0 targets. A test covers this.
+
+## Amendment 20 and trunk step A1L (2026-11-23, each posted in AGENT_CHAT before it started)
+- **Amendment 20 (04:17Z, placement addenda 04:21Z / 04:27Z): the full-coverage KD sweep.** Arm 22 = the chunk arm with speed perturbation off (`speed_perturb=` empty), seed 1234. Arms 23 / 23b / 23c = arm 22 plus KD from R0 at `kd_weight` 0.3 / 1.0 / 0.1. Arm 23-r = arm 23 with `seed=4321`.
+  - Reading: each KD arm minus arm 22 (EMA pooled full dev, chunks 4 / 8 / 16, paired bootstrap) is KD's effect when every sample can have a target (the 58.5% whose R0 1-best matches the reference). These arms are not adoption candidates; they decide whether the best of 21a-c gets a full-cache run.
+- **Amendment 19 addenda:** arm 21c (`kd_weight=1.0`) moved from x8 to x9. Arm 21b-r = arm 21b with `seed=4321`.
+- **Trunk step A1L (04:44Z):** A1's final checkpoint (`ckpt-00049000.pt`) fine-tuned on A1's recipe plus `delay_penalty=0.005`, the H41 replay schedule (8,000 steps), seed 1234. The model starts from the raw weights and the EMA restarts from them. Launched with `INIT_FROM` / `RUN_NAME` on `train/ops/h41_replay.sh`.
+  - Gate: full-dev EMA pooled at chunks 4 / 8 / 16 within the four-run spread of A1-49000's (8.302 / 7.961 / 7.703). First-token latency at chunks 4 / 8 is the reported outcome. It is promoted only if arm 14 (seed 1234) passes (it did, 04:42Z). Kill rule threshold 6.163 (A1's last dev-clean400 EMA 4.663 + 1.5 pp).
+- **Adopted (lead, 04:43Z):** `delay_penalty=0.005` joins the trunk recipe; arms 14 and 14-r both pass the latency arm's gate against the chunk-arm seed pair.
+
+## Amendment 21 (2026-11-23, posted in AGENT_CHAT at 06:18Z, before the arm started)
+- **Arm 14-s3** = arm 14 (A1's recipe + `delay_penalty=0.005`) with `seed=5678`, on xbabe9. It is the third seed for the dp 0.005 non-inferiority question.
+- Under the v3 rule, arms 14 + 14-r against the chunk-arm pair are +0.055 [−0.008, +0.120] at chunk 4 against margin 0.087 (eval-lane, 06:14Z): INCONCLUSIVE.
+- **Reading:** eval-lane's non-inferiority test on the three-seed set against the chunk-arm pair, chunks 4 / 8 / 16, margin 0.087. It is decided together with H48a (A1L against B0 on the confirmation half), per the lead's 06:15Z ruling.
+- **Pinned tree:** xbabe9's lane tree, content sha256 `8c45feda…` (`LC_ALL=C` sort).
+
+## Amendments 22-24 and the co-tenancy test (2026-11-23, each posted in AGENT_CHAT before its arm started)
+- **Amendment 22 (06:58Z; lead GO 06:59Z): arm 19-s3** = the chunk arm (A1's recipe, no delay penalty) with `seed=5678`, on x5 GPU1, same pinned tree as 14-s3 (`8c45feda…`). With it the dp 0.005 non-inferiority test is three seeds of arm 14 against three of the chunk arm. Kill rules 6.592 / 20%.
+- **Amendment 23 (07:03Z): A1C** = B0 (A1-49000, `ckpt-00049000.pt` 2a3dd9fb…) fine-tuned exactly like A1L but with `delay_penalty=0`, seed 1234, on A1L's pinned tree (`99bce400…`). Its config differs from A1L's only in `delay_penalty` (checked).
+  - Readings: A1L − A1C is the penalty's own effect, without the re-warm confound in A1L's +0.12 pp; A1C − B0 says whether continuing B0 alone helps.
+  - A1C is also H53 P1's control and H48c's replay-only control. Kill rules 6.163 / 20%.
+- **Amendment 24 (07:03Z): arm 17-r** = arm 17 (A1's recipe + `left_context=256`) with `seed=4321`, on 14-s3's tree. It gives arm 17's seed pair for eval-lane's Holm family. Kill rules 6.592 / 20%.
+- **Co-tenancy test (lead 07:00Z: two runs per A100, revert if the combined gain is < 10%).** 19-s3, 17-r and A1C started at 07:04Z beside 14-s3 / H48b s1234 / H48b s4321.
+  - Each run had a 0.45 CUDA memory fraction (a `sitecustomize` hook outside the pinned tree), expandable segments and disjoint cores.
+  - Combined audio-h/h against solo: **−4.9% / 0.0% / −2.6%**. Memory was 69-72%, but the card's 5-min utilisation reached the 0.85 guard target, and two contexts time-slice without MPS.
+  - **Reverted at 07:13Z.** The three second runs stopped by PID with SIGTERM checkpoints (steps 1,043 / 704 / 642). Each resumes solo, bit-exact in data order, once its card is free.
+  - Co-tenancy changes wall-clock only, not results.

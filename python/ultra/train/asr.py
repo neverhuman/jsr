@@ -207,7 +207,8 @@ class ASRModel(nn.Module):
             enc, enc_lens = self.encoder(x, feat_lens, chunk)
             aux = {}
         enc = enc.float()
-        if ctx is not None:  # H41 arm 11: the losses see only the utterance, not its prepended context
+        enc_lens0 = enc_lens  # with stream context: lengths including the prepended context
+        if ctx is not None:  # H41 arm 11: every head and view sees only the utterance (H44)
             from train.stream_ctx import shift_rows
 
             enc, enc_lens = shift_rows(enc, enc_lens, ctx)
@@ -239,10 +240,14 @@ class ASRModel(nn.Module):
         ctc = ctc_sum / max(1, ctc_tokens)
         total = self.cfg.ctc_weight * ctc
         out = {"rnnt": rnnt, "ctc": ctc, "rnnt_tokens": rnnt_tokens,
-               "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach()}
+               "ctc_tokens": ctc_tokens, "ctc_masked": int((~ok).sum()), "nll": nll.detach(),
+               "frames": int(enc_lens.sum())}  # denominator of the per-frame means under DDP
         if "inter_logits" in aux and inter_ctc_weight > 0:
             with torch.autocast(device_type=enc.device.type, enabled=False):
-                inter_lp = torch.log_softmax(aux["inter_logits"].float(), dim=-1)
+                il = aux["inter_logits"].float()
+                if ctx is not None:  # the same utterance frames as the other heads
+                    il, _ = shift_rows(il, enc_lens0, ctx)
+                inter_lp = torch.log_softmax(il, dim=-1)
                 isum, itok, _ = ctc_loss(inter_lp, enc_lens, ctc_tgt, ctc_lens, None)
                 inter_ctc = isum / max(1, itok)
             total = total + inter_ctc_weight * inter_ctc
@@ -264,6 +269,8 @@ class ASRModel(nn.Module):
             # H26 CR-CTC (Yao et al. 2024): supervise BOTH augmented views + symmetric stop-grad KL.
             x2 = spec_augment(x_norm, feat_lens, augment, gen)
             enc2, _ = self.encoder(x2, feat_lens, chunk)
+            if ctx is not None:  # view 2 drops the same prepended context as view 1
+                enc2, _ = shift_rows(enc2.float(), enc_lens0, ctx)
             with torch.autocast(device_type=enc.device.type, enabled=False):
                 ctc_lp2 = torch.log_softmax(self.ctc_head(enc2.float()), dim=-1)
                 ctc_sum2, ctc_tok2, _ = ctc_loss(ctc_lp2, enc_lens, ctc_tgt, ctc_lens, None)

@@ -7,6 +7,13 @@ every cached utterance the store keeps views into the concatenated arrays:
   ok: R0's 1-best equals the normalised reference (only then is (t, u_t) on the reference lattice).
 The student shares R0's bpe.model through train.tokenizer, so student index = R0 id + 1 for
 pieces and 0 for blank.
+
+Frame alignment for frame KD (kd_loss): teacher frame t is paired with student encoder frame t, both 25 Hz
+from the utterance start, over min(T_R0, T_student) frames. R0 keeps only full 8-frame output chunks after a
+0.3 s tail pad, so T_R0 - T_student lies in -3..+4 by construction (kd-cache, 2026-11-23): up to 3 student
+frames at the end get no target and up to 4 teacher frames go unused. The cache check is therefore exact,
+not a tolerance: T_R0 must equal r0_frames(n_mel) for the student's own audio (a wrong audio pairing fails).
+Sequence KD (H49b) does not frame-align.
 """
 from __future__ import annotations
 
@@ -21,18 +28,83 @@ import torch.nn.functional as F
 from ultra.wer import normalise
 
 
+def _speed_key(speed) -> float:
+    """Exact speed factor key (to 1e-3, so 0.9 / 1.0 / 1.1 match however they were parsed)."""
+    return round(float(speed), 3)
+
+
+def r0_frames(n_mel: int) -> int:
+    """R0's encoder frame count for the audio behind a student utterance of `n_mel` log-mel frames.
+    R0: n_fb = (n_samples + 4800 + 80) // 160 (0.3 s tail pad, snip_edges false) and frames =
+    8 * ((n_fb - 45) // 32 + 1) (full chunks only). Student: n_mel = 1 + (n_samples - 400) // 160, so
+    n_fb = n_mel + 32 exactly. Checked on 2,039 / 2,039 real cache rows (train-clean-100 shard 0)."""
+    return max(0, 8 * ((int(n_mel) - 13) // 32 + 1))
+
+
+KD_META = "KD_META.json"  # cache identity side file (format ultra.kd-cache/v1), see write_meta()
+COUNT_KEYS = ("accepted", "missing", "text_mismatch", "path_mismatch", "frame_mismatch")
+
+
+class KdIdentityError(ValueError):
+    """The teacher cache's identity does not match the student run (tokenizer, shard files)."""
+
+
+def _sha256_file(path: str) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for blk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(blk)
+    return h.hexdigest()
+
+
+def write_meta(cache_dir: str, tokenizer_path: str, teacher: str) -> dict:
+    """Write `KD_META.json`: the tokenizer the teacher's token ids belong to, the teacher, and every
+    shard's sha256 (checked against the producer's SHA256SUMS when present)."""
+    files = sorted(os.path.basename(f) for f in glob.glob(os.path.join(cache_dir, "*.npz")))
+    sums = {}
+    sums_path = os.path.join(cache_dir, "SHA256SUMS")
+    if os.path.exists(sums_path):
+        for line in open(sums_path):
+            if line.strip():
+                h, name = line.split()
+                sums[name.lstrip("*")] = h
+    shards = {}
+    for name in files:
+        h = _sha256_file(os.path.join(cache_dir, name))
+        if name in sums and sums[name] != h:
+            raise KdIdentityError(f"{name}: sha256 {h} differs from SHA256SUMS {sums[name]}")
+        shards[name] = h
+    speeds = sorted({_speed_key(json.loads(str(np.load(os.path.join(cache_dir, n))["meta"]))["speed"]) for n in files})
+    meta = {"format": "ultra.kd-cache/v1", "teacher": teacher, "tokenizer_sha256": _sha256_file(tokenizer_path),
+            "speeds": speeds, "shards": shards}
+    with open(os.path.join(cache_dir, KD_META), "w") as fh:
+        json.dump(meta, fh, indent=1, sort_keys=True)
+    return meta
+
+
 class TeacherStore:
-    def __init__(self, cache_dir: str):
+    """Frame-level R0 targets keyed by (utterance, exact speed).
+
+    Identity: with `tokenizer_sha256`, the cache must prove which tokenizer its ids belong to, via
+    `KD_META.json` (or the same field in every shard's meta). A mismatch, an unlisted shard, or a
+    shard whose sha256 differs refuses the whole store. `counts` tallies every lookup outcome; only
+    `accepted` rows carry a KD term."""
+
+    def __init__(self, cache_dir: str, tokenizer_sha256: str | None = None, verify_shards: bool = True):
         files = sorted(glob.glob(os.path.join(cache_dir, "*.npz")))
         if not files:
             raise FileNotFoundError(f"no teacher cache files under {cache_dir}")
+        self.identity = self._check_identity(cache_dir, files, tokenizer_sha256, verify_shards)
+        self.counts = dict.fromkeys(COUNT_KEYS, 0)
         self._entries: dict[tuple[str, float], tuple] = {}
         self._arrays = []  # keep the big arrays alive
         self.topk = None
         for f in files:
             z = np.load(f)
             meta = json.loads(str(z["meta"]))
-            sp = float(meta["speed"])
+            sp = _speed_key(meta["speed"])
             ids, lp, emit = z["topk_ids"], z["topk_lp"], z["emitted"]
             self.topk = ids.shape[1] if self.topk is None else self.topk
             if ids.shape[1] != self.topk:
@@ -44,14 +116,64 @@ class TeacherStore:
                 e = emit[off:off + n]
                 u = np.concatenate([[0], np.cumsum(e[:-1] != 0)]).astype(np.int64) if n else e.astype(np.int64)
                 ok = normalise(str(hyp)) == normalise(str(text))
-                self._entries[(str(uid), sp)] = (ids[off:off + n], lp[off:off + n], u, ok)
+                self._entries[(str(uid), sp)] = (ids[off:off + n], lp[off:off + n], u, ok, e)
                 off += n
+
+    @staticmethod
+    def _check_identity(cache_dir, files, tokenizer_sha256, verify_shards) -> dict:
+        side = os.path.join(cache_dir, KD_META)
+        if os.path.exists(side):
+            meta = json.load(open(side))
+            listed = meta.get("shards", {})
+            for f in files:
+                name = os.path.basename(f)
+                if name not in listed:
+                    raise KdIdentityError(f"{name} is not listed in {KD_META}")
+                if verify_shards and _sha256_file(f) != listed[name]:
+                    raise KdIdentityError(f"{name}: sha256 differs from {KD_META}")
+            got = meta.get("tokenizer_sha256")
+        else:
+            shard_toks = {json.loads(str(np.load(f)["meta"])).get("tokenizer_sha256") for f in files}
+            got = shard_toks.pop() if len(shard_toks) == 1 else None
+        if tokenizer_sha256 is not None and got != tokenizer_sha256:
+            raise KdIdentityError(f"teacher cache tokenizer {got} != student tokenizer {tokenizer_sha256} "
+                                  f"(write {KD_META} with train.kd_meta, or rebuild the cache)")
+        return {"kd_tokenizer_sha256": got, "kd_identity": KD_META if os.path.exists(side) else "shard-meta"}
 
     def __len__(self) -> int:
         return len(self._entries)
 
     def get(self, uid: str, speed: float):
-        return self._entries.get((uid, round(float(speed), 1)))
+        """The entry cached at exactly this speed, else None: a sample at a speed with no cache
+        trains without the KD term (never with another speed's targets)."""
+        row = self._entries.get((uid, _speed_key(speed)))
+        if row is None:
+            return None
+        ids, lp, u, ok, _ = row
+        return ids, lp, u, ok
+
+    def get_checked(self, uid: str, speed: float, target_ids: list[int] | np.ndarray,
+                    n_mel: int | None = None):
+        """`(ids, lp, u, ok)` with ok only if R0's text matches, its emitted subword path equals the
+        student's RNN-T targets (`verify_emitted_path`, PR #72's B2) and, given the student's log-mel
+        frame count `n_mel`, R0's frame count is exactly `r0_frames(n_mel)` (the same audio). Every
+        outcome is counted."""
+        row = self._entries.get((uid, _speed_key(speed)))
+        if row is None:
+            self.counts["missing"] += 1
+            return None
+        ids, lp, u, ok, emitted = row
+        if not ok:
+            self.counts["text_mismatch"] += 1
+        elif not verify_emitted_path(emitted, target_ids):
+            self.counts["path_mismatch"] += 1
+            ok = False
+        elif n_mel is not None and len(u) != r0_frames(n_mel):
+            self.counts["frame_mismatch"] += 1
+            ok = False
+        else:
+            self.counts["accepted"] += 1
+        return ids, lp, u, bool(ok)
 
 
 def r0_to_student(ids: torch.Tensor) -> torch.Tensor:
