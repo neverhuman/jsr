@@ -412,6 +412,14 @@
     "research/H47_always_on_sleep_gate/GATE_IMPLEMENTATION.md": {
       "command": "just score",
       "purpose": "H47 Rust sleep gate & ladder implementation contract stays visible to the audit"
+    },
+    "python/ultra/tools/fleet_util_audit.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_fleet_util_audit.py",
+      "purpose": "verify busy-CPU measurement, UUID preservation, PID/lease owner classification, 80-90% VRAM & 85% co-tenant ceiling, and bounded-window caps"
+    },
+    "python/ultra/tests/test_fleet_util_audit.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_fleet_util_audit.py",
+      "purpose": "torch-free unit and regression tests for the fleet utilization auditor"
     }
   }
 }
