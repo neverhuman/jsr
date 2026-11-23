@@ -122,6 +122,37 @@ require 14l bench-open/assays/l4-power/run.sh
 14l assay l4-power                 1 4  0 26.5
 14l assay l4-power                 2 24 1 26.5
 14l assay l4-power                 3 28 2 26.5
+# Entry 14m (lead 10:00:14Z / 10:35:26Z; owner 09:50Z: release measurements first): the release decoder's quiet cost.
+# runtime-lane's build of #106 (LM + LODR beam in the commit pass) as ultra-engine-commit (commit-kit/) on B0 INT8 (4701787c...)
+# decodes the 730-utterance panel unpaced on one core: chunk-4 greedy stream + chunk-16 final pass at each endpoint (320 ms
+# synthetic tail pad), the final pass greedy (commit-greedy), beam 4 + M5.ulm / LODR 0.65 / 0.45 (commit-lm4) or beam 16 + M5.ulm
+# / LODR 0.80 / 0.60 (commit-lm16, the release configuration); 60 s idle before and after each run for energy's 1 Hz log. The
+# three variants rotate through the three positions of a hold (Latin square over rounds). CPU-s per audio-s (stream and final
+# pass split), x real time, core and package watts, peak RSS and the final-text delay (final-pass wall after the endpoint).
+require 14m bench-open/assays/commit-kit/ultra-engine-commit
+require 14m bench-open/assays/l4-kit/M5.ulm
+require 14m bench-open/assays/commit-pass/run.sh
+require 14m bench-open/assays/commit-greedy/run.sh
+require 14m bench-open/assays/commit-lm4/run.sh
+require 14m bench-open/assays/commit-lm16/run.sh
+14m assay commit-lm16              1 4  0 8.5
+14m assay commit-greedy            1 4  0 8.5
+14m assay commit-lm4               1 4  0 8.5
+14m assay commit-lm4               2 24 1 8.5
+14m assay commit-lm16              2 24 1 8.5
+14m assay commit-greedy            2 24 1 8.5
+14m assay commit-greedy            3 28 2 8.5
+14m assay commit-lm4               3 28 2 8.5
+14m assay commit-lm16              3 28 2 8.5
+# Entry 14n (lead 09:34:43Z, warm-AGC acceptance criterion 4: <= 1% added engine CPU on quiet xbabe0; order 10:35:26Z): #104's
+# ultra-engine-agc (agc-kit/; 1faea9cc..., built at d70d5ed = merged main adc3180) on B0 INT8 decodes each of the 730 panel
+# utterances with --warm-agc --tau-s 5.0 --preroll-ms 500 and with --no-warm-agc, one process per decode, the first arm
+# alternating by utterance and round; the binary's own decode-loop thread CPU (model load excluded), paired per utterance.
+require 14n bench-open/assays/agc-kit/ultra-engine-agc
+require 14n bench-open/assays/agc-cpu/run.sh
+14n assay agc-cpu                  1 4  0 11
+14n assay agc-cpu                  2 24 1 11
+14n assay agc-cpu                  3 28 2 11
 # Eight cores = CPUs 8-15 (two whole cache groups), meter on CPU 3. Round 1 measures both modes
 # where a system has both (eight intra-op threads, eight single-thread processes); rounds 2 and 3
 # repeat the mode that was faster in round 1.
