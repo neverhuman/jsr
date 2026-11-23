@@ -69,5 +69,14 @@ What existed when this was written: the oracle decoder's sanity check (below) an
 3. **Multiplicity:** the pre-registration named Holm-adjusted intervals, but `ultra-score` reports bounds, not p-values. The adjusted bounds are therefore **Bonferroni** (α = 0.05 / 6 per comparison, one-sided), which is more conservative than Holm; unadjusted α = 0.05 bounds are reported beside them. The readings use the Bonferroni bounds.
 4. **Scripts** fixed now: `scripts/h47_analyze.py` `bbb8a076…`, `scripts/sanity_oracle.py` `e29910b4…`, `scripts/mac_run_oracle.sh` `4e23c428…`.
 
+## Amendment 2 (2026-11-23, about 06:35Z): Q adopts codex-lead's controlling wake and power gates (lead's ALIGNMENT, 06:03:48Z), written before any Q run
+Where codex-lead's 06:03:04Z release decisions are stricter or add a check, they replace or extend Q's list:
+- **Controls:** every Q comparison shows four arms on the same stream, build and checkpoint: awake (C0), reset (C1 / the ungated twin), oracle (O3, this wave) and real wake (the swarm's gate).
+- **Integrity:** zero lost, duplicated or reordered samples and zero revisions of emitted text, audited from the session ledger (sample sequence, exact handoff at wake, model reset, partial final chunk at EOF) and by `ultra-alwayson-check` (Q1).
+- **Wake accuracy:** WER(real wake) − WER(ungated twin) ≤ +0.10 pp point and ≤ +0.20 pp one-sided 95% upper bound (Q7, unchanged).
+- **Latency (new):** stable-word lag p95 / p99 of the real wake no more than +40 / +80 ms above the ungated twin's, on the stream (design-time clock from `score_alwayson.py`), and on xbabe0 paced replay when bench-open runs it (wall clock).
+- **False words:** the **added** rate (real wake minus ungated twin, on the same non-speech hours) ≤ 0.10 / h at the one-sided 95% upper bound; the absolute rate and its Garwood bound are reported beside it (Q5 tightened from absolute to added, per §10.1 of the final plan).
+- **Power (extended):** interleaved idle / capture / capture + detector / full service at 0 / 5 / 20 / 100% speech duty on the measured host (xbabe0 now; the owner's metered device when it arrives). Pass needs ≥ 2× lower incremental listening energy at 5% (Q3), a paired improvement at 20%, ≤ +5% gross upper bound at 100% (Q6 tightened from the mean ratio to the upper bound), and non-speech CPU ≤ 2% of the ungated twin (Q2). If capture alone exceeds 80% of A1's gross energy at 5% duty, the report says capture must be fixed first. The release-level "≥ 30% less active CPU, ≥ 20% less gross energy" is H54's and is reported, not gated, here.
+
 ## Results
 (none yet)
