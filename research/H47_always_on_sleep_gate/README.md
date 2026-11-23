@@ -6,6 +6,7 @@
 - runtime-lane's swarm **implements** the gate: `crates/ultra-gate`, `crates/ultra-alwayson` (sleep ladder, PCM ring, one-pass replay, `ultra-alwayson-check`), `--uclamp-max`, and `skip_gate_sim.py` with its own design memo. Its sections go below its own heading in this folder.
 - alwayson-bench builds the standard always-on benchmark (`gen_ao_bench.py`).
 - bench-open runs every CPU and power measurement on the quiet host xbabe0 (TIMING queue).
+- **Files in this folder:** this README (h47-sleep's pre-registration, amendments and results; results JSON `results/A0_*`, `results/O_*`, `results/Q_*`), the swarm's skip-gate simulation receipts from PR #75 (`results/skip_gate_sim_summary.json`, `results/stream_segments_summary.json`), and the Rust gate's implementation notes in `GATE_IMPLEMENTATION.md` (PR #77, lead's ruling 06:43Z).
 - **h47-sleep** (this pre-registration) writes no gate code. It runs (A0) the xbabe0 assay of what non-speech costs today, (O) the offline oracle speech gate, which bounds the savings and the restart damage, and (Q) the independent qualification of the swarm's gate against an ungated twin.
 
 ## Question
