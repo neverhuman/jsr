@@ -22,11 +22,22 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::json;
-use ultra_engine::{run_info, Engine, Model, Precision, Workspace};
+use ultra_engine::{run_info, Engine, EngineStream, Model, Precision, Workspace};
 
 use cli::Args;
-use committer::WordCommitter;
+use committer::{beam_lcp, WordCommitter};
 use wav::open_wav_pcm16;
+
+/// Immutable token prefix eligible for streaming word commits:
+/// greedy mode uses `stream.tokens()` directly (byte-identical to legacy behavior),
+/// while beam mode uses the longest common prefix across all active beam hypotheses.
+fn active_prefix<'a>(engine: &Engine, stream: &'a EngineStream) -> &'a [u32] {
+    if engine.beam > 1 {
+        stream.dec.beam.as_ref().map_or(&[], |b| beam_lcp(&b.hyps))
+    } else {
+        stream.tokens()
+    }
+}
 
 /// Read current `(VmRSS_kib, VmHWM_kib)` from `/proc/self/status` on Linux.
 fn read_proc_rss_kib() -> (u64, u64) {
@@ -145,7 +156,12 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
                 .map_err(|e| e.to_string())?
                 > 0
             {
-                committer.update(&engine.model.tokens, stream.tokens(), audio_s, &mut trace_w)?;
+                committer.update(
+                    &engine.model.tokens,
+                    active_prefix(&engine, &stream),
+                    audio_s,
+                    &mut trace_w,
+                )?;
             }
 
             let wall_now = w0.elapsed().as_secs_f64();
@@ -181,12 +197,17 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     {
         committer.update(
             &engine.model.tokens,
-            stream.tokens(),
+            active_prefix(&engine, &stream),
             final_audio_s,
             &mut trace_w,
         )?;
     }
-    committer.flush(&mut trace_w)?;
+    committer.finish(
+        &engine.model.tokens,
+        stream.tokens(),
+        final_audio_s,
+        &mut trace_w,
+    )?;
     trace_w.flush().map_err(|e| e.to_string())?;
     if let Some(rw) = rss_w.as_mut() {
         rw.flush().map_err(|e| e.to_string())?;

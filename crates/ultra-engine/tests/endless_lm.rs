@@ -2,10 +2,11 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use ultra_engine::NgramLm;
+use ultra_engine::{Engine, Isa, LmConfig, Model, NgramLm, Precision, Workspace};
 
 const SYNTH_LM_ARPA: &str = "\
 \\data\\
@@ -387,11 +388,45 @@ fn endless_binary_loads_ulm_v2_and_writes_trace() {
 
     let trace_txt = std::fs::read_to_string(&lm_trace).expect("read trace");
     assert!(!trace_txt.trim().is_empty(), "trace must be non-empty");
+    let mut trace_words = Vec::new();
     for line in trace_txt.lines() {
         let row: Value = serde_json::from_str(line).expect("valid trace jsonl");
         assert!(row["audio_s"].is_number());
-        assert!(row["words"].is_array());
+        for w in row["words"].as_array().expect("words array") {
+            trace_words.push(w.as_str().expect("word str").to_owned());
+        }
     }
+
+    // Witness: joined beam+LM trace words must equal Engine::text(&stream) verbatim.
+    let model = Arc::new(Model::load(&weights, true).expect("load tiny model"));
+    let loaded_lm = Arc::new(NgramLm::load(&lm_path).expect("load v2 ulm"));
+    let engine = Engine::new(model, Isa::Scalar, Precision::F32)
+        .expect("engine")
+        .with_beam(4)
+        .with_beam_max_symbols(2)
+        .with_lm(
+            loaded_lm,
+            LmConfig {
+                lm_weight: 0.8,
+                lodr_weight: 0.6,
+                blank_penalty: 0.1,
+            },
+        )
+        .expect("with_lm");
+    let mut stream = engine.create_stream();
+    let mut ws = Workspace::default();
+    for pkt in pcm.chunks(320) {
+        stream.accept_i16(pkt).expect("accept");
+        while engine.decode(&mut [&mut stream], &mut ws).expect("decode") > 0 {}
+    }
+    stream.input_finished();
+    while engine.decode(&mut [&mut stream], &mut ws).expect("decode") > 0 {}
+    let expected_text = engine.text(&stream);
+    assert_eq!(
+        trace_words.join(" "),
+        expected_text,
+        "beam+LM trace words must equal final hypothesis text verbatim"
+    );
 
     // 3. Omitting --lm stays intact and records `"lm": null`.
     let nolm_trace = tmp.0.join("nolm_trace.jsonl");
