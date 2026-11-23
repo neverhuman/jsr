@@ -272,7 +272,7 @@ def apply_synth_aug(pcm: np.ndarray, uid: str, epoch: int, seed: int) -> np.ndar
 def _decode_job(args):
     """Worker side of ParquetBatches(loader="process"): the thread path's _decode, returning
     plain arrays (uid, text, feats float32 (T, 80), rnnt ids, ctc ids, speed factor) or None."""
-    uid, text, audio, epoch, seed, speeds, max_seconds, synth_aug = args
+    uid, text, audio, epoch, seed, speeds, max_seconds, synth_aug, fact_aug, donor_audio = args
     pcm, sr = sf.read(io.BytesIO(audio), dtype="int16")
     if sr != 16000 or pcm.ndim != 1:
         raise DataError(f"{uid}: expected 16 kHz mono, got {sr} {pcm.shape}")
@@ -294,6 +294,11 @@ def _decode_job(args):
         return None
     if synth_aug:
         pcm = apply_synth_aug(pcm, uid, epoch, seed)
+    if fact_aug is not None and fact_aug.active:
+        from train.fact_aug import apply_fact_aug
+
+        donor_pcm = sf.read(io.BytesIO(donor_audio), dtype="int16")[0] if donor_audio is not None else None
+        pcm = apply_fact_aug(pcm, uid, epoch, seed, fact_aug, donor_pcm=donor_pcm)
     ex = _WORKER["feat"].example(uid, text, pcm)
     return uid, text, ex.feats.numpy(), ex.rnnt, ex.ctc, f
 
@@ -333,7 +338,7 @@ class ParquetBatches:
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
                  base_weight: float = 0.0, anchors=None, dur_tables: str = "",
                  node_shards: str = "", bpe_dropout_p: float = 0.0,
-                 bpe_dropout_alpha: float = 0.1, collate_ahead: int = 0):
+                 bpe_dropout_alpha: float = 0.1, collate_ahead: int = 0, fact_aug=None):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -412,6 +417,9 @@ class ParquetBatches:
         self.dropped_long = 0
         self.speed_perturb = tuple(speed_perturb)
         self.synth_aug = bool(synth_aug)
+        if fact_aug is not None and fact_aug.active:
+            fact_aug.validate(splits)
+        self.fact_aug = fact_aug if (fact_aug is not None and fact_aug.active) else None
         self.teacher = teacher
         self.anchors = anchors  # H48c train.mfa_anchors.MfaAnchors (None = off)
         self.bpe_dropout_p, self.bpe_dropout_alpha = float(bpe_dropout_p), float(bpe_dropout_alpha)
@@ -520,7 +528,16 @@ class ParquetBatches:
         ex.ctc = self.feat.tok_ctc.encode(ex.text, dropout_p=self.bpe_dropout_p,
                                           alpha=self.bpe_dropout_alpha, rng=rng)
 
-    def _decode(self, row: dict, epoch: int = 0) -> Example | None:
+    def _donor_bytes(self, rows: list[dict], idx: int, epoch: int) -> bytes | None:
+        if self.fact_aug is None or self.fact_aug.noise_p <= 0.0 or self.fact_aug.noise_dir or len(rows) < 2:
+            return None
+        import hashlib
+
+        h = hashlib.sha256(f"donor:{self.seed}:{epoch}:{rows[idx]['id']}".encode()).digest()
+        j = (idx + 1 + (int.from_bytes(h[:4], "little") % (len(rows) - 1))) % len(rows)
+        return rows[j]["audio"]["bytes"]
+
+    def _decode(self, row: dict, donor_audio: bytes | None = None, epoch: int = 0) -> Example | None:
         pcm, sr = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
         if sr != 16000 or pcm.ndim != 1:
             raise DataError(f"{row['id']}: expected 16 kHz mono, got {sr} {pcm.shape}")
@@ -531,6 +548,11 @@ class ParquetBatches:
             return None
         if self.synth_aug:
             pcm = apply_synth_aug(pcm, row["id"], epoch, self.seed)
+        if self.fact_aug is not None:
+            from train.fact_aug import apply_fact_aug
+
+            donor_pcm = sf.read(io.BytesIO(donor_audio), dtype="int16")[0] if donor_audio is not None else None
+            pcm = apply_fact_aug(pcm, row["id"], epoch, self.seed, self.fact_aug, donor_pcm=donor_pcm)
         ex = self.feat.example(row["id"], row["text"], pcm)
         if self.anchors is not None:  # H48c MFA anchors, keyed by (id, speed) like the teacher
             ex.anchor = self.anchors.token_anchors(row["id"], f, ex.rnnt, row["text"])
@@ -605,11 +627,14 @@ class ParquetBatches:
         flat = [r for g in mine for r in g]
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
-                     self.max_seconds, self.synth_aug) for r in flat]
-            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+                     self.max_seconds, self.synth_aug, self.fact_aug, self._donor_bytes(flat, i, epoch))
+                    for i, r in enumerate(flat)]
+            decoded = [self._attach(x, epoch) for x in self._pool.map(_decode_job, args, chunksize=16)]
         else:
+            donors = [self._donor_bytes(flat, i, epoch) for i in range(len(flat))]
             dec = functools.partial(self._decode, epoch=epoch)
-            decoded = list(self._pool.map(dec, flat)) if self._pool else [dec(r) for r in flat]
+            decoded = list(self._pool.map(dec, flat, donors)) if self._pool else [
+                dec(r, donor_audio=d) for r, d in zip(flat, donors, strict=True)]
         out, k = [], 0
         for g in mine:
             out.append(decoded[k:k + len(g)])
@@ -711,11 +736,14 @@ class ParquetBatches:
         # FLAC decode (libsndfile via cffi) and torch FFTs release the GIL: threads scale.
         if self.loader == "process" and self._pool is not None:
             args = [(r["id"], r["text"], r["audio"]["bytes"], epoch, self.seed, self.speed_perturb,
-                     self.max_seconds, self.synth_aug) for r in rows]
-            decoded = [self._attach(x) for x in self._pool.map(_decode_job, args, chunksize=16)]
+                     self.max_seconds, self.synth_aug, self.fact_aug, self._donor_bytes(rows, i, epoch))
+                    for i, r in enumerate(rows)]
+            decoded = [self._attach(x, epoch) for x in self._pool.map(_decode_job, args, chunksize=16)]
         else:
+            donors = [self._donor_bytes(rows, i, epoch) for i in range(len(rows))]
             dec = functools.partial(self._decode, epoch=epoch)
-            decoded = list(self._pool.map(dec, rows)) if self._pool else [dec(r) for r in rows]
+            decoded = list(self._pool.map(dec, rows, donors)) if self._pool else [
+                dec(r, donor_audio=d) for r, d in zip(rows, donors, strict=True)]
         del rows
         self.dropped_long += sum(e is None for e in decoded)
         exs: list[Example] = [e for e in decoded if e is not None]

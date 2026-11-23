@@ -29,13 +29,17 @@ def modified_beam_search(predictor: StatelessPredictor, joiner: Joiner, enc_p: t
         raise ValueError("beam must be >= 1")
     if blank_penalty < 0:
         raise ValueError("blank_penalty must be >= 0")
+    k_ctx = getattr(predictor, "context_len", 2)
     out = []
     for b in range(enc_p.shape[0]):
         hyps: dict[tuple[int, ...], float] = {(): 0.0}
         for t in range(int(lens[b])):
             seqs = list(hyps)
-            ctx = torch.tensor([[(s[-2] if len(s) > 1 else BLANK), (s[-1] if s else BLANK)]
-                                for s in seqs], dtype=torch.long, device=enc_p.device)
+            ctx = torch.tensor(
+                [[(s[-k_ctx + i] if len(s) >= k_ctx - i else BLANK) for i in range(k_ctx)]
+                 for s in seqs],
+                dtype=torch.long, device=enc_p.device,
+            )
             logp = torch.log_softmax(
                 joiner.logits(enc_p[b, t].expand(len(seqs), -1), predictor(ctx)).float(), dim=-1)
             if blank_penalty:
