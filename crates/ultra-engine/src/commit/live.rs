@@ -25,7 +25,8 @@ pub fn run_commit_pcm(
     ws: &mut Workspace,
 ) -> Result<(String, usize, f64), EngineError> {
     let t0 = Instant::now();
-    let (raw, idx) = ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None)?;
+    let (raw, idx) =
+        ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None, None)?;
     Ok((raw, idx, t0.elapsed().as_secs_f64() * 1000.0))
 }
 

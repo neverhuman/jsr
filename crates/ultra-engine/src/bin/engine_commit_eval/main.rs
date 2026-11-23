@@ -10,7 +10,9 @@ use std::time::Instant;
 
 use cli::{load_manifest, parse_args, Args};
 use serde_json::{json, Value};
-use ultra_engine::commit::{CommitConfig, CommitLmConfig, CommitPassSession, DEFAULT_SAMPLE_RATE};
+use ultra_engine::commit::{
+    CommitConfig, CommitLmConfig, CommitPassSession, CommitTfRescoreConfig, DEFAULT_SAMPLE_RATE,
+};
 use ultra_engine::{Engine, Isa, Model, Precision};
 
 fn pct(sorted: &[f64], p: f64) -> f64 {
@@ -61,8 +63,16 @@ fn run(a: &Args) -> Result<Value, String> {
             .map_err(|e| e.to_string())
         })
         .transpose()?;
+    let tf_cfg = CommitTfRescoreConfig::from_files(
+        a.rescore_l2r.as_deref(),
+        a.rescore_r2l.as_deref(),
+        a.rescore_weight,
+        a.rescore_m5_sub,
+    )
+    .map_err(|e| e.to_string())?;
     let mut sess = CommitPassSession::new(eng, cfg)
         .and_then(|s| s.with_commit_lm(lm_cfg))
+        .and_then(|s| s.with_commit_tf_rescorer(tf_cfg))
         .map_err(|e| e.to_string())?;
     let items = load_manifest(a)?;
     if items.is_empty() {
@@ -110,6 +120,12 @@ fn run(a: &Args) -> Result<Value, String> {
             map.insert("mbr".into(), json!(a.mbr));
             map.insert("mbr_temp".into(), json!(a.mbr_temp));
         }
+        if a.rescore_l2r.is_some() || a.rescore_r2l.is_some() {
+            map.insert("rescore_l2r".into(), json!(a.rescore_l2r));
+            map.insert("rescore_r2l".into(), json!(a.rescore_r2l));
+            map.insert("rescore_weight".into(), json!(a.rescore_weight));
+            map.insert("rescore_m5_sub".into(), json!(a.rescore_m5_sub));
+        }
     }
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;
     out.flush().map_err(|e| e.to_string())?;
@@ -133,6 +149,7 @@ fn main() -> ExitCode {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use ultra_engine::commit::{DEFAULT_RESCORE_M5_SUB, DEFAULT_RESCORE_WEIGHT};
 
     #[test]
     fn commit_eval_cli_args_and_percentiles() {
@@ -148,7 +165,7 @@ mod tests {
             (0.0, false, 1.0)
         );
 
-        let s = "--model m --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --commit-max-audio-s 45.5 --threads 2 --commit-lm M5.ulm --commit-beam 32 --lm-scale 0.7 --lodr-scale 0.525 --token-bonus 0.1 --ctc-weight 0.2 --mbr --mbr-temp 1.5";
+        let s = "--model m --manifest in.jsonl --out o.jsonl --commit-chunk 16 --tail-pad-ms 320 --commit-max-audio-s 45.5 --threads 2 --commit-lm M5.ulm --commit-beam 32 --lm-scale 0.7 --lodr-scale 0.525 --token-bonus 0.1 --ctc-weight 0.2 --mbr --mbr-temp 1.5 --rescore-l2r l.utfr --rescore-r2l r.utfr --rescore-weight 0.35 --rescore-m5-sub 0.45";
         let a = parse_args(s.split_whitespace().map(String::from)).expect("parse");
         assert_eq!((a.commit_chunk, a.tail_pad_ms, a.threads), (16, 320, 2));
         assert!((a.commit_max_audio_s - 45.5).abs() < 1e-9);
@@ -158,6 +175,29 @@ mod tests {
             (Some(32), 0.7, 0.525, 0.1)
         );
         assert_eq!((a.ctc_weight, a.mbr, a.mbr_temp), (0.2, true, 1.5));
+        assert_eq!(
+            (
+                a.rescore_l2r,
+                a.rescore_r2l,
+                a.rescore_weight,
+                a.rescore_m5_sub
+            ),
+            (
+                Some(PathBuf::from("l.utfr")),
+                Some(PathBuf::from("r.utfr")),
+                0.35,
+                0.45
+            )
+        );
+        assert_eq!(
+            (
+                base.rescore_l2r,
+                base.rescore_r2l,
+                base.rescore_weight,
+                base.rescore_m5_sub
+            ),
+            (None, None, DEFAULT_RESCORE_WEIGHT, DEFAULT_RESCORE_M5_SUB)
+        );
 
         for bad in ["-0.1", "NaN", "inf"] {
             assert!(parse_args(

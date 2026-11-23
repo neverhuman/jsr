@@ -41,7 +41,10 @@ pub use agc::{WarmAgc, WarmAgcConfig};
 pub use agc_stream::AgcStream;
 pub use engine::{Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
-pub use lm::{FfnnActivation, FfnnLm, LmConfig, NgramLm, TokenLm};
+pub use lm::{
+    FfnnActivation, FfnnLm, LmConfig, NgramLm, TfConfig, TfDirection, TfRescorer, TfScore,
+    TfWorkspace, TokenLm,
+};
 pub use model::{Arch, Model};
 pub use peek::{PeekConfig, PeekEvent, PeekSession, PeekStats};
 

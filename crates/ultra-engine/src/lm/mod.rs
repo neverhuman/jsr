@@ -17,10 +17,16 @@ pub mod ffnn;
 mod ffnn_io;
 pub mod ilme;
 mod io;
+pub mod tf_rescore;
+mod tf_rescore_io;
+mod tf_rescore_trie;
 pub mod traits;
 
 pub use ffnn::{FfnnActivation, FfnnLm};
 pub use ilme::{IlmeArtifact, StatelessIlme, ILME_SCHEMA};
+pub use tf_rescore::{
+    TfConfig, TfDirection, TfRescorer, TfScore, TfWorkspace, TF_MAGIC, TF_VERSION,
+};
 pub use traits::TokenLm;
 
 use std::path::Path;

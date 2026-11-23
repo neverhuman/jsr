@@ -1,9 +1,11 @@
 //! CTC forward log-probability, duplicate-segmentation aggregation, and word-level Minimum
 //! Bayes Risk (MBR) selection with temperature scaling for H45 / H55 Wave 1A.
 
+use super::tf::CommitTfRescoreConfig;
 use super::types::CommitConfig;
 use super::vocab::CtcVocab;
-use crate::{Engine, EngineStream};
+use crate::lm::TfWorkspace;
+use crate::{Engine, EngineError, EngineStream};
 
 pub(crate) enum CtcInput<'a> {
     External(&'a CtcVocab, &'a [f32], usize),
@@ -208,25 +210,31 @@ pub(crate) fn select_commit_hyp(
     stream: &EngineStream,
     cfg: CommitConfig,
     ctc: Option<CtcInput<'_>>,
-) -> (String, usize) {
-    if eng.lm.is_some() && ctc.is_none() && !cfg.mbr_enabled {
-        return (eng.text(stream), 0);
+    tf: Option<(&CommitTfRescoreConfig, &mut TfWorkspace)>,
+) -> Result<(String, usize), EngineError> {
+    if eng.lm.is_some() && ctc.is_none() && !cfg.mbr_enabled && tf.is_none() {
+        return Ok((eng.text(stream), 0));
     }
     let Some(beam) = &stream.dec.beam else {
-        return (eng.text(stream), 0);
+        return Ok((eng.text(stream), 0));
     };
     if beam.hyps.len() <= 1 {
-        return (eng.text(stream), 0);
+        return Ok((eng.text(stream), 0));
     }
+    let tf_scores = match tf {
+        Some((tcfg, tws)) => Some(tcfg.rescore_hyps(eng, &beam.hyps, tws)?),
+        None => None,
+    };
     let mut raw_hyps = Vec::with_capacity(beam.hyps.len());
-    for hy in &beam.hyps {
+    for (i, hy) in beam.hyps.iter().enumerate() {
         let ids: Vec<i64> = hy.tokens.iter().map(|&t| i64::from(t)).collect();
         let text = eng.model.tokens.decode_ids(&ids);
+        let base_score = tf_scores.as_ref().map_or(hy.score, |v| v[i]);
         let score = match ctc {
-            None => hy.score,
+            None => base_score,
             Some(CtcInput::External(vocab, lp, frames)) => {
                 let ctc_lp = ctc_rescore_text(vocab, lp, frames, &text);
-                combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
+                combine_ctc_rnnt_scores(base_score, ctc_lp, cfg.ctc_weight)
             }
             Some(CtcInput::ModelHead(opt_vocab, lp, frames, ctc_v)) => {
                 let blank = eng.model.arch.blank;
@@ -241,7 +249,7 @@ pub(crate) fn select_commit_hyp(
                             f32::NEG_INFINITY
                         }
                     });
-                combine_ctc_rnnt_scores(hy.score, ctc_lp, cfg.ctc_weight)
+                combine_ctc_rnnt_scores(base_score, ctc_lp, cfg.ctc_weight)
             }
         };
         raw_hyps.push((text, score));
@@ -259,5 +267,5 @@ pub(crate) fn select_commit_hyp(
             .map_or(0, |(i, _)| i)
     };
     let (_, text, _, first_idx) = merged.swap_remove(best_g);
-    (text, first_idx)
+    Ok((text, first_idx))
 }
