@@ -9,7 +9,7 @@ set -uo pipefail
 NR=$1 GPU=$2 CPUS=$3 NAME=$4
 shift 4
 D=$HOME/jsr-data; R=$D/runs/train/$NAME
-export JSR_DATA=$D PY=$D/venvs/train/bin/python NNODES=${NNODES:-4} NODE_RANK=$NR MASTER_ADDR=172.27.124.200 MASTER_PORT=${MASTER_PORT:-29710} NCCL_SOCKET_IFNAME=eno1
+export JSR_DATA=$D PY=$D/venvs/train/bin/python NNODES=${NNODES:-4} NODE_RANK=$NR MASTER_ADDR=${MASTER_ADDR:?set MASTER_ADDR (see local fleet hosts file)} MASTER_PORT=${MASTER_PORT:-29710} NCCL_SOCKET_IFNAME=eno1
 bash $HOME/jsr/.agent/worktrees/trainer/python/ultra/train/ops/launch_ddp.sh "$R" "$CPUS" "$GPU" -- --preset S \
   --splits train-clean-100 train-clean-360 train-other-500 --device cuda --threads 4 --init-from $D/seeds/A1_seed_ema.pt --set seed=1234 \
   budget_s=${BUDGET:-5200.0} max_batch=${MAXB:-1152} optimizer=adamw lr=0.001 warmup=1000 total_steps=${TOTAL:-36000} \
