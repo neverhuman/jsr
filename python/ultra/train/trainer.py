@@ -146,6 +146,8 @@ class TrainConfig:
     zloss: float = 0.0
     # H26 CR-CTC two-view SpecAugment consistency KL weight (0 = off, default bit-for-bit).
     cr_ctc_weight: float = 0.0
+    stream_ctx_s: float = 0.0  # H41 arm 11 stream-context augmentation (train/stream_ctx.py; 0 = off)
+    stream_ctx_cap: float = 1.5
     # H41 full-form CR-CTC (needs cr_ctc_weight > 0): two SpecAugment views per step, CTC and
     # transducer loss on BOTH views plus the consistency KL; the views run one after the other,
     # so memory stays at one view's graph and a step costs about 2.3x. False = unchanged path.
@@ -249,7 +251,8 @@ class Trainer:
         # options added later are appended only when set, so a checkpoint written before they
         # existed still matches and a resumed run keeps its divergence baselines
         sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
-                                    ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half)) if v]
+                                    ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half),
+                                    ("stream_ctx", c.stream_ctx_s)) if v]
         return {"loss": sig, "dev": [c.dev_split, c.dev_limit, c.chunk]}
 
     def reset_watch(self) -> None:
@@ -370,7 +373,8 @@ class Trainer:
                                     **({"inter_ctc_weight": self.cfg.inter_ctc_weight}
                                        if self.cfg.inter_ctc_weight else {}),
                                     **({"balancer_weight": self.cfg.balancer_weight}
-                                       if self.cfg.balancer_weight else {}))
+                                       if self.cfg.balancer_weight else {}),
+                                    **({"ctx": b.ctx} if b.ctx is not None else {}))
         if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
@@ -602,11 +606,11 @@ class Trainer:
             return
         if self.best_ema is None or self.loss_ema < self.best_ema:
             self.best_ema = self.loss_ema
-        if self.loss_ema > (1 + c.diverge_ratio) * self.best_ema:
+        if self.loss_ema > self.best_ema + c.diverge_ratio * abs(self.best_ema):  # |best|: loss can be < 0
             self.over_since = self.over_since or self.step
             if self.step - self.over_since >= c.diverge_patience:
-                self._diverged(f"train-loss EMA {self.loss_ema:.3f} > (1 + {c.diverge_ratio}) x "
-                               f"best {self.best_ema:.3f} for {c.diverge_patience} steps",
+                self._diverged(f"train-loss EMA {self.loss_ema:.3f} > best {self.best_ema:.3f} + "
+                               f"{c.diverge_ratio} x |best| for {c.diverge_patience} steps",
                                {"grad_norm": r["grad_norm"]})
         else:
             self.over_since = None
@@ -921,6 +925,9 @@ def main(argv=None) -> int:
             if len(w) != world or min(w) <= 0 or not cfg.ddp_global_batches:
                 raise ValueError("ddp_rank_weights needs one positive weight per rank and ddp_global_batches")
             source.rank_weights = w
+    if cfg.stream_ctx_s:  # H41 arm 11, single-GPU and DDP alike (parquet loader only)
+        source.stream_ctx_s, source.stream_ctx_cap = cfg.stream_ctx_s, cfg.stream_ctx_cap
+        print(json.dumps({"stream_ctx_s": cfg.stream_ctx_s, "stream_ctx_cap": cfg.stream_ctx_cap}), flush=True)
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
     cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"

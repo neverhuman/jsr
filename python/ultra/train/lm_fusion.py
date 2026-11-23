@@ -14,6 +14,9 @@ Tokens are written as decimal output indices ("17"; index 0 is blank) both in th
 (`python -m train.lm_decode tokens`) and here, so piece strings such as "<unk>" never collide
 with KenLM's own symbols. A token the LM never saw scores as KenLM's <unk>.
 
+With fusion on, the scores `modified_beam_search` returns in `nbest` include the LM and LODR terms
+(fused scores); callers that need acoustic scores must decode without fusion.
+
 Cost model for an engine: one n-gram lookup per (hypothesis, candidate token). Here a whole row
 (all tokens after one context) is computed once per distinct context and cached, because the
 Python beam adds the row to every frame of that hypothesis.

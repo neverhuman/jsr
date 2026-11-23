@@ -189,7 +189,8 @@ class ASRModel(nn.Module):
                simple_detach: bool = False, zloss_weight: float = 0.0,
                cr_ctc_weight: float = 0.0, delay_penalty: float = 0.0,
                inter_ctc_weight: float = 0.0, balancer_weight: float = 0.0,
-               view: torch.Tensor | None = None, cr_target: torch.Tensor | None = None) -> dict:
+               view: torch.Tensor | None = None, cr_target: torch.Tensor | None = None,
+               ctx: torch.Tensor | None = None) -> dict:
         """`view` / `cr_target` serve the full-form CR-CTC step (trainer.cr_ctc_full), which runs one
         view per call: `view` is that view's normalised, already augmented input (no augmentation
         here), `cr_target` the other view's detached CTC log-posteriors; the result then carries
@@ -206,6 +207,10 @@ class ASRModel(nn.Module):
             enc, enc_lens = self.encoder(x, feat_lens, chunk)
             aux = {}
         enc = enc.float()
+        if ctx is not None:  # H41 arm 11: the losses see only the utterance, not its prepended context
+            from train.stream_ctx import shift_rows
+
+            enc, enc_lens = shift_rows(enc, enc_lens, ctx)
         # Heads and losses run in fp32 even under autocast.
         with torch.autocast(device_type=enc.device.type, enabled=False):
             # CTC on the dense 25 Hz grid.

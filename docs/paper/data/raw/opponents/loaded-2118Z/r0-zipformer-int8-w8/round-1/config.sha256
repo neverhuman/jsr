@@ -1,0 +1,12 @@
+98a8ca0ff49f1ec4d963c0ebc6147ea117b95325fdd030ba942a3595ffb1424c  /home/ubuntu/jsr-data/opponents/bench-open/bin/ultra-measure
+e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /usr/bin/python3
+2f98a3f25b2ae1b24883f5bb78c6bc1e7e6beb024a0011e9e763195d8bbf8254  /home/ubuntu/jsr-data/opponents/bench-open/anchor/r0-zipformer-int8/manifest.json
+98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02  /home/ubuntu/jsr-data/opponents/bench-open/anchor/r0-zipformer-int8/model/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1  /home/ubuntu/jsr-data/opponents/bench-open/anchor/r0-zipformer-int8/model/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297  /home/ubuntu/jsr-data/opponents/bench-open/anchor/r0-zipformer-int8/model/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb  /home/ubuntu/jsr-data/opponents/bench-open/anchor/r0-zipformer-int8/model/tokens.txt
+4b3607aebd1784b26b6f9b20e4bd974c7ab8287043e4d095cb7d2cb40b5e566e  /home/ubuntu/jsr-data/opponents/bench-open/anchor/sherpa-lib/libonnxruntime.so
+c72c8b56d8621a2742e89cbc891fb5a7af1aef2bf208d1001b93a7843812e585  /home/ubuntu/jsr-data/opponents/bench-open/anchor/sherpa-lib/libsherpa-onnx-c-api.so
+9bfedb5eddeff47b6c6d13473e7a949501a66f2a2149d8b1c9c89a3fcc8dd0a7  /home/ubuntu/jsr-data/opponents/bench-open/anchor/ultra-cold-wav
+f397eca4e81d584eabcbc432439a6d5698621c032030836dee6b4d7833712e59  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_workers.py
+ba0dca51aac0b00b3aac65f1fe117035b8888274bda9c72e459809866360d8bc  /home/ubuntu/jsr-data/opponents/bench-open/harness/docs/paper/opponents/open_common.py

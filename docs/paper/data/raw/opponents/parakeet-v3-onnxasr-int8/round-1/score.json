@@ -1,0 +1,61 @@
+{
+  "schema": "ultra.score-report/v1",
+  "normaliser_id": "ultra-en-wer-norm/v1",
+  "normaliser_sha256": "988c59acad873bf0a0c50bdcf434dde0b5125cf51c2cef887bfc63f4f89113e8",
+  "weights": {
+    "dev-clean": 0.5,
+    "dev-other": 0.5
+  },
+  "weights_sha256": "01dbcb5f901deeb0179fc9eea2ecad5e322c37f198603634ae53211c353f10be",
+  "system_a": {
+    "utterances": 730,
+    "datasets": {
+      "dev-clean": {
+        "counts": {
+          "ref_words": 8503,
+          "hyp_words": 8482,
+          "matches": 8304,
+          "substitutions": 163,
+          "deletions": 36,
+          "insertions": 15
+        },
+        "wer": 0.02516758791014936,
+        "utterances": 400,
+        "speakers": 40,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      },
+      "dev-other": {
+        "counts": {
+          "ref_words": 5945,
+          "hyp_words": 5941,
+          "matches": 5696,
+          "substitutions": 222,
+          "deletions": 27,
+          "insertions": 23
+        },
+        "wer": 0.04575273338940286,
+        "utterances": 330,
+        "speakers": 33,
+        "silence": {
+          "utterances": 0,
+          "inserted_words": 0,
+          "false_transcript_utterances": 0,
+          "seconds": null,
+          "insertions_per_hour": null,
+          "false_transcripts_per_hour": null
+        }
+      }
+    },
+    "pooled_wer": 0.03363787375415282,
+    "macro_wer": 0.03546016064977611
+  },
+  "system_b": null,
+  "comparison": null
+}

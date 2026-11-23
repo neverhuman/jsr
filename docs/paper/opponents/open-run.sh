@@ -209,6 +209,9 @@ mv "$side/host.gate.json" "$side/host.freq.tsv" "$side/host.cpu.json" "$run/"
 rm -r "$side"
 printf '%s\n' "$arm" > "$run/arm"
 printf '%s\n' "$panel" > "$run/panel"
+if [[ -f $PWD/harness.commit ]]; then
+    cp "$PWD/harness.commit" "$run/harness.commit"  # the deployed lane commit, when the deployment records it
+fi
 python3 "$tool" audio-seconds "$root/panel" > "$run/audio.seconds"
 (
     # shellcheck source=docs/paper/opponents/open-arms.sh

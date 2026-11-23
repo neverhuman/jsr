@@ -68,6 +68,9 @@ SYSTEMS = {
     "jsr-h22ctl-79800-ema-int8": (
         "JSR H22ctl 79800 EMA INT8", "JSR H22ctl INT8", "JsrHtwentytwo", "ultra-engine e2ef608 (ultra-cold-wav)",
         "streaming", "ours", "H22ctl step 79800 EMA, prepared INT8, greedy, 20 ms packets (session anchor)"),
+    "jsr-a1-30000-ema-int8": (
+        "JSR A1 30000 EMA INT8", "JSR A1 30k INT8", "JsrAoneThirtyK", "ultra-engine e2ef608 (ultra-cold-wav)",
+        "streaming", "ours", "A1 step 30000 EMA, prepared INT8, greedy, 20 ms packets (TIMING entry 6b)"),
     "jsr-d2e-16457-int8": (
         "JSR D2e 16457 INT8", "JSR D2e INT8", "JsrDtwoE", "ultra-engine e2ef608 (ultra-cold-wav)", "streaming", "ours",
         "D2e step 16457, prepared INT8, greedy, 20 ms packets (session anchor)"),
@@ -79,7 +82,7 @@ SYSTEMS = {
 ANCHORS = {"jsr-h22ctl-79800-ema-int8", "jsr-d2e-16457-int8", "r0-zipformer-int8"}
 # The paper's variant names where they differ from the arm names (the anchors join the primary rows).
 PAPER_VARIANT = {"jsr-h22ctl-79800-ema-int8": "h22ctl-79800-ema-int8", "jsr-d2e-16457-int8": "d2e-16457-int8",
-                 "r0-zipformer-int8": "r0-int8"}
+                 "r0-zipformer-int8": "r0-int8", "jsr-a1-30000-ema-int8": "a1-30000-ema-int8"}
 SHARED_MODEL = ("vosk-",)  # --workers N shares one loaded model between N recogniser threads
 PANEL_LABEL = {
     "full": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
@@ -98,7 +101,7 @@ def workload():
 
 def split_arm(arm):
     """`(variant, threads, parallel)` of an arm name."""
-    for suffix, parallel in (("-t8", "intra_op"), ("-w8", None)):
+    for suffix, parallel in (("-t8", "intra_op"), ("-w8", None), ("-s8", "workers")):
         if arm.endswith(suffix):
             variant = arm[:-len(suffix)]
             return variant, 8, parallel or ("workers" if variant.startswith(SHARED_MODEL) else "processes")
@@ -183,6 +186,7 @@ def repetition(run):
         "frequency_khz": mean_frequency_khz(run), "loadavg": [guard["loadavg_before"][0], guard["loadavg_after"][0]],
         "recogniser_s": (json.loads((run / "trace.summary.json").read_text())["recogniser_seconds"]
                          if (run / "trace.summary.json").is_file() else None),
+        "harness_commit": (run / "harness.commit").read_text().strip() if (run / "harness.commit").is_file() else None,
     }
     if (run / "score.json").is_file():
         score = json.loads((run / "score.json").read_text())["system_a"]
@@ -347,6 +351,9 @@ def base_row(variant, arm, threads, parallel, reps, total, session):
         "label": "exploratory", "session": session,
         "source": str(mid["run"] / "measurement.json"), "receipt_sha256": sha256(mid["run"] / "measurement.json"),
     }
+    commits = sorted({rep["harness_commit"] for rep in reps if rep.get("harness_commit")})
+    if commits:
+        row["harness_commits"] = commits
     if mid["panel"] != "full":
         row.update(timing_workload=PANEL_LABEL[mid["panel"]], timing_workload_digest=mid["workload_digest"],
                    timing_audio_seconds=mid["audio_seconds"])
