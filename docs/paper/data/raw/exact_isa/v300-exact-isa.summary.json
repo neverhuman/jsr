@@ -1,0 +1,1013 @@
+{
+ "artifact": "ULTRA v3.0.0 (RC1-EMA INT8)",
+ "label": "exploratory",
+ "pairs": [
+  {
+   "identical": 730,
+   "isa_a": null,
+   "isa_b": null,
+   "kind": "live",
+   "label": "live | ultra-cold-wav v3.0.0 (same bytes): Zen 2 vs Xeon 8358, both Isa::detect() = AVX2/FMA",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "live | release commit binary provisional (same bytes): Zen 2 vs Xeon 8358",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "live | commit binary provisional: x86 release (AVX2) vs M3 build of bb1071a (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "live | commit binary provisional: Xeon 8358 (AVX2) vs M3 (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "eval s1 | Zen 2 AVX2 (H0 build) vs Xeon 8358 AVX2 (x6 build), both 9c8c05e5",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "eval s1 | x6 build (same bytes) on Zen 2 vs on Xeon 8358, AVX2",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "eval s1 | H0 build vs x6 build of 9c8c05e5, both on Zen 2",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "eval s1 | Xeon 8358: AVX2/FMA vs forced AVX-512 VNNI (same bytes)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "eval s1 | Zen 2 AVX2 vs Xeon 8358 AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "eval s1 | Zen 2 AVX2 vs M3 NEON (+i8mm)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "eval s1 | Xeon AVX-512 VNNI vs M3 NEON (+i8mm)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "eval s16 | Xeon 8358: AVX2/FMA vs AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "eval s16 | Zen 2 AVX2 vs Xeon AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "eval s16 | Zen 2 AVX2 vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "eval s16 | Xeon AVX-512 VNNI vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 3",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 5",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 32",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "neon",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "batch | M3 NEON: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "batch | Xeon AVX2: streams 1 vs 32 aligned (160 ms packets, full batches)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 32 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "live",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 5 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "neon",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "batch | M3 NEON: streams 1 vs 32 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "eval s32 aligned | Xeon AVX-512 VNNI vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "eval s1 | Zen 2 AVX2 (H0 build) vs Xeon 8358 AVX2 (x6 build), both 9c8c05e5",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "eval s1 | x6 build (same bytes) on Zen 2 vs on Xeon 8358, AVX2",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "eval s1 | H0 build vs x6 build of 9c8c05e5, both on Zen 2",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "eval s1 | Xeon 8358: AVX2/FMA vs forced AVX-512 VNNI (same bytes)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "eval s1 | Zen 2 AVX2 vs Xeon 8358 AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "eval s1 | Zen 2 AVX2 vs M3 NEON (+i8mm)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "eval s1 | Xeon AVX-512 VNNI vs M3 NEON (+i8mm)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "eval s16 | Xeon 8358: AVX2/FMA vs AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "eval s16 | Zen 2 AVX2 vs Xeon AVX-512 VNNI",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "eval s16 | Zen 2 AVX2 vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "eval s16 | Xeon AVX-512 VNNI vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 3",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 5",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "batch | Zen 2 AVX2: streams 1 vs 32",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "neon",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "batch | M3 NEON: streams 1 vs 16",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "tokens",
+   "label": "batch | Xeon AVX2: streams 1 vs 32 aligned (160 ms packets, full batches)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 32 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "avx512vnni",
+   "kind": "tokens",
+   "label": "batch | Xeon AVX-512 VNNI: streams 1 vs 5 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "neon",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "batch | M3 NEON: streams 1 vs 32 aligned (160 ms packets)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx512vnni",
+   "isa_b": "neon",
+   "kind": "tokens",
+   "label": "eval s32 aligned | Xeon AVX-512 VNNI vs M3 NEON",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "final",
+   "label": "final | release binary (same bytes): Zen 2 vs Xeon 8358",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "final",
+   "label": "final | x86 release (AVX2) vs M3 build of bb1071a (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "final",
+   "label": "final | Xeon 8358 (AVX2) vs M3 (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "revised",
+   "label": "final | release binary (same bytes): Zen 2 vs Xeon 8358",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "revised",
+   "label": "final | x86 release (AVX2) vs M3 build of bb1071a (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "revised",
+   "label": "final | Xeon 8358 (AVX2) vs M3 (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "avx2fma",
+   "kind": "pcm_truncated",
+   "label": "final | release binary (same bytes): Zen 2 vs Xeon 8358",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "pcm_truncated",
+   "label": "final | x86 release (AVX2) vs M3 build of bb1071a (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "avx2fma",
+   "isa_b": "neon",
+   "kind": "pcm_truncated",
+   "label": "final | Xeon 8358 (AVX2) vs M3 (NEON)",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": null,
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "binaries on H0 | ultra-cold-wav vs commit provisional",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": null,
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "binaries on H0 | ultra-cold-wav vs ultra-engine-eval s1",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 727,
+   "isa_a": null,
+   "isa_b": null,
+   "kind": "live",
+   "label": "binaries on H0 | ultra-cold-wav vs release `ultra transcribe` CLI",
+   "mismatch_ids": [
+    "u00081",
+    "u00151",
+    "u00507"
+   ],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": null,
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "binaries on x6 | ultra-cold-wav vs commit provisional",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": null,
+   "isa_b": "avx2fma",
+   "kind": "live",
+   "label": "binaries on x6 | ultra-cold-wav vs ultra-engine-eval s1",
+   "mismatch_ids": [],
+   "of": 730
+  },
+  {
+   "identical": 730,
+   "isa_a": "neon",
+   "isa_b": "neon",
+   "kind": "live",
+   "label": "binaries on M3 | commit provisional vs ultra-engine-eval s1",
+   "mismatch_ids": [],
+   "of": 730
+  }
+ ],
+ "runs": {
+  "m3ultra (Apple M3 Ultra) / eval-default-s1": {
+   "binary_sha256": "12894a74aade741a7fcc8e2b96c5654b74ae2500056dc742e8e431e0f6c2eb2e",
+   "cpu_flags": [
+    "FEAT_BF16",
+    "FEAT_DotProd",
+    "FEAT_FHM",
+    "FEAT_I8MM",
+    "neon"
+   ],
+   "end_utc": "2026-11-23T21:27:35Z",
+   "isa": "neon",
+   "mean_streams_per_decode_call": 1.0,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:26:17Z",
+   "streams": 1
+  },
+  "m3ultra (Apple M3 Ultra) / eval-default-s16": {
+   "binary_sha256": "12894a74aade741a7fcc8e2b96c5654b74ae2500056dc742e8e431e0f6c2eb2e",
+   "cpu_flags": [
+    "FEAT_BF16",
+    "FEAT_DotProd",
+    "FEAT_FHM",
+    "FEAT_I8MM",
+    "neon"
+   ],
+   "end_utc": "2026-11-23T21:27:36Z",
+   "isa": "neon",
+   "mean_streams_per_decode_call": 2.257954622879335,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:26:17Z",
+   "streams": 16
+  },
+  "m3ultra (Apple M3 Ultra) / eval-default-s32-p160": {
+   "binary_sha256": "12894a74aade741a7fcc8e2b96c5654b74ae2500056dc742e8e431e0f6c2eb2e",
+   "cpu_flags": [
+    "FEAT_BF16",
+    "FEAT_DotProd",
+    "FEAT_FHM",
+    "FEAT_I8MM",
+    "neon"
+   ],
+   "end_utc": "2026-11-23T21:47:24Z",
+   "isa": "neon",
+   "mean_streams_per_decode_call": 29.483985765124554,
+   "packet_ms": 160,
+   "start_utc": "2026-11-23T21:46:12Z",
+   "streams": 32
+  },
+  "m3ultra (Apple M3 Ultra) / final-commit": {
+   "binary_sha256": "80a5a96930c5651eb9c0d684d802e865a8d1ec74b2a7967cea92416777ffa0f8",
+   "cpu_flags": [
+    "FEAT_BF16",
+    "FEAT_DotProd",
+    "FEAT_FHM",
+    "FEAT_I8MM",
+    "neon"
+   ],
+   "end_utc": "2026-11-23T21:29:06Z",
+   "isa": "neon",
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:26:17Z",
+   "streams": null
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-avx2fma-s16": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:36:26Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 2.257954622879335,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:33:04Z",
+   "streams": 16
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-avx512vnni-s1": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:36:28Z",
+   "isa": "avx512vnni",
+   "mean_streams_per_decode_call": 1.0,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:33:04Z",
+   "streams": 1
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-avx512vnni-s16": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:35:24Z",
+   "isa": "avx512vnni",
+   "mean_streams_per_decode_call": 2.257954622879335,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:33:04Z",
+   "streams": 16
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-avx512vnni-s32-p160": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:47:50Z",
+   "isa": "avx512vnni",
+   "mean_streams_per_decode_call": 29.483985765124554,
+   "packet_ms": 160,
+   "start_utc": "2026-11-23T21:46:09Z",
+   "streams": 32
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-avx512vnni-s5-p160": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:47:59Z",
+   "isa": "avx512vnni",
+   "mean_streams_per_decode_call": 4.967770948883226,
+   "packet_ms": 160,
+   "start_utc": "2026-11-23T21:46:09Z",
+   "streams": 5
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-default-s1": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:36:49Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 1.0,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:33:04Z",
+   "streams": 1
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / eval-default-s32-p160": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:49:13Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 29.483985765124554,
+   "packet_ms": 160,
+   "start_utc": "2026-11-23T21:46:09Z",
+   "streams": 32
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / final-commit": {
+   "binary_sha256": "9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:38:28Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:31:08Z",
+   "streams": null
+  },
+  "xeon8358 (Intel Xeon Platinum 8358) / live-coldwav": {
+   "binary_sha256": "bc0729578eebce8ba5e1594a2fb08e9f244f097329af601057154f77c2667897",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx512f",
+    "avx512dq",
+    "avx512cd",
+    "avx512bw",
+    "avx512vl",
+    "avx512_vnni"
+   ],
+   "end_utc": "2026-11-23T21:34:44Z",
+   "isa": null,
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:31:08Z",
+   "streams": null
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-default-s1": {
+   "binary_sha256": "7ca033715589cc8bd0222771f68ac2c264ef64b6a7b80fa26ce8ac1ab909d58f",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:48:16Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 1.0,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:24:33Z",
+   "streams": 1
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-default-s16": {
+   "binary_sha256": "7ca033715589cc8bd0222771f68ac2c264ef64b6a7b80fa26ce8ac1ab909d58f",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:38:12Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 2.257954622879335,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:24:33Z",
+   "streams": 16
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-default-s3": {
+   "binary_sha256": "7ca033715589cc8bd0222771f68ac2c264ef64b6a7b80fa26ce8ac1ab909d58f",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:45:30Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 1.1524952182229178,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:24:33Z",
+   "streams": 3
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-default-s32": {
+   "binary_sha256": "7ca033715589cc8bd0222771f68ac2c264ef64b6a7b80fa26ce8ac1ab909d58f",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:36:44Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 4.077263779527559,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:24:33Z",
+   "streams": 32
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-default-s5": {
+   "binary_sha256": "7ca033715589cc8bd0222771f68ac2c264ef64b6a7b80fa26ce8ac1ab909d58f",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:44:54Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 1.2814663006070917,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:24:33Z",
+   "streams": 5
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / eval-x6build-s1": {
+   "binary_sha256": "df3d724ec27f20c55106fdf0ef010411d2923e8d2b08535866846c5d563e3ead",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T22:03:04Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": 1.0,
+   "packet_ms": 20,
+   "start_utc": "2026-11-23T21:33:16Z",
+   "streams": 1
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / final-commit": {
+   "binary_sha256": "9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T22:03:04Z",
+   "isa": "avx2fma",
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:24:35Z",
+   "streams": null
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / live-coldwav": {
+   "binary_sha256": "bc0729578eebce8ba5e1594a2fb08e9f244f097329af601057154f77c2667897",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:55:31Z",
+   "isa": null,
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:24:35Z",
+   "streams": null
+  },
+  "zen2 (AMD Threadripper PRO 3995WX) / live-ultra-cli": {
+   "binary_sha256": "6d8ae0872c4b5f8f3bdc7bd9df05fc479a1df4dd245b5c97477cadfb4f78d718",
+   "cpu_flags": [
+    "sse4_2",
+    "avx",
+    "avx2",
+    "fma",
+    "f16c",
+    "bmi2"
+   ],
+   "end_utc": "2026-11-23T21:48:40Z",
+   "isa": null,
+   "mean_streams_per_decode_call": null,
+   "packet_ms": null,
+   "start_utc": "2026-11-23T21:34:15Z",
+   "streams": null
+  }
+ },
+ "schema": "exact-isa.v300-identity/v1",
+ "scope": {
+  "avx512": "AVX-512 VNNI kernels are opt-in (--isa avx512vnni in ultra-engine-eval); evidence covers the live stream. Every release x86 binary (ultra-cold-wav, ultra, ultra-engine-commit) calls Isa::detect(), which picks AVX2/FMA on any x86 incl. AVX-512 hosts.",
+  "batch": "live stream only (ultra-engine-eval --streams N decodes the N streams together each round); the commit pass decodes one segment at a time.",
+  "final": "x86 (release ultra-engine-commit 9a142e8e, AVX2/FMA, on Zen 2 and on Xeon 8358) vs ARM (the same commit bb1071a built on Apple M3, NEON).",
+  "neon_builds": "M3 binaries are built with --no-default-features (the wer scoring feature is Linux-only); ultra-cold-wav does not build on macOS."
+ },
+ "weights_int8_sha256": "edac19d8d6f6968994c4235362155b726c26b107b3d85f0b79405a2b90acd46a",
+ "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)",
+ "workload_digest": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963"
+}

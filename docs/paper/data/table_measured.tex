@@ -4,22 +4,24 @@
 \multicolumn{10}{@{}l}{\textbf{AMD Threadripper PRO 3995WX (Zen 2, AVX2)}} \\
 \midrule
 \multicolumn{10}{@{}l}{\textit{Live streaming and streaming + utterance-segmented commit pass (sorted by 1-core speed)}} \\
-\textbf{ULTRA v3.0.0 (live)} & ours & \ColdUltraLiveSpeed & 10/15 & \ColdUltraLiveWerClean & \ColdUltraLiveWerOther & \ColdUltraLiveWer & \ColdUltraLiveRss & \ColdUltraLiveModel & \ColdUltraLiveWatts \\
-Zipformer INT8~\cite{yao2024zipformer,sherpaonnx} & sherpa-onnx & \ColdZipSpeed & 7/15 & \ColdZipWerClean & \ColdZipWerOther & \ColdZipWer & \ColdZipRss & \ColdZipModel & \ColdZipWatts \\
-\textbf{ULTRA v3.0.0 (final, seg.)} & ours & \ColdUltraFinalSpeed & 6/15 & \ColdUltraFinalWerClean & \ColdUltraFinalWerOther & \ColdUltraFinalWer & \ColdUltraFinalRss & \ColdUltraFinalModel & \ColdUltraFinalWatts \\
-Moonshine Tiny Streaming~\cite{kudlur2026moonshinev2} & Moonshine Voice & \ColdMoonTinySpeed & 12/15 & \ColdMoonTinyWerClean & \ColdMoonTinyWerOther & \ColdMoonTinyWer & \ColdMoonTinyRss & \ColdMoonTinyModel & \ColdMoonTinyWatts \\
-Vosk Small (en-us 0.15)~\cite{vosk} & Vosk 0.3.45 & \ColdVoskSmallSpeed & 13/15 & \ColdVoskSmallWerClean & \ColdVoskSmallWerOther & \ColdVoskSmallWer & \ColdVoskSmallRss & \ColdVoskSmallModel & -- \\
-Vosk Large (en-us 0.22)~\cite{vosk}$^{\S}$ & Vosk 0.3.45 & \ColdVoskLargeSpeed & 11/15 & \ColdVoskLargeWerClean & \ColdVoskLargeWerOther & \ColdVoskLargeWer & \ColdVoskLargeRss & \ColdVoskLargeModel & -- \\
-Nemotron 0.6B (560 ms)~\cite{nemotron,nemospeechcpp}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoFiveSixtySpeed & 3/15 & \ColdNemoFiveSixtyWerClean & \ColdNemoFiveSixtyWerOther & \ColdNemoFiveSixtyWer & \ColdNemoFiveSixtyRss & \ColdNemoFiveSixtyModel & -- \\
-Moonshine Small Streaming~\cite{kudlur2026moonshinev2}$^{\ddagger}$ & Moonshine Voice & \ColdMoonSmallSpeed & 8/15 & \ColdMoonSmallWerClean & \ColdMoonSmallWerOther & \ColdMoonSmallWer & \ColdMoonSmallRss & \ColdMoonSmallModel & -- \\
-Nemotron 0.6B (160 ms)~\cite{nemotron}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoOneSixtySpeed & 4/15 & \ColdNemoOneSixtyWerClean & \ColdNemoOneSixtyWerOther & \ColdNemoOneSixtyWer & \ColdNemoOneSixtyRss & \ColdNemoOneSixtyModel & -- \\
-Whisper.cpp Streaming Tiny~\cite{whispercpp}$^{\S}$ & whisper.cpp 1.8.2 & \ColdWhisperCppTinySpeed & 15/15 & \ColdWhisperCppTinyWerClean & \ColdWhisperCppTinyWerOther & \ColdWhisperCppTinyWer & \ColdWhisperCppTinyRss & \ColdWhisperCppTinyModel & -- \\
-Nemotron 3.5 (80 ms)~\cite{nvidia2026nemotron35}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoThreeFiveSpeed & 9/15 & \ColdNemoThreeFiveWerClean & \ColdNemoThreeFiveWerOther & \ColdNemoThreeFiveWer & \ColdNemoThreeFiveRss & \ColdNemoThreeFiveModel & -- \\
-Whisper.cpp Streaming Base~\cite{whispercpp}$^{\S}$ & whisper.cpp 1.8.2 & \ColdWhisperCppBaseSpeed & 14/15 & \ColdWhisperCppBaseWerClean & \ColdWhisperCppBaseWerOther & \ColdWhisperCppBaseWer & \ColdWhisperCppBaseRss & \ColdWhisperCppBaseModel & -- \\
+\textbf{Isosyll v3.0.0 (live)} & ours & \ColdUltraLiveSpeed & 12/17 & \ColdUltraLiveWerClean & \ColdUltraLiveWerOther & \ColdUltraLiveWer & \ColdUltraLiveRss & \ColdUltraLiveModel & \ColdUltraLiveWatts \\
+Zipformer INT8~\cite{yao2024zipformer,sherpaonnx} & sherpa-onnx & \ColdZipSpeed & 9/17 & \ColdZipWerClean & \ColdZipWerOther & \ColdZipWer & \ColdZipRss & \ColdZipModel & \ColdZipWatts \\
+\textbf{Isosyll v3.0.0 (final, seg.)} & ours & \ColdUltraFinalSpeed & 8/17 & \ColdUltraFinalWerClean & \ColdUltraFinalWerOther & \ColdUltraFinalWer & \ColdUltraFinalRss & \ColdUltraFinalModel & \ColdUltraFinalWatts \\
+Moonshine Tiny Streaming~\cite{kudlur2026moonshinev2} & Moonshine Voice & \ColdMoonTinySpeed & 14/17 & \ColdMoonTinyWerClean & \ColdMoonTinyWerOther & \ColdMoonTinyWer & \ColdMoonTinyRss & \ColdMoonTinyModel & \ColdMoonTinyWatts \\
+Vosk Small (en-us 0.15)~\cite{vosk} & Vosk 0.3.45 & \ColdVoskSmallSpeed & 15/17 & \ColdVoskSmallWerClean & \ColdVoskSmallWerOther & \ColdVoskSmallWer & \ColdVoskSmallRss & \ColdVoskSmallModel & -- \\
+Vosk Large (en-us 0.22)~\cite{vosk}$^{\S}$ & Vosk 0.3.45 & \ColdVoskLargeSpeed & 13/17 & \ColdVoskLargeWerClean & \ColdVoskLargeWerOther & \ColdVoskLargeWer & \ColdVoskLargeRss & \ColdVoskLargeModel & -- \\
+Nemotron 0.6B (560 ms)~\cite{nemotron,nemospeechcpp}$^{\S}$ & NeMo-Speech.cpp & \ColdNemoFiveSixtySpeed & 5/17 & \ColdNemoFiveSixtyWerClean & \ColdNemoFiveSixtyWerOther & \ColdNemoFiveSixtyWer & \ColdNemoFiveSixtyRss & \ColdNemoFiveSixtyModel & \ColdNemoFiveSixtyWatts \\
+Moonshine Small Streaming~\cite{kudlur2026moonshinev2}$^{\ddagger}$ & Moonshine Voice & \ColdMoonSmallSpeed & 10/17 & \ColdMoonSmallWerClean & \ColdMoonSmallWerOther & \ColdMoonSmallWer & \ColdMoonSmallRss & \ColdMoonSmallModel & -- \\
+Nemotron 0.6B (160 ms)~\cite{nemotron}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoOneSixtySpeed & 6/17 & \ColdNemoOneSixtyWerClean & \ColdNemoOneSixtyWerOther & \ColdNemoOneSixtyWer & \ColdNemoOneSixtyRss & \ColdNemoOneSixtyModel & -- \\
+Whisper.cpp Streaming Tiny~\cite{whispercpp}$^{\S}$ & whisper.cpp 1.8.2 & \ColdWhisperCppTinySpeed & 17/17 & \ColdWhisperCppTinyWerClean & \ColdWhisperCppTinyWerOther & \ColdWhisperCppTinyWer & \ColdWhisperCppTinyRss & \ColdWhisperCppTinyModel & -- \\
+Nemotron 3.5 (80 ms)~\cite{nvidia2026nemotron35}$^{\ddagger}$ & NeMo-Speech.cpp & \ColdNemoThreeFiveSpeed & 11/17 & \ColdNemoThreeFiveWerClean & \ColdNemoThreeFiveWerOther & \ColdNemoThreeFiveWer & \ColdNemoThreeFiveRss & \ColdNemoThreeFiveModel & -- \\
+Whisper.cpp Streaming Base~\cite{whispercpp}$^{\S}$ & whisper.cpp 1.8.2 & \ColdWhisperCppBaseSpeed & 16/17 & \ColdWhisperCppBaseWerClean & \ColdWhisperCppBaseWerOther & \ColdWhisperCppBaseWer & \ColdWhisperCppBaseRss & \ColdWhisperCppBaseModel & -- \\
 \midrule
 \multicolumn{10}{@{}l}{\textit{Offline whole-utterance reference (sees full clip before emitting)}} \\
-Parakeet TDT v3 (onnx-asr, offline)~\cite{nvidia2025parakeettdtv3,onnxasr} & onnx-asr & \ColdParakeetOnnxAsrSpeed & 1/15 & \ColdParakeetOnnxAsrWerClean & \ColdParakeetOnnxAsrWerOther & \ColdParakeetOnnxAsrWer & \ColdParakeetOnnxAsrRss & \ColdParakeetOnnxAsrModel & -- \\
-Parakeet TDT v3 (sherpa-onnx, offline)~\cite{nvidia2025parakeettdtv3,sherpaonnx} & sherpa-onnx & \ColdParakeetTdtSpeed & 2/15 & \ColdParakeetTdtWerClean & \ColdParakeetTdtWerOther & \ColdParakeetTdtWer & \ColdParakeetTdtRss & \ColdParakeetTdtModel & \ColdParakeetTdtWatts \\
+Parakeet TDT v3 (onnx-asr, offline)~\cite{nvidia2025parakeettdtv3,onnxasr} & onnx-asr & \ColdParakeetOnnxAsrSpeed & 3/17 & \ColdParakeetOnnxAsrWerClean & \ColdParakeetOnnxAsrWerOther & \ColdParakeetOnnxAsrWer & \ColdParakeetOnnxAsrRss & \ColdParakeetOnnxAsrModel & -- \\
+Parakeet TDT v3 (sherpa-onnx, offline)~\cite{nvidia2025parakeettdtv3,sherpaonnx} & sherpa-onnx & \ColdParakeetTdtSpeed & 4/17 & \ColdParakeetTdtWerClean & \ColdParakeetTdtWerOther & \ColdParakeetTdtWer & \ColdParakeetTdtRss & \ColdParakeetTdtModel & \ColdParakeetTdtWatts \\
 \midrule
-\multicolumn{10}{@{}l}{\textit{Other-host timing (complete-panel 730-utt WER, not ranked on H1 speed)}} \\
-Parakeet unified en q8 (stream 160 ms)~\cite{nemospeechcpp}$^{\dagger}$ & NeMo-Speech.cpp & -- & 5/15 & \RelParakeetUnifiedClean & \RelParakeetUnifiedOther & \RelParakeetUnifiedWer & \RelParakeetUnifiedRss & -- & -- \\
+\multicolumn{10}{@{}l}{\textit{Additional full-panel WER without matched H1 timing}} \\
+Parakeet unified en q8 (stream 160 ms)~\cite{nemospeechcpp}$^{\dagger}$ & NeMo-Speech.cpp & -- & 7/17 & \RelParakeetUnifiedClean & \RelParakeetUnifiedOther & \RelParakeetUnifiedWer & \RelParakeetUnifiedRss & -- & -- \\
+Parakeet unified (whole clip)$^{\dagger}$ & NeMo-Speech.cpp & -- & 1/17 & \RelParakeetWholeClean & \RelParakeetWholeOther & \RelParakeetWholeWer & -- & -- & -- \\
+Nemotron Labs unified (whole clip)$^{\dagger}$ & NeMo-Speech.cpp & -- & 2/17 & \RelNemotronWholeClean & \RelNemotronWholeOther & \RelNemotronWholeWer & -- & -- & -- \\

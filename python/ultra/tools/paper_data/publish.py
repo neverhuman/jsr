@@ -16,10 +16,10 @@ from .evidence import HEADLINE, derived
 
 START, END = "<!-- money-plot:start -->", "<!-- money-plot:end -->"
 FIGURE_INPUTS = ("docs/paper/data/cold_dev.csv", "docs/paper/data/money_layout.tex", "docs/paper/data/money_frontier.csv",
-                 "docs/paper/figures/money.tex", "docs/paper/figures/style.tex", "docs/paper/figures/money_standalone.tex")
+                 "docs/paper/figures/money.tex", "docs/paper/figures/money_focused.tex", "docs/paper/figures/style.tex", "docs/paper/figures/money_standalone.tex")
 STAMP = "docs/paper/money.png.inputs"
 
-LEAD_BOTH = ("ULTRA is a small streaming Conformer transducer and an integer-exact pure-Rust CPU engine. "
+LEAD_BOTH = ("Isosyll is a small streaming Conformer transducer and an integer-exact pure-Rust CPU engine. "
              "One prepared INT8 artifact (`v3.0.0`) provides two operating points on the exact same weights—both on "
              "the quiet full-panel H1 speed–WER Pareto frontier: in the quiet full-panel H1 cohort, **live** greedy "
              "160 ms streaming is the fastest system on one CPU core (29.1× vs. 14.5× for Zipformer INT8, 2.0×), with "
@@ -29,7 +29,7 @@ LEAD_BOTH = ("ULTRA is a small streaming Conformer transducer and an integer-exa
              "WER (5.06% vs. 5.25%). Trained on LibriSpeech 960 h plus Libri-Light pseudo-labelled by R0 (the "
              "Zipformer comparator); all results are LibriSpeech DEV only.")
 
-LEAD_FINAL_ONLY = ("ULTRA is a small streaming Conformer transducer and an integer-exact pure-Rust CPU engine. "
+LEAD_FINAL_ONLY = ("Isosyll is a small streaming Conformer transducer and an integer-exact pure-Rust CPU engine. "
                    "On one prepared INT8 artifact (`v3.0.0`), the utterance-segmented **final** commit pass sits on "
                    "the quiet full-panel H1 speed–WER Pareto frontier alongside Zipformer INT8 and offline Parakeet "
                    "TDT v3 (`onnx-asr`), running within 2% of Zipformer's single-core speed (14.2× utterance-segmented "
@@ -59,7 +59,8 @@ def _quiet_full_h1_frontier_ids(drawn: list[dict]) -> set[str]:
     return {r["id"] for r in best}
 
 
-def readme_block(rows: list[dict], facts: dict, watts: str, extras: dict | None = None, *, subtitle: str = "") -> str:
+def readme_block(rows: list[dict], facts: dict, watts: str, extras: dict | None = None, *, subtitle: str = "", focused: bool = False,
+                 nemotron_note: str = "") -> str:
     """Markdown for the top of README.md: the summary, figure, caption, lead, supporting facts and speed-sorted table."""
     drawn = [r for r in rows if (r["machine"], r["threads"]) == HEADLINE and r["plot"]]
     extra_complete = (extras or {}).get("complete", [])
@@ -86,15 +87,24 @@ def readme_block(rows: list[dict], facts: dict, watts: str, extras: dict | None 
     if n_subset:
         scope_bits.append(f"{n_subset} slow rows time the 73-clip subset (§)")
     scope_tail = f" ({'; '.join(scope_bits)})" if scope_bits else ""
-    lines += [f"**Figure 1.** {facts['figure']} WER is common across all 730 utterances of the LibriSpeech DEV panel "
-              "(400 dev-clean + 330 dev-other, unified `ultra-score` normaliser). Throughput is the median of three "
-              f"cold runs on one pinned Zen 2 core, model load included{scope_tail}. The speed axis is linear. "
-              f"{diamond_note} Filled circles "
-              f"stream live; hollow circles decode offline whole clips; lighter circles are interim shared-host (H0) "
-              f"rows. {watts} DEV-only measurements. "
-              "[Read the paper](docs/paper/paper.pdf) · [v3.0.0 release record](docs/ultra/releases/v3.0.0.md).",
-              "", lead, "", "See the [benchmark freeze protocol](docs/ultra/FREEZE.md).", "", *facts["bullets"], "",
-              "| System | Mode | 1-core cold speed (× RT) | WER rank | W/stream (active core, CPU domain) | "
+    scope = ("The plot highlights four full-panel measurements. They use the same 730 LibriSpeech DEV "
+             "utterances for WER and timing, with the median of three cold runs on one pinned Zen 2 core. "
+             "The two Isosyll modes share one INT8 artifact. The final mode uses reference utterance boundaries. "
+             "The broader comparison below identifies its different timing conditions."
+             if focused else
+             "WER is common across all 730 utterances of the LibriSpeech DEV panel "
+             "(400 dev-clean + 330 dev-other, unified `ultra-score` normaliser). Throughput is the median of three "
+             f"cold runs on one pinned Zen 2 core, model load included{scope_tail}. {diamond_note} "
+             "Filled circles stream live. Hollow circles decode offline whole clips. Lighter circles are interim H0 rows.")
+    extra_note = f" {nemotron_note}" if focused and nemotron_note else ""
+    paper_note = " for the full comparison figure" if focused else ""
+    lines += [f"**Figure 1.** {facts['figure']} {scope} The speed axis is linear. {watts}{extra_note} "
+              f"[Read the paper](docs/paper/paper.pdf){paper_note} · [v3.0.0 release record](docs/ultra/releases/v3.0.0.md).",
+              "", lead, "", "See the [benchmark freeze protocol](docs/ultra/FREEZE.md).", "", *facts["bullets"], ""]
+    isa_proof = (extras or {}).get("isa_proof")
+    if isa_proof:
+        lines += [isa_proof, ""]
+    lines += ["| System | Mode | 1-core cold speed (× RT) | WER rank | W/stream (active core, CPU domain) | "
               "dev-clean WER (%) | dev-other WER (%) | Pooled WER (%) | Peak RSS (MB) | Timing / Host |",
               "|---|---|---:|---:|---:|---:|---:|---:|---:|---|"]
     # Dynamic pooled WER rank over all complete-panel rows (Zen 2 plotted + other-host complete-panel)
@@ -119,15 +129,17 @@ def readme_block(rows: list[dict], facts: dict, watts: str, extras: dict | None 
                      f"{fmt(d['wer_clean'], 2)} | {fmt(d['wer_other'], 2)} | {fmt(d['wer'], 2)} | "
                      f"{fmt(d['rss_mb'], 0)} | {where} |")
     for e in extra_complete:
-        lines.append(f"| {e['system']} | {e['mode']} | — (Xeon ~{fmt(e['xeon_cpu'], 0)} CPU-s/s) | "
-                     f"{wer_rank[e['id']]}/{n_complete} | — | {fmt(e['wer_clean'], 2)} | "
-                     f"{fmt(e['wer_other'], 2)} | {fmt(e['wer'], 2)} | {fmt(e['rss_mb'], 0)} | "
-                     "other-host timing (M3 Ultra WER / Xeon speed, not ranked on H1 speed) |")
+        cost = f"— (Xeon ~{fmt(e['xeon_cpu'], 0)} CPU-s/s)" if e.get("xeon_cpu") is not None else "—"
+        rss = fmt(e["rss_mb"], 0) if e.get("rss_mb") is not None else "—"
+        timing = ("other-host timing (M3 Ultra WER / Xeon speed, not ranked on H1 speed)"
+                  if e.get("xeon_cpu") is not None else "full-panel WER only")
+        lines.append(f"| {e['system']} | {e['mode']} | {cost} | {wer_rank[e['id']]}/{n_complete} | — | "
+                     f"{fmt(e['wer_clean'], 2)} | {fmt(e['wer_other'], 2)} | {fmt(e['wer'], 2)} | {rss} | {timing} |")
     frontier_names = ", ".join(
         (r["system"] if r["role"] == "ours" else r["short"])
         for r in sorted(drawn, key=lambda x: -derived(x)["speed"]) if r["id"] in frontier_ids
     )
-    lines += ["", "Sorted by 1-core Zen 2 cold speed descending (other-host complete-panel rows at bottom, not ranked "
+    lines += ["", "Sorted by 1-core Zen 2 cold speed descending (rows without matched H1 timing at bottom, not ranked "
               "on H1 speed). ★ marks the speed–WER Pareto frontier strictly over the quiet full-panel H1 cohort "
               f"({frontier_names}). WER rank is computed over all "
               f"{n_complete} complete-panel (730-utt) rows. Timing / Host: H1 is the quiet Zen 2 host (one timed "

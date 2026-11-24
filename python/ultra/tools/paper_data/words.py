@@ -1,17 +1,17 @@
 """Text helpers shared by the generated sentences: one Unicode source string, printed as TeX or as Markdown.
 
 Write sentences with x (U+00D7), en dash, minus (U+2212), thin space (U+2009) and no-break space; tex() turns
-them into TeX (and "ULTRA" into the paper's macro), md() into README Markdown.
+them into TeX (and the system name into the paper's macro), md() into README Markdown.
 """
 
 from __future__ import annotations
 
 import re
 
-from .common import fmt
+from .common import BRAND, fmt
 
 _TEX = (("\u00d7", "$\\times$"), ("%", "\\%"), ("\u2013", "--"), ("\u2212", "$-$"), ("\u2009", "\\,"),
-        ("\u00a0", "~"), ("ULTRA", "\\ultra{}"))
+        ("\u00a0", "~"), ("ULTRA", "\\ultra{}"), ("Isosyll", "\\ultra{}"))
 
 
 def tex(s: str) -> str:
@@ -35,7 +35,7 @@ def names(items: list[str]) -> str:
 
 def name(r: dict) -> str:
     """A system's name in prose (systems.json `text`, else its plot label), with the paper macro spelled out."""
-    return (r.get("text") or r["short"]).replace("\\ultra{}", "ULTRA")
+    return (r.get("text") or r["short"]).replace("\\ultra{}", BRAND)
 
 
 def checkpoint(r: dict) -> str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from .common import PAPER_TITLE, REQUIRED
+from .common import PAPER_DESCRIPTOR, PAPER_TITLE, REQUIRED
 from .records import Records
 
 
@@ -18,6 +18,7 @@ def metrics_tex(rec: Records) -> str:
         "% Every macro is a bare number or generated sentence. Provenance: docs/paper/data/SOURCES.md.",
         "\\providecommand{\\PaperMissing}[1]{\\textcolor{red}{??}}",
         f"\\newcommand{{\\PaperTitle}}{{{PAPER_TITLE}}}",
+        f"\\newcommand{{\\PaperDescriptor}}{{{PAPER_DESCRIPTOR}}}",
         "",
     ]
     for rid in sorted(rec.rows):

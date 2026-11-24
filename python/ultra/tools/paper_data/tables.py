@@ -72,14 +72,15 @@ def measured_table(rows: list[dict], extras: dict | None = None) -> str:
                 out.append(_line(r, rk))
         out.append("\\midrule")
     if extra_complete:
-        out.append(f"\\multicolumn{{{COLUMNS}}}{{@{{}}l}}{{\\textit{{Other-host timing (complete-panel 730-utt WER, not ranked on H1 speed)}}}} \\\\")
+        out.append(f"\\multicolumn{{{COLUMNS}}}{{@{{}}l}}{{\\textit{{Additional full-panel WER without matched H1 timing}}}} \\\\")
         for e in extra_complete:
             nm = tex_escape(e["system"]) + (f"~\\cite{{{','.join(e['cite'])}}}" if e.get("cite") else "") + "$^{\\dagger}$"
             rk = f"{wer_rank[e['id']]}/{n_complete}"
+            prefix = e.get("metrics_prefix", "RelParakeetUnified")
+            rss = f"\\{prefix}Rss" if e.get("rss_mb") is not None else "--"
             out.append(" & ".join([
                 nm, tex_escape(e["runtime_short"]), "--", rk,
-                "\\RelParakeetUnifiedClean", "\\RelParakeetUnifiedOther", "\\RelParakeetUnifiedWer",
-                "\\RelParakeetUnifiedRss", "--", "--",
+                f"\\{prefix}Clean", f"\\{prefix}Other", f"\\{prefix}Wer", rss, "--", "--",
             ]) + " \\\\")
         out.append("\\midrule")
     if out[-1] == "\\midrule":

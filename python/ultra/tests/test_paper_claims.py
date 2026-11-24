@@ -12,7 +12,7 @@ DATA = pd.REPO / pd.DATA
 PAPER = pd.REPO / "docs" / "paper"
 REFRESH = "run `just paper-refresh`"
 
-# Zero legacy ULTRA models, zero third-party vendor benchmark tables, zero draft/stale phrasing
+# Zero legacy models, zero third-party vendor benchmark tables, zero draft/stale phrasing
 BANNED_LEGACY_RE = re.compile(
     r"\b(?:A1|H22ctl|h22ctl|D2|D2MR|D2e|D3MR[a-z]?|B0|F1|S_MR|multirate|Multirate|ternary|Ternary|"
     r"Picovoice|Cheetah|Redux|Photon|PRELIMINARY)\b|"
@@ -29,15 +29,15 @@ def test_claims_made_in_words_hold_in_the_measured_rows():
     """Verify every headline claim in the prose and README holds quantitatively in the admitted rows."""
     rec = _records()
     # Final point beats Zipformer on pooled WER and dev-other, trails Zipformer on dev-clean, and trails best comparator
-    assert rec["ColdHeadWer"]["raw"] < rec["ColdZipWer"]["raw"], "ULTRA final no longer beats Zipformer on pooled WER"
-    assert rec["ColdHeadWerOther"]["raw"] < rec["ColdZipWerOther"]["raw"], "ULTRA final no longer beats Zipformer on dev-other"
+    assert rec["ColdHeadWer"]["raw"] < rec["ColdZipWer"]["raw"], "Isosyll final no longer beats Zipformer on pooled WER"
+    assert rec["ColdHeadWerOther"]["raw"] < rec["ColdZipWerOther"]["raw"], "Isosyll final no longer beats Zipformer on dev-other"
     assert rec["ColdHeadWerClean"]["raw"] > rec["ColdZipWerClean"]["raw"], "dev-clean claim flipped; update prose"
-    assert rec["ColdHeadWerGapBest"]["raw"] > 0.0, "ULTRA final no longer trails the lowest-WER comparator"
+    assert rec["ColdHeadWerGapBest"]["raw"] > 0.0, "Isosyll final no longer trails the lowest-WER comparator"
     # Live point claims checked whenever the standalone live cold row (14q) is admitted
     if "ColdLiveSpeed" in rec:
-        assert rec["ColdHeadSpeedOverFast"]["raw"] > 1.8, "ULTRA live is no longer ~2x faster than Zipformer"
-        assert rec["ColdLightRssOverHead"]["raw"] > 1.5, "ULTRA live no longer uses less memory than every comparator"
-        assert rec["ColdLiveWatts"]["raw"] < rec["ColdZipWatts"]["raw"], "ULTRA live is no longer lower watts than Zipformer"
+        assert rec["ColdHeadSpeedOverFast"]["raw"] > 1.8, "Isosyll live is no longer ~2x faster than Zipformer"
+        assert rec["ColdLightRssOverHead"]["raw"] > 1.5, "Isosyll live no longer uses less memory than every comparator"
+        assert rec["ColdLiveWatts"]["raw"] < rec["ColdZipWatts"]["raw"], "Isosyll live is no longer lower watts than Zipformer"
     # INT8 parity within pre-registered +-0.10 pp gate on full DEV
     assert abs(rec["RelIntEightDelta"]["raw"]) <= 0.10, "INT8 vs FP32 parity exceeded 0.10 pp"
 
@@ -59,11 +59,11 @@ def test_front_page_pairs_each_modes_speed_and_accuracy():
     assert "active core energy per audio-second" in live_abs
     assert f"reference utterance boundaries, reaches {final_wer}\\% pooled WER at {final}$\\times$" in final_abs
     assert "58\\%" in rec["ColdAbstractZip"]["value"]
-    assert rec["ColdAbstractMoreAcc"]["value"] == "Five of the 13 public recognisers we measured are more accurate than the final mode."
+    assert rec["ColdAbstractMoreAcc"]["value"] == "Seven of the 15 public recognisers we measured are more accurate than the final mode."
 
 
 def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
-    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v3.0.0 + all 13 public comparators."""
+    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v3.0.0 + all 15 public comparators."""
     plotted = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
                if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
     variants = {c[1] for c in plotted}
@@ -73,14 +73,14 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
         "vosk-small", "vosk-large", "whispercpp-stream-tiny", "whispercpp-stream-base",
     }
     assert variants == expected, f"unexpected plotted set: {sorted(variants)}"
-    # Dynamic complete-panel WER ranking includes both ULTRA modes + all 13 public comparators (15 total)
+    # Dynamic complete-panel WER ranking includes both Isosyll modes + all 15 public comparators (17 total)
     rec = _records()
-    assert rec["ColdCompletePanelCount"]["raw"] == 15
-    assert rec["ColdHeadWerRank"]["raw"] == 6, f"expected RC1 final rank 6, got {rec['ColdHeadWerRank']['raw']}"
+    assert rec["ColdCompletePanelCount"]["raw"] == 17
+    assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    for must in ("ULTRA v3.0.0 (live)", "ULTRA v3.0.0 (final, seg.)", "29.1", "0.344",
+    for must in ("Isosyll v3.0.0 (live)", "Isosyll v3.0.0 (final, seg.)", "29.1", "0.344",
                  "Parakeet unified en q8 (stream 160 ms)", "Whisper.cpp Streaming Base",
-                 "Also measured, not ranked (subset WER, other hardware)", "2.21%", "2.33%", "7.74%",
+                 "Also measured, not ranked (subset WER, other hardware)", "2.30", "2.42", "7.74%",
                  "in the quiet full-panel H1 cohort", "53.2%", "0.358 W/stream", "242/457 ms",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.0.1.md"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
@@ -146,41 +146,49 @@ def test_readme_shows_the_current_figure_block():
     ]
     paper_title = re.search(r"\\newcommand\{\\PaperTitle\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
     assert paper_title and title == f"# {paper_title[1]}"
-    assert tagline == "Always listening, barely computing."
+    descriptor = re.search(r"\\newcommand\{\\PaperDescriptor\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
+    assert descriptor and tagline == f"**{descriptor[1]}**"
     subtitle = _records()["ColdSubtitle"]["value"]
     summary_text = subtitle.replace("$\\times$", "×").replace("$\\cdot$", "·").replace("\\%", "%").replace("\\,", " ")
     assert summary == f"**{summary_text}**"
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Read the paper](docs/paper/paper.pdf)" in caption
-    drawn = [ln for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
-             if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
     table = re.findall(r"^\| .*", block, flags=re.M)
-    assert len(table) == len(drawn) + 2, "one table line per plotted system + 1 other-host complete-panel row + header"
+    assert len(table) == _records()["ColdCompletePanelCount"]["raw"] + 1, (
+        "one line per complete-panel system, plus the header")
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
     assert labels == ["Accuracy", "Speed & memory", "Watts", "Integer-exact INT8"]
     layout = (DATA / "money_layout.tex").read_text()
-    assert r"\def\MoneyOursLegend{ULTRA v3.0.0 (live / final)}" in layout
-    assert "ULTRA v3.0.0\\\\(live)" in layout and "ULTRA v3.0.0\\\\(final, seg.)" in layout
+    assert (r"\def\MoneyOursLegend{\shortstack[l]{Isosyll v3.0.0 (live)\\"
+            "Isosyll v3.0.0 (final, seg.)}}") in layout
+    assert "Isosyll v3.0.0\\\\(live)" in layout and "Isosyll v3.0.0\\\\(final, seg.)" in layout
 
 
 def test_release_branding_is_consistent():
-    """Binding brand spec: plain all-caps ULTRA, exact 4-place title, exact tagline, exact v3.0.0 labels, v3.0.1 install-only."""
-    expected_title = "ULTRA: Reproducible Streaming Speech Recognition on One CPU Core"
+    """Binding brand spec (owner, 2026-11-24): the system is Isosyll; exact title, descriptor and v3.0.0 labels;
+    the historical name ULTRA appears only where release artifacts are named; v3.0.1 is install-only."""
+    expected_title = "Isosyll: Always Listening, Barely Computing"
+    expected_descriptor = "Bit-Exact Streaming Speech Recognition on One CPU Core"
     metrics_txt = (DATA / "metrics.tex").read_text(encoding="utf-8")
     assert f"\\newcommand{{\\PaperTitle}}{{{expected_title}}}" in metrics_txt
+    assert f"\\newcommand{{\\PaperDescriptor}}{{{expected_descriptor}}}" in metrics_txt
     paper_tex = (PAPER / "paper.tex").read_text(encoding="utf-8")
-    assert r"\newcommand{\ultra}{ULTRA\xspace}" in paper_tex
+    assert r"\newcommand{\ultra}{Isosyll\xspace}" in paper_tex
     assert r"pdftitle={\PaperTitle}" in paper_tex and r"pdfauthor={}" in paper_tex
     assert "Always listening, barely computing." in (PAPER / "sections" / "intro.tex").read_text(encoding="utf-8")
 
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    assert "| **ULTRA v3.0.0 (live)** |" in readme and "| **ULTRA v3.0.0 (final, seg.)** |" in readme
+    assert readme.startswith(f"# {expected_title}\n")
+    assert "| **Isosyll v3.0.0 (live)** |" in readme and "| **Isosyll v3.0.0 (final, seg.)** |" in readme
     install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)
     assert install and "v3.0.1" in install[0], "README install section must mention v3.0.1"
     non_install_readme = readme[:install.start()] + readme[install.end():]
     assert "v3.0.1" not in non_install_readme, "v3.0.1 leaked outside README install section"
+    assert not re.search(r"\bULTRA\b", non_install_readme), "display name ULTRA outside the README install section"
+    for path in (DATA / "metrics.tex", DATA / "money_layout.tex", DATA / "money_readme.md"):
+        assert not re.search(r"\bULTRA\b", path.read_text(encoding="utf-8")), f"display name ULTRA in {path.name}"
 
-    brand_re = re.compile(r"\b(?:ULTRA-S|Ultra-S|Ossicle)\b|ULTRA v3\.0 \(|(?<!M3 )(?<!Apple M3 )\bUltra\b")
+    brand_re = re.compile(r"\b(?:ULTRA-S|Ultra-S|Isosyll-S|Ossicle|ISOSYLL|IsoSyll)\b|ULTRA v3\.0 \(|(?<!M3 )(?<!Apple M3 )\bUltra\b")
     targets: dict[str, str] = {"README.md": non_install_readme}
     for path in (
         PAPER / "paper.tex", DATA / "systems.json", DATA / "metrics.tex", DATA / "money_layout.tex",

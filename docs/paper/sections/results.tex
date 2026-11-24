@@ -2,10 +2,12 @@
 
 \subsection{Single-Core Comparison on the 730-Utterance DEV Panel}\label{sec:compare}
 
-\Cref{fig:money,tab:measured} compare our single release artifact (\ultra{} \ReleaseVer{}) against
-all \ColdCompleteCompCount{} public open-weights CPU comparators with complete 730-utterance
-LibriSpeech DEV panel WER (\ColdComparatorCount{} plotted on Zen~2 plus one other-host
-complete-panel row). \ColdHostSentence{} \ColdSubsetSentence{} \ColdOrderSentence{}
+\Cref{fig:money} highlights the matched full-panel operating points.
+\Cref{fig:fullcomparison,tab:measured} show the broader comparison across
+\ColdCompleteCompCount{} public open-weights CPU comparators with complete 730-utterance WER.
+\ColdHostSentence{} \ColdSubsetSentence{} \ColdOrderSentence{}
+
+\input{sections/fig_comparison.tex}
 
 \para{Speed and operating points.} \ColdHeadSentence{} \ColdSpeedSentence{} At utterance endpoints,
 the commit pass refines final text with a median post-endpoint delay of \RelCommitDelayPfifty\,ms
@@ -18,8 +20,7 @@ a sharp drop on dev-other: \ColdHeadWerOther\% vs.\ \ColdZipWerOther\%) while tr
 Zipformer slightly on dev-clean (\ColdHeadWerClean\% vs.\ \ColdZipWerClean\%) within two percent of
 its single-core speed (\ColdHeadSpeed$\times$ utterance-segmented vs.\ \ColdZipSpeed$\times$
 streaming). Larger 600M-parameter models achieve lower WER at higher CPU cost and memory footprint
-on their respective timing hosts (offline Parakeet TDT v3 on quiet H1; Nemotron 560\,ms on shared
-host H0; Parakeet unified stream 160\,ms on Xeon~8358).
+on their respective timing hosts (offline Parakeet TDT v3 on quiet H1; Nemotron 560\,ms on a quiet timing subset; Parakeet unified stream 160\,ms on Xeon~8358).
 \RelSubsetNote{}
 
 \para{Memory and energy.} \ColdMemorySentence{} \ColdWattsSentence{} For \ultra{} \ReleaseVer{}

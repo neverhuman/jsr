@@ -7,7 +7,9 @@ budget, audio subset, and text normaliser. Measuring different recognisers side 
 requires running them on the same hardware, the same audio, and the same scorer.
 
 \input{sections/tab_measured.tex}%
-\para{What we built.} \ultra{} \ReleaseVer{} co-designs a compact streaming Conformer transducer
+\para{What we built.} We call the system \ultra{}, from \emph{iso-} (the same) and \emph{syllable}.
+Live transcripts match across the tested SIMD kernels and batch sizes. The release artifacts retain their
+original name, ULTRA. \ultra{} \ReleaseVer{} co-designs a compact streaming Conformer transducer
 and an integer-exact pure-Rust CPU engine around a single prepared INT8 artifact with two operating
 points:
 \begin{itemize}
@@ -27,8 +29,7 @@ independent of batch composition; exact integer kernels are implemented for x86 
 
 \para{Contributions.} We compare our single release artifact (\ultra{} \ReleaseVer{}) against all
 \ColdCompleteCompCount{} public open-weights CPU comparators with complete 730-utterance LibriSpeech
-DEV panel WER (\ColdComparatorCount{} timed on Zen~2 plus one other-host complete-panel row;
-\cref{fig:money,tab:measured}):
+DEV panel WER (\cref{fig:fullcomparison,tab:measured}).
 \begin{enumerate}
 \item \textbf{Single-artifact live and final frontier.} \ColdIntroContrib{}
 \item \textbf{Reproducible integer-exact CPU engine.} Pure-Rust engine with no external runtime or
@@ -42,7 +43,7 @@ DEV panel WER (\ColdComparatorCount{} timed on Zen~2 plus one other-host complet
   core power, and explicit host/subset provenance tags (\cref{sec:protocol}).
 \end{enumerate}
 
-\para{Scope and disclosure.} Every speed sits beside the WER of the exact same weights and binary.
+\para{Scope and disclosure.} The comparison table identifies timing exceptions and host differences for each row.
 All accuracy results are LibriSpeech DEV only; no test-set numbers appear. Following our freeze
 protocol, LibriSpeech test-clean and test-other were read several times before the freeze, and no
 model selection used test data (\cref{sec:protocol}).

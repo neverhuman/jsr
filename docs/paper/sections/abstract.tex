@@ -5,7 +5,7 @@ exact integer accumulation, and a portable log-mel front end. On full LibriSpeec
 INT8 changes pooled word error rate (WER) by \RelIntEightDelta{} percentage points relative to FP32
 PyTorch (95\% bootstrap bounds \RelIntEightLo{} to \RelIntEightHi{}), and cold live repetitions on
 the evaluated host produce identical transcripts. On a 730-utterance LibriSpeech development panel,
-we time three cold runs on one pinned Zen~2 core, including model load. \ColdAbstractLive{}
+we time three cold runs on one pinned Zen~2 core, including model load. \RelIsaProof{} \ColdAbstractLive{}
 \ColdAbstractZip{} In a separate paced replay on one core, sixteen live streams use
 \RelCapSixteenBusy\% of one core with a 95th-percentile stable-word lag of
 \RelCapSixteenLagPninetyFive\,ms. \ColdAbstractFinal{} \ColdAbstractMoreAcc{} Training adds

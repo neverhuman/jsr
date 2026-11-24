@@ -95,7 +95,7 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     ])
     full_tail = (f" On full LibriSpeech DEV (5,567 utt), final text reaches {full_final}% pooled "
                  f"({full_clean}% clean / {full_other}% other; live {full_live}%)." if full_final else "")
-    live_wer_s = f"; ULTRA v3.0.0 (live) on the exact same INT8 weights scores {panel_live}% pooled" if panel_live else ""
+    live_wer_s = f"; Isosyll v3.0.0 (live) on the exact same INT8 weights scores {panel_live}% pooled" if panel_live else ""
     fact("Accuracy", "Accuracy",
          f"On the 730-utterance LibriSpeech DEV panel, {_name(head)} scores {fmt(h['wer'], 2)}% pooled WER "
          f"({fmt(h['wer_clean'], 2)}% dev-clean, {fmt(h['wer_other'], 2)}% dev-other){beat_clause}{live_wer_s}."
@@ -107,7 +107,11 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
          rowsrc(head, *([live] if has_live else []), *top_rows), "panel and full-DEV accuracy", panel)
 
     # 2. Speed & memory
-    vs_peers = _names([f"{speed_text(derived(r)['speed'])}\u00d7 for {_name(r)}" for r in peers]) if peers else ""
+    def timing_name(row: dict) -> str:
+        suffix = " (quiet 73-clip timing)" if row["timing_panel"] != "full" else ""
+        return _name(row) + suffix
+
+    vs_peers = _names([f"{speed_text(derived(r)['speed'])}\u00d7 for {timing_name(r)}" for r in peers]) if peers else ""
     delay_str = (f" (median final-text delay {rec.rows['RelCommitDelayPfifty']['value']}\u2009ms after endpoint)"
                  if "RelCommitDelayPfifty" in rec.rows else "")
     if has_live:
@@ -136,17 +140,17 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
         fact("Speed", "Speed & memory",
              f"{_name(head)} decodes cold at {speed_text(h['speed'])}\u00d7 real time ({fin_share}% of one quiet "
              f"Zen\u00a02 core, {fmt(h['rss_mb'], 0)}\u2009MB peak RAM{delay_str}){zip_cmp}; "
-             "the standalone cold hold for ULTRA v3.0.0 (live) is pending.",
+             "the standalone cold hold for Isosyll v3.0.0 (live) is pending.",
              f"{_name(head)} decodes cold at {speed_text(h['speed'])}× real time ({fin_share}% of one quiet Zen 2 "
              f"core, {fmt(h['rss_mb'], 0)} MB peak RAM{delay_str}){zip_cmp}"
              + (f", against {vs_peers}" if vs_peers else "")
-             + ". Standalone cold timing and RSS for ULTRA v3.0.0 (live) are pending their dedicated quiet-H1 hold.",
+             + ". Standalone cold timing and RSS for Isosyll v3.0.0 (live) are pending their dedicated quiet-H1 hold.",
              rowsrc(head, *peers), "single-core speed and memory", panel)
 
     # 3. Watts
     wrows = sorted((r for r in peers if r.get("watts") is not None), key=lambda r: r["watts"])
     if h["watts"] is not None and wrows:
-        vs_w = _names([f"{fmt(r['watts'], 3)}\u2009W for {_name(r)}" for r in wrows])
+        vs_w = _names([f"{fmt(r['watts'], 3)}\u2009W for {timing_name(r)}" for r in wrows])
         pkg = rec.rows["RelCommitPkgWatts"]["value"] if "RelCommitPkgWatts" in rec.rows else None
         pkg_s = f" ({pkg}\u2009W package)" if pkg else ""
         if has_live and lv["watts"] is not None:

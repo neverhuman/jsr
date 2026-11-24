@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import statistics
 
-from .common import EVIDENCE_REQUIRED, MACHINES, NAME_RE, PaperDataError
+from .common import EVIDENCE_REQUIRED, MACHINES, NAME_RE, PaperDataError, rebrand
 
 ROLES = ("ours", "comparator", "ablation")  # ablation: our weights in another runtime; tables only
 CLASSES = ("streaming", "whole_utterance")
@@ -39,7 +39,7 @@ TIMING_PANELS = ("full", "p73")
 PRESENTATION = ("system", "short", "macro", "cite", "order", "plot", "runtime_short", "text", "detail", "segmenter",
                 "checkpoint")
 MIN_REPS = 3
-SHORT_MAX = 26
+SHORT_MAX = 28
 MAX_OTHER_BUSY = 2  # a primary row has at most this many other busy cores on the host in every repetition
 _DIGITS = "Zero One Two Three Four Five Six Seven Eight Nine".split()
 
@@ -106,6 +106,10 @@ def check_row(r: dict, where: str) -> None:
         raise PaperDataError(f"{where}: a row timed on {r['timing_panel']} names its timing_workload_digest and its "
                              f"wer_source (the full-panel pass its WER comes from)")
     _check_lag(r, where)
+    if r.get("role") == "ours":
+        for key in ("system", "short", "text"):
+            if isinstance(r.get(key), str):
+                r[key] = rebrand(r[key])
     r["short"] = r.get("short") or r["system"]
     if len(r["short"]) > SHORT_MAX or set(r["short"]) & set(',"{}\\$'):
         raise PaperDataError(f"{where}: `short` (the plot label) must be at most {SHORT_MAX} plain characters, "
