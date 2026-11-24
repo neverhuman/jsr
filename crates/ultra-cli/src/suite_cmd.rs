@@ -33,6 +33,37 @@ use crate::suite_r1_z::{run_r1_candidate, run_zipformer_candidate};
 use crate::suite_runners::{run_nemotron_candidate, run_offline_candidate, SuiteCtx};
 use crate::{git_short_commit, jsr_data_root, BenchLease, CliError};
 
+/// Enforce scheduler-policy guards for `--coalesce-ms`:
+/// - `coalesce_ms == 0` is always allowed (100% backwards-compatible legacy behavior).
+/// - `--abab-blocks > 0` runs single-stream unpaced blocks (`streams=1, paced=false, coalesce_ms=0`)
+///   for kernel-only timing and must never silently write an uncoalesced ABAB file when
+///   `--coalesce-ms > 0` is requested.
+/// - `--qualified` locks the frozen `FREEZE.md §3` schedule (`coalesce_ms == 0`) so an
+///   unregistered coalescing window cannot silently slip into a qualified run.
+pub fn validate_coalesce_policy(
+    coalesce_ms: u32,
+    abab_blocks: usize,
+    qualified: bool,
+) -> Result<(), CliError> {
+    if coalesce_ms == 0 {
+        return Ok(());
+    }
+    if abab_blocks > 0 {
+        return Err(CliError::Config(format!(
+            "--abab-blocks ({abab_blocks}) cannot be combined with --coalesce-ms {coalesce_ms}: \
+             ABAB timing runs single-stream unpaced blocks (streams=1, paced=false, coalesce_ms=0) \
+             for kernel-only comparisons; measure coalescing with a separately counterbalanced paced run"
+        )));
+    }
+    if qualified {
+        return Err(CliError::Config(format!(
+            "--qualified locks --coalesce-ms 0 per FREEZE.md §3 (got --coalesce-ms {coalesce_ms}); \
+             unregistered scheduler coalescing is exploratory-only"
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut candidates_csv =
         String::from("zipformer-int8,r1-d1,moonshine-v2-base-en-int8,moonshine-v2-tiny-en-int8");
@@ -169,6 +200,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--full-machine and --density-workers are mutually exclusive (re-review N7)".into(),
         ));
     }
+    validate_coalesce_policy(coalesce_ms, abab_blocks, qualified_requested)?;
     if full_machine_requested {
         density_workers = 60; // 15 CCX x 4 physical cores (16th CCX = observer)
     }
@@ -301,10 +333,10 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
 
     let confirm_s = ladder_confirm_seconds.unwrap_or(if qualified_requested { 300.0 } else { 0.0 });
     let status_tag = if qualified_requested {
-        // FREEZE.md §3: lock grid_ms=320, max_chunks=2, threads=1, and per-CCX=4 / full-machine=60.
-        if grid_ms != 320 || max_chunks != 2 || threads != 1 {
+        // FREEZE.md §3: lock grid_ms=320, max_chunks=2, threads=1, coalesce_ms=0, and per-CCX=4 / full-machine=60.
+        if grid_ms != 320 || max_chunks != 2 || threads != 1 || coalesce_ms != 0 {
             return Err(CliError::Config(format!(
-                "--qualified locks --grid-ms 320, --max-chunks 2, and --threads 1 per FREEZE.md §3 (got grid_ms={grid_ms}, max_chunks={max_chunks}, threads={threads})"
+                "--qualified locks --grid-ms 320, --max-chunks 2, --threads 1, and --coalesce-ms 0 per FREEZE.md §3 (got grid_ms={grid_ms}, max_chunks={max_chunks}, threads={threads}, coalesce_ms={coalesce_ms})"
             )));
         }
         let expected_workers = if full_machine_requested { 60 } else { 4 };

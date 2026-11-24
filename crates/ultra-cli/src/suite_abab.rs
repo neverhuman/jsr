@@ -54,6 +54,12 @@ pub struct AbabTimingReport {
     pub baseline_candidate: String,
     pub grid_ms: u32,
     pub max_chunks: usize,
+    /// Effective per-block concurrency (always `1` for kernel-only cold/warm ABAB).
+    pub effective_streams: usize,
+    /// Effective pacing policy (always `false` for ABAB single-stream timing blocks).
+    pub effective_paced: bool,
+    /// Effective scheduler coalescing window in ms (always `0` for ABAB timing blocks).
+    pub effective_coalesce_ms: u32,
     pub candidates: Vec<AbabCandidateSummary>,
     pub paired_vs_baseline: Vec<AbabPairedComparison>,
 }
@@ -326,6 +332,13 @@ pub(crate) fn run_abab_timing_blocks(
     blocks: usize,
     baseline_idx: usize,
 ) -> Result<AbabTimingReport, CliError> {
+    if ctx.coalesce_ms > 0 {
+        return Err(CliError::Config(format!(
+            "ABAB timing blocks run single-stream unpaced (streams=1, paced=false, coalesce_ms=0) \
+             and cannot run with --coalesce-ms {}; use a separately counterbalanced paced run for coalescing",
+            ctx.coalesce_ms
+        )));
+    }
     let mut per_cand: Vec<Vec<AbabBlockObservation>> =
         vec![Vec::with_capacity(blocks); candidates.len()];
     for b in 0..blocks {
@@ -376,6 +389,9 @@ pub(crate) fn run_abab_timing_blocks(
         baseline_candidate: base_name.to_owned(),
         grid_ms: ctx.grid_ms,
         max_chunks: ctx.max_chunks,
+        effective_streams: 1,
+        effective_paced: false,
+        effective_coalesce_ms: 0,
         candidates: summaries,
         paired_vs_baseline,
     };
