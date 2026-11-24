@@ -172,7 +172,28 @@ pub struct NgramLm {
     pub(super) uni_child_off: Vec<u32>,
     pub(super) levels: Vec<TrieLevel>,
     pub(super) lodr_bigram: Vec<f32>,
+    /// Per-`lodr_prev` minimum over `lodr_bigram[prev * vocab .. (prev + 1) * vocab]`, used as an
+    /// airtight O(1) upper bound on `-lodr_weight * lodr_logp(ctx, k)` for exact branch-and-bound.
+    pub(super) lodr_row_min: Vec<f32>,
     pub(super) max_lm_logp: f32,
+}
+
+pub(super) fn compute_lodr_row_min(lodr_bigram: &[f32], vocab: usize) -> Vec<f32> {
+    if lodr_bigram.is_empty() || vocab == 0 {
+        return Vec::new();
+    }
+    let rows = lodr_bigram.len() / vocab;
+    let mut mins = Vec::with_capacity(rows);
+    for r in 0..rows {
+        let mut mn = f32::INFINITY;
+        for &v in &lodr_bigram[r * vocab..(r + 1) * vocab] {
+            if v < mn {
+                mn = v;
+            }
+        }
+        mins.push(if mn.is_finite() { mn } else { 0.0 });
+    }
+    mins
 }
 
 impl NgramLm {
@@ -287,6 +308,25 @@ impl NgramLm {
         }
         let k = if tok < self.vocab { tok } else { 0 };
         self.lodr_bigram[usize::from(ctx.lodr_prev) * self.vocab + k]
+    }
+
+    /// Dense LODR bigram row for `ctx.lodr_prev` (length `vocab`, or empty when LODR is absent).
+    #[inline]
+    pub fn lodr_row(&self, ctx: &LmCtx) -> &[f32] {
+        if self.lodr_bigram.is_empty() {
+            return &[];
+        }
+        let start = usize::from(ctx.lodr_prev) * self.vocab;
+        &self.lodr_bigram[start..start + self.vocab]
+    }
+
+    /// Exact minimum of `lodr_logp(ctx, k)` over all `k` (`0.0` when LODR is absent).
+    #[inline]
+    pub fn lodr_row_min(&self, ctx: &LmCtx) -> f32 {
+        if self.lodr_row_min.is_empty() {
+            return 0.0;
+        }
+        self.lodr_row_min[usize::from(ctx.lodr_prev)]
     }
 
     #[inline]
