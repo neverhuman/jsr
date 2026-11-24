@@ -338,7 +338,8 @@ class ParquetBatches:
                  extra: list[tuple[str, float | None]] = (), min_conf: float = 0.0,
                  base_weight: float = 0.0, anchors=None, dur_tables: str = "",
                  node_shards: str = "", bpe_dropout_p: float = 0.0,
-                 bpe_dropout_alpha: float = 0.1, collate_ahead: int = 0, fact_aug=None):
+                 bpe_dropout_alpha: float = 0.1, collate_ahead: int = 0, fact_aug=None,
+                 label_map=None):
         from concurrent.futures import ThreadPoolExecutor
 
         from ultra.libri import PARQUET, SPLIT_DIRS
@@ -421,6 +422,8 @@ class ParquetBatches:
             fact_aug.validate(splits)
         self.fact_aug = fact_aug if (fact_aug is not None and fact_aug.active) else None
         self.teacher = teacher
+        # train.label_map.LabelMap (None = off): extra-split transcripts / row filter, applied before packing
+        self.label_map, self.dropped_label = label_map, 0
         self.anchors = anchors  # H48c train.mfa_anchors.MfaAnchors (None = off)
         self.bpe_dropout_p, self.bpe_dropout_alpha = float(bpe_dropout_p), float(bpe_dropout_alpha)
         self.pad_frames, self.pad_tokens = pad_frames, pad_tokens
@@ -512,6 +515,10 @@ class ParquetBatches:
         if filt:
             kept = [r for r in rows if r["conf"] is not None and r["conf"] >= self.min_conf]
             self.dropped_conf += len(rows) - len(kept)
+            rows = kept
+        if self.label_map is not None and fi >= self._first_extra:
+            kept = [self.label_map.apply(r) for r in rows if self.label_map.keep(r["id"])]
+            self.dropped_label += len(rows) - len(kept)
             rows = kept
         return rows
 
@@ -661,6 +668,10 @@ class ParquetBatches:
                         if count_conf:
                             self.dropped_conf += 1
                         continue
+                if self.label_map is not None and fi >= self._first_extra and not self.label_map.keep(uid):
+                    if count_conf:
+                        self.dropped_label += 1
+                    continue
                 locs.append((ui, ri, uid))
                 frames.append(self._dur_table.frames_after(
                     uid, n_samples, epoch, seed=self.seed, speed_perturb=self.speed_perturb,
@@ -697,6 +708,8 @@ class ParquetBatches:
                 if row["id"] != uid:
                     raise DataError(f"duration sidecar uid mismatch at {self.files[fi]} rg={rg} row={ri}: "
                                     f"sidecar={uid!r} parquet={row['id']!r}")
+                if self.label_map is not None and fi >= self._first_extra:
+                    row = self.label_map.apply(row)
                 grp.append(row)
             mine.append(grp)
         return mine

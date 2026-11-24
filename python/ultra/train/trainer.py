@@ -85,6 +85,9 @@ class TrainConfig:
     extra_min_conf: float = 0.0
     extra_base_weight: float = 0.0
     dur_tables: str = ""  # H55 per-row FLAC frame-count sidecar JSONLs ("" = off)
+    label_map: str = ""  # train/label_map.py: sealed uid<TAB>text TSV for extra splits ("" = off)
+    label_map_sha256: str = ""
+    label_map_only: int = 0  # 1: extra-split rows absent from the map are dropped before packing
     node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off)
     collate_ahead: int = 0  # >0: collate next N batches off main thread (0 = inline)
     ddp_util_target: float = 0.0  # DDP options (0/"" = off)
@@ -758,6 +761,7 @@ class Trainer:
                           "ctc_masked": acc["masked"], "audio_s": acc["audio_s"], "wall_s": dt,
                           "dropped_long": getattr(self.source, "dropped_long", 0), **opt_avgs,
                           **({"dropped_conf": self.source.dropped_conf} if getattr(self.source, "min_conf", 0) else {}),
+                          **({"dropped_label": self.source.dropped_label} if getattr(self.source, "label_map", None) else {}),
                           **({"anchor_counts": dict(s.counts)} if (s := getattr(self.source, "anchors", None)) is not None else {}),
                           **({"kd_counts": dict(self.source.teacher.counts)} if getattr(self.source, "teacher", None) else {}),
                           **({"clip_thr": self.clipper.last_threshold} if self.clipper.mode == "adaptive" else {}),
@@ -898,6 +902,7 @@ def main(argv=None) -> int:
         cfg.eval_each_epoch = False  # every step is an epoch here
     else:
         from train.fact_hooks import fact_aug_from_cfg
+        from train.label_map import label_map_from_cfg
 
         source = ParquetBatches(list(a.splits), feat, cfg.seed, cfg.budget_s, cfg.max_batch,
                                 cfg.max_seconds, workers=cfg.workers,
@@ -910,7 +915,8 @@ def main(argv=None) -> int:
                                 base_weight=cfg.extra_base_weight, anchors=load_anchors(cfg, tok_r),
                                 dur_tables=cfg.dur_tables, node_shards=cfg.node_shards,
                                 bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha,
-                                collate_ahead=cfg.collate_ahead, fact_aug=fact_aug_from_cfg(cfg))
+                                collate_ahead=cfg.collate_ahead, fact_aug=fact_aug_from_cfg(cfg),
+                                label_map=label_map_from_cfg(cfg))
         dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
     from train.dist import broadcast_state, init_from_env
 
