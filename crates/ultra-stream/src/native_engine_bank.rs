@@ -28,6 +28,7 @@ pub struct NativeEngineSlotBank<'a> {
     pub utts: &'a [AudioUtterance],
     utt_offset: usize,
     slots: Vec<Option<EngineActiveSlot>>,
+    ready_indices: Vec<usize>,
     ws: Workspace,
     sampler: Option<&'a mut TreeSampler>,
     pub forced_advances: u64,
@@ -47,6 +48,7 @@ impl<'a> NativeEngineSlotBank<'a> {
             utts,
             utt_offset,
             slots: (0..streams).map(|_| None).collect(),
+            ready_indices: Vec::with_capacity(streams),
             ws: Workspace::default(),
             sampler,
             forced_advances: 0,
@@ -129,26 +131,24 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
     }
 
     fn decode_ready_step(&mut self, decode: DecodeMode, max_batch: usize) -> (usize, u64) {
-        let ready_indices: Vec<usize> = self
-            .slots
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, s)| {
-                s.as_ref()
-                    .filter(|st| self.backend.engine.is_ready(&st.raw))
-                    .map(|_| idx)
-            })
-            .collect();
-        if ready_indices.is_empty() {
+        self.ready_indices.clear();
+        for (idx, s) in self.slots.iter().enumerate() {
+            if let Some(st) = s.as_ref() {
+                if self.backend.engine.is_ready(&st.raw) {
+                    self.ready_indices.push(idx);
+                }
+            }
+        }
+        if self.ready_indices.is_empty() {
             return (0, 0);
         }
-        let max_ready = ready_indices.len();
+        let max_ready = self.ready_indices.len();
         let step_cap = match decode {
             DecodeMode::Single => 1,
             DecodeMode::Batch => max_batch.max(1),
         };
         let mut wakeups = 0u64;
-        for chunk in ready_indices.chunks(step_cap) {
+        for chunk in self.ready_indices.chunks(step_cap) {
             let mut refs: Vec<&mut EngineStream> = Vec::with_capacity(chunk.len());
             let mut iter_idx = 0usize;
             for (slot_i, opt) in self.slots.iter_mut().enumerate() {
@@ -310,6 +310,8 @@ pub struct EngineSpAConfig {
     pub decode_config: NativeEngineLoadConfig,
     pub packet_ms: u32,
     pub grid_ms: u32,
+    /// Deadline-aware coalescing window in milliseconds (`0` = off, byte-identical legacy mode).
+    pub coalesce_ms: u32,
     pub lateness_bound_ms: f64,
     pub paced: bool,
     pub source_commit: String,
@@ -399,6 +401,7 @@ pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, Stream
             max_batch: cfg.max_batch,
             packet_ms: cfg.packet_ms,
             grid_ms: cfg.grid_ms,
+            coalesce_ms: cfg.coalesce_ms,
             paced: cfg.paced,
             duration_s: cfg.duration_s,
         },
@@ -452,5 +455,10 @@ pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, Stream
     res.receipt
         .status_events
         .extend(engine_status_events(&backend));
+    if cfg.coalesce_ms > 0 {
+        res.receipt
+            .status_events
+            .push(format!("coalesce_ms:{}", cfg.coalesce_ms));
+    }
     Ok(res)
 }

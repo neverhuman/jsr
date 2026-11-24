@@ -4,7 +4,13 @@ use std::arch::asm;
 use std::arch::x86_64::*;
 
 use super::super::NR;
-use super::int8_fast_prep::{epilogue_store, Align32};
+use super::int8_fast_prep::{epilogue_store_preloaded, Align32, PanelEpilogue};
+
+/// Prefetch policy for [`tile_signed_pair_4`]: `0` = none (hot L1d on `ti > 0`), `1` = `T0`,
+/// `2` = `NTA`.
+pub(super) const PF_NONE: u8 = 0;
+pub(super) const PF_T0: u8 = 1;
+pub(super) const PF_NTA: u8 = 2;
 
 /// Single-call zero-spill AVX2 `M = 4` signed 2-group paired kernel across ALL `pairs` of a panel.
 /// Caller stores `ONES_I16` in `acc[0]` before calling; `ymm0..ymm7` stay live in registers for
@@ -18,7 +24,7 @@ use super::int8_fast_prep::{epilogue_store, Align32};
 #[inline(never)]
 #[target_feature(enable = "avx2,fma")]
 #[allow(clippy::too_many_arguments)]
-unsafe fn run_signed_pair_all_asm<const NTA: bool>(
+unsafe fn run_signed_pair_all_asm<const PF: u8>(
     wp: *const i8,
     a0: *const i8,
     aa0: *const u8,
@@ -149,7 +155,7 @@ unsafe fn run_signed_pair_all_asm<const NTA: bool>(
         };
     }
     macro_rules! body {
-        ($pf:literal) => {
+        ($pf_block:literal) => {
             // SAFETY: bounds verified by caller; all clobbered YMM regs declared.
             unsafe {
                 asm!(
@@ -165,8 +171,7 @@ unsafe fn run_signed_pair_all_asm<const NTA: bool>(
                     "movzx {nb:e}, word ptr [{bad}]",
                     ".p2align 4",
                     "2:",
-                    concat!($pf, " [{w} + 2048]"),
-                    concat!($pf, " [{w} + 2112]"),
+                    $pf_block,
                     "cmp {pi}, {nb}",
                     "je 3f",
                     sp_row!("{a0} + 0", "{aa0} + 0", "{a0} + 4", "{aa0} + 4", "ymm0", "ymm1"),
@@ -218,10 +223,10 @@ unsafe fn run_signed_pair_all_asm<const NTA: bool>(
             }
         };
     }
-    if NTA {
-        body!("prefetchnta");
-    } else {
-        body!("prefetcht0");
+    match PF {
+        PF_NTA => body!("prefetchnta [{w} + 2048]\nprefetchnta [{w} + 2112]\n"),
+        PF_T0 => body!("prefetcht0 [{w} + 2048]\nprefetcht0 [{w} + 2112]\n"),
+        _ => body!(""),
     }
 }
 
@@ -229,14 +234,12 @@ unsafe fn run_signed_pair_all_asm<const NTA: bool>(
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
-pub(super) fn tile_signed_pair_4<const NTA: bool>(
+pub(super) fn tile_signed_pair_4<const PF: u8>(
     a: &[i8],
     a_abs: &[u8],
     kp: usize,
     panel: &[i8],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
+    ep: &PanelEpilogue,
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
@@ -258,7 +261,7 @@ pub(super) fn tile_signed_pair_4<const NTA: bool>(
         acc.0[0][0] = ones;
         // SAFETY: 3 * kp + pairs * 8 <= 4 * kp <= a.len() = a_abs.len(), pairs * 128 <= kp * NR, sentinel asserted.
         unsafe {
-            run_signed_pair_all_asm::<NTA>(
+            run_signed_pair_all_asm::<PF>(
                 wp,
                 ap,
                 aap,
@@ -292,5 +295,5 @@ pub(super) fn tile_signed_pair_4<const NTA: bool>(
         }
     }
 
-    epilogue_store(&acc.0, sw, wsum, bias, sa, ca, out, ldo, ncols);
+    epilogue_store_preloaded(&acc.0, ep, sa, ca, out, ldo, ncols);
 }

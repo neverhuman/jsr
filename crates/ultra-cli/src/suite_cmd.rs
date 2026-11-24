@@ -42,6 +42,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut limit: Option<usize> = Some(100);
     let mut batch_streams = 16usize;
     let mut grid_ms = 320u32;
+    let mut coalesce_ms = 0u32;
     let mut max_chunks = 2usize;
     let mut beam = 1usize;
     let mut beam_max_symbols = 1usize;
@@ -89,6 +90,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             }
             "--batch-streams" => batch_streams = parse_next(args, &mut i, "--batch-streams")?,
             "--grid-ms" => grid_ms = parse_next(args, &mut i, "--grid-ms")?,
+            "--coalesce-ms" => coalesce_ms = parse_next(args, &mut i, "--coalesce-ms")?,
             "--max-chunks" => max_chunks = parse_next(args, &mut i, "--max-chunks")?,
             "--beam" => beam = parse_next(args, &mut i, "--beam")?,
             "--beam-max-symbols" => {
@@ -448,6 +450,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             panel_manifest_sha256: resolved_panel.as_ref().map(|p| p.manifest_sha256.as_str()),
             batch_streams,
             grid_ms,
+            coalesce_ms,
             max_chunks: max_chunks.clamp(1, 16),
             beam,
             decode_config: &native_decode_cfg,

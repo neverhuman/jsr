@@ -29,6 +29,7 @@ pub(crate) struct SuiteCtx<'a> {
     pub panel_manifest_sha256: Option<&'a str>,
     pub batch_streams: usize,
     pub grid_ms: u32,
+    pub coalesce_ms: u32,
     pub max_chunks: usize,
     pub beam: usize,
     pub decode_config: &'a NativeEngineLoadConfig,

@@ -287,6 +287,7 @@ fn f10_lm_activation_and_effective_decode_config_match_across_engine_native_bank
         },
         packet_ms: 20,
         grid_ms: 320,
+        coalesce_ms: 0,
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced: false,
         source_commit: "test".into(),

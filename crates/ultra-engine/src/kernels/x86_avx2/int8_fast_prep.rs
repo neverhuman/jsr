@@ -33,8 +33,61 @@ pub(super) const MAX_SAFE_I16_SUM: u16 = 258;
 pub(super) enum TileMode {
     SignedFallback,
     SignedPair,
+    SignedQuad,
     U128Pos,
     U127Neg,
+}
+
+/// Panel-level epilogue metadata loaded ONCE per panel `p` and reused across all M-tiles (`ti`).
+#[derive(Clone, Copy)]
+pub(super) struct PanelEpilogue {
+    s0: __m256,
+    s1: __m256,
+    b0: __m256,
+    b1: __m256,
+    u0: __m256,
+    u1: __m256,
+}
+
+impl PanelEpilogue {
+    #[inline]
+    #[target_feature(enable = "avx2,fma")]
+    pub(super) fn load(sw: &[f32], wsum: &[f32], bias: &[f32]) -> Self {
+        assert!(sw.len() >= NR && wsum.len() >= NR && bias.len() >= NR);
+        // SAFETY: sw, wsum, bias each have >= NR = 16 floats (asserted).
+        unsafe {
+            Self {
+                s0: _mm256_loadu_ps(sw.as_ptr()),
+                s1: _mm256_loadu_ps(sw.as_ptr().add(8)),
+                b0: _mm256_loadu_ps(bias.as_ptr()),
+                b1: _mm256_loadu_ps(bias.as_ptr().add(8)),
+                u0: _mm256_loadu_ps(wsum.as_ptr()),
+                u1: _mm256_loadu_ps(wsum.as_ptr().add(8)),
+            }
+        }
+    }
+}
+
+/// Preloaded per-panel `qsum` vectors for unsigned-offset tiles (`U128Pos` / `U127Neg`).
+#[derive(Clone, Copy)]
+pub(super) struct PanelQsum {
+    q0: __m256i,
+    q1: __m256i,
+}
+
+impl PanelQsum {
+    #[inline]
+    #[target_feature(enable = "avx2,fma")]
+    pub(super) fn load(qsum: &[i32]) -> Self {
+        assert!(qsum.len() >= NR);
+        // SAFETY: qsum has >= NR = 16 i32 values (asserted).
+        unsafe {
+            Self {
+                q0: _mm256_loadu_si256(qsum.as_ptr().cast()),
+                q1: _mm256_loadu_si256(qsum.as_ptr().add(8).cast()),
+            }
+        }
+    }
 }
 
 /// Fast AVX2 horizontal sum of a row of `i8` values to test skewness (`mean <= -48` or `>= 48`).
@@ -248,43 +301,87 @@ pub(super) fn prepare_signed_runs(a_abs: &[u8], kp: usize, bad: &mut Vec<u16>) -
     true
 }
 
+/// Scan `a_abs` (zero copy!) for a signed 4-row tile into 4-group quads (`kp / 16`) and collect
+/// encoded bad quad entries `(q << 1) | needs_single`, terminated by `u16::MAX`:
+/// - `needs_single == 0`: both 2-group sub-pairs satisfy `<= 258` (cold label `3:` runs 2 pairs).
+/// - `needs_single == 1`: at least one sub-pair exceeds `258` (cold label `5:` runs 4 singles).
+///
+/// Returns `true` if `<= 33%` of quads are bad (so 4-group quad beats 2-group `SignedPair`).
+#[inline]
+pub(super) fn prepare_signed_quad_runs(a_abs: &[u8], kp: usize, bad: &mut Vec<u16>) -> bool {
+    let quads = kp / 16;
+    if !(2..0x7FFF).contains(&quads) {
+        return false;
+    }
+    assert!(a_abs.len() >= 4 * kp);
+    let start = bad.len();
+    let max_bad = (quads / 3).max(2);
+    for q in 0..quads {
+        let k0 = q * 16;
+        let mut ok = true;
+        let mut needs_single = false;
+        for m in 0..4 {
+            let s = &a_abs[m * kp + k0..m * kp + k0 + 16];
+            let e0 = u16::from(s[0]) + u16::from(s[1]) + u16::from(s[4]) + u16::from(s[5]);
+            let o0 = u16::from(s[2]) + u16::from(s[3]) + u16::from(s[6]) + u16::from(s[7]);
+            let e1 = u16::from(s[8]) + u16::from(s[9]) + u16::from(s[12]) + u16::from(s[13]);
+            let o1 = u16::from(s[10]) + u16::from(s[11]) + u16::from(s[14]) + u16::from(s[15]);
+            if e0 + e1 > MAX_SAFE_I16_SUM || o0 + o1 > MAX_SAFE_I16_SUM {
+                ok = false;
+                if e0 > MAX_SAFE_I16_SUM
+                    || o0 > MAX_SAFE_I16_SUM
+                    || e1 > MAX_SAFE_I16_SUM
+                    || o1 > MAX_SAFE_I16_SUM
+                {
+                    needs_single = true;
+                    break;
+                }
+            }
+        }
+        if !ok {
+            bad.push(((q as u16) << 1) | u16::from(needs_single));
+            if bad.len() - start > max_bad {
+                bad.truncate(start);
+                return false;
+            }
+        }
+    }
+    bad.push(u16::MAX);
+    true
+}
+
+#[inline]
 #[target_feature(enable = "avx2,fma")]
 #[allow(clippy::too_many_arguments)]
-pub(super) fn epilogue_store<const M: usize>(
+pub(super) fn epilogue_store_preloaded<const M: usize>(
     acc: &[[__m256i; 2]; M],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
+    ep: &PanelEpilogue,
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
     ldo: usize,
     ncols: usize,
 ) {
-    assert!(sw.len() >= NR && wsum.len() >= NR && bias.len() >= NR);
     assert!(sa.len() >= M && ca.len() >= M && ncols <= NR);
     assert!((M - 1)
         .checked_mul(ldo)
         .and_then(|v| v.checked_add(ncols))
         .is_some_and(|need| out.len() >= need));
-    // SAFETY: sw, wsum, bias have >= 16 floats (asserted).
-    let (s0, s1, b0, b1, u0, u1) = unsafe {
-        (
-            _mm256_loadu_ps(sw.as_ptr()),
-            _mm256_loadu_ps(sw.as_ptr().add(8)),
-            _mm256_loadu_ps(bias.as_ptr()),
-            _mm256_loadu_ps(bias.as_ptr().add(8)),
-            _mm256_loadu_ps(wsum.as_ptr()),
-            _mm256_loadu_ps(wsum.as_ptr().add(8)),
-        )
-    };
     for (m, acc_m) in acc.iter().enumerate() {
         let sv = _mm256_set1_ps(sa[m]);
         let cv = _mm256_set1_ps(ca[m]);
-        let base0 = _mm256_fmadd_ps(cv, u0, b0);
-        let base1 = _mm256_fmadd_ps(cv, u1, b1);
-        let y0 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(acc_m[0]), _mm256_mul_ps(sv, s0), base0);
-        let y1 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(acc_m[1]), _mm256_mul_ps(sv, s1), base1);
+        let base0 = _mm256_fmadd_ps(cv, ep.u0, ep.b0);
+        let base1 = _mm256_fmadd_ps(cv, ep.u1, ep.b1);
+        let y0 = _mm256_fmadd_ps(
+            _mm256_cvtepi32_ps(acc_m[0]),
+            _mm256_mul_ps(sv, ep.s0),
+            base0,
+        );
+        let y1 = _mm256_fmadd_ps(
+            _mm256_cvtepi32_ps(acc_m[1]),
+            _mm256_mul_ps(sv, ep.s1),
+            base1,
+        );
         let row = &mut out[m * ldo..];
         if ncols == NR {
             // SAFETY: row.len() >= 16 when ncols == 16 (asserted bound on out).
@@ -304,11 +401,41 @@ pub(super) fn epilogue_store<const M: usize>(
     }
 }
 
+#[inline]
 #[target_feature(enable = "avx2,fma")]
 #[allow(clippy::too_many_arguments)]
-pub(super) fn epilogue_u_store<const NEG: bool>(
+pub(super) fn epilogue_u_store_preloaded<const NEG: bool>(
     mut acc: [[__m256i; 2]; 4],
-    qsum: &[i32],
+    qs: &PanelQsum,
+    ep: &PanelEpilogue,
+    sa: &[f32],
+    ca: &[f32],
+    out: &mut [f32],
+    ldo: usize,
+    ncols: usize,
+) {
+    if !NEG {
+        let c0 = _mm256_slli_epi32::<7>(qs.q0);
+        let c1 = _mm256_slli_epi32::<7>(qs.q1);
+        for acc_m in &mut acc {
+            acc_m[0] = _mm256_sub_epi32(acc_m[0], c0);
+            acc_m[1] = _mm256_sub_epi32(acc_m[1], c1);
+        }
+    } else {
+        let c0 = _mm256_sub_epi32(_mm256_slli_epi32::<7>(qs.q0), qs.q0);
+        let c1 = _mm256_sub_epi32(_mm256_slli_epi32::<7>(qs.q1), qs.q1);
+        for acc_m in &mut acc {
+            acc_m[0] = _mm256_sub_epi32(c0, acc_m[0]);
+            acc_m[1] = _mm256_sub_epi32(c1, acc_m[1]);
+        }
+    }
+    epilogue_store_preloaded(&acc, ep, sa, ca, out, ldo, ncols);
+}
+
+#[target_feature(enable = "avx2,fma")]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn epilogue_store<const M: usize>(
+    acc: &[[__m256i; 2]; M],
     sw: &[f32],
     wsum: &[f32],
     bias: &[f32],
@@ -318,30 +445,8 @@ pub(super) fn epilogue_u_store<const NEG: bool>(
     ldo: usize,
     ncols: usize,
 ) {
-    assert!(qsum.len() >= NR);
-    // SAFETY: qsum has >= 16 i32 values (asserted).
-    let (q0, q1) = unsafe {
-        (
-            _mm256_loadu_si256(qsum.as_ptr().cast()),
-            _mm256_loadu_si256(qsum.as_ptr().add(8).cast()),
-        )
-    };
-    if !NEG {
-        let c0 = _mm256_slli_epi32::<7>(q0);
-        let c1 = _mm256_slli_epi32::<7>(q1);
-        for acc_m in &mut acc {
-            acc_m[0] = _mm256_sub_epi32(acc_m[0], c0);
-            acc_m[1] = _mm256_sub_epi32(acc_m[1], c1);
-        }
-    } else {
-        let c0 = _mm256_sub_epi32(_mm256_slli_epi32::<7>(q0), q0);
-        let c1 = _mm256_sub_epi32(_mm256_slli_epi32::<7>(q1), q1);
-        for acc_m in &mut acc {
-            acc_m[0] = _mm256_sub_epi32(c0, acc_m[0]);
-            acc_m[1] = _mm256_sub_epi32(c1, acc_m[1]);
-        }
-    }
-    epilogue_store(&acc, sw, wsum, bias, sa, ca, out, ldo, ncols);
+    let ep = PanelEpilogue::load(sw, wsum, bias);
+    epilogue_store_preloaded(acc, &ep, sa, ca, out, ldo, ncols);
 }
 
 /// Exact single-group unsigned accumulate for arbitrary `u ∈ [0, 255]` (inline, zero `vzeroupper`).
