@@ -209,6 +209,9 @@ pub fn transcribe_audio_file_with_options(
     let rsum = sampler.summary();
     let m = coord.metrics();
     let committed = coord.ledger().committed_text();
+    // Printed transcript: the ledger text, plus the last snapshot of any segment the 30 s hard
+    // cap closed (presentation only; wire events and the commit hash stay ledger-faithful).
+    let shown = crate::display_text::display_text(coord.ledger(), timed.iter().map(|te| &te.event));
     chunk_ms.sort_by(f64::total_cmp);
 
     let (mut previews, mut statuses, mut gaps) = (String::new(), Vec::new(), Vec::new());
@@ -255,7 +258,7 @@ pub fn transcribe_audio_file_with_options(
             events: sha256_hex(&ev_bytes),
             preview: sha256_hex(previews.as_bytes()),
             commit: sha256_hex(committed.as_bytes()),
-            final_: sha256_hex(committed.as_bytes()),
+            final_: sha256_hex(shown.as_bytes()),
         },
         label: HonestyLabel::InCorpus,
         partition: Partition::Dev,
@@ -264,7 +267,7 @@ pub fn transcribe_audio_file_with_options(
     receipt
         .validate_as_evidence()
         .map_err(|e| CliError::Internal(e.to_string()))?;
-    Ok((committed, timed, receipt, paced_wakeups))
+    Ok((shown, timed, receipt, paced_wakeups))
 }
 
 fn create_with_dirs(p: &Path) -> Result<File, CliError> {
