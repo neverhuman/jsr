@@ -29,15 +29,23 @@ independent of batch composition; exact integer kernels are implemented for x86 
 
 \para{Contributions.} We compare our single release artifact (\ultra{} \ReleaseVer{}) against all
 \ColdCompleteCompCount{} public open-weights CPU comparators with complete 730-utterance LibriSpeech
-DEV panel WER (\cref{fig:fullcomparison,tab:measured}).
+DEV panel WER (\cref{fig:fullcomparison,tab:measured}), and head-to-head against the strongest of them
+at our cost point, streaming Zipformer INT8 (\cref{tab:versus}).
 \begin{enumerate}
-\item \textbf{Single-artifact live and final frontier.} \ColdIntroContrib{}
+\item \textbf{Always-on cost.} The live stream needs \VsCpuPctOne\% of Zipformer INT8's CPU time and
+  \VsEnergyPctOne\% of its active core energy per audio second, in \VsRssPctOne\% of its memory, with
+  half its chunk length; sixteen paced live streams share one quiet Zen~2 core at
+  \RelCapSixteenBusy\% load (\RelCapSixteenNetW\,W net core power per stream, \RelCapSixteenLagPninetyFive\,ms
+  p95 stable-word lag; \cref{sec:versus,sec:capacity}).
+\item \textbf{Final text from the same weights.} An utterance-end commit pass on the same INT8 artifact is
+  \VsVerdictTwo{} Zipformer INT8 on pooled WER under a paired, speaker-clustered test, at
+  \VsSpeedXTwo$\times$ its single-core speed (\cref{sec:versus}).
 \item \textbf{Reproducible integer-exact CPU engine.} Pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp on full DEV (\RelFullUtts{} utterances)
-  with batch-invariant, repeatable execution (\cref{sec:engine}).
-\item \textbf{Same-artifact always-on capacity.} Sixteen real-time paced live streams on one quiet
-  Zen~2 core occupy \RelCapSixteenBusy\% of the core at \RelCapSixteenNetW\,W net core power per
-  stream and \RelCapSixteenLagPninetyFive\,ms p95 stable-word lag (\cref{sec:capacity}).
+  with batch-invariant, repeatable execution and identical live transcripts across x86 and ARM kernels
+  (\cref{sec:engine}).
+\item \textbf{Long-run training evidence.} A \TrainTotalKh\,h training record showing where a small
+  streaming model saturates and which data moves it (\cref{sec:training}).
 \item \textbf{Unified protocol and honest scope.} Same 730 DEV utterances (\ColdAudioMinutes\,min),
   one pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, same-run active
   core power, and explicit host/subset provenance tags (\cref{sec:protocol}).
