@@ -80,8 +80,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         evs = f"{ev}; docs/paper/data/evidence/{r['_where']} id={r['id']}"
         put(f"VsDelta{t}", tex(_sg(p["delta"], 2)), p["delta"], "pp WER",
             f"{q['mode']} minus Zipformer INT8, pooled 730-utt panel WER (paired)", p["src"], p["digest"])
-        put(f"VsLo{t}", tex(_sg(p["lo"], 2)), p["lo"], "pp WER", f"{q['mode']}: 95% lower bound", p["src"], p["digest"])
-        put(f"VsHi{t}", tex(_sg(p["hi"], 2)), p["hi"], "pp WER", f"{q['mode']}: 95% upper bound", p["src"], p["digest"])
+        put(f"VsLo{t}", tex(_sg(p["lo"], 2)), p["lo"], "pp WER", f"{q['mode']}: one-sided 95% lower bound (5% bootstrap quantile)", p["src"], p["digest"])
+        put(f"VsHi{t}", tex(_sg(p["hi"], 2)), p["hi"], "pp WER", f"{q['mode']}: one-sided 95% upper bound (95% bootstrap quantile)", p["src"], p["digest"])
         put(f"VsSpeedX{t}", fmt(o["speed"] / z["speed"], 2), o["speed"] / z["speed"], "x",
             f"{q['mode']} single-core speed / Zipformer INT8", evs, comp["workload_digest"])
         put(f"VsRssPct{t}", fmt(100.0 * o["rss_mb"] / z["rss_mb"], 0), 100.0 * o["rss_mb"] / z["rss_mb"], "%",
@@ -100,7 +100,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         return "—" if v is None else fmt(v, 3)
 
     md = ["### Head-to-head with Zipformer INT8 (same 730 DEV utterances, same quiet Zen 2 core, cold, median of 3)", "",
-          "| | Live chunk | Pooled WER (%) | vs. Zipformer, paired 95% bounds (pp) | 1-core speed (× RT) | "
+          "| | Live chunk | Pooled WER (%) | vs. Zipformer, paired one-sided 95% bounds (pp) | 1-core speed (× RT) | "
           "J per audio-second (active core) | Peak RSS (MB) |",
           "|---|---:|---:|---|---:|---:|---:|",
           f"| Zipformer INT8 | {zc} ms | {fmt(z['wer'], 2)} | — | {speed_text(z['speed'])} | {j(z['watts'])} | "
@@ -119,8 +119,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
                         "speed_x": o["speed"] / z["speed"], "speed": o["speed"],
                         "energy_pct": (100.0 * o["watts"] / z["watts"]) if o["watts"] is not None and z["watts"] else None,
                         "rss_pct": 100.0 * o["rss_mb"] / z["rss_mb"], "rss_mb": o["rss_mb"]})
-    md += ["", "Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); bounds from "
-           "`ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on "
+    md += ["", "Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); each bound is "
+           "one-sided at 95% (together a central 90% interval) from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on "
            "the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not "
            "wall power."]
     cols = [("Zipformer", None)] + [(f"\\ultra{{}} {q['mode']}", q) for q in pairs]
@@ -131,7 +131,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         ("Live chunk (ms)", lambda q: str(zc) if q is None else (str(q["chunk"]) if q["mode"] == "live" else f"{q['chunk']}\\textsuperscript{{a}}")),
         ("Pooled WER (\\%)", lambda q: fmt(z["wer"] if q is None else q["d"]["wer"], 2)),
         ("$\\Delta$ WER vs.\\ Zip.\\ (pp)", lambda q: cell(q, lambda q: tex(_sg(q["p"]["delta"], 2)))),
-        ("\\quad paired 95\\% bounds", lambda q: cell(q, lambda q: f"[{tex(_sg(q['p']['lo'], 2))}, {tex(_sg(q['p']['hi'], 2))}]")),
+        ("\\quad one-sided 95\\% bounds", lambda q: cell(q, lambda q: f"[{tex(_sg(q['p']['lo'], 2))}, {tex(_sg(q['p']['hi'], 2))}]")),
         ("1-core speed ($\\times$ RT)", lambda q: speed_text(z["speed"] if q is None else q["d"]["speed"])),
         ("J per audio-s (core)", lambda q: j(z["watts"] if q is None else q["d"]["watts"])),
         ("Peak RSS (MB)", lambda q: fmt(z["rss_mb"] if q is None else q["d"]["rss_mb"], 0)),

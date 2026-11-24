@@ -33,7 +33,7 @@ compare against it directly on the same utterances and the same core (\cref{tab:
 differences are paired: both systems decode the same 730 utterances, and the bootstrap resamples
 speakers. The live stream needs \VsCpuPctOne\% of Zipformer's CPU time (\VsSpeedXOne$\times$ the throughput) and
 \VsEnergyPctOne\% of the active core energy per audio second, in \VsRssPctOne\% of the memory, with half
-the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its pooled WER is \VsVerdictOne{} Zipformer's (\VsDeltaOne\pp, 95\% bounds \VsLoOne{} to
+the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its pooled WER is \VsVerdictOne{} Zipformer's (\VsDeltaOne\pp, one-sided 95\% bounds \VsLoOne{} to
 \VsHiOne\pp). The final text from the same weights is \VsVerdictTwo{} Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp) at \VsSpeedXTwo$\times$ its
 single-core speed. An application that consumes utterance-end text therefore gets Zipformer-class
 accuracy from the final pass, and the live stream supplies the always-on, low-latency path at a

@@ -4,7 +4,7 @@
 (\LmPackMb\,MB on disk) and commit CPU without losing accuracy is active work.
 
 \para{Live accuracy.} The endpoint-free live stream trades accuracy for cost: its pooled panel WER
-is \VsVerdictOne{} streaming Zipformer INT8's by \VsDeltaOne\pp (paired 95\% bounds \VsLoOne{} to
+is \VsVerdictOne{} streaming Zipformer INT8's by \VsDeltaOne\pp (paired one-sided 95\% bounds \VsLoOne{} to
 \VsHiOne\pp) at half its chunk length and \VsCpuPctOne\% of its CPU time. Applications that need
 Zipformer-class text before an utterance ends should not assume the final-pass accuracy.
 

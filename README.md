@@ -11,18 +11,18 @@
 **Figure 1.** One INT8 model on one quiet Zen 2 core: Isosyll v3.0.0 (live) runs at 29.1× (0.344 W, 6.85% WER); the final mode reaches 5.06% at 14.2× (0.720 W) vs. 14.5×, 5.25% for Zipformer INT8. Same 730 LibriSpeech DEV utterances, one pinned Zen 2 core, median of three cold runs including model load. [Read the paper](docs/paper/paper.pdf) for all 15 open recognisers we measured, the protocol and the limits · [v3.0.0 release record](docs/ultra/releases/v3.0.0.md).
 
 - **Always-on at a fraction of the cost.** The live stream runs 2.0× as fast as Zipformer INT8 on one core, 58% of its active core energy and 48% of its memory, with a 160 ms chunk against Zipformer's 320 ms, at 1.59 pp higher pooled WER (6.85% vs. 5.25%). 16 real-time live streams fit on one core at 53% busy (p95 stable-word lag 457 ms).
-- **Final text from the same weights.** At utterance ends, a commit pass with a 5-gram LM reaches 5.06% pooled WER, a statistical tie with Zipformer's 5.25% (paired 95% bounds −0.53 to +0.14 pp), at 0.98× its single-core speed.
+- **Final text from the same weights.** At utterance ends, a commit pass with a 5-gram LM reaches 5.06% pooled WER, a statistical tie with Zipformer's 5.25% (paired one-sided 95% bounds −0.53 to +0.14 pp), at 0.98× its single-core speed.
 - **Bit-exact and portable.** Exact int32 accumulation and a portable log-mel front end give identical live transcripts on the tested AVX2, AVX-512 VNNI and ARM NEON kernels and batch sizes (final text matches across the tested x86 and ARM CPUs), within 0.003 pp of FP32 PyTorch on full LibriSpeech DEV.
 
 ### Head-to-head with Zipformer INT8 (same 730 DEV utterances, same quiet Zen 2 core, cold, median of 3)
 
-| | Live chunk | Pooled WER (%) | vs. Zipformer, paired 95% bounds (pp) | 1-core speed (× RT) | J per audio-second (active core) | Peak RSS (MB) |
+| | Live chunk | Pooled WER (%) | vs. Zipformer, paired one-sided 95% bounds (pp) | 1-core speed (× RT) | J per audio-second (active core) | Peak RSS (MB) |
 |---|---:|---:|---|---:|---:|---:|
 | Zipformer INT8 | 320 ms | 5.25 | — | 14.5 | 0.591 | 153 |
 | **Isosyll v3.0.0 (live)** | 160 ms | 6.85 | +1.59 [+1.27, +1.92], higher WER | 29.1 (2.01×) | 0.344 (58%) | 74 (48%) |
 | **Isosyll v3.0.0 (final, seg.)** | 160 ms live + commit at reference utterance ends | 5.06 | −0.19 [−0.53, +0.14], statistical tie | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
 
-Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); bounds from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
+Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); each bound is one-sided at 95% (together a central 90% interval) from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
 
 All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Larger offline and 600M-parameter streaming models (Parakeet, Nemotron) are more accurate at several times the CPU; see the paper. Refresh with `just paper-refresh`.
 <!-- money-plot:end -->

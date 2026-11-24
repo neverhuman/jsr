@@ -42,7 +42,7 @@ def _story(vs: dict, rec_rows: dict, extras: dict) -> list[str]:
         how = {"lower WER": "fewer errors than", "statistical tie": "a statistical tie with",
                "higher WER": "more errors than"}[final["verdict"]]
         out.append(f"- **Final text from the same weights.** At utterance ends, a commit pass with a 5-gram LM reaches "
-                   f"{fmt(final['wer'], 2)}% pooled WER, {how} Zipformer's {fmt(z['wer'], 2)}% (paired 95% bounds "
+                   f"{fmt(final['wer'], 2)}% pooled WER, {how} Zipformer's {fmt(z['wer'], 2)}% (paired one-sided 95% bounds "
                    f"{_sg(final['lo'], 2)} to {_sg(final['hi'], 2)} pp), at {fmt(final['speed_x'], 2)}× its "
                    "single-core speed.")
     if "RelIntEightDelta" in rec_rows:

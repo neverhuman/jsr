@@ -7,12 +7,12 @@ operating points. On the same 730 LibriSpeech development utterances and the sam
 the 160\,ms live stream delivers \VsSpeedXOne$\times$ the single-core throughput of streaming
 Zipformer INT8 at \VsEnergyPctOne\% of its active core energy and \VsRssPctOne\% of its memory, with
 half its chunk length; its pooled WER is \VsVerdictOne{} Zipformer's by \VsDeltaOne{} percentage
-points (paired 95\% bounds \VsLoOne{} to \VsHiOne). At utterance ends, a commit pass on the same
+points (paired one-sided 95\% bounds \VsLoOne{} to \VsHiOne). At utterance ends, a commit pass on the same
 weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's \ColdZipWer\% (paired bounds
 \VsLoTwo{} to \VsHiTwo), at \VsSpeedXTwo$\times$ its speed. Sixteen paced live streams share one core at
 \RelCapSixteenBusy\% load with a 95th-percentile stable-word lag of \RelCapSixteenLagPninetyFive\,ms.
 \RelIsaProof{} Greedy INT8 changes full-DEV pooled WER by \RelIntEightDelta{} percentage points relative to FP32 PyTorch
-(95\% bounds \RelIntEightLo{} to \RelIntEightHi). Over \TrainTotalKh\,h of training audio, the model
+(one-sided 95\% bounds \RelIntEightLo{} to \RelIntEightHi). Over \TrainTotalKh\,h of training audio, the model
 saturates on LibriSpeech 960\,h alone, and Zipformer-pseudo-labelled Libri-Light then lowers live WER
 by \TrainLiveGain{} points. All results are exploratory and use development data only.
 \end{abstract}
