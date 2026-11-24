@@ -126,31 +126,36 @@ fn exp_endpoints_and_non_finite_inputs() {
 }
 
 #[test]
-fn reductions_agree_within_tolerance() {
+fn reductions_are_bit_exact_with_scalar() {
     for isa in available_simd_isas() {
         let mut rng = Rng::new(3);
-        let d = 384;
-        let x: Vec<f32> = (0..5 * d).map(|i| rng.f32(3.0) + (i % 7) as f32).collect();
-        let g = rng.vec(d, 1.0);
-        let b = rng.vec(d, 1.0);
-        let mut o1 = vec![0.0; x.len()];
-        let mut o2 = vec![0.0; x.len()];
-        layer_norm(Isa::Scalar, &x, d, &g, &b, &mut o1);
-        layer_norm(isa, &x, d, &g, &b, &mut o2);
-        for (u, v) in o1.iter().zip(&o2) {
-            assert!((u - v).abs() < 2e-5, "{isa:?} {u} {v}");
+        for d in [1, 3, 7, 8, 9, 13, 15, 16, 17, 23, 31, 33, 64, 384, 512] {
+            let x: Vec<f32> = (0..5 * d).map(|i| rng.f32(3.0) + (i % 7) as f32).collect();
+            let g = rng.vec(d, 1.0);
+            let b = rng.vec(d, 1.0);
+            let mut o1 = vec![0.0; x.len()];
+            let mut o2 = vec![0.0; x.len()];
+            layer_norm(Isa::Scalar, &x, d, &g, &b, &mut o1);
+            layer_norm(isa, &x, d, &g, &b, &mut o2);
+            for (u, v) in o1.iter().zip(&o2) {
+                assert_eq!(
+                    u.to_bits(),
+                    v.to_bits(),
+                    "layer_norm 0-ULP {isa:?} d={d} {u} {v}"
+                );
+            }
         }
-        for n in [1, 8, 64, 67, 132] {
+        for n in [1, 3, 7, 8, 9, 13, 15, 16, 17, 23, 31, 32, 33, 64, 67, 132] {
             let a = rng.vec(n, 2.0);
             let c = rng.vec(n, 2.0);
             let (u, v) = (dot(Isa::Scalar, &a, &c), dot(isa, &a, &c));
-            assert!((u - v).abs() < 1e-4 * (1.0 + u.abs()));
+            assert_eq!(u.to_bits(), v.to_bits(), "dot 0-ULP {isa:?} n={n} {u} {v}");
             let mut y1 = rng.vec(n, 1.0);
             let mut y2 = y1.clone();
             axpy(Isa::Scalar, 0.37, &a, &mut y1);
             axpy(isa, 0.37, &a, &mut y2);
             for (p, q) in y1.iter().zip(&y2) {
-                assert!((p - q).abs() < 1e-6);
+                assert_eq!(p.to_bits(), q.to_bits(), "axpy 0-ULP {isa:?} n={n} {p} {q}");
             }
         }
     }
@@ -318,11 +323,19 @@ fn attend_head_simd_matches_scalar() {
         return;
     }
     let mut rng = Rng::new(6);
-    // (dh, queries, ring, window start, window length): wrapped and unwrapped windows.
+    // (dh, queries, ring, window start, window length): wrapped, unwrapped, and residue nk tails.
     for &(dh, n, ring, start, nk) in &[
         (64usize, 4usize, 136usize, 100usize, 132usize),
+        (64, 1, 136, 0, 1),
         (64, 1, 136, 0, 3),
+        (64, 2, 16, 13, 5),
+        (64, 3, 16, 11, 7),
+        (64, 2, 16, 8, 8),
+        (64, 2, 16, 12, 9),
+        (64, 3, 24, 19, 11),
+        (64, 2, 24, 15, 15),
         (64, 2, 136, 10, 17),
+        (64, 3, 24, 10, 19),
         (40, 3, 24, 15, 9),
         (128, 2, 72, 60, 17),
         (64, 5, 144, 7, 137),
@@ -414,7 +427,11 @@ fn attend_head_simd_matches_scalar() {
                 2 * dh,
             );
             for (a, b) in o1.iter().zip(&o2) {
-                assert!((a - b).abs() < 1e-5, "{isa:?} dh {dh}: {a} {b}");
+                assert_eq!(
+                    a.to_bits(),
+                    b.to_bits(),
+                    "attend_head 0-ULP {isa:?} dh {dh} nk {nk}: {a} {b}"
+                );
             }
         }
         // And against a direct f64 softmax-attention.
