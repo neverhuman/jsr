@@ -189,8 +189,12 @@ impl LazyTensors {
         self.spans.get(name).map(|s| s.shape.as_slice())
     }
 
-    fn raw(&self, name: &str, shape: &[usize], i8: bool) -> Result<Vec<u8>, EngineError> {
-        use std::io::{Read, Seek, SeekFrom};
+    fn seek_tensor(
+        &self,
+        name: &str,
+        shape: &[usize],
+        i8: bool,
+    ) -> Result<(usize, usize), EngineError> {
         let sp = self
             .spans
             .get(name)
@@ -203,25 +207,47 @@ impl LazyTensors {
                 if i8 { "I8" } else { "F32" }
             )));
         }
-        let mut buf = vec![0u8; sp.end - sp.begin];
-        let mut f = self.file.borrow_mut();
-        f.seek(SeekFrom::Start(self.data_start + sp.begin as u64))?;
-        f.read_exact(&mut buf)?;
-        Ok(buf)
+        Ok((sp.begin, sp.end - sp.begin))
     }
 
-    /// The F32 tensor `name` with exactly `shape`.
+    /// The F32 tensor `name` with exactly `shape` (streamed in 64 KiB chunks to avoid a
+    /// duplicate raw-byte peak RSS allocation during cold model load).
     pub fn f32(&self, name: &str, shape: &[usize]) -> Result<Vec<f32>, EngineError> {
-        Ok(decode_f32(&self.raw(name, shape, false)?))
+        use std::io::{Read, Seek, SeekFrom};
+        let (begin, nbytes) = self.seek_tensor(name, shape, false)?;
+        let mut out = Vec::with_capacity(nbytes / 4);
+        let mut f = self.file.borrow_mut();
+        f.seek(SeekFrom::Start(self.data_start + begin as u64))?;
+        let mut buf = [0u8; 65_536];
+        let mut rem = nbytes;
+        while rem > 0 {
+            let take = rem.min(buf.len());
+            f.read_exact(&mut buf[..take])?;
+            for c in buf[..take].chunks_exact(4) {
+                out.push(f32::from_le_bytes([c[0], c[1], c[2], c[3]]));
+            }
+            rem -= take;
+        }
+        Ok(out)
     }
 
-    /// The I8 tensor `name` with exactly `shape`.
+    /// The I8 tensor `name` with exactly `shape` (streamed in 64 KiB chunks directly into
+    /// exact-capacity `Vec<i8>` with zero duplicate raw-byte peak RSS spike).
     pub fn i8(&self, name: &str, shape: &[usize]) -> Result<Vec<i8>, EngineError> {
-        Ok(self
-            .raw(name, shape, true)?
-            .into_iter()
-            .map(|v| v as i8)
-            .collect())
+        use std::io::{Read, Seek, SeekFrom};
+        let (begin, nbytes) = self.seek_tensor(name, shape, true)?;
+        let mut out = Vec::with_capacity(nbytes);
+        let mut f = self.file.borrow_mut();
+        f.seek(SeekFrom::Start(self.data_start + begin as u64))?;
+        let mut buf = [0u8; 65_536];
+        let mut rem = nbytes;
+        while rem > 0 {
+            let take = rem.min(buf.len());
+            f.read_exact(&mut buf[..take])?;
+            out.extend(buf[..take].iter().map(|&v| v as i8));
+            rem -= take;
+        }
+        Ok(out)
     }
 }
 

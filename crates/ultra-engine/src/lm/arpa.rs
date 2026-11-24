@@ -206,6 +206,7 @@ fn build_from_parsed(
         }
     }
     if order == 1 {
+        let lodr_row_min = super::compute_lodr_row_min(&lodr_bigram, vocab);
         return Ok(NgramLm {
             vocab,
             order,
@@ -217,6 +218,7 @@ fn build_from_parsed(
             uni_child_off: Vec::new(),
             levels: Vec::new(),
             lodr_bigram,
+            lodr_row_min,
             max_lm_logp: if max_lm_logp.is_finite() {
                 max_lm_logp
             } else {
@@ -328,6 +330,7 @@ fn build_from_parsed(
             child_off: child_off_bv,
         });
     }
+    let lodr_row_min = super::compute_lodr_row_min(&lodr_bigram, vocab);
     Ok(NgramLm {
         vocab,
         order,
@@ -339,6 +342,7 @@ fn build_from_parsed(
         uni_child_off,
         levels,
         lodr_bigram,
+        lodr_row_min,
         max_lm_logp: if max_lm_logp.is_finite() {
             max_lm_logp
         } else {

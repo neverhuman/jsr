@@ -86,7 +86,7 @@ impl Model {
             let q = st.i8(&format!("{nm}.q"), &[panels * kp * crate::kernels::NR])?;
             let scale = st.f32(&format!("{nm}.scale"), &[panels * crate::kernels::NR])?;
             let wsum = st.f32(&format!("{nm}.wsum"), &[panels * crate::kernels::NR])?;
-            let packed = PackedI8::from_parts(n, k, q, &scale, &wsum, &lin.f.bias[..n])?;
+            let packed = PackedI8::from_parts_owned(n, k, q, scale, wsum, &lin.f.bias[..n])?;
             if raw.codes.as_deref() == Some("ternary") {
                 lin.t = crate::quant::PackedT::from_ternary_codes(&packed)?;
             }

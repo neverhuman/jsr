@@ -172,6 +172,39 @@ pub(crate) fn silu_inplace(x: &mut [f32]) {
     unsafe { silu_avx2(x) }
 }
 
+pub(crate) fn tanh_add(a: &[f32], b: &[f32], out: &mut [f32]) {
+    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    unsafe { tanh_add_avx2(a, b, out) }
+}
+
+#[target_feature(enable = "avx2,fma")]
+fn tanh_add_avx2(a: &[f32], b: &[f32], out: &mut [f32]) {
+    let n = out.len();
+    assert!(a.len() == n && b.len() == n);
+    let sign_mask = _mm256_set1_ps(-0.0);
+    let abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fff_ffffu32 as i32));
+    let neg2 = _mm256_set1_ps(-2.0);
+    let one = _mm256_set1_ps(1.0);
+    let main = n - n % 8;
+    let mut i = 0;
+    while i < main {
+        // SAFETY: i + 8 <= main <= n == a.len() == b.len() == out.len() (asserted).
+        unsafe {
+            let x = _mm256_add_ps(
+                _mm256_loadu_ps(a.as_ptr().add(i)),
+                _mm256_loadu_ps(b.as_ptr().add(i)),
+            );
+            let t = _mm256_and_ps(x, abs_mask);
+            let e = exp8(_mm256_mul_ps(neg2, t));
+            let y = _mm256_div_ps(_mm256_sub_ps(one, e), _mm256_add_ps(one, e));
+            let res = _mm256_or_ps(y, _mm256_and_ps(x, sign_mask));
+            _mm256_storeu_ps(out.as_mut_ptr().add(i), res);
+        }
+        i += 8;
+    }
+    scalar::tanh_add(&a[main..], &b[main..], &mut out[main..]);
+}
+
 #[target_feature(enable = "avx2,fma")]
 fn silu_avx2(x: &mut [f32]) {
     let one = _mm256_set1_ps(1.0);

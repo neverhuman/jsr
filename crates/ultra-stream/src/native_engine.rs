@@ -17,6 +17,30 @@ use crate::api::{
 use crate::ort_r1::R1_SAMPLES_PER_ENC_FRAME;
 use crate::sherpa_ffi::verify_cpu_only_process;
 
+/// Optional decode configuration for [`NativeEngineBackend::load_with_config`].
+#[derive(Debug, Clone)]
+pub struct NativeEngineLoadConfig {
+    pub max_chunks: usize,
+    pub chunk: Option<usize>,
+    pub beam: usize,
+    pub beam_max_symbols: usize,
+    pub beam_margin: f32,
+    pub lm: Option<(Arc<ultra_engine::NgramLm>, ultra_engine::LmConfig)>,
+}
+
+impl Default for NativeEngineLoadConfig {
+    fn default() -> Self {
+        Self {
+            max_chunks: 1,
+            chunk: None,
+            beam: 1,
+            beam_max_symbols: 1,
+            beam_margin: 0.0,
+            lm: None,
+        }
+    }
+}
+
 /// Immutable pure-Rust `ultra-engine` backend (`Send + Sync`, shared read-only across CCX workers).
 pub struct NativeEngineBackend {
     pub engine: Engine,
@@ -77,6 +101,18 @@ impl NativeEngineBackend {
         )
     }
 
+    /// Strict loader with full streaming beam / chunk / LM shallow-fusion configuration.
+    /// Refuses runtime weight quantisation in timed service loads.
+    pub fn load_with_config(
+        weights_dir: &Path,
+        precision: Precision,
+        threads: i32,
+        verify_hashes: bool,
+        cfg: &NativeEngineLoadConfig,
+    ) -> Result<Arc<Self>, StreamError> {
+        Self::load_inner_cfg(weights_dir, precision, threads, verify_hashes, false, cfg)
+    }
+
     /// Diagnostic-only loader allowing load-time `Model::quantize_int8()` when no prepared
     /// `weights.int8.safetensors` artifact exists yet.
     pub fn load_diagnostic_allow_unprepared_int8(
@@ -97,6 +133,29 @@ impl NativeEngineBackend {
         max_chunks: usize,
         beam: usize,
     ) -> Result<Arc<Self>, StreamError> {
+        let cfg = NativeEngineLoadConfig {
+            max_chunks,
+            beam,
+            ..NativeEngineLoadConfig::default()
+        };
+        Self::load_inner_cfg(
+            weights_dir,
+            precision,
+            threads,
+            verify_hashes,
+            allow_unprepared_int8,
+            &cfg,
+        )
+    }
+
+    fn load_inner_cfg(
+        weights_dir: &Path,
+        precision: Precision,
+        threads: i32,
+        verify_hashes: bool,
+        allow_unprepared_int8: bool,
+        cfg: &NativeEngineLoadConfig,
+    ) -> Result<Arc<Self>, StreamError> {
         if threads != 1 {
             return Err(StreamError::Protocol(format!(
                 "ultra-engine worker requires threads == 1 (got {threads}); scale via CCX workers"
@@ -106,7 +165,7 @@ impl NativeEngineBackend {
             .map_err(|e| StreamError::BackendUnavailable(format!("arch.json: {e}")))?;
         let arch_sha256 = sha256_reader(&mut arch_file)
             .map_err(|e| StreamError::BackendUnavailable(format!("hash arch.json: {e}")))?;
-        let mut model = Model::load(weights_dir, verify_hashes)?;
+        let mut model = Model::load_live(weights_dir, verify_hashes)?;
         let int8_source = match precision {
             Precision::F32 => "n/a",
             Precision::Int8 if model.int8_prepared.is_some() => "prepared",
@@ -121,9 +180,17 @@ impl NativeEngineBackend {
                 )));
             }
         };
-        let engine = Engine::new(Arc::new(model), Isa::detect(), precision)?
-            .with_max_chunks(max_chunks)
-            .with_beam(beam);
+        let mut engine = Engine::new(Arc::new(model), Isa::detect(), precision)?
+            .with_max_chunks(cfg.max_chunks)
+            .with_beam(cfg.beam)
+            .with_beam_max_symbols(cfg.beam_max_symbols)
+            .with_beam_margin(cfg.beam_margin);
+        if let Some(chunk) = cfg.chunk {
+            engine = engine.with_chunk(chunk)?;
+        }
+        if let Some((lm, lm_cfg)) = &cfg.lm {
+            engine = engine.with_lm(Arc::clone(lm), *lm_cfg)?;
+        }
         Ok(Arc::new(Self {
             engine,
             arch_sha256,

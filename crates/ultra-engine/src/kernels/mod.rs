@@ -300,6 +300,19 @@ pub fn silu_inplace(isa: Isa, x: &mut [f32]) {
     }
 }
 
+/// `out[i] = tanh(a[i] + b[i])` using the engine's cross-ISA exp (bit-identical across scalar,
+/// AVX2 and NEON).
+pub fn tanh_add(isa: Isa, a: &[f32], b: &[f32], out: &mut [f32]) {
+    assert!(a.len() == b.len() && a.len() == out.len());
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::tanh_add(a, b, out),
+        #[cfg(target_arch = "aarch64")]
+        Isa::Neon => aarch64_neon::tanh_add(a, b, out),
+        _ => scalar::tanh_add(a, b, out),
+    }
+}
+
 /// `sum_i exp(x[i] - shift)` with the engine's exp, in one fixed order on every ISA
 /// (bit-identical across scalar, AVX2 and NEON).
 pub fn sum_exp_shifted(isa: Isa, x: &[f32], shift: f32) -> f32 {

@@ -251,6 +251,7 @@ pub(super) fn load_streaming(path: &Path) -> Result<NgramLm, EngineError> {
             validate_csr_bitvec(&levels[i].child_off, levels[i + 1].len() as u32)?;
         }
     }
+    let lodr_row_min = super::compute_lodr_row_min(&lodr_bigram, vocab);
     Ok(NgramLm {
         vocab,
         order,
@@ -262,6 +263,7 @@ pub(super) fn load_streaming(path: &Path) -> Result<NgramLm, EngineError> {
         uni_child_off,
         levels,
         lodr_bigram,
+        lodr_row_min,
         max_lm_logp,
     })
 }

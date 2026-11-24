@@ -46,7 +46,7 @@ pub use fleet_inproc::{
 };
 pub use grid_sim::SustainedSample;
 pub use native_commit::{LiveCommitAsrStream, LiveCommitConfig};
-pub use native_engine::NativeEngineBackend;
+pub use native_engine::{NativeEngineBackend, NativeEngineLoadConfig};
 pub use native_engine_bank::{
     run_engine_packet_streaming_with_tokens, run_sp_a_native_engine, EnginePacketStreamingRun,
     EngineSpAConfig, NativeEngineSlotBank,

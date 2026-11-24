@@ -60,6 +60,26 @@ pub struct DecWorkspace {
     pub(crate) beam_offs: Vec<usize>,
     pub(crate) beam_active: Vec<usize>,
     pub(crate) beam_need: Vec<(usize, usize)>,
+    pub(crate) beam_cands: Vec<crate::beam::Cand>,
+    pub(crate) beam_gated: Vec<bool>,
+    pub(crate) beam_fallback: Vec<usize>,
+    pub(crate) beam_fb_logits: Vec<f32>,
+    pub(crate) beam_fb_lse: Vec<f32>,
+    pub(crate) beam_fb_max_nb: Vec<f32>,
+    pub(crate) beam_fb_row_map: Vec<isize>,
+    pub(crate) beam_fb_stream_off: Vec<usize>,
+    pub(crate) beam_next_active: Vec<usize>,
+    pub(crate) beam_done: Vec<Vec<crate::beam::Hyp>>,
+    pub(crate) beam_fast_blank: Vec<bool>,
+    pub(crate) beam_scratch_hyps: Vec<crate::beam::Hyp>,
+    pub(crate) beam_old_hyps: Vec<Option<crate::beam::Hyp>>,
+    pub(crate) beam_lse: Vec<f32>,
+    pub(crate) beam_max_nb: Vec<f32>,
+    pub(crate) beam_row_map: Vec<usize>,
+    pub(crate) beam_stream_row_off: Vec<usize>,
+    pub(crate) beam_shortlist: Vec<(f32, usize)>,
+    pub(crate) beam_ub_buf: Vec<f32>,
+    pub(crate) beam_refcounts: Vec<u16>,
     pub(crate) q: QuantScratch,
 }
 
@@ -174,8 +194,12 @@ pub fn greedy_chunk(
                 let s = ws.active[r];
                 let e = &enc[(offs[s] + t) * jn..(offs[s] + t + 1) * jn];
                 let row = &mut hid[keep_gemm * jn..(keep_gemm + 1) * jn];
-                for ((h, &ev), &dv) in row.iter_mut().zip(e).zip(&states[s].dec) {
-                    *h = (ev + dv).tanh();
+                if prec == Precision::Int8 {
+                    crate::kernels::tanh_add(isa, e, &states[s].dec, row);
+                } else {
+                    for ((h, &ev), &dv) in row.iter_mut().zip(e).zip(&states[s].dec) {
+                        *h = (ev + dv).tanh();
+                    }
                 }
                 // Exact Cauchy-Schwarz blank-first certificate (0.000% error):
                 // if z_blank > upper_bound(z_{v != blank}), skip the V x J joiner GEMM.

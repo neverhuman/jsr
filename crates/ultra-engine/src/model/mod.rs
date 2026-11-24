@@ -215,7 +215,8 @@ impl BlankCert {
         })
     }
 
-    /// Build from a packed int8 joiner matrix using its exact dequantised weights `w_q * scale`.
+    /// Build from a packed int8 joiner matrix using its exact dequantised weights `w_q * scale`,
+    /// streaming one row (`jn` floats) at a time to avoid a `V x jn` temporary peak allocation.
     pub fn from_packed_i8(q: &PackedI8, blank: usize) -> Option<Self> {
         use crate::kernels::NR;
         use crate::quant::KG;
@@ -223,19 +224,59 @@ impl BlankCert {
         if v < 2 || jn == 0 || blank >= v {
             return None;
         }
-        let mut w = vec![0.0f32; v * jn];
-        let mut b = vec![0.0f32; v];
-        for row in 0..v {
+        let unpack_row = |row: usize, dst: &mut [f32]| {
             let (p, j) = (row / NR, row % NR);
             let panel = q.panel(p);
             let s = q.scale[row];
-            b[row] = q.bias[row];
-            for kk in 0..jn {
+            for (kk, slot) in dst.iter_mut().enumerate() {
                 let code = panel[((kk / KG) * NR + j) * KG + kk % KG];
-                w[row * jn + kk] = f32::from(code) * s;
+                *slot = f32::from(code) * s;
             }
+        };
+        let mut w_blank = vec![0.0f32; jn];
+        unpack_row(blank, &mut w_blank);
+        let b_blank = q.bias[blank];
+        let mut w_bar = vec![0.0f32; jn];
+        let mut row_buf = vec![0.0f32; jn];
+        let inv_n = 1.0 / (v - 1) as f32;
+        let mut b_max_nonblank = f32::NEG_INFINITY;
+        for row in 0..v {
+            if row == blank {
+                continue;
+            }
+            unpack_row(row, &mut row_buf);
+            for (m, &val) in w_bar.iter_mut().zip(&row_buf) {
+                *m += val * inv_n;
+            }
+            b_max_nonblank = b_max_nonblank.max(q.bias[row]);
         }
-        Self::from_row_major(&w, &b, v, jn, blank)
+        let mut r_max = 0.0f32;
+        let mut max_w_norm = 0.0f32;
+        for row in 0..v {
+            unpack_row(row, &mut row_buf);
+            let mut n2 = 0.0f64;
+            for &val in &row_buf {
+                n2 += f64::from(val) * f64::from(val);
+            }
+            max_w_norm = max_w_norm.max(n2.sqrt() as f32);
+            if row == blank {
+                continue;
+            }
+            let mut d2 = 0.0f64;
+            for (&val, &m) in row_buf.iter().zip(&w_bar) {
+                let d = f64::from(val) - f64::from(m);
+                d2 += d * d;
+            }
+            r_max = r_max.max(d2.sqrt() as f32);
+        }
+        Some(Self {
+            w_blank,
+            b_blank,
+            w_bar,
+            r_max,
+            b_max_nonblank,
+            max_w_norm,
+        })
     }
 
     /// Returns `true` ONLY when `z_blank > z_v` is mathematically certified for every `v != blank`.
@@ -317,6 +358,21 @@ impl Model {
     /// Load and pack an `ultra.r1-weights/v1` directory. `verify_hashes` checks every file's
     /// SHA-256 against `arch.json` first.
     pub fn load(root: &Path, verify_hashes: bool) -> Result<Self, EngineError> {
+        Self::load_with_mode(root, verify_hashes, false)
+    }
+
+    /// Load an `ultra.r1-weights/v1` directory for live streaming RNN-T decode, skipping auxiliary
+    /// FP32 tensors that live decode never reads (`ctc_head`, plus `emb`/`pred_proj` when
+    /// `pred_cache` is precomputed) so they never enter cold process `VmHWM`.
+    pub fn load_live(root: &Path, verify_hashes: bool) -> Result<Self, EngineError> {
+        Self::load_with_mode(root, verify_hashes, true)
+    }
+
+    fn load_with_mode(
+        root: &Path,
+        verify_hashes: bool,
+        live_only: bool,
+    ) -> Result<Self, EngineError> {
         let text = std::fs::read_to_string(root.join("arch.json"))?;
         let raw: RawArch = serde_json::from_str(&text)
             .map_err(|e| EngineError::Format(format!("arch.json: {e}")))?;
@@ -496,7 +552,9 @@ impl Model {
                 arch_json::kind_of(prefix).is_some_and(|k| !i8.fp32_kinds.iter().any(|f| f == k))
             })
         };
-        let mut model = Self::from_tensors(arch, &st, root, mel_cfg, tokens, &int8_only)?;
+        let has_ctc_in_file = st.contains("ctc_head.weight") && st.contains("ctc_head.bias");
+        let mut model =
+            Self::from_tensors(arch, &st, root, mel_cfg, tokens, &int8_only, live_only)?;
         if let Some(i8) = &raw.int8 {
             let wf = file(&raw, "weights_int8")?;
             let path = verified
@@ -508,21 +566,29 @@ impl Model {
                 arch_json::sha256_file(path)?
             };
             if slim_int8 {
-                let aux = slim_int8::aux_fp32_names(
-                    &model.arch,
-                    &i8.fp32_kinds,
-                    model.ctc_head.is_some(),
-                )
-                .len();
+                let aux =
+                    slim_int8::aux_fp32_names(&model.arch, &i8.fp32_kinds, has_ctc_in_file).len();
                 model.load_prepared_int8_from(&st, sha, i8, aux)?;
             } else {
                 let st_i8 = LazyTensors::open(path)?;
                 model.load_prepared_int8_from(&st_i8, sha, i8, 0)?;
             }
         }
+        drop(st);
         model.refresh_blank_cert_i8();
         model.apply_qat_stem()?;
         Ok(model)
+    }
+
+    /// Release auxiliary FP32 weights that are unused during live streaming RNN-T decode
+    /// (`ctc_head`, plus `emb`/`pred_proj` when `pred_cache` already holds the exact precomputed
+    /// predictor projections). Bit-identical for `greedy_chunk` and `beam_chunk_with_lm`.
+    pub fn trim_unused_live_aux(&mut self) {
+        self.ctc_head = None;
+        if self.pred_cache.is_some() {
+            self.emb = Vec::new();
+            self.pred_proj = Linear::int8_only(1, 1, &[0.0]);
+        }
     }
 
     fn from_tensors(
@@ -532,6 +598,7 @@ impl Model {
         mel_cfg: Arc<TrainerMelConfig>,
         tokens: Arc<TokenTable>,
         int8_only: &dyn Fn(&str) -> bool,
+        live_only: bool,
     ) -> Result<Self, EngineError> {
         let a = &arch;
         let (d, ch, ffn) = (a.d, a.stem_ch, a.ffn);
@@ -641,17 +708,16 @@ impl Model {
         } else {
             (None, None)
         };
-        let emb = st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?;
+        let emb_raw = st.f32("predictor.emb.weight", &[a.vocab, a.pred_emb])?;
         let pred_in = a.ctx_init.len() * a.pred_emb;
         let pred_w = st.f32("predictor.proj.weight", &[a.joiner, pred_in])?;
         let pred_b = st.f32("predictor.proj.bias", &[a.joiner])?;
-        let pred_proj = Linear::new(&pred_w, a.joiner, pred_in, Some(&pred_b));
         let pred_cache = (a.vocab <= 1024 && a.ctx_init.len() == 2).then(|| {
             let (v, e, jn) = (a.vocab, a.pred_emb, a.joiner);
             let mut h0 = vec![0.0f32; v * jn];
             let mut h1 = vec![0.0f32; v * jn];
             for tok in 0..v {
-                let er = &emb[tok * e..(tok + 1) * e];
+                let er = &emb_raw[tok * e..(tok + 1) * e];
                 for j in 0..jn {
                     let wr = &pred_w[j * 2 * e..(j + 1) * 2 * e];
                     let mut s0 = f64::from(pred_b[j]);
@@ -667,6 +733,15 @@ impl Model {
             }
             PredCache { h0, h1 }
         });
+        let (emb, pred_proj) = if live_only && pred_cache.is_some() {
+            drop(emb_raw);
+            drop(pred_w);
+            drop(pred_b);
+            (Vec::new(), Linear::int8_only(1, 1, &[0.0]))
+        } else {
+            let proj = Linear::new(&pred_w, a.joiner, pred_in, Some(&pred_b));
+            (emb_raw, proj)
+        };
         let joiner_b = st.f32("joiner.out.bias", &[a.vocab])?;
         let (joiner_out, blank_cert_f32) = if int8_only("joiner.out") {
             (Linear::int8_only(a.vocab, a.joiner, &joiner_b), None)
@@ -678,21 +753,22 @@ impl Model {
                 cert,
             )
         };
-        let ctc_head = if st.contains("ctc_head.weight") && st.contains("ctc_head.bias") {
-            let b_shape = st.shape("ctc_head.bias").unwrap_or(&[]);
-            if b_shape.len() != 1 || b_shape[0] < 2 {
-                return Err(EngineError::Shape(format!(
-                    "ctc_head.bias: invalid shape {b_shape:?}"
-                )));
-            }
-            let cv = b_shape[0];
-            bounded("ctc_vocab", cv, 1 << 20)?;
-            let cw = st.f32("ctc_head.weight", &[cv, d])?;
-            let cb = st.f32("ctc_head.bias", &[cv])?;
-            Some(Linear::new(&cw, cv, d, Some(&cb)))
-        } else {
-            None
-        };
+        let ctc_head =
+            if !live_only && st.contains("ctc_head.weight") && st.contains("ctc_head.bias") {
+                let b_shape = st.shape("ctc_head.bias").unwrap_or(&[]);
+                if b_shape.len() != 1 || b_shape[0] < 2 {
+                    return Err(EngineError::Shape(format!(
+                        "ctc_head.bias: invalid shape {b_shape:?}"
+                    )));
+                }
+                let cv = b_shape[0];
+                bounded("ctc_vocab", cv, 1 << 20)?;
+                let cw = st.f32("ctc_head.weight", &[cv, d])?;
+                let cb = st.f32("ctc_head.bias", &[cv])?;
+                Some(Linear::new(&cw, cv, d, Some(&cb)))
+            } else {
+                None
+            };
         Ok(Self {
             pair,
             restore,
