@@ -247,24 +247,7 @@ impl PackedI8 {
             self.mm = mm;
         }
         if crate::kernels::wants_qsum() {
-            let panels = self.panels();
-            let groups = self.kp / KG;
-            let mut qsum = vec![0i32; panels * NR];
-            for p in 0..panels {
-                let ncols = NR.min(self.n - p * NR);
-                let panel = &self.data[p * self.kp * NR..(p + 1) * self.kp * NR];
-                for g in 0..groups {
-                    let base = g * NR * KG;
-                    for j in 0..ncols {
-                        let off = base + j * KG;
-                        qsum[p * NR + j] += i32::from(panel[off])
-                            + i32::from(panel[off + 1])
-                            + i32::from(panel[off + 2])
-                            + i32::from(panel[off + 3]);
-                    }
-                }
-            }
-            self.qsum = qsum;
+            self.qsum = crate::kernels::compute_qsum(&self.data, self.n, self.kp);
         }
         advise_hugepage(&self.data);
         advise_hugepage(&self.mm);

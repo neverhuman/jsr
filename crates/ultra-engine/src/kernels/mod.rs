@@ -32,9 +32,38 @@ pub fn wants_mm_packing() -> bool {
     }
 }
 
-/// Whether int8 weights should carry per-channel integer sums (`qsum`) for AVX-512 VNNI.
+/// Whether int8 weights should carry per-channel integer sums (`qsum`) for AVX-512 VNNI
+/// and AVX2 unsigned-offset (`u = a + 128`) INT8 GEMM.
 pub fn wants_qsum() -> bool {
-    Isa::Avx512Vnni.is_available()
+    Isa::Avx2Fma.is_available() || Isa::Avx512Vnni.is_available()
+}
+
+/// Compute per-channel integer weight sums `qsum[p * NR + j] = sum_k w_q[p * NR + j][k]`
+/// (padded to `panels * NR`, zero in padded columns) from packed int8 data.
+pub(crate) fn compute_qsum(data: &[i8], n: usize, kp: usize) -> Vec<i32> {
+    let panels = n.div_ceil(NR);
+    let groups = kp / crate::quant::KG;
+    let mut qsum = vec![0i32; panels * NR];
+    #[cfg(target_arch = "x86_64")]
+    if Isa::Avx2Fma.is_available() {
+        x86_avx2::compute_qsum(data, n, kp, &mut qsum);
+        return qsum;
+    }
+    for p in 0..panels {
+        let ncols = NR.min(n - p * NR);
+        let panel = &data[p * kp * NR..(p + 1) * kp * NR];
+        for g in 0..groups {
+            let base = g * NR * crate::quant::KG;
+            for j in 0..ncols {
+                let off = base + j * crate::quant::KG;
+                qsum[p * NR + j] += i32::from(panel[off])
+                    + i32::from(panel[off + 1])
+                    + i32::from(panel[off + 2])
+                    + i32::from(panel[off + 3]);
+            }
+        }
+    }
+    qsum
 }
 
 /// Index of key `slot`, dimension `e` in a tiled key cache of head width `dh`.
