@@ -279,8 +279,9 @@ class Trainer:
         if path is None:
             return False
         p = checkpoint.load(path)
-        if ModelConfig.from_dict(p["model_config"]) != self.model_cfg:
-            raise CheckpointError("checkpoint model config differs from the requested one")
+        from train.recipe_opts import check_resume_compatible
+
+        check_resume_compatible(ModelConfig.from_dict(p["model_config"]), self.model_cfg)
         manifest = list(getattr(self.source, "manifest", []))
         if p["manifest"] != manifest:
             raise CheckpointError("data manifest changed since the checkpoint; refusing to resume")

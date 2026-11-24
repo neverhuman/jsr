@@ -86,6 +86,36 @@ def test_incomplete_or_corrupt_checkpoint_refused(workdir):
         checkpoint.load(path)
 
 
+def _trainer_with(d, **enc):
+    """`_trainer` with encoder fields overridden (e.g. layer_drop for a REG fork)."""
+    torch.set_num_threads(1)
+    cfg = TrainConfig(preset="TINY", warmup=2, total_steps=100, ckpt_every_steps=1000,
+                      ckpt_every_minutes=1e9, eval_every=0, log_every=1000, specaug=True,
+                      specaug_start=2)
+    base = _cfg()
+    mcfg = ModelConfig(**{**base.__dict__, "encoder": EncoderConfig(**{**base.encoder.__dict__, **enc})})
+    src = FixedBatches(_examples(), batch_size=2, shuffle=True)
+    return Trainer(d, cfg, src, model_cfg=mcfg, device="cpu", log=False)
+
+
+def test_resume_accepts_layer_drop_change_only(workdir):
+    # A REG fork resumes a full checkpoint with stochastic depth switched on: the weights,
+    # optimizer, scheduler and data position carry over exactly.
+    a = _trainer(workdir)
+    a.run(max_steps=3)
+    r = _trainer_with(workdir, layer_drop=0.1)
+    assert r.resume() and r.step == 3 and r.pos == a.pos
+    for (k, va), (_, vr) in zip(a.model.state_dict().items(), r.model.state_dict().items(),
+                                strict=True):
+        assert torch.equal(va, vr), k
+    assert a.sched.state_dict() == r.sched.state_dict()
+    r.run(max_steps=2)
+    assert r.step == 5
+    # Every other model-config change is still refused.
+    with pytest.raises(CheckpointError):
+        _trainer_with(workdir, conv_kernel=3).resume()
+
+
 def test_manifest_change_refused(workdir):
     t = _trainer(workdir)
     t.run(max_steps=1)
