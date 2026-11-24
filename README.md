@@ -31,16 +31,24 @@ All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Lar
 
 Isosyll was released as **ULTRA**, and the tags, `ultra-*` binaries and checkpoint IDs keep that name. The pinned release is **`v3.0.1`**: the `v3.0.0` INT8 artifact, the `ultra-engine-commit` and `ultra-score` binaries for x86-64 Linux, and the `M5.ulm` language model. Everything is listed in `SHA256SUMS`, which is signed with the project SSH key `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`.
 
-Verify before you run anything (from the repository root, after `gh release download v3.0.1 -R neverhuman/jsr -D models/v3.0.1`):
+From the repository root, download the pinned release and verify the signature and hashes before unpacking it.
 
 ```bash
-cd models/v3.0.1
-ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
-  -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
-sha256sum -c SHA256SUMS
+(
+  set -eu
+  pin=docs/ultra/releases/pinned.json
+  tag=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$pin")
+  dir=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["install_dir"])' "$pin")
+  gh release download "$tag" -R neverhuman/jsr -D "$dir" --skip-existing
+  cd "$dir"
+  ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
+    -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
+  test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")"
+  sha256sum -c SHA256SUMS
+)
 ```
 
-[`docs/release.md#install-the-pinned-release`](docs/release.md#install-the-pinned-release) has the full copy-paste block that downloads the release, also checks the pinned checksum digest, and then transcribes a list of 16 kHz WAV files. Each output row holds the live text (`provisional`) and the final text (`committed`). Release record: [`docs/ultra/releases/v3.0.1.md`](docs/ultra/releases/v3.0.1.md).
+The [install guide](docs/release.md#install-the-pinned-release) includes unpacking the verified bundle and transcribing 16 kHz WAV files. Each output row holds live text (`provisional`) and final text (`committed`). [v3.0.1 release record](docs/ultra/releases/v3.0.1.md).
 
 ## Reproduce every number
 
