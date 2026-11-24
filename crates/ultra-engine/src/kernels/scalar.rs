@@ -1,6 +1,6 @@
-//! Portable scalar references. The AVX2 kernels follow these operation for operation:
-//! the GEMM and the exponential use `mul_add` exactly where the SIMD code uses FMA, so those
-//! pairs agree bit for bit; reductions (LayerNorm, dot) agree within a stated tolerance.
+//! Portable scalar references. The SIMD kernels (AVX2+FMA and aarch64 NEON) follow these
+//! operation for operation: GEMM, exponential, LayerNorm, dot, axpy, and attention values use
+//! identical 8-lane reductions and `mul_add` FMA roundings, so scalar and SIMD agree bit for bit.
 
 use super::{PackedF32, NR};
 
@@ -81,16 +81,40 @@ pub fn gemm_f32(w: &PackedF32, x: &[f32], rows: usize, out: &mut [f32]) {
 }
 
 pub fn layer_norm(x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
+    if !d.is_multiple_of(8) {
+        for (xr, or) in x.chunks_exact(d).zip(out.chunks_exact_mut(d)) {
+            let mean = xr.iter().map(|&v| f64::from(v)).sum::<f64>() / d as f64;
+            let var = xr
+                .iter()
+                .map(|&v| (f64::from(v) - mean).powi(2))
+                .sum::<f64>()
+                / d as f64;
+            let inv = 1.0 / (var + 1e-5).sqrt();
+            for i in 0..d {
+                or[i] = ((f64::from(xr[i]) - mean) * inv) as f32 * g[i] + b[i];
+            }
+        }
+        return;
+    }
     for (xr, or) in x.chunks_exact(d).zip(out.chunks_exact_mut(d)) {
-        let mean = xr.iter().map(|&v| f64::from(v)).sum::<f64>() / d as f64;
-        let var = xr
-            .iter()
-            .map(|&v| (f64::from(v) - mean).powi(2))
-            .sum::<f64>()
-            / d as f64;
-        let inv = 1.0 / (var + 1e-5).sqrt();
+        let mut s = [0.0f32; 8];
+        for chunk in xr.chunks_exact(8) {
+            for (sl, &v) in s.iter_mut().zip(chunk) {
+                *sl += v;
+            }
+        }
+        let mean = reduce8(&s) / d as f32;
+        let mut q = [0.0f32; 8];
+        for chunk in xr.chunks_exact(8) {
+            for (ql, &v) in q.iter_mut().zip(chunk) {
+                let c = v - mean;
+                *ql = c.mul_add(c, *ql);
+            }
+        }
+        let inv = 1.0 / (reduce8(&q) / d as f32 + 1e-5).sqrt();
         for i in 0..d {
-            or[i] = ((f64::from(xr[i]) - mean) * inv) as f32 * g[i] + b[i];
+            let c = xr[i] - mean;
+            or[i] = (c * inv).mul_add(g[i], b[i]);
         }
     }
 }
@@ -110,11 +134,34 @@ pub fn glu(a: &[f32], d: usize, out: &mut [f32]) {
 }
 
 pub fn dot(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
+    assert_eq!(a.len(), b.len());
+    let n = a.len();
+    let main = n - n % 16;
+    if main == 0 {
+        return a.iter().zip(b).map(|(x, y)| x * y).sum();
+    }
+    let (mut s0, mut s1) = ([0.0f32; 8], [0.0f32; 8]);
+    let mut i = 0;
+    while i < main {
+        for l in 0..8 {
+            s0[l] = a[i + l].mul_add(b[i + l], s0[l]);
+            s1[l] = a[i + 8 + l].mul_add(b[i + 8 + l], s1[l]);
+        }
+        i += 16;
+    }
+    let sum8: [f32; 8] = std::array::from_fn(|l| s0[l] + s1[l]);
+    let tail: f32 = a[main..].iter().zip(&b[main..]).map(|(x, y)| x * y).sum();
+    reduce8(&sum8) + tail
 }
 
 pub fn axpy(alpha: f32, x: &[f32], y: &mut [f32]) {
-    for (yv, &xv) in y.iter_mut().zip(x) {
+    assert_eq!(x.len(), y.len());
+    let n = x.len();
+    let main = n - n % 8;
+    for (yv, &xv) in y[..main].iter_mut().zip(&x[..main]) {
+        *yv = alpha.mul_add(xv, *yv);
+    }
+    for (yv, &xv) in y[main..].iter_mut().zip(&x[main..]) {
         *yv += alpha * xv;
     }
 }
@@ -289,8 +336,17 @@ pub fn attention_values(
     for i in 0..n {
         let sc = &mut scores[i * nk..(i + 1) * nk];
         let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        let mut sum = 0.0f32;
-        for s in sc.iter_mut() {
+        let main = nk - nk % 8;
+        let mut sv = [0.0f32; 8];
+        for c in sc[..main].chunks_exact_mut(8) {
+            for (svl, v) in sv.iter_mut().zip(c.iter_mut()) {
+                let e = exp_approx(*v - mx);
+                *v = e;
+                *svl += e;
+            }
+        }
+        let mut sum = reduce8(&sv);
+        for s in &mut sc[main..] {
             *s = exp_approx(*s - mx);
             sum += *s;
         }
@@ -299,7 +355,10 @@ pub fn attention_values(
         o.fill(0.0);
         let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
         for (&p, vr) in sc.iter().zip(rows) {
-            axpy(p * inv, vr, o);
+            let pw = p * inv;
+            for (ov, &vv) in o.iter_mut().zip(vr) {
+                *ov = pw.mul_add(vv, *ov);
+            }
         }
     }
 }
