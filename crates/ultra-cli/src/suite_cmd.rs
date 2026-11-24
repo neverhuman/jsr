@@ -2,9 +2,11 @@
 //! frontier, §4.4 density ladder, `--panel`, sustained series, ABAB timing, and `--qualified` runner.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ultra_core::receipt::Partition;
-use ultra_stream::default_npz_for_split;
+use ultra_engine::{LmConfig, NgramLm};
+use ultra_stream::{default_npz_for_split, NativeEngineLoadConfig};
 
 use crate::bench_cmd::{parse_next, partition_for_split_and_npz};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
@@ -42,6 +44,13 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut grid_ms = 320u32;
     let mut max_chunks = 2usize;
     let mut beam = 1usize;
+    let mut beam_max_symbols = 1usize;
+    let mut beam_margin = 0.0f32;
+    let mut chunk_override: Option<usize> = None;
+    let mut lm_path: Option<PathBuf> = None;
+    let mut lm_weight = 0.0f32;
+    let mut lodr_weight = 0.0f32;
+    let mut blank_penalty = 0.0f32;
     let mut density_workers = 4usize;
     let mut density_workers_explicit = false;
     let mut full_machine_requested = false;
@@ -82,6 +91,15 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--grid-ms" => grid_ms = parse_next(args, &mut i, "--grid-ms")?,
             "--max-chunks" => max_chunks = parse_next(args, &mut i, "--max-chunks")?,
             "--beam" => beam = parse_next(args, &mut i, "--beam")?,
+            "--beam-max-symbols" => {
+                beam_max_symbols = parse_next(args, &mut i, "--beam-max-symbols")?;
+            }
+            "--beam-margin" => beam_margin = parse_next(args, &mut i, "--beam-margin")?,
+            "--chunk" => chunk_override = Some(parse_next(args, &mut i, "--chunk")?),
+            "--lm" => lm_path = Some(parse_next(args, &mut i, "--lm")?),
+            "--lm-weight" => lm_weight = parse_next(args, &mut i, "--lm-weight")?,
+            "--lodr-weight" => lodr_weight = parse_next(args, &mut i, "--lodr-weight")?,
+            "--blank-penalty" => blank_penalty = parse_next(args, &mut i, "--blank-penalty")?,
             "--density-workers" => {
                 density_workers = parse_next(args, &mut i, "--density-workers")?;
                 density_workers_explicit = true;
@@ -192,6 +210,48 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--beam must be in 1..=16 (got {beam})"
         )));
     }
+    if !(1..=8).contains(&beam_max_symbols) {
+        return Err(CliError::Config(format!(
+            "--beam-max-symbols must be in 1..=8 (got {beam_max_symbols})"
+        )));
+    }
+    if !beam_margin.is_finite() || beam_margin < 0.0 {
+        return Err(CliError::Config(
+            "--beam-margin must be finite and >= 0".into(),
+        ));
+    }
+    let lm_cfg = LmConfig {
+        lm_weight,
+        lodr_weight,
+        blank_penalty,
+    };
+    lm_cfg
+        .validate()
+        .map_err(|e| CliError::Config(e.to_string()))?;
+    let loaded_lm = match &lm_path {
+        Some(p) => {
+            let loaded = NgramLm::load(p)
+                .map_err(|e| CliError::Unavailable(format!("--lm {}: {e}", p.display())))?;
+            Some((Arc::new(loaded), lm_cfg))
+        }
+        None => {
+            if lm_weight != 0.0 || lodr_weight != 0.0 || blank_penalty != 0.0 {
+                return Err(CliError::Config(
+                    "--lm-weight, --lodr-weight, and --blank-penalty require --lm".into(),
+                ));
+            }
+            None
+        }
+    };
+    let native_decode_cfg = NativeEngineLoadConfig {
+        max_chunks: max_chunks.clamp(1, 16),
+        chunk: chunk_override,
+        beam,
+        beam_max_symbols,
+        beam_margin,
+        lm: loaded_lm,
+        ..NativeEngineLoadConfig::default()
+    };
     if !density_seconds.is_finite() || density_seconds < 0.0 {
         return Err(CliError::Config(format!(
             "--density-seconds must be finite and >= 0 (got {density_seconds})"
@@ -390,6 +450,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             grid_ms,
             max_chunks: max_chunks.clamp(1, 16),
             beam,
+            decode_config: &native_decode_cfg,
             density_workers,
             density_streams,
             density_seconds,

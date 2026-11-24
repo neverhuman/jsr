@@ -176,6 +176,9 @@ pub struct NgramLm {
     /// airtight O(1) upper bound on `-lodr_weight * lodr_logp(ctx, k)` for exact branch-and-bound.
     pub(super) lodr_row_min: Vec<f32>,
     pub(super) max_lm_logp: f32,
+    pub(super) source_path: Option<String>,
+    pub(super) lodr_source_path: Option<String>,
+    pub(super) file_sha256: Option<String>,
 }
 
 pub(super) fn compute_lodr_row_min(lodr_bigram: &[f32], vocab: usize) -> Vec<f32> {
@@ -210,6 +213,81 @@ impl NgramLm {
     #[inline]
     pub fn has_eos(&self) -> bool {
         self.has_eos
+    }
+
+    /// Source file path recorded when loaded from disk (`.ulm` or ARPA).
+    pub fn source_path(&self) -> Option<&str> {
+        self.source_path.as_deref()
+    }
+
+    /// Separate LODR ARPA source path when constructed from separate ARPA files.
+    pub fn lodr_source_path(&self) -> Option<&str> {
+        self.lodr_source_path.as_deref()
+    }
+
+    /// Deterministic lowercase hex SHA-256 identifying this LM: exact `.ulm` file digest when
+    /// loaded from disk, or canonical digest of the in-memory trie tables otherwise.
+    pub fn lm_sha256(&self) -> String {
+        use sha2::{Digest, Sha256};
+        if let Some(hex) = &self.file_sha256 {
+            return hex.clone();
+        }
+        let mut h = Sha256::new();
+        h.update((self.vocab as u32).to_le_bytes());
+        h.update((self.order as u32).to_le_bytes());
+        h.update([u8::from(self.quantized), u8::from(self.has_eos)]);
+        for &v in &self.uni_prob {
+            h.update(v.to_le_bytes());
+        }
+        for &v in &self.uni_bow {
+            h.update(v.to_le_bytes());
+        }
+        for lv in &self.levels {
+            h.update((lv.len() as u32).to_le_bytes());
+            match &lv.vals {
+                LevelVals::Q8 {
+                    prob_lut,
+                    bow_lut,
+                    q_prob,
+                    q_bow,
+                } => {
+                    for &v in prob_lut.iter() {
+                        h.update(v.to_le_bytes());
+                    }
+                    for &v in bow_lut.iter() {
+                        h.update(v.to_le_bytes());
+                    }
+                    h.update(q_prob);
+                    h.update(q_bow);
+                }
+                LevelVals::F32 { prob, bow } => {
+                    for &v in prob {
+                        h.update(v.to_le_bytes());
+                    }
+                    for &v in bow {
+                        h.update(v.to_le_bytes());
+                    }
+                }
+            }
+        }
+        for &v in &self.lodr_bigram {
+            h.update(v.to_le_bytes());
+        }
+        format!("{:x}", h.finalize())
+    }
+
+    /// Deterministic lowercase hex SHA-256 of the dense LODR bigram table (`None` if absent).
+    pub fn lodr_sha256(&self) -> Option<String> {
+        use sha2::{Digest, Sha256};
+        if self.lodr_bigram.is_empty() {
+            return None;
+        }
+        let mut h = Sha256::new();
+        h.update((self.vocab as u32).to_le_bytes());
+        for &v in &self.lodr_bigram {
+            h.update(v.to_le_bytes());
+        }
+        Some(format!("{:x}", h.finalize()))
     }
 
     #[inline]

@@ -42,7 +42,10 @@ pub(super) fn from_arpa_files_with_eos(
         ),
         None => Vec::new(),
     };
-    build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8, include_eos)
+    let mut lm = build_from_parsed(lm_parsed, lodr_table, vocab, quantize_bits8, include_eos)?;
+    lm.source_path = Some(lm_path.to_string_lossy().into_owned());
+    lm.lodr_source_path = lodr_path.map(|p| p.to_string_lossy().into_owned());
+    Ok(lm)
 }
 
 struct ParsedArpa {
@@ -224,6 +227,9 @@ fn build_from_parsed(
             } else {
                 0.0
             },
+            source_path: None,
+            lodr_source_path: None,
+            file_sha256: None,
         });
     }
 
@@ -348,6 +354,9 @@ fn build_from_parsed(
         } else {
             0.0
         },
+        source_path: None,
+        lodr_source_path: None,
+        file_sha256: None,
     })
 }
 

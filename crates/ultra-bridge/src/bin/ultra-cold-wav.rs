@@ -208,6 +208,7 @@ fn load_native(cli: &CliArgs, precision: Precision) -> Result<Arc<dyn Backend>> 
         beam_margin: cli.beam_margin,
         lm,
         live_only: true,
+        ..NativeEngineLoadConfig::default()
     };
     Ok(Arc::new(NativeEngineBackend::load_with_config(
         &cli.bundle,

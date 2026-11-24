@@ -26,6 +26,9 @@ pub struct NativeEngineLoadConfig {
     pub beam_max_symbols: usize,
     pub beam_margin: f32,
     pub lm: Option<(Arc<ultra_engine::NgramLm>, ultra_engine::LmConfig)>,
+    pub kv_int8: bool,
+    pub endpoint_reset_ms: u32,
+    pub endpoint_replay_ms: u32,
     /// When `true`, load via [`Model::load_live`] to skip unused auxiliary FP32 weights
     /// (`ctc_head`, and `emb`/`pred_proj` when `pred_cache` is resident) for minimum live RSS.
     /// Defaults to `false` so callers needing commit-pass CTC rescoring preserve `ctc_head`.
@@ -41,6 +44,9 @@ impl Default for NativeEngineLoadConfig {
             beam_max_symbols: 1,
             beam_margin: 0.0,
             lm: None,
+            kv_int8: false,
+            endpoint_reset_ms: 0,
+            endpoint_replay_ms: 0,
             live_only: false,
         }
     }
@@ -193,7 +199,10 @@ impl NativeEngineBackend {
             .with_max_chunks(cfg.max_chunks)
             .with_beam(cfg.beam)
             .with_beam_max_symbols(cfg.beam_max_symbols)
-            .with_beam_margin(cfg.beam_margin);
+            .with_beam_margin(cfg.beam_margin)
+            .with_kv_int8(cfg.kv_int8)
+            .with_endpoint_reset(cfg.endpoint_reset_ms, cfg.endpoint_replay_ms)
+            .with_live_only(cfg.live_only);
         if let Some(chunk) = cfg.chunk {
             engine = engine.with_chunk(chunk)?;
         }
@@ -205,6 +214,25 @@ impl NativeEngineBackend {
             arch_sha256,
             int8_source,
         }))
+    }
+
+    /// Construct a backend directly around an already-configured [`Engine`] (useful for
+    /// programmatic callers and deterministic fixture tests).
+    pub fn from_engine(
+        engine: Engine,
+        arch_sha256: String,
+        int8_source: &'static str,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            engine,
+            arch_sha256,
+            int8_source,
+        })
+    }
+
+    /// Return the resolved shared [`ultra_engine::EffectiveDecodeConfig`] (`F01` / `F10`).
+    pub fn effective_decode_config(&self) -> ultra_engine::EffectiveDecodeConfig {
+        self.engine.effective_decode_config()
     }
 
     pub fn bundle_id(&self) -> String {

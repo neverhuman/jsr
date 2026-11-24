@@ -19,10 +19,10 @@ use std::time::Instant;
 
 use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
-use crate::{lm::TfWorkspace, Engine, EngineError, EngineStream, Workspace};
+use crate::{lm::TfWorkspace, DecodeProgress, Engine, EngineError, EngineStream, Workspace};
 
 pub use ctc_head::aggregate_duplicate_hyps;
-pub use live::{run_commit_pcm, CommitSnapshot};
+pub use live::{run_commit_pcm, run_commit_pcm_timed, CommitSnapshot, CommitTiming};
 pub use lm::{CommitLmConfig, CommitLmGateConfig};
 pub use lm_gate::{CommitTokenLm, InternalLm, LmGateConfig};
 pub use rescore::{
@@ -71,6 +71,7 @@ pub struct CommitPassSession {
     stream_id: String,
     model_config_id: String,
     pub(super) stream: EngineStream,
+    pub(super) last_live_progress: DecodeProgress,
     pub(super) seg: SegBuf,
     pub(super) ws: Workspace,
     pub(crate) tf: Option<(CommitTfRescoreConfig, TfWorkspace)>,
@@ -109,6 +110,7 @@ impl CommitPassSession {
             stream_id: stream_id.to_owned(),
             model_config_id: model_config_id.to_owned(),
             stream,
+            last_live_progress: DecodeProgress::default(),
             seg: SegBuf::default(),
             ws: Workspace::default(),
             tf: None,
@@ -289,6 +291,7 @@ impl CommitPassSession {
             ..SegBuf::default()
         };
         self.stream = self.provisional_engine.create_stream();
+        self.last_live_progress = DecodeProgress::default();
     }
 
     pub fn reset_all(&mut self) {

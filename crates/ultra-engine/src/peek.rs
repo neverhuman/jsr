@@ -101,7 +101,13 @@ pub fn speculative_preview(
         return Ok(None);
     }
     let mut pe = engine.clone();
-    (pe.chunk, pe.max_chunks, pe.beam, pe.endpoint_reset_ms) = (f, 1, 1, 0);
+    (
+        pe.chunk,
+        pe.max_chunks,
+        pe.beam,
+        pe.endpoint_reset_ms,
+        pe.lm,
+    ) = (f, 1, 1, 0, None);
     if !pe.is_ready(committed) {
         return Ok(None);
     }
@@ -112,7 +118,7 @@ pub fn speculative_preview(
             crate::beam::context(&best.tokens[best.ctx_start..], &engine.model.arch.ctx_init)
                 .collect();
         sc.dec.dec_ok = false;
-    } else if engine.beam > 1 {
+    } else if engine.uses_beam_state() {
         sc.dec.ctx = crate::beam::context(&sc.dec.tokens, &engine.model.arch.ctx_init).collect();
         sc.dec.dec_ok = false;
     }

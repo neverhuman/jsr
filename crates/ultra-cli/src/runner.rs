@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use ultra_gp::{R1Precision, R1_EXPORT_SCHEMA, R1_EXPORT_SCHEMA_V1_1};
 use ultra_model::verify_bundle_dir;
 use ultra_stream::{
-    Backend, FakeBackend, FakeBackendConfig, NativeEngineBackend, OfflineModelKind,
-    OperatingProfile, OrtTransducerBackend, OutputPolicy, SherpaLib, SherpaOfflineBackend,
-    SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig,
+    Backend, FakeBackend, FakeBackendConfig, NativeEngineBackend, NativeEngineLoadConfig,
+    OfflineModelKind, OperatingProfile, OrtTransducerBackend, OutputPolicy, SherpaLib,
+    SherpaOfflineBackend, SherpaOfflineConfig, SherpaZipformerBackend, SherpaZipformerConfig,
 };
 
 pub use crate::stream_run::{transcribe_audio_file, transcribe_audio_file_with_wake, WakeCadence};
@@ -155,13 +155,26 @@ pub fn instantiate_backend_with_beam(
     threads: i32,
     beam: usize,
 ) -> Result<Box<dyn Backend>, CliError> {
+    let native_cfg = NativeEngineLoadConfig {
+        beam: beam.max(1),
+        ..NativeEngineLoadConfig::default()
+    };
+    instantiate_backend_with_config(candidate_id, precision_override, threads, &native_cfg)
+}
+
+pub fn instantiate_backend_with_config(
+    candidate_id: &str,
+    precision_override: Option<&str>,
+    threads: i32,
+    native_cfg: &NativeEngineLoadConfig,
+) -> Result<Box<dyn Backend>, CliError> {
     if matches!(candidate_id, "fake" | "deterministic-fake-v1") {
         return Ok(Box::new(FakeBackend::new(FakeBackendConfig::default())));
     }
     if let Some(res) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, precision_override)
     {
         let (wdir, prec) = res?;
-        let eng = NativeEngineBackend::load_with_options(&wdir, prec, threads, true, 1, beam)?;
+        let eng = NativeEngineBackend::load_with_config(&wdir, prec, threads, true, native_cfg)?;
         return Ok(Box::new(eng));
     }
     if let Some(res) = resolve_r1_bundle(candidate_id, precision_override) {

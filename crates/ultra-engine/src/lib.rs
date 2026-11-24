@@ -20,6 +20,7 @@ pub mod agc;
 pub mod agc_stream;
 pub mod beam;
 pub mod commit;
+pub mod decode_config;
 pub mod decoder;
 pub mod encoder;
 pub mod engine;
@@ -39,7 +40,8 @@ pub mod workload;
 
 pub use agc::{WarmAgc, WarmAgcConfig};
 pub use agc_stream::AgcStream;
-pub use engine::{Engine, EngineStream, Precision, Workspace};
+pub use decode_config::EffectiveDecodeConfig;
+pub use engine::{DecodeProgress, Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
 pub use lm::{
     FfnnActivation, FfnnLm, LmConfig, NgramLm, TfConfig, TfDirection, TfRescorer, TfScore,

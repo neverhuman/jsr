@@ -339,18 +339,28 @@ fn endless_binary_loads_ulm_v2_and_writes_trace() {
     let wav_str = wav.to_str().expect("wav path");
     let lm_str = lm_path.to_str().expect("lm path");
 
-    // 1. Greedy + --lm must fail loudly before loading weights.
-    let bad_trace = tmp.0.join("bad.jsonl");
-    let bad = Command::new(bin)
+    // 1. Width-1 fused greedy LM (`--beam 1 --lm`, T9) succeeds and matches Engine::text.
+    let g1_trace = tmp.0.join("greedy_lm.jsonl");
+    let g1 = Command::new(bin)
         .args(["--weights", w_str])
+        .args(["--precision", "fp32", "--isa", "scalar"])
         .args(["--wavs", wav_str])
-        .args(["--trace-out", bad_trace.to_str().expect("bad trace")])
-        .args(["--beam", "1", "--lm", lm_str])
+        .args(["--trace-out", g1_trace.to_str().expect("g1 trace")])
+        .args(["--beam", "1", "--lm", lm_str, "--lm-weight", "0.8"])
         .output()
-        .expect("run endless");
-    assert!(!bad.status.success(), "--lm with --beam 1 must fail");
-    let bad_err = String::from_utf8_lossy(&bad.stderr);
-    assert!(bad_err.contains("--beam > 1"), "stderr: {bad_err}");
+        .expect("run endless beam=1 lm");
+    assert!(
+        g1.status.success(),
+        "--lm with --beam 1 must succeed under T9: {}",
+        String::from_utf8_lossy(&g1.stderr)
+    );
+    let g1_summary: Value = serde_json::from_slice(&g1.stdout).expect("g1 summary");
+    assert_eq!(g1_summary["beam"], 1);
+    assert_eq!(
+        g1_summary["decode_policy_sha256"].as_str().map(str::len),
+        Some(64)
+    );
+    assert_eq!(g1_summary["effective_decode_config"]["beam_width"], 1);
 
     // 2. Beam + synthetic v2 .ulm succeeds and writes valid JSONL trace + LM summary fields.
     let lm_trace = tmp.0.join("lm_trace.jsonl");

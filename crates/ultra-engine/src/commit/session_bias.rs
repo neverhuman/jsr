@@ -206,6 +206,10 @@ impl super::CommitPassSession {
             self.seg.segment_open,
         )
     }
+    /// Aggregated [`crate::DecodeProgress`] from the most recent `accept_i16_live` call.
+    pub fn last_decode_progress(&self) -> crate::DecodeProgress {
+        self.last_live_progress
+    }
     pub fn status_event(
         &mut self,
         now_ns: u64,
@@ -222,6 +226,7 @@ impl super::CommitPassSession {
         }
         if reset_live_stream {
             self.stream = self.provisional_engine.create_stream();
+            self.last_live_progress = crate::DecodeProgress::default();
         }
     }
     pub fn accept_i16_live(&mut self, pcm: &[i16]) -> Result<usize, EngineError> {
@@ -234,7 +239,18 @@ impl super::CommitPassSession {
         }
         self.seg.segment_samples += pcm.len() as u64;
         self.seg.total_samples += pcm.len() as u64;
-        super::drain_stream(&self.provisional_engine, &mut self.stream, &mut self.ws)
+        let mut steps = 0usize;
+        let mut agg = crate::DecodeProgress::default();
+        while self
+            .provisional_engine
+            .decode(&mut [&mut self.stream], &mut self.ws)?
+            > 0
+        {
+            agg.merge(self.stream.last_progress());
+            steps += 1;
+        }
+        self.last_live_progress = agg;
+        Ok(steps)
     }
 }
 
