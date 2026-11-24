@@ -152,20 +152,10 @@ pub(super) fn block(
         for j in views.iter_mut() {
             let hist = &mut j.conv[li * km1 * d..(li + 1) * km1 * d];
             let cur = &g[r0 * d..(r0 + j.n) * d];
-            // Zero-copy direct tap indexing across `hist` and `cur` (eliminates ws.win copy, 0-ULP exact).
+            // Register-blocked tap accumulation across `hist` and `cur` (0-ULP exact).
             for i in 0..j.n {
                 let o = &mut y[(r0 + i) * d..(r0 + i + 1) * d];
-                o.copy_from_slice(&b.dw_b);
-                for t in 0..a.kernel {
-                    let pos = i + t;
-                    let src = if pos < km1 {
-                        &hist[pos * d..(pos + 1) * d]
-                    } else {
-                        &cur[(pos - km1) * d..(pos - km1 + 1) * d]
-                    };
-                    let w = &b.dw_w[t * d..(t + 1) * d];
-                    kernels::mul_add_exact(isa, o, src, w);
-                }
+                kernels::depthwise_conv_frame(isa, o, &b.dw_b, hist, cur, &b.dw_w, i, a.kernel, d);
             }
             if j.n >= km1 {
                 hist.copy_from_slice(&cur[(j.n - km1) * d..j.n * d]);
@@ -252,18 +242,6 @@ fn window(r: &[f32], start: usize, first: usize, nk: usize, dh: usize) -> [&[f32
     ]
 }
 
-/// RoPE on pairs `(2i, 2i+1)` of one head vector at angle table `cs` (`[cos..., sin...]`),
-/// with torch's roundings (`x1 * cos - x2 * sin`, `x1 * sin + x2 * cos`).
-fn rope(v: &mut [f32], cs: &[f32]) {
-    let half = v.len() / 2;
-    for i in 0..half {
-        let (c, s) = (cs[i], cs[half + i]);
-        let (x1, x2) = (v[2 * i], v[2 * i + 1]);
-        v[2 * i] = x1 * c - x2 * s;
-        v[2 * i + 1] = x1 * s + x2 * c;
-    }
-}
-
 /// Symmetric per-head/per-slot int8 quantisation for K/V cache compression.
 #[inline]
 fn quantize_kv_slot(src: &[f32], dst: &mut [i8]) -> f32 {
@@ -302,12 +280,10 @@ fn attend(
     debug_assert_eq!(cs.len(), n * dh);
     for i in 0..n {
         let row = &mut qkv[i * 3 * d..(i + 1) * 3 * d];
+        let csi = &cs[i * dh..(i + 1) * dh];
         for h in 0..hn {
-            rope(&mut row[h * dh..(h + 1) * dh], &cs[i * dh..(i + 1) * dh]);
-            rope(
-                &mut row[d + h * dh..d + (h + 1) * dh],
-                &cs[i * dh..(i + 1) * dh],
-            );
+            kernels::rope_pair(isa, &mut row[h * dh..(h + 1) * dh], csi);
+            kernels::rope_pair(isa, &mut row[d + h * dh..d + (h + 1) * dh], csi);
         }
     }
     // Store the step's keys/values first. The ring holds left + (max chunks) slots, so the

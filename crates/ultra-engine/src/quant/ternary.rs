@@ -53,7 +53,7 @@ pub fn linear_t(
     assert!(rows.checked_mul(k).is_some_and(|v| x.len() >= v) && out.len() >= rows * n);
     let tq = q.prof.start();
     let act7 = std::mem::replace(&mut q.act7, false);
-    quantize_rows(isa, x, rows, k, k, q);
+    quantize_rows(isa, x, rows, k, k, q, false);
     q.act7 = act7;
     q.prof.stop(Phase::Quant, tq);
     let tg = q.prof.start();

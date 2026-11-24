@@ -427,30 +427,56 @@ pub fn encode_chunk(
         }
     };
     let mut rope25 = std::mem::take(&mut ws.rope);
-    let spans: Vec<(usize, usize)> = jobs.iter().map(|j| (j.state.rel_t(), j.n)).collect();
-    block::rope_table(m, &spans, &mut rope25);
+    if jobs.len() == 1 {
+        let sp = [(jobs[0].state.rel_t(), jobs[0].n)];
+        block::rope_table(m, &sp, &mut rope25);
+    } else {
+        let spans: Vec<(usize, usize)> = jobs.iter().map(|j| (j.state.rel_t(), j.n)).collect();
+        block::rope_table(m, &spans, &mut rope25);
+    }
     let mut rope_mid = std::mem::take(&mut ws.rope_mid);
     if a.mid > 0 {
-        let spans: Vec<(usize, usize)> = jobs
-            .iter()
-            .map(|j| (j.state.rel_t() / 2, j.n.div_ceil(2)))
-            .collect();
-        block::rope_table(m, &spans, &mut rope_mid);
+        if jobs.len() == 1 {
+            let sp = [(jobs[0].state.rel_t() / 2, jobs[0].n.div_ceil(2))];
+            block::rope_table(m, &sp, &mut rope_mid);
+        } else {
+            let spans: Vec<(usize, usize)> = jobs
+                .iter()
+                .map(|j| (j.state.rel_t() / 2, j.n.div_ceil(2)))
+                .collect();
+            block::rope_table(m, &spans, &mut rope_mid);
+        }
     }
-    // 25 Hz lower blocks (every block of a dense model).
+    // 25 Hz lower blocks (every block of a dense model). Zero per-block Vec alloc for 1 stream.
     for li in 0..a.lower {
-        let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
-        block::block(
-            m,
-            isa,
-            prec,
-            &m.blocks[li],
-            li,
-            &mut views,
-            ws,
-            rows,
-            &rope25,
-        );
+        if jobs.len() == 1 {
+            let n = jobs[0].n;
+            let mut single = [jobs[0].state.view25(n)];
+            block::block(
+                m,
+                isa,
+                prec,
+                &m.blocks[li],
+                li,
+                &mut single,
+                ws,
+                rows,
+                &rope25,
+            );
+        } else {
+            let mut views: Vec<View<'_>> = jobs.iter_mut().map(|j| j.state.view25(j.n)).collect();
+            block::block(
+                m,
+                isa,
+                prec,
+                &m.blocks[li],
+                li,
+                &mut views,
+                ws,
+                rows,
+                &rope25,
+            );
+        }
         emit(&mut tap, &ws.x[..rows * d], d);
     }
     if let Some((pair, restore)) = pair_restore {

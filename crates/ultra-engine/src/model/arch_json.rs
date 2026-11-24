@@ -29,6 +29,11 @@ pub(super) struct RawInt8 {
     /// `"ternary"`: every code is in {-1, 0, 1} (R4 ternary weights).
     #[serde(default)]
     pub(super) codes: Option<String>,
+    /// `true`: `weights.int8.safetensors` also embeds the small non-quantised FP32 tensors
+    /// (norms, biases, stem c1, conv dw, RoPE, predictor, optional CTC head, declared fp32_kinds),
+    /// so INT8 loading never opens `weights.safetensors`.
+    #[serde(default)]
+    pub(super) self_contained: bool,
 }
 
 #[derive(Deserialize)]

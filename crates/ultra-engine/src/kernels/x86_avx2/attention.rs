@@ -1,10 +1,7 @@
-//! One softmax attention head over a ring window (scores, exp, weighted values).
+//! Softmax attention score computation over a ring window (8-key tiles, 2-query register tiling).
 //! Safety model and dispatch: see the parent module docs.
 
 use std::arch::x86_64::*;
-
-use super::super::scalar;
-use super::{exp8, hsum};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn attention_scores(
@@ -22,8 +19,117 @@ pub(crate) fn attention_scores(
     unsafe { scores_avx2(q, q_stride, n, dh, kt, ring, segs, scale, scores) }
 }
 
-/// Scores for 8 keys at a time (one tile; lane = key) in `scalar::score_fixed_order`'s
-/// summation order, so they are bit-identical to the original row-major kernel.
+/// One reduction lane `l in 0..8` for 2 queries when `dh == 64` (`c = 0..4`, zero branches).
+#[target_feature(enable = "avx2,fma")]
+unsafe fn lane2_d64(q0: *const f32, q1: *const f32, tp: *const f32, l: usize) -> (__m256, __m256) {
+    // SAFETY: caller ensures q0, q1 have >= 64 floats and tp has >= 64 * 8 floats.
+    unsafe {
+        let (k0, k1) = (
+            _mm256_loadu_ps(tp.add(l * 8)),
+            _mm256_loadu_ps(tp.add((8 + l) * 8)),
+        );
+        let mut a00 = _mm256_mul_ps(_mm256_broadcast_ss(&*q0.add(l)), k0);
+        let mut a10 = _mm256_mul_ps(_mm256_broadcast_ss(&*q1.add(l)), k0);
+        let mut a01 = _mm256_mul_ps(_mm256_broadcast_ss(&*q0.add(8 + l)), k1);
+        let mut a11 = _mm256_mul_ps(_mm256_broadcast_ss(&*q1.add(8 + l)), k1);
+        for c in 1..4 {
+            let (e0, e1) = (16 * c + l, 16 * c + 8 + l);
+            let k0 = _mm256_loadu_ps(tp.add(e0 * 8));
+            let k1 = _mm256_loadu_ps(tp.add(e1 * 8));
+            a00 = _mm256_fmadd_ps(_mm256_broadcast_ss(&*q0.add(e0)), k0, a00);
+            a10 = _mm256_fmadd_ps(_mm256_broadcast_ss(&*q1.add(e0)), k0, a10);
+            a01 = _mm256_fmadd_ps(_mm256_broadcast_ss(&*q0.add(e1)), k1, a01);
+            a11 = _mm256_fmadd_ps(_mm256_broadcast_ss(&*q1.add(e1)), k1, a11);
+        }
+        (_mm256_add_ps(a00, a01), _mm256_add_ps(a10, a11))
+    }
+}
+
+/// One reduction lane `l in 0..8` for 1 query (generic `dh`, 0-ULP exact).
+#[target_feature(enable = "avx2,fma")]
+unsafe fn score_lane1(q0: *const f32, tp: *const f32, dh: usize, l: usize) -> __m256 {
+    let (mut a0, mut a1) = (_mm256_setzero_ps(), _mm256_setzero_ps());
+    // SAFETY: caller ensures q0 has >= dh floats and tp has >= dh * 8 floats.
+    unsafe {
+        for c in 0..dh / 16 {
+            let (e0, e1) = (16 * c + l, 16 * c + 8 + l);
+            a0 = _mm256_fmadd_ps(
+                _mm256_broadcast_ss(&*q0.add(e0)),
+                _mm256_loadu_ps(tp.add(e0 * 8)),
+                a0,
+            );
+            a1 = _mm256_fmadd_ps(
+                _mm256_broadcast_ss(&*q0.add(e1)),
+                _mm256_loadu_ps(tp.add(e1 * 8)),
+                a1,
+            );
+        }
+        if dh % 16 == 8 {
+            let e0 = dh - 8 + l;
+            a0 = _mm256_fmadd_ps(
+                _mm256_broadcast_ss(&*q0.add(e0)),
+                _mm256_loadu_ps(tp.add(e0 * 8)),
+                a0,
+            );
+        }
+    }
+    _mm256_add_ps(a0, a1)
+}
+
+#[target_feature(enable = "avx2,fma")]
+unsafe fn store_score8(
+    scores: &mut [f32],
+    dst: usize,
+    sc: __m256,
+    lo: usize,
+    hi: usize,
+    t8: usize,
+) {
+    if hi - lo == 8 {
+        // SAFETY: caller ensures dst + 8 <= scores.len().
+        unsafe { _mm256_storeu_ps(scores.as_mut_ptr().add(dst), sc) };
+    } else {
+        let mut tmp = [0.0f32; 8];
+        // SAFETY: tmp holds 8 floats.
+        unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), sc) };
+        scores[dst..dst + (hi - lo)].copy_from_slice(&tmp[lo - t8..hi - t8]);
+    }
+}
+
+/// 2-query `dh == 64` score tile kept out-of-line so LLVM allocates <= 14 YMMs cleanly with
+/// zero stack spills (exact `((v0+v4)+(v2+v6)) + ((v1+v5)+(v3+v7))` tree order).
+#[inline(never)]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn tile2_d64(
+    q0: *const f32,
+    q1: *const f32,
+    tp: *const f32,
+    sv: __m256,
+) -> (__m256, __m256) {
+    // SAFETY: caller ensures q0, q1 have >= 64 floats and tp has >= 64 * 8 floats.
+    unsafe {
+        let (v0a, v0b) = lane2_d64(q0, q1, tp, 0);
+        let (v4a, v4b) = lane2_d64(q0, q1, tp, 4);
+        let (u0a, u0b) = (_mm256_add_ps(v0a, v4a), _mm256_add_ps(v0b, v4b));
+        let (v2a, v2b) = lane2_d64(q0, q1, tp, 2);
+        let (v6a, v6b) = lane2_d64(q0, q1, tp, 6);
+        let w0a = _mm256_add_ps(u0a, _mm256_add_ps(v2a, v6a));
+        let w0b = _mm256_add_ps(u0b, _mm256_add_ps(v2b, v6b));
+        let (v1a, v1b) = lane2_d64(q0, q1, tp, 1);
+        let (v5a, v5b) = lane2_d64(q0, q1, tp, 5);
+        let (u1a, u1b) = (_mm256_add_ps(v1a, v5a), _mm256_add_ps(v1b, v5b));
+        let (v3a, v3b) = lane2_d64(q0, q1, tp, 3);
+        let (v7a, v7b) = lane2_d64(q0, q1, tp, 7);
+        let w1a = _mm256_add_ps(u1a, _mm256_add_ps(v3a, v7a));
+        let w1b = _mm256_add_ps(u1b, _mm256_add_ps(v3b, v7b));
+        (
+            _mm256_mul_ps(_mm256_add_ps(w0a, w1a), sv),
+            _mm256_mul_ps(_mm256_add_ps(w0b, w1b), sv),
+        )
+    }
+}
+
+/// Scores for 8 keys at a time in `scalar::score_fixed_order`'s exact summation order.
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
 fn scores_avx2(
@@ -47,160 +153,46 @@ fn scores_avx2(
         if len > 0 {
             let (t_first, t_last) = (start / 8, (start + len - 1) / 8);
             for t in t_first..=t_last {
-                let tile = &kt[t * dh * 8..(t + 1) * dh * 8];
-                let row = |e: usize| {
-                    // SAFETY: e < dh, so e * 8 + 8 <= dh * 8 = tile.len().
-                    unsafe { _mm256_loadu_ps(tile.as_ptr().add(e * 8)) }
-                };
-                let (lo, hi) = ((t * 8).max(start), (t * 8 + 8).min(start + len));
-                for qi in 0..n {
-                    let qr = &q[qi * q_stride..qi * q_stride + dh];
-                    // score_fixed_order, lane = key: pair chains (l, l + 8) -> v[l].
-                    let mut v = [_mm256_setzero_ps(); 8];
-                    for (l, vl) in v.iter_mut().enumerate() {
-                        let (mut a0, mut a1) = (_mm256_setzero_ps(), _mm256_setzero_ps());
-                        for c in 0..dh / 16 {
-                            a0 = _mm256_fmadd_ps(
-                                _mm256_set1_ps(qr[16 * c + l]),
-                                row(16 * c + l),
-                                a0,
-                            );
-                            a1 = _mm256_fmadd_ps(
-                                _mm256_set1_ps(qr[16 * c + 8 + l]),
-                                row(16 * c + 8 + l),
-                                a1,
-                            );
+                let tp = kt[t * dh * 8..(t + 1) * dh * 8].as_ptr();
+                let t8 = t * 8;
+                let (lo, hi) = (t8.max(start), (t8 + 8).min(start + len));
+                let col_off = j0 + (lo - start);
+                let mut qi = 0;
+                if dh == 64 {
+                    while qi + 2 <= n {
+                        let q0 = q[qi * q_stride..qi * q_stride + 64].as_ptr();
+                        let q1 = q[(qi + 1) * q_stride..(qi + 1) * q_stride + 64].as_ptr();
+                        // SAFETY: q0, q1 have >= 64 floats; tp has 64*8 floats; dst + (hi-lo) <= scores.len().
+                        unsafe {
+                            let (sca, scb) = tile2_d64(q0, q1, tp, sv);
+                            store_score8(scores, qi * nk + col_off, sca, lo, hi, t8);
+                            store_score8(scores, (qi + 1) * nk + col_off, scb, lo, hi, t8);
                         }
-                        if dh % 16 == 8 {
-                            a0 = _mm256_fmadd_ps(
-                                _mm256_set1_ps(qr[dh - 8 + l]),
-                                row(dh - 8 + l),
-                                a0,
-                            );
-                        }
-                        *vl = _mm256_add_ps(a0, a1);
+                        qi += 2;
                     }
-                    let u: [__m256; 4] = std::array::from_fn(|l| _mm256_add_ps(v[l], v[l + 4]));
-                    let w0 = _mm256_add_ps(u[0], u[2]);
-                    let w1 = _mm256_add_ps(u[1], u[3]);
-                    let sc = _mm256_mul_ps(_mm256_add_ps(w0, w1), sv);
-                    let mut tmp = [0.0f32; 8];
-                    // SAFETY: tmp holds 8 floats.
-                    unsafe { _mm256_storeu_ps(tmp.as_mut_ptr(), sc) };
-                    let dst = qi * nk + j0 + (lo - start);
-                    scores[dst..dst + (hi - lo)].copy_from_slice(&tmp[lo - t * 8..hi - t * 8]);
+                }
+                while qi < n {
+                    let q0 = q[qi * q_stride..qi * q_stride + dh].as_ptr();
+                    // SAFETY: q0 has >= dh floats; tp has dh*8 floats.
+                    unsafe {
+                        let mut v = [_mm256_setzero_ps(); 8];
+                        for (l, vl) in v.iter_mut().enumerate() {
+                            *vl = score_lane1(q0, tp, dh, l);
+                        }
+                        let u0 = _mm256_add_ps(v[0], v[4]);
+                        let u1 = _mm256_add_ps(v[1], v[5]);
+                        let u2 = _mm256_add_ps(v[2], v[6]);
+                        let u3 = _mm256_add_ps(v[3], v[7]);
+                        let sc = _mm256_mul_ps(
+                            _mm256_add_ps(_mm256_add_ps(u0, u2), _mm256_add_ps(u1, u3)),
+                            sv,
+                        );
+                        store_score8(scores, qi * nk + col_off, sc, lo, hi, t8);
+                    }
+                    qi += 1;
                 }
             }
         }
         j0 += len;
-    }
-}
-
-pub(crate) fn attention_values(
-    n: usize,
-    dh: usize,
-    vals: [&[f32]; 2],
-    scores: &mut [f32],
-    out: &mut [f32],
-    o_stride: usize,
-) {
-    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
-    unsafe { values_avx2(n, dh, vals, scores, out, o_stride) }
-}
-
-/// Up to 16 vectors (dh <= 128) of one head row, held in registers.
-const MAXV: usize = 16;
-
-#[target_feature(enable = "avx2,fma")]
-fn values_avx2(
-    n: usize,
-    dh: usize,
-    vals: [&[f32]; 2],
-    scores: &mut [f32],
-    out: &mut [f32],
-    o_stride: usize,
-) {
-    let nv = dh / 8;
-    assert!(dh.is_multiple_of(8) && nv <= MAXV);
-    let nk = (vals[0].len() + vals[1].len()) / dh;
-    assert!(scores.len() >= n * nk && out.len() >= (n - 1) * o_stride + dh);
-    // First normalize softmax weights for all `n` queries in-place (same exact exp/sum order).
-    let mut invs = [0.0f32; 64];
-    assert!(n <= invs.len(), "attention_values n > 64");
-    for (i, inv_slot) in invs.iter_mut().enumerate().take(n) {
-        let sc = &mut scores[i * nk..(i + 1) * nk];
-        let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        let mv = _mm256_set1_ps(mx);
-        let mut sv = _mm256_setzero_ps();
-        let mut chunks = sc.chunks_exact_mut(8);
-        for c in &mut chunks {
-            // SAFETY: c.len() == 8.
-            unsafe {
-                let e = exp8(_mm256_sub_ps(_mm256_loadu_ps(c.as_ptr()), mv));
-                _mm256_storeu_ps(c.as_mut_ptr(), e);
-                sv = _mm256_add_ps(sv, e);
-            }
-        }
-        let mut sum = hsum(sv);
-        for s in chunks.into_remainder() {
-            *s = scalar::exp_approx(*s - mx);
-            sum += *s;
-        }
-        *inv_slot = 1.0 / sum;
-    }
-    // 2-Query Attention Value Mixing (0-ULP bit-identical FMA order, halves V-ring loads!).
-    // Process in 32-float (4-YMM) strips so acc0[4] + acc1[4] + loads stay <= 11/16 YMM regs.
-    let mut i = 0;
-    while i + 1 < n {
-        let sc0 = &scores[i * nk..(i + 1) * nk];
-        let sc1 = &scores[(i + 1) * nk..(i + 2) * nk];
-        let (inv0, inv1) = (invs[i], invs[i + 1]);
-        let mut v0 = 0;
-        while v0 < nv {
-            let strip = (nv - v0).min(4);
-            let mut acc0 = [_mm256_setzero_ps(); 4];
-            let mut acc1 = [_mm256_setzero_ps(); 4];
-            let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
-            for ((&p0, &p1), vr) in sc0.iter().zip(sc1.iter()).zip(rows) {
-                let pv0 = _mm256_set1_ps(p0 * inv0);
-                let pv1 = _mm256_set1_ps(p1 * inv1);
-                for c in 0..strip {
-                    // SAFETY: (v0 + c) * 8 + 8 <= dh = vr.len().
-                    let vc = unsafe { _mm256_loadu_ps(vr.as_ptr().add((v0 + c) * 8)) };
-                    acc0[c] = _mm256_fmadd_ps(pv0, vc, acc0[c]);
-                    acc1[c] = _mm256_fmadd_ps(pv1, vc, acc1[c]);
-                }
-            }
-            let o0 = &mut out[i * o_stride + v0 * 8..i * o_stride + (v0 + strip) * 8];
-            for (a, oc) in acc0[..strip].iter().zip(o0.chunks_exact_mut(8)) {
-                // SAFETY: oc.len() == 8.
-                unsafe { _mm256_storeu_ps(oc.as_mut_ptr(), *a) };
-            }
-            let o1 = &mut out[(i + 1) * o_stride + v0 * 8..(i + 1) * o_stride + (v0 + strip) * 8];
-            for (a, oc) in acc1[..strip].iter().zip(o1.chunks_exact_mut(8)) {
-                // SAFETY: oc.len() == 8.
-                unsafe { _mm256_storeu_ps(oc.as_mut_ptr(), *a) };
-            }
-            v0 += strip;
-        }
-        i += 2;
-    }
-    if i < n {
-        let sc = &scores[i * nk..(i + 1) * nk];
-        let inv = invs[i];
-        let mut acc = [_mm256_setzero_ps(); MAXV];
-        let rows = vals[0].chunks_exact(dh).chain(vals[1].chunks_exact(dh));
-        for (&p, vr) in sc.iter().zip(rows) {
-            let pv = _mm256_set1_ps(p * inv);
-            for (a, vc) in acc[..nv].iter_mut().zip(vr.chunks_exact(8)) {
-                // SAFETY: vc.len() == 8.
-                *a = _mm256_fmadd_ps(pv, unsafe { _mm256_loadu_ps(vc.as_ptr()) }, *a);
-            }
-        }
-        let o = &mut out[i * o_stride..i * o_stride + dh];
-        for (a, oc) in acc[..nv].iter().zip(o.chunks_exact_mut(8)) {
-            // SAFETY: oc.len() == 8.
-            unsafe { _mm256_storeu_ps(oc.as_mut_ptr(), *a) };
-        }
     }
 }

@@ -341,6 +341,8 @@ const SPLIT_MAX_ROWS: usize = 16;
 #[derive(Debug, Default)]
 pub struct QuantScratch {
     pub a: Vec<i8>,
+    /// Precomputed `|a[i]|` populated alongside `a` on AVX2+FMA to avoid `vpabsb` in GEMM.
+    pub a_abs: Vec<u8>,
     pub scale: Vec<f32>,
     pub center: Vec<f32>,
     /// 7-bit activation codes (|q| <= 63) and the paired-accumulation kernel.
@@ -358,20 +360,43 @@ pub struct QuantScratch {
 
 /// Per-row centred quantisation of `rows` rows of width `k` into `a` (row stride `kp`,
 /// zero padded), `scale` and `center`.
-fn quantize_rows(isa: Isa, x: &[f32], rows: usize, k: usize, kp: usize, q: &mut QuantScratch) {
+fn quantize_rows(
+    isa: Isa,
+    x: &[f32],
+    rows: usize,
+    k: usize,
+    kp: usize,
+    q: &mut QuantScratch,
+    want_abs: bool,
+) {
     if q.a.len() < rows * kp {
         q.a.resize(rows * kp, 0);
+    }
+    if want_abs && q.a_abs.len() < rows * kp {
+        q.a_abs.resize(rows * kp, 0);
     }
     if q.scale.len() < rows {
         q.scale.resize(rows, 0.0);
         q.center.resize(rows, 0.0);
     }
-    for r in 0..rows {
-        let xr = &x[r * k..(r + 1) * k];
-        let ar = &mut q.a[r * kp..(r + 1) * kp];
-        let qmax = if q.act7 { 63 } else { 127 };
-        (q.scale[r], q.center[r]) = crate::kernels::quantize_row_q(isa, xr, &mut ar[..k], qmax);
-        ar[k..].fill(0);
+    let qmax = if q.act7 { 63 } else { 127 };
+    if want_abs {
+        for r in 0..rows {
+            let xr = &x[r * k..(r + 1) * k];
+            let ar = &mut q.a[r * kp..(r + 1) * kp];
+            let aar = &mut q.a_abs[r * kp..(r + 1) * kp];
+            (q.scale[r], q.center[r]) =
+                crate::kernels::quantize_row_with_abs(isa, xr, &mut ar[..k], &mut aar[..k], qmax);
+            ar[k..].fill(0);
+            aar[k..].fill(0);
+        }
+    } else {
+        for r in 0..rows {
+            let xr = &x[r * k..(r + 1) * k];
+            let ar = &mut q.a[r * kp..(r + 1) * kp];
+            (q.scale[r], q.center[r]) = crate::kernels::quantize_row_q(isa, xr, &mut ar[..k], qmax);
+            ar[k..].fill(0);
+        }
     }
 }
 
@@ -389,13 +414,14 @@ pub fn linear_i8(
         "linear_i8 lengths"
     );
     use crate::prof::Phase;
-    let t = q.prof.start();
-    quantize_rows(isa, x, rows, p.k, p.kp, q);
-    q.prof.stop(Phase::Quant, t);
-    let t = q.prof.start();
     let split_id = q.split.as_ref().and_then(|(pool, m)| {
         (rows <= SPLIT_MAX_ROWS && p.panels() >= pool.threads()).then(|| m.packed_id(p))?
     });
+    let use_abs = split_id.is_none() && !q.act7 && isa == Isa::Avx2Fma;
+    let t = q.prof.start();
+    quantize_rows(isa, x, rows, p.k, p.kp, q, use_abs);
+    q.prof.stop(Phase::Quant, t);
+    let t = q.prof.start();
     match (split_id, q.split.as_ref()) {
         (Some(id), Some((pool, m))) => pool.gemm_i8(
             isa,
@@ -406,6 +432,16 @@ pub fn linear_i8(
             &q.center[..rows],
             rows,
             q.act7,
+            out,
+        ),
+        _ if use_abs => crate::kernels::gemm_i8_with_abs(
+            isa,
+            p,
+            &q.a[..rows * p.kp],
+            &q.a_abs[..rows * p.kp],
+            &q.scale[..rows],
+            &q.center[..rows],
+            rows,
             out,
         ),
         _ => {

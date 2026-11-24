@@ -41,9 +41,17 @@ fn prepared_matches_load_time_quantisation_and_rejects_tampering() {
         "refuses a non-empty directory"
     );
     let mut p = Model::load(&out.0, true).expect("load prepared");
+    assert!(
+        !out.0.join("weights.safetensors").exists(),
+        "self-contained slim INT8 directory must not ship weights.safetensors"
+    );
     assert_eq!(
         p.int8_prepared.as_ref().map(|x| x.sha256.clone()),
         Some(sha)
+    );
+    assert_eq!(
+        p.int8_prepared.as_ref().map(|x| x.self_contained),
+        Some(true)
     );
     assert_eq!(packings(&mut p), packings(&mut m), "bit-identical packing");
     // Quantised layers keep no fp32 weights; the kept-fp32 kind (joiner_out) does.

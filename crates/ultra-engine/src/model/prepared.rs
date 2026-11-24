@@ -26,6 +26,8 @@ pub struct PreparedInt8 {
     pub fp32_kinds: Vec<String>,
     /// Codes are ternary (R4): `"ternary"`, else `None`.
     pub codes: Option<String>,
+    /// `true` when loaded from a self-contained INT8-only bundle (no `weights.safetensors`).
+    pub self_contained: bool,
 }
 
 fn name(kind: &str, blk: Option<usize>) -> String {
@@ -33,10 +35,12 @@ fn name(kind: &str, blk: Option<usize>) -> String {
 }
 
 impl Model {
-    pub(super) fn load_prepared_int8(
+    pub(super) fn load_prepared_int8_from(
         &mut self,
-        path: &Path,
+        st: &LazyTensors,
+        sha: String,
         raw: &RawInt8,
+        expected_aux: usize,
     ) -> Result<(), EngineError> {
         if raw.layout != INT8_LAYOUT {
             return Err(EngineError::Unsupported(format!(
@@ -49,13 +53,18 @@ impl Model {
                 "weights.int8.safetensors was prepared from other fp32 weights".into(),
             ));
         }
-        let sha = super::arch_json::sha256_file(path)?;
-        let st = LazyTensors::open(path)?;
         if st.metadata.get("source_weights_sha256") != Some(&self.arch.weights_sha256)
             || st.metadata.get("layout").map(String::as_str) != Some(INT8_LAYOUT)
         {
             return Err(EngineError::Integrity(
                 "int8 artifact metadata mismatch".into(),
+            ));
+        }
+        if raw.self_contained
+            && st.metadata.get("self_contained").map(String::as_str) != Some("true")
+        {
+            return Err(EngineError::Integrity(
+                "int8 artifact missing self_contained=true metadata".into(),
             ));
         }
         let fp32_kinds = raw.fp32_kinds.clone();
@@ -84,7 +93,7 @@ impl Model {
             lin.q = Some(packed);
             used += 3;
         }
-        if used != st.len() {
+        if used + expected_aux != st.len() {
             return Err(EngineError::Format(
                 "int8 artifact has undeclared tensors".into(),
             ));
@@ -93,14 +102,17 @@ impl Model {
             sha256: sha,
             fp32_kinds,
             codes: raw.codes.clone(),
+            self_contained: raw.self_contained,
         });
         Ok(())
     }
 
-    /// Write a prepared-INT8 directory to the fresh (absent or empty) directory `out`: the
-    /// fp32 directory's files copied, `weights.int8.safetensors` from this model's current
-    /// int8 packing (`quantize_int8_where`), and `arch.json` extended with `int8` and
-    /// `files.weights_int8`. Returns the artifact's SHA-256.
+    /// Write a self-contained prepared-INT8 directory to the fresh (absent or empty) directory
+    /// `out`: non-weight files copied, `weights.int8.safetensors` holding both the packed INT8
+    /// layers and the small non-quantised FP32 tensors (norms, biases, stem c1, conv dw, RoPE,
+    /// predictor, optional CTC head, declared `fp32_kinds`), and `arch.json` updated with
+    /// `int8.self_contained = true` and `files.weights_int8` (omitting `weights.safetensors`).
+    /// Returns the artifact's SHA-256.
     pub fn write_prepared_int8(
         &self,
         out: &Path,
@@ -112,6 +124,19 @@ impl Model {
                 out.display()
             )));
         }
+        let text = std::fs::read_to_string(self.root.join("arch.json"))?;
+        let mut arch: serde_json::Value =
+            serde_json::from_str(&text).map_err(|e| EngineError::Format(e.to_string()))?;
+        let src_st_name = arch["files"]
+            .get("weights")
+            .and_then(|v| v["path"].as_str())
+            .or_else(|| {
+                arch["files"]
+                    .get("weights_int8")
+                    .and_then(|v| v["path"].as_str())
+            })
+            .ok_or_else(|| EngineError::Format("source arch.json has no weights file".into()))?
+            .to_owned();
         let mut st = SafeTensors::default();
         st.metadata.insert("layout".into(), INT8_LAYOUT.into());
         st.metadata.insert(
@@ -122,6 +147,13 @@ impl Model {
             "checkpoint_sha256".into(),
             self.arch.checkpoint_sha256.clone(),
         );
+        st.metadata.insert("self_contained".into(), "true".into());
+        super::slim_int8::copy_aux_fp32_tensors(
+            &self.root.join(&src_st_name),
+            &self.arch,
+            fp32_kinds,
+            &mut st,
+        )?;
         let mut me = self.linears_snapshot();
         for (nm, kind, q) in me.drain(..) {
             match q {
@@ -160,21 +192,27 @@ impl Model {
         let bytes = st.to_bytes()?;
         let sha = sha256_hex(&bytes);
         std::fs::create_dir_all(out)?;
-        let text = std::fs::read_to_string(self.root.join("arch.json"))?;
-        let mut arch: serde_json::Value =
-            serde_json::from_str(&text).map_err(|e| EngineError::Format(e.to_string()))?;
         let files = arch["files"].as_object().cloned().unwrap_or_default();
-        for f in files.values() {
+        for (key, f) in &files {
+            if key == "weights" || key == "weights_int8" {
+                continue;
+            }
             let p = f["path"]
                 .as_str()
                 .ok_or_else(|| EngineError::Format("files.path".into()))?;
             std::fs::copy(self.root.join(p), out.join(p))?;
         }
         std::fs::write(out.join("weights.int8.safetensors"), &bytes)?;
-        arch["files"]["weights_int8"] =
-            serde_json::json!({"path": "weights.int8.safetensors", "sha256": sha});
+        if let Some(obj) = arch["files"].as_object_mut() {
+            obj.remove("weights");
+            obj.insert(
+                "weights_int8".into(),
+                serde_json::json!({"path": "weights.int8.safetensors", "sha256": sha}),
+            );
+        }
         arch["int8"] = serde_json::json!({
             "layout": INT8_LAYOUT,
+            "self_contained": true,
             "source_weights_sha256": self.arch.weights_sha256,
             "fp32_kinds": fp32_kinds,
             "weights": "per-output-channel symmetric int8 (|q| <= 127), scale = max|w| / 127",
