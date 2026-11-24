@@ -222,7 +222,10 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let rss_end_mb = final_rss as f64 / 1024.0;
     let rss_peak_mb = rss_peak_kib as f64 / 1024.0;
 
+    let eff_cfg = engine.effective_decode_config();
     Ok(json!({
+        "effective_decode_config": eff_cfg,
+        "decode_policy_sha256": eff_cfg.policy_sha256(),
         "audio_s": final_audio_s,
         "audio_h": audio_h,
         "cpu_s": cpu_s,

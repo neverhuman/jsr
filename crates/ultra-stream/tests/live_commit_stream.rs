@@ -92,6 +92,7 @@ fn speech_or_silence_model() -> Arc<Model> {
         rope_inv: vec![1.0, 0.1],
         mel_cfg,
         tokens,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }

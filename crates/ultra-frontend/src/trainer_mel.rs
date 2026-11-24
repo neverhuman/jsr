@@ -66,6 +66,16 @@ impl GlobalCmvn {
             *v = (*v - m) * s;
         }
     }
+
+    #[inline]
+    pub fn mean(&self) -> &[f32; MEL_BINS] {
+        &self.mean
+    }
+
+    #[inline]
+    pub fn istd(&self) -> &[f32; MEL_BINS] {
+        &self.istd
+    }
 }
 
 /// Immutable configuration + filterbank shared across streams of an R1 bundle.
@@ -218,6 +228,12 @@ impl TrainerMelConfig {
     #[inline]
     pub fn is_portable_math(&self) -> bool {
         self.portable_math
+    }
+
+    /// Row-major `257 x 80` mel filterbank weights (`FBANK_LEN` floats).
+    #[inline]
+    pub fn fbank(&self) -> &[f32] {
+        &self.fbank
     }
 
     /// Compute one normalized 80-bin log-mel frame from exactly `400` unit-range `f32` samples.

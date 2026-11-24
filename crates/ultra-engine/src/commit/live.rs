@@ -16,18 +16,53 @@ pub struct CommitSnapshot {
     pub forced_advances: u64,
 }
 
+/// Honest separated wall-clock and thread-CPU timing for a single commit pass (`F09`).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct CommitTiming {
+    pub wall_s: f64,
+    pub cpu_s: f64,
+}
+
+impl CommitTiming {
+    #[inline]
+    pub fn wall_ms(self) -> f64 {
+        self.wall_s * 1000.0
+    }
+
+    #[inline]
+    pub fn cpu_ms(self) -> f64 {
+        self.cpu_s * 1000.0
+    }
+}
+
 /// Run a standalone endpoint commit pass over buffered PCM using a cloned [`Engine`]
-/// (sharing `Arc<Model>` and `Arc<CommitLm>` with the live stream) and a worker-local [`Workspace`].
+/// (sharing `Arc<Model>` and `Arc<CommitLm>` with the live stream) and a worker-local [`Workspace`],
+/// returning both wall-clock and actual calling-thread CPU time.
+pub fn run_commit_pcm_timed(
+    commit_engine: &Engine,
+    cfg: CommitConfig,
+    pcm: &[i16],
+    ws: &mut Workspace,
+) -> Result<(String, usize, CommitTiming), EngineError> {
+    let cpu0 = crate::run_info::thread_cpu_s_or_zero();
+    let t0 = Instant::now();
+    let (raw, idx) =
+        ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None, None)?;
+    let wall_s = t0.elapsed().as_secs_f64();
+    let cpu1 = crate::run_info::thread_cpu_s_or_zero();
+    let cpu_s = (cpu1 - cpu0).max(0.0);
+    Ok((raw, idx, CommitTiming { wall_s, cpu_s }))
+}
+
+/// Run a standalone endpoint commit pass over buffered PCM, returning `(text, hyp_idx, wall_ms)`.
 pub fn run_commit_pcm(
     commit_engine: &Engine,
     cfg: CommitConfig,
     pcm: &[i16],
     ws: &mut Workspace,
 ) -> Result<(String, usize, f64), EngineError> {
-    let t0 = Instant::now();
-    let (raw, idx) =
-        ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None, None)?;
-    Ok((raw, idx, t0.elapsed().as_secs_f64() * 1000.0))
+    let (raw, idx, timing) = run_commit_pcm_timed(commit_engine, cfg, pcm, ws)?;
+    Ok((raw, idx, timing.wall_ms()))
 }
 
 impl CommitPassSession {

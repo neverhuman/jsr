@@ -19,7 +19,7 @@ use ultra_stream::{
     StreamClock, StreamConfig, StreamCoordinator,
 };
 
-use crate::runner::instantiate_backend;
+use crate::runner::instantiate_backend_with_config;
 use crate::stream_commit::StreamCommitCliOptions;
 use crate::{git_short_commit, CliError};
 
@@ -126,7 +126,8 @@ pub fn transcribe_audio_file_with_options(
     let pcm = read_audio_16k_mono(audio_path)
         .map_err(|e| CliError::Config(format!("{}: {e}", audio_path.display())))?;
     let clock = StreamClock::real();
-    let (caps, cfg, inner) = if commit_opts.enabled {
+    let native_cfg = commit_opts.to_native_load_config()?;
+    let (caps, cfg, inner, policy_status) = if commit_opts.enabled {
         let live_cfg = commit_opts.to_live_commit_config()?;
         let (wdir, prec) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, None)
             .ok_or_else(|| {
@@ -134,7 +135,8 @@ pub fn transcribe_audio_file_with_options(
                     "--commit-pass requires a native ultra-engine candidate (got `{candidate_id}`)"
                 ))
             })??;
-        let native = NativeEngineBackend::load_with_options(&wdir, prec, threads, true, 1, 1)?;
+        let native =
+            NativeEngineBackend::load_with_config(&wdir, prec, threads, true, &native_cfg)?;
         let caps = native.capabilities();
         let cfg = StreamConfig {
             stream_id: "cli-stream-0".into(),
@@ -147,10 +149,42 @@ pub fn transcribe_audio_file_with_options(
             endpoint_hangover_ms: u64::from(live_cfg.hangover_ms),
             ..StreamConfig::default()
         };
-        let inner = native.create_live_commit_stream_with_clock(&cfg, &live_cfg, clock.clone())?;
-        (caps, cfg, inner)
+        let live_stream =
+            ultra_stream::LiveCommitAsrStream::new(&native, &cfg, &live_cfg, clock.clone())?;
+        let policy_sha = live_stream.provisional_decode_config().policy_sha256();
+        let commit_policy_sha = live_stream.commit_decode_config().policy_sha256();
+        let inner: Box<dyn AsrStream> = Box::new(live_stream);
+        (
+            caps,
+            cfg,
+            inner,
+            vec![
+                format!("decode_policy_sha256:{policy_sha}"),
+                format!("commit_decode_policy_sha256:{commit_policy_sha}"),
+            ],
+        )
+    } else if let Some(res) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, None) {
+        let (wdir, prec) = res?;
+        let native =
+            NativeEngineBackend::load_with_config(&wdir, prec, threads, true, &native_cfg)?;
+        let policy_sha = native.effective_decode_config().policy_sha256();
+        let caps = native.capabilities();
+        let cfg = StreamConfig {
+            stream_id: "cli-stream-0".into(),
+            model_config_id: caps.name.clone(),
+            policy,
+            profile,
+            ..StreamConfig::default()
+        };
+        let inner = native.create_stream_with_clock(&cfg, clock.clone());
+        (
+            caps,
+            cfg,
+            inner,
+            vec![format!("decode_policy_sha256:{policy_sha}")],
+        )
     } else {
-        let backend = instantiate_backend(candidate_id, threads)?;
+        let backend = instantiate_backend_with_config(candidate_id, None, threads, &native_cfg)?;
         let caps = backend.capabilities();
         let cfg = StreamConfig {
             stream_id: "cli-stream-0".into(),
@@ -160,7 +194,7 @@ pub fn transcribe_audio_file_with_options(
             ..StreamConfig::default()
         };
         let inner = backend.create_stream_with_clock(&cfg, clock.clone())?;
-        (caps, cfg, inner)
+        (caps, cfg, inner, Vec::new())
     };
     let mut sampler = TreeSampler::new(std::process::id() as i32);
     sampler.sample();
@@ -215,6 +249,7 @@ pub fn transcribe_audio_file_with_options(
     chunk_ms.sort_by(f64::total_cmp);
 
     let (mut previews, mut statuses, mut gaps) = (String::new(), Vec::new(), Vec::new());
+    statuses.extend(policy_status);
     for te in &timed {
         match &te.event.body {
             Body::Preview(u) => {

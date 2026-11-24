@@ -6,10 +6,10 @@ use std::time::Duration;
 
 use ultra_adapters::{run_nemotron_batch, NemotronChunkMode, NemotronConfig};
 use ultra_core::receipt::{HonestyLabel, Partition};
-use ultra_stream::{run_offline_contrast, ContrastConfig};
+use ultra_stream::{run_offline_contrast, ContrastConfig, NativeEngineLoadConfig};
 
 use crate::runner::{
-    instantiate_backend_with_beam, instantiate_backend_with_precision, resolve_offline_config,
+    instantiate_backend_with_config, instantiate_backend_with_precision, resolve_offline_config,
 };
 use crate::suite_latency::{measure_paced_latency, FrontierRow};
 use crate::suite_manifest::{
@@ -31,6 +31,7 @@ pub(crate) struct SuiteCtx<'a> {
     pub grid_ms: u32,
     pub max_chunks: usize,
     pub beam: usize,
+    pub decode_config: &'a NativeEngineLoadConfig,
     pub density_workers: usize,
     pub density_streams: usize,
     pub density_seconds: f64,
@@ -243,7 +244,8 @@ pub(crate) fn eval_backend_probes(
     if ctx.latency_limit == 0 && ctx.silence_probe_wav.is_none() {
         return Ok((None, None));
     }
-    let b = instantiate_backend_with_beam(raw_cand, ctx.precision, ctx.threads, ctx.beam)?;
+    let b =
+        instantiate_backend_with_config(raw_cand, ctx.precision, ctx.threads, ctx.decode_config)?;
     let lat = if ctx.latency_limit > 0 {
         Some(measure_paced_latency(
             &*b,

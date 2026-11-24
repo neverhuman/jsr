@@ -47,8 +47,9 @@ pub fn peak_rss_mib() -> Option<f64> {
     })
 }
 
-/// This thread's CPU run time in seconds. Linux: the scheduler's run time of the calling
-/// thread. Elsewhere (macOS): process user + system time (pool workers, if any, included).
+/// This thread's CPU run time in seconds. Linux: calling thread's scheduler run time
+/// (`/proc/thread-self/schedstat`), falling back to `getrusage(RUSAGE_THREAD)` and then
+/// `RUSAGE_SELF`. Elsewhere (macOS): process user + system time.
 pub fn thread_cpu_s() -> f64 {
     if let Some(v) = std::fs::read_to_string("/proc/thread-self/schedstat")
         .ok()
@@ -60,10 +61,25 @@ pub fn thread_cpu_s() -> f64 {
     {
         return v * 1e-9;
     }
-    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, |u| {
+    let tv_s = |u: nix::sys::resource::Usage| {
         let t = |tv: nix::sys::time::TimeVal| tv.tv_sec() as f64 + tv.tv_usec() as f64 * 1e-6;
         t(u.user_time()) + t(u.system_time())
-    })
+    };
+    #[cfg(target_os = "linux")]
+    if let Ok(u) = nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_THREAD) {
+        return tv_s(u);
+    }
+    nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).map_or(f64::NAN, tv_s)
+}
+
+/// Non-negative finite thread CPU time in seconds (safe fallback to `0.0` when unavailable).
+pub fn thread_cpu_s_or_zero() -> f64 {
+    let v = thread_cpu_s();
+    if v.is_finite() && v >= 0.0 {
+        v
+    } else {
+        0.0
+    }
 }
 
 /// Any `ULTRA_ENGINE_*` environment variable. The binaries take every knob as a recorded

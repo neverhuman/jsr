@@ -1,18 +1,28 @@
 //! Opt-in `--commit-pass` and `--session-lexical-bias` CLI flags for `ultra stream` (Wave 1D).
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ultra_engine::commit::{
     CommitConfig, CommitLmConfig, SessionLexicalConfig, DEFAULT_MAX_PCM_SAMPLES,
     DEFAULT_SAMPLE_RATE,
 };
-use ultra_stream::LiveCommitConfig;
+use ultra_engine::{LmConfig, NgramLm};
+use ultra_stream::{LiveCommitConfig, NativeEngineLoadConfig};
 
 use crate::CliError;
 
-/// Parsed opt-in live commit-pass and session lexical bias CLI options for `ultra stream`.
+/// Parsed opt-in live decode, commit-pass, and session lexical bias CLI options for `ultra stream`.
 #[derive(Debug, Clone)]
 pub struct StreamCommitCliOptions {
+    pub beam: usize,
+    pub beam_max_symbols: usize,
+    pub beam_margin: f32,
+    pub chunk: Option<usize>,
+    pub lm_path: Option<PathBuf>,
+    pub lm_weight: f32,
+    pub lodr_weight: f32,
+    pub blank_penalty: f32,
     pub enabled: bool,
     pub hangover_ms: u32,
     pub preroll_ms: u32,
@@ -31,6 +41,14 @@ pub struct StreamCommitCliOptions {
 impl Default for StreamCommitCliOptions {
     fn default() -> Self {
         Self {
+            beam: 1,
+            beam_max_symbols: 1,
+            beam_margin: 0.0,
+            chunk: None,
+            lm_path: None,
+            lm_weight: 0.0,
+            lodr_weight: 0.0,
+            blank_penalty: 0.0,
             enabled: false,
             hangover_ms: 300,
             preroll_ms: 300,
@@ -49,8 +67,8 @@ impl Default for StreamCommitCliOptions {
 }
 
 impl StreamCommitCliOptions {
-    /// Attempt to parse one `--commit-*` or `--session-*` flag at `args[*i]`.
-    /// Returns `Ok(true)` if consumed, `Ok(false)` if unrecognized.
+    /// Attempt to parse one decode (`--beam`, `--lm`, `--chunk`), `--commit-*`, or `--session-*`
+    /// flag at `args[*i]`. Returns `Ok(true)` if consumed, `Ok(false)` if unrecognized.
     pub fn try_parse_flag(&mut self, args: &[String], i: &mut usize) -> Result<bool, CliError> {
         let flag = args[*i].as_str();
         let next = |idx: &mut usize, name: &str| -> Result<&str, CliError> {
@@ -61,6 +79,24 @@ impl StreamCommitCliOptions {
         };
         let p_err = |f: &str| CliError::Config(format!("invalid {f}"));
         match flag {
+            "--beam" => self.beam = next(i, flag)?.parse().map_err(|_| p_err(flag))?,
+            "--beam-max-symbols" => {
+                self.beam_max_symbols = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
+            }
+            "--beam-margin" => {
+                self.beam_margin = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
+            }
+            "--chunk" => {
+                self.chunk = Some(next(i, flag)?.parse().map_err(|_| p_err(flag))?);
+            }
+            "--lm" => self.lm_path = Some(PathBuf::from(next(i, flag)?)),
+            "--lm-weight" => self.lm_weight = next(i, flag)?.parse().map_err(|_| p_err(flag))?,
+            "--lodr-weight" => {
+                self.lodr_weight = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
+            }
+            "--blank-penalty" => {
+                self.blank_penalty = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
+            }
             "--commit-pass" => self.enabled = true,
             "--commit-hangover-ms" => {
                 self.hangover_ms = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
@@ -97,6 +133,59 @@ impl StreamCommitCliOptions {
             _ => return Ok(false),
         }
         Ok(true)
+    }
+
+    /// Resolve a shared [`NativeEngineLoadConfig`] so CLI streaming never silently drops beam/LM.
+    pub fn to_native_load_config(&self) -> Result<NativeEngineLoadConfig, CliError> {
+        if !(1..=64).contains(&self.beam) {
+            return Err(CliError::Config(format!(
+                "--beam must be in 1..=64 (got {})",
+                self.beam
+            )));
+        }
+        if !(1..=8).contains(&self.beam_max_symbols) {
+            return Err(CliError::Config(format!(
+                "--beam-max-symbols must be in 1..=8 (got {})",
+                self.beam_max_symbols
+            )));
+        }
+        if !self.beam_margin.is_finite() || self.beam_margin < 0.0 {
+            return Err(CliError::Config(
+                "--beam-margin must be finite and >= 0".into(),
+            ));
+        }
+        let lm_cfg = LmConfig {
+            lm_weight: self.lm_weight,
+            lodr_weight: self.lodr_weight,
+            blank_penalty: self.blank_penalty,
+        };
+        lm_cfg
+            .validate()
+            .map_err(|e| CliError::Config(e.to_string()))?;
+        let lm = match &self.lm_path {
+            Some(p) => {
+                let loaded = NgramLm::load(p)
+                    .map_err(|e| CliError::Unavailable(format!("--lm {}: {e}", p.display())))?;
+                Some((Arc::new(loaded), lm_cfg))
+            }
+            None => {
+                if self.lm_weight != 0.0 || self.lodr_weight != 0.0 || self.blank_penalty != 0.0 {
+                    return Err(CliError::Config(
+                        "--lm-weight, --lodr-weight, and --blank-penalty require --lm".into(),
+                    ));
+                }
+                None
+            }
+        };
+        Ok(NativeEngineLoadConfig {
+            max_chunks: 1,
+            chunk: self.chunk,
+            beam: self.beam,
+            beam_max_symbols: self.beam_max_symbols,
+            beam_margin: self.beam_margin,
+            lm,
+            ..NativeEngineLoadConfig::default()
+        })
     }
 
     pub fn to_live_commit_config(&self) -> Result<LiveCommitConfig, CliError> {

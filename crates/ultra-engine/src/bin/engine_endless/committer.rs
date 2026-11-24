@@ -8,6 +8,7 @@
 //!   flushes the final winning hypothesis at EOF so the joined trace equals `engine.text(&stream)`.
 
 use std::io::Write;
+use std::time::Instant;
 
 use serde_json::json;
 use ultra_engine::beam::Hyp;
@@ -41,7 +42,9 @@ pub(crate) struct WordCommitter {
     word_tok_start: usize,
     last_tok_len: usize,
     last_tail: Vec<u32>,
-    pending: Option<(String, f64)>,
+    /// `(word, first_observed_audio_s, first_observed_wall_ms)`
+    pending: Option<(String, f64, f64)>,
+    started_at: Instant,
     total_words: u64,
 }
 
@@ -52,6 +55,7 @@ impl WordCommitter {
             last_tok_len: 0,
             last_tail: Vec::new(),
             pending: None,
+            started_at: Instant::now(),
             total_words: 0,
         }
     }
@@ -60,11 +64,54 @@ impl WordCommitter {
         self.total_words
     }
 
+    #[inline]
+    fn wall_ms(&self) -> f64 {
+        self.started_at.elapsed().as_secs_f64() * 1000.0
+    }
+
+    fn write_row<W: Write>(
+        out: &mut W,
+        first_obs_audio_s: f64,
+        emit_audio_s: f64,
+        first_obs_wall_ms: f64,
+        emitted_wall_ms: f64,
+        words: &[String],
+    ) -> Result<(), String> {
+        let emit_audio = emit_audio_s.max(first_obs_audio_s);
+        let emit_wall = emitted_wall_ms.max(first_obs_wall_ms);
+        writeln!(
+            out,
+            "{}",
+            json!({
+                "audio_s": first_obs_audio_s,
+                "emit_audio_s": emit_audio,
+                "first_observed_ms": first_obs_audio_s * 1000.0,
+                "emit_time_ms": emit_audio * 1000.0,
+                "first_observed_wall_ms": first_obs_wall_ms,
+                "emitted_at_ms": emit_wall,
+                "words": words,
+            })
+        )
+        .map_err(|e| e.to_string())
+    }
+
     pub(crate) fn update<W: Write>(
         &mut self,
         table: &TokenTable,
         tokens: &[u32],
         audio_s: f64,
+        out: &mut W,
+    ) -> Result<(), String> {
+        let wall_ms = self.wall_ms();
+        self.update_with_wall_ms(table, tokens, audio_s, wall_ms, out)
+    }
+
+    pub(crate) fn update_with_wall_ms<W: Write>(
+        &mut self,
+        table: &TokenTable,
+        tokens: &[u32],
+        audio_s: f64,
+        wall_ms: f64,
         out: &mut W,
     ) -> Result<(), String> {
         let start = self.word_tok_start.min(tokens.len());
@@ -90,9 +137,9 @@ impl WordCommitter {
         if ws.len() == 1 {
             let w0 = ws[0];
             match &self.pending {
-                Some((pw, _)) if pw == w0 => {}
+                Some((pw, _, _)) if pw == w0 => {}
                 _ => {
-                    self.pending = Some((w0.to_owned(), audio_s));
+                    self.pending = Some((w0.to_owned(), audio_s, wall_ms));
                 }
             }
             self.last_tail.clear();
@@ -101,11 +148,11 @@ impl WordCommitter {
             return Ok(());
         }
         // Multiple words in tail: every word before the last is now finalized.
-        let mut emit_prev: Option<(String, f64)> = None;
+        let mut emit_prev: Option<(String, f64, f64)> = None;
         let mut emit_now: Vec<String> = Vec::new();
         match self.pending.take() {
-            Some((pw, pt)) if pw == ws[0] => {
-                emit_prev = Some((pw, pt));
+            Some((pw, pt, pw_ms)) if pw == ws[0] => {
+                emit_prev = Some((pw, pt, pw_ms));
             }
             _ => {
                 emit_now.push(ws[0].to_owned());
@@ -114,18 +161,16 @@ impl WordCommitter {
         for &w in &ws[1..ws.len() - 1] {
             emit_now.push(w.to_owned());
         }
-        if let Some((pw, pt)) = emit_prev {
-            writeln!(out, "{}", json!({"audio_s": pt, "words": [pw]}))
-                .map_err(|e| e.to_string())?;
+        if let Some((pw, pt, pw_ms)) = emit_prev {
+            Self::write_row(out, pt, audio_s, pw_ms, wall_ms, &[pw])?;
             self.total_words += 1;
         }
         if !emit_now.is_empty() {
             self.total_words += emit_now.len() as u64;
-            writeln!(out, "{}", json!({"audio_s": audio_s, "words": emit_now}))
-                .map_err(|e| e.to_string())?;
+            Self::write_row(out, audio_s, audio_s, wall_ms, wall_ms, &emit_now)?;
         }
         let last_word = ws[ws.len() - 1];
-        self.pending = Some((last_word.to_owned(), audio_s));
+        self.pending = Some((last_word.to_owned(), audio_s, wall_ms));
 
         // Advance `word_tok_start` to the start of `last_word` (small backward scan).
         let mut new_start = tokens.len().saturating_sub(1);
@@ -153,10 +198,21 @@ impl WordCommitter {
         audio_s: f64,
         out: &mut W,
     ) -> Result<(), String> {
-        self.update(table, final_tokens, audio_s, out)?;
-        if let Some((pw, pt)) = self.pending.take() {
-            writeln!(out, "{}", json!({"audio_s": pt, "words": [pw]}))
-                .map_err(|e| e.to_string())?;
+        let wall_ms = self.wall_ms();
+        self.finish_with_wall_ms(table, final_tokens, audio_s, wall_ms, out)
+    }
+
+    pub(crate) fn finish_with_wall_ms<W: Write>(
+        &mut self,
+        table: &TokenTable,
+        final_tokens: &[u32],
+        audio_s: f64,
+        wall_ms: f64,
+        out: &mut W,
+    ) -> Result<(), String> {
+        self.update_with_wall_ms(table, final_tokens, audio_s, wall_ms, out)?;
+        if let Some((pw, pt, pw_ms)) = self.pending.take() {
+            Self::write_row(out, pt, audio_s, pw_ms, wall_ms, &[pw])?;
             self.total_words += 1;
         }
         Ok(())
@@ -265,5 +321,64 @@ D 10
 
         assert!(buf.is_empty(), "empty final beam must emit nothing");
         assert_eq!(committer.total_words(), 0);
+    }
+
+    #[test]
+    fn commit_timestamps_preserve_first_observed_and_record_honest_emission_time() {
+        let table = test_table();
+        let mut committer = WordCommitter::new();
+        let mut buf = Vec::new();
+
+        // Word "THE" first appears at audio_s=0.4 (400 ms), wall_ms=12.5, stays pending.
+        committer
+            .update_with_wall_ms(&table, &[2], 0.4, 12.5, &mut buf)
+            .expect("u1");
+        assert!(buf.is_empty(), "single pending word not yet emitted");
+
+        // Second word arrives at audio_s=0.9 (900 ms), wall_ms=37.5 -> emits "THE".
+        committer
+            .update_with_wall_ms(&table, &[2, 11], 0.9, 37.5, &mut buf)
+            .expect("u2");
+
+        // EOF at audio_s=1.4 (1400 ms), wall_ms=55.0 -> emits "END".
+        committer
+            .finish_with_wall_ms(&table, &[2, 11], 1.4, 55.0, &mut buf)
+            .expect("finish");
+
+        let txt = String::from_utf8(buf).expect("utf8");
+        let rows: Vec<serde_json::Value> = txt
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("json"))
+            .collect();
+        assert_eq!(rows.len(), 2);
+
+        // Row 0 ("THE"): first observed at 400 ms / 12.5 ms, honestly emitted at 900 ms / 37.5 ms.
+        assert_eq!(rows[0]["words"], json!(["THE"]));
+        assert!((rows[0]["first_observed_ms"].as_f64().unwrap() - 400.0).abs() < 1e-6);
+        assert!((rows[0]["emit_time_ms"].as_f64().unwrap() - 900.0).abs() < 1e-6);
+        assert!(
+            rows[0]["emit_time_ms"].as_f64().unwrap()
+                > rows[0]["first_observed_ms"].as_f64().unwrap()
+        );
+        assert!((rows[0]["first_observed_wall_ms"].as_f64().unwrap() - 12.5).abs() < 1e-6);
+        assert!((rows[0]["emitted_at_ms"].as_f64().unwrap() - 37.5).abs() < 1e-6);
+        assert!(
+            rows[0]["emitted_at_ms"].as_f64().unwrap()
+                >= rows[0]["first_observed_wall_ms"].as_f64().unwrap()
+        );
+
+        // Row 1 ("END"): first observed at 900 ms / 37.5 ms, honestly emitted at EOF 1400 ms / 55.0 ms.
+        assert_eq!(rows[1]["words"], json!(["END"]));
+        assert!((rows[1]["first_observed_ms"].as_f64().unwrap() - 900.0).abs() < 1e-6);
+        assert!((rows[1]["emit_time_ms"].as_f64().unwrap() - 1400.0).abs() < 1e-6);
+        assert!((rows[1]["emitted_at_ms"].as_f64().unwrap() - 55.0).abs() < 1e-6);
+        assert!(
+            rows[1]["emit_time_ms"].as_f64().unwrap()
+                >= rows[1]["first_observed_ms"].as_f64().unwrap()
+        );
+        assert!(
+            rows[1]["emitted_at_ms"].as_f64().unwrap()
+                >= rows[1]["first_observed_wall_ms"].as_f64().unwrap()
+        );
     }
 }

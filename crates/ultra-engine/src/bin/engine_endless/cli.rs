@@ -128,11 +128,6 @@ fn validate(a: &Args) -> Result<(), String> {
         return Err("--beam-max-symbols must be >= 1".into());
     }
     lm_config(a).validate().map_err(|e| e.to_string())?;
-    if a.lm_path.is_some() && a.beam <= 1 {
-        return Err(
-            "--lm requires --beam > 1 (LM shallow fusion is inactive in greedy mode)".into(),
-        );
-    }
     if a.lm_path.is_none() && (a.lm_weight != 0.0 || a.lodr_weight != 0.0 || a.blank_penalty != 0.0)
     {
         return Err("--lm-weight, --lodr-weight, and --blank-penalty require --lm".into());
@@ -214,16 +209,20 @@ mod tests {
     }
 
     #[test]
-    fn rejects_lm_with_greedy_beam() {
+    fn accepts_width1_fused_greedy_lm() {
         let mut default_beam = base_args();
         default_beam.extend(["--lm", "/tmp/m5.ulm", "--lm-weight", "0.8"]);
-        let err = parse_from(default_beam).err().expect("must fail");
-        assert!(err.contains("--beam > 1"), "unexpected error: {err}");
+        let a = parse_from(default_beam).expect("beam=1 fused greedy LM must parse");
+        assert_eq!(a.beam, 1);
+        assert_eq!(
+            a.lm_path.as_deref(),
+            Some(std::path::Path::new("/tmp/m5.ulm"))
+        );
 
         let mut explicit_one = base_args();
         explicit_one.extend(["--beam", "1", "--lm", "/tmp/m5.ulm"]);
-        let err = parse_from(explicit_one).err().expect("must fail");
-        assert!(err.contains("--beam > 1"), "unexpected error: {err}");
+        let b = parse_from(explicit_one).expect("explicit --beam 1 --lm must parse");
+        assert_eq!(b.beam, 1);
     }
 
     #[test]
