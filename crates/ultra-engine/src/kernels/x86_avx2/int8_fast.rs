@@ -53,9 +53,13 @@ pub(crate) fn gemm_i8_with_abs(
     rows: usize,
     out: &mut [f32],
 ) {
+    assert!(
+        crate::kernels::Isa::Avx2Fma.is_available(),
+        "x86_avx2::gemm_i8_with_abs requires AVX2+FMA"
+    );
     GEMM_SCRATCH.with(|cell| {
         let mut sc = cell.borrow_mut();
-        // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+        // SAFETY: AVX2+FMA availability asserted immediately above.
         unsafe { gemm_i8_abs_avx2(w, a, a_abs, sa, ca, rows, out, &mut sc) }
     });
 }

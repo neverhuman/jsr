@@ -542,7 +542,7 @@ impl Engine {
                 )?;
                 for d in decs.iter_mut() {
                     if let Some(b) = &d.beam {
-                        d.tokens = b.best().to_vec();
+                        d.tokens.clone_from(&b.best_hyp().tokens);
                     }
                 }
                 Ok(())

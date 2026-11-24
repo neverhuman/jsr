@@ -191,6 +191,19 @@ impl PackedI8 {
         wsum: &[f32],
         bias: &[f32],
     ) -> Result<Self, crate::EngineError> {
+        Self::from_parts_owned(n, k, data, scale.to_vec(), wsum.to_vec(), bias)
+    }
+
+    /// Zero-copy-ownership variant of [`PackedI8::from_parts`] taking pre-allocated `scale` and
+    /// `wsum` vectors directly.
+    pub fn from_parts_owned(
+        n: usize,
+        k: usize,
+        data: Vec<i8>,
+        scale: Vec<f32>,
+        wsum: Vec<f32>,
+        bias: &[f32],
+    ) -> Result<Self, crate::EngineError> {
         let bad = |m: &str| {
             Err(crate::EngineError::Shape(format!(
                 "prepared int8 {n}x{k}: {m}"
@@ -207,7 +220,7 @@ impl PackedI8 {
         {
             return bad("packed lengths");
         }
-        if data.contains(&i8::MIN) || scale.iter().chain(wsum).any(|v| !v.is_finite()) {
+        if data.contains(&i8::MIN) || scale.iter().chain(&wsum).any(|v| !v.is_finite()) {
             return bad("code range or non-finite scale");
         }
         let mut b = vec![0.0f32; panels * NR];
@@ -217,8 +230,8 @@ impl PackedI8 {
             k,
             kp,
             data,
-            scale: scale.to_vec(),
-            wsum: wsum.to_vec(),
+            scale,
+            wsum,
             qsum: Vec::new(),
             bias: b,
             mm: Vec::new(),

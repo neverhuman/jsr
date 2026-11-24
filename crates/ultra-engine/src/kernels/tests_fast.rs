@@ -5,9 +5,24 @@ use super::tests::Rng;
 use super::*;
 use crate::quant::PackedI8;
 
+/// Return the host SIMD ISA to compare against scalar, or `None` on scalar-only hosts so tests
+/// never silently compare `Isa::Scalar` against itself.
+fn simd_isa_or_skip() -> Option<Isa> {
+    if Isa::Avx2Fma.is_available() {
+        Some(Isa::Avx2Fma)
+    } else if Isa::Neon.is_available() {
+        Some(Isa::Neon)
+    } else {
+        None
+    }
+}
+
 #[test]
 fn quantize_and_gemm_with_abs_are_bit_exact_with_scalar() {
-    let isa = Isa::detect();
+    let Some(isa) = simd_isa_or_skip() else {
+        return;
+    };
+    assert_ne!(isa, Isa::Scalar);
     let mut rng = Rng::new(71);
     for &(rows, n, k) in &[
         (1, 16, 4),
@@ -62,7 +77,10 @@ fn quantize_and_gemm_with_abs_are_bit_exact_with_scalar() {
 
 #[test]
 fn gemm_i8_with_abs_exhaustive_shapes_and_i16_overflow_boundaries() {
-    let isa = Isa::detect();
+    if !Isa::Avx2Fma.is_available() {
+        return;
+    }
+    let isa = Isa::Avx2Fma;
     let mut rng = Rng::new(139);
 
     // Tight-slice exhaustive parity across odd, aligned, narrow, and Conformer shapes.
@@ -281,8 +299,153 @@ fn gemm_i8_with_abs_exhaustive_shapes_and_i16_overflow_boundaries() {
 }
 
 #[test]
+fn gemm_i8_with_abs_u_mode_plain_cold_path_and_tails_are_bit_exact() {
+    if !Isa::Avx2Fma.is_available() {
+        return;
+    }
+    let isa = Isa::Avx2Fma;
+    let mut rng = Rng::new(141);
+
+    let check_u_case = |rows: usize, n: usize, k: usize, a: &[i8], label: &str, rng: &mut Rng| {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 0.5);
+        let mut p = PackedI8::quantize(&w, n, k, Some(&b));
+        // Adversarial +-127 weights so every i16 lane product hits worst-case |w| = 127.
+        for (i, v) in p.data.iter_mut().enumerate() {
+            *v = if i % 2 == 0 { 127 } else { -127 };
+        }
+        p.rebuild_mm();
+        let sa = rng.vec(rows, 0.1);
+        let ca = rng.vec(rows, 1.0);
+        let a_abs: Vec<u8> = a.iter().map(|v| v.unsigned_abs()).collect();
+        let mut o_ref = vec![0.0f32; rows * n];
+        let mut o_got = vec![0.0f32; rows * n];
+        gemm_i8(Isa::Scalar, &p, a, &sa, &ca, rows, &mut o_ref);
+        gemm_i8_with_abs(isa, &p, a, &a_abs, &sa, &ca, rows, &mut o_got);
+        for (i, (&u, &v)) in o_ref.iter().zip(&o_got).enumerate() {
+            assert_eq!(
+                u.to_bits(),
+                v.to_bits(),
+                "{label} rows={rows} n={n} k={k} idx={i}: {u} vs {v}"
+            );
+        }
+    };
+
+    // 1. U-mode plain cold-path (`label 3:`): each group sum <= 258 (split = false), but cross-group
+    //    sum = 130 + 129 = 259 > 258 (also exact boundary 258 + 1 = 259), for both U128Pos and
+    //    U127Neg across pair (`rows=4`) and quad (`rows=5`) modes.
+    for &(rows, n, k) in &[(4usize, 17usize, 64usize), (5, 33, 64)] {
+        for neg in [false, true] {
+            let mut u = vec![0u8; rows * k];
+            for r in 0..rows {
+                let row = &mut u[r * k..(r + 1) * k];
+                // Pair/quad 0 even lane: e0 = 130 <= 258, e1 = 129 <= 258 -> e0 + e1 = 259 > 258.
+                row[0] = 130;
+                row[4] = 129;
+                // Pair/quad 1 odd lane (kk=16..24): o0 = 258 (129+129) <= 258, o1 = 1 -> 259 > 258.
+                row[18] = 129;
+                row[19] = 129;
+                row[22] = 1;
+                // Keep remaining elements small (0..=8) so mean stays well beyond +-48 skew gate.
+                for (kk, slot) in row.iter_mut().enumerate().skip(24) {
+                    *slot = ((kk * 3 + r) % 9) as u8;
+                }
+            }
+            let a: Vec<i8> = u
+                .iter()
+                .map(|&uv| {
+                    if !neg {
+                        (uv as i16 - 128) as i8
+                    } else {
+                        (127 - uv as i16) as i8
+                    }
+                })
+                .collect();
+            // Sanity check skewness reaches U128Pos (mean <= -48) / U127Neg (mean >= 48).
+            let thresh = (k as i32) * 48;
+            for r in 0..rows {
+                let s: i32 = a[r * k..(r + 1) * k].iter().map(|&v| i32::from(v)).sum();
+                if !neg {
+                    assert!(s <= -thresh, "expected U128Pos skew: sum={s}");
+                } else {
+                    assert!(s >= thresh, "expected U127Neg skew: sum={s}");
+                }
+            }
+            check_u_case(
+                rows,
+                n,
+                k,
+                &a,
+                if neg {
+                    "u127neg_plain_cold"
+                } else {
+                    "u128pos_plain_cold"
+                },
+                &mut rng,
+            );
+        }
+    }
+
+    // 2. U-quad tails of 1/2/3 groups (`rows=5, k=36/40/44`) and odd group counts for U-pair
+    //    (`rows=4, k=36/68`), explicitly reaching U128Pos and U127Neg with both plain-cold and
+    //    tail-outlier activations.
+    for &(rows, n, k) in &[
+        (5usize, 17usize, 36usize),
+        (5, 33, 40),
+        (5, 501, 44),
+        (4, 17, 36),
+        (4, 33, 68),
+    ] {
+        for neg in [false, true] {
+            let mut u = vec![0u8; rows * k];
+            for r in 0..rows {
+                let row = &mut u[r * k..(r + 1) * k];
+                // Main body: plain-cold trigger in first pair/quad + small skewed body.
+                row[0] = 130;
+                row[4] = 129;
+                for (kk, slot) in row.iter_mut().enumerate().skip(8) {
+                    *slot = ((kk * 5 + r * 3) % 13) as u8;
+                }
+                // Exercise exact tail group accumulation with a large u value in the tail.
+                row[k - 1] = 255;
+            }
+            let a: Vec<i8> = u
+                .iter()
+                .map(|&uv| {
+                    if !neg {
+                        (uv as i16 - 128) as i8
+                    } else {
+                        (127 - uv as i16) as i8
+                    }
+                })
+                .collect();
+            let thresh = (k as i32) * 48;
+            for r in 0..rows {
+                let s: i32 = a[r * k..(r + 1) * k].iter().map(|&v| i32::from(v)).sum();
+                if !neg {
+                    assert!(s <= -thresh, "expected U128Pos skew: sum={s}");
+                } else {
+                    assert!(s >= thresh, "expected U127Neg skew: sum={s}");
+                }
+            }
+            check_u_case(
+                rows,
+                n,
+                k,
+                &a,
+                if neg { "u127neg_tail" } else { "u128pos_tail" },
+                &mut rng,
+            );
+        }
+    }
+}
+
+#[test]
 fn rope_dwconv_and_stem_c1_are_bit_exact_with_scalar() {
-    let isa = Isa::detect();
+    let Some(isa) = simd_isa_or_skip() else {
+        return;
+    };
+    assert_ne!(isa, Isa::Scalar);
     let mut rng = Rng::new(73);
     // 1. RoPE across dh = 16, 32, 64, 72
     for dh in [16usize, 32, 64, 72] {

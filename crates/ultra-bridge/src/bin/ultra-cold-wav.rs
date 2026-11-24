@@ -7,17 +7,18 @@ use std::sync::Arc;
 
 use serde_json::json;
 use ultra_bridge::{records, require, Result};
-use ultra_engine::Precision;
+use ultra_engine::{LmConfig, NgramLm, Precision};
 use ultra_frontend::read_wav_pcm;
 use ultra_gp::R1Precision;
 use ultra_stream::{
-    Backend, NativeEngineBackend, OrtTransducerBackend, PollResult, PushStatus, SherpaLib,
-    SherpaZipformerBackend, SherpaZipformerConfig, StreamConfig, TerminalOutcome,
+    Backend, NativeEngineBackend, NativeEngineLoadConfig, OrtTransducerBackend, PollResult,
+    PushStatus, SherpaLib, SherpaZipformerBackend, SherpaZipformerConfig, StreamConfig,
+    TerminalOutcome,
 };
 
 const PACKET_SAMPLES: usize = 320;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 struct CliArgs {
     kind: String,
     bundle: PathBuf,
@@ -25,20 +26,41 @@ struct CliArgs {
     output: PathBuf,
     trace_path: Option<PathBuf>,
     workers: usize,
+    chunk: Option<usize>,
+    beam: usize,
+    beam_max_symbols: usize,
+    beam_margin: f32,
+    lm_path: Option<PathBuf>,
+    lm_weight: f32,
+    lodr_weight: f32,
+    blank_penalty: f32,
 }
 
 fn usage() -> &'static str {
-    "usage: ultra-cold-wav [--workers N] BACKEND MODEL_DIR WAV_DIR PREDICTIONS.jsonl [TRACE.jsonl]"
+    "usage: ultra-cold-wav [--workers N] [--chunk C] [--beam B] [--beam-max-symbols S] [--beam-margin M] [--lm PATH --lm-weight W --lodr-weight R --blank-penalty P] BACKEND MODEL_DIR WAV_DIR PREDICTIONS.jsonl [TRACE.jsonl]"
 }
 
 fn parse_args(args: &[String]) -> Result<CliArgs> {
     let mut workers: usize = 1;
+    let mut chunk: Option<usize> = None;
+    let mut beam: usize = 1;
+    let mut beam_max_symbols: usize = 1;
+    let mut beam_margin: f32 = 0.0;
+    let mut lm_path: Option<PathBuf> = None;
+    let mut lm_weight: f32 = 0.0;
+    let mut lodr_weight: f32 = 0.0;
+    let mut blank_penalty: f32 = 0.0;
     let mut positional: Vec<String> = Vec::new();
     let mut i = 0;
     while i < args.len() {
         let arg = &args[i];
+        let next_val = |idx: usize, name: &str| -> Result<&str> {
+            args.get(idx + 1)
+                .map(String::as_str)
+                .ok_or_else(|| format!("missing value for {name}; {}", usage()).into())
+        };
         if arg == "--workers" {
-            let val = args.get(i + 1).ok_or_else(|| usage().to_string())?;
+            let val = next_val(i, "--workers")?;
             workers = val
                 .parse::<usize>()
                 .map_err(|_| format!("invalid --workers value: {val}"))?;
@@ -48,6 +70,52 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
                 .parse::<usize>()
                 .map_err(|_| format!("invalid --workers value: {val}"))?;
             i += 1;
+        } else if arg == "--chunk" {
+            let val = next_val(i, "--chunk")?;
+            chunk = Some(
+                val.parse::<usize>()
+                    .map_err(|_| format!("invalid --chunk value: {val}"))?,
+            );
+            i += 2;
+        } else if arg == "--beam" {
+            let val = next_val(i, "--beam")?;
+            beam = val
+                .parse::<usize>()
+                .map_err(|_| format!("invalid --beam value: {val}"))?;
+            i += 2;
+        } else if arg == "--beam-max-symbols" {
+            let val = next_val(i, "--beam-max-symbols")?;
+            beam_max_symbols = val
+                .parse::<usize>()
+                .map_err(|_| format!("invalid --beam-max-symbols value: {val}"))?;
+            i += 2;
+        } else if arg == "--beam-margin" {
+            let val = next_val(i, "--beam-margin")?;
+            beam_margin = val
+                .parse::<f32>()
+                .map_err(|_| format!("invalid --beam-margin value: {val}"))?;
+            i += 2;
+        } else if arg == "--lm" {
+            lm_path = Some(PathBuf::from(next_val(i, "--lm")?));
+            i += 2;
+        } else if arg == "--lm-weight" {
+            let val = next_val(i, "--lm-weight")?;
+            lm_weight = val
+                .parse::<f32>()
+                .map_err(|_| format!("invalid --lm-weight value: {val}"))?;
+            i += 2;
+        } else if arg == "--lodr-weight" {
+            let val = next_val(i, "--lodr-weight")?;
+            lodr_weight = val
+                .parse::<f32>()
+                .map_err(|_| format!("invalid --lodr-weight value: {val}"))?;
+            i += 2;
+        } else if arg == "--blank-penalty" {
+            let val = next_val(i, "--blank-penalty")?;
+            blank_penalty = val
+                .parse::<f32>()
+                .map_err(|_| format!("invalid --blank-penalty value: {val}"))?;
+            i += 2;
         } else if arg.starts_with("--") {
             return Err(format!("unknown option: {arg}; {}", usage()).into());
         } else {
@@ -56,6 +124,21 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
         }
     }
     require(workers >= 1, "--workers must be >= 1")?;
+    require(beam >= 1, "--beam must be >= 1")?;
+    require(beam_max_symbols >= 1, "--beam-max-symbols must be >= 1")?;
+    require(
+        beam_margin.is_finite() && beam_margin >= 0.0,
+        "--beam-margin must be finite and >= 0",
+    )?;
+    require(
+        lm_weight.is_finite() && lm_weight >= 0.0,
+        "--lm-weight must be finite and >= 0",
+    )?;
+    require(
+        lodr_weight.is_finite() && lodr_weight >= 0.0,
+        "--lodr-weight must be finite and >= 0",
+    )?;
+    require(blank_penalty.is_finite(), "--blank-penalty must be finite")?;
     let (kind, bundle, wav_dir, output, trace_path) = match positional.as_slice() {
         [kind, bundle, wav_dir, output] => (kind, bundle, wav_dir, output, None),
         [kind, bundle, wav_dir, output, trace] => (kind, bundle, wav_dir, output, Some(trace)),
@@ -65,6 +148,27 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
         !(workers > 1 && trace_path.is_some()),
         "TRACE.jsonl is only supported with --workers 1",
     )?;
+    let has_native_decode_opts = chunk.is_some()
+        || beam > 1
+        || beam_max_symbols > 1
+        || beam_margin != 0.0
+        || lm_path.is_some()
+        || lm_weight != 0.0
+        || lodr_weight != 0.0
+        || blank_penalty != 0.0;
+    let is_native = matches!(kind.as_str(), "r1-engine-int8" | "r1-engine-fp32");
+    require(
+        is_native || !has_native_decode_opts,
+        "--chunk/--beam/--lm options are only supported with r1-engine-int8 and r1-engine-fp32",
+    )?;
+    if lm_path.is_some() {
+        require(lm_weight > 0.0, "--lm requires --lm-weight > 0")?;
+    } else {
+        require(
+            lm_weight == 0.0 && lodr_weight == 0.0 && blank_penalty == 0.0,
+            "--lm-weight/--lodr-weight/--blank-penalty require --lm",
+        )?;
+    }
     Ok(CliArgs {
         kind: kind.clone(),
         bundle: PathBuf::from(bundle),
@@ -72,11 +176,51 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
         output: PathBuf::from(output),
         trace_path: trace_path.map(PathBuf::from),
         workers,
+        chunk,
+        beam,
+        beam_max_symbols,
+        beam_margin,
+        lm_path,
+        lm_weight,
+        lodr_weight,
+        blank_penalty,
     })
 }
 
-fn load(kind: &str, bundle: &Path) -> Result<Arc<dyn Backend>> {
-    Ok(match kind {
+fn load_native(cli: &CliArgs, precision: Precision) -> Result<Arc<dyn Backend>> {
+    let lm = match &cli.lm_path {
+        Some(path) => {
+            let ngram = Arc::new(NgramLm::load(path)?);
+            let cfg = LmConfig {
+                lm_weight: cli.lm_weight,
+                lodr_weight: cli.lodr_weight,
+                blank_penalty: cli.blank_penalty,
+            };
+            Some((ngram, cfg))
+        }
+        None => None,
+    };
+    let cfg = NativeEngineLoadConfig {
+        max_chunks: 1,
+        chunk: cli.chunk,
+        beam: cli.beam,
+        beam_max_symbols: cli.beam_max_symbols,
+        beam_margin: cli.beam_margin,
+        lm,
+        live_only: true,
+    };
+    Ok(Arc::new(NativeEngineBackend::load_with_config(
+        &cli.bundle,
+        precision,
+        1,
+        true,
+        &cfg,
+    )?))
+}
+
+fn load(cli: &CliArgs) -> Result<Arc<dyn Backend>> {
+    let bundle = &cli.bundle;
+    Ok(match cli.kind.as_str() {
         "zipformer-int8" => {
             let verified = ultra_model::bundle::verify_bundle_dir(bundle, None)?;
             require(
@@ -110,15 +254,15 @@ fn load(kind: &str, bundle: &Path) -> Result<Arc<dyn Backend>> {
                 },
             )?)
         }
-        "r1-engine-int8" => Arc::new(NativeEngineBackend::load(bundle, Precision::Int8, 1, true)?),
-        "r1-engine-fp32" => Arc::new(NativeEngineBackend::load(bundle, Precision::F32, 1, true)?),
+        "r1-engine-int8" => load_native(cli, Precision::Int8)?,
+        "r1-engine-fp32" => load_native(cli, Precision::F32)?,
         "r1-ort-fp32" => Arc::new(OrtTransducerBackend::load(
             bundle,
             R1Precision::Fp32,
             1,
             true,
         )?),
-        _ => return Err(format!("unsupported cold service backend: {kind}").into()),
+        other => return Err(format!("unsupported cold service backend: {other}").into()),
     })
 }
 
@@ -303,7 +447,7 @@ fn run() -> Result<()> {
     let raw_args: Vec<_> = std::env::args().skip(1).collect();
     let cli = parse_args(&raw_args)?;
     let entries = inputs(&cli.wav_dir)?;
-    let backend = load(&cli.kind, &cli.bundle)?;
+    let backend = load(&cli)?;
     let caps = backend.capabilities();
     require(
         caps.cpu_only_verified,
@@ -414,6 +558,35 @@ mod tests {
         .unwrap();
         assert_eq!(cweq.workers, 4);
 
+        let cbeam = parse_args(&s(&[
+            "--chunk",
+            "4",
+            "--beam",
+            "4",
+            "--beam-max-symbols",
+            "1",
+            "--beam-margin",
+            "3.0",
+            "--lm",
+            "lm.ulm",
+            "--lm-weight",
+            "0.7",
+            "--lodr-weight",
+            "0.5",
+            "r1-engine-int8",
+            "m",
+            "w",
+            "out.jsonl",
+        ]))
+        .unwrap();
+        assert_eq!(cbeam.chunk, Some(4));
+        assert_eq!(cbeam.beam, 4);
+        assert_eq!(cbeam.beam_max_symbols, 1);
+        assert!((cbeam.beam_margin - 3.0).abs() < 1e-6);
+        assert_eq!(cbeam.lm_path.as_deref(), Some(Path::new("lm.ulm")));
+        assert!((cbeam.lm_weight - 0.7).abs() < 1e-6);
+        assert!((cbeam.lodr_weight - 0.5).abs() < 1e-6);
+
         assert!(parse_args(&s(&["--workers", "0", "r1-engine-int8", "m", "w", "o"])).is_err());
         assert!(parse_args(&s(&[
             "--workers",
@@ -425,6 +598,33 @@ mod tests {
             "tr"
         ]))
         .is_err());
+        // Beam/LM flags must fail closed on non-native backends.
+        assert!(parse_args(&s(&["--beam", "4", "zipformer-int8", "m", "w", "o"])).is_err());
+        assert!(parse_args(&s(&[
+            "--lm",
+            "lm.ulm",
+            "--lm-weight",
+            "0.7",
+            "r1-ort-fp32",
+            "m",
+            "w",
+            "o"
+        ]))
+        .is_err());
+        // --lm with non-positive --lm-weight or orphan LM weights must fail closed.
+        assert!(parse_args(&s(&["--lm", "lm.ulm", "r1-engine-int8", "m", "w", "o"])).is_err());
+        assert!(parse_args(&s(&[
+            "--lm",
+            "lm.ulm",
+            "--lm-weight",
+            "0.0",
+            "r1-engine-int8",
+            "m",
+            "w",
+            "o"
+        ]))
+        .is_err());
+        assert!(parse_args(&s(&["--lm-weight", "0.7", "r1-engine-int8", "m", "w", "o"])).is_err());
     }
 
     #[test]

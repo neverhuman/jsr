@@ -245,6 +245,59 @@ fn gated_decoder_matches_beam_chunk_with_lm_and_supports_ffnn_interp_ilme() {
 }
 
 #[test]
+fn gated_decoder_matches_beam_chunk_with_lm_int8() {
+    let mut m = synthetic_model(6, 4, 8);
+    m.quantize_int8();
+    let ng = Arc::new(sample_ngram(6));
+    let enc: Vec<f32> = (0..6 * 8)
+        .map(|i| ((i * 11 % 17) as f32 - 8.0) * 0.25)
+        .collect();
+    let lm_cfg = LmConfig {
+        lm_weight: 0.8,
+        lodr_weight: 0.6,
+        blank_penalty: 0.0,
+    };
+    let gate_cfg = LmGateConfig {
+        beam: 4,
+        lm_scale: 0.8,
+        ilm_scale: 0.6,
+        token_bonus: 0.0,
+        max_sym_per_frame: 1,
+        conf_margin: 0.0,
+    };
+    for isa in [Isa::Scalar, Isa::detect()] {
+        let mut bs = BeamState::new(&m);
+        let mut ws = DecWorkspace::default();
+        beam_chunk_with_lm(
+            &m,
+            isa,
+            Precision::Int8,
+            4,
+            1,
+            0.0,
+            Some((&ng, lm_cfg)),
+            &mut [&mut bs],
+            &[6],
+            &enc,
+            &mut ws,
+        )
+        .expect("int8 beam ref");
+        let got = decode_enc_gated(
+            &m,
+            isa,
+            Precision::Int8,
+            &enc,
+            6,
+            Some(&CommitTokenLm::Ngram(ng.clone())),
+            &InternalLm::Lodr(ng.clone()),
+            &gate_cfg,
+        )
+        .expect("int8 gated");
+        assert_eq!(got, bs.best(), "INT8 parity mismatch on {isa:?}");
+    }
+}
+
+#[test]
 fn acoustic_confidence_margin_gate_blocks_adversarial_lm_override() {
     let mut m = synthetic_model(5, 4, 8);
     let strong_b = [-2.0f32, 0.0, -3.0, -3.0, 6.5];
