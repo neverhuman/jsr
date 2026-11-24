@@ -14,7 +14,7 @@ weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's \ColdZipW
 \RelIsaProof{} Greedy INT8 changes full-DEV pooled WER by \RelIntEightDelta{} percentage points relative to FP32 PyTorch
 (one-sided 95\% bounds \RelIntEightLo{} to \RelIntEightHi). Over \TrainTotalKh\,h of training audio, the model
 saturates on LibriSpeech 960\,h alone, and Zipformer-pseudo-labelled Libri-Light then lowers live WER
-by \TrainLiveGain{} points. All results are exploratory and use development data only.
+by \TrainLiveGain{} points. A successor trained on \CandTrainKh\,h lowers live WER further but trails Zipformer by \CandLiveLmCDelta{} points on unselected data and missed its registered gates; we report it rather than release it. All results are exploratory and use development data only.
 \end{abstract}
 
 \begin{IEEEkeywords}

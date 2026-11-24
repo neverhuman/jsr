@@ -53,6 +53,7 @@ from .reported import add_reported
 from .tables import hardware_table, measured_table
 from .versus import add_versus
 from .training import add_training
+from .candidate import add_candidate
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -73,6 +74,7 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     versus = add_versus(root, rows, pres.get("versus", {}), rec)
     out["table_versus.tex"] = versus["table"]
     add_training(root, rec, out)
+    add_candidate(root, rec, out)
     out["money_readme.md"] = readme_block(rows, facts, watts, extras, focused=bool(hero), nemotron_note=nemotron_note,
                                           subtitle=rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else "",
                                           versus=versus, rec_rows=rec.rows, release=pres.get("release", "v3.0.0"))

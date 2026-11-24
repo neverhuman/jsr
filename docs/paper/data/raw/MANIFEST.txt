@@ -4692,6 +4692,21 @@ c4db7a500e5fd506f7c8f36f22729c7319fa73b1e566a276a123bee155c1835c  panel_manifest
 772fb698a373859ca1ca7d0eae165bc107f0c877e40b7532abf362b97493b893  release_v3/rc1_a6_int8.json  eval-lane RC1-EMA official A6 full-DEV INT8 verdict (weights.int8 edac19d8)
 1a4aeebac01bc329af7baa990a6d06bad7fe4164b104356b8373843ef07a3c28  release_v3/rc1_int8_vs_pytorch.json  eval-lane RC1-EMA official full-DEV INT8 vs FP32 PyTorch paired report (5,567 utts)
 580c61fb7dc6ce2a9c0ac945a6bd745c7a60126914491ee199a5eff1111e1561  release_v3/rc1_release_row_verify.json  eval-lane RC1-EMA official full-DEV release-decoder E1 verdict (5,567 utts, 5.476% pooled)
+d4bff76cd469b2ab7d395acdec59478c3ed4a2a4a0cf6cfaa37f135b587a66c1  release_v31/README.md  claude-lead
+8019418dbd8b997fc539538b228491b43e20fc4d06119d6c883c833ba8e8f213  release_v31/codex-receipts.SHA256SUMS  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+3fcea71d7a8f2369fbadc87c990ba6c63d8d4ca33ee35ee9a191cb14a59c262b  release_v31/gates.json  registered v3.1 gates (AGENT_CHAT)
+28af9bf57d74da0e9f6fae87534a358969685ef49fd5be25ca078abcd3cc0910  release_v31/lineage.csv  hop audio_s sums from train.jsonl (runtime-lane 15:56Z; S4a v1.1 hop claude-lead 15:57Z)
+a7c5043589e7d76d74f807d6b9cb5d62a8b6b8d6978a36af37c7cfa71dc302a2  release_v31/policies.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+bcec89a427e8972ac77e179bf0836d47c7de53b1d789b664773587a16a0a0b4d  release_v31/rc2-accuracy.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+5920030b93019ae864cbf6b6739ebf493a53e1eced876082bdc6f48587628002  release_v31/rc2-bundle.SHA256SUMS  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+34a4ad9213305f81dbf00680033db2506fb16d5014687f889b5e5291ee9f0e50  release_v31/rc2-final_lowmem.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+72b1fd554d0e57a5fa42663a768810f3955e148c033082a92b3b4f78062db606  release_v31/rc2-final_m5.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+ce39325ccd4824409f3617aee061edffbc0512bbd59fad626da98d40fc5f59ab  release_v31/rc2-live_c4_greedy.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+4e9b237057324df97b3f6ddcc709f6ed956747586e3f6d1b9bbb371705ef86b1  release_v31/rc2-live_c4_lm.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+350de2844253466435f7a78a8a3685af289c004f0a6970db01ba049104f25ae9  release_v31/rc2-live_c8_lm.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+4359a4fa9b8aa9f92cdeebcfd5bd664e4fa6e436ffdc7c659f452dc42b50bd0d  release_v31/rc2-panel-holm-shipped-v300.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+64c980f171911df3d3b763096b5fffa2f04fec8dadbef62059e08689d23da8eb  release_v31/rc2-panel-holm.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
+24b44d81b47c492049cf24783e1e68bf3badd6dcfd5d7bf1a4a14e22886e8ffa  release_v31/zipformer_int8.fulldev.score.json  release/v3.1.0 confirmatory look (RC2 candidate), pinned ultra-score d784f8ca; codex audit + claude-lead
 220ba94193f3829a8e726aeab336468df89bf3303e3b9dc1a79e7f8245230cc9  tier1_dev_cluster_gap.json  /home/ubuntu/jsr/target/paper-evidence/tier1-dev-cluster-gap.json (Codex Evidence, main checkout, copied read-only 2026-11-22)
 ae5a99b7b2d32cd714dbbea7310f7844325e274e3649232fdca9b65a51ad6b0e  training/README.md  claude-lead 2026-11-24: training-dynamics receipts (see raw/training/README.md)
 b559a32ec5109a97869030706821b3da749b14f961bf8371465dc42ed984e431  training/stage1/exposure.csv  claude-lead 2026-11-24: training-dynamics receipts (see raw/training/README.md)
@@ -4722,3 +4737,28 @@ dbe4ed3ec8ca1d9ac24bd7be494229cfc0cc4a2132b9a76d5dd3fcd6d1153674  training/stage
 7cf81294874d8231fabcdb7d96ca6fe830efd7a5cbd64c926e79ea7688ba9212  versus/v300/zip-vs-v300-final.score.json  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
 572ff9381c27ace76a3e96f3a09e8ed0b6f8d12f6de835a977f858cda9409f15  versus/v300/zip-vs-v300-live.score.json  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
 ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113  versus/v300/zipformer-int8.panel730.score-input.jsonl  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
+588e1d4c42a8039aa14a8343f606582fe1bf39fe462d0b928b61ddde45298d83  versus/v310/final_lowmem.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+9a5438d9d426773b91e451d26e0878d3f0d79a63af27cc80eace9a9f54ace6e0  versus/v310/final_lowmem.panel730.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+92be99c49bac2dc0ee13d9b0854af872b078d4e5c941d845f08a1046949bf44e  versus/v310/final_m5.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+e6f7cbef5bde8850b8f11351633aae2dd90d84f4f2a117abcff58cc8253d839c  versus/v310/final_m5.panel730.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+97338e0d3cb77a0cb53f8b1eccdf657b66b351eadf6694fdc7122979f1fb156a  versus/v310/live_c4_greedy.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+b10a7f85cbb036e785cbc5334e80a3855bde7068a92385d08c3d2e3b7357e01b  versus/v310/live_c4_greedy.panel730.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+23a8a72a1f2d26c14ef6b38ada7859fb251be1fa3ec1cd5bc1bf3a9b398f9f0b  versus/v310/live_c4_lm.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+3200dd65a30d33df0b1e06ab74583861194492bfd05b1d367bfed16ef429bcc0  versus/v310/live_c4_lm.panel730.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+3e2ba918a4078d867fcf2c20fec3dd46481ec99da8beaf59326dc4a4918aebff  versus/v310/live_c8_lm.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+a1b9b310aa7c16fa055f55b6265e76be4c6747c1e4bfca342e68253e21f355fc  versus/v310/live_c8_lm.panel730.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+2cc49515fde9830b3cd93f404ebd2555028953f9df8ba988ac17dccacb85d67f  versus/v310/shipped-v300-vs-rc2-final.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+5ff97625ac38e335961555adb7b8303901c772188cde9762affed266ab641b5a  versus/v310/shipped-v300-vs-rc2-live.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+47a32cb144497719c1f990f369fc2b9d96684f9bd9694206426698b21a7cd0e4  versus/v310/shipped-v300-vs-rc2-live_c4_lm.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+c2db6663bf6a4918b6a0b270a7db3fee1d9ed4e05f6bc384ac8b4927aece689e  versus/v310/shipped-v300-vs-rc2-live_c8_lm.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+938afa74e400348e1d3441d6633b33eb05aba6ed013df0959dc110b58d70c309  versus/v310/zip-vs-rc2-final_lowmem.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+d8533d93b948c89db796ce26b2a968790868caebe011b9e8ebd0ed9ebc82e57e  versus/v310/zip-vs-rc2-final_lowmem.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+085f01ff096077cec8e08e21c102f716e7446b139e7b2ea96ccea9bbaaf112c4  versus/v310/zip-vs-rc2-final_m5.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+74a79bd9c260e84b7f28a16d4ff15ad156a3458303ce0dba472fe0d8fb179c28  versus/v310/zip-vs-rc2-final_m5.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+67699f0949bc999f0a06902e7ba30a3baaec8ac6380c3ab67d960dad395f8dbe  versus/v310/zip-vs-rc2-live_c4_greedy.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+526b2c5ac76488a45760748f14e04a36a3535b51f9d17b6bd3671349061db65d  versus/v310/zip-vs-rc2-live_c4_greedy.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+86baf6e87cd31775064fe8beebdefdca2a58db11455ab9ece7ac560a7575e02c  versus/v310/zip-vs-rc2-live_c4_lm.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+15fd9c64db6a7d3141de2627399f34a852d90e6121d25a8e3887f8c285fa9024  versus/v310/zip-vs-rc2-live_c4_lm.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+203399ef03bdabdf2aab17956d48b1e75c99e7992fe7a8f18a84ab7acf9d428f  versus/v310/zip-vs-rc2-live_c8_lm.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+7e75acd796a3029b943ff75816ec9d8e1d6a94316837a4c62c09caf697c0fc2e  versus/v310/zip-vs-rc2-live_c8_lm.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
+1600992e15077703dd76bb36439337e7f6f17b8326581eb5c252bc0a4da2f865  versus/v310/zipformer_int8.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports

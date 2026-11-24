@@ -79,7 +79,7 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
     for must in ("Isosyll v3.0.0 (live)", "Isosyll v3.0.0 (final, seg.)", "29.1", "0.344",
-                 "Head-to-head with Zipformer INT8", "statistical tie", "16 real-time live streams",
+                 "Head-to-head with Zipformer INT8", "inconclusive", "16 real-time live streams",
                  "p95 stable-word lag 457 ms", "for all 15 open recognisers we measured",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.0.1.md"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"

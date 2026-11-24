@@ -26,7 +26,7 @@ def _story(vs: dict, rec_rows: dict, extras: dict) -> list[str]:
     out = []
     live, final = pairs.get("live"), pairs.get("final")
     if live and z:
-        gap = ("at statistically indistinguishable WER" if live["verdict"] == "statistical tie" else
+        gap = ("with a WER difference the paired test cannot resolve" if live["verdict"] == "inconclusive" else
                f"at {fmt(abs(live['delta']), 2)} pp {'lower' if live['delta'] < 0 else 'higher'} pooled WER "
                f"({fmt(live['wer'], 2)}% vs. {fmt(z['wer'], 2)}%)")
         energy = f", {fmt(live['energy_pct'], 0)}% of its active core energy" if live["energy_pct"] is not None else ""
@@ -39,7 +39,7 @@ def _story(vs: dict, rec_rows: dict, extras: dict) -> list[str]:
         out[-1:] = [out[-1] + f" {c['streams']} real-time live streams fit on one core at "
                     f"{fmt(c['busy_pct'], 0)}% busy (p95 stable-word lag {fmt(c['lag_p95'], 0)} ms)."] if out else []
     if final and z:
-        how = {"lower WER": "fewer errors than", "statistical tie": "a statistical tie with",
+        how = {"lower WER": "fewer errors than", "inconclusive": "not significantly different from",
                "higher WER": "more errors than"}[final["verdict"]]
         out.append(f"- **Final text from the same weights.** At utterance ends, a commit pass with a 5-gram LM reaches "
                    f"{fmt(final['wer'], 2)}% pooled WER, {how} Zipformer's {fmt(z['wer'], 2)}% (paired one-sided 95% bounds "

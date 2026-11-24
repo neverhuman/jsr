@@ -1,0 +1,243 @@
+{
+  "panel730": {
+    "live_c4_greedy": {
+      "edits": 900,
+      "words": 14448,
+      "wer_pct": 6.229235880398671,
+      "split_wer_pct": {
+        "dev-clean": 3.681053745736799,
+        "dev-other": 9.873843566021867
+      },
+      "utterances": 730,
+      "input_sha256": "b10a7f85cbb036e785cbc5334e80a3855bde7068a92385d08c3d2e3b7357e01b"
+    },
+    "live_c4_lm": {
+      "edits": 800,
+      "words": 14448,
+      "wer_pct": 5.537098560354374,
+      "split_wer_pct": {
+        "dev-clean": 3.1988709867105722,
+        "dev-other": 8.881412952060556
+      },
+      "utterances": 730,
+      "input_sha256": "3200dd65a30d33df0b1e06ab74583861194492bfd05b1d367bfed16ef429bcc0"
+    },
+    "live_c8_lm": {
+      "edits": 794,
+      "words": 14448,
+      "wer_pct": 5.495570321151717,
+      "split_wer_pct": {
+        "dev-clean": 3.269434317299776,
+        "dev-other": 8.679562657695543
+      },
+      "utterances": 730,
+      "input_sha256": "a1b9b310aa7c16fa055f55b6265e76be4c6747c1e4bfca342e68253e21f355fc"
+    },
+    "final_m5": {
+      "edits": 722,
+      "words": 14448,
+      "wer_pct": 4.9972314507198226,
+      "split_wer_pct": {
+        "dev-clean": 3.034223215335764,
+        "dev-other": 7.804878048780488
+      },
+      "utterances": 730,
+      "input_sha256": "e6f7cbef5bde8850b8f11351633aae2dd90d84f4f2a117abcff58cc8253d839c"
+    },
+    "final_lowmem": {
+      "edits": 735,
+      "words": 14448,
+      "wer_pct": 5.087209302325581,
+      "split_wer_pct": {
+        "dev-clean": 3.2106315418087736,
+        "dev-other": 7.771236333052986
+      },
+      "utterances": 730,
+      "input_sha256": "9a5438d9d426773b91e451d26e0878d3f0d79a63af27cc80eace9a9f54ace6e0"
+    },
+    "zipformer_int8": {
+      "edits": 759,
+      "words": 14448,
+      "wer_pct": 5.253322259136213,
+      "split_wer_pct": {
+        "dev-clean": 3.034223215335764,
+        "dev-other": 8.427249789739278
+      },
+      "utterances": 730,
+      "input_sha256": "2bd95b2c2ce5dabd7fb25343cb28b81929b98e3d58cfe2bfe9aff7babe428dcf"
+    },
+    "historical_b0_live": {
+      "edits": 1067,
+      "words": 14448,
+      "wer_pct": 7.385105204872647,
+      "split_wer_pct": {
+        "dev-clean": 4.2573209455486305,
+        "dev-other": 11.858704793944492
+      },
+      "utterances": 730,
+      "input_sha256": "65b534cc2f18583c9218847f123b50d838ee8e5b9365c6e07404ae129dca523d"
+    },
+    "shipped_v300_live": {
+      "edits": 989,
+      "words": 14448,
+      "wer_pct": 6.845238095238096,
+      "split_wer_pct": {
+        "dev-clean": 4.116194284370223,
+        "dev-other": 10.748528174936922
+      },
+      "utterances": 730,
+      "input_sha256": "822f52dd518a1116cfc73735608e280bfe7d8a532df66918cefddc0105a4fd32"
+    },
+    "historical_b0_final": {
+      "edits": 816,
+      "words": 14448,
+      "wer_pct": 5.647840531561462,
+      "split_wer_pct": {
+        "dev-clean": 3.410560978478184,
+        "dev-other": 8.847771236333053
+      },
+      "utterances": 730,
+      "input_sha256": "3309ae62a22e053e30a3e005a959cce5f31cc5c7d8a23b5a887efa986179a28d"
+    },
+    "shipped_v300_final": {
+      "edits": 731,
+      "words": 14448,
+      "wer_pct": 5.059523809523809,
+      "split_wer_pct": {
+        "dev-clean": 3.245913207103375,
+        "dev-other": 7.653490328006729
+      },
+      "utterances": 730,
+      "input_sha256": "439d46a1b9c0ac299a2309e6a5d9401dba0ce8a634df617cbc3d57271ec9b27e"
+    }
+  },
+  "fulldev": {
+    "live_c4_greedy": {
+      "edits": 7247,
+      "words": 106054,
+      "wer_pct": 6.833311331962963,
+      "split_wer_pct": {
+        "dev-clean": 3.655080360571209,
+        "dev-other": 10.217471720888577
+      },
+      "utterances": 5567,
+      "input_sha256": "9bf77d6b07d9445af999844e849309ca22dd503ac08e6cd271015a78eab54b8b"
+    },
+    "live_c4_lm": {
+      "edits": 6465,
+      "words": 106054,
+      "wer_pct": 6.095951119241142,
+      "split_wer_pct": {
+        "dev-clean": 3.247335027701084,
+        "dev-other": 9.129139653057647
+      },
+      "utterances": 5567,
+      "input_sha256": "04c87ffbf4243501596bb8cd144e1f2a1c07feed2e406b8c17eca2ba3bca4b07"
+    },
+    "live_c8_lm": {
+      "edits": 6224,
+      "words": 106054,
+      "wer_pct": 5.868708393837102,
+      "split_wer_pct": {
+        "dev-clean": 3.1211716735843194,
+        "dev-other": 8.794268247571209
+      },
+      "utterances": 5567,
+      "input_sha256": "ff81dc70be5a7e4ce636143aaf54596da6f7f07b63bd13753ca778cb586745af"
+    },
+    "final_m5": {
+      "edits": 5540,
+      "words": 106054,
+      "wer_pct": 5.22375393667377,
+      "split_wer_pct": {
+        "dev-clean": 2.7810791537913,
+        "dev-other": 7.824698713081402
+      },
+      "utterances": 5567,
+      "input_sha256": "d6fca1e5957d815138a465574bff4e57de5cd35b8794285bed7e6715bae608a8"
+    },
+    "final_lowmem": {
+      "edits": 5554,
+      "words": 106054,
+      "wer_pct": 5.236954758896411,
+      "split_wer_pct": {
+        "dev-clean": 2.83776124042347,
+        "dev-other": 7.791600957887974
+      },
+      "utterances": 5567,
+      "input_sha256": "8631c57e8c0025b8eb54e80283fb3688858009a32c30fb36545d3dc5cca601cc"
+    },
+    "zipformer_int8": {
+      "edits": 5693,
+      "words": 106054,
+      "wer_pct": 5.3680200652497785,
+      "split_wer_pct": {
+        "dev-clean": 2.821305150756066,
+        "dev-other": 8.0797461207484
+      },
+      "utterances": 5567,
+      "input_sha256": "57df616c42e62df5246f86aa32890cc5af17a16c214480ce2750898290d14201"
+    },
+    "historical_b0_live": {
+      "edits": 8773,
+      "words": 106054,
+      "wer_pct": 8.272200954230865,
+      "split_wer_pct": {
+        "dev-clean": 4.461428754274012,
+        "dev-other": 12.329887272939665
+      },
+      "utterances": 5567,
+      "input_sha256": "33fed77bb4a101db29eccc7f83a132930342631d2d8f0b388980e8b83b9b5ac2"
+    },
+    "shipped_v300_live": {
+      "edits": 7898,
+      "words": 106054,
+      "wer_pct": 7.447149565315783,
+      "split_wer_pct": {
+        "dev-clean": 3.927520067287122,
+        "dev-other": 11.19482896248272
+      },
+      "utterances": 5567,
+      "input_sha256": "434803ddc1a66413ab8b01c0ba0b18a896cd5588b074cbd2a8bcf81cd7a68550"
+    },
+    "historical_b0_final": {
+      "edits": 6455,
+      "words": 106054,
+      "wer_pct": 6.086521960510683,
+      "split_wer_pct": {
+        "dev-clean": 3.2363643012561485,
+        "dev-other": 9.121351945953313
+      },
+      "utterances": 5567,
+      "input_sha256": "65fb4ddda953dc1192544bf420d9899462c00fc00e00a29733da253004fd8239"
+    },
+    "shipped_v300_final": {
+      "edits": 5808,
+      "words": 106054,
+      "wer_pct": 5.476455390650046,
+      "split_wer_pct": {
+        "dev-clean": 2.9218701431679803,
+        "dev-other": 8.196561727313435
+      },
+      "utterances": 5567,
+      "input_sha256": "e293e4fdb2afa1ae4d953e446c16093ee34a2a5452763981c359fbbdadc6284f"
+    }
+  },
+  "targets": {
+    "panel_live_160ms": {
+      "target_edits": 722,
+      "observed_edits": 800,
+      "passed": false
+    },
+    "panel_reference_boundary_final_m5": {
+      "target_edits": 650,
+      "observed_edits": 722,
+      "passed": false
+    },
+    "full_dev_final_edits": {
+      "target_edits": 5489,
+      "observed_edits": 5540,
+      "passed": false
+    }
+  }
+}

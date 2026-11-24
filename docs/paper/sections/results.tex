@@ -41,6 +41,26 @@ fraction of the cost.
 
 \input{data/table_versus.tex}
 
+\subsection{Measured Next Candidate: a Single Registered Look}\label{sec:candidate}
+A successor acoustic model (RC2) with the same shape and per-frame cost was trained on \CandTrainKh\,h of
+audio, adding Libri-Light large to the release lineage, and was frozen on the selection half of DEV
+before one registered look at the panel and the unselected half (C, 2{,}785 utterances).
+\Cref{tab:candidate} reports every registered test, including the ones that failed. On the panel,
+the 160\,ms live stream with the compact live LM lowers WER against the shipped release by
+\CandLiveLmOldDelta\pp (bounds \CandLiveLmOldLo{} to \CandLiveLmOldHi), but its gap to Zipformer INT8 is
+\CandLiveLmPanelDelta\pp with an upper bound of \CandLiveLmPanelHi\pp, so non-inferiority at the registered
+\CandNiMargin\pp margin is not shown (Holm-adjusted $p=\CandHolmNi$). The panel overlaps the selection half;
+on C the same live gap is \CandLiveLmCDelta\pp (bounds \CandLiveLmCLo{} to \CandLiveLmCHi). The final pass
+reaches \CandFinalWer\% on the panel; its differences from Zipformer (\CandFinalPanelDelta\pp panel,
+\CandFinalCDelta\pp C) and from the shipped final pass (\CandFinalOldDelta\pp) are not significant
+(Holm-adjusted $p=\CandHolmFinal$ and $\CandHolmOld$). RC2 made \CandFinalFullEdits{} full-DEV final edits
+against a registered adoption gate of \CandGateFinalFull{} and missed both panel targets
+(\CandGateLivePanel{} live, \CandGateFinalPanel{} final edits), so it is reported, not released.
+At freeze, the v3.0.0 baseline was mispinned to a historical checkpoint; the comparisons above pair the
+same RC2 transcripts with the shipped v3.0.0 transcripts, with no new decode.
+
+\input{data/table_candidate.tex}
+
 \subsection{Full-DEV Accuracy and INT8 Parity}\label{sec:fulldev}
 
 \Cref{tab:fulldev} reports full LibriSpeech DEV (\RelFullUtts{} utterances: 2,703 dev-clean and

@@ -41,7 +41,7 @@ def _verdict(p: dict) -> str:
         return "lower WER"
     if p["lo"] > 0:
         return "higher WER"
-    return "statistical tie"
+    return "inconclusive"
 
 
 _TAGS = ("One", "Two", "Three", "Four")
@@ -89,7 +89,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         if o["watts"] is not None and z["watts"] is not None:
             put(f"VsEnergyPct{t}", fmt(100.0 * o["watts"] / z["watts"], 0), 100.0 * o["watts"] / z["watts"], "%",
                 f"{q['mode']} active core energy per audio-second as % of Zipformer INT8", evs, comp["workload_digest"])
-        verdict = {"lower WER": "lower than", "statistical tie": "a statistical tie with", "higher WER": "higher than"}
+        verdict = {"lower WER": "lower than", "inconclusive": "not significantly different from", "higher WER": "higher than"}
         put(f"VsVerdict{t}", verdict[_verdict(p)], None, "text", f"{q['mode']}: paired verdict vs Zipformer INT8",
             p["src"], p["digest"])
         put(f"VsCpuPct{t}", fmt(100.0 * z["speed"] / o["speed"], 0), 100.0 * z["speed"] / o["speed"], "%",
