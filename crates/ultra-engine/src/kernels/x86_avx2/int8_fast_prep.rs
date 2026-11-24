@@ -398,7 +398,11 @@ pub(super) unsafe fn accum_u_group_exact(
 /// Vectorized AVX2 computation of per-channel integer weight sums `qsum` (`sum_k w_q[n][k]`),
 /// bit-identical to the scalar sum.
 pub(crate) fn compute_qsum(data: &[i8], n: usize, kp: usize, qsum: &mut [i32]) {
-    // SAFETY: reached only after Isa::Avx2Fma.is_available() (module docs).
+    assert!(
+        crate::kernels::Isa::Avx2Fma.is_available(),
+        "x86_avx2::compute_qsum requires AVX2+FMA"
+    );
+    // SAFETY: AVX2+FMA availability asserted immediately above.
     unsafe { compute_qsum_avx2(data, n, kp, qsum) }
 }
 
@@ -440,6 +444,50 @@ fn compute_qsum_avx2(data: &[i8], n: usize, kp: usize, qsum: &mut [i32]) {
         }
         if ncols < NR {
             dst[ncols..].fill(0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u_mode_prep_emits_plain_cold_label_for_cross_group_overflow() {
+        if !crate::kernels::Isa::Avx2Fma.is_available() {
+            return;
+        }
+        let kp = 64usize;
+        for neg in [false, true] {
+            let mut u = vec![0u8; 4 * kp];
+            for r in 0..4 {
+                u[r * kp] = 130;
+                u[r * kp + 4] = 129;
+            }
+            let a: Vec<i8> = u
+                .iter()
+                .map(|&uv| {
+                    if !neg {
+                        (uv as i16 - 128) as i8
+                    } else {
+                        (127 - uv as i16) as i8
+                    }
+                })
+                .collect();
+            for pair_mode in [true, false] {
+                let mut ut = vec![0u8; 4 * kp];
+                let mut bad = Vec::new();
+                // SAFETY: AVX2+FMA availability checked above.
+                unsafe {
+                    assert_eq!(prefer_unsigned(&a, kp, true), Some(neg));
+                    assert!(prepare_u_runs(&a, kp, neg, pair_mode, &mut ut, &mut bad));
+                }
+                assert_eq!(
+                    bad,
+                    vec![0u16, u16::MAX],
+                    "expected plain cold label (bit0=0) at idx=0"
+                );
+            }
         }
     }
 }
