@@ -81,9 +81,10 @@ fn rope_dwconv_and_stem_c1_are_bit_exact_with_scalar() {
         let km1 = kernel - 1;
         let bias = rng.vec(d, 0.5);
         let hist = rng.vec(km1 * d, 2.0);
-        let cur = rng.vec(4 * d, 2.0);
+        let cur = rng.vec((km1 + 2) * d, 2.0);
         let dw_w = rng.vec(kernel * d, 0.5);
-        for fi in 0..4 {
+        for fi in [0, 3, km1, km1 + 1] {
+            let current = &cur[..(fi + 1) * d];
             let mut o_ref = vec![0.0f32; d];
             let mut o_got = vec![0.0f32; d];
             depthwise_conv_frame(
@@ -91,13 +92,13 @@ fn rope_dwconv_and_stem_c1_are_bit_exact_with_scalar() {
                 &mut o_ref,
                 &bias,
                 &hist,
-                &cur,
+                current,
                 &dw_w,
                 fi,
                 kernel,
                 d,
             );
-            depthwise_conv_frame(isa, &mut o_got, &bias, &hist, &cur, &dw_w, fi, kernel, d);
+            depthwise_conv_frame(isa, &mut o_got, &bias, &hist, current, &dw_w, fi, kernel, d);
             for (i, (&a, &b)) in o_ref.iter().zip(&o_got).enumerate() {
                 assert_eq!(
                     a.to_bits(),

@@ -322,6 +322,7 @@ fn attend_head_simd_matches_scalar() {
     for &(dh, n, ring, start, nk) in &[
         (64usize, 4usize, 136usize, 100usize, 132usize),
         (64, 1, 136, 0, 3),
+        (64, 2, 136, 10, 17),
         (40, 3, 24, 15, 9),
         (128, 2, 72, 60, 17),
         (64, 5, 144, 7, 137),

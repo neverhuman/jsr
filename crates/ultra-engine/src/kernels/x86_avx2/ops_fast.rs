@@ -85,9 +85,15 @@ fn depthwise_conv_frame_avx2(
     kernel: usize,
     d: usize,
 ) {
+    assert!(kernel > 0 && frame_i.checked_add(kernel).is_some());
     let km1 = kernel - 1;
-    assert!(out.len() >= d && bias.len() >= d && dw_w.len() >= kernel * d);
-    assert!(hist.len() >= km1 * d && cur.len() >= (frame_i + 1) * d);
+    assert!(
+        out.len() >= d
+            && bias.len() >= d
+            && kernel.checked_mul(d).is_some_and(|n| dw_w.len() >= n)
+            && km1.checked_mul(d).is_some_and(|n| hist.len() >= n)
+            && (frame_i + 1).checked_mul(d).is_some_and(|n| cur.len() >= n)
+    );
     let split = km1.saturating_sub(frame_i).min(kernel);
     let mut c = 0;
     while c + 64 <= d {
@@ -105,7 +111,8 @@ fn depthwise_conv_frame_avx2(
                 _mm256_loadu_ps(bp.add(56)),
             ];
             let mut wp = dw_w.as_ptr().add(c);
-            let mut sp = hist.as_ptr().add(frame_i * d + c);
+            // A late frame can have no history taps. Its initial history pointer is then unused.
+            let mut sp = hist.as_ptr().wrapping_add(frame_i * d + c);
             for _ in 0..split {
                 for (u, a) in acc.iter_mut().enumerate() {
                     let off = u * 8;
@@ -114,8 +121,9 @@ fn depthwise_conv_frame_avx2(
                         _mm256_mul_ps(_mm256_loadu_ps(wp.add(off)), _mm256_loadu_ps(sp.add(off))),
                     );
                 }
-                wp = wp.add(d);
-                sp = sp.add(d);
+                wp = wp.wrapping_add(d);
+                // The final stride can pass the end of a tight slice for this channel block.
+                sp = sp.wrapping_add(d);
             }
             let mut cp = cur.as_ptr().add((frame_i + split - km1) * d + c);
             for _ in split..kernel {
@@ -126,8 +134,8 @@ fn depthwise_conv_frame_avx2(
                         _mm256_mul_ps(_mm256_loadu_ps(wp.add(off)), _mm256_loadu_ps(cp.add(off))),
                     );
                 }
-                wp = wp.add(d);
-                cp = cp.add(d);
+                wp = wp.wrapping_add(d);
+                cp = cp.wrapping_add(d);
             }
             let op = out.as_mut_ptr().add(c);
             for (u, &a) in acc.iter().enumerate() {
@@ -177,7 +185,11 @@ pub(crate) fn stem_c1_pos(out: &mut [f32], bias: &[f32], w: &[f32], x9: [f32; 9]
 /// Register-blocked 9-tap stem layer-1 conv + exact SiLU (0-ULP bit-identical to scalar + silu).
 #[target_feature(enable = "avx2,fma")]
 fn stem_c1_pos_avx2(out: &mut [f32], bias: &[f32], w: &[f32], x9: [f32; 9], ch: usize) {
-    assert!(out.len() >= ch && bias.len() >= ch && w.len() >= 9 * ch);
+    assert!(
+        out.len() >= ch
+            && bias.len() >= ch
+            && 9_usize.checked_mul(ch).is_some_and(|n| w.len() >= n)
+    );
     let one = _mm256_set1_ps(1.0);
     let mut c = 0;
     while c + 64 <= ch {
