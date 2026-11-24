@@ -18,8 +18,8 @@ points:
   INT8 weights run a second-pass 640\,ms chunk commit pass with a 5-gram language model and
   log-density-ratio (LODR) beam search at utterance endpoints, running within two percent of
   streaming Zipformer INT8's single-core speed (\ColdHeadSpeed$\times$ utterance-segmented vs.\
-  \ColdZipSpeed$\times$ streaming) while lowering pooled 730-utterance DEV panel WER to
-  \ColdHeadWer\% (\RelFullFinalPooled\% on full LibriSpeech DEV).
+  \ColdZipSpeed$\times$ streaming) at \ColdHeadWer\% pooled 730-utterance DEV panel WER
+  (\RelFullFinalPooled\% on full LibriSpeech DEV), \VsVerdictTwo{} Zipformer's \ColdZipWer\%.
 \end{itemize}
 
 \para{Integer exactness.} Every quantised GEMM accumulates exactly in int32, every activation row

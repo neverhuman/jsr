@@ -1,0 +1,385 @@
+{
+  "schema": "ultra.h45.release-v3-bb1071a-s2a-bp2-fulldev/v1",
+  "model_name": "H53_S2_BP2-ema (S2a-BP2, 20k h small)",
+  "commit": "bb1071ad59e6b9b83fe8bfd42aea8c7d7e4384ff",
+  "binary": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a/ultra-engine-commit",
+  "binary_sha256": "9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2",
+  "scorer": "/mnt/xbabe3-external/jsr/h45-wins/bin/ultra-score",
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "model": "/mnt/xbabe3-external/jsr/opponents/bench-open/release-eval/exports/H53_S2_BP2-ema/int8",
+  "weights_int8_sha256": "4215fe4ef463ab18e342658fe4070a0fe2eaf34eab9c332987aae84c8512e1c0",
+  "lm": "/mnt/xbabe3-external/jsr/lm/models/engine/M5.ulm",
+  "lm_sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982",
+  "params": {
+    "commit_chunk": 16,
+    "tail_pad_ms": 320,
+    "commit_beam": 16,
+    "lm_scale": 0.8,
+    "lodr_scale": 0.6,
+    "token_bonus": 0.0,
+    "max_sym_per_frame": 1,
+    "commit_max_audio_s": 40.0,
+    "threads": 1
+  },
+  "run_meta": {
+    "host": "H0",
+    "cpus": "68-107",
+    "shards": 40,
+    "max_active_workers": 40,
+    "min_mem_avail_gb": 28.42,
+    "wall_total_s": 1078.8,
+    "finished_utc": "2026-11-23T14:31:34Z"
+  },
+  "utterances_full": 5567,
+  "utterances_c": 2785,
+  "pcm_truncated_count": 0,
+  "total_audio_s": 37832.39,
+  "revised_full": 2516,
+  "revised_full_pct": 45.19,
+  "revised_c": 1279,
+  "revised_c_pct": 45.92,
+  "commit_wall_ms_p50_p95": [
+    921.5,
+    5232.8
+  ],
+  "commit_wall_s_per_audio_s_h0": 0.2298,
+  "full_dev": {
+    "s2a_bp2_committed": {
+      "dev-clean": {
+        "wer": 3.1248,
+        "edits": 1709,
+        "S": 1373,
+        "D": 182,
+        "I": 154,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 8.8196,
+        "edits": 4530,
+        "S": 3534,
+        "D": 533,
+        "I": 463,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 5.8829,
+        "edits": 6239,
+        "S": 4907,
+        "D": 715,
+        "I": 617,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "s2a_bp2_provisional": {
+      "dev-clean": {
+        "wer": 4.2292,
+        "edits": 2313,
+        "S": 1888,
+        "D": 217,
+        "I": 208,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 11.9911,
+        "edits": 6159,
+        "S": 4924,
+        "D": 642,
+        "I": 593,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 7.9884,
+        "edits": 8472,
+        "S": 6812,
+        "D": 859,
+        "I": 801,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "b0_bb1071a_committed": {
+      "dev-clean": {
+        "wer": 3.2364,
+        "edits": 1770,
+        "S": 1424,
+        "D": 181,
+        "I": 165,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 9.1214,
+        "edits": 4685,
+        "S": 3685,
+        "D": 527,
+        "I": 473,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 6.0865,
+        "edits": 6455,
+        "S": 5109,
+        "D": 708,
+        "I": 638,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "s2a_bp1_bb1071a_committed": {
+      "dev-clean": {
+        "wer": 3.1577,
+        "edits": 1727,
+        "S": 1393,
+        "D": 180,
+        "I": 154,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 8.8157,
+        "edits": 4528,
+        "S": 3522,
+        "D": 550,
+        "I": 456,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 5.8979,
+        "edits": 6255,
+        "S": 4915,
+        "D": 730,
+        "I": 610,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "b0_int8_control": {
+      "dev-clean": {
+        "wer": 4.4614,
+        "edits": 2440,
+        "S": 1985,
+        "D": 225,
+        "I": 230,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 12.3299,
+        "edits": 6333,
+        "S": 5057,
+        "D": 669,
+        "I": 607,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 8.2722,
+        "edits": 8773,
+        "S": 7042,
+        "D": 894,
+        "I": 837,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "delta_vs_b0_bb1071a_pp": [
+      -0.2037,
+      -0.3115,
+      -0.1002
+    ],
+    "delta_vs_s2a_bp1_pp": [
+      -0.0151,
+      -0.0808,
+      0.0503
+    ],
+    "delta_vs_provisional_pp": [
+      -2.1055,
+      -2.3868,
+      -1.8339
+    ],
+    "delta_vs_b0_int8_control_pp": [
+      -2.3893,
+      -2.6792,
+      -2.1068
+    ],
+    "provisional_delta_vs_b0_int8_control_pp": [
+      -0.2838,
+      -0.3749,
+      -0.1966
+    ]
+  },
+  "c_half": {
+    "s2a_bp2_committed": {
+      "dev-clean": {
+        "wer": 3.193,
+        "edits": 864,
+        "S": 685,
+        "D": 97,
+        "I": 82,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 8.1869,
+        "edits": 2194,
+        "S": 1726,
+        "D": 258,
+        "I": 210,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.6779,
+        "edits": 3058,
+        "S": 2411,
+        "D": 355,
+        "I": 292,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "s2a_bp2_provisional": {
+      "dev-clean": {
+        "wer": 4.3054,
+        "edits": 1165,
+        "S": 944,
+        "D": 110,
+        "I": 111,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 11.4818,
+        "edits": 3077,
+        "S": 2476,
+        "D": 308,
+        "I": 293,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 7.8763,
+        "edits": 4242,
+        "S": 3420,
+        "D": 418,
+        "I": 404,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "b0_bb1071a_committed": {
+      "dev-clean": {
+        "wer": 3.2632,
+        "edits": 883,
+        "S": 705,
+        "D": 94,
+        "I": 84,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 8.5264,
+        "edits": 2285,
+        "S": 1798,
+        "D": 259,
+        "I": 228,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.8821,
+        "edits": 3168,
+        "S": 2503,
+        "D": 353,
+        "I": 312,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "s2a_bp1_bb1071a_committed": {
+      "dev-clean": {
+        "wer": 3.2448,
+        "edits": 878,
+        "S": 703,
+        "D": 92,
+        "I": 83,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 8.1384,
+        "edits": 2181,
+        "S": 1715,
+        "D": 264,
+        "I": 202,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.6798,
+        "edits": 3059,
+        "S": 2418,
+        "D": 356,
+        "I": 285,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "b0_int8_control": {
+      "dev-clean": {
+        "wer": 4.5124,
+        "edits": 1221,
+        "S": 977,
+        "D": 122,
+        "I": 122,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 11.9184,
+        "edits": 3194,
+        "S": 2552,
+        "D": 345,
+        "I": 297,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 8.1975,
+        "edits": 4415,
+        "S": 3529,
+        "D": 467,
+        "I": 419,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "delta_vs_b0_bb1071a_pp": [
+      -0.2042,
+      -0.3737,
+      -0.0598
+    ],
+    "delta_vs_s2a_bp1_pp": [
+      -0.0019,
+      -0.0887,
+      0.0896
+    ],
+    "delta_vs_provisional_pp": [
+      -2.1984,
+      -2.6122,
+      -1.7966
+    ],
+    "delta_vs_b0_int8_control_pp": [
+      -2.5196,
+      -2.9841,
+      -2.0805
+    ]
+  }
+}

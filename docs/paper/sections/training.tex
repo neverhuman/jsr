@@ -15,3 +15,13 @@ Training finishes with an exponential moving average (EMA)~\cite{polyak1992ema} 
 yielding a single checkpoint whose weights are exported to prepared per-channel INT8 with zero
 quantisation-aware retraining. The 5-gram language model (\texttt{M5.ulm}) used in the
 utterance-segmented commit pass is trained on the standard LibriSpeech OpenSLR-11 text corpus.
+
+\input{sections/fig_training.tex}%
+\para{Long-run dynamics.} The release saw \TrainTotalKh\,h of logged training audio in three stages
+(\cref{fig:training}): \TrainStageOneKh\,h of LibriSpeech 960\,h (\TrainStageOneEpochs{} epochs),
+\TrainStageTwoKh\,h with Libri-Light, and a \TrainCoolKh\,h EMA cooldown. On LibriSpeech alone the
+model saturates: live WER is \TrainPlateauMid\% after \TrainPlateauMidKh\,h and \TrainPlateauEnd\% at
+the end of stage~1, so longer training on the same 960\,h buys nothing. New audio does: Libri-Light
+\texttt{small} (378\,h) moves live WER only to \TrainSmallLive\%, while adding \texttt{medium}
+(3{,}396\,h) reaches \TrainMediumLive\% within ten thousand hours, and the cooldown ends at the release
+point. For a model this small, the lever is data diversity, not epochs.

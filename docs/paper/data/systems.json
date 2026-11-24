@@ -187,5 +187,21 @@
   "headline": {
     "ours": "rc1-ema-final",
     "ours_live": "rc1-ema-live"
+  },
+  "release": "v3.0.0",
+  "versus": {
+    "comparator": "r0-int8",
+    "pairs": [
+      {
+        "mode": "live",
+        "variant": "rc1-ema-live",
+        "paired": "raw/versus/v300/zip-vs-v300-live.score.json"
+      },
+      {
+        "mode": "final",
+        "variant": "rc1-ema-final",
+        "paired": "raw/versus/v300/zip-vs-v300-final.score.json"
+      }
+    ]
   }
 }

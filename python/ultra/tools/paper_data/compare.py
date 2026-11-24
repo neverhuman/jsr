@@ -193,8 +193,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
             f"{fmt(lv['rss_mb'], 0)}\\,MB peak memory) at {fmt(lv['wer'], 2)}\\% pooled panel WER "
             f"({fmt(lv['wer_clean'], 2)}\\% dev-clean, {fmt(lv['wer_other'], 2)}\\% dev-other). "
             f"Adding the utterance-segmented commit pass on the same weights ({_name(head)}) runs cold at "
-            f"{speed_text(h['speed'])}$\\times$ real time ({fmt(h['rss_mb'], 0)}\\,MB peak memory) and lowers pooled "
-            f"panel WER to {fmt(h['wer'], 2)}\\% ({fmt(h['wer_clean'], 2)}\\% dev-clean, {fmt(h['wer_other'], 2)}\\% "
+            f"{speed_text(h['speed'])}$\\times$ real time ({fmt(h['rss_mb'], 0)}\\,MB peak memory) and reaches pooled "
+            f"panel WER {fmt(h['wer'], 2)}\\% ({fmt(h['wer_clean'], 2)}\\% dev-clean, {fmt(h['wer_other'], 2)}\\% "
             f"dev-other).", "the two operating points of our release model")
         if fast:
             f = fast["_d"]
@@ -222,9 +222,9 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
             f"{fmt(lv['speed'] / fast['_d']['speed'], 1)}$\\times$; {fmt(lv['watts'], 3)}\\,W; "
             f"{fmt(lv['rss_mb'], 0)}\\,MB RAM; {fmt(lv['wer'], 2)}\\% pooled panel WER), paired on the same INT8 "
             f"weights with an utterance-segmented commit pass ({speed_text(h['speed'])}$\\times$, "
-            f"{fmt(h['watts'], 3)}\\,W, {fmt(h['rss_mb'], 0)}\\,MB RAM) that beats streaming {_name(fast)} on "
-            f"pooled panel WER ({fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\%) within 2\\% of its "
-            f"single-core speed (\\cref{{sec:results}})." if (fast and lv["watts"] is not None and h["watts"] is not None)
+            f"{fmt(h['watts'], 3)}\\,W, {fmt(h['rss_mb'], 0)}\\,MB RAM) that reaches "
+            f"{fmt(h['wer'], 2)}\\% pooled panel WER against {fmt(fast['_d']['wer'], 2)}\\% for streaming {_name(fast)} "
+            f"(paired comparison in \\cref{{sec:versus}}) within 2\\% of its single-core speed." if (fast and lv["watts"] is not None and h["watts"] is not None)
             else f"Dual operating points on one INT8 artifact (\\cref{{sec:results}}).", "intro contribution 2")
         w_lv_plain = f", {fmt(lv['watts'], 3)}\\,W" if lv["watts"] is not None else ""
         say("ColdLimitLive", f"While {_name(live)} streams continuously at {speed_text(lv['speed'])}$\\times$ real time"
@@ -235,8 +235,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
         w_lv_at = f" at {fmt(lv['watts'], 3)}\\,W and" if lv["watts"] is not None else " at"
         w_hd_c = f", {fmt(h['watts'], 3)}\\,W," if h["watts"] is not None else ","
         vs_zip = (f"---within 2\\% of streaming {_name(fast)}'s single-core speed ({speed_text(h['speed'])}$\\times$ "
-                  f"utterance-segmented vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ streaming) while lowering "
-                  f"pooled WER ({fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\%)" if fast else "")
+                  f"utterance-segmented vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ streaming) at "
+                  f"{fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\% pooled WER" if fast else "")
         say("ColdConclusionResult", f"both quiet full-panel H1 Pareto-frontier operating points on one INT8 artifact: "
             f"{speed_text(lv['speed'])}$\\times$ real-time continuous live streaming{w_lv_at} "
             f"{fmt(lv['rss_mb'], 0)}\\,MB RAM ({fmt(lv['wer'], 2)}\\% panel WER), and an utterance-segmented commit "
@@ -270,8 +270,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
         say("ColdIntroLiveItem", f"160\\,ms chunked greedy decoding with no endpoint detector required, scoring "
             f"{panel_live}\\% pooled panel WER ({full_live}\\% full DEV) on the exact same INT8 weights (standalone "
             f"cold single-core timing, memory, and watts pending its dedicated quiet-host hold).", "intro live bullet")
-        say("ColdIntroContrib", f"Utterance-segmented commit pass on one compact INT8 artifact that beats streaming "
-            f"{_name(fast)} on pooled panel WER ({fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\%) within "
+        say("ColdIntroContrib", f"Utterance-segmented commit pass on one compact INT8 artifact that reaches "
+            f"{fmt(h['wer'], 2)}\\% pooled panel WER against {fmt(fast['_d']['wer'], 2)}\\% for streaming {_name(fast)} within "
             f"2\\% of its single-core speed ({speed_text(h['speed'])}$\\times$ utterance-segmented vs.\\ "
             f"{speed_text(fast['_d']['speed'])}$\\times$ streaming, \\cref{{sec:results}})." if fast
             else "Single INT8 release artifact (\\cref{sec:results}).", "intro contribution 2")
@@ -280,8 +280,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
             f"and peaks at {fmt(h['rss_mb'], 0)}\\,MB RSS due to the 5-gram LM pack; the standalone stream-only cold "
             f"hold for the endpoint-free live mode is pending.", "limitations live vs final")
         vs_zip = (f"---within 2\\% of streaming {_name(fast)}'s single-core speed ({speed_text(h['speed'])}$\\times$ "
-                  f"utterance-segmented vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ streaming) while lowering "
-                  f"pooled WER ({fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\%)---" if fast else "---")
+                  f"utterance-segmented vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ streaming) at "
+                  f"{fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\% pooled WER---" if fast else "---")
         say("ColdConclusionResult", f"an utterance-segmented commit pass reaching {fmt(h['wer'], 2)}\\% pooled panel "
             f"WER ({full_final}\\% on full DEV) at {speed_text(h['speed'])}$\\times$ real time{w_hd_and}{vs_zip}"
             f"plus an endpoint-free 160\\,ms live stream ({panel_live}\\% panel WER) on the exact same INT8 weights",
@@ -291,11 +291,11 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
         return f"{k}{'th' if 11 <= k % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(k % 10, 'th')}"
 
     beat_txt = (f"{_name(head)} ({fmt(h['wer'], 2)}\\% pooled) ranks {_ord(wer_rank)} of {n_panel_all} "
-                f"complete-panel systems (beating {beaten_n} of {n_comp_all} public comparators, including "
+                f"complete-panel systems (lower point-estimate WER than {beaten_n} of {n_comp_all} public comparators, including "
                 f"streaming {_name(fast)} at {fmt(fast['_d']['wer'], 2)}\\%). "
                 if (beaten_n and fast and fast["_d"]["wer"] > h["wer"])
                 else f"{_name(head)} ({fmt(h['wer'], 2)}\\% pooled) ranks {_ord(wer_rank)} of {n_panel_all} "
-                     f"complete-panel systems (beating {beaten_n} of {n_comp_all} public comparators). "
+                     f"complete-panel systems (lower point-estimate WER than {beaten_n} of {n_comp_all} public comparators). "
                 if beaten_n else "")
     who = f"{better} of the {n_comp_all} comparators" if better not in (0, n_comp_all) else (
         "All comparators" if better == n_comp_all else "No comparator")
@@ -308,8 +308,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     other_ord = sorted(group, key=lambda r: r["_d"]["wer_other"])
     moved = sum(other_ord[i] is not r for i, r in enumerate(clean_ord))
     say("ColdOrderSentence", "The dev-other split ranks all systems in the same order as dev-clean." if not moved else
-        f"The dev-other split changes the rank order of {moved} systems relative to dev-clean (notably \\ultra{{}} "
-        f"v3.0.0 final surpasses Zipformer INT8 on dev-other and pooled WER).",
+        f"The dev-other split changes the rank order of {moved} systems relative to dev-clean (notably the \\ultra{{}} "
+        f"final mode has lower dev-other WER than Zipformer INT8).",
         "whether dev-other orders the drawn systems as dev-clean does")
 
     rest_w = sorted((r for r in others if r["watts"] is not None and r["host"] == head["host"]),
