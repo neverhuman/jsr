@@ -93,6 +93,18 @@ def check_init_compatible(src: ModelConfig, dst: ModelConfig) -> None:
         raise CheckpointError("--init-from checkpoint has a different model config")
 
 
+def check_resume_compatible(saved: ModelConfig, requested: ModelConfig) -> None:
+    """A run may resume with a different stochastic depth (`layer_drop`), which is the identity
+    at eval, so a regularisation fork can continue from a full checkpoint with its optimizer,
+    scheduler, EMA and data position intact. Every other field must match exactly."""
+    from train.errors import CheckpointError
+
+    s = dataclasses.replace(saved, encoder=dataclasses.replace(
+        saved.encoder, layer_drop=requested.encoder.layer_drop))
+    if s != requested:
+        raise CheckpointError("checkpoint model config differs from the requested one")
+
+
 def widen_state(state: dict, src: ModelConfig, dst: ModelConfig) -> dict:
     """Predictor projection for a longer context: zero columns for the older positions (the input
     is oldest .. newest), so the widened model computes exactly what the source did."""
