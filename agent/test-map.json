@@ -203,7 +203,15 @@
     },
     "python/ultra/tools/plbt/": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_plbt.py",
-      "purpose": "book-text projection rules, synthetic manifest and label-map round trip, and historical panel self-check"
+      "purpose": "book-text projection, synthetic label-map round trip and sealed-roster overlap, and historical panel self-check"
+    },
+    "python/ultra/train/data_identity.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_train_sealed_fork.py",
+      "purpose": "strict label-only preflight, rejection of changed audio or labels, and pruned DDP restart"
+    },
+    "python/ultra/train/objective_contract.py": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_train_sealed_fork.py",
+      "purpose": "uneven-rank pruned loss, no optimizer step without supervision, and rank-local helper and RNG restart"
     },
     "python/ultra/tools/": {
       "command": "cargo test -p ultra-engine",

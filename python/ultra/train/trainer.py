@@ -25,6 +25,7 @@ from train.data import Batch, Example, FixedBatches, Position, collate
 from train.errors import CheckpointError, DivergenceError, NonFiniteLossError, ShapeError
 from train.resize import apply_resize, checkpoint_carry_shape
 from train.optim import build_optimizer, eval_weights, make_clipper
+from train import objective_contract
 
 DATA = os.environ.get("JSR_DATA", "/mnt/xbabe3-external/jsr")
 
@@ -88,6 +89,7 @@ class TrainConfig:
     label_map: str = ""  # train/label_map.py: sealed uid<TAB>text TSV for extra splits ("" = off)
     label_map_sha256: str = ""
     label_map_only: int = 0  # 1: extra-split rows absent from the map are dropped before packing
+    seal_data_identity: bool = False  # strict preflight and fixed-layout checkpoint restart
     node_shards: str = ""  # H55 option (iv) node-local disjoint shard spec ("" = off)
     collate_ahead: int = 0  # >0: collate next N batches off main thread (0 = inline)
     ddp_util_target: float = 0.0  # DDP options (0/"" = off)
@@ -198,6 +200,22 @@ class Trainer:
             torch.cuda.set_device(self.device)
         log = log and rank == 0  # one log per run
         self.model_cfg = model_cfg or PRESETS[cfg.preset]
+        self.objective_plan = objective_contract.validate(cfg, self.model_cfg)
+        self.data_identity = None
+        self.initial_checkpoint_sha256 = None
+        if cfg.seal_data_identity:
+            import random
+            import numpy as np
+            from train.data_identity import seal, trainer_identity
+            from train.data import ParquetBatches
+
+            if not isinstance(source, ParquetBatches):
+                raise CheckpointError("sealed training requires the Parquet batch source")
+            self.data_identity = seal(source)
+            self.trainer_source_sha256 = trainer_identity()
+            self.data_identity["audio"]["splits"] = list(cfg.splits)
+            random.seed(cfg.seed)
+            np.random.seed(cfg.seed)
         torch.manual_seed(cfg.seed)
         self.model = ASRModel(self.model_cfg).to(self.device)
         self._ddp_loss = None
@@ -226,15 +244,27 @@ class Trainer:
         os.makedirs(run_dir, exist_ok=True)
 
     # ---- state -------------------------------------------------------------------------------
-    def payload(self) -> dict:
+    def payload(self, objective_state=None) -> dict:
+        if objective_state is None and objective_contract.active(self) and self.world == 1:
+            objective_state = objective_contract.collect(self)
         return {"model": self.model.state_dict(), "optimizer": self.opt.state_dict(),
                 "scheduler": self.sched.state_dict(), "position": self.pos.to_dict(), "precision": self.precision,
                 "train_config": asdict(self.cfg), "model_config": self.model_cfg.to_dict(), "carry_shape": checkpoint_carry_shape(self),
                 "manifest": list(getattr(self.source, "manifest", [])), "tokenizer_sha256": getattr(self.tok, "sha256", None),
                 "ctc_stats": self.stats.summary(), "qkv_caps": self.qkv_caps, "qkv_ref_norm": self.qkv_ref_norm,
                 "ema": self.ema, "loss_ema": self.loss_ema, "best_ema": self.best_ema, "best_wer": self.best_wer,
+                "over_since": self.over_since,
                 "watch_sig": self._watch_sig(), **({"diloco": self._diloco_state} if self._diloco_state else {}),
+                **({"objective_state": objective_state} if objective_state is not None else {}),
+                **self.identity_fields(),
                 **({"clipper": self.clipper.state_dict()} if self.clipper.mode != "fixed" else {})}
+
+    def identity_fields(self) -> dict:
+        if self.data_identity is None:
+            return {}
+        return {"data_identity_v2": self.data_identity, "objective_plan": self.objective_plan,
+                "trainer_source_sha256": self.trainer_source_sha256,
+                "initial_checkpoint_sha256": self.initial_checkpoint_sha256}
 
     def _step_chunk(self) -> int | None:
         c = self.cfg
@@ -268,9 +298,10 @@ class Trainer:
     def save(self, wait: bool = False) -> None:
         """Snapshot now; the write finishes in the background unless `wait`. Under data
         parallelism one rank per node writes (every node keeps its own copy for resume)."""
+        objective_state = objective_contract.collect(self) if objective_contract.active(self) else None
         if self.local_rank != 0:
             return
-        self.saver.save(self.run_dir, self.step, self.payload())
+        self.saver.save(self.run_dir, self.step, self.payload(objective_state))
         if wait:
             self.saver.wait()
 
@@ -281,17 +312,37 @@ class Trainer:
         path = checkpoint.latest(self.run_dir)
         if path is None:
             return False
-        p = checkpoint.load(path)
+        p = checkpoint.load(path, restore_rng=False)
         from train.recipe_opts import check_resume_compatible
 
         check_resume_compatible(ModelConfig.from_dict(p["model_config"]), self.model_cfg)
         manifest = list(getattr(self.source, "manifest", []))
         if p["manifest"] != manifest:
             raise CheckpointError("data manifest changed since the checkpoint; refusing to resume")
+        if p.get("data_identity_v2") != self.data_identity:
+            raise CheckpointError("sealed data identity changed or is missing; start a registered fresh fork")
+        if self.objective_plan != p.get("objective_plan"):
+            raise CheckpointError("sealed objective plan changed; start a registered fresh fork")
+        if self.data_identity is not None:
+            from train.data_identity import recipe
+
+            old, new = recipe(p["train_config"]), recipe(asdict(self.cfg))
+            # This is the established eval-identity layer-drop continuation. Other recipe changes
+            # require fresh manifests for the next registered phase.
+            old["layer_drop"] = new["layer_drop"]
+            if old != new or self.trainer_source_sha256 != p.get("trainer_source_sha256"):
+                raise CheckpointError("sealed training recipe or implementation changed")
+        self.initial_checkpoint_sha256 = p.get("initial_checkpoint_sha256")
+        state = p.get("objective_state")
+        if state is not None or objective_contract.active(self):
+            position = objective_contract.restore(self, state or {})
+        else:
+            checkpoint.set_rng_state(p["rng"])
+            position = p["position"]
         self.model.load_state_dict(p["model"])
         self.opt.load_state_dict(p["optimizer"])
         self.sched.load_state_dict(p["scheduler"])
-        self.pos = Position(**p["position"])
+        self.pos = Position(**position)
         old_wg = int((p.get("train_config") or {}).get("window_groups", 4))
         if old_wg != self.cfg.window_groups and hasattr(self.source, "carry_width"):
             # the new width starts at the next epoch; this epoch finishes with the old one
@@ -309,6 +360,7 @@ class Trainer:
         sig, old = self._watch_sig(), p.get("watch_sig") or {}
         if old.get("loss") == sig["loss"]:
             self.loss_ema, self.best_ema = p.get("loss_ema"), p.get("best_ema")
+            self.over_since = p.get("over_since")
         if old.get("dev") == sig["dev"]:
             self.best_wer = p.get("best_wer")
         self.clipper.load_state_dict(p.get("clipper"))
@@ -349,6 +401,9 @@ class Trainer:
 
     # ---- one optimiser step ------------------------------------------------------------------
     def train_step(self, batch: Batch) -> dict:
+        if batch.row_keep is not None and not self.cfg.seal_data_identity:
+            raise CheckpointError("row quality gates require a sealed label-only objective")
+        batch = batch.supervised()
         self.model.train()
         b = batch.to(self.device)
         gen = torch.Generator().manual_seed(self.cfg.seed * 1_000_003 + self.step)
@@ -389,7 +444,7 @@ class Trainer:
                                        if self.cfg.balancer_weight else {}),
                                     **({"ctx": b.ctx} if b.ctx is not None else {}),
                                     **anchor_kwargs(self.cfg, b),
-                                    **self._wave2_kwargs())
+                                    **(self._wave2_kwargs() if b.active or not self.cfg.seal_data_identity else {}))
         if self.world > 1:  # this rank's own forward time: its speed for throughput-weighted shards
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
@@ -409,6 +464,11 @@ class Trainer:
         if not math.isfinite(float(out.get("loss_global", loss))):
             self._pause(batch, out, float("nan"), "loss")
         self.opt.zero_grad(set_to_none=True)
+        if self.cfg.seal_data_identity and not out.get("has_supervision", b.active):
+            # Finish backward on every rank to release native DDP's reducer. A globally empty
+            # batch advances the data cursor only, with no optimizer, schedule or EMA update.
+            loss.backward()
+            return {"optimized": False}
         if self.world > 1 and self.device.type == "cuda":
             torch.cuda.synchronize(self.device)
         t_bwd = time.time()
@@ -717,11 +777,10 @@ class Trainer:
         if self.cfg.diloco_hub and self.cfg.diloco_every > 0:
             from train.diloco_client import TrainerDiLoCoHook
             diloco = TrainerDiLoCoHook.from_trainer(self)
+        gather_checkpoints = self.world > 1 and objective_contract.active(self)
         for pos, batch in self._batches():
             acc["data_wait_s"] = acc.get("data_wait_s", 0.0) + (time.time() - t_wait)
             t_step = time.time()
-            acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
-            acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             r = self.train_step(batch)
             acc["step_s"] = acc.get("step_s", 0.0) + (time.time() - t_step)
             if self.world > 1:
@@ -735,13 +794,28 @@ class Trainer:
                 t_c = time.time()
                 nap = all_reduce_max(throttle.sleep_for(self.step, time.time() - t_step), self.device) \
                     if throttle is not None else 0.0
-                self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
+                if gather_checkpoints:
+                    from train.dist import any_step_flags
+
+                    local_due = (self.step % self.cfg.ckpt_every_steps == 0
+                                 or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)
+                    self.stop_requested, shared_due = any_step_flags(self.stop_requested, local_due, self.device)
+                else:
+                    self.stop_requested = all_reduce_max(float(self.stop_requested), self.device) > 0
                 hb["comm_s"] += time.time() - t_c
                 if throttle is not None:  # synchronised step-boundary sleep, never SIGSTOP
                     throttle.pause(nap)
                     hb["sleep_s"] += max(0.0, nap)
             new_epoch = pos.epoch > self.pos.epoch
             self.pos = pos
+            if not r.get("optimized", True):
+                if self.stop_requested:
+                    self.save(wait=True)
+                    return
+                t_wait = time.time()
+                continue
+            acc["frames"] = acc.get("frames", 0) + int(batch.feat_lens.sum())
+            acc["padded"] = acc.get("padded", 0) + batch.feats.shape[0] * batch.feats.shape[1]
             steps_here += 1
             acc["audio_s"] += r["audio_s"]
             acc["n"] += 1
@@ -790,8 +864,10 @@ class Trainer:
                     if diloco is not None else bool(self.cfg.weights_every and self.step % self.cfg.weights_every == 0))
             if do_w and self.local_rank == 0:
                 with eval_weights(self.opt):
-                    self.saver.save(self.run_dir, self.step, {"model": self.model.state_dict(), "model_config": self.model_cfg.to_dict(), "train_config": asdict(self.cfg), "tokenizer_sha256": getattr(self.tok, "sha256", None), "ema": self.ema}, weights_only=True)
-            raw_due = self.step % self.cfg.ckpt_every_steps == 0 or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes
+                    self.saver.save(self.run_dir, self.step, {"model": self.model.state_dict(), "model_config": self.model_cfg.to_dict(), "train_config": asdict(self.cfg), "tokenizer_sha256": getattr(self.tok, "sha256", None), "ema": self.ema, **self.identity_fields()}, weights_only=True)
+            raw_due = (shared_due if gather_checkpoints else
+                       self.step % self.cfg.ckpt_every_steps == 0
+                       or time.time() - last_ckpt > 60 * self.cfg.ckpt_every_minutes)
             due = diloco.gate.allow_ckpt(raw_due, diloco.just_synced) if diloco is not None else raw_due
             if due or (self.stop_requested and diloco is None):
                 self.save(); last_ckpt = time.time()
@@ -861,6 +937,9 @@ def main(argv=None) -> int:
     ap.add_argument("--overfit", type=int, default=0, help="D0: train on the first N utterances")
     ap.add_argument("--init-from", default=None,
                     help="fresh run only: start from this checkpoint's model weights (and CMVN)")
+    ap.add_argument("--init-sha256", help="registered raw seed checkpoint hash for sealed training")
+    ap.add_argument("--preflight-only", action="store_true",
+                    help="validate a fresh sealed start and write per-rank config receipts")
     ap.add_argument("--set", nargs="*", default=[], help="TrainConfig overrides key=value")
     ap.add_argument("--swap-weights", default=None,
                     help="resume only: replace the model weights by this checkpoint's (e.g. a weight "
@@ -887,6 +966,7 @@ def main(argv=None) -> int:
     if cfg.kd_weight > 0 and not cfg.kd_dir:
         raise ValueError("kd_weight > 0 needs kd_dir (the R0 teacher cache)")
     model_cfg = model_config_for(cfg)
+    objective_contract.validate(cfg, model_cfg)
     from train.chunks import check_plan
 
     check_plan(cfg, model_cfg)  # illegal chunks fail before step 0, not at their first draw
@@ -917,7 +997,7 @@ def main(argv=None) -> int:
                                 bpe_dropout_p=cfg.bpe_dropout_p, bpe_dropout_alpha=cfg.bpe_dropout_alpha,
                                 collate_ahead=cfg.collate_ahead, fact_aug=fact_aug_from_cfg(cfg),
                                 label_map=label_map_from_cfg(cfg))
-        dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every else None
+        dev = load_dev(cfg.dev_split, cfg.dev_limit, feat) if cfg.eval_every and not a.preflight_only else None
     from train.dist import broadcast_state, init_from_env
 
     dev_type = (a.device or ("cuda" if torch.cuda.is_available() else "cpu")).split(":")[0]
@@ -936,29 +1016,35 @@ def main(argv=None) -> int:
         print(json.dumps({"stream_ctx_s": cfg.stream_ctx_s, "stream_ctx_cap": cfg.stream_ctx_cap}), flush=True)
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
-    cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
-    with open(os.path.join(a.run_dir, cfg_name), "w") as fh:
-        json.dump({"train": asdict(cfg), "model": tr.model_cfg.to_dict(), "argv": sys.argv,
-                   "threads": torch.get_num_threads(), "params": tr.model.num_params(),
-                   "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256},
-                   "world": world}, fh, indent=1)
+    existing = checkpoint.latest(a.run_dir)
+    if a.preflight_only and (not cfg.seal_data_identity or existing):
+        ap.error("--preflight-only requires a fresh sealed run directory")
+    if cfg.seal_data_identity:
+        if a.swap_weights or (existing and a.init_from):
+            ap.error("sealed restart cannot replace the registered weights")
+        if not existing and (not a.init_from or not a.init_sha256):
+            ap.error("fresh sealed training requires --init-from and --init-sha256")
 
     def on_signal(signum, frame):
         tr.stop_requested = True
 
     signal.signal(signal.SIGTERM, on_signal)
     signal.signal(signal.SIGINT, on_signal)
-    if tr.resume():
+    resumed = tr.resume()
+    if resumed:
         tr.log({"kind": "resume", "step": tr.step, "pos": tr.pos.to_dict()})
         if a.swap_weights:
             tr.log({"kind": "swap_weights", "step": tr.step, **swap_weights(tr.model, a.swap_weights)})
             tr.ema = None  # the EMA restarts from the swapped weights (no carry-over of the old line)
             tr.reset_watch()  # and the divergence guard re-arms on the new weights
     elif a.init_from:
-        p = checkpoint.load(a.init_from, restore_rng=False)
+        p = checkpoint.load(a.init_from, restore_rng=False, expected_sha256=a.init_sha256)
         from train.fact_hooks import load_init_state
 
+        if cfg.seal_data_identity and p.get("tokenizer_sha256") != tok_r.sha256:
+            raise CheckpointError("registered seed and current RNN-T tokenizer differ")
         load_init_state(tr.model, p["model"], ModelConfig.from_dict(p["model_config"]), tr.model_cfg)
+        tr.initial_checkpoint_sha256 = a.init_sha256
         tr.log({"kind": "start", "init_from": a.init_from, "init_step": p["step"],
                 "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
@@ -966,6 +1052,15 @@ def main(argv=None) -> int:
         tr.init_cmvn(cfg.cmvn_batches)
         tr.log({"kind": "start", "params": tr.model.num_params(), "device": str(tr.device),
                 "threads": torch.get_num_threads(), "precision": tr.precision})
+    cfg_name = "config.json" if rank == 0 else f"config.rank{rank}.json"
+    config = {"train": asdict(cfg), "model": tr.model_cfg.to_dict(), "argv": sys.argv,
+              "threads": torch.get_num_threads(), "params": tr.model.num_params(),
+              "tokenizers": {"rnnt": tok_r.sha256, "ctc": tok_c.sha256}, "world": world,
+              "rank": rank, "local_rank": local_rank, "device_type": tr.device.type,
+              "fresh_start": not resumed, **tr.identity_fields()}
+    checkpoint._fsync_write(os.path.join(a.run_dir, cfg_name), json.dumps(config, indent=1).encode() + b"\n")
+    if a.preflight_only:
+        return 0
     if world > 1:
         from train.dist import all_reduce_max
 

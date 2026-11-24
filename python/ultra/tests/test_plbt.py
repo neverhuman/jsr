@@ -181,3 +181,30 @@ def test_panel_self_check():
         o = run(PANEL, layout=layout)
         assert o["rows"] == 730 and o["kept"] >= 660 and o["worse"] == 0 and o["better"] >= 250
         assert o["kept_r0_wer"] > 3.5 and o["kept_label_wer"] <= bound, o
+
+
+def test_d7_roster_blocks_shared_speaker_book_and_missing_rows(tmp_path):
+    import hashlib
+
+    pa = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    from tools.plbt.audit_roster import audit
+    from train.label_map import LabelMap
+
+    frozen = tmp_path / "ids.tsv"
+    frozen.write_text("split\tcut_id\tspeaker\tstart\tduration\n"
+                      "test\tlarge/10/common_book/cut-1\t10\t0\t10\n")
+    sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
+    log = tmp_path / "access.txt"
+    shard = tmp_path / "train.parquet"
+    pq.write_table(pa.table({"id": ["good", "speaker", "book"],
+                             "src": ["small/20/other_book/r.flac", "small/10/other_book/r.flac",
+                                     "small/30/COMMON_BOOK/r.flac"]}), shard)
+    labels = LabelMap({"good": "HELLO"}, only=True, sha256="fixture")
+    assert audit(frozen, sha, log, labels, [shard])["pass"]
+    labels.texts.update(speaker="HELLO", book="HELLO", missing="HELLO")
+    receipt = audit(frozen, sha, log, labels, [shard])
+    assert (receipt["speaker_overlap_rows"], receipt["book_directory_overlap_rows"],
+            receipt["missing_training_rows"], receipt["pass"]) == (1, 1, 1, False)
+    assert len(log.read_text().splitlines()) == 2

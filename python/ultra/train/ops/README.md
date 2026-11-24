@@ -66,4 +66,30 @@ Check the full checkpoint and corpus digests on every host before a production
 resume. Validate the sampler cursor when changing the worker count. Use the
 trainer's step-boundary throttle for synchronized workers.
 
+## Preflighting a label-only comparison
+
+Use `seal_data_identity=true` and `label_map_only=1` in the registered trainer
+recipe. Pin the map with `label_map_sha256` and the raw seed with
+`--init-from PATH --init-sha256 SHA256`. Run the same recipe and rank layout
+with `--preflight-only` before the first optimizer step. Collect each arm's
+`config.json` and `config.rankN.json` files from the hosts that wrote them.
+
+From `python/ultra`, run:
+
+```sh
+../../.venv/bin/python -m train.data_identity /path/to/arm-a /path/to/arm-b
+```
+
+The comparison checks the raw seed, trainer source, effective optimizer and
+sampler settings, ordered shard and segment identities, and matched map UIDs.
+Archive the comparison JSON with the launch registration. The sealed checkpoint
+carries per-rank RNG, sampler cursor, and active helper state. Resume on the
+registered rank layout with the same recipe and omit `--init-from`.
+
+For a frozen Libriheavy confirmation roster, run
+`python -m tools.plbt.audit_roster --help` for the ID-only speaker and book
+directory check against the accepted TRAIN map. The check records access and
+consumes the TRAIN `id` and `src` columns. Keep the H52 metadata checks for
+canonical book identities and the registered TRAIN-only human-label audit.
+
 [trainer-pr]: https://github.com/neverhuman/jsr/pull/10

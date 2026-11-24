@@ -58,6 +58,7 @@ class Batch:
     active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
     ctx: torch.Tensor | None = None  # per-row prepended context frames (train.stream_ctx)
     anchor: torch.Tensor | None = None  # H48c (B, S) MFA anchor frames, -1 = none / padding
+    row_keep: torch.Tensor | None = None  # optional Boolean quality gate across all supervision
 
     @property
     def audio_seconds(self) -> float:
@@ -69,7 +70,29 @@ class Batch:
             self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
             kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
             active=self.active, ctx=self.ctx.to(device) if self.ctx is not None else None,
-            anchor=self.anchor.to(device) if self.anchor is not None else None)
+            anchor=self.anchor.to(device) if self.anchor is not None else None,
+            row_keep=self.row_keep.to(device) if self.row_keep is not None else None)
+
+    def supervised(self) -> Batch:
+        """Exclude rejected rows from every head and retain one collective-only dummy if empty."""
+        if self.row_keep is None:
+            return self
+        keep = self.row_keep.detach()
+        if keep.dtype != torch.bool or keep.shape != (len(self.uids),):
+            raise DataError("row_keep must have one Boolean per batch row")
+        rows = keep.nonzero(as_tuple=True)[0].tolist()
+        if len(rows) == len(self.uids):
+            return self
+        active = self.active and bool(rows)
+        rows = rows or [0]
+        return Batch(
+            [self.uids[i] for i in rows], [self.texts[i] for i in rows],
+            self.feats[rows], self.feat_lens[rows], self.rnnt[rows], self.rnnt_lens[rows],
+            self.ctc[rows], self.ctc_lens[rows],
+            kd=tuple(t[rows] for t in self.kd) if self.kd is not None else None,
+            active=active, ctx=self.ctx[rows] if self.ctx is not None else None,
+            anchor=self.anchor[rows] if self.anchor is not None else None,
+        )
 
 
 @dataclass(frozen=True)
