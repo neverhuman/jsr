@@ -508,3 +508,131 @@ fn rope_dwconv_and_stem_c1_are_bit_exact_with_scalar() {
         }
     }
 }
+
+/// R10 (`p7-weight-amortise`): 0-ULP bit-exact parity of multi-tile weight-reusing INT8 GEMM
+/// (`SignedQuad` fast + cold-pair `label 3:` + cold-single `label 5:`, `SignedPair`, `U128Pos`,
+/// `U127Neg`, and `ti == 0` vs `ti > 0` hot-L1d no-prefetch tiles) across `M = 1, 2, 3, 4, 7, 8,
+/// 16, 32, 64` against `scalar::gemm_i8`.
+#[test]
+fn gemm_i8_with_abs_weight_reuse_m1_to_m64_bit_exact_with_scalar() {
+    let Some(isa) = simd_isa_or_skip() else {
+        return;
+    };
+    assert_ne!(isa, Isa::Scalar);
+    let mut rng = Rng::new(0xA10_BEEF);
+
+    // 1. Standard zero-mean Gaussian-like & skewed activations across M = 1, 2, 3, 4, 7, 8, 16, 32, 64.
+    for &(n, k) in &[(37usize, 68usize), (384, 384), (1536, 384), (384, 1536)] {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 0.5);
+        let p = PackedI8::quantize(&w, n, k, Some(&b));
+        for &rows in &[1usize, 2, 3, 4, 7, 8, 16, 32, 64] {
+            for mode in 0..3 {
+                let mut x = rng.vec(rows * k, 3.0);
+                // Mode 0: heavy-outlier zero-mean (triggers SignedQuad on rows > 4)
+                // Mode 1: post-SiLU positive skew (triggers U128Pos + tile_u_quad_4)
+                // Mode 2: negative skew (triggers U127Neg + tile_u_quad_4)
+                for r in 0..rows {
+                    let row = &mut x[r * k..(r + 1) * k];
+                    match mode {
+                        0 => {
+                            // Spike one outlier so typical |a_q| ~ 18 -> 8*18 = 144 <= 258 (SignedQuad!)
+                            row[r % k] = 18.0;
+                        }
+                        1 => {
+                            for (j, v) in row.iter_mut().enumerate() {
+                                *v = if j % 31 == 0 { 12.0 } else { v.abs() * 0.1 };
+                            }
+                        }
+                        _ => {
+                            for (j, v) in row.iter_mut().enumerate() {
+                                *v = if j % 29 == 0 { -12.0 } else { -v.abs() * 0.1 };
+                            }
+                        }
+                    }
+                }
+                let mut a = vec![0i8; rows * p.kp];
+                let mut a_abs = vec![0u8; rows * p.kp];
+                let mut sa = vec![0.0f32; rows];
+                let mut ca = vec![0.0f32; rows];
+                for r in 0..rows {
+                    (sa[r], ca[r]) = quantize_row_with_abs(
+                        isa,
+                        &x[r * k..(r + 1) * k],
+                        &mut a[r * p.kp..r * p.kp + k],
+                        &mut a_abs[r * p.kp..r * p.kp + k],
+                        127,
+                    );
+                }
+                let mut o_ref = vec![0.0f32; rows * n];
+                let mut o_got = vec![0.0f32; rows * n];
+                gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o_ref);
+                gemm_i8_with_abs(isa, &p, &a, &a_abs, &sa, &ca, rows, &mut o_got);
+                for (i, (&u, &v)) in o_ref.iter().zip(&o_got).enumerate() {
+                    assert_eq!(
+                        u.to_bits(),
+                        v.to_bits(),
+                        "R10 mismatch mode={mode} rows={rows} n={n} k={k} idx={i}: {u} vs {v}"
+                    );
+                }
+            }
+        }
+    }
+
+    // 2. Adversarial +-127 weights exercising SignedQuad fast path, cold 2-pair label (`3:`),
+    //    cold 4-single label (`5:`), and K tail (1/2/3 extra groups) across M = 8, 16, 32, 64.
+    for &(rows, n, k) in &[
+        (8usize, 33usize, 68usize),
+        (16, 48, 72),
+        (32, 32, 76),
+        (64, 17, 128),
+    ] {
+        let w = rng.vec(n * k, 1.0);
+        let b = rng.vec(n, 0.5);
+        let mut p = PackedI8::quantize(&w, n, k, Some(&b));
+        for (i, v) in p.data.iter_mut().enumerate() {
+            *v = if i % 2 == 0 { 127 } else { -127 };
+        }
+        p.rebuild_mm();
+        let sa = rng.vec(rows, 0.1);
+        let ca = rng.vec(rows, 1.0);
+        let mut a = vec![0i8; rows * p.kp];
+        for r in 0..rows {
+            let row = &mut a[r * p.kp..(r + 1) * p.kp];
+            // Quad 0: exact SignedQuad boundary (6*32 + 2*33 = 258 <= 258 -> fast path)
+            for (kk, slot) in row.iter_mut().enumerate().take(16) {
+                let sign: i8 = if kk % 2 == 0 { 1 } else { -1 };
+                *slot = sign * if kk >= 12 { 33 } else { 32 };
+            }
+            // Quad 1: exceeds quad (259) but BOTH sub-pairs <= 258 (130 & 129 -> cold 2-pair `3:`)
+            for (kk, slot) in row.iter_mut().enumerate().take(32).skip(16) {
+                let sign: i8 = if kk % 2 == 0 { 1 } else { -1 };
+                *slot = sign * if kk >= 26 { 33 } else { 32 };
+            }
+            // Quad 2: exceeds sub-pair (259 -> cold 4-single `5:`, includes i8::MIN)
+            row[32] = i8::MIN;
+            row[33] = 127;
+            row[36] = -127;
+            row[37] = 127;
+            // Remaining quads: small values (<= 10) so bad_quads <= 33% -> stays in SignedQuad!
+            for (kk, slot) in row.iter_mut().enumerate().skip(48) {
+                let sign: i8 = if (kk + r) % 2 == 0 { 1 } else { -1 };
+                *slot = sign * ((kk + r) % 9) as i8;
+            }
+            // Tail element stress with i8::MIN
+            row[p.kp - 1] = i8::MIN;
+        }
+        let a_abs: Vec<u8> = a.iter().map(|v| v.unsigned_abs()).collect();
+        let mut o_ref = vec![0.0f32; rows * n];
+        let mut o_got = vec![0.0f32; rows * n];
+        gemm_i8(Isa::Scalar, &p, &a, &sa, &ca, rows, &mut o_ref);
+        gemm_i8_with_abs(isa, &p, &a, &a_abs, &sa, &ca, rows, &mut o_got);
+        for (i, (&u, &v)) in o_ref.iter().zip(&o_got).enumerate() {
+            assert_eq!(
+                u.to_bits(),
+                v.to_bits(),
+                "R10 signed_quad boundary mismatch rows={rows} n={n} k={k} idx={i}: {u} vs {v}"
+            );
+        }
+    }
+}
