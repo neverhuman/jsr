@@ -126,6 +126,19 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
     require(workers >= 1, "--workers must be >= 1")?;
     require(beam >= 1, "--beam must be >= 1")?;
     require(beam_max_symbols >= 1, "--beam-max-symbols must be >= 1")?;
+    require(
+        beam_margin.is_finite() && beam_margin >= 0.0,
+        "--beam-margin must be finite and >= 0",
+    )?;
+    require(
+        lm_weight.is_finite() && lm_weight >= 0.0,
+        "--lm-weight must be finite and >= 0",
+    )?;
+    require(
+        lodr_weight.is_finite() && lodr_weight >= 0.0,
+        "--lodr-weight must be finite and >= 0",
+    )?;
+    require(blank_penalty.is_finite(), "--blank-penalty must be finite")?;
     let (kind, bundle, wav_dir, output, trace_path) = match positional.as_slice() {
         [kind, bundle, wav_dir, output] => (kind, bundle, wav_dir, output, None),
         [kind, bundle, wav_dir, output, trace] => (kind, bundle, wav_dir, output, Some(trace)),
@@ -135,6 +148,27 @@ fn parse_args(args: &[String]) -> Result<CliArgs> {
         !(workers > 1 && trace_path.is_some()),
         "TRACE.jsonl is only supported with --workers 1",
     )?;
+    let has_native_decode_opts = chunk.is_some()
+        || beam > 1
+        || beam_max_symbols > 1
+        || beam_margin != 0.0
+        || lm_path.is_some()
+        || lm_weight != 0.0
+        || lodr_weight != 0.0
+        || blank_penalty != 0.0;
+    let is_native = matches!(kind.as_str(), "r1-engine-int8" | "r1-engine-fp32");
+    require(
+        is_native || !has_native_decode_opts,
+        "--chunk/--beam/--lm options are only supported with r1-engine-int8 and r1-engine-fp32",
+    )?;
+    if lm_path.is_some() {
+        require(lm_weight > 0.0, "--lm requires --lm-weight > 0")?;
+    } else {
+        require(
+            lm_weight == 0.0 && lodr_weight == 0.0 && blank_penalty == 0.0,
+            "--lm-weight/--lodr-weight/--blank-penalty require --lm",
+        )?;
+    }
     Ok(CliArgs {
         kind: kind.clone(),
         bundle: PathBuf::from(bundle),
@@ -173,6 +207,7 @@ fn load_native(cli: &CliArgs, precision: Precision) -> Result<Arc<dyn Backend>> 
         beam_max_symbols: cli.beam_max_symbols,
         beam_margin: cli.beam_margin,
         lm,
+        live_only: true,
     };
     Ok(Arc::new(NativeEngineBackend::load_with_config(
         &cli.bundle,
@@ -563,6 +598,33 @@ mod tests {
             "tr"
         ]))
         .is_err());
+        // Beam/LM flags must fail closed on non-native backends.
+        assert!(parse_args(&s(&["--beam", "4", "zipformer-int8", "m", "w", "o"])).is_err());
+        assert!(parse_args(&s(&[
+            "--lm",
+            "lm.ulm",
+            "--lm-weight",
+            "0.7",
+            "r1-ort-fp32",
+            "m",
+            "w",
+            "o"
+        ]))
+        .is_err());
+        // --lm with non-positive --lm-weight or orphan LM weights must fail closed.
+        assert!(parse_args(&s(&["--lm", "lm.ulm", "r1-engine-int8", "m", "w", "o"])).is_err());
+        assert!(parse_args(&s(&[
+            "--lm",
+            "lm.ulm",
+            "--lm-weight",
+            "0.0",
+            "r1-engine-int8",
+            "m",
+            "w",
+            "o"
+        ]))
+        .is_err());
+        assert!(parse_args(&s(&["--lm-weight", "0.7", "r1-engine-int8", "m", "w", "o"])).is_err());
     }
 
     #[test]

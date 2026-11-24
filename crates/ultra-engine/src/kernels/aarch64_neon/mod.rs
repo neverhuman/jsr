@@ -145,38 +145,6 @@ pub(crate) fn silu_inplace(x: &mut [f32]) {
     scalar::silu_inplace(&mut x[main..]);
 }
 
-pub(crate) fn tanh_add(a: &[f32], b: &[f32], out: &mut [f32]) {
-    let n = out.len();
-    assert!(a.len() == n && b.len() == n);
-    let one = V8::splat(1.0);
-    let neg2 = V8::splat(-2.0);
-    let main = n - n % 8;
-    let mut i = 0;
-    while i < main {
-        let x = V8::load(a, i).add(V8::load(b, i));
-        // SAFETY: register-only NEON ops.
-        let t = unsafe { V8(vabsq_f32(x.0), vabsq_f32(x.1)) };
-        let e = exp8(neg2.mul(t));
-        let y = one.sub(e).div(one.add(e));
-        // SAFETY: register-only NEON bitwise sign copy (`y | (x & -0.0)`).
-        let res = unsafe {
-            let sm = vdupq_n_u32(0x8000_0000);
-            let r0 = vreinterpretq_f32_u32(vorrq_u32(
-                vreinterpretq_u32_f32(y.0),
-                vandq_u32(vreinterpretq_u32_f32(x.0), sm),
-            ));
-            let r1 = vreinterpretq_f32_u32(vorrq_u32(
-                vreinterpretq_u32_f32(y.1),
-                vandq_u32(vreinterpretq_u32_f32(x.1), sm),
-            ));
-            V8(r0, r1)
-        };
-        res.store(out, i);
-        i += 8;
-    }
-    scalar::tanh_add(&a[main..], &b[main..], &mut out[main..]);
-}
-
 pub(crate) fn glu(a: &[f32], d: usize, out: &mut [f32]) {
     let one = V8::splat(1.0);
     let main = d - d % 8;

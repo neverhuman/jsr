@@ -312,32 +312,6 @@ fn gemm_i8_simd_is_bit_exact_including_extremes() {
 }
 
 #[test]
-fn tanh_add_simd_matches_scalar_bit_for_bit() {
-    let mut rng = Rng::new(42);
-    for n in [1usize, 7, 8, 9, 15, 16, 320, 323] {
-        let a = rng.vec(n, 4.0);
-        let b = rng.vec(n, 4.0);
-        let mut s_out = vec![0.0f32; n];
-        tanh_add(Isa::Scalar, &a, &b, &mut s_out);
-        for (&av, (&bv, &sv)) in a.iter().zip(b.iter().zip(&s_out)) {
-            let exact = (av + bv).tanh();
-            assert!(
-                (sv - exact).abs() < 1e-6,
-                "tanh_add accuracy n={n} x={} got={sv} exact={exact}",
-                av + bv
-            );
-        }
-        for isa in available_simd_isas() {
-            let mut v_out = vec![0.0f32; n];
-            tanh_add(isa, &a, &b, &mut v_out);
-            for (i, (&s, &v)) in s_out.iter().zip(&v_out).enumerate() {
-                assert_eq!(s.to_bits(), v.to_bits(), "{isa:?} n={n} idx={i}");
-            }
-        }
-    }
-}
-
-#[test]
 fn attend_head_simd_matches_scalar() {
     let isas = available_simd_isas();
     if isas.is_empty() {

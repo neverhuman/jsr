@@ -40,6 +40,11 @@ impl LiveCommitAsrStream {
         clock: StreamClock,
     ) -> Result<Self, StreamError> {
         live_cfg.validate()?;
+        if live_cfg.commit.ctc_weight > 0.0 && backend.engine.model.ctc_head.is_none() {
+            return Err(StreamError::Protocol(
+                "live commit ctc_weight > 0 requires a model loaded with ctc_head weights (disable NativeEngineLoadConfig::live_only)".into(),
+            ));
+        }
         let bid = backend.bundle_id();
         let eid = if cfg.model_config_id == "default-model-v1" {
             bid.as_str()

@@ -62,23 +62,6 @@ pub fn silu(x: f32) -> f32 {
     x / (1.0 + exp_approx(-x))
 }
 
-/// Cross-ISA `tanh(x)` built on [`exp_approx`]: `copysign((1 - exp(-2|x|)) / (1 + exp(-2|x|)), x)`.
-/// Bit-identical across scalar, AVX2 and NEON (`< 5e-7` max error vs `f32::tanh`).
-#[inline]
-pub fn tanh_approx(x: f32) -> f32 {
-    let t = x.abs();
-    let e = exp_approx(-2.0 * t);
-    let y = (1.0 - e) / (1.0 + e);
-    f32::from_bits(y.to_bits() | (x.to_bits() & 0x8000_0000))
-}
-
-pub fn tanh_add(a: &[f32], b: &[f32], out: &mut [f32]) {
-    assert!(a.len() == b.len() && a.len() == out.len());
-    for ((o, &av), &bv) in out.iter_mut().zip(a).zip(b) {
-        *o = tanh_approx(av + bv);
-    }
-}
-
 pub fn gemm_f32(w: &PackedF32, x: &[f32], rows: usize, out: &mut [f32]) {
     let (n, k) = (w.n, w.k);
     for p in 0..w.panels() {

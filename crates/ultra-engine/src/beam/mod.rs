@@ -123,13 +123,9 @@ pub(crate) struct Cand {
 }
 
 #[inline]
-fn fill_joiner_hid(isa: Isa, prec: Precision, ev: &[f32], dec: &[f32], dst: &mut [f32]) {
-    if prec == Precision::Int8 {
-        crate::kernels::tanh_add(isa, ev, dec, dst);
-    } else {
-        for ((o, &a), &b) in dst.iter_mut().zip(ev).zip(dec) {
-            *o = (a + b).tanh();
-        }
+fn fill_joiner_hid(ev: &[f32], dec: &[f32], dst: &mut [f32]) {
+    for ((o, &a), &b) in dst.iter_mut().zip(ev).zip(dec) {
+        *o = (a + b).tanh();
     }
 }
 
@@ -296,13 +292,7 @@ pub fn beam_chunk_with_lm(
                 let lim = if g { 1 } else { hyps.len() };
                 for (h, hy) in hyps[..lim].iter().enumerate() {
                     if ws.beam_row_map[map_base + h] == next_r {
-                        fill_joiner_hid(
-                            isa,
-                            prec,
-                            ev,
-                            &hy.dec,
-                            &mut hid[next_r * jn..(next_r + 1) * jn],
-                        );
+                        fill_joiner_hid(ev, &hy.dec, &mut hid[next_r * jn..(next_r + 1) * jn]);
                         next_r += 1;
                     }
                 }
@@ -402,8 +392,6 @@ pub fn beam_chunk_with_lm(
                         for (off_h, hy) in states[s].hyps[1..].iter().enumerate() {
                             if ws.beam_fb_row_map[fb_base + off_h] == next_fr as isize {
                                 fill_joiner_hid(
-                                    isa,
-                                    prec,
                                     ev,
                                     &hy.dec,
                                     &mut fb_hid[next_fr * jn..(next_fr + 1) * jn],

@@ -115,7 +115,7 @@ pub(super) fn is_confident_blank_margin(
         if k == blank || x < x_needed {
             continue;
         }
-        let eff = x - lodr_w * lodr_row[k] + lm_ub;
+        let eff = x - lodr_w * lodr_row.get(k).copied().unwrap_or(0.0) + lm_ub;
         if eff > best_nb {
             best_nb = eff;
             let diff = zb - best_nb;
@@ -130,7 +130,7 @@ pub(super) fn is_confident_blank_margin(
         let mut exact_best = f32::NEG_INFINITY;
         for (k, &x) in row.iter().enumerate() {
             if k != blank {
-                let eff = x - lodr_w * lodr_row[k] + lm_ub;
+                let eff = x - lodr_w * lodr_row.get(k).copied().unwrap_or(0.0) + lm_ub;
                 if eff > exact_best {
                     exact_best = eff;
                 }
@@ -193,7 +193,7 @@ pub(super) fn score_nonblank_lm(
                 }
                 let mut score = base + (x - lse);
                 if !lodr_row.is_empty() {
-                    score -= lodr_w * lodr_row[k];
+                    score -= lodr_w * lodr_row.get(k).copied().unwrap_or(0.0);
                 }
                 if score >= cands[beam - 1].score {
                     push_cand(cands, beam, Cand { score, h, k });
@@ -217,7 +217,7 @@ pub(super) fn score_nonblank_lm(
                 if k == blank || x < x_thresh {
                     continue;
                 }
-                let ub = base + (x - lse) - lodr_w * lodr_row[k];
+                let ub = base + (x - lse) - lodr_w * lodr_row.get(k).copied().unwrap_or(0.0);
                 if ub + lm_ub_term >= cutoff {
                     shortlist.push((ub, k));
                 }
@@ -249,7 +249,7 @@ pub(super) fn score_nonblank_lm(
             }
             let mut score = base + (x - lse);
             if !lodr_row.is_empty() {
-                score -= lodr_w * lodr_row[k];
+                score -= lodr_w * lodr_row.get(k).copied().unwrap_or(0.0);
             }
             if cands.len() < beam || score >= cands[beam - 1].score {
                 push_cand(cands, beam, Cand { score, h, k });
@@ -272,7 +272,7 @@ pub(super) fn score_nonblank_lm(
         }
         let mut ub = base + (x - lse);
         if !lodr_row.is_empty() {
-            ub -= lodr_w * lodr_row[k];
+            ub -= lodr_w * lodr_row.get(k).copied().unwrap_or(0.0);
         }
         ubs[k] = ub;
         if shortlist.len() < beam {

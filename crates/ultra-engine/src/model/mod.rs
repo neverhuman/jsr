@@ -364,6 +364,7 @@ impl Model {
     /// Load an `ultra.r1-weights/v1` directory for live streaming RNN-T decode, skipping auxiliary
     /// FP32 tensors that live decode never reads (`ctc_head`, plus `emb`/`pred_proj` when
     /// `pred_cache` is precomputed) so they never enter cold process `VmHWM`.
+    /// Callers requiring CTC rescoring (`ctc_weight > 0`) must use [`Model::load`] instead.
     pub fn load_live(root: &Path, verify_hashes: bool) -> Result<Self, EngineError> {
         Self::load_with_mode(root, verify_hashes, true)
     }
@@ -578,17 +579,6 @@ impl Model {
         model.refresh_blank_cert_i8();
         model.apply_qat_stem()?;
         Ok(model)
-    }
-
-    /// Release auxiliary FP32 weights that are unused during live streaming RNN-T decode
-    /// (`ctc_head`, plus `emb`/`pred_proj` when `pred_cache` already holds the exact precomputed
-    /// predictor projections). Bit-identical for `greedy_chunk` and `beam_chunk_with_lm`.
-    pub fn trim_unused_live_aux(&mut self) {
-        self.ctc_head = None;
-        if self.pred_cache.is_some() {
-            self.emb = Vec::new();
-            self.pred_proj = Linear::int8_only(1, 1, &[0.0]);
-        }
     }
 
     fn from_tensors(

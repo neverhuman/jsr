@@ -194,12 +194,8 @@ pub fn greedy_chunk(
                 let s = ws.active[r];
                 let e = &enc[(offs[s] + t) * jn..(offs[s] + t + 1) * jn];
                 let row = &mut hid[keep_gemm * jn..(keep_gemm + 1) * jn];
-                if prec == Precision::Int8 {
-                    crate::kernels::tanh_add(isa, e, &states[s].dec, row);
-                } else {
-                    for ((h, &ev), &dv) in row.iter_mut().zip(e).zip(&states[s].dec) {
-                        *h = (ev + dv).tanh();
-                    }
+                for ((h, &ev), &dv) in row.iter_mut().zip(e).zip(&states[s].dec) {
+                    *h = (ev + dv).tanh();
                 }
                 // Exact Cauchy-Schwarz blank-first certificate (0.000% error):
                 // if z_blank > upper_bound(z_{v != blank}), skip the V x J joiner GEMM.
