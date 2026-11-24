@@ -126,7 +126,7 @@ def test_weak_evidence_is_dropped():
 
 
 def test_index_and_runner_end_to_end(tmp_path):
-    pa = pytest.importorskip("pyarrow")
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     from tools.plbt.run_project import run
@@ -173,8 +173,8 @@ def test_index_and_runner_end_to_end(tmp_path):
     assert [a["decision"] for a in audit] == ["keep", "keep", "mismatch", "no_cut"] and audit[1]["tail_repair"] == 1
 
 
-@pytest.mark.skipif(not os.path.exists(PANEL), reason="needs the committed dev panel file")
 def test_panel_self_check():
+    assert os.path.exists(PANEL), "the committed dev panel file is required"
     from tools.plbt.sim_panel import run
 
     for layout, bound in (("one_cut", 0.10), ("own_cut", 0.05), ("whole", 0.05)):
