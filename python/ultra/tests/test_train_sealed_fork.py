@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import random
 from dataclasses import replace
 from pathlib import Path
@@ -55,7 +56,7 @@ def sources(tmp_path):
     return tmp_path
 
 
-def _trainer(root, name, *, map_name="r0", rank=0, world=1):
+def _trainer(root, name, *, map_name="r0", rank=0, world=1, device="cpu"):
     tok = Tokenizer(str(root / "tok.model"))
     path = root / (map_name + ".tsv")
     labels = LabelMap.load(path, hashlib.sha256(path.read_bytes()).hexdigest(), only=True)
@@ -73,7 +74,7 @@ def _trainer(root, name, *, map_name="r0", rank=0, world=1):
                       lower_blocks=1, middle_blocks=1, deep_blocks=1, up_blocks=1, final_blocks=1)
     model_cfg = replace(tiny, encoder=encoder, inter_ctc=True,
                         rnnt_loss="pruned", vocab_rnnt=tok.num_outputs, vocab_ctc=tok.num_outputs)
-    return Trainer(str(root / name), cfg, source, model_cfg, tokenizer=tok, device="cpu",
+    return Trainer(str(root / name), cfg, source, model_cfg, tokenizer=tok, device=device,
                    rank=rank, world=world, local_rank=rank, log=False)
 
 
@@ -143,45 +144,88 @@ def _train_steps(tr, n):
     return rows
 
 
-def _ddp_worker(rank, root):
+def _restart_worker(rank, root, use_cuda, world):
     torch.set_num_threads(1)
-    dist.init_process_group("gloo", init_method=(root / "gloo").as_uri(), rank=rank, world_size=2)
+    backend = "nccl" if use_cuda else "gloo"
+    device = f"cuda:{rank}" if use_cuda else "cpu"
+    if use_cuda:
+        torch.cuda.set_device(rank)
+        torch.backends.cudnn.deterministic = True
+    if world > 1:
+        dist.init_process_group(backend, init_method=(root / backend).as_uri(), rank=rank, world_size=world)
+
+    def build(name):
+        return _trainer(root, name, rank=rank, world=world, device=device)
+
+    def assert_tensor(left, right):
+        if use_cuda:
+            torch.testing.assert_close(left, right, rtol=1e-5, atol=1e-6)
+        else:
+            assert torch.equal(left, right)
+
     try:
-        a = _trainer(root, "uninterrupted", rank=rank, world=2)
+        a = build("uninterrupted")
         direct = _train_steps(a, 7)
         expected_rng = (random.random(), float(np.random.rand()), torch.rand(4))
-        b = _trainer(root, "interrupted", rank=rank, world=2)
+        expected_device_rng = torch.rand(4, device=device) if use_cuda else None
+        b = build("interrupted")
         head = _train_steps(b, 4)
-        dist.barrier()
-        c = _trainer(root, "interrupted", rank=rank, world=2)
+        if world > 1:
+            dist.barrier(device_ids=[rank] if use_cuda else None)
+        c = build("interrupted")
         assert c.resume() and c.pos == b.pos
         assert c.loss_trunc.history == b.loss_trunc.history
         tail = _train_steps(c, 3)
-        assert head + tail == direct
-        assert c.loss_trunc.history == a.loss_trunc.history
+        if use_cuda:
+            for actual, expected in zip(head + tail, direct, strict=True):
+                assert actual[:2] == expected[:2]
+                assert actual[2] == pytest.approx(expected[2], rel=1e-5, abs=1e-6)
+            assert list(c.loss_trunc.history) == pytest.approx(list(a.loss_trunc.history), rel=1e-5, abs=1e-6)
+        else:
+            assert head + tail == direct
+            assert c.loss_trunc.history == a.loss_trunc.history
         assert (random.random(), float(np.random.rand())) == expected_rng[:2]
         assert torch.equal(torch.rand(4), expected_rng[2])
+        if use_cuda:
+            assert torch.equal(torch.rand(4, device=device), expected_device_rng)
         for name, weight in a.model.state_dict().items():
-            assert torch.equal(weight, c.model.state_dict()[name]), name
-            assert torch.equal(a.ema[name], c.ema[name]), name
+            assert_tensor(weight, c.model.state_dict()[name])
+            assert_tensor(a.ema[name], c.ema[name])
         for (_, p), (_, q) in zip(a.model.named_parameters(), c.model.named_parameters(), strict=True):
             if p.grad is not None:
-                assert torch.equal(p.grad, q.grad)
+                assert_tensor(p.grad, q.grad)
         assert a.sched.state_dict() == c.sched.state_dict()
         for key, state in a.opt.state_dict()["state"].items():
             for field, value in state.items():
-                assert torch.equal(value, c.opt.state_dict()["state"][key][field])
+                assert_tensor(value, c.opt.state_dict()["state"][key][field])
     finally:
-        dist.destroy_process_group()
+        if world > 1:
+            dist.destroy_process_group()
 
 
 def test_pruned_uneven_rank_active_helper_resume(sources):
     pytest.importorskip("k2")
-    mp.spawn(_ddp_worker, args=(sources,), nprocs=2, join=True)
+    mp.spawn(_restart_worker, args=(sources, False, 2), nprocs=2, join=True)
     payload = checkpoint.load(checkpoint.latest(str(sources / "interrupted")), restore_rng=False)
     assert [r["layout"][0] for r in payload["objective_state"]["ranks"]] == [0, 1]
     assert payload["objective_state"]["ranks"][0]["truncation"]["history"] != (
         payload["objective_state"]["ranks"][1]["truncation"]["history"])
+
+
+@pytest.mark.skipif(os.environ.get("JSR_TEST_CUDA_RESTART") != "1",
+                    reason="launch only on reserved CUDA devices")
+def test_pruned_cuda_active_helper_resume(sources):
+    import k2  # noqa: F401  (the allocated proof must exercise real k2)
+
+    world = min(2, torch.cuda.device_count())
+    assert world, "CUDA restart witness requires an allocated CUDA device"
+    if world == 1:
+        _restart_worker(0, sources, True, 1)
+    else:
+        mp.spawn(_restart_worker, args=(sources, True, world), nprocs=world, join=True)
+    payload = checkpoint.load(checkpoint.latest(str(sources / "interrupted")), restore_rng=False)
+    assert len(payload["objective_state"]["ranks"]) == world
+    assert all("device_rng" in state["rng"] for state in payload["objective_state"]["ranks"])
 
 
 def test_sealed_resume_rejects_label_change_and_skips_globally_empty(sources):
