@@ -349,7 +349,10 @@ pub fn attend_head(
         dh > 0 && n > 0 && ring > 0 && ring.is_multiple_of(KT_TILE),
         "attend_head dims"
     );
-    let nk = segs[0].1 + segs[1].1;
+    let nk = segs[0]
+        .1
+        .checked_add(segs[1].1)
+        .expect("attend_head key count");
     assert!(
         nk > 0
             && segs
@@ -357,10 +360,20 @@ pub fn attend_head(
                 .all(|&(s, l)| s.checked_add(l).is_some_and(|e| e <= ring))
     );
     assert!(
-        kt.len() >= dh * ring && vals[0].len() == segs[0].1 * dh && vals[1].len() == segs[1].1 * dh
+        dh.checked_mul(ring).is_some_and(|len| kt.len() >= len)
+            && segs[0].1.checked_mul(dh) == Some(vals[0].len())
+            && segs[1].1.checked_mul(dh) == Some(vals[1].len())
     );
-    assert!(scores.len() >= n * nk && q.len() >= (n - 1) * q_stride + dh);
-    assert!(out.len() >= (n - 1) * o_stride + dh);
+    let strided_len = |stride| {
+        (n - 1)
+            .checked_mul(stride)
+            .and_then(|off| off.checked_add(dh))
+    };
+    assert!(
+        n.checked_mul(nk).is_some_and(|len| scores.len() >= len)
+            && strided_len(q_stride).is_some_and(|len| q.len() >= len)
+            && strided_len(o_stride).is_some_and(|len| out.len() >= len)
+    );
     match isa {
         #[cfg(target_arch = "x86_64")]
         Isa::Avx2Fma | Isa::Avx512Vnni

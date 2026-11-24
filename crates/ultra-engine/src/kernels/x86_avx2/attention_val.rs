@@ -34,7 +34,8 @@ unsafe fn accum_v2_4(
     let (mut b10, mut b11, mut b12, mut b13) = (a1[0], a1[1], a1[2], a1[3]);
     // SAFETY: caller ensures sc0.len() == sc1.len() == vseg.len() / dh and off + 32 <= dh.
     unsafe {
-        let mut vp = vseg.as_ptr().add(off);
+        // Empty segments and the final unused stride may fall outside the slice.
+        let mut vp = vseg.as_ptr().wrapping_add(off);
         for (&s0, &s1) in sc0.iter().zip(sc1) {
             let p0 = _mm256_set1_ps(s0);
             let p1 = _mm256_set1_ps(s1);
@@ -50,7 +51,7 @@ unsafe fn accum_v2_4(
             let v3 = _mm256_loadu_ps(vp.add(24));
             b03 = _mm256_fmadd_ps(p0, v3, b03);
             b13 = _mm256_fmadd_ps(p1, v3, b13);
-            vp = vp.add(dh);
+            vp = vp.wrapping_add(dh);
         }
     }
     *a0 = [b00, b01, b02, b03];

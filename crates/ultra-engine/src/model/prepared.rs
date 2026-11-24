@@ -219,6 +219,13 @@ impl Model {
             "activations": "per-row centred dynamic int8 at inference time (not stored)",
             "producer": "ultra-engine-prepare",
         });
+        if let Some(codes) = self
+            .int8_prepared
+            .as_ref()
+            .and_then(|pre| pre.codes.as_deref())
+        {
+            arch["int8"]["codes"] = serde_json::json!(codes);
+        }
         let pretty =
             serde_json::to_string_pretty(&arch).map_err(|e| EngineError::Format(e.to_string()))?;
         std::fs::write(out.join("arch.json"), pretty)?;
