@@ -84,7 +84,7 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     ord_s = f"{wer_rank}{'th' if 11 <= wer_rank % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(wer_rank % 10, 'th')}"
     fast_ref = f" (including streaming {_name(fast)} at {fmt(derived(fast)['wer'], 2)}%)" if (fast and derived(fast)["wer"] > h["wer"]) else ""
     beat_clause = (f", ranking {ord_s} of {len(all_panel_wers)} complete-panel systems "
-                   f"(beating {beaten_count} of {len(all_comp_wers)} public comparators{fast_ref})"
+                   f"(lower point-estimate WER than {beaten_count} of {len(all_comp_wers)} public comparators{fast_ref})"
                    if beaten_count else "")
     top_refs = [r for r in dict.fromkeys(x["id"] for x in (stream_best, best) if x)]
     top_rows = [r for r in others if r["id"] in top_refs]

@@ -12,10 +12,14 @@ import json
 import statistics
 
 from .common import RAW, PaperDataError, fmt, sha256_file, thousands
+from .evidence import presentation
 from .records import Records
 from .words import signed as _sg, tex
 
-REL_DIR = RAW / "release_v3"
+# Which receipts carry the release numbers; systems.json "release_receipts" overrides any key (v3.0.0 defaults).
+RECEIPTS_DEFAULT = {"dir": "release_v3", "verify": "rc1_release_row_verify.json", "parity": "rc1_int8_vs_pytorch.json",
+                    "panel": "14p_wer.json", "join_commit": "14p", "join_capacity": "14s", "isa_prefix": "v300",
+                    "label": "Isosyll v3.0.0"}
 JOINS = RAW / "opponents/bench-open-release/joins"
 OPP = RAW / "opponents"
 P73_AUDIO_S = 597.089875
@@ -42,10 +46,12 @@ def _jsonl(root: Path, rel: Path) -> list[dict]:
 
 def add_release(root: Path, rec: Records) -> dict:
     """Emit \\Rel* macros for our single winning release artifact (v3.0.0 RC1-EMA INT8) plus other-host comparators."""
-    ver_p = REL_DIR / "rc1_release_row_verify.json"
-    par_p = REL_DIR / "rc1_int8_vs_pytorch.json"
-    pwer_p = REL_DIR / "14p_wer.json"
-    j14p_p = JOINS / "14p.jsonl"
+    cfg = {**RECEIPTS_DEFAULT, **presentation(root).get("release_receipts", {})}
+    rel_dir = RAW / cfg["dir"]
+    ver_p = rel_dir / cfg["verify"]
+    par_p = rel_dir / cfg["parity"]
+    pwer_p = rel_dir / cfg["panel"]
+    j14p_p = JOINS / f"{cfg['join_commit']}.jsonl"
     ver = _json(root, ver_p)
     par = _json(root, par_p)
     pwer = _json(root, pwer_p)
@@ -63,7 +69,7 @@ def add_release(root: Path, rec: Records) -> dict:
                 workload=wl, workload_digest=dig, source=str(src))
 
     isa_dir = RAW / "exact_isa"
-    isa_summary = isa_dir / "v300-exact-isa.summary.json"
+    isa_summary = isa_dir / f"{cfg['isa_prefix']}-exact-isa.summary.json"
     isa_proof = ""
     if (root / isa_summary).is_file():
         evidence = _json(root, isa_summary)
@@ -74,7 +80,7 @@ def add_release(root: Path, rec: Records) -> dict:
         panel_ids = set()
         for mode, paths in groups.items():
             rows = [
-                _jsonl(root, isa_dir / f"v300-{mode}.{path}.predictions.jsonl")
+                _jsonl(root, isa_dir / f"{cfg['isa_prefix']}-{mode}.{path}.predictions.jsonl")
                 for path in paths
             ]
             ids = {row["id"] for row in rows[0]}
@@ -93,26 +99,26 @@ def add_release(root: Path, rec: Records) -> dict:
     # 730-utt DEV panel WER for v3.0.0 live (provisional text of 14p) from eval-lane's canonical 14p_wer.json
     lv = pwer["evidence_fields"]["live_provisional"]
     put("RelPanelLivePooled", fmt(lv["wer_pct"], 2), "% WER",
-        "Isosyll v3.0.0 live (c=4 greedy INT8), 730-utt DEV panel pooled", p_wl, pwer_dig, pwer_p, raw=lv["wer_pct"])
+        cfg["label"] + " live (c=4 greedy INT8), 730-utt DEV panel pooled", p_wl, pwer_dig, pwer_p, raw=lv["wer_pct"])
     put("RelPanelLiveClean", fmt(lv["wer_clean_pct"], 2), "% WER",
-        "Isosyll v3.0.0 live (c=4 greedy INT8), 730-utt DEV panel dev-clean", p_wl, pwer_dig, pwer_p,
+        cfg["label"] + " live (c=4 greedy INT8), 730-utt DEV panel dev-clean", p_wl, pwer_dig, pwer_p,
         raw=lv["wer_clean_pct"])
     put("RelPanelLiveOther", fmt(lv["wer_other_pct"], 2), "% WER",
-        "Isosyll v3.0.0 live (c=4 greedy INT8), 730-utt DEV panel dev-other", p_wl, pwer_dig, pwer_p,
+        cfg["label"] + " live (c=4 greedy INT8), 730-utt DEV panel dev-other", p_wl, pwer_dig, pwer_p,
         raw=lv["wer_other_pct"])
 
     # Full-DEV final (c=16 commit + M5/LODR beam-16)
     put("RelFullFinalPooled", fmt(ver["pooled_wer_pct"], 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) final pass (c=16 + M5/LODR beam-16), full DEV pooled", full_wl, ver_dig, ver_p,
+        cfg["label"] + " final pass (c=16 + M5/LODR beam-16), full DEV pooled", full_wl, ver_dig, ver_p,
         raw=ver["pooled_wer_pct"])
     put("RelFullFinalClean", fmt(ver["splits_wer_pct"]["dev-clean"], 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) final pass, full dev-clean", full_wl, ver_dig, ver_p,
+        cfg["label"] + " final pass, full dev-clean", full_wl, ver_dig, ver_p,
         raw=ver["splits_wer_pct"]["dev-clean"])
     put("RelFullFinalOther", fmt(ver["splits_wer_pct"]["dev-other"], 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) final pass, full dev-other", full_wl, ver_dig, ver_p,
+        cfg["label"] + " final pass, full dev-other", full_wl, ver_dig, ver_p,
         raw=ver["splits_wer_pct"]["dev-other"])
     put("RelFullFinalEdits", thousands(str(ver["edits"])), "edits",
-        "Isosyll v3.0.0 (RC1-EMA) final pass total word edits on full DEV", full_wl, ver_dig, ver_p,
+        cfg["label"] + " final pass total word edits on full DEV", full_wl, ver_dig, ver_p,
         raw=ver["edits"])
 
     # Full-DEV live (c=4 greedy INT8) and INT8-vs-FP32 parity
@@ -121,21 +127,21 @@ def add_release(root: Path, rec: Records) -> dict:
     other_l = 100.0 * eng["datasets"]["dev-other"]["wer"]
     pool_l = 100.0 * eng["pooled_wer"]
     put("RelFullLivePooled", fmt(pool_l, 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) live stream (c=4 greedy INT8), full DEV pooled", full_wl, par_dig, par_p, raw=pool_l)
+        cfg["label"] + " live stream (c=4 greedy INT8), full DEV pooled", full_wl, par_dig, par_p, raw=pool_l)
     put("RelFullLiveClean", fmt(clean_l, 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) live stream (c=4 greedy INT8), full dev-clean", full_wl, par_dig, par_p, raw=clean_l)
+        cfg["label"] + " live stream (c=4 greedy INT8), full dev-clean", full_wl, par_dig, par_p, raw=clean_l)
     put("RelFullLiveOther", fmt(other_l, 2), "% WER",
-        "Isosyll v3.0.0 (RC1-EMA) live stream (c=4 greedy INT8), full dev-other", full_wl, par_dig, par_p, raw=other_l)
+        cfg["label"] + " live stream (c=4 greedy INT8), full dev-other", full_wl, par_dig, par_p, raw=other_l)
     put("RelFullUtts", thousands(str(eng["utterances"])), "utterances",
         "Full LibriSpeech DEV utterance count", full_wl, par_dig, par_p, raw=eng["utterances"])
     cd = par["comparison"]["pooled_delta"]
     d_pp, lo_pp, hi_pp = 100.0 * cd["delta"], 100.0 * cd["lower"], 100.0 * cd["upper"]
     put("RelIntEightDelta", tex(_sg(d_pp, 3)), "pp WER",
-        "Isosyll v3.0.0 INT8 minus FP32 PyTorch pooled WER on full DEV", full_wl, par_dig, par_p, raw=d_pp)
+        cfg["label"] + " INT8 minus FP32 PyTorch pooled WER on full DEV", full_wl, par_dig, par_p, raw=d_pp)
     put("RelIntEightLo", tex(_sg(lo_pp, 3)), "pp WER",
-        "Isosyll v3.0.0 INT8 minus FP32 95% lower bound on full DEV", full_wl, par_dig, par_p, raw=lo_pp)
+        cfg["label"] + " INT8 minus FP32 95% lower bound on full DEV", full_wl, par_dig, par_p, raw=lo_pp)
     put("RelIntEightHi", tex(_sg(hi_pp, 3)), "pp WER",
-        "Isosyll v3.0.0 INT8 minus FP32 95% upper bound on full DEV", full_wl, par_dig, par_p, raw=hi_pp)
+        cfg["label"] + " INT8 minus FP32 95% upper bound on full DEV", full_wl, par_dig, par_p, raw=hi_pp)
 
     # 14p quiet-host commit-pass delay, revision rate, and package watts
     p50 = statistics.median(r["final_text_delay_ms"]["p50"] for r in j14p)
@@ -143,17 +149,17 @@ def add_release(root: Path, rec: Records) -> dict:
     rev = statistics.median(r["revised_pct"] for r in j14p)
     pkg = statistics.median(r["watts"]["per_stream_package_w"] for r in j14p)
     put("RelCommitDelayPfifty", fmt(p50, 0), "ms",
-        "Isosyll v3.0.0 commit-pass final-text delay after endpoint, median (14p)", p_wl, p14_dig, j14p_p, raw=p50)
+        cfg["label"] + " commit-pass final-text delay after endpoint, median (14p)", p_wl, p14_dig, j14p_p, raw=p50)
     put("RelCommitDelayPninetyFive", fmt(p95, 0), "ms",
-        "Isosyll v3.0.0 commit-pass final-text delay after endpoint, p95 (14p)", p_wl, p14_dig, j14p_p, raw=p95)
+        cfg["label"] + " commit-pass final-text delay after endpoint, p95 (14p)", p_wl, p14_dig, j14p_p, raw=p95)
     put("RelCommitRevisedPct", fmt(rev, 1), "%",
         "Share of panel utterances revised by the commit pass (14p)", p_wl, p14_dig, j14p_p, raw=rev)
     put("RelCommitPkgWatts", fmt(pkg, 2), "W",
-        "Isosyll v3.0.0 commit-pass package watts per stream, median of 3 (14p)", p_wl, p14_dig, j14p_p, raw=pkg)
+        cfg["label"] + " commit-pass package watts per stream, median of 3 (14p)", p_wl, p14_dig, j14p_p, raw=pkg)
 
     # Other-host complete-panel comparator (included in complete-panel WER rank, excluded from H1 speed/frontier)
     extras: dict[str, list[dict]] = {"complete": [], "subset": [], "capacity": []}
-    j14s_p = JOINS / "14s.jsonl"
+    j14s_p = JOINS / f"{cfg['join_capacity']}.jsonl"
     if (root / j14s_p).is_file():
         s14 = _jsonl(root, j14s_p)
         s14_dig = sha256_file(root / j14s_p)
@@ -166,18 +172,18 @@ def add_release(root: Path, rec: Records) -> dict:
                 continue
             busy = 100.0 * r["core_busy_fraction"]
             put(f"RelCap{tag}Busy", fmt(busy, 1), "% of one core",
-                f"Isosyll v3.0.0 live paced 1x, N={n} streams on one quiet Zen 2 core (14s)", s14_wl, s14_dig, j14s_p, raw=busy)
+                cfg["label"] + f" live paced 1x, N={n} streams on one quiet Zen 2 core (14s)", s14_wl, s14_dig, j14s_p, raw=busy)
             put(f"RelCap{tag}NetW", fmt(r["watts_per_stream_core"], 3), "W/stream (net core)",
-                f"Isosyll v3.0.0 live paced 1x, N={n} net core W/stream (14s)", s14_wl, s14_dig, j14s_p,
+                cfg["label"] + f" live paced 1x, N={n} net core W/stream (14s)", s14_wl, s14_dig, j14s_p,
                 raw=r["watts_per_stream_core"])
             put(f"RelCap{tag}GrossW", fmt(r["gross_watts_per_stream_core"], 3), "W/stream (gross core)",
-                f"Isosyll v3.0.0 live paced 1x, N={n} gross core W/stream (14s)", s14_wl, s14_dig, j14s_p,
+                cfg["label"] + f" live paced 1x, N={n} gross core W/stream (14s)", s14_wl, s14_dig, j14s_p,
                 raw=r["gross_watts_per_stream_core"])
             put(f"RelCap{tag}LagPfifty", fmt(r["lag_p50_ms"], 0), "ms",
-                f"Isosyll v3.0.0 live paced 1x, N={n} stable-word lag p50 (14s)", s14_wl, s14_dig, j14s_p,
+                cfg["label"] + f" live paced 1x, N={n} stable-word lag p50 (14s)", s14_wl, s14_dig, j14s_p,
                 raw=r["lag_p50_ms"])
             put(f"RelCap{tag}LagPninetyFive", fmt(r["lag_p95_ms"], 0), "ms",
-                f"Isosyll v3.0.0 live paced 1x, N={n} stable-word lag p95 (14s)", s14_wl, s14_dig, j14s_p,
+                cfg["label"] + f" live paced 1x, N={n} stable-word lag p95 (14s)", s14_wl, s14_dig, j14s_p,
                 raw=r["lag_p95_ms"])
             extras["capacity"].append({
                 "streams": n, "busy_pct": busy, "w_net": r["watts_per_stream_core"],

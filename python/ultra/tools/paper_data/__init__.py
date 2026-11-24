@@ -12,7 +12,7 @@ Outputs (docs/paper/data/ unless --out):
     metrics.tex      one \\newcommand per record; a missing value prints a red ?? and fails
     records.jsonl    every record: id, value, unit, label, configuration, workload, digest, source
     SOURCES.md       macro -> value -> label -> source table (only macros emitted for the paper)
-    cold_dev.csv, money_frontier.csv, money_layout.tex, money_readme.md, table_measured.tex, table_hardware.tex
+    cold_dev.csv, money_frontier.csv, money_layout.tex, money_readme.md, table_measured.tex, table_versus.tex, table_hardware.tex
 """
 
 from __future__ import annotations
@@ -51,6 +51,9 @@ from .records import Records, add_curated
 from .release import add_release
 from .reported import add_reported
 from .tables import hardware_table, measured_table
+from .versus import add_versus
+from .training import add_training
+from .candidate import add_candidate
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -67,8 +70,14 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     hero = hero_rows(rows)
     nemotron_note = nemotron_timing_note(rows)
     watts = add_money(rows, out, rec, facts["comparison"], hero, nemotron_note)
+    pres = presentation(root)
+    versus = add_versus(root, rows, pres.get("versus", {}), rec)
+    out["table_versus.tex"] = versus["table"]
+    add_training(root, rec, out)
+    add_candidate(root, rec, out)
     out["money_readme.md"] = readme_block(rows, facts, watts, extras, focused=bool(hero), nemotron_note=nemotron_note,
-                                          subtitle=rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else "")
+                                          subtitle=rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else "",
+                                          versus=versus, rec_rows=rec.rows, release=pres.get("release", "v3.0.0"))
     out["table_measured.tex"] = measured_table(rows, extras)
     out["table_hardware.tex"] = hardware_table(rows)
     out["metrics.tex"] = metrics_tex(rec)

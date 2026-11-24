@@ -1,0 +1,8 @@
+hop,run,init_step,end_step,audio_h,note
+1,A1_S_r0bpe_960h,0,49000,78969.98,LibriSpeech 960 h only
+2,H53_S2_small_w6,49000,10516,20504.52,+ Libri-Light small (R0 v1.1 labels)
+3,H53_S2b_medium,10516,21190,41442.86,+ medium; v3.0.0 (RC1) branches off at 10818
+4,H53_S3_large,21190,21927,42871.99,+ large tier A
+5,H53_S4a_v11_s7919,21927,41940,42355.32,v1.1 arm (W); logged to 41925; ~32 h of the last 15 steps unlogged
+6,H56_C_s7919_b2,41940,boundary,28099.28,H56 matched control
+7,H56_REGctl_s7919,boundary,43980,22619.51,RC2 = sampler-window boundary 43980

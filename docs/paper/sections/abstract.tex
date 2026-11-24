@@ -1,16 +1,20 @@
 \begin{abstract}
-Continuous speech recognition needs inexpensive, repeatable inference. \ultra{} \ReleaseVer{} pairs
-a streaming Conformer transducer with a native Rust runtime combining per-row INT8 quantisation,
-exact integer accumulation, and a portable log-mel front end. On full LibriSpeech DEV, greedy live
-INT8 changes pooled word error rate (WER) by \RelIntEightDelta{} percentage points relative to FP32
-PyTorch (95\% bootstrap bounds \RelIntEightLo{} to \RelIntEightHi{}), and cold live repetitions on
-the evaluated host produce identical transcripts. On a 730-utterance LibriSpeech development panel,
-we time three cold runs on one pinned Zen~2 core, including model load. \RelIsaProof{} \ColdAbstractLive{}
-\ColdAbstractZip{} In a separate paced replay on one core, sixteen live streams use
-\RelCapSixteenBusy\% of one core with a 95th-percentile stable-word lag of
-\RelCapSixteenLagPninetyFive\,ms. \ColdAbstractFinal{} \ColdAbstractMoreAcc{} Training adds
-Libri-Light audio pseudo-labelled by the Zipformer comparator; all results are exploratory and use development
-data.
+An always-on speech recogniser pays for every second of audio, speech or not, so its compute, memory
+and energy per stream matter as much as its word error rate (WER). \ultra{} \ReleaseVer{} pairs a
+compact streaming Conformer transducer with a pure-Rust engine built on per-row INT8 quantisation,
+exact integer accumulation and a portable log-mel front end. One prepared INT8 artifact serves two
+operating points. On the same 730 LibriSpeech development utterances and the same pinned Zen~2 core,
+the 160\,ms live stream delivers \VsSpeedXOne$\times$ the single-core throughput of streaming
+Zipformer INT8 at \VsEnergyPctOne\% of its active core energy and \VsRssPctOne\% of its memory, with
+half its chunk length; its pooled WER is \VsVerdictOne{} Zipformer's by \VsDeltaOne{} percentage
+points (paired one-sided 95\% bounds \VsLoOne{} to \VsHiOne). At utterance ends, a commit pass on the same
+weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's \ColdZipWer\% (paired bounds
+\VsLoTwo{} to \VsHiTwo), at \VsSpeedXTwo$\times$ its speed. Sixteen paced live streams share one core at
+\RelCapSixteenBusy\% load with a 95th-percentile stable-word lag of \RelCapSixteenLagPninetyFive\,ms.
+\RelIsaProof{} Greedy INT8 changes full-DEV pooled WER by \RelIntEightDelta{} percentage points relative to FP32 PyTorch
+(one-sided 95\% bounds \RelIntEightLo{} to \RelIntEightHi). Over \TrainTotalKh\,h of training audio, the model
+saturates on LibriSpeech 960\,h alone, and Zipformer-pseudo-labelled Libri-Light then lowers live WER
+by \TrainLiveGain{} points. A successor trained on \CandTrainKh\,h lowers live WER further but trails Zipformer by \CandLiveLmCDelta{} points on unselected data and missed its registered gates; we report it rather than release it. All results are exploratory and use development data only.
 \end{abstract}
 
 \begin{IEEEkeywords}

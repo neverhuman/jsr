@@ -1,0 +1,246 @@
+{
+  "schema": "ultra.release-policies/v1",
+  "release": "v3.1.0-rc2",
+  "frozen_utc": "2026-11-24T15:43:25Z",
+  "frozen_before_confirmatory_look": true,
+  "source_checkpoint": {
+    "name": "REGctl_boundary@43,980",
+    "path": "xbabe5:/home/ubuntu/jsr-data/seeds/W1/REGctl-boundary.pt",
+    "step": 43980,
+    "sha256": "fced0f51e98dad916eefaefda97ee7c0de3089dd1d1b12219852d82def40f56c",
+    "compat_check_ok": true,
+    "compat_pt_sha256": "7701134fbe21d93bbc87db079942abda78385325995d9441ba88bdb3a447e880",
+    "ema_as_model_sha256": "7a2145613d8f0c69a46e7d467f06cbe638f1266e99ce913d6bfc58afaa8608f7",
+    "ema_decay": 0.99984954,
+    "s_only_selection_receipt": "/mnt/xbabe3-external/jsr/runtime-lane/rc2_regctl_boundary_harvest/rc2_selection_summary.json",
+    "s_only_selection_sha256": "a7ab788603d95c4bfb988bf2661be07f6fe4c6e611c9852df8a71e430ace0f1c"
+  },
+  "model_bundle": {
+    "dir": "/mnt/xbabe3-external/jsr/release/v3.1.0/rc2/model",
+    "total_bytes": 59899842,
+    "self_contained": true,
+    "shipped_container_digests": {
+      "weights.int8.safetensors": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+      "arch.json": "9cbe50ed97ac4570445389ca71921d3fcd46acab9238cf98f47f52b68b85d875"
+    },
+    "verified_tensor_payload_audit": {
+      "tensor_payload_sha256": "e2df494db06db6c3fbc487fcdf096226e5c03024d4da3d6d537f3a47dcf5e1d9",
+      "audit_receipt": "freeze-payload-audit.json (sha256 756104a7...)",
+      "selection_time_digests": {
+        "weights.int8.safetensors": "863310e443a92fa0d3dcf49523155392f59ba3db9ab1398233a3e65a557be66a",
+        "arch.json": "3cae0fc68f7bbdaf6eab05baf88d105b2ed26199a20c554cf48d88b39714e947",
+        "note": "same payload, different provenance header (derive_ema_ckpt.py embedded compat.pt abspath string)"
+      }
+    },
+    "files": {
+      "arch.json": {
+        "bytes": 9325,
+        "sha256": "9cbe50ed97ac4570445389ca71921d3fcd46acab9238cf98f47f52b68b85d875"
+      },
+      "bpe.model": {
+        "bytes": 244865,
+        "sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5"
+      },
+      "mel_fbank.f32": {
+        "bytes": 82240,
+        "sha256": "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439"
+      },
+      "tokens.txt": {
+        "bytes": 5044,
+        "sha256": "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1"
+      },
+      "weights.int8.safetensors": {
+        "bytes": 59558368,
+        "sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0"
+      }
+    },
+    "xbabe0_mirror": "xbabe0:/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/model_rc2"
+  },
+  "lms": {
+    "dir": "/mnt/xbabe3-external/jsr/release/v3.1.0/rc2/lms",
+    "files": {
+      "M5.ulm": {
+        "bytes": 334427094,
+        "sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982"
+      },
+      "c4_p0_0_10_40.v2.ulm": {
+        "bytes": 36195286,
+        "sha256": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e"
+      },
+      "c5_p0_0_2_9_18.v2.ulm": {
+        "bytes": 153932971,
+        "sha256": "5c5c8f6ad3ede33c7c6a099b77a3e4febb566b2c9fdc371adfc06c830f54fc5f"
+      }
+    }
+  },
+  "frozen_binaries_3bd85e9e": {
+    "commit": "3bd85e9e",
+    "dir": "/dev/shm/v31_bins_3bd85e9e",
+    "files": {
+      "ultra-engine-eval": {
+        "sha256": "f50e2d8826525b04de108f6958e4261aa86e72f292d0cbcf982952c3f70673e3"
+      },
+      "ultra-engine-commit": {
+        "sha256": "69abed7968b8dce2b5cf4b6e7604630af05f15563a408c06df2fc90d03f4e6f1"
+      },
+      "ultra-cold-wav": {
+        "sha256": "2f3f01af6dda7f1b4b7fe66b999a076d62c26117c87b61a965d8dd4301609848"
+      },
+      "ultra-engine-prepare": {
+        "sha256": "0bab5addb6a7188352395c383d9e0e5c4c3bd672653aef603f3cab21b5519f9e"
+      },
+      "ultra-measure": {
+        "sha256": "c53d73c9ee9412e3358c9ad24117c7d6c852b3b352a5bad5b203f4d4438d8d04"
+      },
+      "ultra-score": {
+        "sha256": "b760d225b5fcf3f80757b4b1b12fd640243f7b580b441e423d32b7c209d0e2d9"
+      },
+      "ultra": {
+        "sha256": "507b25824d7ce134735369a6be4bdb517435f5ae8c33f44ed85c4cc6e86a573a"
+      }
+    }
+  },
+  "scorer": {
+    "canonical_pinned_path": "/mnt/xbabe3-external/jsr/h45-wins/bin/ultra-score",
+    "canonical_pinned_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+    "frozen_3bd85e9e_scorer_sha256": "b760d225b5fcf3f80757b4b1b12fd640243f7b580b441e423d32b7c209d0e2d9",
+    "replicates": 10000,
+    "seed": 20261122,
+    "alpha": 0.05,
+    "interval_convention": "two one-sided 95% bounds (forming a central 90% interval)"
+  },
+  "manifests": {
+    "panel730": {
+      "path": "/home/ubuntu/jsr/docs/ultra/data/dev_selection_panel.json",
+      "sha256": "199c6843d857b13245c26596ff0b60a5828e46d2eb27beb752d0bee5a569ab5a",
+      "utterances": 730
+    },
+    "full_dev": {
+      "dev_clean_npz_sha256": "bfb27f5857411d7cea5fd8a307bab47793955425fbcb7ce5db5b428a919644b6",
+      "dev_other_npz_sha256": "2944dbff8f3f3158e1192143a4aa6e6b4205681efbb12f1d1fd1c433b21d03c8",
+      "utterances": 5567,
+      "dev_clean_utts": 2703,
+      "dev_other_utts": 2864
+    },
+    "baselines": {
+      "zipformer_int8_panel730": {
+        "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/r0-fulldev/R0-int8.panel730.score-input.jsonl",
+        "sha256": "ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113"
+      },
+      "zipformer_int8_fulldev": {
+        "path": "/mnt/xbabe3-external/jsr/evals/eval-lane/r0-fulldev/R0-int8.fulldev.score-input.jsonl",
+        "sha256": "a6dea4a37a8984ccf198b58eaa8c0a0e44e4f4e58d281cdd31fc6de022af5043"
+      },
+      "v300_live_fulldev": {
+        "path": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_pad320_fulldev/release_bb1071a_pad320_fulldev.provisional.score-input.jsonl",
+        "sha256": "33fed77bb4a101db29eccc7f83a132930342631d2d8f0b388980e8b83b9b5ac2"
+      },
+      "v300_final_fulldev": {
+        "path": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_pad320_fulldev/release_bb1071a_pad320_fulldev.committed.score-input.jsonl",
+        "sha256": "65fb4ddda953dc1192544bf420d9899462c00fc00e00a29733da253004fd8239"
+      }
+    }
+  },
+  "modes": {
+    "live_c4_greedy": {
+      "binary": "ultra-engine-eval",
+      "precision": "int8",
+      "chunk": 4,
+      "beam": 1,
+      "beam_max_symbols": 1,
+      "beam_margin": 0.0,
+      "lm": null,
+      "lm_weight": 0.0,
+      "lodr_weight": 0.0,
+      "blank_penalty": 0.0
+    },
+    "live_c4_lm": {
+      "binary": "ultra-engine-eval",
+      "precision": "int8",
+      "chunk": 4,
+      "beam": 4,
+      "beam_max_symbols": 1,
+      "beam_margin": 0.0,
+      "lm": "c4_p0_0_10_40.v2.ulm",
+      "lm_sha256": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e",
+      "lm_weight": 0.7,
+      "lodr_weight": 0.5,
+      "blank_penalty": 0.0
+    },
+    "live_c8_lm": {
+      "binary": "ultra-engine-eval",
+      "precision": "int8",
+      "chunk": 8,
+      "beam": 4,
+      "beam_max_symbols": 1,
+      "beam_margin": 0.0,
+      "lm": "c4_p0_0_10_40.v2.ulm",
+      "lm_sha256": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e",
+      "lm_weight": 0.7,
+      "lodr_weight": 0.5,
+      "blank_penalty": 0.0
+    },
+    "final_m5": {
+      "binary": "ultra-engine-commit",
+      "commit_chunk": 16,
+      "commit_beam": 16,
+      "beam_max_symbols": 1,
+      "beam_margin": 0.0,
+      "lm": "M5.ulm",
+      "lm_sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982",
+      "lm_scale": 0.8,
+      "lodr_scale": 0.6,
+      "tail_pad_ms": 320,
+      "token_bonus": 0.0
+    },
+    "final_lowmem": {
+      "binary": "ultra-engine-commit",
+      "commit_chunk": 16,
+      "commit_beam": 16,
+      "beam_max_symbols": 1,
+      "beam_margin": 0.0,
+      "lm": "c5_p0_0_2_9_18.v2.ulm",
+      "lm_sha256": "5c5c8f6ad3ede33c7c6a099b77a3e4febb566b2c9fdc371adfc06c830f54fc5f",
+      "lm_scale": 0.8,
+      "lodr_scale": 0.6,
+      "tail_pad_ms": 320,
+      "token_bonus": 0.0
+    }
+  },
+  "confirmatory_family_panel730": {
+    "correction": "Holm-Bonferroni step-down (m=3 primary claims, family-wise alpha=0.05)",
+    "claims": [
+      {
+        "id": 1,
+        "name": "live_c4_lm_non_inferior_to_zipformer",
+        "margin_pp": 0.5,
+        "rule": "one-sided upper bound (RC2 live_c4_lm - Zipformer INT8) <= +0.50 pp (+ live_c8_lm reported alongside)"
+      },
+      {
+        "id": 2,
+        "name": "final_m5_superior_to_zipformer",
+        "margin_pp": 0.0,
+        "rule": "one-sided upper bound (RC2 final_m5 - Zipformer INT8) < 0.0 pp (+ final_lowmem descriptively)"
+      },
+      {
+        "id": 3,
+        "name": "rc2_superior_to_v300_intersection_union",
+        "margin_pp": 0.0,
+        "rule": "Intersection-union test: p_claim3 = max(p_live_c4_greedy_vs_v300_live, p_final_m5_vs_v300_final) (+ c4_lm & c8_lm vs v3.0.0 reported alongside)"
+      }
+    ],
+    "panel_edit_targets": {
+      "le_5_0_pct_edits": 722,
+      "le_4_5_pct_edits": 650
+    }
+  },
+  "c8_1clip_parity_check": {
+    "uid": "2277-149896-0000",
+    "staged_name": "u00001.wav",
+    "cold_hyp": "HE WAS IN A FEVERED STATE OF MIND OWING TO THE BLIGHT HIS WIFE'S ACTION THREATENED TO CAST UPON HIS ENTIRE FUTURE",
+    "eval_hyp": "HE WAS IN A FEVERED STATE OF MIND OWING TO THE BLIGHT HIS WIFE'S ACTION THREATENED TO CAST UPON HIS ENTIRE FUTURE",
+    "s_harvest_c8_lm_hyp": "HE WAS IN A FEVERED STATE OF MIND OWING TO THE BLIGHT HIS WIFE'S ACTION THREATENED TO CAST UPON HIS ENTIRE FUTURE",
+    "exact_match_cold_vs_eval": true,
+    "exact_match_vs_s_harvest": true
+  }
+}

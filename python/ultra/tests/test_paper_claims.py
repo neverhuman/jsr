@@ -79,9 +79,8 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
     for must in ("Isosyll v3.0.0 (live)", "Isosyll v3.0.0 (final, seg.)", "29.1", "0.344",
-                 "Parakeet unified en q8 (stream 160 ms)", "Whisper.cpp Streaming Base",
-                 "Also measured, not ranked (subset WER, other hardware)", "2.30", "2.42", "7.74%",
-                 "in the quiet full-panel H1 cohort", "53.2%", "0.358 W/stream", "242/457 ms",
+                 "Head-to-head with Zipformer INT8", "inconclusive", "RC2 qualification record", "16 real-time live streams",
+                 "p95 stable-word lag 457 ms", "for all 15 open recognisers we measured",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.0.1.md"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     # Zero non-plotted legacy rows in cold_dev.csv
@@ -154,10 +153,10 @@ def test_readme_shows_the_current_figure_block():
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Read the paper](docs/paper/paper.pdf)" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
-    assert len(table) == _records()["ColdCompletePanelCount"]["raw"] + 1, (
-        "one line per complete-panel system, plus the header")
+    pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
+    assert len(table) == 2 + len(pairs), "head-to-head: header, the comparator, one line per paired mode"
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
-    assert labels == ["Accuracy", "Speed & memory", "Watts", "Integer-exact INT8"]
+    assert labels == ["Always-on at a fraction of the cost", "Final text from the same weights", "Bit-exact and portable"]
     layout = (DATA / "money_layout.tex").read_text()
     assert (r"\def\MoneyOursLegend{\shortstack[l]{Isosyll v3.0.0 (live)\\"
             "Isosyll v3.0.0 (final, seg.)}}") in layout

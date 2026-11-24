@@ -1,0 +1,391 @@
+{
+  "schema": "ultra.h45.release-v3-bb1071a-s2b-bp1-fulldev/v1",
+  "checkpoint": "H53_S2_S2b-BP1-ema",
+  "commit": "bb1071ad59e6b9b83fe8bfd42aea8c7d7e4384ff",
+  "binary": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a/ultra-engine-commit",
+  "binary_sha256": "9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2",
+  "scorer": "/mnt/xbabe3-external/jsr/h45-wins/bin/ultra-score",
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "model": "/mnt/xbabe3-external/jsr/opponents/bench-open/release-eval/exports/H53_S2_S2b-BP1-ema/int8",
+  "weights_int8_sha256": "3ddc1419a84511e220331158145c1ce439d969807486d20bf0b4e5b5f7f687d4",
+  "lm": "/mnt/xbabe3-external/jsr/lm/models/engine/M5.ulm",
+  "lm_sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982",
+  "params": {
+    "commit_chunk": 16,
+    "tail_pad_ms": 320,
+    "commit_beam": 16,
+    "lm_scale": 0.8,
+    "lodr_scale": 0.6,
+    "token_bonus": 0.0,
+    "max_sym_per_frame": 1,
+    "commit_max_audio_s": 40.0,
+    "threads": 1
+  },
+  "run_meta": {
+    "checkpoint": "H53_S2_S2b-BP1-ema",
+    "utterances": 5567,
+    "shards": 48,
+    "max_workers": 48,
+    "pcm_truncated_count": 0,
+    "wall_total_s": 556.7,
+    "finished_utc": "2026-11-23T14:24:57Z"
+  },
+  "utterances_full": 5567,
+  "utterances_c": 2785,
+  "pcm_truncated_count": 0,
+  "total_audio_s": 37832.39,
+  "revised_full": 2472,
+  "revised_full_pct": 44.4,
+  "revised_c": 1254,
+  "revised_c_pct": 45.03,
+  "full_dev": {
+    "s2b_bp1_committed": {
+      "dev-clean": {
+        "wer": 2.9347,
+        "edits": 1605,
+        "S": 1292,
+        "D": 180,
+        "I": 133,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 8.2141,
+        "edits": 4219,
+        "S": 3322,
+        "D": 493,
+        "I": 404,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 5.4915,
+        "edits": 5824,
+        "S": 4614,
+        "D": 673,
+        "I": 537,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "s2b_bp1_provisional": {
+      "dev-clean": {
+        "wer": 4.0317,
+        "edits": 2205,
+        "S": 1798,
+        "D": 212,
+        "I": 195,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 11.3564,
+        "edits": 5833,
+        "S": 4687,
+        "D": 611,
+        "I": 535,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 7.5792,
+        "edits": 8038,
+        "S": 6485,
+        "D": 823,
+        "I": 730,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "b0_release_bb1071a": {
+      "dev-clean": {
+        "wer": 3.2364,
+        "edits": 1770,
+        "S": 1424,
+        "D": 181,
+        "I": 165,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 9.1214,
+        "edits": 4685,
+        "S": 3685,
+        "D": 527,
+        "I": 473,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 6.0865,
+        "edits": 6455,
+        "S": 5109,
+        "D": 708,
+        "I": 638,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "s2_bp1_release_bb1071a": {
+      "dev-clean": {
+        "wer": 3.1577,
+        "edits": 1727,
+        "S": 1393,
+        "D": 180,
+        "I": 154,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 8.8157,
+        "edits": 4528,
+        "S": 3522,
+        "D": 550,
+        "I": 456,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 5.8979,
+        "edits": 6255,
+        "S": 4915,
+        "D": 730,
+        "I": 610,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "b0_int8_greedy": {
+      "dev-clean": {
+        "wer": 4.4614,
+        "edits": 2440,
+        "S": 1985,
+        "D": 225,
+        "I": 230,
+        "N": 54691,
+        "utts": 2703
+      },
+      "dev-other": {
+        "wer": 12.3299,
+        "edits": 6333,
+        "S": 5057,
+        "D": 669,
+        "I": 607,
+        "N": 51363,
+        "utts": 2864
+      },
+      "pooled": {
+        "wer": 8.2722,
+        "edits": 8773,
+        "S": 7042,
+        "D": 894,
+        "I": 837,
+        "N": 106054,
+        "utts": 5567
+      }
+    },
+    "s2b_bp1_minus_b0_release_pp": [
+      -0.595,
+      -0.7333,
+      -0.4638
+    ],
+    "s2b_bp1_minus_s2_bp1_release_pp": [
+      -0.4064,
+      -0.5147,
+      -0.2978
+    ],
+    "s2b_bp1_minus_b0_greedy_pp": [
+      -2.7807,
+      -3.1138,
+      -2.4602
+    ],
+    "s2b_bp1_committed_minus_provisional_pp": [
+      -2.0876,
+      -2.3715,
+      -1.815
+    ],
+    "s2b_bp1_provisional_minus_b0_greedy_pp": [
+      -0.693,
+      -0.8177,
+      -0.5734
+    ]
+  },
+  "c_half": {
+    "s2b_bp1_committed": {
+      "dev-clean": {
+        "wer": 2.9528,
+        "edits": 799,
+        "S": 637,
+        "D": 93,
+        "I": 69,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 7.4779,
+        "edits": 2004,
+        "S": 1612,
+        "D": 215,
+        "I": 177,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.2044,
+        "edits": 2803,
+        "S": 2249,
+        "D": 308,
+        "I": 246,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "s2b_bp1_provisional": {
+      "dev-clean": {
+        "wer": 4.0911,
+        "edits": 1107,
+        "S": 898,
+        "D": 110,
+        "I": 99,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 10.8213,
+        "edits": 2900,
+        "S": 2357,
+        "D": 292,
+        "I": 251,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 7.4399,
+        "edits": 4007,
+        "S": 3255,
+        "D": 402,
+        "I": 350,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "b0_release_bb1071a": {
+      "dev-clean": {
+        "wer": 3.2632,
+        "edits": 883,
+        "S": 705,
+        "D": 94,
+        "I": 84,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 8.5264,
+        "edits": 2285,
+        "S": 1798,
+        "D": 259,
+        "I": 228,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.8821,
+        "edits": 3168,
+        "S": 2503,
+        "D": 353,
+        "I": 312,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "s2_bp1_release_bb1071a": {
+      "dev-clean": {
+        "wer": 3.2448,
+        "edits": 878,
+        "S": 703,
+        "D": 92,
+        "I": 83,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 8.1384,
+        "edits": 2181,
+        "S": 1715,
+        "D": 264,
+        "I": 202,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 5.6798,
+        "edits": 3059,
+        "S": 2418,
+        "D": 356,
+        "I": 285,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "b0_int8_greedy": {
+      "dev-clean": {
+        "wer": 4.5124,
+        "edits": 1221,
+        "S": 977,
+        "D": 122,
+        "I": 122,
+        "N": 27059,
+        "utts": 1310
+      },
+      "dev-other": {
+        "wer": 11.9184,
+        "edits": 3194,
+        "S": 2552,
+        "D": 345,
+        "I": 297,
+        "N": 26799,
+        "utts": 1475
+      },
+      "pooled": {
+        "wer": 8.1975,
+        "edits": 4415,
+        "S": 3529,
+        "D": 467,
+        "I": 419,
+        "N": 53858,
+        "utts": 2785
+      }
+    },
+    "s2b_bp1_minus_b0_release_pp": [
+      -0.6777,
+      -0.9074,
+      -0.4707
+    ],
+    "s2b_bp1_minus_s2_bp1_release_pp": [
+      -0.4753,
+      -0.6066,
+      -0.3495
+    ],
+    "s2b_bp1_minus_b0_greedy_pp": [
+      -2.9931,
+      -3.5231,
+      -2.4887
+    ],
+    "s2b_bp1_provisional_minus_b0_greedy_pp": [
+      -0.7575,
+      -0.9637,
+      -0.5584
+    ]
+  },
+  "commit_wall_ms_p50_p95": [
+    994.5,
+    3410.9
+  ],
+  "files": {
+    "preds": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_s2b_bp1_fulldev/preds.jsonl",
+    "full_committed": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_s2b_bp1_fulldev/s2b_bp1_fulldev.committed.score-input.jsonl",
+    "full_provisional": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_s2b_bp1_fulldev/s2b_bp1_fulldev.provisional.score-input.jsonl",
+    "c_committed": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_s2b_bp1_fulldev/s2b_bp1_c_half.committed.score-input.jsonl",
+    "c_provisional": "/mnt/xbabe3-external/jsr/runtime-lane/release_bb1071a_s2b_bp1_fulldev/s2b_bp1_c_half.provisional.score-input.jsonl"
+  }
+}

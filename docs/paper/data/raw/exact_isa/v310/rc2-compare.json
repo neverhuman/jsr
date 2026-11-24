@@ -1,0 +1,339 @@
+{
+ "schema": "exact-isa.rc2-compare/v1",
+ "runs": [
+  {
+   "host": "m3ultra",
+   "run": "eval-default-c4-s1",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Apple M3 Ultra",
+   "binary_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+   "isa": "neon",
+   "streams": 1,
+   "errors": 0,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-default-c4-s16",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Apple M3 Ultra",
+   "binary_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+   "isa": "neon",
+   "streams": 16,
+   "errors": 0,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-default-c4lm-s1",
+   "policy": "live_c4_lm",
+   "cpu_model": "Apple M3 Ultra",
+   "binary_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+   "isa": "neon",
+   "streams": 1,
+   "errors": 0,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-default-c8lm-s1",
+   "policy": "live_c8_lm",
+   "cpu_model": "Apple M3 Ultra",
+   "binary_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+   "isa": "neon",
+   "streams": 1,
+   "errors": 0,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-scalar-c4-s1",
+   "status": "missing or failed"
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-scalar-c4-s16",
+   "status": "missing or failed"
+  },
+  {
+   "host": "m3ultra",
+   "run": "eval-scalar-c4lm-s1",
+   "status": "missing or failed"
+  },
+  {
+   "host": "m3ultra",
+   "run": "final-commit",
+   "policy": "final_m5",
+   "cpu_model": "Apple M3 Ultra",
+   "binary_sha256": "a39d9f02461aae358e54d270f55e83258d2068c7961b260efb9000d2d00b2a6e",
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx2fma-c4-s1",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx2fma-c4-s16",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 16,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx2fma-c4lm-s1",
+   "policy": "live_c4_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 800,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx2fma-c8lm-s1",
+   "policy": "live_c8_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 794,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx512vnni-c4-s1",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx512vnni",
+   "streams": 1,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx512vnni-c4-s16",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx512vnni",
+   "streams": 16,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx512vnni-c4lm-s1",
+   "policy": "live_c4_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx512vnni",
+   "streams": 1,
+   "errors": 800,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-avx512vnni-c8lm-s1",
+   "policy": "live_c8_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx512vnni",
+   "streams": 1,
+   "errors": 794,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-default-c4-s1",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-default-c4-s16",
+   "policy": "live_c4_greedy",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 16,
+   "errors": 900,
+   "chunk_beam_lm": [
+    1,
+    1,
+    false
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-default-c4lm-s1",
+   "policy": "live_c4_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 800,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "eval-default-c8lm-s1",
+   "policy": "live_c8_lm",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4646d54cf07f2790bdf006a975f22ccaece8b2652d75a2d960daf9be658f7114",
+   "isa": "avx2fma",
+   "streams": 1,
+   "errors": 794,
+   "chunk_beam_lm": [
+    1,
+    4,
+    true
+   ],
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  },
+  {
+   "host": "x6",
+   "run": "final-commit",
+   "policy": "final_m5",
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+   "binary_sha256": "4301b2e48b4d66734eae5e59dc6a2bc3c65116563cd4f4143677be277475f513",
+   "text_mismatches_vs_look": 0,
+   "first_mismatches": []
+  }
+ ],
+ "token_stream_sha256_by_policy": {
+  "live_c4_greedy": {
+   "m3ultra/eval-default-c4-s1": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "m3ultra/eval-default-c4-s16": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-avx2fma-c4-s1": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-avx2fma-c4-s16": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-avx512vnni-c4-s1": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-avx512vnni-c4-s16": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-default-c4-s1": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e",
+   "x6/eval-default-c4-s16": "0de2eece6f25f48cc93582ac79ec68545cc28d3a424feb0662b040f5096ca40e"
+  },
+  "live_c4_lm": {
+   "m3ultra/eval-default-c4lm-s1": "23fd659c616ec3130ed9b09efc416b2ac183b6d604a5ae133af6032d9e4ecd81",
+   "x6/eval-avx2fma-c4lm-s1": "23fd659c616ec3130ed9b09efc416b2ac183b6d604a5ae133af6032d9e4ecd81",
+   "x6/eval-avx512vnni-c4lm-s1": "23fd659c616ec3130ed9b09efc416b2ac183b6d604a5ae133af6032d9e4ecd81",
+   "x6/eval-default-c4lm-s1": "23fd659c616ec3130ed9b09efc416b2ac183b6d604a5ae133af6032d9e4ecd81"
+  },
+  "live_c8_lm": {
+   "m3ultra/eval-default-c8lm-s1": "9316e69035f2672a0c5e2e44fc0ffb4337db4596b5a22459edcc3d39a7771201",
+   "x6/eval-avx2fma-c8lm-s1": "9316e69035f2672a0c5e2e44fc0ffb4337db4596b5a22459edcc3d39a7771201",
+   "x6/eval-avx512vnni-c8lm-s1": "9316e69035f2672a0c5e2e44fc0ffb4337db4596b5a22459edcc3d39a7771201",
+   "x6/eval-default-c8lm-s1": "9316e69035f2672a0c5e2e44fc0ffb4337db4596b5a22459edcc3d39a7771201"
+  }
+ },
+ "token_identical_within_policy": {
+  "live_c4_greedy": true,
+  "live_c4_lm": true,
+  "live_c8_lm": true
+ }
+}

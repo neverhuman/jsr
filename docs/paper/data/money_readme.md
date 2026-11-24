@@ -4,44 +4,23 @@
 
 ![Isosyll: Always Listening, Barely Computing. Single-core throughput against pooled WER on the 730-utterance LibriSpeech DEV panel](docs/paper/money.png)
 
-**Figure 1.** One INT8 model on one quiet Zen 2 core: Isosyll v3.0.0 (live) runs at 29.1× (0.344 W, 6.85% WER); the final mode reaches 5.06% at 14.2× (0.720 W) vs. 14.5×, 5.25% for Zipformer INT8. The plot highlights four full-panel measurements. They use the same 730 LibriSpeech DEV utterances for WER and timing, with the median of three cold runs on one pinned Zen 2 core. The two Isosyll modes share one INT8 artifact. The final mode uses reference utterance boundaries. The broader comparison below identifies its different timing conditions. The speed axis is linear. Active core W per stream (core energy registers, same run), not device power. Nemotron 560 ms scores 3.56% WER on the same 730 utterances and runs at 2.38× in the separate quiet 73-clip timing test. [Read the paper](docs/paper/paper.pdf) for the full comparison figure · [v3.0.0 release record](docs/ultra/releases/v3.0.0.md).
+**Figure 1.** One INT8 model on one quiet Zen 2 core: Isosyll v3.0.0 (live) runs at 29.1× (0.344 W, 6.85% WER); the final mode reaches 5.06% at 14.2× (0.720 W) vs. 14.5×, 5.25% for Zipformer INT8. Same 730 LibriSpeech DEV utterances, one pinned Zen 2 core, median of three cold runs including model load. [Read the paper](docs/paper/paper.pdf) for all 15 open recognisers we measured, the protocol and the limits · [v3.0.0 release record](docs/ultra/releases/v3.0.0.md).
 
-Isosyll is a small streaming Conformer transducer and an integer-exact pure-Rust CPU engine. One prepared INT8 artifact (`v3.0.0`) provides two operating points on the exact same weights—both on the quiet full-panel H1 speed–WER Pareto frontier: in the quiet full-panel H1 cohort, **live** greedy 160 ms streaming is the fastest system on one CPU core (29.1× vs. 14.5× for Zipformer INT8, 2.0×), with the lowest active core W/stream (0.344 W vs. 0.591 W) and smallest footprint (74 MB vs. 153 MB) at 6.85% pooled panel WER; the utterance-segmented **final** commit pass (0.720 W, 725 MB) runs within 2% of Zipformer's single-core speed (14.2× utterance-segmented vs. 14.5× streaming) while lowering pooled WER (5.06% vs. 5.25%). Trained on LibriSpeech 960 h plus Libri-Light pseudo-labelled by R0 (the Zipformer comparator); all results are LibriSpeech DEV only.
+- **Always-on at a fraction of the cost.** The live stream runs 2.0× as fast as Zipformer INT8 on one core, 58% of its active core energy and 48% of its memory, with a 160 ms chunk against Zipformer's 320 ms, at 1.59 pp higher pooled WER (6.85% vs. 5.25%). 16 real-time live streams fit on one core at 53% busy (p95 stable-word lag 457 ms).
+- **Final text from the same weights.** At utterance ends, a commit pass with a 5-gram LM reaches 5.06% pooled WER, not significantly different from Zipformer's 5.25% (paired one-sided 95% bounds −0.53 to +0.14 pp), at 0.98× its single-core speed.
+- **Bit-exact and portable.** Exact int32 accumulation and a portable log-mel front end give identical live transcripts on the tested AVX2, AVX-512 VNNI and ARM NEON kernels and batch sizes (final text matches across the tested x86 and ARM CPUs), within 0.003 pp of FP32 PyTorch on full LibriSpeech DEV.
 
-See the [benchmark freeze protocol](docs/ultra/FREEZE.md).
+### Head-to-head with Zipformer INT8 (same 730 DEV utterances, same quiet Zen 2 core, cold, median of 3)
 
-- **Accuracy.** On the 730-utterance LibriSpeech DEV panel, Isosyll v3.0.0 (final, seg.) (utterance-segmented commit pass) scores 5.06% pooled WER (3.25% dev-clean / 7.65% dev-other), ranking 8th of 17 complete-panel systems (beating 8 of 15 public comparators (including streaming Zipformer INT8 at 5.25%)); Isosyll v3.0.0 (live) on the exact same INT8 weights scores 6.85% pooled. On full LibriSpeech DEV (5,567 utt), final text reaches 5.48% pooled (2.92% clean / 8.20% other; live 7.45%). Larger models score lower at higher CPU cost on their respective timing hosts (3.56% for Nemotron 560 ms and 3.36% for Parakeet TDT v3 (onnx-asr, offline)).
-- **Speed & memory.** Isosyll v3.0.0 (live) is the fastest system in the quiet full-panel H1 cohort at 29.1× real time (2.0× streaming Zipformer INT8) (3.4% of one quiet Zen 2 core, 74 MB peak RAM—smallest footprint vs. 153 MB for Zipformer INT8), against 14.5× for Zipformer INT8, 8.20× for Moonshine Tiny, 6.88× for Vosk Small, 6.69× for Parakeet TDT v3 (onnx-asr, offline), 5.92× for Parakeet TDT v3 (sherpa-onnx, offline), 4.13× for Vosk Large (quiet 73-clip timing), 2.38× for Nemotron 560 ms (quiet 73-clip timing), 0.91× for Whisper.cpp Tiny (quiet 73-clip timing) and 0.42× for Whisper.cpp Base (quiet 73-clip timing). Isosyll v3.0.0 (final, seg.) runs at 14.2× real time and 725 MB peak RAM (median final-text delay 211 ms after endpoint), within 2% of streaming Zipformer INT8's single-core speed (14.2× utterance-segmented vs. 14.5× streaming).
-- **Watts.** Unpaced active core W per stream on quiet H1: 0.344 W for Isosyll v3.0.0 (live) (58% of Zipformer INT8's active core energy) and 0.720 W (1.64 W package) for Isosyll v3.0.0 (final, seg.), against 0.591 W for Zipformer INT8, 1.077 W for Moonshine Tiny, 1.711 W for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513 W for Nemotron 560 ms (quiet 73-clip timing) (CPU domain only, not wall power).
-- **Integer-exact INT8.** Per-row centred INT8 with exact int32 accumulation and portable log-mel matches FP32 PyTorch on full DEV (5,567 utterances) within −0.003 pp (95% bounds −0.033 to +0.028 pp), with repeatable, batch-invariant execution.
+| | Live chunk | Pooled WER (%) | vs. Zipformer, paired one-sided 95% bounds (pp) | 1-core speed (× RT) | J per audio-second (active core) | Peak RSS (MB) |
+|---|---:|---:|---|---:|---:|---:|
+| Zipformer INT8 | 320 ms | 5.25 | — | 14.5 | 0.591 | 153 |
+| **Isosyll v3.0.0 (live)** | 160 ms | 6.85 | +1.59 [+1.27, +1.92], higher WER | 29.1 (2.01×) | 0.344 (58%) | 74 (48%) |
+| **Isosyll v3.0.0 (final, seg.)** | 160 ms live + commit at reference utterance ends | 5.06 | −0.19 [−0.53, +0.14], inconclusive | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
 
-Live transcripts are identical across tested AVX2, AVX-512 VNNI and NEON kernels and batch sizes. Final transcripts match between the tested x86 and ARM CPUs.
+Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); each bound is one-sided at 95% (together a central 90% interval) from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
 
-| System | Mode | 1-core cold speed (× RT) | WER rank | W/stream (active core, CPU domain) | dev-clean WER (%) | dev-other WER (%) | Pooled WER (%) | Peak RSS (MB) | Timing / Host |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| **Isosyll v3.0.0 (live)** | live streaming (greedy, 160 ms) | 29.1 ★ | 12/17 | 0.344 | 4.12 | 10.75 | 6.85 | 74 | H1: quiet H1, full 730 × 3 |
-| Zipformer INT8 | live streaming | 14.5 ★ | 9/17 | 0.591 | 3.03 | 8.43 | 5.25 | 153 | H1: quiet H1, full 730 × 3 |
-| **Isosyll v3.0.0 (final, seg.)** | streaming + commit (beam 16 + LM, seg.) | 14.2 ★ | 8/17 | 0.720 | 3.25 | 7.65 | 5.06 | 725 | H1: quiet H1, full 730 × 3 |
-| Moonshine Tiny Streaming | live streaming | 8.20 | 14/17 | 1.077 | 6.54 | 14.72 | 9.90 | 201 | H1: quiet H1, full 730 × 3 |
-| Vosk Small (en-us 0.15) | live streaming | 6.88 | 15/17 | — | 10.74 | 20.86 | 14.90 | 257 | H1: quiet H1, full 730 × 3 |
-| Parakeet TDT v3 (onnx-asr, offline) | offline (whole clip) | 6.69 ★ | 3/17 | — | 2.52 | 4.58 | 3.36 | 1684 | H1: quiet H1, full 730 × 3 |
-| Parakeet TDT v3 (sherpa-onnx, offline) | offline (whole clip) | 5.92 | 4/17 | 1.711 | 2.43 | 4.78 | 3.40 | 1403 | H1: quiet H1, full 730 × 3 |
-| Vosk Large (en-us 0.22) | live streaming | 4.13 | 13/17 | — | 5.97 | 12.85 | 8.80 | 7629 | H1: quiet H1, 73-utt subset timing |
-| Nemotron 0.6B (560 ms) | live streaming | 2.38 | 5/17 | 4.513 | 2.61 | 4.93 | 3.56 | 987 | H1: quiet H1, 73-utt subset timing |
-| Moonshine Small Streaming | live streaming | 2.02 | 10/17 | — | 3.98 | 8.73 | 5.93 | 476 | H0: shared-host timing (interim) |
-| Nemotron 0.6B (160 ms) | live streaming | 1.28 | 6/17 | — | 2.90 | 5.42 | 3.94 | 1287 | H0: shared-host timing (interim) |
-| Whisper.cpp Streaming Tiny | live streaming | 0.91 | 17/17 | — | 14.51 | 21.68 | 17.46 | 226 | H1: quiet H1, 73-utt subset timing |
-| Nemotron 3.5 (80 ms) | live streaming | 0.84 | 11/17 | — | 4.14 | 9.00 | 6.14 | 1277 | H0: shared-host timing (interim) |
-| Whisper.cpp Streaming Base | live streaming | 0.42 | 16/17 | — | 12.47 | 19.31 | 15.28 | 339 | H1: quiet H1, 73-utt subset timing |
-| Parakeet unified en q8 (stream 160 ms) | live streaming | — (Xeon ~13 CPU-s/s) | 7/17 | — | 3.25 | 5.70 | 4.26 | 1155 | other-host timing (M3 Ultra WER / Xeon speed, not ranked on H1 speed) |
-| Parakeet unified (whole clip) | offline (whole clip) | — | 1/17 | — | 1.89 | 2.88 | 2.30 | — | full-panel WER only |
-| Nemotron Labs unified (whole clip) | offline (whole clip) | — | 2/17 | — | 1.88 | 3.18 | 2.42 | — | full-panel WER only |
+**Next candidate, measured and not released.** RC2, trained on 276,863 h, lowers live WER against v3.0.0 by 1.31 points with the live LM, but trails Zipformer by 0.81 points on unselected DEV and made 5540 full-DEV final edits against a registered gate of 5489, so the signed release below stays the install target. [RC2 qualification record](docs/ultra/releases/v3.1.0-rc2.md).
 
-Sorted by 1-core Zen 2 cold speed descending (rows without matched H1 timing at bottom, not ranked on H1 speed). ★ marks the speed–WER Pareto frontier strictly over the quiet full-panel H1 cohort (Isosyll v3.0.0 (live), Zipformer INT8, Isosyll v3.0.0 (final, seg.), Parakeet v3 (onnx-asr)). WER rank is computed over all 17 complete-panel (730-utt) rows. Timing / Host: H1 is the quiet Zen 2 host (one timed system at a time, 3 rounds); H0 is a shared host (speed interim until quiet H1 rows arrive); subset-timed systems take WER from the full 730-utt panel. Watts are active core (CPU-domain) W per stream (`core_msr_active`, including the core idle floor), not board or wall power.
-
-**Also measured, not ranked (subset WER, other hardware):** Nemotron labs unified (stream 160 ms): 7.74% on `panel10` (Xeon 8358).
-
-**Always-on paced live capacity (quiet H1, one Zen 2 core, 128 s continuous stream of 22 DEV clips, `14s`):** 16 live `v3.0.0` streams paced at 1× fill 53.2% of one core at 0.358 W/stream net (0.364 W gross) core power and stable-word lag p50/p95 242/457 ms (1 stream: 6.2% busy, 0.487 W net, lag 190/420 ms; continuous-stream lag method, not directly ranked against per-clip `lag100` rows).
-
-Refresh with `just paper-refresh`.
+All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Larger offline and 600M-parameter streaming models (Parakeet, Nemotron) are more accurate at several times the CPU; see the paper. Refresh with `just paper-refresh`.
 <!-- money-plot:end -->

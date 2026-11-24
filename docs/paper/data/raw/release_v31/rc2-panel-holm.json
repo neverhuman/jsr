@@ -1,0 +1,92 @@
+{
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "seed": 20261122,
+  "replicates": 10000,
+  "family_alpha": 0.05,
+  "claims": [
+    {
+      "name": "rc2_versus_v300",
+      "components": [
+        {
+          "name": "live_versus_v300",
+          "a": "/dev/shm/rc2_v31/scores/baselines/v300_live.panel730.score-input.jsonl",
+          "b": "/dev/shm/rc2_v31/evals/live_c4_greedy.panel730.score-input.jsonl",
+          "a_sha256": "65b534cc2f18583c9218847f123b50d838ee8e5b9365c6e07404ae129dca523d",
+          "b_sha256": "b10a7f85cbb036e785cbc5334e80a3855bde7068a92385d08c3d2e3b7357e01b",
+          "utterances": 730,
+          "ref_words": 14448,
+          "edits_a": 1067,
+          "edits_b": 900,
+          "margin_pp": 0.0,
+          "delta_pp": -1.1558693244739757,
+          "one_sided_95_bounds_pp": [
+            -1.4689880304678993,
+            -0.8510034749308559
+          ],
+          "raw_p": 9.999000099990002e-05
+        },
+        {
+          "name": "final_versus_v300",
+          "a": "/dev/shm/rc2_v31/scores/baselines/v300_final.panel730.score-input.jsonl",
+          "b": "/dev/shm/rc2_v31/evals/final_m5.panel730.score-input.jsonl",
+          "a_sha256": "3309ae62a22e053e30a3e005a959cce5f31cc5c7d8a23b5a887efa986179a28d",
+          "b_sha256": "e6f7cbef5bde8850b8f11351633aae2dd90d84f4f2a117abcff58cc8253d839c",
+          "utterances": 730,
+          "ref_words": 14448,
+          "edits_a": 816,
+          "edits_b": 722,
+          "margin_pp": 0.0,
+          "delta_pp": -0.6506090808416396,
+          "one_sided_95_bounds_pp": [
+            -0.8984725965858038,
+            -0.4064470918009815
+          ],
+          "raw_p": 9.999000099990002e-05
+        }
+      ],
+      "raw_p": 9.999000099990002e-05,
+      "holm_p": 0.00029997000299970003,
+      "reject": true
+    },
+    {
+      "name": "live_versus_zipformer",
+      "a": "/dev/shm/rc2_v31/meta/R0-int8.panel730.score-input.jsonl",
+      "b": "/dev/shm/rc2_v31/evals/live_c4_lm.panel730.score-input.jsonl",
+      "a_sha256": "ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113",
+      "b_sha256": "3200dd65a30d33df0b1e06ab74583861194492bfd05b1d367bfed16ef429bcc0",
+      "utterances": 730,
+      "ref_words": 14448,
+      "edits_a": 759,
+      "edits_b": 800,
+      "margin_pp": 0.5,
+      "delta_pp": 0.28377630121816166,
+      "one_sided_95_bounds_pp": [
+        -0.019533793462690047,
+        0.5847119224187104
+      ],
+      "raw_p": 0.12008799120087991,
+      "holm_p": 0.1795820417958204,
+      "reject": false
+    },
+    {
+      "name": "m5_versus_zipformer",
+      "a": "/dev/shm/rc2_v31/meta/R0-int8.panel730.score-input.jsonl",
+      "b": "/dev/shm/rc2_v31/evals/final_m5.panel730.score-input.jsonl",
+      "a_sha256": "ecde35752e2ee49123782df2edee35803279ba2614cb76f96b07f1b3d4b37113",
+      "b_sha256": "e6f7cbef5bde8850b8f11351633aae2dd90d84f4f2a117abcff58cc8253d839c",
+      "utterances": 730,
+      "ref_words": 14448,
+      "edits_a": 759,
+      "edits_b": 722,
+      "margin_pp": 0.0,
+      "delta_pp": -0.25609080841638987,
+      "one_sided_95_bounds_pp": [
+        -0.5656819610307985,
+        0.04776200873362474
+      ],
+      "raw_p": 0.0897910208979102,
+      "holm_p": 0.1795820417958204,
+      "reject": false
+    }
+  ]
+}

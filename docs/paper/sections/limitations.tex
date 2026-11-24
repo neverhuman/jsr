@@ -3,6 +3,11 @@
 \para{Utterance-segmented final mode and memory.} \ColdLimitLive{} Shrinking LM memory
 (\LmPackMb\,MB on disk) and commit CPU without losing accuracy is active work.
 
+\para{Live accuracy.} The endpoint-free live stream trades accuracy for cost: its pooled panel WER
+is \VsVerdictOne{} streaming Zipformer INT8's by \VsDeltaOne\pp (paired one-sided 95\% bounds \VsLoOne{} to
+\VsHiOne\pp) at half its chunk length and \VsCpuPctOne\% of its CPU time. The measured successor (\cref{sec:candidate}) narrows but does not close this gap. Applications that need
+Zipformer-class text before an utterance ends should not assume the final-pass accuracy.
+
 \para{Training data and LM overlap.} \ultra{} \ReleaseVer{} is trained on LibriSpeech 960\,h plus
 Libri-Light pseudo-labelled by R0 (the Zipformer comparator). All evaluations use read English
 LibriSpeech DEV audio, which is in-domain for both \ultra{} and Zipformer; rankings on
