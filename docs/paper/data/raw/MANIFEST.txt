@@ -312,6 +312,8 @@ c628016f68f8e94d5d6ef08b3fd86b60d97df9c9021924e5648f01ebe06d0dc8  evidence_codex
 4aea2caa2f88c08a138cc64a9c235951a620ed25d8d6523cf5b2a6e061171f05  exact_isa/v300-live.zen2-avx2.predictions.jsonl  v3.0.0 live (greedy c4) on Zen 2, AVX2/FMA: ultra-cold-wav bc072957; binary sha256 bc0729578eebce8ba5e1594a2fb08e9f244f097329af601057154f77c2667897; exact-isa receipt /mnt/xbabe3-external/jsr/exact-isa/runs/H0/live-coldwav/receipt.json (2026-11-23)
 7f41cabdaf36f0070f127b301f2b2448531c5bd2867fe35596c54f9c4b512a06  exact_isa/v310/README.md  exact-isa RC2 witness (claude-lead), 3bd85e9 builds on Xeon 8358 + M3 Ultra
 c55b981b8e090aaeb829cacfb21336b48c950b9c2d71165e9a272bd60adf4f65  exact_isa/v310/rc2-compare.json  exact-isa RC2 witness (claude-lead), 3bd85e9 builds on Xeon 8358 + M3 Ultra
+49d41748f6bdebbf2d532e71310e2c301de8a5f495fca8cdb743c86dd9850726  exact_isa/v310/rc2-m3-transcript-audit.json  codex independent transcript audit
+041f91697f8e4fba4c23e55ccd7c6c25d7f453ae71aace9cac8ee36d33a267e3  exact_isa/v310/rc2-x6-transcript-audit.json  codex independent transcript audit
 4f0c6762ff9c9ccc30e65371ec43c64b20e352333a1189edfcf0c1fa5cdb8569  exact_isa/v310/rc2_compare.py  exact-isa RC2 witness (claude-lead), 3bd85e9 builds on Xeon 8358 + M3 Ultra
 94f3c9463dbbb097d617aba2aba94900d925b19061fae9db23346d3d60bdde9c  export/A1-20000-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-20000-ema/fulldev-int8/fulldev.pytorch-v-engine.json
 f04ecf58c45fe1f56026ec777c15e308a95487541a564310325f3d35d5476e94  export/A1-49000-ema.fulldev.pytorch-v-engine.json  /mnt/xbabe3-external/jsr/evals/eval-lane/export/A1-49000-ema/fulldev-int8/vs-pytorch.pytorch-v-engine.json

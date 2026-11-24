@@ -1,0 +1,65 @@
+{
+  "host": "Apple M3 Ultra",
+  "waveform_panel_sha256": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963",
+  "waveform_index_sha256": "8119965046158634fa3d465417b2af14be414cb64fac41e483cf1ad0b56a7085",
+  "complete": true,
+  "rows": {
+    "eval-default-c4-s1": {
+      "mode": "live_c4_greedy",
+      "mismatches": 0,
+      "utterances": 730,
+      "transcript_sha256": "d5911a6e30469a1bb58de55f9c70b20490bcdeba1201fc592fc6e96171feee53",
+      "tokens_sha256": "99f39c1643056ec39a9bbe952f524db3ac2ef354e5f7bd7cdf30d011f41df513",
+      "int8_prepared_sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+      "executable_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+      "isa": "neon",
+      "git_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+      "git_dirty": "false"
+    },
+    "eval-default-c4-s16": {
+      "mode": "live_c4_greedy",
+      "mismatches": 0,
+      "utterances": 730,
+      "transcript_sha256": "d5911a6e30469a1bb58de55f9c70b20490bcdeba1201fc592fc6e96171feee53",
+      "tokens_sha256": "99f39c1643056ec39a9bbe952f524db3ac2ef354e5f7bd7cdf30d011f41df513",
+      "int8_prepared_sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+      "executable_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+      "isa": "neon",
+      "git_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+      "git_dirty": "false"
+    },
+    "eval-default-c4lm-s1": {
+      "mode": "live_c4_lm",
+      "mismatches": 0,
+      "utterances": 730,
+      "transcript_sha256": "0f0bf9f88fdf7cf578a36885177677d75e55416b1b16c4a653f56165e0d16ee2",
+      "tokens_sha256": "1cd8966c64af726cff59f271d99142e30b970c221ac6fc9e6db582ba6f52c074",
+      "int8_prepared_sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+      "executable_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+      "isa": "neon",
+      "git_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+      "git_dirty": "false"
+    },
+    "eval-default-c8lm-s1": {
+      "mode": "live_c8_lm",
+      "mismatches": 0,
+      "utterances": 730,
+      "transcript_sha256": "1c90b29b4dc741576f404e89cbbb72f206c35bd1e0132834014085c0575bb1ba",
+      "tokens_sha256": "90b1e9f5354e9068ba9ede02abdaf3602ad928227f961949257643cb10328cbc",
+      "int8_prepared_sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+      "executable_sha256": "8f340062fed569945be851941eb672c9450196087ba31fb9ee5a300a5fd7b81a",
+      "isa": "neon",
+      "git_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+      "git_dirty": "false"
+    }
+  },
+  "final_m5": {
+    "mismatches": 0,
+    "transcript_sha256": "669e2a404a09bd51868cc2443d5ceb2d695cf759266c322e1435f4c5f1d284e0",
+    "utterances": 730,
+    "pcm_truncated_count": 0,
+    "commit_chunk": 16,
+    "commit_beam": 16,
+    "isa": "neon"
+  }
+}
