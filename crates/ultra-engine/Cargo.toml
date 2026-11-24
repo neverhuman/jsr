@@ -16,6 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
+tempfile = "3"
 # Process CPU time on hosts without /proc (macOS) for the eval/density binaries.
 nix = { version = "0.29", default-features = false, features = ["resource", "sched", "hostname"] }
 

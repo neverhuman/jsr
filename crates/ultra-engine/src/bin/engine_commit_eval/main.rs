@@ -1,14 +1,15 @@
 //! `ultra-engine-commit`: H45 / H55 dual-pass endpoint commit evaluator CLI.
 
 mod cli;
+mod output;
 
-use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Instant;
 
 use cli::{open_manifest, parse_args, Args};
+use output::open_output;
 use serde_json::{json, Value};
 use ultra_engine::commit::{
     CommitConfig, CommitLmConfig, CommitPassSession, CommitTfRescoreConfig, DEFAULT_SAMPLE_RATE,
@@ -79,10 +80,8 @@ fn run(a: &Args) -> Result<Value, String> {
         return Err("empty manifest".into());
     }
     let n_items = items.len();
-    if let Some(p) = a.out.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
-    }
-    let mut out = BufWriter::new(File::create(&a.out).map_err(|e| e.to_string())?);
+    let (file, pending) = open_output(&a.out).map_err(|e| e.to_string())?;
+    let mut out = BufWriter::new(file);
     let (mut tot_s, mut tot_prov, mut tot_commit) = (0.0, 0.0, 0.0);
     let (mut revised, mut truncated, mut cms) = (0usize, 0usize, Vec::with_capacity(n_items));
     while let Some(item) = items.next_item() {
@@ -131,6 +130,10 @@ fn run(a: &Args) -> Result<Value, String> {
     }
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;
     out.flush().map_err(|e| e.to_string())?;
+    drop(out);
+    if let Some(pending) = pending {
+        pending.persist(&a.out).map_err(|e| e.error.to_string())?;
+    }
     Ok(summary)
 }
 
@@ -279,7 +282,16 @@ mod tests {
             (id1.as_str(), pcm1.as_slice()),
             ("u1", &[10i16, -20, 30][..])
         );
+        std::fs::write(&args.out, "previous complete transcript").expect("prior output");
+        let (mut partial, pending) = open_output(&args.out).expect("stage output");
+        writeln!(partial, "{id1}").expect("first row");
         assert!(stream.next_item().expect("item 2").is_err());
+        drop(partial);
+        drop(pending);
+        assert_eq!(
+            std::fs::read_to_string(&args.out).expect("read prior output"),
+            "previous complete transcript"
+        );
         let _ = std::fs::remove_dir_all(&td);
     }
 }
