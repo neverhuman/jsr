@@ -175,7 +175,19 @@ pub(crate) fn silu_inplace(x: &mut [f32]) {
 #[target_feature(enable = "avx2,fma")]
 fn silu_avx2(x: &mut [f32]) {
     let one = _mm256_set1_ps(1.0);
-    let mut chunks = x.chunks_exact_mut(8);
+    let mut chunks16 = x.chunks_exact_mut(16);
+    for c in &mut chunks16 {
+        // SAFETY: c.len() == 16.
+        unsafe {
+            let v0 = _mm256_loadu_ps(c.as_ptr());
+            let v1 = _mm256_loadu_ps(c.as_ptr().add(8));
+            let y0 = _mm256_div_ps(v0, _mm256_add_ps(one, exp8(neg8(v0))));
+            let y1 = _mm256_div_ps(v1, _mm256_add_ps(one, exp8(neg8(v1))));
+            _mm256_storeu_ps(c.as_mut_ptr(), y0);
+            _mm256_storeu_ps(c.as_mut_ptr().add(8), y1);
+        }
+    }
+    let mut chunks = chunks16.into_remainder().chunks_exact_mut(8);
     for c in &mut chunks {
         // SAFETY: c.len() == 8.
         unsafe {
@@ -195,9 +207,24 @@ pub(crate) fn glu(a: &[f32], d: usize, out: &mut [f32]) {
 #[target_feature(enable = "avx2,fma")]
 fn glu_avx2(a: &[f32], d: usize, out: &mut [f32]) {
     let one = _mm256_set1_ps(1.0);
+    let main16 = d - d % 16;
     let main = d - d % 8;
     for (ar, or) in a.chunks_exact(2 * d).zip(out.chunks_exact_mut(d)) {
         let mut c = 0;
+        while c < main16 {
+            // SAFETY: c + 16 <= d, d + c + 16 <= 2 d = ar.len(), c + 16 <= or.len().
+            unsafe {
+                let v0 = _mm256_loadu_ps(ar.as_ptr().add(c));
+                let v1 = _mm256_loadu_ps(ar.as_ptr().add(c + 8));
+                let g0 = _mm256_loadu_ps(ar.as_ptr().add(d + c));
+                let g1 = _mm256_loadu_ps(ar.as_ptr().add(d + c + 8));
+                let s0 = _mm256_div_ps(one, _mm256_add_ps(one, exp8(neg8(g0))));
+                let s1 = _mm256_div_ps(one, _mm256_add_ps(one, exp8(neg8(g1))));
+                _mm256_storeu_ps(or.as_mut_ptr().add(c), _mm256_mul_ps(v0, s0));
+                _mm256_storeu_ps(or.as_mut_ptr().add(c + 8), _mm256_mul_ps(v1, s1));
+            }
+            c += 16;
+        }
         while c < main {
             // SAFETY: c + 8 <= d, d + c + 8 <= 2 d = ar.len(), c + 8 <= or.len().
             unsafe {
@@ -350,9 +377,17 @@ fn layer_norm_avx2(x: &[f32], d: usize, g: &[f32], b: &[f32], out: &mut [f32]) {
 }
 
 mod attention;
+mod attention_val;
 mod int8;
+mod int8_fast;
 mod int8_u7;
+mod ops_fast;
+mod quant_fast;
 
-pub(crate) use attention::{attention_scores, attention_values};
+pub(crate) use attention::attention_scores;
+pub(crate) use attention_val::attention_values;
 pub(crate) use int8::{gemm_i8, gemm_i8_panels, quantize_row};
+pub(crate) use int8_fast::gemm_i8_with_abs;
 pub(crate) use int8_u7::gemm_i8_u7;
+pub(crate) use ops_fast::{depthwise_conv_frame, rope_pair, stem_c1_pos};
+pub(crate) use quant_fast::quantize_row_with_abs;

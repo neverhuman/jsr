@@ -31,10 +31,17 @@ fn run() -> Result<String, String> {
     }
     let (w, out) = (w.ok_or("--weights required")?, out.ok_or("--out required")?);
     let mut m = Model::load(&w, true).map_err(|e| e.to_string())?;
-    if m.int8_prepared.is_some() {
-        return Err("input is already a prepared-INT8 directory".into());
+    if let Some(prep) = &m.int8_prepared {
+        if prep.self_contained {
+            return Err("input is already a self-contained slim INT8 directory".into());
+        }
+        if !skip.is_empty() && skip != prep.fp32_kinds {
+            return Err("--int8-fp32-kinds conflicts with input prepared-INT8 directory".into());
+        }
+        skip = prep.fp32_kinds.clone();
+    } else {
+        m.quantize_int8_where(|k, _| !skip.iter().any(|s| s == k));
     }
-    m.quantize_int8_where(|k, _| !skip.iter().any(|s| s == k));
     let sha = m
         .write_prepared_int8(&out, &skip)
         .map_err(|e| e.to_string())?;
@@ -43,11 +50,14 @@ fn run() -> Result<String, String> {
     if back.int8_prepared.as_ref().map(|p| &p.sha256) != Some(&sha) {
         return Err("verification load did not use the written artifact".into());
     }
-    Ok(
-        serde_json::json!({"out": out, "weights_int8_sha256": sha, "fp32_kinds": skip,
-        "source_weights_sha256": back.arch.weights_sha256})
-        .to_string(),
-    )
+    Ok(serde_json::json!({
+        "out": out,
+        "weights_int8_sha256": sha,
+        "fp32_kinds": skip,
+        "self_contained": true,
+        "source_weights_sha256": back.arch.weights_sha256
+    })
+    .to_string())
 }
 
 fn main() -> ExitCode {

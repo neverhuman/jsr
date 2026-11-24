@@ -574,6 +574,61 @@ pub fn gemm_i8_a7(
     }
 }
 
+/// [`quantize_row_q`] that also writes `out_abs[i] = out[i].unsigned_abs()` in the same pass
+/// (eliminates `vpabsb` from the Zen 2 AVX2 INT8 GEMM inner loop; bit-identical to `quantize_row_q`).
+pub fn quantize_row_with_abs(
+    isa: Isa,
+    x: &[f32],
+    out: &mut [i8],
+    out_abs: &mut [u8],
+    qmax: u8,
+) -> (f32, f32) {
+    assert_eq!(x.len(), out.len());
+    assert_eq!(x.len(), out_abs.len());
+    assert!((1..=127).contains(&qmax), "quantize_row qmax");
+    let qm = f32::from(qmax);
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => x86_avx2::quantize_row_with_abs(x, out, out_abs, qm),
+        _ => {
+            let res = quantize_row_q(isa, x, out, qmax);
+            for (oa, &q) in out_abs.iter_mut().zip(out.iter()) {
+                *oa = q.unsigned_abs();
+            }
+            res
+        }
+    }
+}
+
+/// [`gemm_i8`] using precomputed `a_abs` (`|a[i]|`) on AVX2+FMA (bit-identical to [`gemm_i8`]).
+#[allow(clippy::too_many_arguments)]
+pub fn gemm_i8_with_abs(
+    isa: Isa,
+    w: &crate::quant::PackedI8,
+    a: &[i8],
+    a_abs: &[u8],
+    sa: &[f32],
+    ca: &[f32],
+    rows: usize,
+    out: &mut [f32],
+) {
+    assert!(
+        rows.checked_mul(w.kp)
+            .is_some_and(|v| a.len() >= v && a_abs.len() >= v)
+            && rows.checked_mul(w.n).is_some_and(|v| out.len() >= v)
+            && sa.len() >= rows
+            && ca.len() >= rows,
+        "gemm_i8_with_abs lengths"
+    );
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma if isa.is_available() => {
+            x86_avx2::gemm_i8_with_abs(w, a, a_abs, sa, ca, rows, out)
+        }
+        _ => gemm_i8(isa, w, a, sa, ca, rows, out),
+    }
+}
+
 /// Element-wise `dst[i] = dst[i] + w[i] * src[i]` using exact IEEE-754 mul then add
 /// (no FMA rounding drift), bit-identical across Scalar, AVX2, and NEON.
 pub fn mul_add_exact(isa: Isa, dst: &mut [f32], src: &[f32], w: &[f32]) {
@@ -594,5 +649,79 @@ pub fn mul_add_exact(isa: Isa, dst: &mut [f32], src: &[f32], w: &[f32]) {
     }
 }
 
+/// Exact unfused RoPE rotation on pairs `(2i, 2i+1)` using `cs = [cos..., sin...]`.
+pub fn rope_pair(isa: Isa, v: &mut [f32], cs: &[f32]) {
+    let half = v.len() / 2;
+    assert!(v.len() == 2 * half && cs.len() >= 2 * half);
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => x86_avx2::rope_pair(v, cs),
+        _ => {
+            for i in 0..half {
+                let (c, s) = (cs[i], cs[half + i]);
+                let (x1, x2) = (v[2 * i], v[2 * i + 1]);
+                v[2 * i] = x1 * c - x2 * s;
+                v[2 * i + 1] = x1 * s + x2 * c;
+            }
+        }
+    }
+}
+
+/// Causal depthwise convolution for one frame across all `kernel` taps in exact IEEE-754
+/// unfused order `0..kernel` (0-ULP bit-identical to `mul_add_exact` per tap).
+#[allow(clippy::too_many_arguments)]
+pub fn depthwise_conv_frame(
+    isa: Isa,
+    out: &mut [f32],
+    bias: &[f32],
+    hist: &[f32],
+    cur: &[f32],
+    dw_w: &[f32],
+    frame_i: usize,
+    kernel: usize,
+    d: usize,
+) {
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx2::depthwise_conv_frame(out, bias, hist, cur, dw_w, frame_i, kernel, d)
+        }
+        _ => {
+            let km1 = kernel - 1;
+            out[..d].copy_from_slice(&bias[..d]);
+            for t in 0..kernel {
+                let pos = frame_i + t;
+                let src = if pos < km1 {
+                    &hist[pos * d..(pos + 1) * d]
+                } else {
+                    &cur[(pos - km1) * d..(pos - km1 + 1) * d]
+                };
+                mul_add_exact(isa, &mut out[..d], src, &dw_w[t * d..(t + 1) * d]);
+            }
+        }
+    }
+}
+
+/// Stem layer-1 3x3 conv + exact SiLU for one `(r, f)` spatial output (0-ULP bit-identical).
+pub fn stem_c1_pos(isa: Isa, out: &mut [f32], bias: &[f32], w: &[f32], x9: [f32; 9], ch: usize) {
+    match isa {
+        #[cfg(target_arch = "x86_64")]
+        Isa::Avx2Fma | Isa::Avx512Vnni if isa.is_available() => {
+            x86_avx2::stem_c1_pos(out, bias, w, x9, ch)
+        }
+        _ => {
+            out[..ch].copy_from_slice(&bias[..ch]);
+            for (t, &xv) in x9.iter().enumerate() {
+                for (ov, &wv) in out[..ch].iter_mut().zip(&w[t * ch..(t + 1) * ch]) {
+                    *ov += wv * xv;
+                }
+            }
+            silu_inplace(isa, &mut out[..ch]);
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests;
+#[cfg(test)]
+mod tests_fast;

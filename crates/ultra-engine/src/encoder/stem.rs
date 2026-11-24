@@ -50,17 +50,21 @@ pub(super) fn stem(
                     o.fill(0.0);
                     continue;
                 }
-                o.copy_from_slice(&m.c1_b);
-                for kh in 0..3 {
-                    for kw in 0..3 {
-                        let xv = j.feats[(2 * r + kh) * nm + 2 * f + kw];
-                        let t = kh * 3 + kw;
-                        for (ov, &wv) in o.iter_mut().zip(&m.c1_w[t * ch..(t + 1) * ch]) {
-                            *ov += wv * xv;
-                        }
-                    }
-                }
-                kernels::silu_inplace(isa, o);
+                let r0 = 2 * r * nm + 2 * f;
+                let r1 = (2 * r + 1) * nm + 2 * f;
+                let r2 = (2 * r + 2) * nm + 2 * f;
+                let x9 = [
+                    j.feats[r0],
+                    j.feats[r0 + 1],
+                    j.feats[r0 + 2],
+                    j.feats[r1],
+                    j.feats[r1 + 1],
+                    j.feats[r1 + 2],
+                    j.feats[r2],
+                    j.feats[r2 + 1],
+                    j.feats[r2 + 2],
+                ];
+                kernels::stem_c1_pos(isa, o, &m.c1_b, &m.c1_w, x9, ch);
             }
         }
         if j.state.c1_prev.len() == row_elems {

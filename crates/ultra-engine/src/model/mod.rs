@@ -15,6 +15,7 @@ mod arch_json;
 mod layers;
 pub use layers::QAT_STEM_KINDS;
 pub mod prepared;
+mod slim_int8;
 use arch_json::{bounded, file, verify, RawArch};
 
 pub const WEIGHTS_SCHEMA: &str = "ultra.r1-weights/v1";
@@ -405,7 +406,15 @@ impl Model {
         if e.chunk == 0 || e.left_context == 0 || e.conv_kernel < 2 {
             return Err(EngineError::Shape("chunk/left_context/conv_kernel".into()));
         }
-        let wfile = file(&raw, "weights")?;
+        let slim_int8 = raw.int8.as_ref().is_some_and(|i8| i8.self_contained);
+        let weights_sha256 = if slim_int8 {
+            raw.int8
+                .as_ref()
+                .map(|i8| i8.source_weights_sha256.clone())
+                .unwrap_or_default()
+        } else {
+            file(&raw, "weights")?.sha256.clone()
+        };
         let f1 = (e.n_mels - 3) / 2 + 1;
         let arch = Arch {
             n_mels: e.n_mels,
@@ -432,7 +441,7 @@ impl Model {
             ctx_init: de.ctx_init.clone(),
             log_floor: raw.features.log_floor,
             checkpoint_sha256: raw.source.checkpoint_sha256.clone(),
-            weights_sha256: wfile.sha256.clone(),
+            weights_sha256,
             qat_stem_int8: layers::qat_stem_int8(raw.model.config.qat_stem.as_deref())?,
         };
         if arch.blank >= arch.vocab || arch.ctx_init.iter().any(|&c| c >= arch.vocab) {
@@ -440,19 +449,37 @@ impl Model {
                 "blank_id / ctx_init out of vocabulary".into(),
             ));
         }
-        let st = LazyTensors::open(&verify(root, wfile, verify_hashes)?)?;
+        // Every declared payload verified exactly once (no duplicate SHA-256 passes).
+        let required_keys: &[&str] = if slim_int8 {
+            &["weights_int8", "tokens", "mel_fbank", "bpe"]
+        } else {
+            &["weights", "tokens", "mel_fbank", "bpe"]
+        };
+        for &key in required_keys {
+            file(&raw, key)?;
+        }
+        let mut verified = std::collections::BTreeMap::new();
+        for (key, f) in &raw.files {
+            if slim_int8 && key == "weights" {
+                continue;
+            }
+            verified.insert(key.as_str(), verify(root, f, verify_hashes)?);
+        }
+        let st_path = if slim_int8 {
+            &verified["weights_int8"]
+        } else {
+            &verified["weights"]
+        };
+        let st = LazyTensors::open(st_path)?;
         if st.metadata.get("checkpoint_sha256") != Some(&arch.checkpoint_sha256) {
             return Err(EngineError::Integrity(
-                "weights.safetensors metadata checkpoint_sha256 differs from arch.json".into(),
+                "safetensors metadata checkpoint_sha256 differs from arch.json".into(),
             ));
         }
-        let tokens = Arc::new(TokenTable::from_file(
-            &verify(root, file(&raw, "tokens")?, verify_hashes)?,
-            arch.vocab,
-        )?);
+        let tokens = Arc::new(TokenTable::from_file(&verified["tokens"], arch.vocab)?);
         let cmvn = GlobalCmvn::new(&raw.features.cmvn.mean, &raw.features.cmvn.istd)?;
         let mel_cfg = Arc::new(TrainerMelConfig::from_fbank_file(
-            &verify(root, file(&raw, "mel_fbank")?, verify_hashes)?,
+            &verified["mel_fbank"],
             arch.log_floor,
             cmvn,
         )?);
@@ -463,13 +490,6 @@ impl Model {
                 "arch.json cmvn (mean or istd) differs from weights".into(),
             ));
         }
-        // Every declared payload, including ones the engine never opens (bpe.model).
-        for key in ["weights", "tokens", "mel_fbank", "bpe"] {
-            file(&raw, key)?;
-        }
-        for f in raw.files.values() {
-            verify(root, f, verify_hashes)?;
-        }
         // Prepared int8: linear layers stored in the artifact never get fp32 weights in memory.
         let int8_only = |prefix: &str| -> bool {
             raw.int8.as_ref().is_some_and(|i8| {
@@ -478,8 +498,27 @@ impl Model {
         };
         let mut model = Self::from_tensors(arch, &st, root, mel_cfg, tokens, &int8_only)?;
         if let Some(i8) = &raw.int8 {
-            let path = verify(root, file(&raw, "weights_int8")?, verify_hashes)?;
-            model.load_prepared_int8(&path, i8)?;
+            let wf = file(&raw, "weights_int8")?;
+            let path = verified
+                .get("weights_int8")
+                .ok_or_else(|| EngineError::Format("arch.json has no files.weights_int8".into()))?;
+            let sha = if verify_hashes {
+                wf.sha256.clone()
+            } else {
+                arch_json::sha256_file(path)?
+            };
+            if slim_int8 {
+                let aux = slim_int8::aux_fp32_names(
+                    &model.arch,
+                    &i8.fp32_kinds,
+                    model.ctc_head.is_some(),
+                )
+                .len();
+                model.load_prepared_int8_from(&st, sha, i8, aux)?;
+            } else {
+                let st_i8 = LazyTensors::open(path)?;
+                model.load_prepared_int8_from(&st_i8, sha, i8, 0)?;
+            }
         }
         model.refresh_blank_cert_i8();
         model.apply_qat_stem()?;
