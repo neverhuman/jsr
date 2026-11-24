@@ -80,6 +80,51 @@ d12cf94a7aa5686bd662b50f29f4974319ed274f68e653c181536ac587b9a2ff  test-clean.npz
   - the LODR bigram in the same file, which is trained on the LibriSpeech 960 h transcripts (CC BY 4.0, above).
 - **Known overlap:** 42 of the 3,719 long DEV transcripts appear verbatim in this text. H42 found no measurable effect on the LM gain.
 
+## v3.1 training data (TRAIN only; approved by the owner's delegate 2026-11-24, not yet in a released model)
+Everything below is training input only. It is never used for evaluation. It must not enter a released model until that model's release record lists it with its attribution. VoxPopuli (§O15 above) stays an evaluation-only set and is **not** approved for training.
+
+### Libri-Light large, tier A subset (H53 S3 / S4a / H56 research runs), recorded 2026-11-24
+- **Source and rights:** as for Libri-Light small + medium above (LibriVox public domain; Libri-Light code MIT).
+- **Overlap:** the same H52 speaker / book checks against all four LibriSpeech dev / test sets.
+- **v1.1 R0-label manifest** in use (`large.s3`, 245 shards, about 1,867.6 h): `SHA256SUMS` `e6077dcba9b75b54faec78b5dc68403d1b42338c98d8959425cb670f7a8905fb`.
+
+### PL3 pseudo-labels (Nemotron Labs Unified ASR 0.6B), recorded 2026-11-24
+- **Labeller:** `nvidia/nemotron-labs-unified-asr-0.6b` at 023ce907, `.nemo` sha256 `1718cc1b44fb8597b2356328d706a8d89f31c389ca6f2256c2e3f743c0246936`.
+  - Licence OpenMDW-1.1: its outputs (transcripts and logits) are unrestricted.
+  - Text normaliser `pl3_text.py` sha256 `d4dc7b51596ec57b4c3992d73bfa70061c4cb819445f6406da54e28dc7c0fa0d`; label convention `pl3-nlu-v1`.
+- **Sealed label manifests:**
+  - small: 112,595 rows, 427.16 h, `SHA256SUMS` `1f9013b5428f142e94966ff1bc0e4430470e130bf6171021f57f3089925cfb53`;
+  - medium: 1,003,623 rows, 3,809.42 h, `SHA256SUMS` `01e69f3216885983268d3f45a9390f41de9a607eaa657ad1d6b9956b2ce65d3c`;
+  - tier A: recorded when sealed.
+- **Distribution:** the labels are not distributed.
+
+### MUSAN noise and music (OpenSLR 17, CC BY 4.0), recorded 2026-11-24
+- **Source:** https://www.openslr.org/17/. D. Snyder, G. Chen, D. Povey, "MUSAN: A Music, Speech, and Noise Corpus", 2015.
+- **Use:** the `music` and `noise` parts only, for additive-noise augmentation. The `speech` part is excluded because it includes LibriVox recordings.
+- **Staged set:** `cut10s`, 17,556 10-second WAVs, 48.264 h, `SHA256SUMS` `423c77beddfaf5efbfb69f2526b8c9dd081969228c9d9950684b52a49e92d2e0`.
+
+### Room impulse responses (OpenSLR 28, simulated subset, Apache 2.0), recorded 2026-11-24
+- **Source:** https://www.openslr.org/28/, `rirs_noises.zip` sha256 `3b50cfde915b3984738169b4beb341e9f6b8062ae4c2076146c5db71c2c05dc7`. T. Ko, V. Peddinti, D. Povey, M. L. Seltzer, S. Khudanpur, "A study on data augmentation of reverberant speech for robust speech recognition", ICASSP 2017.
+- **Use:** only the 60,000 `simulated_rirs`. The 325 `real_rirs` come from three other databases with their own terms and are excluded. The isotropic and point-source noises are also excluded.
+- **Manifest** (real vs simulated tagged): `manifest.jsonl` sha256 `ab0a2e87cfea772c81d3f6327d06b8761132fbff13a7aebc7bb66146e004a7fc`.
+
+### Multilingual LibriSpeech, English train (OpenSLR 94, CC BY 4.0), recorded 2026-11-24
+- **Source:** Hugging Face `parler-tts/mls_eng` at `faf6604dcf0bb9ec0d9c280a140ad74da9c931b0`, train split only. Manifest `mls_eng_full_train.json` sha256 `876a5e736076c95105a42ecfd24d2cf270613fbe33d92fa1b0d510027e8b9c17`. V. Pratap, Q. Xu, A. Sriram, G. Synnaeve, R. Collobert, "MLS: A Large-Scale Multilingual Dataset for Speech Research", Interspeech 2020.
+- **The audio is LibriVox**, like LibriSpeech and Libri-Light. So:
+  - **Excluded:** every chapter whose speaker, LibriVox project, Gutenberg ID or normalised title collides with any LibriSpeech dev / test set, plus MLS's own dev / test books: 7,795 chapters, 1,677.03 h.
+    - Audit `mls_overlap_verdict.json` sha256 `ee14e971a3a4b0c890c584a751271b230d9019f2e820f91615f74bcf398b6990`.
+    - Allow-list `allowed_train_pairs.tsv` sha256 `0bdecf4250c9f346ce03c7713aa2f05ad1edb0b541547f54f4ac92646920192c` (172,810 chapters, 42,982.72 h).
+  - **Before use, also dedupe** against the Libri-Light recordings already in training, by (speaker, LibriVox book), so the same audio isn't counted twice.
+- **Labels:** PL3 relabelling. MLS's own transcripts are not used as training targets.
+
+### People's Speech, `clean` CC-BY subset only (MLCommons), recorded 2026-11-24
+- **Source:** Hugging Face `MLCommons/peoples_speech` at `f10597c5d3d3a63f8b6827701297c3afdf178272`, `clean` train config. 804 shards, 1,501,271 utterances. Manifest `peoples_speech_clean_ccby_train.json` sha256 `15303e2def0322645bc0a8706dedad8009341d8607213d581b60ef40d05be38d`.
+- **Rights:** CC-BY 2.0 / 2.5 / 3.0 / 4.0 only, with attribution kept per utterance.
+  - The `clean_sa` (ShareAlike) and `dirty` configs are **not** approved.
+  - Its validation / test splits are excluded.
+- **Overlap:** rows whose source id names LibriVox are dropped, which avoids LibriSpeech audio coming in through Internet Archive.
+- **Use:** a separately registered arm only, after the audiobook data. Labels come from PL3 relabelling.
+
 ## Distribution of the v3 artifact (2026-11-23)
 - **Cleared by the owner (2026-11-23)** as GitHub release files:
   - the v3 INT8 weights;
