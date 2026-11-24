@@ -7,7 +7,12 @@
 % Lighter circles: interim points from shared host H0 until quiet-host H1 rows land.
 \input{figures/style.tex}%
 \input{\paperdatadir money_layout.tex}%
-\providecommand{\moneylabel}{}\providecommand{\moneyleader}{}\providecommand{\MoneyKey}{}\providecommand{\MoneyOursLine}{}\providecommand{\MoneyOursLegend}{ULTRA v3.0.0 (live / final)}%
+\providecommand{\moneyfullplot}{0}%
+\ifnum\numexpr\MoneyHeroOn-\moneyfullplot\relax>0\relax
+\resizebox{242pt}{!}{\input{figures/money_focused.tex}}%
+\else
+
+\providecommand{\moneylabel}{}\providecommand{\moneyleader}{}\providecommand{\MoneyKey}{}\providecommand{\MoneyOursLine}{}\providecommand{\MoneyOursLegend}{Isosyll v3.0.0 (live / final)}%
 \providecommand{\MoneySpeedGap}{}%
 \renewcommand{\moneylabel}[4]{\node[moneylabel, money#3] at ([xshift=#1pt, yshift=#2pt] rel axis cs:0,0) {#4};}%
 \renewcommand{\moneyleader}[4]{\draw[okInk!55, line width=0.3pt]
@@ -118,3 +123,5 @@
 \end{axis}
 \fi
 \end{tikzpicture}%
+
+\fi% MoneyHeroOn

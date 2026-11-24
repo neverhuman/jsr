@@ -445,3 +445,19 @@ def test_no_label_runs_under_a_frontier_system_and_ours_keeps_its_name():
             near = box[0] <= fx <= box[2] and not box[1] <= fy <= box[3]
             assert not (near and min(abs(fy - box[1]), abs(fy - box[3])) < 2 * labels_mod.LINE_PT), f"{i} runs under a frontier system"
     assert placed["r0-int8-zen2-t1"][0] is None, "the Zipformer, the frontier's other system, keeps its name"
+
+
+def test_hero_requires_matched_full_panel_cold_repetitions():
+    variants = ("rc1-ema-live", "rc1-ema-final", "r0-int8", "parakeet-v3-onnxasr-int8")
+    rows = [
+        _row(variant=variant, host="xbabe0", plot=True, interim=False, timing_panel="full")
+        for variant in variants
+    ]
+    assert set(money.hero_rows(rows)) == {"Live", "Final", "Zip", "Parakeet"}
+    for changes in (
+        {"timing_panel": "p73"},
+        {"interim": True},
+        {"workload_digest": "unmatched panel"},
+        {"cpu_reps": [0.2]},
+    ):
+        assert money.hero_rows([*rows[:-1], rows[-1] | changes]) == {}

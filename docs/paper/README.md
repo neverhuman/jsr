@@ -1,4 +1,4 @@
-# ULTRA paper (IEEE two-column, double-blind)
+# Isosyll paper (IEEE two-column, double-blind)
 
 `paper.tex` is the main file; `paper.pdf` is committed on purpose. All numbers are LibriSpeech DEV
 measurements generated deterministically from SHA-256-pinned receipts in `docs/paper/data/`.

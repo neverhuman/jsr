@@ -1,4 +1,4 @@
-"""Regenerate every number and figure table of the ULTRA paper from repo-tracked sources.
+"""Regenerate every number and figure table of the Isosyll paper from repo-tracked sources.
 
 Standard library only. Deterministic: sorted keys, fixed formatting, LF line endings.
 
@@ -45,7 +45,7 @@ from .compare import add_comparison
 from .evidence import presentation
 from .facts import add_facts
 from .macros import metrics_tex, records_jsonl, sources_md
-from .money import add_money
+from .money import add_money, hero_rows, nemotron_timing_note
 from .publish import publish_figure, readme_block
 from .records import Records, add_curated
 from .release import add_release
@@ -64,8 +64,10 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     headline = presentation(root).get("headline", {})
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
-    watts = add_money(rows, out, rec, facts["comparison"])
-    out["money_readme.md"] = readme_block(rows, facts, watts, extras,
+    hero = hero_rows(rows)
+    nemotron_note = nemotron_timing_note(rows)
+    watts = add_money(rows, out, rec, facts["comparison"], hero, nemotron_note)
+    out["money_readme.md"] = readme_block(rows, facts, watts, extras, focused=bool(hero), nemotron_note=nemotron_note,
                                           subtitle=rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else "")
     out["table_measured.tex"] = measured_table(rows, extras)
     out["table_hardware.tex"] = hardware_table(rows)

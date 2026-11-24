@@ -1,0 +1,67 @@
+\begin{tikzpicture}[
+  every node/.style={font=\sffamily\footnotesize,text=figink},
+  identity/.style={font=\sffamily\footnotesize\bfseries,inner sep=0pt},
+  metric/.style={font=\sffamily\scriptsize,text=figquiet,inner sep=0pt},
+  leader/.style={draw=figquiet!65,line width=.42pt},
+]
+\definecolor{figink}{HTML}{162C3B}%
+\definecolor{figquiet}{HTML}{506374}%
+\definecolor{figgrid}{HTML}{DFE7EC}%
+\definecolor{figblue}{HTML}{006DA6}%
+\definecolor{figwash}{HTML}{F0F6F9}%
+\begin{axis}[
+  name=matchedplot,
+  width=219pt,height=144pt,scale only axis,
+  xmode=linear,xmin=0,xmax=\HeroXmax,ymin=0,ymax=\HeroYmax,
+  xtick/.expanded=\HeroXticks,ytick={0,2,4,6,8},
+  xticklabel={\pgfmathprintnumber[fixed]{\tick}$\times$},
+  xlabel={Single-core throughput (\(\times\) real time)},
+  ylabel={Pooled word error rate (\%)},
+  tick align=outside,tick pos=left,major tick length=2pt,
+  axis line style={draw=figquiet,line width=.5pt},
+  tick style={draw=figquiet},
+  tick label style={font=\sffamily\scriptsize,text=figquiet},
+  label style={font=\sffamily\footnotesize,text=figink},
+  xlabel style={yshift=1pt},ylabel style={yshift=-1pt},
+  grid=major,grid style={draw=figgrid,line width=.35pt},
+]
+\draw[figquiet!40,densely dashed,line width=.48pt] (axis cs:1,0) -- (axis cs:1,\HeroYmax);
+\draw[figblue,line width=.65pt,{Stealth[length=3.8pt]}-{Stealth[length=3.8pt]}]
+  (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveX,\HeroArrowY)
+  node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput};
+\addplot[only marks,mark=*,mark size=2.1pt,figink] coordinates {(\HeroZipX,\HeroZipY)};
+\addplot[only marks,mark=o,mark size=2.25pt,figink,line width=.65pt] coordinates {(\HeroParakeetX,\HeroParakeetY)};
+\addplot[only marks,mark=diamond,mark size=2.55pt,figblue,line width=.78pt] coordinates {(\HeroFinalX,\HeroFinalY)};
+\addplot[only marks,mark=diamond*,mark size=3.3pt,figblue] coordinates {(\HeroLiveX,\HeroLiveY)};
+
+\draw[leader] (axis cs:\HeroZipX,\HeroZipY) -- (axis cs:16.3,5.45);
+\node[identity,anchor=south west] at (axis cs:16.6,5.47) {\HeroZipName};
+\node[metric,anchor=north west] at (axis cs:16.6,5.32) {\HeroZipSpeed$\times$ \enspace\textperiodcentered\enspace \HeroZipWer\% WER};
+
+\draw[leader] (axis cs:\HeroFinalX,\HeroFinalY) -- (axis cs:14.5,4.30);
+\node[identity,anchor=north west,text=figblue] at (axis cs:13.7,4.18) {\HeroFinalName};
+\node[metric,anchor=north west] at (axis cs:13.7,3.58) {\HeroFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroFinalWer\% WER};
+
+\draw[leader] (axis cs:\HeroParakeetX,\HeroParakeetY) -- (axis cs:6.0,2.67);
+\node[identity,anchor=north west] at (axis cs:2.9,2.56) {Parakeet TDT v3};
+\node[metric,anchor=north west] at (axis cs:2.9,1.99) {Whole clip (onnx-asr) \enspace\textperiodcentered\enspace \HeroParakeetSpeed$\times$ \enspace\textperiodcentered\enspace \HeroParakeetWer\% WER};
+
+\node[identity,anchor=south east,text=figblue] at (axis cs:32.9,6.99) {\HeroLiveName};
+\node[metric,anchor=north east] at (axis cs:33.2,6.54) {\HeroLiveSpeed$\times$ \enspace\textperiodcentered\enspace \HeroLiveWer\% WER};
+\end{axis}
+\node[anchor=south west,inner sep=0pt,font=\sffamily\bfseries\normalsize]
+  at ([xshift=-19pt,yshift=17pt]matchedplot.north west) {Throughput and accuracy on one CPU core};
+\node[anchor=south west,inner sep=0pt,font=\sffamily\scriptsize,text=figquiet]
+  at ([xshift=-19pt,yshift=7pt]matchedplot.north west) {730 LibriSpeech DEV utterances \enspace\textperiodcentered\enspace Quiet Zen~2 \enspace\textperiodcentered\enspace 3 cold runs};
+\ifnum\HeroHaveEnergy>0\relax
+\node[draw=figgrid,fill=figwash,rounded corners=1.5pt,anchor=north west,
+  inner xsep=6pt,inner ysep=4pt,font=\sffamily\scriptsize,text width=222pt]
+  at ([xshift=-19pt,yshift=-30pt]matchedplot.south west)
+  {\textbf{Measured active core energy per audio-second}\par
+    Isosyll live \HeroLiveEnergy\,J \enspace\textperiodcentered\enspace Zipformer \HeroZipEnergy\,J \enspace\textperiodcentered\enspace Isosyll final \HeroFinalEnergy\,J};
+\fi
+\pgfresetboundingbox
+\path[use as bounding box]
+  ([xshift=-28pt,yshift=-56pt]matchedplot.south west)
+  rectangle ([xshift=11pt,yshift=31pt]matchedplot.north east);
+\end{tikzpicture}%

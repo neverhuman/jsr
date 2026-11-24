@@ -41,7 +41,17 @@ ABAB_WORKLOAD = "dev-clean.npz, first 50 utt, 232.005 audio-s per block (--limit
 DEV400_TRAINER = "dev-clean first 400 utt (trainer DEV400, 7,678 ref words)"
 PANEL_DIGEST = "76fead746d1f8b8ae57a30aa341e81364538eb69759af813d6f13d6d1f57fc36"
 SWEEP_WORKLOAD = "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)"
-PAPER_TITLE = "ULTRA: Reproducible Streaming Speech Recognition on One CPU Core"
+# Public name of the system. The signed release tags, crates and binaries keep the historical `ultra` /
+# "ULTRA v3.0.x" identifiers; receipts are never rewritten, rows are rebranded on load (schema.py).
+BRAND = "Isosyll"
+PAPER_TITLE = "Isosyll: Always Listening, Barely Computing"
+PAPER_DESCRIPTOR = "Bit-Exact Streaming Speech Recognition on One CPU Core"
+
+
+def rebrand(text: str) -> str:
+    """Display name for our rows: the historical "ULTRA" becomes BRAND (identifiers stay untouched)."""
+    return re.sub(r"\bULTRA\b", BRAND, text)
+
 
 # Measured comparison rows (data/evidence/*.jsonl, schema v2): one row per (system, runtime, machine, threads).
 EVIDENCE_REQUIRED = (

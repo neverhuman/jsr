@@ -111,9 +111,9 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
             if (lv["watts"] is not None and z["watts"] is not None
                     and live.get("energy_method") == zipformer.get("energy_method") == "core_msr_active"):
                 pct = fmt(100.0 * lv["watts"] / z["watts"], 0)
-                zip_txt += f"; ULTRA live delivers {ratio}$\\times$ its throughput at {pct}\\% of its active core energy."
+                zip_txt += f"; Isosyll live delivers {ratio}$\\times$ its throughput at {pct}\\% of its active core energy."
             else:
-                zip_txt += f"; ULTRA live delivers {ratio}$\\times$ its throughput."
+                zip_txt += f"; Isosyll live delivers {ratio}$\\times$ its throughput."
         else:
             zip_txt += "."
         rec.add("ColdAbstractZip", zip_txt, unit="sentence",
@@ -163,10 +163,10 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     num("ColdHeadWerGapBest", gap, fmt(gap, 2), "pp WER", "pooled panel WER of ours (final) minus lowest comparator",
         head, best)
     count("ColdAccuracyCount", better, "complete-panel comparators with lower pooled WER than our final mode")
-    count("ColdHeadWerRank", wer_rank, "pooled WER rank of ULTRA v3.0.0 final among all complete-panel systems")
-    count("ColdHeadWerBeaten", beaten_n, "complete-panel comparators beaten by ULTRA v3.0.0 final on pooled WER")
+    count("ColdHeadWerRank", wer_rank, "pooled WER rank of Isosyll v3.0.0 final among all complete-panel systems")
+    count("ColdHeadWerBeaten", beaten_n, "complete-panel comparators beaten by Isosyll v3.0.0 final on pooled WER")
     ord_rank = f"{wer_rank}{'th' if 11 <= wer_rank % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(wer_rank % 10, 'th')}"
-    say("ColdHeadWerRankOrd", ord_rank, "ordinal pooled WER rank of ULTRA v3.0.0 final")
+    say("ColdHeadWerRankOrd", ord_rank, "ordinal pooled WER rank of Isosyll v3.0.0 final")
 
     if fast and has_live:
         num("ColdHeadSpeedOverFast", lv["speed"] / fast["_d"]["speed"], fmt(lv["speed"] / fast["_d"]["speed"], 1),
@@ -299,7 +299,8 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
                 if beaten_n else "")
     who = f"{better} of the {n_comp_all} comparators" if better not in (0, n_comp_all) else (
         "All comparators" if better == n_comp_all else "No comparator")
-    say("ColdAccuracySentence", f"{beat_txt}{who} achieve lower pooled WER, led by {_name(best)} at "
+    say("ColdAccuracySentence", f"{beat_txt}{who} achieve lower pooled WER. Among configurations "
+        f"with plotted throughput, {_name(best)} has the lowest pooled WER at "
         f"{fmt(b['wer'], 2)}\\% ({fmt(b['wer_clean'], 2)}\\% dev-clean, {fmt(b['wer_other'], 2)}\\% dev-other), "
         f"{fmt(gap, 2)} points below {_name(head)}.", "accuracy against all drawn")
 
