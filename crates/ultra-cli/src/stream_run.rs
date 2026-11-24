@@ -137,7 +137,6 @@ pub fn transcribe_audio_file_with_options(
             })??;
         let native =
             NativeEngineBackend::load_with_config(&wdir, prec, threads, true, &native_cfg)?;
-        let policy_sha = native.effective_decode_config().policy_sha256();
         let caps = native.capabilities();
         let cfg = StreamConfig {
             stream_id: "cli-stream-0".into(),
@@ -150,12 +149,19 @@ pub fn transcribe_audio_file_with_options(
             endpoint_hangover_ms: u64::from(live_cfg.hangover_ms),
             ..StreamConfig::default()
         };
-        let inner = native.create_live_commit_stream_with_clock(&cfg, &live_cfg, clock.clone())?;
+        let live_stream =
+            ultra_stream::LiveCommitAsrStream::new(&native, &cfg, &live_cfg, clock.clone())?;
+        let policy_sha = live_stream.provisional_decode_config().policy_sha256();
+        let commit_policy_sha = live_stream.commit_decode_config().policy_sha256();
+        let inner: Box<dyn AsrStream> = Box::new(live_stream);
         (
             caps,
             cfg,
             inner,
-            Some(format!("decode_policy_sha256:{policy_sha}")),
+            vec![
+                format!("decode_policy_sha256:{policy_sha}"),
+                format!("commit_decode_policy_sha256:{commit_policy_sha}"),
+            ],
         )
     } else if let Some(res) = crate::suite_engine::resolve_r1_weights_dir(candidate_id, None) {
         let (wdir, prec) = res?;
@@ -175,7 +181,7 @@ pub fn transcribe_audio_file_with_options(
             caps,
             cfg,
             inner,
-            Some(format!("decode_policy_sha256:{policy_sha}")),
+            vec![format!("decode_policy_sha256:{policy_sha}")],
         )
     } else {
         let backend = instantiate_backend_with_config(candidate_id, None, threads, &native_cfg)?;
@@ -188,7 +194,7 @@ pub fn transcribe_audio_file_with_options(
             ..StreamConfig::default()
         };
         let inner = backend.create_stream_with_clock(&cfg, clock.clone())?;
-        (caps, cfg, inner, None)
+        (caps, cfg, inner, Vec::new())
     };
     let mut sampler = TreeSampler::new(std::process::id() as i32);
     sampler.sample();
@@ -243,9 +249,7 @@ pub fn transcribe_audio_file_with_options(
     chunk_ms.sort_by(f64::total_cmp);
 
     let (mut previews, mut statuses, mut gaps) = (String::new(), Vec::new(), Vec::new());
-    if let Some(ps) = policy_status {
-        statuses.push(ps);
-    }
+    statuses.extend(policy_status);
     for te in &timed {
         match &te.event.body {
             Body::Preview(u) => {

@@ -63,6 +63,9 @@ pub struct Engine {
     pub endpoint_replay_ms: u32,
     /// `true` when loaded in live-only mode (auxiliary CTC/unused FP32 tensors skipped).
     pub live_only: bool,
+    /// Trailing zero-PCM silence samples appended on [`EngineStream::input_finished`] before EOF
+    /// flush (`0` default = no extra silence, 0-ULP bit-identical).
+    pub tail_pad_samples: usize,
 }
 
 /// Per-stream decode progression signal recorded on each [`Engine::decode`] step (`F07`).
@@ -104,6 +107,7 @@ pub struct EngineStream {
     replay_rows: Vec<[f32; MEL_BINS]>,
     replay_base: usize,
     replay_cap: usize,
+    tail_pad_samples: usize,
     finished: bool,
     /// Set when a chunk step failed after this stream's features or state were consumed;
     /// the stream is terminal (a retry could silently skip audio).
@@ -203,6 +207,20 @@ impl EngineStream {
     }
 
     pub fn input_finished(&mut self) {
+        if !self.finished && !self.failed && self.tail_pad_samples > 0 {
+            let pad = vec![0i16; self.tail_pad_samples];
+            self.rows.clear();
+            self.mel.push_i16_into(&pad, &mut self.rows);
+            self.ring.push_rows(&self.rows);
+            if self.replay_cap > 0 && !self.rows.is_empty() {
+                self.replay_rows.extend_from_slice(&self.rows);
+                if self.replay_rows.len() > self.replay_cap {
+                    let drop_n = self.replay_rows.len() - self.replay_cap;
+                    self.replay_rows.drain(..drop_n);
+                    self.replay_base += drop_n;
+                }
+            }
+        }
         self.finished = true;
     }
 
@@ -305,12 +323,25 @@ impl Engine {
             endpoint_reset_ms: 0,
             endpoint_replay_ms: 0,
             live_only,
+            tail_pad_samples: 0,
         })
     }
 
     /// Record whether this engine was loaded in live-only weight mode (skips auxiliary CTC weights).
     pub fn with_live_only(mut self, on: bool) -> Self {
         self.live_only = on;
+        self
+    }
+
+    /// Append `samples` of trailing zero-PCM silence at [`EngineStream::input_finished`] (`0` = off).
+    pub fn with_tail_pad_samples(mut self, samples: usize) -> Self {
+        self.tail_pad_samples = samples;
+        self
+    }
+
+    /// Append `ms` milliseconds (`16 * ms` samples at 16 kHz) of trailing zero-PCM silence at EOF.
+    pub fn with_tail_pad_ms(mut self, ms: usize) -> Self {
+        self.tail_pad_samples = ms.saturating_mul(16);
         self
     }
 
@@ -448,6 +479,7 @@ impl Engine {
             replay_rows: Vec::with_capacity(replay_cap),
             replay_base: 0,
             replay_cap,
+            tail_pad_samples: self.tail_pad_samples,
             finished: false,
             failed: false,
             blank_frames: 0,

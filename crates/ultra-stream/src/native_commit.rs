@@ -86,6 +86,7 @@ impl LiveCommitAsrStream {
                 "live_commit_hangover_{}ms_deadline_{}ms",
                 self.live_cfg.hangover_ms, self.live_cfg.deadline_ms
             ))
+            .with_session_bias_config(self.session_bias.config())
     }
 
     /// Resolved [`EffectiveDecodeConfig`] for the background commit pass (`F10`).
@@ -99,6 +100,8 @@ impl LiveCommitAsrStream {
                 self.live_cfg.hangover_ms,
                 self.live_cfg.deadline_ms
             ))
+            .with_tail_pad_samples(self.live_cfg.commit.tail_pad_samples)
+            .with_session_bias_config(self.session_bias.config())
     }
 
     /// Total CPU seconds burned by timed-out, stale, or cancelled background commit jobs (`F09`).

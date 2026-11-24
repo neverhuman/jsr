@@ -138,6 +138,7 @@ fn synthetic_near_tie_model(bias1: f32, bias2: f32) -> Arc<Model> {
         mel_cfg: Arc::new(TrainerMelConfig::default_htk(GlobalCmvn::identity()).expect("mel")),
         tokens: Arc::new(tok),
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }
@@ -501,5 +502,389 @@ fn f07_live_commit_stream_resets_hangover_on_non_growing_activity_and_commits_on
     assert!(
         has_hangover,
         "genuine trailing silence must trigger hangover commit"
+    );
+}
+
+struct StreamStageTempDir(PathBuf);
+
+impl StreamStageTempDir {
+    fn new(tag: &str) -> Self {
+        let p = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+            .join(format!("f10-stream-stage-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).expect("mkdir");
+        Self(p)
+    }
+}
+
+impl Drop for StreamStageTempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn write_staged_stream_model(
+    dir: &std::path::Path,
+    tokens_name: &str,
+    tokens_bytes: &[u8],
+    fbank_name: &str,
+    fbank_bytes: &[u8],
+) {
+    use serde_json::{json, Map, Value};
+    use ultra_core::receipt::sha256_hex;
+    std::fs::create_dir_all(dir).expect("mkdir");
+    let (d, ch, ffn, k, vocab, pred_emb, joiner, f2) = (4, 4, 8, 3, 4, 4, 4, 19);
+    let ckpt_sha = "8".repeat(64);
+    let ones = |n: usize| vec![1.0f32; n];
+    let zeros = |n: usize| vec![0.0f32; n];
+    let tensors: Vec<(&str, Vec<usize>, Vec<f32>)> = vec![
+        ("cmvn.mean", vec![80], zeros(80)),
+        ("cmvn.istd", vec![80], ones(80)),
+        ("encoder.stem.c1.weight", vec![ch, 1, 3, 3], zeros(ch * 9)),
+        ("encoder.stem.c1.bias", vec![ch], zeros(ch)),
+        (
+            "encoder.stem.c2.weight",
+            vec![ch, ch, 3, 3],
+            zeros(ch * ch * 9),
+        ),
+        ("encoder.stem.c2.bias", vec![ch], zeros(ch)),
+        (
+            "encoder.stem.out.weight",
+            vec![d, ch * f2],
+            zeros(d * ch * f2),
+        ),
+        ("encoder.stem.out.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.ff1.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.ff1.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.ff1.w1.weight",
+            vec![ffn, d],
+            zeros(ffn * d),
+        ),
+        ("encoder.blocks.0.ff1.w1.bias", vec![ffn], zeros(ffn)),
+        (
+            "encoder.blocks.0.ff1.w2.weight",
+            vec![d, ffn],
+            zeros(d * ffn),
+        ),
+        ("encoder.blocks.0.ff1.w2.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.att.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.att.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.att.qkv.weight",
+            vec![3 * d, d],
+            zeros(3 * d * d),
+        ),
+        ("encoder.blocks.0.att.qkv.bias", vec![3 * d], zeros(3 * d)),
+        ("encoder.blocks.0.att.out.weight", vec![d, d], zeros(d * d)),
+        ("encoder.blocks.0.att.out.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.conv.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.conv.pw1.weight",
+            vec![2 * d, d],
+            zeros(2 * d * d),
+        ),
+        ("encoder.blocks.0.conv.pw1.bias", vec![2 * d], zeros(2 * d)),
+        (
+            "encoder.blocks.0.conv.dw.weight",
+            vec![d, 1, k],
+            zeros(d * k),
+        ),
+        ("encoder.blocks.0.conv.dw.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.dnorm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.conv.dnorm.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.pw2.weight", vec![d, d], zeros(d * d)),
+        ("encoder.blocks.0.conv.pw2.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.ff2.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.ff2.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.ff2.w1.weight",
+            vec![ffn, d],
+            zeros(ffn * d),
+        ),
+        ("encoder.blocks.0.ff2.w1.bias", vec![ffn], zeros(ffn)),
+        (
+            "encoder.blocks.0.ff2.w2.weight",
+            vec![d, ffn],
+            zeros(d * ffn),
+        ),
+        ("encoder.blocks.0.ff2.w2.bias", vec![d], zeros(d)),
+        ("encoder.final_norm.weight", vec![d], ones(d)),
+        ("encoder.final_norm.bias", vec![d], zeros(d)),
+        ("engine.rope_inv_freq", vec![d / 2], vec![1.0, 0.01]),
+        ("joiner.enc_proj.weight", vec![joiner, d], zeros(joiner * d)),
+        ("joiner.enc_proj.bias", vec![joiner], zeros(joiner)),
+        (
+            "predictor.emb.weight",
+            vec![vocab, pred_emb],
+            zeros(vocab * pred_emb),
+        ),
+        (
+            "predictor.proj.weight",
+            vec![joiner, 2 * pred_emb],
+            zeros(joiner * 2 * pred_emb),
+        ),
+        ("predictor.proj.bias", vec![joiner], zeros(joiner)),
+        (
+            "joiner.out.weight",
+            vec![vocab, joiner],
+            zeros(vocab * joiner),
+        ),
+        ("joiner.out.bias", vec![vocab], vec![-2.0, 2.0, 1.5, -4.0]),
+    ];
+    let mut hdr = Map::new();
+    hdr.insert(
+        "__metadata__".into(),
+        json!({"checkpoint_sha256": ckpt_sha}),
+    );
+    let mut payload = Vec::new();
+    for (name, shape, data) in &tensors {
+        let start = payload.len();
+        for &v in data {
+            payload.extend_from_slice(&v.to_le_bytes());
+        }
+        hdr.insert(
+            (*name).into(),
+            json!({"dtype": "F32", "shape": shape, "data_offsets": [start, payload.len()]}),
+        );
+    }
+    let hdr_bytes = serde_json::to_vec(&Value::Object(hdr)).expect("json");
+    let mut st_bytes = Vec::with_capacity(8 + hdr_bytes.len() + payload.len());
+    st_bytes.extend_from_slice(&(hdr_bytes.len() as u64).to_le_bytes());
+    st_bytes.extend_from_slice(&hdr_bytes);
+    st_bytes.extend_from_slice(&payload);
+
+    let bpe_bytes = b"stream-bpe-v1";
+    std::fs::write(dir.join("weights.safetensors"), &st_bytes).expect("weights");
+    std::fs::write(dir.join(tokens_name), tokens_bytes).expect("tokens");
+    std::fs::write(dir.join(fbank_name), fbank_bytes).expect("fbank");
+    std::fs::write(dir.join("bpe.model"), bpe_bytes).expect("bpe");
+    let arch = json!({
+        "schema": "ultra.r1-weights/v1",
+        "model": {
+            "family": "dense",
+            "config": { "vocab_rnnt": 4, "pred_emb": 4, "joiner": 4, "joiner_act": "tanh" },
+            "encoder": {
+                "n_mels": 80, "d_model": 4, "n_blocks": 1, "n_heads": 1, "ffn_mult": 2,
+                "conv_kernel": 3, "stem_channels": 4, "chunk": 4, "left_context": 4,
+                "post_block_norm": false, "family": "dense",
+                "lower_blocks": 1, "middle_blocks": 0, "final_blocks": 0
+            }
+        },
+        "source": { "checkpoint_sha256": ckpt_sha },
+        "files": {
+            "weights": { "path": "weights.safetensors", "sha256": sha256_hex(&st_bytes) },
+            "tokens": { "path": tokens_name, "sha256": sha256_hex(tokens_bytes) },
+            "mel_fbank": { "path": fbank_name, "sha256": sha256_hex(fbank_bytes) },
+            "bpe": { "path": "bpe.model", "sha256": sha256_hex(bpe_bytes) }
+        },
+        "features": {
+            "sample_rate": 16000, "frame_length": 400, "frame_shift": 160,
+            "n_fft": 512, "n_mels": 80, "log_floor": 1e-6,
+            "cmvn": { "mean": vec![0.0f32; 80], "istd": vec![1.0f32; 80] }
+        },
+        "decoder": {
+            "kind": "stateless", "context": 2, "vocab_size": 4,
+            "joiner_activation": "tanh", "blank_id": 0, "max_symbols": 1, "ctx_init": [0, 0]
+        }
+    });
+    std::fs::write(dir.join("arch.json"), arch.to_string()).expect("arch.json");
+}
+
+#[test]
+fn f10_live_commit_stream_is_staging_dir_invariant_and_sensitive_to_tail_pad_and_session_bias() {
+    use ultra_engine::commit::SessionLexicalConfig;
+
+    let tmp = StreamStageTempDir::new("live-commit");
+    let dir_a = tmp.0.join("host_a/bundle");
+    let dir_b = tmp.0.join("host_b/other/bundle");
+    let tokens = VOCAB4.as_bytes();
+    let fbank = vec![0u8; 257 * 80 * 4];
+    write_staged_stream_model(&dir_a, "lexicon_a.tok", tokens, "fbank_a.bin", &fbank);
+    write_staged_stream_model(&dir_b, "lexicon_b.tok", tokens, "fbank_b.bin", &fbank);
+    // Add a decoy tokens.txt in dir_a that differs from arch.json's lexicon_a.tok.
+    std::fs::write(
+        dir_a.join("tokens.txt"),
+        b"<blk> 0\n\xe2\x96\x81wrong 1\n\xe2\x96\x81wrong2 2\n\xe2\x96\x81wrong3 3\n",
+    )
+    .expect("decoy");
+
+    let lm_mem =
+        NgramLm::from_arpa_str(ARPA_PREFER_CAT, Some(ARPA_LODR_FLAT), 4, false).expect("lm");
+    let lm_a_path = tmp.0.join("host_a/lm_one.ulm");
+    let lm_b_path = tmp.0.join("host_b/other/lm_two.ulm");
+    lm_mem.save(&lm_a_path).expect("save lm a");
+    lm_mem.save(&lm_b_path).expect("save lm b");
+
+    let lm_cfg = LmConfig {
+        lm_weight: 0.8,
+        lodr_weight: 0.6,
+        blank_penalty: 0.0,
+    };
+    let backend_a = NativeEngineBackend::load_with_config(
+        &dir_a,
+        Precision::F32,
+        1,
+        true,
+        &NativeEngineLoadConfig {
+            beam: 1,
+            beam_max_symbols: 1,
+            lm: Some((Arc::new(NgramLm::load(&lm_a_path).expect("lm a")), lm_cfg)),
+            ..NativeEngineLoadConfig::default()
+        },
+    )
+    .expect("backend a");
+    let backend_b = NativeEngineBackend::load_with_config(
+        &dir_b,
+        Precision::F32,
+        1,
+        true,
+        &NativeEngineLoadConfig {
+            beam: 1,
+            beam_max_symbols: 1,
+            lm: Some((Arc::new(NgramLm::load(&lm_b_path).expect("lm b")), lm_cfg)),
+            ..NativeEngineLoadConfig::default()
+        },
+    )
+    .expect("backend b");
+
+    assert_ne!(
+        backend_a.effective_decode_config().lm_path,
+        backend_b.effective_decode_config().lm_path
+    );
+    assert_eq!(
+        backend_a.effective_decode_config().policy_sha256(),
+        backend_b.effective_decode_config().policy_sha256()
+    );
+
+    let scfg = StreamConfig {
+        segment_hard_cap_samples: u64::MAX,
+        endpoint_hangover_ms: 300,
+        ..StreamConfig::default()
+    };
+    let base_live = LiveCommitConfig {
+        commit: CommitConfig {
+            commit_chunk: 4,
+            tail_pad_samples: 5_120,
+            beam_size: 1,
+            ..CommitConfig::default()
+        },
+        hangover_ms: 300,
+        preroll_ms: 300,
+        deadline_ms: 1_000,
+        session_bias: SessionLexicalConfig::default(),
+        ..LiveCommitConfig::default()
+    };
+    let stream_a = ultra_stream::LiveCommitAsrStream::new(
+        &backend_a,
+        &scfg,
+        &base_live,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream a");
+    let stream_b = ultra_stream::LiveCommitAsrStream::new(
+        &backend_b,
+        &scfg,
+        &base_live,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream b");
+
+    // Two different staging directories with custom-named tokens/fbank + different LM paths
+    // yield identical provisional and commit policy_sha256().
+    let base_prov_sha = stream_a.provisional_decode_config().policy_sha256();
+    let base_commit_sha = stream_a.commit_decode_config().policy_sha256();
+    assert_eq!(
+        base_prov_sha,
+        stream_b.provisional_decode_config().policy_sha256()
+    );
+    assert_eq!(
+        base_commit_sha,
+        stream_b.commit_decode_config().policy_sha256()
+    );
+    assert_eq!(stream_a.commit_decode_config().tail_pad_samples, 5_120);
+    assert_eq!(stream_a.commit_decode_config().tail_pad_frames, 8);
+    assert!(
+        !stream_a
+            .provisional_decode_config()
+            .session_bias_policy
+            .enabled
+    );
+
+    // Changing tail_pad_samples on LiveCommitAsrStream strictly changes commit policy_sha256().
+    let mut no_pad_live = base_live.clone();
+    no_pad_live.commit.tail_pad_samples = 0;
+    let stream_no_pad = ultra_stream::LiveCommitAsrStream::new(
+        &backend_a,
+        &scfg,
+        &no_pad_live,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream no pad");
+    assert_eq!(stream_no_pad.commit_decode_config().tail_pad_frames, 0);
+    assert_ne!(
+        stream_no_pad.commit_decode_config().policy_sha256(),
+        base_commit_sha
+    );
+
+    // Enabling active session_bias and changing its parameters strictly changes BOTH
+    // provisional_decode_config().policy_sha256() and commit_decode_config().policy_sha256().
+    let mut bias_on = base_live.clone();
+    bias_on.session_bias = SessionLexicalConfig {
+        enabled: true,
+        min_occurrences: 2,
+        max_entries: 64,
+        bias_bonus: 0.35,
+        min_word_chars: 5,
+        min_bpe_pieces: 2,
+    };
+    let stream_bias_on = ultra_stream::LiveCommitAsrStream::new(
+        &backend_a,
+        &scfg,
+        &bias_on,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream bias on");
+    let bias_on_prov_sha = stream_bias_on.provisional_decode_config().policy_sha256();
+    let bias_on_commit_sha = stream_bias_on.commit_decode_config().policy_sha256();
+    assert!(
+        stream_bias_on
+            .provisional_decode_config()
+            .session_bias_policy
+            .enabled
+    );
+    assert!(
+        (stream_bias_on
+            .commit_decode_config()
+            .session_bias_policy
+            .bias_bonus
+            - 0.35)
+            .abs()
+            < 1e-6
+    );
+    assert_ne!(bias_on_prov_sha, base_prov_sha);
+    assert_ne!(bias_on_commit_sha, base_commit_sha);
+
+    // Tuning session_bias bonus / max_entries also strictly changes policy_sha256().
+    let mut bias_tuned = bias_on.clone();
+    bias_tuned.session_bias.bias_bonus = 0.50;
+    bias_tuned.session_bias.max_entries = 128;
+    let stream_bias_tuned = ultra_stream::LiveCommitAsrStream::new(
+        &backend_a,
+        &scfg,
+        &bias_tuned,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream bias tuned");
+    assert_ne!(
+        stream_bias_tuned
+            .provisional_decode_config()
+            .policy_sha256(),
+        bias_on_prov_sha
+    );
+    assert_ne!(
+        stream_bias_tuned.commit_decode_config().policy_sha256(),
+        bias_on_commit_sha
     );
 }

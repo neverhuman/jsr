@@ -417,6 +417,7 @@ mod tests {
             rope_inv: Vec::new(),
             mel_cfg,
             tokens,
+            assets: Default::default(),
             int8_prepared: None,
         };
 

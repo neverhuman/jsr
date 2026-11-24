@@ -129,6 +129,7 @@ fn synthetic_model(joiner_bias: [f32; 4], max_symbols: usize) -> Arc<Model> {
         mel_cfg: Arc::new(TrainerMelConfig::default_htk(GlobalCmvn::identity()).expect("mel")),
         tokens: Arc::new(tok),
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }
@@ -391,4 +392,375 @@ fn f09_run_commit_pcm_timed_reports_separate_finite_wall_and_cpu_time() {
     assert!(timing.cpu_s.is_finite() && timing.cpu_s >= 0.0);
     assert!((timing.wall_ms() - timing.wall_s * 1000.0).abs() < 1e-9);
     assert!((timing.cpu_ms() - timing.cpu_s * 1000.0).abs() < 1e-9);
+}
+
+struct StageTempDir(PathBuf);
+
+impl StageTempDir {
+    fn new(tag: &str) -> Self {
+        let p = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+            .join(format!("f10-stage-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).expect("mkdir");
+        Self(p)
+    }
+}
+
+impl Drop for StageTempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn build_tiny_safetensors(ckpt_sha: &str) -> Vec<u8> {
+    use serde_json::{json, Map, Value};
+    let (d, ch, ffn, k, vocab, pred_emb, joiner, f2) = (4, 4, 8, 3, 4, 4, 4, 19);
+    let ones = |n: usize| vec![1.0f32; n];
+    let zeros = |n: usize| vec![0.0f32; n];
+    let tensors: Vec<(&str, Vec<usize>, Vec<f32>)> = vec![
+        ("cmvn.mean", vec![80], zeros(80)),
+        ("cmvn.istd", vec![80], ones(80)),
+        ("encoder.stem.c1.weight", vec![ch, 1, 3, 3], zeros(ch * 9)),
+        ("encoder.stem.c1.bias", vec![ch], zeros(ch)),
+        (
+            "encoder.stem.c2.weight",
+            vec![ch, ch, 3, 3],
+            zeros(ch * ch * 9),
+        ),
+        ("encoder.stem.c2.bias", vec![ch], zeros(ch)),
+        (
+            "encoder.stem.out.weight",
+            vec![d, ch * f2],
+            zeros(d * ch * f2),
+        ),
+        ("encoder.stem.out.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.ff1.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.ff1.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.ff1.w1.weight",
+            vec![ffn, d],
+            zeros(ffn * d),
+        ),
+        ("encoder.blocks.0.ff1.w1.bias", vec![ffn], zeros(ffn)),
+        (
+            "encoder.blocks.0.ff1.w2.weight",
+            vec![d, ffn],
+            zeros(d * ffn),
+        ),
+        ("encoder.blocks.0.ff1.w2.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.att.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.att.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.att.qkv.weight",
+            vec![3 * d, d],
+            zeros(3 * d * d),
+        ),
+        ("encoder.blocks.0.att.qkv.bias", vec![3 * d], zeros(3 * d)),
+        ("encoder.blocks.0.att.out.weight", vec![d, d], zeros(d * d)),
+        ("encoder.blocks.0.att.out.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.conv.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.conv.pw1.weight",
+            vec![2 * d, d],
+            zeros(2 * d * d),
+        ),
+        ("encoder.blocks.0.conv.pw1.bias", vec![2 * d], zeros(2 * d)),
+        (
+            "encoder.blocks.0.conv.dw.weight",
+            vec![d, 1, k],
+            zeros(d * k),
+        ),
+        ("encoder.blocks.0.conv.dw.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.dnorm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.conv.dnorm.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.conv.pw2.weight", vec![d, d], zeros(d * d)),
+        ("encoder.blocks.0.conv.pw2.bias", vec![d], zeros(d)),
+        ("encoder.blocks.0.ff2.norm.weight", vec![d], ones(d)),
+        ("encoder.blocks.0.ff2.norm.bias", vec![d], zeros(d)),
+        (
+            "encoder.blocks.0.ff2.w1.weight",
+            vec![ffn, d],
+            zeros(ffn * d),
+        ),
+        ("encoder.blocks.0.ff2.w1.bias", vec![ffn], zeros(ffn)),
+        (
+            "encoder.blocks.0.ff2.w2.weight",
+            vec![d, ffn],
+            zeros(d * ffn),
+        ),
+        ("encoder.blocks.0.ff2.w2.bias", vec![d], zeros(d)),
+        ("encoder.final_norm.weight", vec![d], ones(d)),
+        ("encoder.final_norm.bias", vec![d], zeros(d)),
+        ("engine.rope_inv_freq", vec![d / 2], vec![1.0, 0.01]),
+        ("joiner.enc_proj.weight", vec![joiner, d], zeros(joiner * d)),
+        ("joiner.enc_proj.bias", vec![joiner], zeros(joiner)),
+        (
+            "predictor.emb.weight",
+            vec![vocab, pred_emb],
+            zeros(vocab * pred_emb),
+        ),
+        (
+            "predictor.proj.weight",
+            vec![joiner, 2 * pred_emb],
+            zeros(joiner * 2 * pred_emb),
+        ),
+        ("predictor.proj.bias", vec![joiner], zeros(joiner)),
+        (
+            "joiner.out.weight",
+            vec![vocab, joiner],
+            zeros(vocab * joiner),
+        ),
+        ("joiner.out.bias", vec![vocab], vec![-2.0, 2.0, 1.5, -4.0]),
+    ];
+    let mut hdr = Map::new();
+    hdr.insert(
+        "__metadata__".into(),
+        json!({"checkpoint_sha256": ckpt_sha}),
+    );
+    let mut payload = Vec::new();
+    for (name, shape, data) in &tensors {
+        let start = payload.len();
+        for &v in data {
+            payload.extend_from_slice(&v.to_le_bytes());
+        }
+        hdr.insert(
+            (*name).into(),
+            json!({"dtype": "F32", "shape": shape, "data_offsets": [start, payload.len()]}),
+        );
+    }
+    let hdr_bytes = serde_json::to_vec(&Value::Object(hdr)).expect("json");
+    let mut out = Vec::with_capacity(8 + hdr_bytes.len() + payload.len());
+    out.extend_from_slice(&(hdr_bytes.len() as u64).to_le_bytes());
+    out.extend_from_slice(&hdr_bytes);
+    out.extend_from_slice(&payload);
+    out
+}
+
+fn write_staged_weights(
+    dir: &std::path::Path,
+    tokens_name: &str,
+    tokens_bytes: &[u8],
+    fbank_name: &str,
+    fbank_bytes: &[u8],
+    decoy_tokens_txt: Option<&[u8]>,
+) {
+    use serde_json::json;
+    use ultra_core::receipt::sha256_hex;
+    std::fs::create_dir_all(dir).expect("mkdir");
+    let ckpt_sha = "7".repeat(64);
+    let st_bytes = build_tiny_safetensors(&ckpt_sha);
+    let bpe_bytes = b"synthetic-bpe-v1";
+    std::fs::write(dir.join("weights.safetensors"), &st_bytes).expect("weights");
+    std::fs::write(dir.join(tokens_name), tokens_bytes).expect("tokens");
+    std::fs::write(dir.join(fbank_name), fbank_bytes).expect("fbank");
+    std::fs::write(dir.join("bpe.model"), bpe_bytes).expect("bpe");
+    if let Some(decoy) = decoy_tokens_txt {
+        std::fs::write(dir.join("tokens.txt"), decoy).expect("decoy");
+    }
+    let arch = json!({
+        "schema": "ultra.r1-weights/v1",
+        "model": {
+            "family": "dense",
+            "config": { "vocab_rnnt": 4, "pred_emb": 4, "joiner": 4, "joiner_act": "tanh" },
+            "encoder": {
+                "n_mels": 80, "d_model": 4, "n_blocks": 1, "n_heads": 1, "ffn_mult": 2,
+                "conv_kernel": 3, "stem_channels": 4, "chunk": 4, "left_context": 4,
+                "post_block_norm": false, "family": "dense",
+                "lower_blocks": 1, "middle_blocks": 0, "final_blocks": 0
+            }
+        },
+        "source": { "checkpoint_sha256": ckpt_sha },
+        "files": {
+            "weights": { "path": "weights.safetensors", "sha256": sha256_hex(&st_bytes) },
+            "tokens": { "path": tokens_name, "sha256": sha256_hex(tokens_bytes) },
+            "mel_fbank": { "path": fbank_name, "sha256": sha256_hex(fbank_bytes) },
+            "bpe": { "path": "bpe.model", "sha256": sha256_hex(bpe_bytes) }
+        },
+        "features": {
+            "sample_rate": 16000, "frame_length": 400, "frame_shift": 160,
+            "n_fft": 512, "n_mels": 80, "log_floor": 1e-6,
+            "cmvn": { "mean": vec![0.0f32; 80], "istd": vec![1.0f32; 80] }
+        },
+        "decoder": {
+            "kind": "stateless", "context": 2, "vocab_size": 4,
+            "joiner_activation": "tanh", "blank_id": 0, "max_symbols": 1, "ctx_init": [0, 0]
+        }
+    });
+    std::fs::write(dir.join("arch.json"), arch.to_string()).expect("arch.json");
+}
+
+#[test]
+fn f10_policy_sha256_is_staging_dir_independent_and_tracks_arch_tokens_fbank_and_tail_pad() {
+    use ultra_core::receipt::sha256_hex;
+
+    let tmp = StageTempDir::new("engine");
+    let stage_a = tmp.0.join("staging_alpha/model");
+    let stage_b = tmp.0.join("staging_beta/nested/model");
+    let tokens_v1 = VOCAB4.as_bytes();
+    let decoy_tokens = b"<blk> 0\n\xe2\x96\x81decoy 1\n\xe2\x96\x81wrong 2\n\xe2\x96\x81file 3\n";
+    let fbank_v1 = vec![0u8; 257 * 80 * 4];
+
+    // Stage identical contents into two different directories using custom arch.json filenames
+    // (NOT tokens.txt / mel_fbank.f32) and place a conflicting decoy tokens.txt in stage_a.
+    write_staged_weights(
+        &stage_a,
+        "custom_vocab_a.tok",
+        tokens_v1,
+        "custom_fbank_a.bin",
+        &fbank_v1,
+        Some(decoy_tokens),
+    );
+    write_staged_weights(
+        &stage_b,
+        "renamed_vocab_b.vocab",
+        tokens_v1,
+        "renamed_fbank_b.f32",
+        &fbank_v1,
+        None,
+    );
+
+    let lm_mem =
+        NgramLm::from_arpa_str(ARPA_PREFER_CAT, Some(ARPA_LODR_FLAT), 4, false).expect("lm");
+    let lm_path_a = tmp.0.join("staging_alpha/lm_alpha.ulm");
+    let lm_path_b = tmp.0.join("staging_beta/nested/lm_beta.ulm");
+    lm_mem.save(&lm_path_a).expect("save lm a");
+    lm_mem.save(&lm_path_b).expect("save lm b");
+
+    let lm_cfg = LmConfig {
+        lm_weight: 0.8,
+        lodr_weight: 0.6,
+        blank_penalty: 0.0,
+    };
+    let eng_a = Engine::new(
+        Arc::new(Model::load(&stage_a, true).expect("load a")),
+        Isa::Scalar,
+        Precision::F32,
+    )
+    .expect("eng a")
+    .with_beam(1)
+    .with_lm(Arc::new(NgramLm::load(&lm_path_a).expect("lm a")), lm_cfg)
+    .expect("with_lm a");
+    let eng_b = Engine::new(
+        Arc::new(Model::load(&stage_b, true).expect("load b")),
+        Isa::Scalar,
+        Precision::F32,
+    )
+    .expect("eng b")
+    .with_beam(1)
+    .with_lm(Arc::new(NgramLm::load(&lm_path_b).expect("lm b")), lm_cfg)
+    .expect("with_lm b");
+
+    let cfg_a = eng_a.effective_decode_config();
+    let cfg_b = eng_b.effective_decode_config();
+    assert_ne!(
+        cfg_a.lm_path, cfg_b.lm_path,
+        "diagnostic lm_path must preserve distinct staging paths"
+    );
+    assert_eq!(
+        cfg_a.tokenizer_sha256,
+        sha256_hex(tokens_v1),
+        "tokenizer_sha256 must hash arch.json-resolved tokens file, not decoy tokens.txt"
+    );
+    assert_eq!(cfg_a.frontend_fbank_sha256, sha256_hex(&fbank_v1));
+    assert_eq!(
+        cfg_a.policy_sha256(),
+        cfg_b.policy_sha256(),
+        "identical content from different staging directories must produce identical policy_sha256"
+    );
+
+    // (a) Modifying arch.json-resolved tokens bytes strictly changes policy_sha256
+    //     both under verify_hashes=true and verify_hashes=false.
+    let stage_tok = tmp.0.join("staging_tok_mod");
+    let tokens_v2 = b"<blk> 0\n\xe2\x96\x81the 1\n\xe2\x96\x81dog 2\n\xe2\x96\x81sat 3\n";
+    write_staged_weights(
+        &stage_tok,
+        "custom_vocab_a.tok",
+        tokens_v2,
+        "custom_fbank_a.bin",
+        &fbank_v1,
+        None,
+    );
+    let eng_tok = Engine::new(
+        Arc::new(Model::load(&stage_tok, true).expect("load tok")),
+        Isa::Scalar,
+        Precision::F32,
+    )
+    .expect("eng tok")
+    .with_beam(1)
+    .with_lm(Arc::new(NgramLm::load(&lm_path_a).expect("lm")), lm_cfg)
+    .expect("with_lm tok");
+    assert_eq!(
+        eng_tok.effective_decode_config().tokenizer_sha256,
+        sha256_hex(tokens_v2)
+    );
+    assert_ne!(
+        eng_tok.effective_decode_config().policy_sha256(),
+        cfg_a.policy_sha256()
+    );
+    // Unverified load after in-place modification still hashes actual loaded bytes on disk.
+    let tokens_v3 = b"<blk> 0\n\xe2\x96\x81the 1\n\xe2\x96\x81fox 2\n\xe2\x96\x81sat 3\n";
+    std::fs::write(stage_tok.join("custom_vocab_a.tok"), tokens_v3).expect("overwrite tok");
+    let eng_tok_unverified = Engine::new(
+        Arc::new(Model::load(&stage_tok, false).expect("load unverified")),
+        Isa::Scalar,
+        Precision::F32,
+    )
+    .expect("eng unverified")
+    .with_beam(1)
+    .with_lm(Arc::new(NgramLm::load(&lm_path_a).expect("lm")), lm_cfg)
+    .expect("with_lm unverified");
+    assert_eq!(
+        eng_tok_unverified
+            .effective_decode_config()
+            .tokenizer_sha256,
+        sha256_hex(tokens_v3)
+    );
+    assert_ne!(
+        eng_tok_unverified.effective_decode_config().policy_sha256(),
+        eng_tok.effective_decode_config().policy_sha256()
+    );
+
+    // (b) Modifying mel_fbank bytes strictly changes frontend_fbank_sha256 and policy_sha256.
+    let stage_mel = tmp.0.join("staging_mel_mod");
+    let mut fbank_v2 = fbank_v1.clone();
+    fbank_v2[0..4].copy_from_slice(&0.5f32.to_le_bytes());
+    write_staged_weights(
+        &stage_mel,
+        "custom_vocab_a.tok",
+        tokens_v1,
+        "custom_fbank_a.bin",
+        &fbank_v2,
+        None,
+    );
+    let eng_mel = Engine::new(
+        Arc::new(Model::load(&stage_mel, true).expect("load mel")),
+        Isa::Scalar,
+        Precision::F32,
+    )
+    .expect("eng mel")
+    .with_beam(1)
+    .with_lm(Arc::new(NgramLm::load(&lm_path_a).expect("lm")), lm_cfg)
+    .expect("with_lm mel");
+    assert_eq!(
+        eng_mel.effective_decode_config().frontend_fbank_sha256,
+        sha256_hex(&fbank_v2)
+    );
+    assert_ne!(
+        eng_mel.effective_decode_config().policy_sha256(),
+        cfg_a.policy_sha256()
+    );
+
+    // (c) Modifying tail_pad setting strictly changes tail_pad_frames/policy and policy_sha256.
+    let eng_pad_320 = eng_a.clone().with_tail_pad_ms(320);
+    let eng_pad_40 = eng_a.clone().with_tail_pad_samples(640);
+    let cfg_pad_320 = eng_pad_320.effective_decode_config();
+    let cfg_pad_40 = eng_pad_40.effective_decode_config();
+    assert_eq!(cfg_pad_320.tail_pad_samples, 5_120);
+    assert_eq!(cfg_pad_320.tail_pad_frames, 8);
+    assert_eq!(cfg_pad_40.tail_pad_samples, 640);
+    assert_eq!(cfg_pad_40.tail_pad_frames, 1);
+    assert_ne!(cfg_pad_320.policy_sha256(), cfg_a.policy_sha256());
+    assert_ne!(cfg_pad_40.policy_sha256(), cfg_a.policy_sha256());
+    assert_ne!(cfg_pad_320.policy_sha256(), cfg_pad_40.policy_sha256());
 }

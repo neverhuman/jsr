@@ -204,6 +204,7 @@ fn score_tokens_matches_brute_force_with_predictor_and_joiner() {
         rope_inv: Vec::new(),
         mel_cfg,
         tokens,
+        assets: Default::default(),
         int8_prepared: None,
     });
     let engine = Engine::new(model, Isa::Scalar, Precision::F32).expect("engine");

@@ -40,14 +40,14 @@ pub mod workload;
 
 pub use agc::{WarmAgc, WarmAgcConfig};
 pub use agc_stream::AgcStream;
-pub use decode_config::EffectiveDecodeConfig;
+pub use decode_config::{EffectiveDecodeConfig, SessionBiasPolicy};
 pub use engine::{DecodeProgress, Engine, EngineStream, Precision, Workspace};
 pub use kernels::Isa;
 pub use lm::{
     FfnnActivation, FfnnLm, LmConfig, NgramLm, TfConfig, TfDirection, TfRescorer, TfScore,
     TfWorkspace, TokenLm,
 };
-pub use model::{Arch, Model};
+pub use model::{Arch, LoadedAssetsIdentity, Model};
 pub use peek::{PeekConfig, PeekEvent, PeekSession, PeekStats};
 
 /// Errors from loading an engine weight directory or running a chunk.

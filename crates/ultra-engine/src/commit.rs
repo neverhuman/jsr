@@ -99,6 +99,7 @@ impl CommitPassSession {
             .with_beam(cfg.beam_size);
         ce.endpoint_reset_ms = 0;
         ce.endpoint_replay_ms = 0;
+        ce.tail_pad_samples = 0;
         let stream = engine.create_stream();
         let model_ctc_vocab = (cfg.ctc_weight > 0.0)
             .then(|| ctc_head::load_model_ctc_vocab(&engine.model))
@@ -128,6 +129,16 @@ impl CommitPassSession {
     }
     pub fn commit_engine(&self) -> &Engine {
         &self.commit_engine
+    }
+    /// Resolved [`crate::EffectiveDecodeConfig`] for the provisional pass.
+    pub fn provisional_decode_config(&self) -> crate::EffectiveDecodeConfig {
+        self.provisional_engine.effective_decode_config()
+    }
+    /// Resolved [`crate::EffectiveDecodeConfig`] for the endpoint commit pass (including `tail_pad_samples`).
+    pub fn commit_decode_config(&self) -> crate::EffectiveDecodeConfig {
+        self.commit_engine
+            .effective_decode_config()
+            .with_tail_pad_samples(self.cfg.tail_pad_samples)
     }
     pub fn committed_prefix(&self) -> &str {
         &self.committed_prefix

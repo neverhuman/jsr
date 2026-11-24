@@ -33,6 +33,8 @@ pub struct NativeEngineLoadConfig {
     /// (`ctc_head`, and `emb`/`pred_proj` when `pred_cache` is resident) for minimum live RSS.
     /// Defaults to `false` so callers needing commit-pass CTC rescoring preserve `ctc_head`.
     pub live_only: bool,
+    /// Trailing zero-PCM silence samples appended on stream EOF flush (`0` default = off).
+    pub tail_pad_samples: usize,
 }
 
 impl Default for NativeEngineLoadConfig {
@@ -48,6 +50,7 @@ impl Default for NativeEngineLoadConfig {
             endpoint_reset_ms: 0,
             endpoint_replay_ms: 0,
             live_only: false,
+            tail_pad_samples: 0,
         }
     }
 }
@@ -202,7 +205,8 @@ impl NativeEngineBackend {
             .with_beam_margin(cfg.beam_margin)
             .with_kv_int8(cfg.kv_int8)
             .with_endpoint_reset(cfg.endpoint_reset_ms, cfg.endpoint_replay_ms)
-            .with_live_only(cfg.live_only);
+            .with_live_only(cfg.live_only)
+            .with_tail_pad_samples(cfg.tail_pad_samples);
         if let Some(chunk) = cfg.chunk {
             engine = engine.with_chunk(chunk)?;
         }
@@ -625,6 +629,7 @@ mod tests {
             mel_cfg,
             tokens,
             ctc_head: None,
+            assets: Default::default(),
             int8_prepared: None,
         });
         let engine = Engine::new(model, Isa::Scalar, Precision::F32).expect("tiny engine");

@@ -98,6 +98,7 @@ fn synthetic_commit_model() -> Arc<Model> {
         mel_cfg: Arc::new(TrainerMelConfig::default_htk(GlobalCmvn::identity()).expect("mel")),
         tokens: Arc::new(tok),
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }
