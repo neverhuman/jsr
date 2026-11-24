@@ -24,6 +24,8 @@
 
 Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); each bound is one-sided at 95% (together a central 90% interval) from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
 
+**Next candidate, measured and not released.** RC2, trained on 276,863 h, lowers live WER against v3.0.0 by 1.31 points with the live LM, but trails Zipformer by 0.81 points on unselected DEV and made 5540 full-DEV final edits against a registered gate of 5489, so the signed release below stays the install target. [RC2 qualification record](docs/ultra/releases/v3.1.0-rc2.md).
+
 All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Larger offline and 600M-parameter streaming models (Parakeet, Nemotron) are more accurate at several times the CPU; see the paper. Refresh with `just paper-refresh`.
 <!-- money-plot:end -->
 

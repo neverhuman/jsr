@@ -78,6 +78,14 @@ def readme_block(rows: list[dict], facts: dict, watts: str, extras: dict | None 
     lines += [*_story(versus or {}, rec_rows or {}, extras or {}), ""]
     if versus and versus.get("markdown"):
         lines += [versus["markdown"].rstrip("\n"), ""]
+    rr = rec_rows or {}
+    if "CandFinalFullEdits" in rr:
+        v = lambda k: str(rr[k]["value"]).replace("$-$", "\u2212").replace("{,}", ",")
+        lines += [f"**Next candidate, measured and not released.** RC2, trained on {v('CandTrainKh')} h, lowers live WER against "
+                  f"v3.0.0 by {v('CandLiveLmOldDelta').lstrip('\u2212')} points with the live LM, but trails Zipformer by "
+                  f"{v('CandLiveLmCDelta').lstrip('+')} points on unselected DEV and made {v('CandFinalFullEdits')} full-DEV final "
+                  f"edits against a registered gate of {v('CandGateFinalFull')}, so the signed release below stays the install target. "
+                  "[RC2 qualification record](docs/ultra/releases/v3.1.0-rc2.md).", ""]
     lines += ["All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Larger offline and "
               "600M-parameter streaming models (Parakeet, Nemotron) are more accurate at several times the CPU; see "
               "the paper. Refresh with `just paper-refresh`.", END]
