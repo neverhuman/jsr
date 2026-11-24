@@ -123,6 +123,16 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
     put("CandFinalFullEdits", thousands(str(fin["full_edits"])), fin["full_edits"], "edits", "RC2 final M5 full-DEV edits",
         str(R / "rc2-final_m5.fulldev.score.json"), sha256_file(root / R / "rc2-final_m5.fulldev.score.json"), "full LibriSpeech DEV (5,567 utt)")
 
+    isa = _load(root, RAW / "exact_isa" / "v310" / "rc2-compare.json")
+    ok = [r for r in isa["runs"] if r.get("text_mismatches_vs_look") == 0]
+    bad = [r for r in isa["runs"] if r.get("text_mismatches_vs_look") not in (0, None)]
+    if bad or not all(isa["token_identical_within_policy"].values()):
+        raise PaperDataError("candidate: an exact-ISA run differs from the confirmatory look; reword the witness sentence")
+    cpus = sorted({r["cpu_model"] for r in ok})
+    isrc = str(RAW / "exact_isa" / "v310" / "rc2-compare.json")
+    idig = sha256_file(root / isrc)
+    put("CandIsaRuns", str(len(ok)), len(ok), "runs", f"RC2 witness runs byte-identical to the Zen 2 look on all 730 utterances ({'; '.join(cpus)})",
+        isrc, idig, "730-utt DEV panel")
     import csv
     lin = list(csv.DictReader((root / R / "lineage.csv").open(encoding="utf-8")))
     kh = sum(float(x["audio_h"]) for x in lin)
@@ -132,7 +142,8 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
           r"\caption{\textbf{Measured next candidate (RC2), single registered look.} Not the release: it missed its "
           r"registered gates. $\Delta$ is RC2 minus Zipformer INT8 (or minus shipped v3.0.0) on the same utterances, with "
           r"one-sided 95\% bounds from the pinned scorer; negative means fewer errors. The 730-utterance panel overlaps "
-          r"the half of DEV used for selection; the C half (2,785 utterances) was never used. Full-DEV WER is descriptive. "
+          r"the half of DEV used for selection; the C half (2,785 utterances) was never used for selection. Full-DEV WER is "
+          r"descriptive. Live rows compare with shipped v3.0.0 live greedy (160\,ms); the final rows with its final pass. "
           r"Final rows run the 160\,ms live stream and commit with a 640\,ms chunk at reference utterance boundaries.}",
           r"\label{tab:candidate}", r"\footnotesize", r"\setlength{\tabcolsep}{4pt}",
           r"\begin{tabular}{@{}lrrrlll@{}}", r"\toprule",

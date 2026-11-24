@@ -57,7 +57,11 @@ reaches \CandFinalWer\% on the panel; its differences from Zipformer (\CandFinal
 against a registered adoption gate of \CandGateFinalFull{} and missed both panel targets
 (\CandGateLivePanel{} live, \CandGateFinalPanel{} final edits), so it is reported, not released.
 At freeze, the v3.0.0 baseline was mispinned to a historical checkpoint; the comparisons above pair the
-same RC2 transcripts with the shipped v3.0.0 transcripts, with no new decode.
+same RC2 transcripts with the shipped v3.0.0 transcripts, with no new decode. The candidate keeps the
+engine's exactness: \CandIsaRuns{} witness decodes on an Intel Xeon (AVX2 and AVX-512 VNNI dispatch) and an
+Apple M3 (NEON), covering live greedy at one and sixteen streams, both live LM policies and the final pass,
+reproduce the confirmatory look's Zen~2 transcripts on every panel utterance, with identical token streams
+within each live policy.
 
 \input{data/table_candidate.tex}
 
