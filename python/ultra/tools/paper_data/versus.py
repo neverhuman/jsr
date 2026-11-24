@@ -109,7 +109,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     for q in pairs:
         o, p, r = q["d"], q["p"], q["row"]
         bounds = f"{_sg(p['delta'], 2)} [{_sg(p['lo'], 2)}, {_sg(p['hi'], 2)}], {_verdict(p)}"
-        md.append(f"| **{r['system']}** | {q['chunk']} ms | {fmt(o['wer'], 2)} | {bounds} | "
+        chunk_md = f"{q['chunk']} ms" if q["mode"] == "live" else f"{q['chunk']} ms live + commit at reference utterance ends"
+        md.append(f"| **{r['system']}** | {chunk_md} | {fmt(o['wer'], 2)} | {bounds} | "
                   f"{speed_text(o['speed'])} ({fmt(o['speed'] / z['speed'], 2)}×) | {j(o['watts'])}"
                   + (f" ({fmt(100.0 * o['watts'] / z['watts'], 0)}%)" if o["watts"] is not None and z["watts"] else "")
                   + f" | {fmt(o['rss_mb'], 0)} ({fmt(100.0 * o['rss_mb'] / z['rss_mb'], 0)}%) |")
@@ -127,7 +128,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     def cell(q, f):
         return "---" if q is None else f(q)
     body = [
-        ("Live chunk (ms)", lambda q: str(zc) if q is None else str(q["chunk"])),
+        ("Live chunk (ms)", lambda q: str(zc) if q is None else (str(q["chunk"]) if q["mode"] == "live" else f"{q['chunk']}\\textsuperscript{{a}}")),
         ("Pooled WER (\\%)", lambda q: fmt(z["wer"] if q is None else q["d"]["wer"], 2)),
         ("$\\Delta$ WER vs.\\ Zip.\\ (pp)", lambda q: cell(q, lambda q: tex(_sg(q["p"]["delta"], 2)))),
         ("\\quad paired 95\\% bounds", lambda q: cell(q, lambda q: f"[{tex(_sg(q['p']['lo'], 2))}, {tex(_sg(q['p']['hi'], 2))}]")),
@@ -137,7 +138,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     ]
     tx = [r"\begin{table}[t]", r"\centering",
           r"\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances, same quiet Zen~2 core, cold, "
-          r"median of three. $\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors.}",
+          r"median of three. $\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
+          r"\textsuperscript{a}Live stream plus a commit pass at reference utterance boundaries.}",
           r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{3pt}",
           r"\begin{tabular}{@{}l" + "r" * len(cols) + r"@{}}", r"\toprule",
           " & ".join(["Metric"] + [c for c, _ in cols]) + r" \\", r"\midrule"]

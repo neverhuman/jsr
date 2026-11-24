@@ -20,7 +20,7 @@
 |---|---:|---:|---|---:|---:|---:|
 | Zipformer INT8 | 320 ms | 5.25 | — | 14.5 | 0.591 | 153 |
 | **Isosyll v3.0.0 (live)** | 160 ms | 6.85 | +1.59 [+1.27, +1.92], higher WER | 29.1 (2.01×) | 0.344 (58%) | 74 (48%) |
-| **Isosyll v3.0.0 (final, seg.)** | 160 ms | 5.06 | −0.19 [−0.53, +0.14], statistical tie | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
+| **Isosyll v3.0.0 (final, seg.)** | 160 ms live + commit at reference utterance ends | 5.06 | −0.19 [−0.53, +0.14], statistical tie | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
 
 Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); bounds from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
 
@@ -31,7 +31,16 @@ All accuracy is LibriSpeech DEV (test sets sealed); results are exploratory. Lar
 
 Isosyll was released as **ULTRA**, and the tags, `ultra-*` binaries and checkpoint IDs keep that name. The pinned release is **`v3.0.1`**: the `v3.0.0` INT8 artifact, the `ultra-engine-commit` and `ultra-score` binaries for x86-64 Linux, and the `M5.ulm` language model. Everything is listed in `SHA256SUMS`, which is signed with the project SSH key `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`.
 
-[`docs/release.md#install-the-pinned-release`](docs/release.md#install-the-pinned-release) has one copy-paste block that downloads the release, verifies the signature and every hash, and then transcribes a list of 16 kHz WAV files. Each output row holds the live text (`provisional`) and the final text (`committed`). Release record: [`docs/ultra/releases/v3.0.1.md`](docs/ultra/releases/v3.0.1.md).
+Verify before you run anything (from the repository root, after `gh release download v3.0.1 -R neverhuman/jsr -D models/v3.0.1`):
+
+```bash
+cd models/v3.0.1
+ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
+  -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+[`docs/release.md#install-the-pinned-release`](docs/release.md#install-the-pinned-release) has the full copy-paste block that downloads the release, also checks the pinned checksum digest, and then transcribes a list of 16 kHz WAV files. Each output row holds the live text (`provisional`) and the final text (`committed`). Release record: [`docs/ultra/releases/v3.0.1.md`](docs/ultra/releases/v3.0.1.md).
 
 ## Reproduce every number
 

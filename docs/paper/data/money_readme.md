@@ -16,7 +16,7 @@
 |---|---:|---:|---|---:|---:|---:|
 | Zipformer INT8 | 320 ms | 5.25 | — | 14.5 | 0.591 | 153 |
 | **Isosyll v3.0.0 (live)** | 160 ms | 6.85 | +1.59 [+1.27, +1.92], higher WER | 29.1 (2.01×) | 0.344 (58%) | 74 (48%) |
-| **Isosyll v3.0.0 (final, seg.)** | 160 ms | 5.06 | −0.19 [−0.53, +0.14], statistical tie | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
+| **Isosyll v3.0.0 (final, seg.)** | 160 ms live + commit at reference utterance ends | 5.06 | −0.19 [−0.53, +0.14], statistical tie | 14.2 (0.98×) | 0.720 (122%) | 725 (474%) |
 
 Δ is our pooled WER minus Zipformer's on the same utterances (negative = fewer errors); bounds from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not wall power.
 
