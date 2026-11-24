@@ -10,6 +10,7 @@
 
 pub mod bench_cmd;
 pub mod bundle_cmd;
+pub mod display_text;
 pub mod inventory;
 pub mod runner;
 pub mod stream_commit;

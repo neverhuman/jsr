@@ -3,6 +3,7 @@
 Versions follow the workspace `version` in `Cargo.toml`. Model bundles carry their own content hashes. ULTRA model releases (`v3.0.0`, ...) name one artifact, weights + decoder + scorer, and each has a release record under [`docs/ultra/releases/`](docs/ultra/releases/). They do not change the crate versions.
 
 ## Unreleased
+- **Fix: `ultra transcribe` / `ultra stream` printed only the last segment of audio longer than 30 s.** The stream coordinator's 30 s segment hard cap closes the open segment as `SegmentIncomplete`, and the printed text came from the ledger's immutable text, so the first 30 s were dropped. The CLI now prints the capped segment's last displayed snapshot followed by the next segment (presentation only; the wire events and the receipt's `commit` hash are unchanged, and `final_` hashes the printed text). Cancellations, timeouts and gaps are never recovered. Release `ultra` vs `ultra-cold-wav` on the 730-utterance DEV panel: 730 / 730 identical, up from 727 / 730. The signed v3.0.1 decoder `ultra-engine-commit` was never affected.
 - **ULTRA v3.0.1** (model release, 2026-11-23): the v3.0.0 artifact, re-issued as a **signed** release with its files attached. It is the same commit and the same bytes; no model or code change.
   - **Manifest:** `SHA256SUMS` sha256 `7612d5beb2b577893b649033073d44c6198c0e83a275e3980b3ede38e0162ef7`; INT8 weights `edac19d8…`.
   - **Measured:**
