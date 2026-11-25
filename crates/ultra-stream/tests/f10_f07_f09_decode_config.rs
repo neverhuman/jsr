@@ -829,6 +829,33 @@ fn f10_live_commit_stream_is_staging_dir_invariant_and_sensitive_to_tail_pad_and
         base_commit_sha
     );
 
+    // Enabling Z1 commit RMS norm keeps provisional_decode_config() identical while flipping
+    // commit_decode_config().commit_rms_norm and strictly changing commit policy_sha256().
+    assert!(!stream_a.commit_decode_config().commit_rms_norm);
+    assert!(!stream_a
+        .commit_decode_config()
+        .canonical_json()
+        .contains("commit_rms_norm"));
+    let mut rms_on_live = base_live.clone();
+    rms_on_live.commit.rms_norm = true;
+    let stream_rms_on = ultra_stream::LiveCommitAsrStream::new(
+        &backend_a,
+        &scfg,
+        &rms_on_live,
+        StreamClock::custom(|| 1),
+    )
+    .expect("stream rms on");
+    assert!(!stream_rms_on.provisional_decode_config().commit_rms_norm);
+    assert_eq!(
+        stream_rms_on.provisional_decode_config().policy_sha256(),
+        base_prov_sha
+    );
+    assert!(stream_rms_on.commit_decode_config().commit_rms_norm);
+    assert_ne!(
+        stream_rms_on.commit_decode_config().policy_sha256(),
+        base_commit_sha
+    );
+
     // Enabling active session_bias and changing its parameters strictly changes BOTH
     // provisional_decode_config().policy_sha256() and commit_decode_config().policy_sha256().
     let mut bias_on = base_live.clone();

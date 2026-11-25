@@ -34,6 +34,8 @@ pub struct StreamCommitCliOptions {
     pub lm_scale: f32,
     pub lodr_scale: f32,
     pub max_audio_s: f64,
+    /// Z1: whole-segment RMS gain before the commit re-encode (off by default).
+    pub commit_rms_norm: bool,
     pub session_lexical_bias: bool,
     pub session_bias_bonus: f32,
 }
@@ -60,6 +62,7 @@ impl Default for StreamCommitCliOptions {
             lm_scale: 0.80,
             lodr_scale: 0.60,
             max_audio_s: DEFAULT_MAX_PCM_SAMPLES as f64 / DEFAULT_SAMPLE_RATE as f64,
+            commit_rms_norm: false,
             session_lexical_bias: false,
             session_bias_bonus: 0.35,
         }
@@ -126,6 +129,7 @@ impl StreamCommitCliOptions {
             "--commit-max-audio-s" | "--commit-max-segment-s" => {
                 self.max_audio_s = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
             }
+            "--commit-rms-norm" => self.commit_rms_norm = true,
             "--session-lexical-bias" => self.session_lexical_bias = true,
             "--session-bias-bonus" => {
                 self.session_bias_bonus = next(i, flag)?.parse().map_err(|_| p_err(flag))?;
@@ -224,7 +228,7 @@ impl StreamCommitCliOptions {
                 ctc_weight: 0.0,
                 mbr_enabled: false,
                 mbr_temp: 1.0,
-                rms_norm: false,
+                rms_norm: self.commit_rms_norm,
             },
             hangover_ms: self.hangover_ms,
             preroll_ms: self.preroll_ms,
@@ -244,7 +248,7 @@ mod tests {
     #[test]
     fn commit_cli_options_default_off_and_parse_release_flags() {
         let def = StreamCommitCliOptions::default();
-        assert!(!def.enabled && !def.session_lexical_bias);
+        assert!(!def.enabled && !def.commit_rms_norm && !def.session_lexical_bias);
         assert_eq!(
             (
                 def.hangover_ms,
@@ -255,6 +259,12 @@ mod tests {
             (300, 300, 16, 320)
         );
         assert!((def.max_audio_s - 40.0).abs() < 1e-9);
+        assert!(
+            !def.to_live_commit_config()
+                .expect("default live cfg")
+                .commit
+                .rms_norm
+        );
 
         let args: Vec<String> = "--commit-pass --commit-hangover-ms 800 --commit-preroll-ms 450 --commit-chunk 16 --commit-tail-pad-ms 320 --commit-beam 16 --commit-lm-scale 0.80 --commit-lodr-scale 0.60 --commit-max-audio-s 40.0 --session-lexical-bias --session-bias-bonus 0.4"
             .split_whitespace()
@@ -266,7 +276,7 @@ mod tests {
             assert!(opts.try_parse_flag(&args, &mut i).expect("parse"));
             i += 1;
         }
-        assert!(opts.enabled && opts.session_lexical_bias);
+        assert!(opts.enabled && !opts.commit_rms_norm && opts.session_lexical_bias);
         let live = opts.to_live_commit_config().expect("live cfg");
         assert_eq!(
             (
@@ -278,6 +288,32 @@ mod tests {
             (800, 450, 16, 16)
         );
         assert_eq!(live.commit.max_pcm_samples, 640_000);
+        assert!(!live.commit.rms_norm);
         assert!((live.session_bias.bias_bonus - 0.4).abs() < 1e-6);
+    }
+
+    #[test]
+    fn commit_rms_norm_flag_opt_in_and_without_commit_pass() {
+        let parse = |line: &str| {
+            let args: Vec<String> = line.split_whitespace().map(String::from).collect();
+            let mut opts = StreamCommitCliOptions::default();
+            let mut i = 0;
+            while i < args.len() {
+                assert!(opts.try_parse_flag(&args, &mut i).expect("parse"));
+                i += 1;
+            }
+            opts
+        };
+
+        let on = parse("--commit-pass --commit-rms-norm");
+        assert!(on.enabled && on.commit_rms_norm);
+        assert!(on.to_live_commit_config().expect("live").commit.rms_norm);
+
+        // Without --commit-pass, --commit-rms-norm parses without error and leaves enabled=false,
+        // matching existing --commit-* options such as --commit-beam and --commit-chunk.
+        let standalone = parse("--commit-rms-norm");
+        let existing_other = parse("--commit-beam 4 --commit-chunk 8");
+        assert!(!standalone.enabled && standalone.commit_rms_norm);
+        assert!(!existing_other.enabled && existing_other.commit_beam == Some(4));
     }
 }
