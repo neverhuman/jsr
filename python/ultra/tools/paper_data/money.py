@@ -326,10 +326,10 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
                      f"([xshift={b[0]:.2f}pt, yshift={b[1]:.2f}pt] rel axis cs:0,0);")
         names = [_tex(p["row"]["system"]) for p in reversed(ours_pts)]
         ours_legend = r"\shortstack[l]{" + r"\\".join(names) + "}"
-        marks = ["Blue diamonds: ours (same INT8 weights)."]
+        marks = ["Orange diamonds: ours (same INT8 weights)."]
     else:
         ours_legend = "Isosyll v3.0.0 (final, seg.)"
-        marks = ["Blue diamond: ours (final commit pass)."]
+        marks = ["Orange diamond: ours (final commit pass)."]
     if has["whole"] or any(p["class"] == "whole_utterance" for p in pts):
         marks.append("Hollow: offline.")
     n_faded = sum(1 for p in pts if p["row"]["faded"])
@@ -343,9 +343,9 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             configuration="generated: broader comparison figure", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
     if hero:
-        marks = ["Blue marks: Isosyll (single 60\\,MB INT8 artifact, model v3.1.0 weights, timed with Zipformer INT8 in the same quiet H1 blocks).",
-                 "Grey marks: all 12 timed public CPU comparators (filled = streaming, hollow = offline whole-clip, lighter = shared-host H0 interim, \\S = 73-clip subset timing).",
-                 "Bottom panel: active-core CPU RAPL energy (quiet H1, same run; not board or wall power)."]
+        marks = ["Orange marks: Isosyll (single 60\\,MB INT8 artifact, model v3.1.0 weights, timed with Zipformer INT8 in the same quiet H1 blocks).",
+                 "Ink marks: all 12 timed public CPU comparators (filled = streaming, hollow = offline whole-clip, lighter = shared-host H0 interim, \\S = 73-clip subset timing).",
+                 "Bottom panel: idle-subtracted core energy for the three matched R6 rows only (same blocks; not wall power)."]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")

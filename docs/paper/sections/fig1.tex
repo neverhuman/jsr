@@ -1,12 +1,7 @@
-% Fig. 1 (page 1, left column, directly below the keywords): processing speed on one core against
-% pooled WER on the DEV selection panel under the quiet-host protocol. The bold first
-% sentence (\MoneyHeadline) says what the reader should see; the rest of the caption (\MoneyCaption)
-% says what is drawn. Both come from paper-data, so they always describe exactly what is plotted.
-% Plot body: figures/money.tex (paper-data).
-\begin{figure}[!ht]
+% The same plot source supplies Figure 1 and the README PNG.
+\begin{figure}[H]
 \centering
-\IfFileExists{figures/money.tex}{\input{figures/money.tex}}{%
-  \pendingfig{Speed-against-WER figure pending (figures/money.tex).}}
-\caption{\textbf{\MoneyHeadline} \MoneyCaption}
+\input{figures/money.tex}%
+\caption{\ct{\MoneyHeadline} \MoneyCaption}
 \label{fig:money}
 \end{figure}

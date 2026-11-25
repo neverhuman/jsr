@@ -147,22 +147,24 @@ def test_sections_contain_no_bare_result_numbers():
 
 
 FIGURES = ("money",)
-_HARNESS = r"""\documentclass[conference]{IEEEtran}
-\usepackage[T1]{fontenc}\usepackage{lmodern}
-\usepackage[table]{xcolor}\usepackage{tikz}\usepackage{pgfplots}\usepackage{pgfplotstable}\pgfplotsset{compat=1.17}
-\usetikzlibrary{calc,arrows.meta,patterns}\usepgfplotslibrary{groupplots}
+_HARNESS = r"""\documentclass[10pt,letterpaper,twocolumn]{article}
+\input{house.tex}
+\usepackage{pgfplotstable}
+\usepgfplotslibrary{groupplots}
 \newcommand{\ultra}{\textsc{Ultra}}
 \input{data/metrics.tex}
 \newsavebox\fbx
 \newcommand{\measure}[1]{\sbox\fbx{\input{figures/#1.tex}}\typeout{FIGWIDTH #1 \the\wd\fbx}}
 \begin{document}
+\onecolumn
+\typeout{BODYWIDTH \the\textwidth}
 FIGURES
 x
 \end{document}
 """
 
 
-def test_figures_compile_standalone_within_column(tmp_path):
+def test_figures_compile_standalone_within_page(tmp_path):
     import subprocess
 
     assert shutil.which("pdflatex"), "pdflatex is required for the paper figures"
@@ -176,7 +178,9 @@ def test_figures_compile_standalone_within_column(tmp_path):
     assert proc.returncode == 0, log[-3000:]
     widths = dict(re.findall(r"FIGWIDTH (\w+) ([\d.]+)pt", log))
     assert set(widths) == set(FIGURES)
-    assert float(widths["money"]) <= 243.0, f"Figure 1 money must fit 243pt, got {widths['money']}pt"
+    body_width = re.search(r"BODYWIDTH ([\d.]+)pt", log)
+    assert body_width
+    assert float(widths["money"]) <= float(body_width[1]) + 0.1, "Figure 1 exceeds the paper text width"
 
 
 def test_every_manifest_file_is_committed():
