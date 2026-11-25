@@ -25,6 +25,13 @@ test-crate crate:
     cargo test -p {{crate}} -q
 
 # Without a full .venv (torch etc.), run at least the torch-free CI lane instead of skipping silently:
+# Opt-in CUDA restart witness (C2); run only on reserved CUDA devices. Not part of `required`.
+cuda-witness:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pybin="$PWD/{{py}}"; [ -x "$pybin" ] || pybin="$(git rev-parse --git-common-dir)/../{{py}}"
+    cd python/ultra && "$pybin" -m pytest -q -p no:cacheprovider tests_cuda
+
 # a gate that skipped pytest let main go red twice on 2026-11-22/23.
 pytest:
     if [ -x {{py}} ]; then {{py}} -m pytest -q python/ultra/tests; else echo "pytest: no .venv; running the torch-free CI lane (ops/ci/pytest-light.sh) instead"; bash ops/ci/pytest-light.sh; fi

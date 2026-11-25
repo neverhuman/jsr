@@ -39,19 +39,23 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def rng_state() -> dict:
+def rng_state(device=None) -> dict:
     st = {"python": random.getstate(), "numpy": np.random.get_state(),
           "torch": torch.get_rng_state()}
-    if torch.cuda.is_available():
+    if device is not None and device.type == "cuda":
+        st["device_rng"] = torch.cuda.get_rng_state(device)
+    elif device is None and torch.cuda.is_available():
         st["cuda"] = torch.cuda.get_rng_state_all()
     return st
 
 
-def set_rng_state(st: dict) -> None:
+def set_rng_state(st: dict, device=None) -> None:
     random.setstate(st["python"])
     np.random.set_state(st["numpy"])
     torch.set_rng_state(st["torch"])
-    if "cuda" in st and torch.cuda.is_available():
+    if "device_rng" in st and torch.cuda.is_available():
+        torch.cuda.set_rng_state(st["device_rng"], device)
+    elif "cuda" in st and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(st["cuda"])
 
 
@@ -99,7 +103,7 @@ def latest(run_dir: str) -> str | None:
         return os.path.join(run_dir, fh.read().strip() + ".pt")
 
 
-def load(path: str, restore_rng: bool = True) -> dict:
+def load(path: str, restore_rng: bool = True, *, expected_sha256: str | None = None) -> dict:
     marker = path[:-3] + ".sha256"
     if not os.path.exists(path) or not os.path.exists(marker):
         raise CheckpointError(f"incomplete checkpoint (no file or completion marker): {path}")
@@ -108,6 +112,8 @@ def load(path: str, restore_rng: bool = True) -> dict:
     got = _sha256(path)
     if got != want:
         raise CheckpointError(f"checksum mismatch for {path}: {got} != {want}")
+    if expected_sha256 is not None and got != expected_sha256:
+        raise CheckpointError(f"{path}: checkpoint SHA-256 does not match the registered seed")
     payload = torch.load(path, map_location="cpu", weights_only=False)
     if restore_rng:
         set_rng_state(payload["rng"])
@@ -154,7 +160,8 @@ class AsyncSaver:
         import threading
 
         self.wait()
-        snap = _to_cpu(dict(payload, rng=rng_state()))
+        state = payload.get("objective_state")
+        snap = _to_cpu(dict(payload, rng=state["ranks"][0]["rng"] if state else rng_state()))
 
         def work():
             try:

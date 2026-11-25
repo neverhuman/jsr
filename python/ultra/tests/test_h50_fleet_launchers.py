@@ -23,11 +23,11 @@ PR73_HUB_CLI_FLAGS = frozenset({
 
 
 def _main_train_config_fields() -> set[str]:
-    tree = ast.parse((REPO_ROOT / "python/ultra/train/trainer.py").read_text())
+    tree = ast.parse((REPO_ROOT / "python/ultra/train/train_config.py").read_text())
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == "TrainConfig":
             return {n.target.id for n in node.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
-    raise AssertionError("TrainConfig class not found in trainer.py")
+    raise AssertionError("TrainConfig class not found in train_config.py")
 
 
 def _extract_set_keys(cmd: str) -> set[str]:

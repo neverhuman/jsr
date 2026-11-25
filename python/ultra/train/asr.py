@@ -317,6 +317,7 @@ class ASRModel(nn.Module):
                 inter_ctc = isum / max(1, itok)
             total = total + inter_ctc_weight * inter_ctc
             out["inter_ctc"] = inter_ctc
+            out["inter_ctc_tokens"] = itok
         if "balancer" in aux and balancer_weight > 0:
             bal = aux["balancer"]
             total = total + balancer_weight * bal

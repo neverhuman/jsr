@@ -71,10 +71,30 @@ class FactTextHelper:
             width=model.predictor.context_len,
             seed=int(cfg.seed) + 97 * int(data_rank),
         )
+        from train.data_identity import file_sha256
+
+        self.stream_sha256 = file_sha256(cfg.text_stream_path)
         self._enull_sum: torch.Tensor | None = None
         self._enull_frames: int = 0
         self._enull_seen: int = 0
         self.e_null: torch.Tensor | None = None
+
+    def restart_state(self) -> dict:
+        return {
+            "settings": [self.stream_sha256, self.weight, self.batch_size, self.enull_batches],
+            "rng": self.stream.gen.get_state(),
+            "sum": self._enull_sum.cpu() if self._enull_sum is not None else None,
+            "frames": self._enull_frames, "seen": self._enull_seen,
+        }
+
+    def restore_restart_state(self, state: dict, device) -> None:
+        if state["settings"] != [self.stream_sha256, self.weight, self.batch_size, self.enull_batches]:
+            raise CheckpointError("objective restart text stream or settings changed")
+        self.stream.gen.set_state(state["rng"])
+        self._enull_frames, self._enull_seen = state["frames"], state["seen"]
+        self._enull_sum = state["sum"].to(device) if state["sum"] is not None else None
+        self.e_null = (self._enull_sum / max(self._enull_frames, 1)
+                       if self._enull_sum is not None else None)
 
     @classmethod
     def build(cls, model, cfg, data_rank: int = 0) -> FactTextHelper | None:
