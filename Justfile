@@ -61,6 +61,14 @@ security:
 sbom:
     bash ops/ci/sbom.sh
 
+# Build stripped, static `isosyll` release archives into dist/ (ops/release/build.sh).
+release-build *TRIPLES:
+    bash ops/release/build.sh {{TRIPLES}}
+
+# Build the platform-independent model archive into dist/ (ops/release/model.sh).
+release-model BUNDLE LIVE FINAL:
+    bash ops/release/model.sh {{BUNDLE}} {{LIVE}} {{FINAL}}
+
 # Report every tool the lanes need, with pinned versions (ops/ci/lib.sh).
 doctor:
     bash scripts/ci-doctor.sh

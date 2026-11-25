@@ -116,6 +116,9 @@
     "python/ultra/train/mcr_rnnt.py": "training",
     "python/ultra/train/etm_kd.py": "training",
     "python/ultra/train/loss_trunc.py": "training",
-    "python/ultra/tests/test_wave2_objectives.py": "training"
+    "python/ultra/tests/test_wave2_objectives.py": "training",
+    "LICENSE": "workspace",
+    "install.sh": "ops",
+    "crates/isosyll/": "runtime"
   }
 }

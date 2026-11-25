@@ -27,3 +27,4 @@ research/**/*.npz
 
 # Installed release files (docs/release.md "Install the pinned release")
 /models/
+/dist/
