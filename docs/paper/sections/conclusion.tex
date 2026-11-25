@@ -1,14 +1,19 @@
 \section{Conclusion}\label{sec:conclusion}
 
-An always-on speech recogniser should barely register on the CPU budget of the machine hosting it.
-We presented \ultra{} \ReleaseVer{}, a compact streaming Conformer transducer and pure-Rust
-integer-exact CPU engine evaluated against all \ColdCompleteCompCount{} complete-panel public
-open-weights CPU comparators on the same 730-utterance LibriSpeech DEV panel. On one pinned quiet
-Zen~2 core and one prepared INT8 artifact, \ultra{} \ReleaseVer{} delivers \ColdConclusionResult{},
-reproduces its transcripts exactly on \CandIsaRuns{} witness decodes across x86 and ARM CPUs; the
-prior release sustained sixteen real-time paced live streams at \RelCapSixteenBusy\% of one core
-(\RelCapSixteenNetW\,W net per stream, \RelCapSixteenLagPninetyFive\,ms p95 lag) with INT8 execution within
-\RelIntEightDelta\pp of FP32. \ultra{} \ReleaseVer{} is released by owner decision: it missed its registered
-full-DEV final gate (\CandFinalFullEdits{} edits against \CandGateFinalFull) and trails Zipformer by
-\CandLiveLmCDelta{} points on the unselected half of DEV for the live stream with a language model.
-All results are exploratory and use development data only. The negative results of \cref{sec:v4negative} point to the next lever: more acoustic evidence, that is fresh audio rather than relabelled audio, and capacity paid for by the power savings.
+An always-on speech recogniser should barely register on the CPU and energy budget of its host. We
+presented \ultra{}, a compact streaming Conformer transducer and pure-Rust integer-exact CPU engine
+evaluated directly against all \ColdCompleteCompCount{} complete-panel public open-weights CPU
+comparators on the same 730-utterance LibriSpeech DEV panel. From one 60\,MB INT8 artifact on one
+pinned quiet Zen~2 core, \ultra{} delivers lowest-power live streaming at \VsWideSpeed$\times$ real time
+and \VsWideWatts\,J/audio-s (\VsWideWer\% panel / \CandLiveLmEightFullWer\% full-DEV WER at 320\,ms),
+half-latency live streaming at \ColdLiveSpeed$\times$ and \ColdLiveWatts\,J/audio-s (\ColdLiveWer\%
+panel / \CandLiveLmFullWer\% full DEV, \ColdLiveRss\,MB RAM), fastest greedy streaming at
+\VsGreedySpeed$\times$ (\ColdRcTwoLiveGreedyRss\,MB RAM), and an utterance-end commit pass reaching
+\ColdHeadWer\% panel WER (\CandFinalFullWer\% full DEV) at \ColdHeadSpeed$\times$ real time---with
+opt-in v3.2.0 \texttt{-{}-rms-norm} improving $-$30\,dB quiet speech by \AudioZOneThirtyDelta\pp on
+unselected DEV. Transcripts reproduce bit-identically across \CandIsaRuns{} x86 and ARM witness decodes,
+and sixteen paced live streams fit on one core at \RelCapSixteenBusy\% load (\RelCapSixteenNetW\,W net
+per stream). \ultra{} is released by owner decision after missing its registered full-DEV final edit
+gate (\CandFinalFullEdits{} vs.\ \CandGateFinalFull) and trails Zipformer INT8 on unselected DEV live
+streams (\CandLiveLmEightCDelta\pp at 320\,ms, \CandLiveLmCDelta\pp at 160\,ms). All results are
+exploratory and use development data only.

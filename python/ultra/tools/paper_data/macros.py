@@ -26,7 +26,7 @@ def metrics_tex(rec: Records) -> str:
         missing = r.get("pending") or any(r.get(k) in (None, "") for k in REQUIRED)
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
-    cap_m = "Grey: v3.0.0."
+    cap_m = rec.rows["MoneyMarksCaption"]["value"] if "MoneyMarksCaption" in rec.rows else ""
     lines += ["", f"\\newcommand{{\\MoneyCaption}}{{{cap_m}}}", ""]
     return "\n".join(lines)
 
