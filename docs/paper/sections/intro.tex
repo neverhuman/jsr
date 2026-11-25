@@ -13,17 +13,16 @@ original name, ULTRA. \ultra{} co-designs a compact streaming Conformer transduc
 integer-exact pure-Rust CPU engine around a single 60\,MB prepared INT8 artifact serving both live and
 final operating points:
 \begin{itemize}
-\item \textbf{Always-on live streaming:} 320\,ms chunked decoding with a compact live LM reaches
-  \VsWideSpeed$\times$ real time at \VsWideWatts\,J per audio-second (\VsWideWer\% panel WER,
-  \CandLiveLmEightFullWer\% full DEV); halving the chunk to 160\,ms gives \ColdLiveSpeed$\times$ real
-  time at \ColdLiveWatts\,J per audio-second and \ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER,
-  \CandLiveLmFullWer\% full DEV), and greedy 160\,ms decoding reaches \VsGreedySpeed$\times$ in
+\item \textbf{Always-on live streaming:} 160\,ms chunked decoding with a compact live LM reaches
+  \ColdLiveSpeed$\times$ real time at \ColdLiveWatts\,J per audio-second and \ColdLiveRss\,MB peak RAM
+  (\ColdLiveWer\% panel WER, \CandLiveLmFullWer\% full DEV). The 320\,ms chunk on the same weights
+  reaches \VsWideSpeed$\times$ at \VsWideWatts\,J per audio-second (\VsWideWer\% panel,
+  \CandLiveLmEightFullWer\% full DEV), and greedy 160\,ms decoding reaches \VsGreedySpeed$\times$ in
   \ColdRcTwoLiveGreedyRss\,MB RAM (\VsGreedyWer\% panel WER)---all without an endpoint detector.
 \item \textbf{Utterance-segmented final text:} the exact same INT8 weights run a second-pass 640\,ms
   commit pass with a 5-gram LM and log-density-ratio (LODR) beam search at utterance endpoints,
   running \ColdFinalVsZipSpeed{} at \ColdHeadWer\% pooled DEV panel WER (\CandFinalFullWer\% full DEV),
-  \VsVerdictTwo{} Zipformer INT8's \ColdZipWer\%, with opt-in v3.2.0 \texttt{-{}-rms-norm} level
-  normalisation for quiet speech.
+  \VsVerdictTwo{} Zipformer INT8's \ColdZipWer\%.
 \end{itemize}
 
 \para{Integer exactness.} Every quantised GEMM accumulates exactly in int32, every activation row
@@ -37,22 +36,23 @@ runtime) directly against all \ColdCompleteCompCount{} public open-weights CPU c
 730-utterance LibriSpeech DEV panel WER (\cref{fig:money,tab:measured}), and head-to-head against the
 strongest streaming comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \begin{enumerate}
-\item \textbf{Lowest-power, fastest always-on streaming.} Live +LM delivers \VsWideSpeedX$\times$
-  (320\,ms) and \VsSpeedXOne$\times$ (160\,ms) the paired throughput of Zipformer INT8 at
-  \VsWideEnergyPct\% and \VsEnergyPctOne\% of its active core energy per audio second, and
-  \VsRssPctOne\% of its memory (\cref{sec:versus}); on the prior artifact, sixteen paced live streams
-  share one quiet Zen~2 core at \RelCapSixteenBusy\% load (\RelCapSixteenNetW\,W net per stream,
-  \RelCapSixteenLagPninetyFive\,ms p95 stable-word lag; \cref{sec:capacity}).
+\item \textbf{Lowest-power, fastest always-on streaming.} Live +LM at 160\,ms delivers
+  \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
+  core energy per audio second and \VsRssPctOne\% of its memory (\cref{sec:versus}). The 320\,ms
+  chunk is \VsWideSpeedX$\times$ at \VsWideEnergyPct\% of that energy. On the prior artifact,
+  sixteen paced live streams share one quiet Zen~2 core at \RelCapSixteenBusy\% load
+  (\RelCapSixteenNetW\,W net per stream, \RelCapSixteenLagPninetyFive\,ms p95 stable-word lag;
+  \cref{sec:capacity}).
 \item \textbf{Final text from the same weights.} An utterance-end commit pass on the same 60\,MB INT8
   artifact is \VsVerdictTwo{} Zipformer INT8 on pooled WER under a paired speaker-clustered test, at
-  \VsSpeedXTwo$\times$ its single-core speed (\cref{sec:versus}), while opt-in v3.2.0
-  \texttt{-{}-rms-norm} improves $-$30\,dB quiet speech by \AudioZOneThirtyDelta\pp on unselected DEV
-  at at most \AudioZOneCpuStreamUpper\% CPU (\cref{sec:level}). \ultra{} \ReleaseVer{} is released by
+  \VsSpeedXTwo$\times$ its single-core speed (\cref{sec:versus}). \ultra{} \ReleaseVer{} is released by
   owner decision after missing its registered full-DEV final gate (\CandFinalFullEdits{} edits vs.\
-  \CandGateFinalFull); its live gap to Zipformer on unselected DEV is \CandLiveLmEightCDelta\pp
-  (320\,ms) and \CandLiveLmCDelta\pp (160\,ms) (\cref{sec:candidate}).
+  \CandGateFinalFull); its live gap to Zipformer on unselected DEV is \CandLiveLmCDelta\pp (160\,ms)
+  and \CandLiveLmEightCDelta\pp (320\,ms) (\cref{sec:candidate}). Opt-in quiet-speech level
+  normalisation is measured separately (\cref{sec:level}).
 \item \textbf{Reproducible integer-exact CPU engine.} Pure-Rust engine with no external runtime or
-  BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp on full DEV (\RelFullUtts{} utterances)
+  BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp on the prior release artifact
+  (full DEV, \RelFullUtts{} utterances)
   with batch-invariant execution and identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).
 \item \textbf{Unified all-comparator protocol.} Same 730 DEV utterances (\ColdAudioMinutes\,min), one
   pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, same-run active core

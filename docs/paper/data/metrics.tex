@@ -373,12 +373,12 @@
 \newcommand{\ColdZipWer}{5.25}% [exploratory] % WER
 \newcommand{\ColdZipWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdZipWerOther}{8.43}% [exploratory] % WER
-\newcommand{\HeroSubtitle}{Lowest power: 33.3$\times$ RT, 0.316 J/audio-s, 5.50\% WER (320 ms) $\cdot$ Half latency: 32.7$\times$, 0.328 J/audio-s, 5.54\% (160 ms) $\cdot$ Final: 16.8$\times$, 5.00\%}% [exploratory] sentence
+\newcommand{\HeroSubtitle}{Live +LM: 32.7$\times$, 0.328 J/audio-s, 5.54\% $\cdot$ Final: 16.8$\times$, 5.00\%}% [exploratory] sentence
 \newcommand{\LmOverlapCount}{42}% [exploratory] dev transcripts (12+ words) found verbatim in the LM text
 \newcommand{\LmOverlapOf}{3719}% [exploratory] dev transcripts with 12+ words checked
 \newcommand{\LmPackMb}{334}% [exploratory] MB (engine pack of M5 + LODR, q8)
 \newcommand{\MoneyFullMarksCaption}{Blue diamonds: ours (same INT8 weights). Hollow: offline. Lighter: H0 interim (3). \S: 73-clip timing (4).}% [reported] sentence
-\newcommand{\MoneyHeadline}{\ultra{} vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: live +LM runs at 33.3$\times$ (0.316 J/audio-s, 5.50\% WER at 320 ms; +0.65 pp on unselected DEV) and 32.7$\times$ (0.328 J/audio-s, 5.54\% at 160 ms; +0.81 pp on unselected DEV), greedy hits 34.2$\times$ (6.23\%, 74 MB), and the utterance-end commit pass reaches 5.00\% at 16.8$\times$ vs. Zipformer INT8 at 14.0$\times$ (0.573 J/audio-s, 5.25\%).}% [exploratory] sentence
+\newcommand{\MoneyHeadline}{\ultra{} vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: live +LM runs at 32.7$\times$ (0.328 J/audio-s, 5.54\% WER at 160 ms; +0.81 pp on unselected DEV) and the utterance-end commit pass reaches 5.00\% at 16.8$\times$ vs. Zipformer INT8 at 14.0$\times$ (0.573 J/audio-s, 5.25\%).}% [exploratory] sentence
 \newcommand{\MoneyMarksCaption}{Blue marks: Isosyll (single 60\,MB INT8 artifact, model v3.1.0 weights, timed with Zipformer INT8 in the same quiet H1 blocks). Grey marks: all 12 timed public CPU comparators (filled = streaming, hollow = offline whole-clip, lighter = shared-host H0 interim, \S = 73-clip subset timing). Bottom panel: active-core CPU RAPL energy (quiet H1, same run; not board or wall power).}% [reported] sentence
 \newcommand{\MoneyWattsCaption}{Active core W per stream (core energy registers, same run), not device power.}% [reported] sentence
 \newcommand{\RelCapEightBusy}{30.1}% [exploratory] % of one core
