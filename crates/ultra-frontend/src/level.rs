@@ -17,8 +17,8 @@
 //! ```
 //!
 //! The sum of squares is accumulated in `f64`; every partial sum is an exact integer below
-//! 2^53 for inputs up to about 8.3 M full-scale samples (over 8 minutes at 16 kHz), so the
-//! result does not depend on numpy's pairwise summation order for any supported clip length.
+//! 2^53 for clips up to ~524 s at 16 kHz (the default 40 s commit cap is far inside), so the
+//! result does not depend on numpy's pairwise summation order for those lengths.
 
 /// Target RMS on the int16 scale.
 pub const Z1_TARGET_RMS: f64 = 1928.0;

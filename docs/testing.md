@@ -71,3 +71,13 @@ no paid service. The limits are set by the owner rulings and the spec:
 
 What a release must prove, and where each piece of evidence lives, is in
 `docs/release.md`.
+
+## Z1 final-text RMS gain (`--rms-norm`)
+
+`ultra-engine-commit --rms-norm` scales each closed utterance to RMS 1928 (gain clamped to
+-12/+40 dB, half-even rounding, int16 clip) before the commit re-encode; it is off by default and
+folded into `policy_sha256` only when on. Only `committed` matches the codex-o3-audit Z1 oracle
+receipts: `provisional` and `revised` are computed on the raw audio, and external CTC log-probs
+come from raw audio. The stream CLI hard-codes `rms_norm: false`; product wiring is a follow-up.
+Witnesses: `ultra-frontend/tests/z1_rms_parity.rs` (Python fixture) and
+`ultra-engine/tests/commit_pass.rs::commit_rms_norm_flag_matches_prenormalised_input`.

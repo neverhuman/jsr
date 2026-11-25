@@ -83,7 +83,7 @@ pub struct EffectiveDecodeConfig {
     pub context_mode: String,
     /// Z1 commit-pass RMS normalisation. Absent from the canonical policy when off, so Z1-off
     /// hashes are unchanged from releases that predate the flag.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub commit_rms_norm: bool,
 }
 
@@ -454,6 +454,14 @@ mod tests {
         assert_eq!(g.tail_pad_frames, 8);
         assert_ne!(a.policy_sha256(), g.policy_sha256());
 
+        // Z1-off receipts (full serde, as written by engine_eval) carry no new key.
+        assert!(!serde_json::to_string(&sample_cfg())
+            .expect("serialize")
+            .contains("commit_rms_norm"));
+        let on_json = serde_json::to_string(&sample_cfg().with_commit_rms_norm(true)).expect("ser");
+        assert!(on_json.contains("\"commit_rms_norm\":true"));
+        let rt: EffectiveDecodeConfig = serde_json::from_str(&on_json).expect("rt");
+        assert!(rt.commit_rms_norm);
         // Z1: on differs from off; off is byte-identical to a pre-Z1 canonical policy.
         let z = sample_cfg().with_commit_rms_norm(true);
         assert_ne!(a.policy_sha256(), z.policy_sha256());

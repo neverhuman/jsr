@@ -92,6 +92,8 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
                 a.max_sym_per_frame = v()?.parse().map_err(|e| format!("{k}: {e}"))?
             }
             "--ctc-weight" => a.ctc_weight = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
+            // Z1: whole-utterance RMS gain before the commit re-encode (default off). Only
+            // `committed` is normalised; `provisional`/`revised` stay on the raw audio.
             "--mbr" => a.mbr = true,
             "--rms-norm" => a.rms_norm = true,
             "--mbr-temp" => a.mbr_temp = v()?.parse().map_err(|e| format!("{k}: {e}"))?,

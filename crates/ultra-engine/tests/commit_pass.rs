@@ -324,3 +324,40 @@ fn commit_default_cap_is_40s_and_boundary_is_exact() {
     assert!(r_over.pcm_truncated);
     assert_eq!(r_over.committed, r_over.provisional);
 }
+
+/// Z1 end to end: flag-on fed raw x commits exactly what flag-off commits when fed
+/// `rms_normalize(x)` (quiet clip, tail pad > 0). The synthetic model is weight-free, so this
+/// pins the wiring (flag -> commit input -> pad ordering); sample parity is in the frontend tests.
+#[test]
+fn commit_rms_norm_flag_matches_prenormalised_input() {
+    let eng = Engine::new(synthetic_model(2), Isa::Scalar, Precision::F32).expect("engine");
+    let quiet: Vec<i16> = (0..8_000)
+        .map(|i| (32767.0 * 0.003 * (i as f64 * 0.17).sin()) as i16)
+        .collect();
+    let (norm, st) = ultra_frontend::rms_normalize(&quiet);
+    assert!(st.gain > 10.0, "a quiet clip must be boosted");
+    let base = CommitConfig {
+        commit_chunk: 16,
+        tail_pad_samples: 5_120,
+        beam_size: 2,
+        ..CommitConfig::default()
+    };
+    let run = |rms_norm: bool, pcm: &[i16]| {
+        let mut s = CommitPassSession::new(eng.clone(), CommitConfig { rms_norm, ..base })
+            .expect("session");
+        s.accept_i16(pcm).expect("accept");
+        s.commit_endpoint().expect("commit")
+    };
+    let on = run(true, &quiet);
+    let off_pre = run(false, &norm);
+    assert_eq!(on.committed, off_pre.committed);
+    let sess = CommitPassSession::new(
+        eng,
+        CommitConfig {
+            rms_norm: true,
+            ..base
+        },
+    )
+    .expect("session");
+    assert!(sess.commit_decode_config().commit_rms_norm);
+}

@@ -116,8 +116,6 @@ pub struct CommitLmGateConfig {
     pub token_lm: Option<CommitTokenLm>,
     pub internal_lm: InternalLm,
     pub gate: LmGateConfig,
-    /// Z1 whole-segment RMS normalisation before encoding (and before tail padding).
-    pub rms_norm: bool,
 }
 
 impl CommitLmGateConfig {
@@ -129,13 +127,12 @@ impl CommitLmGateConfig {
         pcm: &[i16],
         tail_pad_samples: usize,
     ) -> Result<String, EngineError> {
-        let pcm = super::types::commit_input_pcm(pcm, self.rms_norm);
         let (enc, n_frames) = encode_pcm_frames(
             &engine.model,
             engine.isa,
             engine.precision,
             commit_chunk,
-            &pcm,
+            pcm,
             tail_pad_samples,
         )?;
         let toks = decode_enc_gated(
