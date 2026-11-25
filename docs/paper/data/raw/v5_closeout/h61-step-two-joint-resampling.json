@@ -1,0 +1,50 @@
+{
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "diagnostic_sha256": "1d5a4b2b7e825a880e13477e9851b9d9cfefdce7c3c3ef67b78c65cb283f1522",
+  "bootstrap_seed": 20261122,
+  "bootstrap_replicates": 10000,
+  "sampling": "Speaker clusters stratified by DEV split, shared matched seed labels, one sided 95% upper",
+  "seed_pairs": [
+    7919,
+    7920,
+    7921
+  ],
+  "clean": {
+    "contrast": "clean C4 ALL-ON minus signed RC2",
+    "fixed_seed_upper_pp": 0.331,
+    "joint_seed_speaker_upper_pp": 0.344,
+    "edits": [
+      3713,
+      3745,
+      3769,
+      3626
+    ],
+    "input_sha256": [
+      "6930ebed30ae7637b28da0f83d601a95ceae5ac7d9201d3c973dd239a9117f01",
+      "b017cff89a092ec4f6866dbe4ab9cfe847a06d9906a37f312d47dab694d30025",
+      "19bdcf41649292eb2a83012bc74a3859892058d536f73edbe5424b6db8f00a0f",
+      "5a5d7a6ae6df547c434b30b397c034130ec9288985a60c957ec4cbfa0640fe87"
+    ]
+  },
+  "musan": {
+    "contrast": "MUSAN TEST 5 dB C4 ALL-ON minus CAP-CTRL",
+    "fixed_seed_upper_pp": -0.01,
+    "joint_seed_speaker_upper_pp": 0.016,
+    "edits": [
+      8313,
+      8304,
+      8278,
+      8382,
+      8326,
+      8366
+    ],
+    "input_sha256": [
+      "2c263b407672925563e0a37f6e40f9c96ca7b84bd29757a7a50a89e3da9cfa9c",
+      "d383a9feb08bf37fd36333d2041a8ee15ec0564309ce9f6972a54a85ae901e3d",
+      "a5c9d263598057c5ac0e8de8dfcf8d0be5fed543bb8e401ee72adb48f24b385e",
+      "5e249139f9a3a78e03e538bdce5a4456a2b62bb680193cbb87535d2f805fa288",
+      "4ea256ea3694316ae2163b7ae50bc674ad9a4b8b53efa00f5d3e34476bc24bc2",
+      "12cc51601c85037a75e45b7f428fda50984b3057d7dd61a57d9849b62ebdc1b0"
+    ]
+  }
+}

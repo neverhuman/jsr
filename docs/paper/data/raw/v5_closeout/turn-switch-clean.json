@@ -1,0 +1,257 @@
+{
+  "schema": "jsr.v5.m1.audit/v1",
+  "checkpoint_source_commit": "f42a394986e624f331122d6b5c9df1446b6eda72",
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "signed_c4_rc2_score_input_sha256": "5a5d7a6ae6df547c434b30b397c034130ec9288985a60c957ec4cbfa0640fe87",
+  "seed": 20261122,
+  "reps": 10000,
+  "alpha": 0.05,
+  "results": {
+    "7919": {
+      "checkpoint_sha256": "0740a926193d1ca3e568b85433b8b47064f1cf842df9eac4c5bf5f186d58a353",
+      "decode_metadata_sha256": "cf897f8477fc2984d70f3b7ebfc7f1dc6e6de72ab25d0c2dca4b9912ccebdecd",
+      "slices": {
+        "c4_g0db": {
+          "input_sha256": "b64fe46906cdf411a44e746490fb6b695f68b8459603a70c01a5d6b97efbc2f3",
+          "wer_pct": 7.194037857307073,
+          "counts": {
+            "substitutions": 2988,
+            "insertions": 348,
+            "deletions": 419,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "022c1162295f490e123596def19889e6a41ca2b75ac94c4a89b5295656ccf6a9",
+          "delta_pp": 0.24714537512453005,
+          "lower_pp": 0.15576901680080107,
+          "upper_pp": 0.3400657585721001
+        },
+        "c8_g0db": {
+          "input_sha256": "a258e3cfb4d35b334277522d570c005e1abf37b39ea5372e13336f8697aaf53a",
+          "wer_pct": 6.975630316499348,
+          "counts": {
+            "substitutions": 2900,
+            "insertions": 336,
+            "deletions": 405,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "374e46e31a2d4205d8e66223a467a23359cf43844e470bcf4ff03abad39b7683"
+        },
+        "c16_g0db": {
+          "input_sha256": "76f297ab7f75010eabd2681f243995263bdc21a4547742151368a7e2ba0b17b4",
+          "wer_pct": 6.7361483638593,
+          "counts": {
+            "substitutions": 2812,
+            "insertions": 325,
+            "deletions": 379,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "eec0dff6f0d8e4fd0d456d08825d49eb6b05cedb500247dfea362fcfad170979"
+        },
+        "c4_g-30db": {
+          "input_sha256": "217b1ff63176f33515edbf70523ada3fa4f288a2d338752b46ca9144835d1455",
+          "wer_pct": 8.385700053643957,
+          "counts": {
+            "substitutions": 3431,
+            "insertions": 398,
+            "deletions": 548,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "0d290c0d2ef901f8857bfd8b619eef73e745f32a6b52824eed43cbdcac8d5eb4",
+          "delta_pp": 1.1916621963368845,
+          "lower_pp": 0.9656817482302251,
+          "upper_pp": 1.4182274028476813
+        },
+        "c16_g-30db": {
+          "input_sha256": "d1e1f8c3873c61db49f9431d87b26e15b8832f240b3942a630aec76d61c08b33",
+          "wer_pct": 7.816690934171201,
+          "counts": {
+            "substitutions": 3246,
+            "insertions": 331,
+            "deletions": 503,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "2ab1026aa2a1f154925fd22ad689d9ef6e120944f0d2379a63633bacb2ff148b"
+        },
+        "p0a_DIFF_SPK_5S": {
+          "input_sha256": "e1c31669736300eeec1b0a96eab2fb6b39510b64de837ac457763ce2d871c38c",
+          "wer_pct": 9.387692543489923,
+          "counts": {
+            "substitutions": 3808,
+            "insertions": 442,
+            "deletions": 650,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "68d84a9a00f2fbc683564aadf148ee6e84a8c4b39d1fa68250f9e71ea88e1a2e",
+          "delta_pp": 2.1936546861828496,
+          "lower_pp": 1.802776948342788,
+          "upper_pp": 2.656042496679946
+        },
+        "p0a_SAME_SPK_5S": {
+          "input_sha256": "a044bf83a614e74275e7050da18382946229eae4f1eb578568209b4833074bae",
+          "wer_pct": 6.98137788336271,
+          "counts": {
+            "substitutions": 2893,
+            "insertions": 337,
+            "deletions": 414,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "beafebc241cce1fa5c29b9586f39b8c0b7de42e8dc6bc53f76584b0be9d7360f",
+          "delta_pp": -0.21265997394436242,
+          "lower_pp": -0.3267356651809328,
+          "upper_pp": -0.09582582697688635
+        },
+        "warm_WARM_NAT": {
+          "input_sha256": "57da3d526e32ffb8f1fe652a947ed9f2e254964ef1e3447a0936f1c97119ecf7",
+          "wer_pct": 6.703578818300253,
+          "counts": {
+            "substitutions": 2804,
+            "insertions": 333,
+            "deletions": 362,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "a3681756c5163f9df340720323a2db7af44509b6a4e0c5c01ca7c0ac705ec544",
+          "delta_pp": -0.49045903900682003,
+          "lower_pp": -0.6638597865465584,
+          "upper_pp": -0.31810567131590334
+        },
+        "warm_WARM_SHUF": {
+          "input_sha256": "991cb37a921e7f13df35ba43217166fece51029ccd366c30835693589202df62",
+          "wer_pct": 9.092650777837383,
+          "counts": {
+            "substitutions": 3765,
+            "insertions": 406,
+            "deletions": 575,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "8f4afbedcd420e5f6197a01b0da1c8c441a6589e7cfa135f80a4c8a5870fca41",
+          "delta_pp": 1.8986129205303097,
+          "lower_pp": 1.5308410850445597,
+          "upper_pp": 2.3291503166401175
+        }
+      }
+    },
+    "7920": {
+      "checkpoint_sha256": "83dcd77952bfd02b3d5c17aa06aa9b37f4985f9bc8282b238d0ce5aa23817d90",
+      "decode_metadata_sha256": "9807ae050fb7ccf02a833d70d53c0ac320c3e14c08e07791862faa17839ad2e9",
+      "slices": {
+        "c4_g0db": {
+          "input_sha256": "53588fc34ead0bedf11009fef7e34c1c9643c7423adcd322f0cd4533deb04b04",
+          "wer_pct": 7.194037857307073,
+          "counts": {
+            "substitutions": 2989,
+            "insertions": 353,
+            "deletions": 413,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "1fdc48827258d19bc3cd96596f5e8d10c2ae9b69b6afe87cf8b6e41329c6e4ba",
+          "delta_pp": 0.24714537512453005,
+          "lower_pp": 0.16152389439679157,
+          "upper_pp": 0.3326323838654166
+        },
+        "c8_g0db": {
+          "input_sha256": "f2457502cca51657c8555dca15faee2baf3eb03868b78216f8c68da382bcef89",
+          "wer_pct": 6.9239022147290985,
+          "counts": {
+            "substitutions": 2869,
+            "insertions": 339,
+            "deletions": 406,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "5d2fc203be9351fd01643be19827a8e82570985f0d526f2e7fcf2054d6bcce3c"
+        },
+        "c16_g0db": {
+          "input_sha256": "54459a2a44de6be9c7a78e8f6b4f2e98e271a3b63d360f1581bbc444ccf740fe",
+          "wer_pct": 6.703578818300253,
+          "counts": {
+            "substitutions": 2797,
+            "insertions": 331,
+            "deletions": 371,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "19b951ff2e33f721173306cabd9cd041216d381f1e2e5b75d4e9d9763a5fc111"
+        },
+        "c4_g-30db": {
+          "input_sha256": "fc255be608b53345d4d8191e44b0cac1c98c50cc17a82b62f01331f0b5adb64f",
+          "wer_pct": 8.3052341175569,
+          "counts": {
+            "substitutions": 3383,
+            "insertions": 403,
+            "deletions": 549,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "75ed863d64a78679bca07576a63355f3d447d2a3aa8beb2d845806d643d45e45",
+          "delta_pp": 1.1111962602498275,
+          "lower_pp": 0.8791661980279684,
+          "upper_pp": 1.3483188802677626
+        },
+        "c16_g-30db": {
+          "input_sha256": "99536d98d940bdeb2b5cf91c6bcf2dd7b7abb954319958246cf421f288c9716e",
+          "wer_pct": 7.826270212276802,
+          "counts": {
+            "substitutions": 3226,
+            "insertions": 350,
+            "deletions": 509,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "d77eaff39a23b5305efaaea8e1a0564996745d034a9ee3d5e838a8180cd30a3d"
+        },
+        "p0a_DIFF_SPK_5S": {
+          "input_sha256": "624514ba056c52bc6fd7bc808b0d9c20d80cceea09b77b2b45e2dbda030b0ada",
+          "wer_pct": 9.408766955322246,
+          "counts": {
+            "substitutions": 3828,
+            "insertions": 441,
+            "deletions": 642,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "aa2cb31416751aa37d1fba6c20103691354c5a2bcb4d0bcd3eb22f15608f3442",
+          "delta_pp": 2.214729098015174,
+          "lower_pp": 1.8222637979420018,
+          "upper_pp": 2.6716978269938183
+        },
+        "p0a_SAME_SPK_5S": {
+          "input_sha256": "7f6533cd7dba711df6c3efc519be1adf9bf1a5e2ce565b413113de099a49496a",
+          "wer_pct": 6.9909571614683115,
+          "counts": {
+            "substitutions": 2900,
+            "insertions": 333,
+            "deletions": 416,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "a0eea0f08f9c65c70fa6a1736f36b8e4f00013d8ec28d92f768cec66efbb1779",
+          "delta_pp": -0.20308069583876154,
+          "lower_pp": -0.333648445754324,
+          "upper_pp": -0.07286673058485155
+        },
+        "warm_WARM_NAT": {
+          "input_sha256": "7f27b0b7dbea831612a5a650ee7554d5c3c610dbbd273de965a219060203ad94",
+          "wer_pct": 6.707410529542495,
+          "counts": {
+            "substitutions": 2790,
+            "insertions": 332,
+            "deletions": 379,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "4850672141a314b3485bd21928059d2cb9256b429d4bce9e29307018113dc860",
+          "delta_pp": -0.48662732776457857,
+          "lower_pp": -0.6354343450290081,
+          "upper_pp": -0.33675831850448756
+        },
+        "warm_WARM_SHUF": {
+          "input_sha256": "aa5bff779904c7493949571cc1dcbc5ff0fb6ec663f801c070b92fa1973c85b6",
+          "wer_pct": 9.115641045290827,
+          "counts": {
+            "substitutions": 3758,
+            "insertions": 420,
+            "deletions": 580,
+            "ref_words": 52196
+          },
+          "replay_stdout_sha256": "dcc9acbef826994989da70199e97b07e8f204bd9f8c062ef641fb191023a2714",
+          "delta_pp": 1.9216031879837545,
+          "lower_pp": 1.5297937356760882,
+          "upper_pp": 2.354394439425506
+        }
+      }
+    }
+  }
+}

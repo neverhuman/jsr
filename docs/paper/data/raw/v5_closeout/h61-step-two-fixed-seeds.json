@@ -1,0 +1,71 @@
+{
+ "variant": "ema",
+ "gate1_clean_upper_vs_signed_RC2": {
+  "delta_pp": 0.2229,
+  "lower95_pp": 0.1181,
+  "upper95_pp": 0.3313,
+  "ci95_two_sided_pp": [
+   0.0983,
+   0.3521
+  ]
+ },
+ "gate1_pass": false,
+ "clean_vs_python_RC2": {
+  "delta_pp": 0.2305,
+  "lower95_pp": 0.1336,
+  "upper95_pp": 0.3251,
+  "ci95_two_sided_pp": [
+   0.1163,
+   0.3429
+  ]
+ },
+ "gate2_musan_test5_vs_RC2": {
+  "delta_pp": -8.8525,
+  "lower95_pp": -9.8996,
+  "upper95_pp": -7.844,
+  "ci95_two_sided_pp": [
+   -10.0831,
+   -7.6663
+  ]
+ },
+ "gate2_musan_test5_vs_CAPCTRL": {
+  "delta_pp": -0.1143,
+  "lower95_pp": -0.2143,
+  "upper95_pp": -0.01,
+  "ci95_two_sided_pp": [
+   -0.2313,
+   0.0101
+  ]
+ },
+ "gate2_pass": true,
+ "two_seed_read": {
+  "clean_vs_signed": {
+   "delta_pp": 0.1973,
+   "lower95_pp": 0.0898,
+   "upper95_pp": 0.309,
+   "ci95_two_sided_pp": [
+    0.0691,
+    0.3313
+   ]
+  },
+  "musan_vs_RC2": {
+   "delta_pp": -8.8331,
+   "lower95_pp": -9.882,
+   "upper95_pp": -7.8161,
+   "ci95_two_sided_pp": [
+    -10.0756,
+    -7.6393
+   ]
+  },
+  "musan_vs_CAPCTRL": {
+   "delta_pp": -0.0872,
+   "lower95_pp": -0.2187,
+   "upper95_pp": 0.0493,
+   "ci95_two_sided_pp": [
+    -0.24,
+    0.0731
+   ]
+  }
+ },
+ "verdict": "FAIL"
+}
