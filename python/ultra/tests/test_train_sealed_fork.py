@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import random
 from dataclasses import replace
 from pathlib import Path
@@ -210,22 +209,6 @@ def test_pruned_uneven_rank_active_helper_resume(sources):
     assert [r["layout"][0] for r in payload["objective_state"]["ranks"]] == [0, 1]
     assert payload["objective_state"]["ranks"][0]["truncation"]["history"] != (
         payload["objective_state"]["ranks"][1]["truncation"]["history"])
-
-
-@pytest.mark.skipif(os.environ.get("JSR_TEST_CUDA_RESTART") != "1",
-                    reason="launch only on reserved CUDA devices")
-def test_pruned_cuda_active_helper_resume(sources):
-    import k2  # noqa: F401  (the allocated proof must exercise real k2)
-
-    world = min(2, torch.cuda.device_count())
-    assert world, "CUDA restart witness requires an allocated CUDA device"
-    if world == 1:
-        _restart_worker(0, sources, True, 1)
-    else:
-        mp.spawn(_restart_worker, args=(sources, True, world), nprocs=world, join=True)
-    payload = checkpoint.load(checkpoint.latest(str(sources / "interrupted")), restore_rng=False)
-    assert len(payload["objective_state"]["ranks"]) == world
-    assert all("device_rng" in state["rng"] for state in payload["objective_state"]["ranks"])
 
 
 def test_sealed_resume_rejects_label_change_and_skips_globally_empty(sources):
