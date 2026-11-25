@@ -8,6 +8,31 @@
 \newcommand{\AbsParity}{Per-row centred INT8 with exact int32 accumulation and portable log-mel matches FP32 PyTorch on full DEV (5,567 utterances) within $-$0.003\,pp (95\% bounds $-$0.033 to +0.028\,pp), with repeatable, batch-invariant execution.}% [exploratory] sentence
 \newcommand{\AbsSpeed}{One live stream (\ultra{} v3.1.0 (live +LM)) uses 3.1\% of one quiet Zen~2 core (32.7$\times$ real time (2.3$\times$ streaming Zipformer INT8, the fastest comparator)) and 109\,MB peak RAM ; \ultra{} v3.1.0 (final, seg.) runs at 16.8$\times$ real time and 387\,MB RAM, at 1.19x streaming Zipformer INT8's single-core speed (16.8$\times$ utterance-segmented vs. 14.0$\times$ streaming).}% [exploratory] sentence
 \newcommand{\AbsWatts}{Unpaced active core energy on quiet H1 is 0.328\,J per audio-second for \ultra{} v3.1.0 (live +LM) and 0.661\,J for \ultra{} v3.1.0 (final, seg.), against 0.573\,J per audio-second for Zipformer INT8, 1.077\,J per audio-second for Moonshine Tiny, 1.711\,J per audio-second for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513\,J per audio-second for Nemotron 560\,ms (quiet 73-clip timing) (CPU domain only, not wall power).}% [exploratory] sentence
+\newcommand{\AudioHSixtyOneCleanDelta}{+0.223}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneCleanFixed}{+0.331}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneCleanJoint}{+0.344}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneNoiseDelta}{$-$0.114}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneNoiseFixed}{$-$0.010}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneNoiseJoint}{+0.016}% [exploratory] percentage points
+\newcommand{\AudioHSixtyOneNoisePython}{$-$8.853}% [exploratory] percentage points
+\newcommand{\AudioMOneFourDelta}{$-$0.052}% [exploratory] percentage points
+\newcommand{\AudioMOneFourUpper}{+0.044}% [exploratory] percentage points
+\newcommand{\AudioProbeAgcBar}{0.087}% [exploratory] percentage points
+\newcommand{\AudioProbeAgcCalDelta}{+0.032}% [exploratory] percentage points
+\newcommand{\AudioProbeAgcCalRepeat}{11}% [exploratory] inserted repeats
+\newcommand{\AudioProbeAgcDelta}{+0.091}% [exploratory] percentage points
+\newcommand{\AudioProbeAgcRepeatOff}{8}% [exploratory] inserted repeats
+\newcommand{\AudioProbeAgcRepeatOn}{9}% [exploratory] inserted repeats
+\newcommand{\AudioProbeMusanGain}{$-$0.455}% [exploratory] percentage points
+\newcommand{\AudioProbeTokenBar}{0.30}% [exploratory] Youden J
+\newcommand{\AudioProbeTokenYouden}{0.095}% [exploratory] Youden J
+\newcommand{\AudioProbeWhiteGain}{$-$0.934}% [exploratory] percentage points
+\newcommand{\AudioZOneCleanDelta}{$-$0.022}% [exploratory] percentage points
+\newcommand{\AudioZOneCleanUpper}{+0.028}% [exploratory] percentage points
+\newcommand{\AudioZOneThirtyDelta}{$-$0.943}% [exploratory] percentage points
+\newcommand{\AudioZOneThirtyUpper}{$-$0.723}% [exploratory] percentage points
+\newcommand{\AudioZOneTwentyDelta}{$-$0.175}% [exploratory] percentage points
+\newcommand{\AudioZOneTwentyUpper}{$-$0.044}% [exploratory] percentage points
 \newcommand{\CandCUtts}{2785}% [exploratory] utterances
 \newcommand{\CandFinalCDelta}{$-$0.11}% [exploratory] pp WER
 \newcommand{\CandFinalCHi}{+0.11}% [exploratory] pp WER

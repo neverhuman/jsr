@@ -1,0 +1,72 @@
+{
+  "seed": 7919,
+  "steps": 8000,
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "results": {
+    "c4_g0db": {
+      "arm_a_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_CAPCTRLLONG_s7919/evals/all_on_c4_g0db.score-input.jsonl",
+      "arm_a_sha256": "ec40972a2a3cf8672e2e956345fbe87780d163a8483d5623ae2ea7cf492697e3",
+      "arm_b_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_ALLONLONG_s7919/evals/all_on_c4_g0db.score-input.jsonl",
+      "arm_b_sha256": "f76f4cd4cb18690ea25a8709c1d0076a27e389da4894edaa2b0be5a08b4d9cb3",
+      "wer_a_pct": 7.2227756916238794,
+      "wer_b_pct": 7.130814621810099,
+      "a_b_difference_pp": {
+        "delta": -0.09196106981377988,
+        "lower": -0.20636849312426486,
+        "upper": 0.015060808012350158
+      }
+    },
+    "c8_g0db": {
+      "arm_a_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_CAPCTRLLONG_s7919/evals/all_on_c8_g0db.score-input.jsonl",
+      "arm_a_sha256": "4cea808bb9a97e48a3748cff610b53e216b757485f1e6e097f52fb247d05900c",
+      "arm_b_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_ALLONLONG_s7919/evals/all_on_c8_g0db.score-input.jsonl",
+      "arm_b_sha256": "1b1a0f415da656e918f070a540e6100e8f6ac313dc8571200bcf132aae69b990",
+      "wer_a_pct": 6.818530155567476,
+      "wer_b_pct": 6.78787646562955,
+      "a_b_difference_pp": {
+        "delta": -0.030653689937926165,
+        "lower": -0.11919402137924584,
+        "upper": 0.05250721974271594
+      }
+    },
+    "c16_g0db": {
+      "arm_a_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_CAPCTRLLONG_s7919/evals/all_on_c16_g0db.score-input.jsonl",
+      "arm_a_sha256": "d5c512b23cda8fae89ad25d91cb4c440a6e4a0bef50268c630861afeabcfb816",
+      "arm_b_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_ALLONLONG_s7919/evals/all_on_c16_g0db.score-input.jsonl",
+      "arm_b_sha256": "ea903b35a130b599b25cee0150489d42636c860faca174f6fdc27c747b8067fb",
+      "wer_a_pct": 6.630776304697678,
+      "wer_b_pct": 6.674840983983447,
+      "a_b_difference_pp": {
+        "delta": 0.0440646792857699,
+        "lower": -0.05601591624654623,
+        "upper": 0.14554368225516076
+      }
+    },
+    "c4_g-30db": {
+      "arm_a_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_CAPCTRLLONG_s7919/evals/all_on_c4_g-30db.score-input.jsonl",
+      "arm_a_sha256": "fc8f41db536666867510c522664c92e3f157f9aa1e663982eecfa961ed883dc0",
+      "arm_b_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_ALLONLONG_s7919/evals/all_on_c4_g-30db.score-input.jsonl",
+      "arm_b_sha256": "d48b03f9612d6c02a464b508ef49c02d5f14754875b1ff2d39a48f7806a332f8",
+      "wer_a_pct": 7.648095639512606,
+      "wer_b_pct": 7.607862671469078,
+      "a_b_difference_pp": {
+        "delta": -0.04023296804352844,
+        "lower": -0.14067720443133175,
+        "upper": 0.05624718764061787
+      }
+    },
+    "c16_g-30db": {
+      "arm_a_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_CAPCTRLLONG_s7919/evals/all_on_c16_g-30db.score-input.jsonl",
+      "arm_a_sha256": "267b1819ee198d316f99f24c0104875de6784377b1fba4db8a54c9b810387cc3",
+      "arm_b_path": "/mnt/xbabe3-external/jsr/runtime-lane/v5_h61_harvest/long8k/H61_ALLONLONG_s7919/evals/all_on_c16_g-30db.score-input.jsonl",
+      "arm_b_sha256": "05b232f7ca07de90c3d512b0c9ebf3802518eea10f8abc7d64c1d7beee142113",
+      "wer_a_pct": 6.937313204076941,
+      "wer_b_pct": 6.952640049045904,
+      "a_b_difference_pp": {
+        "delta": 0.015326844968963083,
+        "lower": -0.06813020439061374,
+        "upper": 0.09781673057359663
+      }
+    }
+  }
+}

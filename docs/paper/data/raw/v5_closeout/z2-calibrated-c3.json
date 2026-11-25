@@ -1,0 +1,67 @@
+{
+  "schema": "v5.z2-c3-full164-cal/v1",
+  "binary": "/mnt/xbabe3-external/jsr/runtime-lane/v5_z2_agc/ultra-engine-agc",
+  "binary_sha256": "41744b9c5b705e17b633458213233e5ec6900e5162ad3227c794a1a44ad4bdf7",
+  "calibration_receipt": "/mnt/xbabe3-external/jsr/runtime-lane/v5_z2_agc/calibration/train_voiced_rms_calibration.json",
+  "calibration_receipt_sha256": "167274338e14fd940001af46beafcd8ab3e67135504ab646795296ceb1a6b7cb",
+  "target_rms": 0.084848661,
+  "flags_arm_b_cal": "--warm-agc --tau-s 5.0 --voicing-gate --snr-gate-db 6.0 --voicing-thresh 0.5 --speech-floor-dbfs -65.0 --target-rms 0.084848661",
+  "pieces": 164,
+  "total_pieces": 164,
+  "audio_hours": 27.56,
+  "audio_seconds": 99230.578,
+  "off_verified_exact_vs_v300": "164/164",
+  "off": {
+    "ref_words": 106054,
+    "S": 8689,
+    "D": 1996,
+    "I": 1100,
+    "dup_raw": 52,
+    "dup_inserted": 8,
+    "frames_total": 0,
+    "frames_updated": 0,
+    "stream_wer": 11.112
+  },
+  "v300_on": {
+    "ref_words": 106054,
+    "S": 8948,
+    "D": 2172,
+    "I": 1139,
+    "dup_raw": 53,
+    "dup_inserted": 10,
+    "frames_total": 0,
+    "frames_updated": 0,
+    "stream_wer": 11.559,
+    "delta_on_minus_off_pp": 0.447
+  },
+  "arm_b_cal": {
+    "pooled": {
+      "ref_words": 106054,
+      "S": 8727,
+      "D": 1996,
+      "I": 1096,
+      "dup_raw": 55,
+      "dup_inserted": 11,
+      "frames_total": 9922975,
+      "frames_updated": 1552299,
+      "stream_wer": 11.144
+    },
+    "delta_on_minus_off_pp": 0.032,
+    "delta_vs_v300_on_pp": -0.415,
+    "criterion_3": {
+      "spread_pp": 0.087,
+      "within_spread": true,
+      "new_inserted_repeats": 3,
+      "pass": false
+    },
+    "gain_db_min": -7.4,
+    "gain_db_p25": -1.34,
+    "gain_db_median": -0.51,
+    "gain_db_p75": 0.29,
+    "gain_db_p95": 1.34,
+    "gain_db_max": 4.81,
+    "update_pct": 15.64,
+    "total_cpu_s": 70324.85
+  },
+  "wall_s": 2673.54
+}

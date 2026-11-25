@@ -28,7 +28,7 @@
 \draw[figquiet!40,densely dashed,line width=.48pt] (axis cs:1,0) -- (axis cs:1,\HeroYmax);
 \draw[figblue,line width=.65pt,{Stealth[length=3.8pt]}-{Stealth[length=3.8pt]}]
   (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveLmX,\HeroArrowY)
-  node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput};
+  node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput, paired};
 % previous release (v3.0.0, earlier session) to v3.1.0, same decoding mode
 \draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
   (axis cs:\HeroOldLiveX,\HeroOldLiveY) -- (axis cs:\HeroLiveGreedyX,\HeroLiveGreedyY);
@@ -65,7 +65,7 @@
 \node[anchor=south west,inner sep=0pt,font=\sffamily\bfseries\normalsize]
   at ([xshift=-19pt,yshift=17pt]matchedplot.north west) {Throughput and accuracy on one CPU core};
 \node[anchor=south west,inner sep=0pt,font=\sffamily\scriptsize,text=figquiet]
-  at ([xshift=-19pt,yshift=7pt]matchedplot.north west) {730 LibriSpeech DEV utterances \enspace\textperiodcentered\enspace Quiet Zen~2 \enspace\textperiodcentered\enspace 3 interleaved blocks};
+  at ([xshift=-19pt,yshift=7pt]matchedplot.north west) {LibriSpeech DEV selection panel (730 utterances) \enspace\textperiodcentered\enspace Quiet Zen~2};
 \def\HeroMk#1{\makebox[8pt][c]{\tikz[baseline=-.6ex]{#1}}}%
 \def\HeroDiaF#1{\HeroMk{\node[rotate=45,rectangle,fill=#1,inner sep=2.3pt]{};}}%
 \def\HeroDiaO#1{\HeroMk{\node[rotate=45,rectangle,draw=#1,line width=.7pt,inner sep=1.9pt]{};}}%
@@ -77,18 +77,21 @@
   at ([xshift=-19pt,yshift=-30pt]matchedplot.south west)
   {\setlength{\tabcolsep}{2.5pt}\renewcommand{\arraystretch}{1.05}%
    \begin{tabular}{@{}l l r r r r@{}}
-   \multicolumn{2}{@{}l}{\textbf{Same blocks, same core}} & Chunk & Speed & WER & J/s\textsuperscript{a}\\[1pt]
+   \multicolumn{2}{@{}l}{\textbf{Three blocks on one core}} & Chunk & Speed & WER & J/audio-s\\[1pt]
    \HeroDiaF{figblue} & v3.1.0 live +LM & 160 ms & \HeroLiveLmSpeed$\times$ & \HeroLiveLmWer\% & \HeroLiveLmEnergy\\
    \HeroSqF{figblue!80!black} & v3.1.0 live +LM & 320 ms & \HeroLiveLmWideSpeed$\times$ & \HeroLiveLmWideWer\% & \HeroLiveLmWideEnergy\\
    \HeroDiaF{figblue!55} & v3.1.0 live greedy & 160 ms & \HeroLiveGreedySpeed$\times$ & \HeroLiveGreedyWer\% & \HeroLiveGreedyEnergy\\
    \HeroDiaO{figblue} & v3.1.0 final & +commit & \HeroFinalSpeed$\times$ & \HeroFinalWer\% & \HeroFinalEnergy\\
    \HeroDot{figink} & Zipformer INT8 & 320 ms & \HeroZipSpeed$\times$ & \HeroZipWer\% & \HeroZipEnergy\\
    \end{tabular}\par\vspace{2pt}
-   {\scriptsize\textsuperscript{a}active core joules per audio-second. Live +LM, 160\,ms, vs.\ Zipformer, paired one-sided
-   95\% bounds: selection panel \HeroGapPanel\,pp; unselected C half \HeroGapC\,pp (320\,ms row: \HeroGapCWide\,pp).}};
+   {\scriptsize Energy uses active-core joules per audio-second.\par
+   \textbf{Live +LM vs.\ Zipformer} (paired one-sided 95\% WER bounds).\par
+   Selection panel, 160\,ms: \HeroGapPanel\,pp.\par
+   Unselected C half, 160\,ms: \HeroGapC\,pp.\par
+   Unselected C half, 320\,ms: \HeroGapCWide\,pp.}};
 \fi
 \pgfresetboundingbox
 \path[use as bounding box]
-  ([xshift=-28pt,yshift=-122pt]matchedplot.south west)
+  ([xshift=-28pt,yshift=-132pt]matchedplot.south west)
   rectangle ([xshift=11pt,yshift=31pt]matchedplot.north east);
 \end{tikzpicture}%
