@@ -1618,6 +1618,31 @@
    "workload": "50-clip DEV cross-ISA witness (f04027c)",
    "workload_digest": "n/a"
   },
+  "AudioZOneCrossIsaCommit": {
+   "configuration": "build commit of the Z1 cross-ISA witness (PR #152 head)",
+   "label": "exploratory",
+   "line": 53,
+   "quote": "The cross-ISA witness ran on builds of `f04027c`",
+   "section": "Z1 evidence",
+   "source": "docs/ultra/releases/v3.2.0.md",
+   "text": "f04027c",
+   "unit": "commit",
+   "workload": "50-clip DEV cross-ISA witness (f04027c)",
+   "workload_digest": "n/a"
+  },
+  "AudioZOneOracleTupleDiffs": {
+   "configuration": "Z1 flag-on full output tuple diffs vs independent x86 oracle (0 committed-text diffs)",
+   "decimals": 0,
+   "label": "exploratory",
+   "line": 44,
+   "quote": "With the flag on, 5 of 50 clips differ from the oracle in the full output tuple, with 0 committed-text differences",
+   "raw": 5,
+   "section": "Z1 evidence",
+   "source": "docs/ultra/releases/v3.2.0.md",
+   "unit": "clips with full-tuple diffs",
+   "workload": "50-clip DEV cross-ISA witness (f04027c)",
+   "workload_digest": "n/a"
+  },
   "VThreeTwoBuildCommit": {
    "configuration": "v3.2.0 signed release build commit",
    "label": "exploratory",

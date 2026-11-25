@@ -66,8 +66,9 @@ Both fine-tuned arms used the noise recipe. The Python RC2 contrast also changes
 the continuation recipe and does not isolate the effect of noise augmentation.
 
 \para{Level handling.} The frozen M5 final pass with file-end commits on the
-DEV confirmation half passed the RMS normalization (Z1) gate. In level order
-0, $-20$, and $-30$\,dB, the WER changes were \AudioZOneCleanDelta\pp{},
+DEV confirmation half (C) passed the RMS normalization (Z1) gate. At native
+0\,dB (within noise) and under synthetic $-20$ and $-30$\,dB attenuation, the
+C-half WER changes were \AudioZOneCleanDelta\pp{},
 \AudioZOneTwentyDelta\pp{}, and \AudioZOneThirtyDelta\pp{}, with one-sided
 95\% uppers of \AudioZOneCleanUpper\pp{}, \AudioZOneTwentyUpper\pp{}, and
 \AudioZOneThirtyUpper\pp{}. Published as the runtime-only v3.2.0 release
@@ -75,15 +76,19 @@ DEV confirmation half passed the RMS normalization (Z1) gate. In level order
 keeping the identical \ReleaseVer{} RC2 weights, with \texttt{-{}-rms-norm} off
 by default), Z1 also passed all four automatic-endpoint trigger checks
 (hangover, EOF, deadline, and PCM-cap fallback) and all six accuracy gates on
-the DEV selection half (90 chapter streams: \AudioZOneAutoCleanDelta\pp{},
-\AudioZOneAutoTwentyDelta\pp{}, and \AudioZOneAutoThirtyDelta\pp{} at 0, $-20$,
-and $-30$\,dB, with one-sided uppers \AudioZOneAutoCleanUpper{},
+the DEV selection half (S, 90 chapter streams): at native 0\,dB and under
+synthetic $-20$ and $-30$\,dB attenuation, pooled WER changed by
+\AudioZOneAutoCleanDelta\pp{}, \AudioZOneAutoTwentyDelta\pp{}, and
+\AudioZOneAutoThirtyDelta\pp{} (one-sided uppers \AudioZOneAutoCleanUpper{},
 \AudioZOneAutoTwentyUpper{}, and \AudioZOneAutoThirtyUpper\pp{}). Paired
 pinned-core H0 relative CPU overhead stayed within \AudioZOneCpuEngineUpper\%
 for the commit binary and \AudioZOneCpuStreamUpper\% for stream commit mode
-(quiet-host energy was not re-measured; \ReleaseVer{} H1 rows remain unchanged),
-with \AudioZOneCrossIsaDiffs/\AudioZOneCrossIsaClips{} AVX2/scalar/NEON
-witness differences. On the full continuous-stream panel,
+(quiet-host energy was not re-measured; \ReleaseVer{} H1 rows remain unchanged).
+On the \AudioZOneCrossIsaCommit{} builds, AVX2, scalar, and NEON gave
+\AudioZOneCrossIsaDiffs/\AudioZOneCrossIsaClips{} differences with Z1 off or on
+(\AudioZOneOracleTupleDiffs/\AudioZOneCrossIsaClips{} full-tuple differences
+against the independent oracle with Z1 on, with \AudioZOneCrossIsaDiffs{}
+committed-text differences). On the full continuous-stream panel,
 the two Z2 gain-controller variants changed WER by \AudioProbeAgcDelta\pp{}
 and \AudioProbeAgcCalDelta\pp{} against a \AudioProbeAgcBar\pp{} tolerance.
 They inserted \AudioProbeAgcRepeatOn{} and \AudioProbeAgcCalRepeat{} repeats

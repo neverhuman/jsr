@@ -68,8 +68,8 @@ def _bounds(t: tuple[float, float, float], verdict: bool = True, unit: bool = Fa
 
 
 def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, extras: dict) -> str:
-    """Lean README block for the v3.2.0 foreground: headline, Figure 1, three bullets, a four-row table, one caveat line,
-    and the three-line V4 summary. Every ratio is a median of within-block ratios against the same-block Zipformer."""
+    """Lean README block for the v3.1.0 foreground (identical weights in v3.2.0): headline, Figure 1, three bullets,
+    a four-row table, one caveat line, and the three-line V4 summary. Every ratio is a median of within-block ratios against the same-block Zipformer."""
     d = {k: derived(r) for k, r in hero.items()}
     z = d["Zip"]
     pair = lambda k: hero[k]["paired_vs_anchor"]
@@ -79,6 +79,7 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
     summary = subtitle.replace("$\\times$", "×").replace("$\\cdot$", "·").replace("\\%", "%").replace("\\,", " ")
     gap_p, gap_c = _pp(rr, "LiveLm", "Panel"), _pp(rr, "LiveLm", "C")
     fin_p, fin_c = _pp(rr, "Final", "Panel"), _pp(rr, "Final", "C")
+    z1_c0 = _sg(float(rr["AudioZOneCleanDelta"]["raw"]), 2)
     z1_c30 = _sg(float(rr["AudioZOneThirtyDelta"]["raw"]), 2)
     z1_auto30 = v("AudioZOneAutoThirtyDelta")
     z1_cpu_eng = v("AudioZOneCpuEngineUpper")
@@ -88,7 +89,7 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
              f"![{PAPER_TITLE}. Single-core throughput and pooled WER on the 730-utterance LibriSpeech DEV selection panel, "
              "with paired WER gaps, active-core joules per audio-second, and v3.2.0 opt-in --rms-norm summary]"
              "(docs/paper/money.png)", "",
-             f"**Figure 1.** {facts['figure']} [Paper](docs/paper/paper.pdf) · [v3.2.0 record](docs/ultra/releases/v3.2.0.md) · [v3.1.0](docs/ultra/releases/v3.1.0.md).", "",
+             f"**Figure 1.** {facts['figure']} [Paper](docs/paper/paper.pdf) · [v3.2.0 record](docs/ultra/releases/v3.2.0.md) · [v3.1.0 record](docs/ultra/releases/v3.1.0.md).", "",
              f"- **Always-on.** {fmt(d['LiveLm']['speed'], 2)}× vs. {fmt(z['speed'], 2)}× real time for Zipformer INT8 ({fmt(x('LiveLm'), 2)}× paired), "
              f"at {fmt(pct('LiveLm', 'watts'), 1)}% of its active-core J/audio-s and {fmt(d['LiveLm']['rss_mb'], 2)} MB "
              f"({fmt(pct('LiveLm', 'rss_mb'), 0)}% of its memory); greedy: {fmt(x('LiveGreedy'), 2)}×, "
@@ -96,22 +97,24 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
              f"{_bounds(gap_p, False, True)} on the selection panel, {_bounds(gap_c, False, True)} on the unselected C half.",
              f"- **Final text.** {fmt(d['Final']['wer'], 2)}% WER from the same weights against Zipformer's {fmt(z['wer'], 2)}% "
              f"(paired bounds include 0 on the selection panel and on the unselected C half), at {fmt(x('Final'), 2)}× its speed and {fmt(pct('Final', 'watts'), 0)}% of its energy; "
-             f"opt-in v3.2.0 `--rms-norm` (Z1) recovers {z1_c30} pp at −30 dB on the C half ({z1_auto30} pp with automatic endpoints) at ≤ {z1_cpu_eng}% engine / ≤ {z1_cpu_str}% stream CPU (H0)."]
+             f"opt-in v3.2.0 `--rms-norm` (Z1) recovers {z1_c30} pp at −30 dB synthetic attenuation on the C half (native 0 dB: {z1_c0} pp, within noise), "
+             f"and {z1_auto30} pp at −30 dB synthetic attenuation on S-half automatic-endpoint chapter streams, at ≤ {z1_cpu_eng}% engine / ≤ {z1_cpu_str}% stream CPU (H0)."]
     if "CandIsaRuns" in rr:
         lines.append(f"- **Bit-exact and portable.** {rr['CandIsaRuns']['value']} witness runs on other x86 and ARM CPUs reproduce all "
                      f"{rr['ScalarUtts']['value']} transcripts (three SIMD backends, v3.1.0); four-backend scalar parity holds on main from "
                      f"{rr['ScalarMainCommit']['value']} (not for the v3.1.0 binary; {rr['AudioZOneCrossIsaDiffs']['value']}/{rr['AudioZOneCrossIsaClips']['value']} "
-                     "AVX2/scalar/NEON diffs with Z1 off/on).")
+                     f"committed-text diffs across AVX2/scalar/NEON on the {rr['AudioZOneCrossIsaCommit']['value']} builds, where flag-on has "
+                     f"{rr['AudioZOneOracleTupleDiffs']['value']}/{rr['AudioZOneCrossIsaClips']['value']} full-tuple diffs vs. the independent oracle and 0 committed-text diffs).")
     lines += ["", "| | WER (%) | Δ selection panel (pp) | Δ unselected C half (pp) | Speed (× RT) | J per audio-s | RSS (MB) |",
               "|---|---:|---|---|---:|---:|---:|",
               f"| Zipformer INT8 (320 ms) | {fmt(z['wer'], 2)} | — | — | {fmt(z['speed'], 1)} | {fmt(z['watts'], 3)} | {fmt(z['rss_mb'], 0)} |"]
     for key, name, tag in (("LiveGreedy", "live greedy (160 ms)", "LiveGreedy"), ("LiveLm", "live +LM (160 ms)", "LiveLm"),
                            ("Final", "final", "Final")):
         o = d[key]
-        lines.append(f"| **Isosyll v3.2.0 {name}** | {fmt(o['wer'], 2)} | {_bounds(_pp(rr, tag, 'Panel'), False)} | "
+        lines.append(f"| **Isosyll v3.1.0 {name}** | {fmt(o['wer'], 2)} | {_bounds(_pp(rr, tag, 'Panel'), False)} | "
                      f"{_bounds(_pp(rr, tag, 'C'), False)} | {fmt(o['speed'], 1)} ({fmt(x(key), 2)}×) | "
                      f"{fmt(o['watts'], 3)} ({fmt(pct(key, 'watts'), 0)}%) | {fmt(o['rss_mb'], 0)} ({fmt(pct(key, 'rss_mb'), 0)}%) |")
-    lines += ["", f"v3.2.0 ships the identical v3.1.0 RC2 INT8 weights, LMs, and quiet-host energy rows (opt-in Z1 `--rms-norm` is off by default; −30 dB figures use synthetic attenuation). "
+    lines += ["", "The single-core rows above are v3.1.0 measurements (identical RC2 INT8 weights, LMs, and default decoder path in v3.2.0; opt-in Z1 `--rms-norm` is off by default). "
               f"Released by owner decision after missing the registered gates ({v('CandFinalFullEdits')} vs. {v('CandGateFinalFull')} "
               f"full-DEV final edits; {v('CandLiveLmEdits')} vs. {v('CandGateLivePanel')} live and {v('CandFinalEdits')} vs. "
               f"{v('CandGateFinalPanel')} final panel edits); live +LM scores {v('CandLiveLmFullWer')}% on full DEV (descriptive: it contains the "

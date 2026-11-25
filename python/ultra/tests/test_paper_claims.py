@@ -79,12 +79,20 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert rec["ColdCompletePanelCount"]["raw"] == 17
     assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    for must in ("Isosyll v3.2.0 live +LM (160 ms)", "32.7", "0.328", "Released by owner decision after missing the registered gates",
+    for must in ("Isosyll v3.1.0 live +LM (160 ms)", "identical weights in v3.2.0", "32.7", "0.328",
+                 "Released by owner decision after missing the registered gates",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.2.0.md", "docs/ultra/releases/v3.1.0.md",
-                 "docs/ultra/releases/v3.0.1.md", "−0.94 pp at −30 dB", "−3.36 pp with automatic endpoints",
+                 "docs/ultra/releases/v3.0.1.md",
+                 "−0.94 pp at −30 dB synthetic attenuation on the C half (native 0 dB: −0.02 pp, within noise)",
+                 "−3.36 pp at −30 dB synthetic attenuation on S-half automatic-endpoint chapter streams",
+                 "f04027c", "5/50 full-tuple diffs", "0 committed-text diffs",
                  "ultra-v3.2.0-int8-bundle.tar", "ultra-cold-wav --chunk 4" if False else "./ultra-cold-wav --chunk 4",
                  "./ultra-engine-commit --model int8"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
+    # Hero plot keeps measured points labelled v3.1.0 and omits the S-half -3.36 figure
+    hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
+    assert "v3.1.0 live, 160 ms" in hero_tex and "v3.1.0 final" in hero_tex
+    assert "HeroZOneAutoThirty" not in hero_tex and "3.36" not in hero_tex
     # Claims moved out of the lean README stay asserted, in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
@@ -193,7 +201,7 @@ def test_release_branding_is_consistent():
 
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
     assert readme.startswith(f"# {expected_title}\n")
-    assert "| **Isosyll v3.2.0 live +LM (160 ms)** |" in readme and "| **Isosyll v3.2.0 final** |" in readme
+    assert "| **Isosyll v3.1.0 live +LM (160 ms)** |" in readme and "| **Isosyll v3.1.0 final** |" in readme
     install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)
     assert install and "v3.0.1" in install[0], "README install section must mention v3.0.1"
     non_install_readme = readme[:install.start()] + readme[install.end():]
@@ -332,7 +340,7 @@ def test_prior_release_rows_carry_their_own_record_not_the_new_intervals():
     results = (PAPER / "sections" / "results.tex").read_text()
     assert "that\nsession's Zipformer, so no ratio is formed" in results and "CandLiveGreedyOldDelta" in results and "live greedy" in results
     assert rec["VsWideRssMb"]["value"] == "110.6" and rec["CandLiveLmEightCDelta"]["value"] == "+0.65" and "VsWideRssMb" in results
-    assert "v3.0.0" not in (DATA / "money_readme.md").read_text().split("<!-- money-plot:end -->")[0].split("| **Isosyll v3.2.0 final**")[0]
+    assert "v3.0.0" not in (DATA / "money_readme.md").read_text().split("<!-- money-plot:end -->")[0].split("| **Isosyll v3.1.0 final**")[0]
 
 
 
