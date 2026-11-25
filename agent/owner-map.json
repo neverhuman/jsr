@@ -51,6 +51,8 @@
     "python/ultra/bridge/": "training",
     "crates/ultra-engine/": "runtime",
     "python/ultra/tools/": "training",
+    "python/ultra/tools/plbt/": "training",
+    "python/ultra/tests/test_plbt.py": "training",
     "research/": "lead",
     "docs/paper/": "lead",
     "docs/paper/opponents/": "lead",

@@ -20,6 +20,7 @@ tests/test_opponents_tools.py
 tests/test_paper_claims.py
 tests/test_paper_data.py
 tests/test_paper_evidence.py
+tests/test_plbt.py
 tests/test_power_bench.py
 tests/test_rescore_tf.py
 tests/test_skip_gate_sim.py
