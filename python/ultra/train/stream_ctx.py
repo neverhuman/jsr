@@ -40,12 +40,20 @@ class ContextBank:
 
     COLORS, LEVELS = ("white", "pink", "brown"), (-40.0, -30.0, -20.0)
 
-    def __init__(self, logmel, seconds: float = 12.0, seed: int = 41):
-        rng = np.random.default_rng(seed)
-        n = int(seconds * SAMPLE_RATE)
+    def __init__(self, logmel, seconds: float = 12.0, seed: int = 41, noise: bool = True):
         self.silence = logmel(torch.zeros(4 * 400))[0]  # (80,): every digital-zero frame is equal
-        self.noise = {(c, lv): logmel(torch.from_numpy(_noise(c, n, lv, rng)))
-                      for c in self.COLORS for lv in self.LEVELS}
+        if noise:
+            rng = np.random.default_rng(seed)
+            n = int(seconds * SAMPLE_RATE)
+            self.noise = {(c, lv): logmel(torch.from_numpy(_noise(c, n, lv, rng)))
+                          for c in self.COLORS for lv in self.LEVELS}
+        else:
+            self.noise = {}
+
+
+def _speaker_id(uid: str) -> str:
+    parts = uid.split("-")
+    return f"{parts[0]}-{parts[1]}" if len(parts) >= 2 and not parts[0].isdigit() else parts[0]
 
 
 def _rng(seed: int, epoch: int, uid: str) -> np.random.Generator:
@@ -54,11 +62,84 @@ def _rng(seed: int, epoch: int, uid: str) -> np.random.Generator:
 
 
 def add_context(exs: list, bank: ContextBank, seed: int, epoch: int, max_s: float = 5.12,
-                cap: float = 1.5) -> list:
+                cap: float = 1.5, p: float = 1.0, mode: str = "h41", gap_s: float = 0.0) -> list:
     """New examples with context frames prepended and `ctx` (feature frames) set."""
+    if mode not in ("h41", "turn_switch", "turn_switch_mixed"):
+        raise ValueError(
+            f"unknown stream_ctx mode {mode!r}; expected 'h41', 'turn_switch', or 'turn_switch_mixed'"
+        )
+    if not 0.0 <= p <= 1.0:
+        raise ValueError(f"stream_ctx p must be in [0, 1], got {p}")
+    if gap_s < 0.0:
+        raise ValueError(f"stream_ctx gap_s must be >= 0, got {gap_s}")
     longest = max(e.feats.shape[0] for e in exs)
     kmax = int(round(max_s * 100)) // STEP
     out = []
+    if mode == "turn_switch_mixed":
+        gap_steps = max(0, int(round(gap_s * 100 / STEP)))
+        gap = gap_steps * STEP
+        spks = [_speaker_id(e.uid) for e in exs]
+        for i, e in enumerate(exs):
+            r = _rng(seed, epoch, e.uid)
+            n = e.feats.shape[0]
+            room = max(0, int(cap * longest) - n) // STEP
+            hi = min(kmax - gap_steps, room - gap_steps)
+            if len(exs) >= 2 and room >= gap_steps + 12 and hi >= 12 and float(r.random()) < p:
+                want_same = float(r.random()) < 0.5
+                if want_same:
+                    cands = [j for j in range(len(exs)) if j != i and spks[j] == spks[i]]
+                else:
+                    cands = [j for j in range(len(exs)) if j != i and spks[j] != spks[i]]
+                if not cands:
+                    out.append(e)
+                    continue
+                j = cands[int(r.integers(0, len(cands)))]
+                k_tail = int(r.integers(12, hi + 1))
+                tail_len = k_tail * STEP
+                tail = exs[j].feats[-tail_len:]
+                pad = tail_len - tail.shape[0]
+                parts = []
+                if pad > 0:
+                    parts.append(bank.silence.expand(pad, -1))
+                parts.append(tail)
+                if gap > 0:
+                    parts.append(bank.silence.expand(gap, -1))
+                ctx = torch.cat(parts)
+                L = tail_len + gap
+                out.append(dataclasses.replace(e, feats=torch.cat([ctx.to(e.feats.dtype), e.feats]), ctx=L))
+            else:
+                out.append(e)
+        return out
+    if mode == "turn_switch":
+        gap_steps = max(0, int(round(gap_s * 100 / STEP)))
+        gap = gap_steps * STEP
+        spks = [_speaker_id(e.uid) for e in exs]
+        for i, e in enumerate(exs):
+            r = _rng(seed, epoch, e.uid)
+            n = e.feats.shape[0]
+            room = max(0, int(cap * longest) - n) // STEP
+            hi = min(kmax - gap_steps, room - gap_steps)
+            if len(exs) >= 2 and room >= gap_steps + 12 and hi >= 12 and float(r.random()) < p:
+                cands = [j for j in range(len(exs)) if j != i and spks[j] != spks[i]]
+                if not cands:
+                    cands = [j for j in range(len(exs)) if j != i]
+                j = cands[int(r.integers(0, len(cands)))]
+                k_tail = int(r.integers(12, hi + 1))
+                tail_len = k_tail * STEP
+                tail = exs[j].feats[-tail_len:]
+                pad = tail_len - tail.shape[0]
+                parts = []
+                if pad > 0:
+                    parts.append(bank.silence.expand(pad, -1))
+                parts.append(tail)
+                if gap > 0:
+                    parts.append(bank.silence.expand(gap, -1))
+                ctx = torch.cat(parts)
+                L = tail_len + gap
+                out.append(dataclasses.replace(e, feats=torch.cat([ctx.to(e.feats.dtype), e.feats]), ctx=L))
+            else:
+                out.append(e)
+        return out
     for i, e in enumerate(exs):
         r = _rng(seed, epoch, e.uid)
         n = e.feats.shape[0]

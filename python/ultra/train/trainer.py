@@ -147,7 +147,11 @@ class Trainer:
         # existed still matches and a resumed run keeps its divergence baselines
         sig += [[k, v] for k, v in (("inter_ctc", c.inter_ctc_weight), ("balancer", c.balancer_weight),
                                     ("cr_ctc_full", c.cr_ctc_full), ("cr_ctc_half", c.cr_ctc_half),
-                                    ("stream_ctx", c.stream_ctx_s), ("mcr", c.mcr_weight),
+                                    ("stream_ctx", c.stream_ctx_s),
+                                    ("stream_ctx_opts", [c.stream_ctx_mode, c.stream_ctx_p, c.stream_ctx_gap_s]
+                                     if c.stream_ctx_s and (c.stream_ctx_mode != "h41" or c.stream_ctx_p != 1.0
+                                                            or c.stream_ctx_gap_s != 0.0) else None),
+                                    ("mcr", c.mcr_weight),
                                     ("etm_kd", c.etm_kd_weight and [c.etm_kd_weight, c.etm_kd_mode]),
                                     ("loss_trunc", c.loss_trunc_q and [c.loss_trunc_q, c.loss_trunc_mode]),
                                     ("text_loss", c.text_loss_weight),
@@ -877,7 +881,11 @@ def main(argv=None) -> int:
             source.rank_weights = w
     if cfg.stream_ctx_s:  # H41 arm 11, single-GPU and DDP alike (parquet loader only)
         source.stream_ctx_s, source.stream_ctx_cap = cfg.stream_ctx_s, cfg.stream_ctx_cap
-        print(json.dumps({"stream_ctx_s": cfg.stream_ctx_s, "stream_ctx_cap": cfg.stream_ctx_cap}), flush=True)
+        source.stream_ctx_mode, source.stream_ctx_p, source.stream_ctx_gap_s = (
+            cfg.stream_ctx_mode, cfg.stream_ctx_p, cfg.stream_ctx_gap_s)
+        print(json.dumps({"stream_ctx_s": cfg.stream_ctx_s, "stream_ctx_cap": cfg.stream_ctx_cap,
+                          "stream_ctx_mode": cfg.stream_ctx_mode, "stream_ctx_p": cfg.stream_ctx_p,
+                          "stream_ctx_gap_s": cfg.stream_ctx_gap_s}), flush=True)
     tr = Trainer(a.run_dir, cfg, source, dev=dev, tokenizer=tok_r, device=a.device,
                  model_cfg=model_cfg, rank=rank, world=world, local_rank=local_rank)
     existing = checkpoint.latest(a.run_dir)
