@@ -21,6 +21,21 @@ ci_step "pytest (files listed in ops/ci/pytest-light.txt)"
 mapfile -t files < <(grep -vE '^\s*(#|$)' ops/ci/pytest-light.txt)
 cd python/ultra
 # Two figure tests compile LaTeX (pdflatex), which the CI image does not carry; they stay local-only.
-"$venv/bin/python" -m pytest -q -p no:cacheprovider "${files[@]}" \
-  --deselect tests/test_paper_data.py::test_figures_compile_standalone_within_column \
-  --deselect tests/test_paper_evidence.py::test_label_width_estimates_cover_the_typeset_labels
+# within_page was within_column until the full-width hero (c4374b3). A stale node id runs on CI.
+latex_skip=(
+  tests/test_paper_data.py::test_figures_compile_standalone_within_page
+  tests/test_paper_evidence.py::test_label_width_estimates_cover_the_typeset_labels
+)
+for node in "${latex_skip[@]}"; do
+  file=${node%%::*}
+  name=${node##*::}
+  grep -q "^def ${name}(" "$file" || {
+    echo "pytest-light: deselect names a test that is not in ${file}: ${name}" >&2
+    exit 1
+  }
+done
+deselect=()
+for node in "${latex_skip[@]}"; do
+  deselect+=(--deselect "$node")
+done
+"$venv/bin/python" -m pytest -q -p no:cacheprovider "${files[@]}" "${deselect[@]}"
