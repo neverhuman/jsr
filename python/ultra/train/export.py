@@ -159,6 +159,16 @@ def export_bundle(ckpt_path: str, out_dir: str, int8: bool = True, tokenizer=Non
                   calib_percentile: float = 99.999) -> dict:
     """Write the bundle for checkpoint `ckpt_path` into `out_dir`; returns the manifest."""
     p = checkpoint.load(ckpt_path, restore_rng=False)
+    enc_raw = (p.get("model_config") or {}).get("encoder") or {}
+    if (
+        enc_raw.get("side_mode")
+        or (enc_raw.get("side_film_dim") or 0) > 0
+        or any(k.startswith("encoder.side.") or ".side_film." in k for k in p["model"])
+    ):
+        raise ExportError(
+            "checkpoint uses side-feature conditioning (side_mode / side_film_dim); "
+            "refusing export until runtime supports side features"
+        )
     cfg = ModelConfig.from_dict(p["model_config"])
     if cfg.text_tables_dim > 0 or any(k.startswith("predictor.text.") for k in p["model"]):
         raise ExportError(
