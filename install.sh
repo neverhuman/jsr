@@ -114,6 +114,10 @@ lock="$share/.install.lock"
 mkdir "$lock" 2>/dev/null || die "another install into $PREFIX is running (remove $lock if not)"
 trap 'rm -rf "$tmp"; rmdir "$lock" 2>/dev/null || true' EXIT INT TERM
 
+# Recover from an interrupted earlier activation: if only the backup survived, put it back.
+if [ ! -d "$share/model" ] && [ -d "$share/model.old" ]; then
+	mv "$share/model.old" "$share/model"
+fi
 # Stage the new binary and model next to the old ones and verify them before touching the install.
 rm -rf "$share/model.new" "$share/model.old"
 cp -R "$src_model" "$share/model.new"
