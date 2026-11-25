@@ -26,6 +26,7 @@ struct Args {
     streams: usize,
     seconds: f64,
     grid_ms: u64,
+    coalesce_ms: u64,
     precision: Precision,
     chunk: Option<usize>,
     max_chunks: usize,
@@ -43,6 +44,7 @@ fn parse() -> Result<Args, String> {
         streams: 8,
         seconds: 60.0,
         grid_ms: 320,
+        coalesce_ms: 0,
         precision: Precision::Int8,
         chunk: None,
         max_chunks: 1,
@@ -64,6 +66,7 @@ fn parse() -> Result<Args, String> {
             "--chunk" => a.chunk = Some(v()?.parse().map_err(|e| format!("{e}"))?),
             "--max-chunks" => a.max_chunks = v()?.parse().map_err(|e| format!("{e}"))?,
             "--grid-ms" => a.grid_ms = v()?.parse().map_err(|e| format!("{e}"))?,
+            "--coalesce-ms" => a.coalesce_ms = v()?.parse().map_err(|e| format!("{e}"))?,
             "--precision" => a.precision = Precision::parse(&v()?).map_err(|e| e.to_string())?,
             "--int8-fp32-kinds" => a.int8_skip = kinds(&v()?),
             "--int8-stem-kinds" => {
@@ -99,10 +102,37 @@ struct Slot {
     fed: usize,
 }
 
+/// Earliest ready-chunk arrival time and count of ready streams currently waiting.
+fn ready_summary(
+    engine: &Engine,
+    slots: &[Slot],
+    utts: &[ultra_frontend::npz::AudioUtterance],
+) -> (usize, Option<f64>) {
+    let c = engine.chunk;
+    let mut ready_streams = 0usize;
+    let mut earliest: Option<f64> = None;
+    for s in slots {
+        if let Some((a0, a1)) = engine.next_chunk(&s.stream) {
+            ready_streams += 1;
+            let len = utts[s.utt].pcm.len();
+            let e = (a0 + c).min(a1);
+            let need = (4 * e - 4) * 160 + 400;
+            let need = if s.stream.is_finished() {
+                need.min(len)
+            } else {
+                need
+            };
+            let arr = s.start + need as f64 / 16_000.0;
+            earliest = Some(earliest.map_or(arr, |cur| cur.min(arr)));
+        }
+    }
+    (ready_streams, earliest)
+}
+
 /// Decode every ready step (batched) until none is ready. Records one lateness sample per
 /// processed chunk: decode end minus the arrival of the last sample that chunk needs
 /// (feature frame `4 t1 - 4` complete; only the stream's final, padded chunk is capped at the
-/// true end of audio). Returns (decode calls, encoder frames processed).
+/// true end of audio). Returns `(decode calls, encoder frames processed, ready stream-steps)`.
 fn decode_ready(
     engine: &Engine,
     slots: &mut [Slot],
@@ -110,13 +140,15 @@ fn decode_ready(
     ws: &mut Workspace,
     t0: Instant,
     late: &mut Vec<(f64, f64)>,
-) -> Result<(usize, usize), String> {
+) -> Result<(usize, usize, usize), String> {
     let c = engine.chunk;
-    let (mut calls, mut frames) = (0usize, 0usize);
+    let (mut calls, mut frames, mut stream_steps) = (0usize, 0usize, 0usize);
     loop {
         let mut arrivals: Vec<f64> = Vec::new();
+        let mut step_streams = 0usize;
         for s in slots.iter() {
             if let Some((a0, a1)) = engine.next_chunk(&s.stream) {
+                step_streams += 1;
                 frames += a1 - a0;
                 let len = utts[s.utt].pcm.len();
                 let mut e = a0;
@@ -133,11 +165,12 @@ fn decode_ready(
             }
         }
         if arrivals.is_empty() {
-            return Ok((calls, frames));
+            return Ok((calls, frames, stream_steps));
         }
         let mut refs: Vec<&mut EngineStream> = slots.iter_mut().map(|s| &mut s.stream).collect();
         engine.decode(&mut refs, ws).map_err(|e| e.to_string())?;
         calls += 1;
+        stream_steps += step_streams;
         let end = t0.elapsed().as_secs_f64();
         late.extend(arrivals.into_iter().map(|t| (t, end - t)));
     }
@@ -178,6 +211,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     }
     let utts = load_npz_audio_only(&a.npz, 0, Some(400)).map_err(|e| e.to_string())?;
     let grid = a.grid_ms as f64 / 1000.0;
+    let coalesce_s = a.coalesce_ms as f64 / 1000.0;
     let mut slots: Vec<Slot> = (0..a.streams)
         .map(|i| Slot {
             utt: (i * 37) % utts.len(),
@@ -192,12 +226,16 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let (c0, t0) = (run_info::thread_cpu_s(), Instant::now());
     let mut audio_s = 0.0f64;
     let mut frames = 0usize;
+    let mut decode_calls = 0usize;
+    let mut decoded_stream_steps = 0usize;
+    let mut paced_wakeups = 0u64;
     let mut tick = 1u64;
     let mut cutoff = false;
     loop {
         let target = Duration::from_secs_f64(grid * tick as f64);
         if let Some(d) = target.checked_sub(t0.elapsed()) {
             std::thread::sleep(d);
+            paced_wakeups += 1;
         }
         let mut now = t0.elapsed().as_secs_f64();
         if now > a.seconds {
@@ -223,17 +261,34 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         if cutoff {
             break;
         }
-        let (_, f) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
-        frames += f;
-        for s in &mut slots {
-            if s.stream.is_finished() && !engine.is_ready(&s.stream) {
-                // Next utterance starts right after this one ended (real-time continuity).
-                let end = s.start + utts[s.utt].pcm.len() as f64 / 16_000.0;
-                s.utt = next_utt % utts.len();
-                next_utt += 1;
-                s.stream = engine.create_stream();
-                s.start = end;
-                s.fed = 0;
+        let should_decode = if a.coalesce_ms == 0 {
+            true
+        } else {
+            let (ready_n, earliest) = ready_summary(&engine, &slots, &utts);
+            match earliest {
+                None => false,
+                Some(t_arr) => {
+                    ready_n >= slots.len()
+                        || (now - t_arr + grid) > coalesce_s + 1e-9
+                        || (now + grid) >= a.seconds
+                }
+            }
+        };
+        if should_decode {
+            let (c, f, st) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
+            decode_calls += c;
+            frames += f;
+            decoded_stream_steps += st;
+            for s in &mut slots {
+                if s.stream.is_finished() && !engine.is_ready(&s.stream) {
+                    // Next utterance starts right after this one ended (real-time continuity).
+                    let end = s.start + utts[s.utt].pcm.len() as f64 / 16_000.0;
+                    s.utt = next_utt % utts.len();
+                    next_utt += 1;
+                    s.stream = engine.create_stream();
+                    s.start = end;
+                    s.fed = 0;
+                }
             }
         }
         tick += 1;
@@ -241,8 +296,10 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     // Drain: every chunk whose audio arrived by the cutoff is decoded and its lateness kept.
     let backlog_steps = slots.iter().filter(|s| engine.is_ready(&s.stream)).count();
     let n_before = late.len();
-    let (_, f) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
+    let (c, f, st) = decode_ready(&engine, &mut slots, &utts, &mut ws, t0, &mut late)?;
+    decode_calls += c;
     frames += f;
+    decoded_stream_steps += st;
     let drained_chunks = late.len() - n_before;
     // Accepted audio not yet forming a complete chunk (never processed, never credited).
     let processed_s = frames as f64 * 0.04;
@@ -262,7 +319,7 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
         .collect();
     let growth = mean(&second) - mean(&first);
     let mut all: Vec<f64> = late.iter().map(|x| x.1).collect();
-    let (p50, p99) = (pct(&mut all, 0.5), pct(&mut all, 0.99));
+    let (p50, p95, p99) = (pct(&mut all, 0.5), pct(&mut all, 0.95), pct(&mut all, 0.99));
     let mx = all.last().copied().unwrap_or(f64::NAN);
     let pass = p99 <= 0.8 && growth <= 0.05;
     let fp32_kinds = match &engine.model.int8_prepared {
@@ -288,10 +345,15 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
     let mut out = run_info::identity(&engine.model, &a.weights, &knobs);
     let extra = json!({
         "schema": "ultra.engine-density/v3", "tool": "development (not an evidence harness)",
-        "npz": a.npz, "streams": a.streams, "grid_ms": a.grid_ms, "seconds": a.seconds,
+        "npz": a.npz, "streams": a.streams, "grid_ms": a.grid_ms, "coalesce_ms": a.coalesce_ms,
+        "seconds": a.seconds,
         "cpu_scope": "decode thread only (schedstat), load excluded",
         "peak_rss_mib": run_info::peak_rss_mib(),
-        "chunks": all.len(), "lateness_p50_s": p50, "lateness_p99_s": p99, "lateness_max_s": mx,
+        "chunks": all.len(),
+        "engine_decode_calls": decode_calls,
+        "paced_wakeups": paced_wakeups,
+        "mean_streams_per_decode": decoded_stream_steps as f64 / decode_calls.max(1) as f64,
+        "lateness_p50_s": p50, "lateness_p95_s": p95, "lateness_p99_s": p99, "lateness_max_s": mx,
         "growth_s": growth, "a1_pass": pass,
         "worker_cpu_s": cpu, "wall_s": wall, "worker_util": cpu / wall,
         "workload": "duration-limited live replay: audio arriving after the cutoff is not \

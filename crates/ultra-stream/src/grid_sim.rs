@@ -111,6 +111,10 @@ pub trait SimSlotBank {
     fn accept_packet(&mut self, slot: usize, max_samples: usize) -> usize;
     fn finish_slot_input(&mut self, slot: usize);
     fn slot_is_ready(&self, slot: usize) -> bool;
+    /// Count of currently ready slots (default scans `0..streams` via `slot_is_ready`).
+    fn ready_slot_count(&self, streams: usize) -> usize {
+        (0..streams).filter(|&s| self.slot_is_ready(s)).count()
+    }
     fn decode_ready_step(&mut self, decode: DecodeMode, max_batch: usize) -> (usize, u64);
     fn take_completed_slot(&mut self, slot: usize) -> String;
     fn on_periodic_tick(&mut self) {}
@@ -128,6 +132,11 @@ pub struct SimParams {
     pub max_batch: usize,
     pub packet_ms: u32,
     pub grid_ms: u32,
+    /// Deadline-aware micro-batch coalescing window in milliseconds (`0` = off, byte-identical
+    /// legacy behavior). In [`DecodeMode::Batch`], holds a ready partial batch up to `coalesce_ms`
+    /// while other active streams approach readiness, firing immediately when `ready >= target`
+    /// or waiting another grid tick would exceed `coalesce_ms`.
+    pub coalesce_ms: u32,
     pub paced: bool,
     pub duration_s: Option<f64>,
 }
@@ -158,7 +167,12 @@ pub struct SimOutcome {
     pub offered_to_decode_packets: u64,
     pub effective_grid_ms: u32,
     pub max_ready_batch: usize,
+    /// Legacy alias for `engine_decode_calls` (total decode calls returned by `decode_ready_step`).
     pub wakeups: u64,
+    /// Exact count of engine `decode()` invocations (never conflated with `paced_wakeups`).
+    pub engine_decode_calls: u64,
+    /// Exact count of paced capture-timer sleep wakeups (`0` when `!paced`).
+    pub paced_wakeups: u64,
     pub drained: bool,
     pub tick_compute_ms: Vec<f64>,
     pub lateness_ms: Option<LatenessQuantiles>,
@@ -282,6 +296,11 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
     let mut drain_start: Option<(f64, f64)> = None;
     let mut max_ready_batch = 0usize;
     let mut wakeups = 0u64;
+    let mut paced_wakeups = 0u64;
+    let mut first_ready_deadline_s: Option<f64> = None;
+    let coalesce_active = params.coalesce_ms > 0 && params.decode == DecodeMode::Batch;
+    let coalesce_s = f64::from(params.coalesce_ms) / 1000.0;
+    let grid_s = f64::from(effective_grid_ms) / 1000.0;
     let mut completed: Vec<(usize, String)> = Vec::new();
     let mut audio_completed_samples = 0u64;
     let mut steady_lat_s: Vec<f64> = Vec::new();
@@ -296,6 +315,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
                 let target = deadline_s(k_acc).min(t_cut);
                 if now < target {
                     clock.sleep_s(target - now);
+                    paced_wakeups += 1;
                     now = clock.now_s();
                 }
                 let limit_t = now.min(t_cut) + 1e-12;
@@ -333,58 +353,84 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
             (0..params.streams).all(|s| !bank.has_slot(s) || bank.slot_finished_input(s));
         let crossed = (k_acc / grid_every) > (k_dec / grid_every);
         if cutoff || crossed || all_inputs_done {
-            let oldest = deadline_s(k_dec);
-            let step_t0 = clock.now_s();
-            let mut total_ready_decoded = 0usize;
-            let mut max_step_lat = 0.0f64;
-            // Drain EVERY ready chunk on this grid tick across all backends (R0/ORT loop over
-            // ready chunks; ultra-engine fuses up to `max_chunks` chunks per pass; FREEZE §3 B2).
-            loop {
-                if let Some(err) = bank.take_error() {
-                    return Err(err);
-                }
-                let (ready_n, w) = bank.decode_ready_step(params.decode, params.max_batch);
-                if let Some(err) = bank.take_error() {
-                    return Err(err);
-                }
-                if ready_n == 0 {
-                    break;
-                }
-                let step_done_t = clock.now_s();
-                max_ready_batch = max_ready_batch.max(ready_n);
-                total_ready_decoded += ready_n;
-                wakeups += w;
-                if params.paced {
-                    // FREEZE §3 unified A1: per-chunk step completion against capture deadline,
-                    // including drain ticks after cutoff.
-                    let lat = (step_done_t - oldest).max(0.0);
-                    max_step_lat = max_step_lat.max(lat);
-                    for _ in 0..ready_n {
-                        steady_lat_s.push(lat);
-                    }
-                    if let Some(sink) = backlog_us_sink {
-                        sink.fetch_max((lat * 1_000_000.0).round() as u64, Ordering::Relaxed);
+            let mut should_decode = true;
+            if coalesce_active && !cutoff && !all_inputs_done {
+                let ready_slots = bank.ready_slot_count(params.streams);
+                if ready_slots == 0 {
+                    first_ready_deadline_s = None;
+                    should_decode = false;
+                    k_dec = k_acc;
+                } else {
+                    let active_slots = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
+                    let target_batch = active_slots.min(params.max_batch).max(1);
+                    let capture_now = deadline_s(k_acc.saturating_sub(1));
+                    let sim_now = if params.paced {
+                        clock.now_s().max(capture_now)
+                    } else {
+                        capture_now
+                    };
+                    let first_t = *first_ready_deadline_s.get_or_insert(deadline_s(k_dec));
+                    let waited = (sim_now - first_t).max(0.0);
+                    if ready_slots < target_batch && (waited + grid_s) <= coalesce_s + 1e-9 {
+                        should_decode = false;
                     }
                 }
             }
-            if total_ready_decoded > 0 {
-                let done_t = clock.now_s();
-                tick_compute_ms.push((done_t - step_t0).max(0.0) * 1000.0);
-                if params.paced && done_t >= next_series_t {
-                    let active = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
-                    series.push(SustainedSample {
-                        elapsed_s: ((done_t - t0) * 1000.0).round() / 1000.0,
-                        backlog_ms: (max_step_lat * 1000.0 * 100.0).round() / 100.0,
-                        active_streams: active,
-                        accepted_audio_s: (accepted_samples as f64) / 16_000.0,
-                        processed_audio_s: (processed_samples as f64) / 16_000.0,
-                    });
-                    while next_series_t <= done_t {
-                        next_series_t += 10.0;
+            if should_decode {
+                first_ready_deadline_s = None;
+                let oldest = deadline_s(k_dec);
+                let step_t0 = clock.now_s();
+                let mut total_ready_decoded = 0usize;
+                let mut max_step_lat = 0.0f64;
+                // Drain EVERY ready chunk on this grid tick across all backends (R0/ORT loop over
+                // ready chunks; ultra-engine fuses up to `max_chunks` chunks per pass; FREEZE §3 B2).
+                loop {
+                    if let Some(err) = bank.take_error() {
+                        return Err(err);
+                    }
+                    let (ready_n, w) = bank.decode_ready_step(params.decode, params.max_batch);
+                    if let Some(err) = bank.take_error() {
+                        return Err(err);
+                    }
+                    if ready_n == 0 {
+                        break;
+                    }
+                    let step_done_t = clock.now_s();
+                    max_ready_batch = max_ready_batch.max(ready_n);
+                    total_ready_decoded += ready_n;
+                    wakeups += w;
+                    if params.paced {
+                        // FREEZE §3 unified A1: per-chunk step completion against capture deadline,
+                        // including drain ticks after cutoff.
+                        let lat = (step_done_t - oldest).max(0.0);
+                        max_step_lat = max_step_lat.max(lat);
+                        for _ in 0..ready_n {
+                            steady_lat_s.push(lat);
+                        }
+                        if let Some(sink) = backlog_us_sink {
+                            sink.fetch_max((lat * 1_000_000.0).round() as u64, Ordering::Relaxed);
+                        }
                     }
                 }
+                if total_ready_decoded > 0 {
+                    let done_t = clock.now_s();
+                    tick_compute_ms.push((done_t - step_t0).max(0.0) * 1000.0);
+                    if params.paced && done_t >= next_series_t {
+                        let active = (0..params.streams).filter(|&s| bank.has_slot(s)).count();
+                        series.push(SustainedSample {
+                            elapsed_s: ((done_t - t0) * 1000.0).round() / 1000.0,
+                            backlog_ms: (max_step_lat * 1000.0 * 100.0).round() / 100.0,
+                            active_streams: active,
+                            accepted_audio_s: (accepted_samples as f64) / 16_000.0,
+                            processed_audio_s: (processed_samples as f64) / 16_000.0,
+                        });
+                        while next_series_t <= done_t {
+                            next_series_t += 10.0;
+                        }
+                    }
+                }
+                k_dec = k_acc;
             }
-            k_dec = k_acc;
             for slot in 0..params.streams {
                 if bank.has_slot(slot)
                     && bank.slot_finished_input(slot)
@@ -436,6 +482,8 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
         effective_grid_ms,
         max_ready_batch,
         wakeups,
+        engine_decode_calls: wakeups,
+        paced_wakeups,
         drained,
         tick_compute_ms,
         lateness_ms: summarize_lateness(&steady_lat_s),

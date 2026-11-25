@@ -382,6 +382,7 @@ mod int8;
 mod int8_fast;
 mod int8_fast_prep;
 mod int8_fast_signed;
+mod int8_fast_signed_quad;
 mod int8_fast_u128;
 mod int8_fast_u128_quad;
 mod int8_u7;

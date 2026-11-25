@@ -5,12 +5,14 @@ use std::arch::x86_64::*;
 
 use super::super::NR;
 use super::int8_fast_prep::{
-    accum_u_group_exact, epilogue_u_store, Align32, Avx2Consts, AVX2_CONSTS,
+    accum_u_group_exact, epilogue_u_store_preloaded, Align32, Avx2Consts, PanelEpilogue, PanelQsum,
+    AVX2_CONSTS,
 };
 
 /// Single-call zero-spill AVX2 `M = 4` unsigned-offset 4-group quad kernel across ALL `quads`
-/// of a panel (`rows > 4`, `T0` prefetch). `ymm0..ymm7` stay live in registers for the entire
-/// panel; rare bad quads branch to cold labels `3:` (4 plain groups) / `5:` (4 exact split groups).
+/// of a panel (`rows > 4`, `T0` prefetch on `ti == 0`, zero prefetch on `ti > 0`).
+/// `ymm0..ymm7` stay live in registers for the entire panel; rare bad quads branch to cold labels
+/// `3:` (4 plain groups) / `5:` (4 exact split groups).
 ///
 /// # Safety
 /// Caller must ensure AVX2+FMA is available, `acc` points to 32-byte aligned `[__m256i; 8]`,
@@ -20,7 +22,7 @@ use super::int8_fast_prep::{
 #[inline(never)]
 #[target_feature(enable = "avx2,fma")]
 #[allow(clippy::too_many_arguments)]
-unsafe fn run_u128_quad_all_asm(
+unsafe fn run_u128_quad_all_asm<const PREFETCH: bool>(
     wp: *const i8,
     u0: *const u8,
     u3: *const u8,
@@ -182,100 +184,104 @@ unsafe fn run_u128_quad_all_asm(
             )
         };
     }
-    // SAFETY: bounds verified by caller; all clobbered YMM regs declared.
-    unsafe {
-        asm!(
-            "vpxor ymm0, ymm0, ymm0",
-            "vpxor ymm1, ymm1, ymm1",
-            "vpxor ymm2, ymm2, ymm2",
-            "vpxor ymm3, ymm3, ymm3",
-            "vpxor ymm4, ymm4, ymm4",
-            "vpxor ymm5, ymm5, ymm5",
-            "vpxor ymm6, ymm6, ymm6",
-            "vpxor ymm7, ymm7, ymm7",
-            "vmovdqa ymm8, ymmword ptr [{consts}]",
-            "movzx {nb:e}, word ptr [{bad}]",
-            ".p2align 4",
-            "2:",
-            "prefetcht0 [{w} + 2048]",
-            "prefetcht0 [{w} + 2112]",
-            "prefetcht0 [{w} + 2176]",
-            "prefetcht0 [{w} + 2240]",
-            "mov {tmp}, {nb}",
-            "shr {tmp}, 1",
-            "cmp {pi}, {tmp}",
-            "je 3f",
-            uq_row!("{u0} + 0", "{u0} + 4", "{u0} + 8", "{u0} + 12", "ymm0", "ymm1"),
-            uq_row!("{u0} + {ks} + 0", "{u0} + {ks} + 4", "{u0} + {ks} + 8", "{u0} + {ks} + 12", "ymm2", "ymm3"),
-            uq_row!("{u0} + 2*{ks} + 0", "{u0} + 2*{ks} + 4", "{u0} + 2*{ks} + 8", "{u0} + 2*{ks} + 12", "ymm4", "ymm5"),
-            uq_row!("{u3} + 0", "{u3} + 4", "{u3} + 8", "{u3} + 12", "ymm6", "ymm7"),
-            "4:",
-            "add {w}, 256",
-            "add {u0}, 16",
-            "add {u3}, 16",
-            "inc {pi}",
-            "cmp {pi}, {quads}",
-            "jb 2b",
-            "vmovdqa ymmword ptr [{acc} + 0],   ymm0",
-            "vmovdqa ymmword ptr [{acc} + 32],  ymm1",
-            "vmovdqa ymmword ptr [{acc} + 64],  ymm2",
-            "vmovdqa ymmword ptr [{acc} + 96],  ymm3",
-            "vmovdqa ymmword ptr [{acc} + 128], ymm4",
-            "vmovdqa ymmword ptr [{acc} + 160], ymm5",
-            "vmovdqa ymmword ptr [{acc} + 192], ymm6",
-            "vmovdqa ymmword ptr [{acc} + 224], ymm7",
-            "jmp 9f",
-            "3:",
-            "add {bad}, 2",
-            "test {nb}, 1",
-            "jnz 5f",
-            "movzx {nb:e}, word ptr [{bad}]",
-            uq_plain_grp!("0", "32", "0"),
-            uq_plain_grp!("64", "96", "4"),
-            uq_plain_grp!("128", "160", "8"),
-            uq_plain_grp!("192", "224", "12"),
-            "jmp 4b",
-            "5:",
-            "movzx {nb:e}, word ptr [{bad}]",
-            uq_split_grp!("0", "32", "0"),
-            uq_split_grp!("64", "96", "4"),
-            uq_split_grp!("128", "160", "8"),
-            uq_split_grp!("192", "224", "12"),
-            "jmp 4b",
-            "9:",
-            w = inout(reg) wp => _,
-            u0 = inout(reg) u0 => _,
-            u3 = inout(reg) u3 => _,
-            ks = in(reg) ks,
-            pi = inout(reg) 0usize => _,
-            quads = in(reg) quads,
-            bad = inout(reg) bad_ptr => _,
-            nb = out(reg) _,
-            tmp = out(reg) _,
-            acc = in(reg) acc,
-            consts = in(reg) consts_ptr,
-            out("ymm0") _, out("ymm1") _, out("ymm2") _, out("ymm3") _,
-            out("ymm4") _, out("ymm5") _, out("ymm6") _, out("ymm7") _,
-            out("ymm8") _, out("ymm9") _, out("ymm10") _, out("ymm11") _,
-            out("ymm12") _, out("ymm13") _, out("ymm14") _,
-            options(nostack),
-        );
+    macro_rules! body {
+        ($pf_block:literal) => {
+            // SAFETY: bounds verified by caller; all clobbered YMM regs declared.
+            unsafe {
+                asm!(
+                    "vpxor ymm0, ymm0, ymm0",
+                    "vpxor ymm1, ymm1, ymm1",
+                    "vpxor ymm2, ymm2, ymm2",
+                    "vpxor ymm3, ymm3, ymm3",
+                    "vpxor ymm4, ymm4, ymm4",
+                    "vpxor ymm5, ymm5, ymm5",
+                    "vpxor ymm6, ymm6, ymm6",
+                    "vpxor ymm7, ymm7, ymm7",
+                    "vmovdqa ymm8, ymmword ptr [{consts}]",
+                    "movzx {nb:e}, word ptr [{bad}]",
+                    ".p2align 4",
+                    "2:",
+                    $pf_block,
+                    "mov {tmp}, {nb}",
+                    "shr {tmp}, 1",
+                    "cmp {pi}, {tmp}",
+                    "je 3f",
+                    uq_row!("{u0} + 0", "{u0} + 4", "{u0} + 8", "{u0} + 12", "ymm0", "ymm1"),
+                    uq_row!("{u0} + {ks} + 0", "{u0} + {ks} + 4", "{u0} + {ks} + 8", "{u0} + {ks} + 12", "ymm2", "ymm3"),
+                    uq_row!("{u0} + 2*{ks} + 0", "{u0} + 2*{ks} + 4", "{u0} + 2*{ks} + 8", "{u0} + 2*{ks} + 12", "ymm4", "ymm5"),
+                    uq_row!("{u3} + 0", "{u3} + 4", "{u3} + 8", "{u3} + 12", "ymm6", "ymm7"),
+                    "4:",
+                    "add {w}, 256",
+                    "add {u0}, 16",
+                    "add {u3}, 16",
+                    "inc {pi}",
+                    "cmp {pi}, {quads}",
+                    "jb 2b",
+                    "vmovdqa ymmword ptr [{acc} + 0],   ymm0",
+                    "vmovdqa ymmword ptr [{acc} + 32],  ymm1",
+                    "vmovdqa ymmword ptr [{acc} + 64],  ymm2",
+                    "vmovdqa ymmword ptr [{acc} + 96],  ymm3",
+                    "vmovdqa ymmword ptr [{acc} + 128], ymm4",
+                    "vmovdqa ymmword ptr [{acc} + 160], ymm5",
+                    "vmovdqa ymmword ptr [{acc} + 192], ymm6",
+                    "vmovdqa ymmword ptr [{acc} + 224], ymm7",
+                    "jmp 9f",
+                    "3:",
+                    "add {bad}, 2",
+                    "test {nb}, 1",
+                    "jnz 5f",
+                    "movzx {nb:e}, word ptr [{bad}]",
+                    uq_plain_grp!("0", "32", "0"),
+                    uq_plain_grp!("64", "96", "4"),
+                    uq_plain_grp!("128", "160", "8"),
+                    uq_plain_grp!("192", "224", "12"),
+                    "jmp 4b",
+                    "5:",
+                    "movzx {nb:e}, word ptr [{bad}]",
+                    uq_split_grp!("0", "32", "0"),
+                    uq_split_grp!("64", "96", "4"),
+                    uq_split_grp!("128", "160", "8"),
+                    uq_split_grp!("192", "224", "12"),
+                    "jmp 4b",
+                    "9:",
+                    w = inout(reg) wp => _,
+                    u0 = inout(reg) u0 => _,
+                    u3 = inout(reg) u3 => _,
+                    ks = in(reg) ks,
+                    pi = inout(reg) 0usize => _,
+                    quads = in(reg) quads,
+                    bad = inout(reg) bad_ptr => _,
+                    nb = out(reg) _,
+                    tmp = out(reg) _,
+                    acc = in(reg) acc,
+                    consts = in(reg) consts_ptr,
+                    out("ymm0") _, out("ymm1") _, out("ymm2") _, out("ymm3") _,
+                    out("ymm4") _, out("ymm5") _, out("ymm6") _, out("ymm7") _,
+                    out("ymm8") _, out("ymm9") _, out("ymm10") _, out("ymm11") _,
+                    out("ymm12") _, out("ymm13") _, out("ymm14") _,
+                    options(nostack),
+                );
+            }
+        };
+    }
+    if PREFETCH {
+        body!("prefetcht0 [{w} + 2048]\nprefetcht0 [{w} + 2112]\nprefetcht0 [{w} + 2176]\nprefetcht0 [{w} + 2240]\n");
+    } else {
+        body!("");
     }
 }
 
-/// Zero-spill `M = 4` compute-bound (`!NTA`, e.g. `commit c=16`) unsigned-offset quad kernel
-/// (single `asm!` call/panel).
+/// Zero-spill `M = 4` compute-bound (`!NTA`, e.g. `commit c=16` / multi-stream `M >= 8`)
+/// unsigned-offset quad kernel (single `asm!` call/panel).
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
-pub(super) fn tile_u_quad_4<const NEG: bool>(
+pub(super) fn tile_u_quad_4<const NEG: bool, const PREFETCH: bool>(
     u: &[u8],
     kp: usize,
     panel: &[i8],
-    qsum: &[i32],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
+    qs: &PanelQsum,
+    ep: &PanelEpilogue,
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
@@ -293,7 +299,7 @@ pub(super) fn tile_u_quad_4<const NEG: bool>(
     if quads > 0 {
         // SAFETY: 3 * kp + quads * 16 <= 4 * kp <= u.len(), quads * 256 <= kp * NR, sentinel asserted.
         unsafe {
-            run_u128_quad_all_asm(
+            run_u128_quad_all_asm::<PREFETCH>(
                 wp,
                 up,
                 up.add(3 * kp),
@@ -322,5 +328,5 @@ pub(super) fn tile_u_quad_4<const NEG: bool>(
         }
     }
 
-    epilogue_u_store::<NEG>(acc.0, qsum, sw, wsum, bias, sa, ca, out, ldo, ncols);
+    epilogue_u_store_preloaded::<NEG>(acc.0, qs, ep, sa, ca, out, ldo, ncols);
 }

@@ -46,6 +46,7 @@ pub(crate) fn run_one_density_point(
                 decode_config: ctx.decode_config.clone(),
                 packet_ms: 20,
                 grid_ms: ctx.grid_ms,
+                coalesce_ms: ctx.coalesce_ms,
                 lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
                 paced: true,
                 source_commit: ctx.commit.into(),

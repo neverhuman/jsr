@@ -258,6 +258,9 @@ pub struct Workspace {
     feats: Vec<f32>,
     enc_out: Vec<f32>,
     ready: Vec<(usize, usize)>,
+    ns: Vec<usize>,
+    prev_tok_lens: Vec<usize>,
+    hyp_changed: Vec<bool>,
 }
 
 impl Workspace {
@@ -578,11 +581,12 @@ impl Engine {
                 }
             }
         }
-        let ns: Vec<usize> = ws.ready.iter().map(|&(_, n)| n).collect();
+        ws.ns.clear();
+        ws.ns.extend(ws.ready.iter().map(|&(_, n)| n));
         let mut decs: Vec<&mut DecState> = Vec::with_capacity(encs.len());
         let mut jobs: Vec<ChunkJob<'_>> = Vec::with_capacity(encs.len());
         let mut off = 0;
-        for ((enc, dec), &n) in encs.into_iter().zip(&ns) {
+        for ((enc, dec), &n) in encs.into_iter().zip(&ws.ns) {
             jobs.push(ChunkJob {
                 state: enc,
                 feats: &ws.feats[off..off + per(n)],
@@ -596,8 +600,10 @@ impl Engine {
         let split = self.pool.clone().map(|p| (p, self.model.clone()));
         ws.enc.q.split = split.clone();
         ws.dec.q.split = split;
-        let prev_tok_lens: Vec<usize> = decs.iter().map(|d| d.tokens.len()).collect();
-        let mut hyp_changed = vec![false; decs.len()];
+        ws.prev_tok_lens.clear();
+        ws.prev_tok_lens.extend(decs.iter().map(|d| d.tokens.len()));
+        ws.hyp_changed.clear();
+        ws.hyp_changed.resize(decs.len(), false);
         let m = &self.model;
         let result = encode_chunk(
             m,
@@ -624,11 +630,11 @@ impl Engine {
                     self.beam_margin,
                     lm_ref,
                     &mut bs,
-                    &ns,
+                    &ws.ns,
                     &ws.enc_out,
                     &mut ws.dec,
                 )?;
-                for (d, changed) in decs.iter_mut().zip(&mut hyp_changed) {
+                for (d, changed) in decs.iter_mut().zip(&mut ws.hyp_changed) {
                     if let Some(b) = &d.beam {
                         let best = &b.best_hyp().tokens;
                         if d.tokens != *best {
@@ -645,12 +651,12 @@ impl Engine {
                     self.isa,
                     self.precision,
                     &mut decs,
-                    &ns,
+                    &ws.ns,
                     &ws.enc_out,
                     &mut ws.dec,
                 )?;
                 for ((d, &prev_len), changed) in
-                    decs.iter().zip(&prev_tok_lens).zip(&mut hyp_changed)
+                    decs.iter().zip(&ws.prev_tok_lens).zip(&mut ws.hyp_changed)
                 {
                     *changed = d.tokens.len() != prev_len;
                 }
@@ -667,7 +673,7 @@ impl Engine {
             return Err(e);
         }
         for ((&(i, n), &prev_len), &changed) in
-            ws.ready.iter().zip(&prev_tok_lens).zip(&hyp_changed)
+            ws.ready.iter().zip(&ws.prev_tok_lens).zip(&ws.hyp_changed)
         {
             let s = &mut *streams[i];
             s.last_progress = DecodeProgress {
@@ -742,7 +748,7 @@ impl Engine {
                 }
             }
         }
-        Ok(ns.len())
+        Ok(ws.ns.len())
     }
 
     /// Detokenised transcript so far.

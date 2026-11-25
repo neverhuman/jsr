@@ -166,6 +166,7 @@ pub fn run_sp_a_shared_workers_with_observer(
                         max_batch: cfg.max_batch,
                         packet_ms: cfg.packet_ms,
                         grid_ms: cfg.grid_ms,
+                        coalesce_ms: 0,
                         paced: cfg.paced,
                         duration_s: cfg.duration_s,
                     },

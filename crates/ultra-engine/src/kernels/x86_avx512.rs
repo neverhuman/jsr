@@ -85,6 +85,16 @@ fn gemm_i8_avx512(
         let bias = &w.bias[p * NR..(p + 1) * NR];
         let qsum = &w.qsum[p * NR..(p + 1) * NR];
         let ncols = NR.min(n - p * NR);
+        // Hoist per-panel epilogue vectors ONCE across all M-tiles (`r`).
+        // SAFETY: sw, ws, bias, qsum each hold >= NR = 16 elements (asserted above).
+        let ep = unsafe {
+            (
+                _mm512_loadu_ps(sw.as_ptr()),
+                _mm512_loadu_ps(ws.as_ptr()),
+                _mm512_loadu_ps(bias.as_ptr()),
+                _mm512_slli_epi32::<7>(_mm512_loadu_si512(qsum.as_ptr().cast())),
+            )
+        };
         let mut r = 0;
         while r < rows {
             let m = (rows - r).min(MR512);
@@ -92,15 +102,24 @@ fn gemm_i8_avx512(
             let sr = &sa[r..r + m];
             let cr = &ca[r..r + m];
             let os = &mut out[r * ldo + p * NR - col0..];
-            match m {
-                8 => tile_vnni::<8>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                7 => tile_vnni::<7>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                6 => tile_vnni::<6>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                5 => tile_vnni::<5>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                4 => tile_vnni::<4>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                3 => tile_vnni::<3>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                2 => tile_vnni::<2>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
-                _ => tile_vnni::<1>(ar, kp, panel, sw, ws, bias, qsum, sr, cr, os, ldo, ncols),
+            let pf = r == 0;
+            match (m, pf) {
+                (8, true) => tile_vnni::<8, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (8, false) => tile_vnni::<8, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (7, true) => tile_vnni::<7, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (7, false) => tile_vnni::<7, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (6, true) => tile_vnni::<6, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (6, false) => tile_vnni::<6, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (5, true) => tile_vnni::<5, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (5, false) => tile_vnni::<5, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (4, true) => tile_vnni::<4, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (4, false) => tile_vnni::<4, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (3, true) => tile_vnni::<3, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (3, false) => tile_vnni::<3, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (2, true) => tile_vnni::<2, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (2, false) => tile_vnni::<2, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (_, true) => tile_vnni::<1, true>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
+                (_, false) => tile_vnni::<1, false>(ar, kp, panel, ep, sr, cr, os, ldo, ncols),
             }
             r += m;
         }
@@ -108,16 +127,15 @@ fn gemm_i8_avx512(
 }
 
 /// `M` rows x 16 columns of int8 GEMM using 512-bit `vpdpbusd` + exact dequantising epilogue.
+/// `PREFETCH == true` streams `prefetcht0` on the first M-tile; `false` avoids redundant prefetches
+/// while the panel is already hot in L1d.
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx512f,avx512bw,avx512vl,avx512vnni,avx2,fma")]
-fn tile_vnni<const M: usize>(
+fn tile_vnni<const M: usize, const PREFETCH: bool>(
     a: &[i8],
     kp: usize,
     panel: &[i8],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
-    qsum: &[i32],
+    ep: (__m512, __m512, __m512, __m512i),
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
@@ -125,14 +143,7 @@ fn tile_vnni<const M: usize>(
     ncols: usize,
 ) {
     assert!(kp.is_multiple_of(4) && a.len() >= M * kp && panel.len() >= kp * NR);
-    assert!(
-        sw.len() >= NR
-            && wsum.len() >= NR
-            && bias.len() >= NR
-            && qsum.len() >= NR
-            && sa.len() >= M
-            && ca.len() >= M
-    );
+    assert!(sa.len() >= M && ca.len() >= M);
     assert!(ncols <= NR && out.len() >= (M - 1) * ldo + ncols);
     const SIGN_FLIP: i32 = 0x8080_8080_u32 as i32;
     let mut acc = [_mm512_setzero_si512(); M];
@@ -141,8 +152,10 @@ fn tile_vnni<const M: usize>(
     let groups = kp / 4;
     let mut g = 0;
     while g + 1 < groups {
-        _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + I8_PREFETCH).cast());
-        _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + 64 + I8_PREFETCH).cast());
+        if PREFETCH {
+            _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + I8_PREFETCH).cast());
+            _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + 64 + I8_PREFETCH).cast());
+        }
         // SAFETY: (g + 1) * 64 + 64 <= groups * 64 = kp * 16 <= panel.len() (asserted).
         let (w0, w1) = unsafe {
             (
@@ -175,15 +188,7 @@ fn tile_vnni<const M: usize>(
             *acc_m = _mm512_dpbusd_epi32(*acc_m, au, w0);
         }
     }
-    // SAFETY: sw, wsum, bias and qsum each hold >= 16 elements (asserted).
-    let (sw_v, ws_v, b_v, corr) = unsafe {
-        (
-            _mm512_loadu_ps(sw.as_ptr()),
-            _mm512_loadu_ps(wsum.as_ptr()),
-            _mm512_loadu_ps(bias.as_ptr()),
-            _mm512_slli_epi32::<7>(_mm512_loadu_si512(qsum.as_ptr().cast())),
-        )
-    };
+    let (sw_v, ws_v, b_v, corr) = ep;
     for (m, &acc_m) in acc.iter().enumerate() {
         let exact = _mm512_sub_epi32(acc_m, corr);
         let sv = _mm512_set1_ps(sa[m]);
