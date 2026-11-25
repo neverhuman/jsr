@@ -81,7 +81,7 @@ required: check
 
 # Build the IEEE paper: regenerate metrics/figures (paper_data), then pdflatex + bibtex + pdflatex x2.
 # Output docs/paper/paper.pdf (committed). Fails on undefined references or citations, any overfull
-# hbox, non-Type-1 fonts, or a missing "Fig. 1." on page 1. SOURCE_DATE_EPOCH pins PDF dates.
+# hbox, non-Type-1 fonts, or a missing "Figure 1" caption on page 1. SOURCE_DATE_EPOCH pins PDF dates.
 paper:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -98,7 +98,7 @@ paper:
     if grep -nE "undefined references|Citation .* undefined|Reference .* undefined" paper.log; then echo "paper: undefined references or citations"; fail=1; fi
     if grep -n "Overfull \\\\hbox" paper.log; then echo "paper: overfull hbox"; fail=1; fi
     if pdffonts paper.pdf | tail -n +3 | grep -v "Type 1" | grep .; then echo "paper: non-Type-1 font"; fail=1; fi
-    p1="$(pdftotext -f 1 -l 1 paper.pdf -)"; if ! grep -q "Fig. 1\." <<< "$p1"; then echo "paper: Fig. 1. not on page 1"; fail=1; fi
+    p1="$(pdftotext -f 1 -l 1 paper.pdf -)"; if ! grep -Eq "^Figure 1([[:space:]]|$)" <<< "$p1"; then echo "paper: Figure 1 caption missing on page 1"; fail=1; fi
     [ "$fail" = 0 ] || exit 1
     echo "paper: docs/paper/paper.pdf ($(pdfinfo paper.pdf | awk '/^Pages/ {print $2}') pages)"
 

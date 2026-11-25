@@ -98,7 +98,8 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                      "Zipformer INT8", "Moonshine Tiny", "Moonshine\\\\Small", "Vosk Small", "Whisper.cpp Tiny",
                      "Nemotron\\\\560", "Nemotron\\\\160", "Nemotron\\\\3.5",
                      "Parakeet onnx-asr", "Parakeet sherpa-onnx", "Idle-subtracted core energy",
-                     r"\HeroRatio$\times$ Zipformer, paired", r"\VsEnergyPctOne", "same blocks"):
+                     r"\HeroRatio$\times$", "Zipformer INT8's paired throughput",
+                     "energy per audio-second (same blocks)", r"\VsEnergyPctOne", "same blocks"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
     for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide",
                    "HeroRatioMoon", "HeroEnergyRatioNemo", "HeroMoonTinyBarPt", "HeroParakeetSherpaBarPt",
@@ -108,7 +109,7 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
-    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["abstract.tex"]
+    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["intro.tex"] and "VsVerdictTwo" in sections["results.tex"]
     assert rec["RelCapSixteenLagPninetyFive"]["value"] == "457" and "RelCapSixteenLagPninetyFive" in sections["results.tex"]
     assert rec["ColdCompleteCompCount"]["raw"] == 15 and "ColdCompleteCompCount" in sections["related.tex"]
     # Zero non-plotted legacy rows in cold_dev.csv
@@ -200,12 +201,14 @@ def test_release_branding_is_consistent():
     the historical name ULTRA appears only where release artifacts are named; v3.0.1 is install-only."""
     expected_title = "Isosyll: Always Listening, Barely Computing"
     expected_descriptor = "Bit-Exact Streaming Speech Recognition on One CPU Core"
+    expected_authors = ("Jepson Taylor, Ricky Ray Butler, Jordan Morrow, Alton Alexander, "
+                        "Jordan Hildebrandt, and Besterlyne Jirongo")
     metrics_txt = (DATA / "metrics.tex").read_text(encoding="utf-8")
     assert f"\\newcommand{{\\PaperTitle}}{{{expected_title}}}" in metrics_txt
     assert f"\\newcommand{{\\PaperDescriptor}}{{{expected_descriptor}}}" in metrics_txt
     paper_tex = (PAPER / "paper.tex").read_text(encoding="utf-8")
     assert r"\newcommand{\ultra}{Isosyll\xspace}" in paper_tex
-    assert r"pdftitle={\PaperTitle}" in paper_tex and r"pdfauthor={}" in paper_tex
+    assert r"pdftitle={\PaperTitle}" in paper_tex and f"pdfauthor={{{expected_authors}}}" in paper_tex
     assert "Always listening, barely computing." in (PAPER / "sections" / "intro.tex").read_text(encoding="utf-8")
 
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
@@ -244,7 +247,7 @@ def test_release_branding_is_consistent():
         title_m = re.search(r"^Title:[ \t]*(.*)$", info, flags=re.M)
         author_m = re.search(r"^Author:[ \t]*(.*)$", info, flags=re.M)
         assert title_m and title_m.group(1).strip() == expected_title, f"unexpected pdfinfo Title: {title_m and title_m.group(1)!r}"
-        assert not author_m or author_m.group(1).strip() == "", f"pdfinfo Author must be empty: {author_m and author_m.group(1)!r}"
+        assert author_m and author_m.group(1).strip() == expected_authors, f"unexpected pdfinfo Author: {author_m and author_m.group(1)!r}"
 
 
 def test_money_png_was_exported_from_the_current_inputs():
