@@ -69,13 +69,35 @@ pub struct ContrastResult {
     pub scored_rows: Vec<ScoreRecord>,
 }
 
-pub(crate) fn self_cpu_seconds() -> Result<f64, StreamError> {
+pub(crate) fn self_cpu_user_sys_seconds() -> Result<(f64, f64), StreamError> {
     let ru = getrusage(UsageWho::RUSAGE_SELF)
         .map_err(|e| StreamError::Runtime(format!("getrusage failed: {e}")))?;
     let u = ru.user_time();
     let s = ru.system_time();
-    Ok((u.tv_sec() as f64 + u.tv_usec() as f64 / 1e6)
-        + (s.tv_sec() as f64 + s.tv_usec() as f64 / 1e6))
+    Ok((
+        u.tv_sec() as f64 + u.tv_usec() as f64 / 1e6,
+        s.tv_sec() as f64 + s.tv_usec() as f64 / 1e6,
+    ))
+}
+
+pub(crate) fn self_cpu_seconds() -> Result<f64, StreamError> {
+    let (user_s, sys_s) = self_cpu_user_sys_seconds()?;
+    Ok(user_s + sys_s)
+}
+
+pub(crate) fn self_max_rss_bytes() -> u64 {
+    let Ok(ru) = getrusage(UsageWho::RUSAGE_SELF) else {
+        return 0;
+    };
+    let raw = ru.max_rss().max(0) as u64;
+    #[cfg(target_os = "macos")]
+    {
+        raw
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        raw.saturating_mul(1024)
+    }
 }
 
 pub(crate) fn read_loadavg() -> [f64; 3] {

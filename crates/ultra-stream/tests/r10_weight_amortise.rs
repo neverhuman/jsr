@@ -11,14 +11,16 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use ultra_core::receipt::{HonestyLabel, Partition};
 use ultra_engine::model::{Arch, Block, Linear, Model, Norm};
 use ultra_engine::{Engine, Isa, Precision};
 use ultra_frontend::npz::AudioUtterance;
 use ultra_frontend::{GlobalCmvn, TrainerMelConfig};
 use ultra_gp::TokenTable;
 use ultra_stream::{
-    simulate_grid, sustains_lateness, DecodeMode, NativeEngineBackend, NativeEngineSlotBank,
-    SimClock, SimParams, SimSlotBank, StreamError,
+    run_fixed_packet_paced_engine, simulate_grid, simulate_grid_fixed_slots, sustains_lateness,
+    DecodeMode, EngineSpAConfig, NativeEngineBackend, NativeEngineLoadConfig, NativeEngineSlotBank,
+    SimClock, SimParams, SimSlotBank, StreamError, DEFAULT_LATENESS_BOUND_MS,
 };
 
 #[derive(Clone)]
@@ -498,4 +500,199 @@ fn r10_native_engine_0diff_transcript_parity_across_n1_n4_n8_n16_and_coalescing(
             );
         }
     }
+}
+
+#[test]
+fn fixed_slot_schedule_identical_streams_and_clean_drain() {
+    let utts: Vec<f64> = (0..32).map(|i| 0.42 + (i % 5) as f64 * 0.14).collect();
+    let expected_samples: u64 = utts.iter().map(|s| (s * 16_000.0).round() as u64).sum();
+    let decode_cost_s = 0.004;
+
+    for &streams in &[1usize, 4, 8, 16] {
+        let run = |coalesce_ms: u32| {
+            let mut clk = FakeTime::new();
+            let mut bank = StaggeredRecBank::new(&utts, streams, 160, decode_cost_s, clk.clone());
+            simulate_grid_fixed_slots(
+                &mut bank,
+                &SimParams {
+                    streams,
+                    decode: DecodeMode::Batch,
+                    max_batch: 64,
+                    packet_ms: 20,
+                    grid_ms: 20,
+                    coalesce_ms,
+                    paced: true,
+                    duration_s: None,
+                },
+                &mut clk,
+                None,
+            )
+            .expect("simulate_grid_fixed_slots")
+        };
+
+        let c0 = run(0);
+        let c80 = run(80);
+        assert!(c0.drained && c80.drained);
+        assert_eq!(c0.accepted_samples, expected_samples);
+        assert_eq!(c80.accepted_samples, expected_samples);
+        assert_eq!(c0.processed_samples, expected_samples);
+        assert_eq!(c80.processed_samples, expected_samples);
+        assert_eq!(c0.audio_unfinished_s, 0.0);
+        assert_eq!(c80.audio_unfinished_s, 0.0);
+        assert_eq!(c0.completed.len(), utts.len());
+        assert_eq!(c80.completed.len(), utts.len());
+        assert!(c0.decoded_stream_steps > 0 && c80.decoded_stream_steps > 0);
+        let lat80 = c80.lateness_ms.as_ref().expect("lateness quantiles");
+        assert!(lat80.p50 <= 80.0 + decode_cost_s * 1000.0 + 1e-3);
+        assert!(lat80.p95 <= 80.0 + 2.0 * decode_cost_s * 1000.0 + 1e-3);
+        assert!(sustains_lateness(lat80, c80.drained, 160.0));
+        if streams >= 4 {
+            assert!(
+                c80.engine_decode_calls < c0.engine_decode_calls,
+                "N={streams}: expected coalescing to reduce decode calls ({} vs {})",
+                c80.engine_decode_calls,
+                c0.engine_decode_calls
+            );
+        }
+    }
+}
+
+#[test]
+fn fixed_packet_native_engine_per_stream_pcm_and_transcript_digest_parity() {
+    let model = synthetic_int8_model();
+    let engine = Engine::new(model, Isa::detect(), Precision::Int8).expect("int8 engine");
+    let backend = Arc::new(NativeEngineBackend::from_engine(
+        engine,
+        "synth-r10-fixed-int8".into(),
+        "test",
+    ));
+    let utts: Vec<AudioUtterance> = (0..24)
+        .map(|i| {
+            let n_samples = 5_600 + (i % 7) * 960;
+            let pcm: Vec<i16> = (0..n_samples)
+                .map(|t| {
+                    let freq = 200.0 + (i as f32) * 29.0;
+                    let phase = 2.0 * std::f32::consts::PI * freq * (t as f32) / 16_000.0;
+                    (phase.sin() * 11_000.0) as i16
+                })
+                .collect();
+            AudioUtterance { index: i, pcm }
+        })
+        .collect();
+    let expected_samples: u64 = utts.iter().map(|u| u.pcm.len() as u64).sum();
+
+    for &streams in &[4usize, 8] {
+        let run = |coalesce_ms: u32| {
+            let mut clk = FakeTime::new();
+            let mut bank = NativeEngineSlotBank::with_digest_recording(
+                Arc::clone(&backend),
+                &utts,
+                0,
+                streams,
+            );
+            let sim = simulate_grid_fixed_slots(
+                &mut bank,
+                &SimParams {
+                    streams,
+                    decode: DecodeMode::Batch,
+                    max_batch: 64,
+                    packet_ms: 20,
+                    grid_ms: 20,
+                    coalesce_ms,
+                    paced: true,
+                    duration_s: None,
+                },
+                &mut clk,
+                None,
+            )
+            .expect("fixed slots native");
+            assert!(sim.drained);
+            assert_eq!(sim.accepted_samples, expected_samples);
+            assert_eq!(sim.processed_samples, expected_samples);
+            assert_eq!(sim.audio_unfinished_s, 0.0);
+            assert!(sim.decoded_stream_steps > 0);
+            let (digests, all_pcm, canon_hyp) = bank.finalize_stream_digests();
+            (sim, digests, all_pcm, canon_hyp)
+        };
+
+        let (s0, d0, p0, h0) = run(0);
+        let (s80, d80, p80, h80) = run(80);
+        assert_eq!(d0.len(), streams);
+        assert_eq!(
+            d0, d80,
+            "per-stream PCM & transcript digests must match 100% at N={streams}"
+        );
+        assert_eq!(
+            p0, p80,
+            "aggregate stream PCM SHA-256 mismatch at N={streams}"
+        );
+        assert_eq!(
+            h0, h80,
+            "canonical transcript SHA-256 mismatch at N={streams}"
+        );
+        assert_eq!(
+            d0.iter().map(|d| d.submitted_samples).sum::<u64>(),
+            expected_samples
+        );
+        assert!(s80.engine_decode_calls <= s0.engine_decode_calls);
+    }
+}
+
+#[test]
+fn fixed_packet_rejects_duration_cap_and_unpaced() {
+    let base_cfg = EngineSpAConfig {
+        weights_dir: PathBuf::from("/nonexistent"),
+        precision: Precision::Int8,
+        threads: 1,
+        npz_path: PathBuf::from("/nonexistent.npz"),
+        split_name: "dev-clean".into(),
+        partition: Partition::Dev,
+        honesty_label: HonestyLabel::InCorpus,
+        offset: 0,
+        limit: Some(4),
+        selected_indices: None,
+        duration_s: Some(5.0),
+        streams: 4,
+        decode: DecodeMode::Batch,
+        max_batch: 64,
+        max_chunks: 2,
+        beam: 1,
+        decode_config: NativeEngineLoadConfig::default(),
+        packet_ms: 20,
+        grid_ms: 20,
+        coalesce_ms: 0,
+        lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
+        paced: true,
+        source_commit: "test".into(),
+        hardware_id: "H0".into(),
+        completion_status: "exploratory".into(),
+    };
+    let err_dur = run_fixed_packet_paced_engine(&base_cfg).expect_err("must reject duration_s");
+    assert!(matches!(err_dur, StreamError::Protocol(_)));
+
+    let mut unpaced_cfg = base_cfg;
+    unpaced_cfg.duration_s = None;
+    unpaced_cfg.paced = false;
+    let err_unpaced = run_fixed_packet_paced_engine(&unpaced_cfg).expect_err("must reject unpaced");
+    assert!(matches!(err_unpaced, StreamError::Protocol(_)));
+
+    let mut clk = FakeTime::new();
+    let mut bank = StaggeredRecBank::new(&[0.5], 1, 160, 0.004, clk.clone());
+    let err_sim = simulate_grid_fixed_slots(
+        &mut bank,
+        &SimParams {
+            streams: 1,
+            decode: DecodeMode::Batch,
+            max_batch: 8,
+            packet_ms: 20,
+            grid_ms: 20,
+            coalesce_ms: 0,
+            paced: true,
+            duration_s: Some(1.0),
+        },
+        &mut clk,
+        None,
+    )
+    .expect_err("simulate_grid_fixed_slots must reject duration_s");
+    assert!(matches!(err_sim, StreamError::Protocol(_)));
 }

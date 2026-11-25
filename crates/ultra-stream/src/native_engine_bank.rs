@@ -11,6 +11,7 @@ use ultra_frontend::npz::AudioUtterance;
 
 use crate::api::StreamError;
 use crate::contrast::{load_selected_audio, read_loadavg};
+use crate::fixed_packet::{compute_stream_digests, StreamDigest};
 use crate::grid_sim::{simulate_grid, DecodeMode, SimParams, SimSlotBank};
 use crate::native_engine::{NativeEngineBackend, NativeEngineLoadConfig};
 use crate::scheduler::{finalize_sp_a_result, RealClock, SpAMeta, SpAResult};
@@ -31,6 +32,9 @@ pub struct NativeEngineSlotBank<'a> {
     ready_indices: Vec<usize>,
     ws: Workspace,
     sampler: Option<&'a mut TreeSampler>,
+    record_digests: bool,
+    slot_packets: Vec<Vec<(u32, u32, u32)>>,
+    slot_hyps: Vec<Vec<(usize, String)>>,
     pub forced_advances: u64,
     pub last_error: Option<StreamError>,
 }
@@ -51,9 +55,36 @@ impl<'a> NativeEngineSlotBank<'a> {
             ready_indices: Vec::with_capacity(streams),
             ws: Workspace::default(),
             sampler,
+            record_digests: false,
+            slot_packets: Vec::new(),
+            slot_hyps: Vec::new(),
             forced_advances: 0,
             last_error: None,
         }
+    }
+
+    /// Construct a slot bank with per-slot packet & transcript recording (zero hashing in loop).
+    pub fn with_digest_recording(
+        backend: Arc<NativeEngineBackend>,
+        utts: &'a [AudioUtterance],
+        utt_offset: usize,
+        streams: usize,
+    ) -> Self {
+        let mut s = Self::with_start_offset(backend, utts, utt_offset, streams, None);
+        s.record_digests = true;
+        s.slot_packets = (0..streams).map(|_| Vec::new()).collect();
+        s.slot_hyps = (0..streams).map(|_| Vec::new()).collect();
+        s
+    }
+
+    /// Post-loop cryptographic digest computation over exact accepted PCM packets & transcripts.
+    pub fn finalize_stream_digests(&self) -> (Vec<StreamDigest>, String, String) {
+        compute_stream_digests(
+            self.utts,
+            &self.slot_packets,
+            &self.slot_hyps,
+            self.slots.len(),
+        )
     }
 }
 
@@ -99,15 +130,23 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
         };
         let pcm = &self.utts[st.utt_pos].pcm;
         if st.cursor >= pcm.len() {
+            if !st.finished {
+                st.raw.input_finished();
+                st.finished = true;
+            }
             return 0;
         }
-        let end = (st.cursor + max_samples).min(pcm.len());
-        let slice = &pcm[st.cursor..end];
+        let start = st.cursor;
+        let end = (start + max_samples).min(pcm.len());
+        let slice = &pcm[start..end];
         if let Err(e) = st.raw.accept_i16(slice) {
             self.last_error = Some(e.into());
             return 0;
         }
         st.cursor = end;
+        if self.record_digests {
+            self.slot_packets[slot].push((st.utt_pos as u32, start as u32, end as u32));
+        }
         if st.cursor >= pcm.len() {
             st.raw.input_finished();
             st.finished = true;
@@ -174,7 +213,11 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
         match self.slots[slot].take() {
             Some(st) => {
                 self.forced_advances += st.raw.forced_advances();
-                self.backend.engine.text(&st.raw)
+                let text = self.backend.engine.text(&st.raw);
+                if self.record_digests {
+                    self.slot_hyps[slot].push((st.utt_pos, text.clone()));
+                }
+                text
             }
             None => String::new(),
         }
