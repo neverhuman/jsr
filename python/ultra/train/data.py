@@ -369,6 +369,7 @@ class ParquetBatches:
         self.rank, self.world = 0, 1  # data-parallel shard (set by the trainer under torchrun)
         self.ddp_global_batches = False
         self.stream_ctx_s, self.stream_ctx_cap, self._ctx_bank = 0.0, 1.5, None  # H41 arm 11 (0 = off)
+        self.stream_ctx_mode, self.stream_ctx_p, self.stream_ctx_gap_s = "h41", 1.0, 0.0
         self.rank_weights: tuple | None = None  # per-rank relative speed (None = equal shares)
         self.stratify_lengths = False  # per-rank batches: every step spans every duration stratum
         self.dropped_long = 0
@@ -790,8 +791,9 @@ class ParquetBatches:
         from train.stream_ctx import ContextBank, add_context
 
         if self._ctx_bank is None:
-            self._ctx_bank = ContextBank(self.feat.logmel)
-        return add_context(exs, self._ctx_bank, self.seed, epoch, self.stream_ctx_s, self.stream_ctx_cap)
+            self._ctx_bank = ContextBank(self.feat.logmel, noise=(self.stream_ctx_mode == "h41"))
+        return add_context(exs, self._ctx_bank, self.seed, epoch, self.stream_ctx_s, self.stream_ctx_cap,
+                           p=self.stream_ctx_p, mode=self.stream_ctx_mode, gap_s=self.stream_ctx_gap_s)
 
     def _collate_group(self, group, epoch: int) -> Batch:
         """One packed group -> Batch: stream context (if any), then collate(); DDP-global groups carry `active`."""

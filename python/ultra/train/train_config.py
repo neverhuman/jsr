@@ -96,6 +96,9 @@ class TrainConfig:
     cr_ctc_weight: float = 0.0  # H26 CR-CTC (0 = off)
     stream_ctx_s: float = 0.0  # H41 arm 11 stream-context aug
     stream_ctx_cap: float = 1.5
+    stream_ctx_mode: str = "h41"  # "h41" | turn_switch | turn_switch_mixed (default = unchanged H41 behaviour)
+    stream_ctx_p: float = 1.0
+    stream_ctx_gap_s: float = 0.0
     cr_ctc_full: bool = False
     cr_ctc_half: bool = False
     delay_penalty: float = 0.0  # H34 k2 delay_penalty
