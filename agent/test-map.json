@@ -480,6 +480,18 @@
     "python/ultra/tests/test_wave2_objectives.py": {
       "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_wave2_objectives.py",
       "purpose": "Wave 2 unit tests and 4-step default-off bit-exactness witness"
+    },
+    "LICENSE": {
+      "command": "just score",
+      "purpose": "verify the declared license file stays visible to the audit"
+    },
+    "install.sh": {
+      "command": "shellcheck -s sh install.sh && sh -n install.sh",
+      "purpose": "lint the POSIX release installer"
+    },
+    "crates/isosyll/": {
+      "command": "cargo test -p isosyll",
+      "purpose": "unit tests for the isosyll CLI (args, model resolution, manifest verify, segmentation)"
     }
   }
 }
