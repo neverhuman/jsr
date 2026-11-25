@@ -180,20 +180,16 @@ def hero_rows(rows: list[dict]) -> dict[str, dict]:
 
 
 def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
-    """Figure 1 headline and README summary (all measured public CPU comparators vs. Isosyll)."""
+    """Figure 1 headline and README summary. The figure draws live +LM at 160 ms and final only."""
     d = {label: derived(row) for label, row in hero.items()}
-    wide, live, greedy, fin, zip_ = d["LiveLmWide"], d["LiveLm"], d["LiveGreedy"], d["Final"], d["Zip"]
-    gap_c_wide = rec.rows["CandLiveLmEightCDelta"]["value"].replace("$-$", "\u2212")
+    live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
     gap_c = rec.rows["CandLiveLmCDelta"]["value"].replace("$-$", "\u2212")
     headline = (f"Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
-                f"live +LM runs at {speed_text(wide['speed'])}\u00d7 ({fmt(wide['watts'], 3)} J/audio-s, {fmt(wide['wer'], 2)}% WER at 320 ms; "
-                f"{gap_c_wide} pp on unselected DEV) and {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% at 160 ms; "
-                f"{gap_c} pp on unselected DEV), greedy hits {speed_text(greedy['speed'])}\u00d7 ({fmt(greedy['wer'], 2)}%, 74 MB), "
-                f"and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
+                f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER at 160 ms; "
+                f"{gap_c} pp on unselected DEV) and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
                 f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%).")
-    subtitle = (f"Lowest power: {speed_text(wide['speed'])}\u00d7 RT, {fmt(wide['watts'], 3)} J/audio-s, {fmt(wide['wer'], 2)}% WER (320 ms) \u00b7 "
-                f"Half latency: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% (160 ms) \u00b7 "
-                f"Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
+    subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% "
+                f"\u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
     return {"headline": headline, "subtitle": subtitle}
 
 
@@ -226,7 +222,7 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
         "RatioWide": fmt(wide_ratio, 1),
         "RatioMoon": fmt(points["LiveLmWide"]["speed"] / points["MoonTiny"]["speed"], 0),
         "RatioNemo": fmt(points["LiveLmWide"]["speed"] / points["NemoFiveSixty"]["speed"], 0),
-        "EnergyRatioNemo": fmt(points["NemoFiveSixty"]["watts"] / points["LiveLmWide"]["watts"], 0),
+        "EnergyRatioNemo": fmt(points["NemoFiveSixty"]["watts"] / points["LiveLm"]["watts"], 0),
         "HaveEnergy": int(energy),
     }
     for label, point in points.items():

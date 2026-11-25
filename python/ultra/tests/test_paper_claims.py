@@ -87,17 +87,24 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                  "<!-- install:start -->", "<!-- install:end -->",
                  "released by owner decision after missing registered edit gates",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.2.0.md",
-                 "docs/ultra/releases/v3.0.1.md", "−0.94 pp", "−3.36 pp",
+                 "docs/ultra/releases/v4.0.0.md", "docs/ultra/releases/v3.0.1.md",
                  "ultra-v3.2.0-int8-bundle.tar", "./ultra-cold-wav --chunk 4",
                  "./ultra-engine-commit --model int8"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
-    # Hero plot compares OUR method (Isosyll) against ALL 12 timed public comparators + active-core energy bars, zero v3.0.0 clutter
+    assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
+    # Hero plot: two Isosyll marks vs all 12 timed comparators. Wide and greedy stay in the table only.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
-    for must_tex in ("Isosyll live +LM", "Isosyll final", "Isosyll live greedy",
-                     "Zipformer INT8", "Moonshine Tiny", "Vosk Small", "Whisper.cpp Tiny",
-                     "Nemotron 0.6B", "Parakeet TDT v3", "Active-core energy"):
+    for must_tex in ("Isosyll live +LM", "Isosyll final",
+                     "Zipformer INT8", "Moonshine Tiny", "Moonshine\\\\Small", "Vosk Small", "Whisper.cpp Tiny",
+                     "Nemotron\\\\560", "Nemotron\\\\160", "Nemotron\\\\3.5",
+                     "Parakeet onnx-asr", "Parakeet sherpa-onnx", "Idle-subtracted core energy",
+                     r"\HeroRatio$\times$ Zipformer, paired", r"\VsEnergyPctOne", "same blocks"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
-    assert "v3.0.0" not in hero_tex and "HeroOldLive" not in hero_tex and "HeroOldFinal" not in hero_tex and "v3.2.0" not in hero_tex
+    for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide",
+                   "HeroRatioMoon", "HeroEnergyRatioNemo", "HeroMoonTinyBarPt", "HeroParakeetSherpaBarPt",
+                   "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0",
+                   "figblue!35,densely dashed"):
+        assert banned not in hero_tex, banned
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
@@ -174,7 +181,7 @@ def test_readme_shows_the_current_figure_block():
     assert summary == f"**{summary_text}**"
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Paper](docs/paper/paper.pdf)" in caption
-    assert "unselected DEV" in caption and "docs/ultra/releases/v3.2.0.md" in caption
+    assert "unselected DEV" in caption and "docs/ultra/releases/v4.0.0.md" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
     pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
     assert len(table) == 1 + 4 + 12, "all-comparator table: header + 4 Isosyll modes + 12 timed public comparators"
@@ -344,8 +351,11 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
     readme = (pd.REPO / "README.md").read_text()
     block = (DATA / "money_readme.md").read_text()
     for must in ("33.3×", "0.316 J/audio-s", "5.50%", "5.87%", "32.7×", "0.328 J/audio-s", "6.10%", "5.00%", "5.22%",
-                 "+0.65 [+0.47, +0.84] pp", "+0.81 [+0.62, +1.02] pp"):
+                 "+0.65 [+0.47, +0.84] pp", "+0.81 [+0.62, +1.02] pp",
+                 "| J/audio-s |", "rc2-compare.json", "idle floor", "same blocks",
+                 "160 ms chunk", "320 ms chunk"):
         assert must in block, must
+    assert "0.003" not in block and "half latency" not in block
     # install sample: no `<wav-dir>` (a Bash redirection), staged names and output schemas stated, extraction and check on separate lines
     install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)[0]
     assert "<wav-dir>" not in install and "./wav-dir ./live.jsonl" in install and "u00000.wav" in install

@@ -2,9 +2,10 @@
 
 \subsection{All Public CPU Comparators vs.\ \ultra{}}\label{sec:compare}
 
-\Cref{fig:money} and \cref{tab:measured} present all \ColdCompleteCompCount{} public open-weights CPU
-comparators with complete 730-utterance LibriSpeech DEV panel WER alongside all four operating points of
-our single 60\,MB INT8 artifact. \ColdHostSentence{} \ColdSubsetSentence{} \ColdOrderSentence{}
+\Cref{fig:money} draws live +LM at 160\,ms and the utterance-end commit pass against every timed
+public comparator. \Cref{tab:measured} keeps those two rows plus the 320\,ms and greedy modes of the
+same 60\,MB INT8 artifact, beside all \ColdCompleteCompCount{} public open-weights CPU comparators
+with complete 730-utterance LibriSpeech DEV panel WER. \ColdHostSentence{} \ColdSubsetSentence{} \ColdOrderSentence{}
 
 \para{Speed and lowest-power operating points.} \ColdHeadSentence{} On the exact same weights, matching
 Zipformer INT8's 320\,ms chunk length (\ultra{} live +LM, 320\,ms) yields our lowest active-core energy
@@ -24,11 +25,12 @@ achieve lower WER at much higher CPU and energy cost (offline Parakeet TDT v3 on
 560\,ms on the quiet 73-clip timing subset; Parakeet unified stream 160\,ms on Xeon~8358).
 \RelSubsetNote{}
 
-\para{Memory and active-core energy.} \ColdMemorySentence{} \ColdWattsSentence{} In \cref{fig:money}
-(bottom panel), all three \ultra{} live modes sit at \VsWideWatts--\ColdLiveWatts\,J per audio-second,
-roughly half of Zipformer INT8 (\ColdZipRsixWatts\,J), under one-third of Moonshine Tiny
-(\ColdMoonTinyWatts\,J), under one-fifth of offline Parakeet TDT v3 (\ColdParakeetTdtWatts\,J), and
-less than one-fourteenth of Nemotron 560\,ms (\ColdNemoFiveSixtyWatts\,J).
+\para{Memory and active-core energy.} \ColdMemorySentence{} \ColdWattsSentence{} The bottom panel of
+\cref{fig:money} draws only the matched R6 rows: live +LM is \ColdLiveWatts\,J per audio-second,
+\VsEnergyPctOne\% of Zipformer INT8 (\ColdZipRsixWatts\,J) on the same blocks, with the idle floor
+subtracted. The commit pass is \ColdHeadWatts\,J per audio-second. Moonshine, Parakeet, and Nemotron
+joules in \cref{tab:measured} include the core idle floor and are not a paired ratio. The 320\,ms and
+greedy rows in \cref{tab:measured} are \VsWideWatts\,J and \VsGreedyWatts\,J.
 
 \subsection{Head-to-Head with Zipformer INT8}\label{sec:versus}
 

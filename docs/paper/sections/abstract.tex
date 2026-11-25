@@ -6,18 +6,16 @@ pure-Rust engine built on per-row INT8 quantisation, exact int32 accumulation an
 front end; a single 60\,MB INT8 artifact serves both always-on live streaming and an utterance-end
 commit pass. \emph{Speed and energy:} measured on one pinned quiet Zen~2 core across the 730-utterance
 LibriSpeech DEV selection panel against all \ColdCompleteCompCount{} complete-panel public open-weights
-CPU comparators, live streaming with a compact language model runs at \VsWideSpeed$\times$ real time
-and \VsWideWatts\,J/audio-s (\VsWideWer\% WER, 320\,ms chunk) or \ColdLiveSpeed$\times$ and
-\ColdLiveWatts\,J/audio-s (\ColdLiveWer\% WER, 160\,ms chunk, \ColdLiveRss\,MB RAM)---\VsWideSpeedX$\times$
-and \VsSpeedXOne$\times$ the paired throughput of streaming Zipformer INT8 at \VsWideEnergyPct\% and
-\VsEnergyPctOne\% of its active core energy; greedy mode reaches \VsGreedySpeed$\times$ in
-\ColdRcTwoLiveGreedyRss\,MB RAM. \emph{Accuracy:} on the unselected half of DEV (C), live +LM trails
-Zipformer INT8 by \CandLiveLmEightCDelta\pp (320\,ms) and \CandLiveLmCDelta\pp (160\,ms). At utterance
-ends, the commit pass on the same weights reaches \ColdHeadWer\% panel WER (\CandFinalFullWer\% full
-DEV), \VsVerdictTwo{} Zipformer's \ColdZipWer\% (paired bounds \VsLoTwo{} to \VsHiTwo\pp), at
-\VsSpeedXTwo$\times$ its single-core speed, while opt-in v3.2.0 \texttt{-{}-rms-norm} recovers
-\AudioZOneThirtyDelta\pp on C-half quiet speech ($-$30\,dB) at at most \AudioZOneCpuStreamUpper\% CPU.
-\ultra{} \ReleaseVer{} is released by owner decision after missing its registered full-DEV final edit
+CPU comparators, live streaming with a compact language model at 160\,ms runs at \ColdLiveSpeed$\times$
+real time and \ColdLiveWatts\,J/audio-s (\ColdLiveWer\% WER, \ColdLiveRss\,MB RAM)---\VsSpeedXOne$\times$
+the paired throughput of streaming Zipformer INT8 at \VsEnergyPctOne\% of its active core energy. The
+same weights at a 320\,ms chunk run at \VsWideSpeed$\times$ and \VsWideWatts\,J/audio-s, and greedy
+decoding reaches \VsGreedySpeed$\times$ in \ColdRcTwoLiveGreedyRss\,MB RAM (\cref{tab:measured}).
+\emph{Accuracy:} on the unselected half of DEV (C), the 160\,ms live +LM stream trails Zipformer INT8
+by \CandLiveLmCDelta\pp (320\,ms: \CandLiveLmEightCDelta\pp). At utterance ends, the commit pass on the
+same weights reaches \ColdHeadWer\% panel WER (\CandFinalFullWer\% full DEV), \VsVerdictTwo{}
+Zipformer's \ColdZipWer\% (paired bounds \VsLoTwo{} to \VsHiTwo\pp), at \VsSpeedXTwo$\times$ its
+single-core speed. \ultra{} \ReleaseVer{} is released by owner decision after missing its registered full-DEV final edit
 gate (\CandFinalFullEdits{} vs.\ \CandGateFinalFull). \CandIsaRuns{} witness decodes across x86 and ARM
 CPUs reproduce its Zen~2 transcripts exactly. All results are exploratory and use development data only.
 \end{abstract}
