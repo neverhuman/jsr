@@ -22,11 +22,11 @@ usage() {
 	cat <<EOF
 Install Isosyll ($VERSION) from GitHub releases.
 
-usage: install.sh [--prefix DIR] [--version TAG] [--no-verify-signature]
+usage: install.sh [--prefix DIR] [--version TAG] [--checksums-only]
 
   --prefix DIR             install to DIR/bin and DIR/share/isosyll (default: ~/.local)
   --version TAG            release tag to install (default: $VERSION)
-  --no-verify-signature    skip the SSH signature check (checksums are still verified);
+  --checksums-only    skip the SSH signature check (checksums are still verified);
                            needed only where ssh-keygen is not installed
 EOF
 }
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 	--prefix=*) PREFIX=${1#*=}; shift ;;
 	--version) [ $# -ge 2 ] || die "--version needs a tag"; VERSION=$2; shift 2 ;;
 	--version=*) VERSION=${1#*=}; shift ;;
-	--no-verify-signature) VERIFY_SIG=0; shift ;;
+	--checksums-only) VERIFY_SIG=0; shift ;;
 	-h | --help) usage; exit 0 ;;
 	*) usage >&2; die "unknown option: $1" ;;
 	esac
@@ -83,14 +83,14 @@ done
 
 if [ "$VERIFY_SIG" = 1 ]; then
 	command -v ssh-keygen >/dev/null 2>&1 ||
-		die "ssh-keygen (OpenSSH) is needed to check the release signature; install it, or rerun with --no-verify-signature to rely on checksums only"
+		die "ssh-keygen (OpenSSH) is needed to check the release signature; install it, or rerun with --checksums-only to rely on checksums only"
 	printf '%s namespaces="file" %s\n' "$SIGNER" "$SIGNER_KEY" >"$tmp/allowed_signers"
 	ssh-keygen -Y verify -f "$tmp/allowed_signers" -I "$SIGNER" -n file \
 		-s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" >/dev/null 2>&1 ||
 		die "SHA256SUMS signature does not verify; refusing to install"
 	say "Signature verified (release key SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA)"
 else
-	say "warning: signature check skipped (--no-verify-signature); relying on checksums only"
+	say "warning: signature check skipped (--checksums-only); relying on checksums only"
 fi
 
 for f in "$bin_tgz" "$model_tgz"; do

@@ -4,6 +4,7 @@ mod args;
 mod decode;
 mod model;
 mod segment;
+mod stream;
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -11,9 +12,10 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use args::{Command, HelpTopic, Mode, StreamArgs, TranscribeArgs};
-use decode::{FinalDecoder, LiveDecoder, SegEvent, Segmenter, PACKET_SAMPLES};
+use decode::{FinalDecoder, LiveDecoder, PACKET_SAMPLES};
 use model::{ModelDir, ResolveEnv};
 use serde_json::json;
+use stream::{SegEvent, Segmenter};
 use ultra_frontend::read_audio_16k_mono;
 
 const MAIN_HELP: &str = "\
