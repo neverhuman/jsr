@@ -107,16 +107,26 @@ if [ -z "$src_bin" ] || [ ! -f "$src_model/MANIFEST" ]; then die "release archiv
 
 share="$PREFIX/share/isosyll"
 mkdir -p "$PREFIX/bin" "$share"
-rm -rf "$share/model.new"
-cp -R "$src_model" "$share/model.new"
-rm -rf "$share/model"
-mv "$share/model.new" "$share/model"
-cp "$src_bin" "$PREFIX/bin/isosyll.new"
-chmod 755 "$PREFIX/bin/isosyll.new"
-mv "$PREFIX/bin/isosyll.new" "$PREFIX/bin/isosyll"
+# One installer per prefix at a time.
+lock="$share/.install.lock"
+mkdir "$lock" 2>/dev/null || die "another install into $PREFIX is running (remove $lock if not)"
+trap 'rm -rf "$tmp"; rmdir "$lock" 2>/dev/null || true' EXIT INT TERM
 
-"$PREFIX/bin/isosyll" model verify --model "$share/model" >/dev/null ||
-	die "installed model failed verification"
+# Stage the new binary and model next to the old ones and verify them before touching the install.
+rm -rf "$share/model.new" "$share/model.old"
+cp -R "$src_model" "$share/model.new"
+cp "$src_bin" "$PREFIX/bin/.isosyll.new"
+chmod 755 "$PREFIX/bin/.isosyll.new"
+if ! "$PREFIX/bin/.isosyll.new" model verify --model "$share/model.new" >/dev/null; then
+	rm -rf "$share/model.new" "$PREFIX/bin/.isosyll.new"
+	die "downloaded model failed verification; the existing install is unchanged"
+fi
+
+# Activate: keep the old model until the new pair is in place.
+[ -d "$share/model" ] && mv "$share/model" "$share/model.old"
+mv "$share/model.new" "$share/model"
+mv "$PREFIX/bin/.isosyll.new" "$PREFIX/bin/isosyll"
+rm -rf "$share/model.old"
 
 say ""
 say "Installed $("$PREFIX/bin/isosyll" --version)"

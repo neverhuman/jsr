@@ -66,6 +66,12 @@ export CARGO_PROFILE_RELEASE_DEBUG=false
 export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$root=. --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=cargo"
 export ISOSYLL_BUILD_COMMIT=${ISOSYLL_BUILD_COMMIT:-$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)}
 
+# Resolve the target directory Cargo will actually use (.cargo/config.toml may set one).
+target_dir=$(cargo metadata --format-version 1 --no-deps --offline 2>/dev/null |
+	sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
+[ -n "$target_dir" ] || { echo "error: cannot resolve cargo target directory" >&2; exit 1; }
+export CARGO_TARGET_DIR=$target_dir
+
 for triple in "$@"; do
 	name_of "$triple" >/dev/null
 	case "$triple" in
@@ -77,7 +83,7 @@ for triple in "$@"; do
 	esac
 	echo "==> building isosyll $version for $triple"
 	cargo build --release --locked -p isosyll --target "$triple"
-	bin="${CARGO_TARGET_DIR:-$root/target}/$triple/release/isosyll"
+	bin="$target_dir/$triple/release/isosyll"
 	if [ "$(uname -s)" = Darwin ]; then
 		echo "    built $bin (package it on Linux with --package)"
 	else
