@@ -29,7 +29,7 @@
 \draw[figblue,line width=.65pt,{Stealth[length=3.8pt]}-{Stealth[length=3.8pt]}]
   (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveLmX,\HeroArrowY)
   node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput, paired};
-% previous release (v3.0.0, earlier session) to v3.1.0, same decoding mode
+% previous release (v3.0.0, earlier session) to v3.2.0 (identical v3.1.0 RC2 weights), same decoding mode
 \draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
   (axis cs:\HeroOldLiveX,\HeroOldLiveY) -- (axis cs:\HeroLiveGreedyX,\HeroLiveGreedyY);
 \draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
@@ -48,7 +48,7 @@
 \node[metric,anchor=north east,align=right] at (axis cs:12.4,6.2) {\HeroZipSpeed$\times$ \enspace\textperiodcentered\enspace \HeroZipWer\%};
 
 \draw[leader] (axis cs:\HeroFinalX,\HeroFinalY) -- (axis cs:18.2,4.1);
-\node[identity,anchor=north west,text=figblue] at (axis cs:17.0,3.95) {v3.1.0 final};
+\node[identity,anchor=north west,text=figblue] at (axis cs:17.0,3.95) {v3.2.0 final};
 \node[metric,anchor=north west] at (axis cs:17.0,3.35) {\HeroFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroFinalWer\%};
 
 \node[metric,anchor=north west,text=figquiet] at (axis cs:17.0,2.75) {v3.0.0 final \HeroOldFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroOldFinalWer\%};
@@ -57,7 +57,7 @@
 \node[identity,anchor=north west] at (axis cs:2.9,2.56) {Parakeet TDT v3};
 \node[metric,anchor=north west] at (axis cs:2.9,1.99) {Whole clip (onnx-asr) \enspace\textperiodcentered\enspace \HeroParakeetSpeed$\times$ \enspace\textperiodcentered\enspace \HeroParakeetWer\%};
 
-\node[identity,anchor=north east,text=figblue] at (axis cs:39.8,4.85) {v3.1.0 live, 160 ms};
+\node[identity,anchor=north east,text=figblue] at (axis cs:39.8,4.85) {v3.2.0 live, 160 ms};
 \node[metric,anchor=north east] at (axis cs:39.8,4.25) {+LM \HeroLiveLmSpeed$\times$ \enspace\textperiodcentered\enspace \HeroLiveLmWer\%};
 \draw[leader] (axis cs:\HeroLiveLmX,\HeroLiveLmY) -- (axis cs:30.6,4.95);
 \node[metric,anchor=north west,text=figquiet] at (axis cs:21.5,7.45) {v3.0.0 live \HeroOldLiveSpeed$\times$ \enspace\textperiodcentered\enspace \HeroOldLiveWer\%};
@@ -78,20 +78,22 @@
   {\setlength{\tabcolsep}{2.5pt}\renewcommand{\arraystretch}{1.05}%
    \begin{tabular}{@{}l l r r r r@{}}
    \multicolumn{2}{@{}l}{\textbf{Three blocks on one core}} & Chunk & Speed & WER & J/audio-s\\[1pt]
-   \HeroDiaF{figblue} & v3.1.0 live +LM & 160 ms & \HeroLiveLmSpeed$\times$ & \HeroLiveLmWer\% & \HeroLiveLmEnergy\\
-   \HeroSqF{figblue!80!black} & v3.1.0 live +LM & 320 ms & \HeroLiveLmWideSpeed$\times$ & \HeroLiveLmWideWer\% & \HeroLiveLmWideEnergy\\
-   \HeroDiaF{figblue!55} & v3.1.0 live greedy & 160 ms & \HeroLiveGreedySpeed$\times$ & \HeroLiveGreedyWer\% & \HeroLiveGreedyEnergy\\
-   \HeroDiaO{figblue} & v3.1.0 final & +commit & \HeroFinalSpeed$\times$ & \HeroFinalWer\% & \HeroFinalEnergy\\
+   \HeroDiaF{figblue} & v3.2.0 live +LM & 160 ms & \HeroLiveLmSpeed$\times$ & \HeroLiveLmWer\% & \HeroLiveLmEnergy\\
+   \HeroSqF{figblue!80!black} & v3.2.0 live +LM & 320 ms & \HeroLiveLmWideSpeed$\times$ & \HeroLiveLmWideWer\% & \HeroLiveLmWideEnergy\\
+   \HeroDiaF{figblue!55} & v3.2.0 live greedy & 160 ms & \HeroLiveGreedySpeed$\times$ & \HeroLiveGreedyWer\% & \HeroLiveGreedyEnergy\\
+   \HeroDiaO{figblue} & v3.2.0 final & +commit & \HeroFinalSpeed$\times$ & \HeroFinalWer\% & \HeroFinalEnergy\\
    \HeroDot{figink} & Zipformer INT8 & 320 ms & \HeroZipSpeed$\times$ & \HeroZipWer\% & \HeroZipEnergy\\
    \end{tabular}\par\vspace{2pt}
-   {\scriptsize Energy uses active-core joules per audio-second.\par
+   {\scriptsize Active-core J/audio-s (identical v3.1.0 RC2 weights, quiet H1).\par
    \textbf{Live +LM vs.\ Zipformer} (paired one-sided 95\% WER bounds).\par
    Selection panel, 160\,ms: \HeroGapPanel\,pp.\par
    Unselected C half, 160\,ms: \HeroGapC\,pp.\par
-   Unselected C half, 320\,ms: \HeroGapCWide\,pp.}};
+   Unselected C half, 320\,ms: \HeroGapCWide\,pp.\par\vspace{2pt}
+   \textbf{v3.2.0 opt-in \texttt{-{}-rms-norm} (Z1):} \HeroZOneCThirty\,pp at $-$30\,dB (C half;\par
+   \HeroZOneAutoThirty\,pp auto-endpoint), $\le$\,\HeroZOneCpuStream\% CPU (H0), \HeroZOneIsaDiffs/\HeroZOneIsaClips{} ISA diffs.}};
 \fi
 \pgfresetboundingbox
 \path[use as bounding box]
-  ([xshift=-28pt,yshift=-132pt]matchedplot.south west)
+  ([xshift=-28pt,yshift=-155pt]matchedplot.south west)
   rectangle ([xshift=11pt,yshift=31pt]matchedplot.north east);
 \end{tikzpicture}%

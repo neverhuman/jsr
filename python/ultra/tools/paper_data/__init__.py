@@ -70,13 +70,13 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
     hero = hero_rows(rows)
-    if hero:  # Figure 1 headlines the v3.1.0 operating points: its sentences replace the v3.0.0 ones
+    if hero:  # Figure 1 headlines the v3.2.0 operating points (identical v3.1.0 RC2 weights): its sentences replace the v3.0.0 ones
         sentences = hero_sentences(hero, rec)
-        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v3.1.0 foreground)",
+        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v3.2.0 foreground)",
                                          source="; ".join(f"docs/paper/data/evidence/{r['_where']} id={r['id']}" for r in hero.values()))
         facts["figure"] = md(sentences["headline"])
         rec.add("HeroSubtitle", tex(sentences["subtitle"]).replace("\u00b7", "$\\cdot$"), unit="sentence", label="exploratory",
-                configuration="README summary line of the v3.1.0 foreground", workload=hero["Zip"]["workload"],
+                configuration="README summary line of the v3.2.0 foreground", workload=hero["Zip"]["workload"],
                 workload_digest=hero["Zip"]["workload_digest"], source=rec.rows["MoneyHeadline"]["source"])
     nemotron_note = nemotron_timing_note(rows)
     watts = add_money(rows, out, rec, facts["comparison"], hero, nemotron_note)

@@ -27,8 +27,18 @@
 \newcommand{\AudioProbeTokenBar}{0.30}% [exploratory] Youden J
 \newcommand{\AudioProbeTokenYouden}{0.095}% [exploratory] Youden J
 \newcommand{\AudioProbeWhiteGain}{$-$0.934}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoCleanDelta}{$-$0.08}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoCleanUpper}{$-$0.02}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoThirtyDelta}{$-$3.36}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoThirtyUpper}{$-$2.98}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoTwentyDelta}{$-$1.73}% [exploratory] percentage points
+\newcommand{\AudioZOneAutoTwentyUpper}{$-$1.51}% [exploratory] percentage points
 \newcommand{\AudioZOneCleanDelta}{$-$0.022}% [exploratory] percentage points
 \newcommand{\AudioZOneCleanUpper}{+0.028}% [exploratory] percentage points
+\newcommand{\AudioZOneCpuEngineUpper}{+0.21}% [exploratory] % relative CPU
+\newcommand{\AudioZOneCpuStreamUpper}{+0.31}% [exploratory] % relative CPU
+\newcommand{\AudioZOneCrossIsaClips}{50}% [exploratory] clips
+\newcommand{\AudioZOneCrossIsaDiffs}{0}% [exploratory] differing clips
 \newcommand{\AudioZOneThirtyDelta}{$-$0.943}% [exploratory] percentage points
 \newcommand{\AudioZOneThirtyUpper}{$-$0.723}% [exploratory] percentage points
 \newcommand{\AudioZOneTwentyDelta}{$-$0.175}% [exploratory] percentage points
@@ -366,8 +376,8 @@
 \newcommand{\LmOverlapOf}{3719}% [exploratory] dev transcripts with 12+ words checked
 \newcommand{\LmPackMb}{334}% [exploratory] MB (engine pack of M5 + LODR, q8)
 \newcommand{\MoneyFullMarksCaption}{Blue diamonds: ours (same INT8 weights). Hollow: offline. Lighter: H0 interim (3). \S: 73-clip timing (4).}% [reported] sentence
-\newcommand{\MoneyHeadline}{\ultra{} v3.1.0 live (160 ms, +LM): 32.7$\times$, 5.54\% WER on the selection panel (+0.81 pp on unselected DEV) vs. Zipformer INT8 14.0$\times$, 5.25\%; final 5.00\%, 16.8$\times$.}% [exploratory] sentence
-\newcommand{\MoneyMarksCaption}{The v3.1.0 live and final modes share the same prepared INT8 weights, and Zipformer INT8 was timed in the same three interleaved blocks; grey marks are v3.0.0, timed in an earlier session. The final mode uses reference utterance boundaries. Parakeet decodes whole clips. Nemotron 560 ms scores 3.56\% WER on the same 730 utterances and runs at 2.38$\times$ in the separate quiet 73-clip timing test.}% [reported] sentence
+\newcommand{\MoneyHeadline}{\ultra{} v3.2.0 live (160 ms, +LM): 32.7$\times$, 5.54\% WER on the selection panel (+0.81 pp on unselected DEV) vs. Zipformer INT8 14.0$\times$, 5.25\%; final 5.00\%, 16.8$\times$.}% [exploratory] sentence
+\newcommand{\MoneyMarksCaption}{The v3.2.0 live and final modes share the identical v3.1.0 RC2 prepared INT8 weights, and Zipformer INT8 was timed in the same three interleaved blocks on quiet H1; grey marks are v3.0.0, timed in an earlier session. Opt-in v3.2.0 \texttt{--rms-norm} (Z1) is off by default (at most +0.21\% engine / +0.31\% stream CPU on H0). The final mode uses reference utterance boundaries. Parakeet decodes whole clips. Nemotron 560 ms scores 3.56\% WER on the same 730 utterances and runs at 2.38$\times$ in the separate quiet 73-clip timing test.}% [reported] sentence
 \newcommand{\MoneyWattsCaption}{Active core W per stream (core energy registers, same run), not device power.}% [reported] sentence
 \newcommand{\RelCapEightBusy}{30.1}% [exploratory] % of one core
 \newcommand{\RelCapEightGrossW}{0.382}% [exploratory] W/stream (gross core)
@@ -439,6 +449,8 @@
 \newcommand{\TrainStageOneKh}{78{,}970}% [exploratory] audio-h
 \newcommand{\TrainStageTwoKh}{41{,}658}% [exploratory] audio-h
 \newcommand{\TrainTotalKh}{130{,}628}% [exploratory] audio-h
+\newcommand{\VThreeTwoBuildCommit}{6d95f37d}% [exploratory] commit
+\newcommand{\VThreeTwoTagObject}{e6239bec}% [exploratory] git tag object
 \newcommand{\VfBoneMean}{$-$0.004}% [exploratory] pp WER
 \newcommand{\VfBoneOnLd}{$-$0.019}% [exploratory] pp WER
 \newcommand{\VfBoneRight}{3}% [exploratory] lookahead frames (k_right)
