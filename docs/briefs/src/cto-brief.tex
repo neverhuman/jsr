@@ -186,7 +186,7 @@
   \colheading{Reproducible by Construction, Not by Tolerance}
   {\fontsize{8.05}{10.0}\selectfont
   \begin{itemize}[leftmargin=1.12em,itemsep=1.5pt,topsep=1pt]
-    \item \textbf{Quantisation cost:} prepared INT8 matches FP32 PyTorch within \RelIntEightDelta\,pp WER on full LibriSpeech DEV (\RelFullUtts{} utt.; bounds \RelIntEightLo{} to \RelIntEightHi).
+    \item \textbf{Scalar reference:} forcing the portable scalar backend changes \ScalarDiffs{} of \ScalarUtts{} panel transcripts, so every SIMD kernel is checked against plain integer code.
     \item \textbf{Portable front end:} log-mel uses Cody--Waite reduction and polynomial $\sin$/$\cos$/$\log$ in unfused double arithmetic, so 1-ULP \texttt{libm} differences cannot flip quantisation ties.
     \item \textbf{Cross-ISA:} \CandIsaRuns{} witness decodes on Intel AVX2, AVX-512 VNNI and Apple M3 NEON reproduce the Zen~2 transcripts on all \ScalarUtts{} panel utterances; the v4.0.0 binary matches the signed reference decoders \ScalarUtts/\ScalarUtts{} on x86-64 and Apple silicon.
     \item \textbf{Weights:} safetensors, checked by SHA-256 at load.
@@ -224,7 +224,7 @@ Whisper.cpp Base\S{} (streaming) & 0.4 & \ColdWhisperCppBaseCorePct\% & \ColdWhi
 \bottomrule
 \end{tabularx}}
 \vspace{1.5pt}
-\noindent{\sffamily\fontsize{6.3}{7.8}\selectfont\color{sub}$^\ast$\,Timed in the same interleaved blocks; active core-domain RAPL energy, not wall power. Other rows ran in separate sessions, so their energy is not compared. \S\,Speed timed on a 73-utterance subset; WER on all 730. ``Core used'' is CPU-seconds per audio-second.}
+\noindent{\sffamily\fontsize{6.3}{7.8}\selectfont\color{sub}$^\ast$\,Timed in the same interleaved blocks; idle-subtracted CPU-core energy, not wall power. Other rows ran in separate sessions, so their energy is not compared. \S\,Speed timed on a 73-utterance subset; WER on all 730. ``Core used'' is CPU-seconds per audio-second.}
 
 \vspace{4.5pt}
 

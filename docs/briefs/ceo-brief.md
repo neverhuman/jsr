@@ -40,7 +40,7 @@ Isosyll is a compact *streaming* recognizer: it writes words while the person is
 | Parakeet TDT v3 (offline, whole clip) | 6.7× | 3.36% | — | — |
 | Whisper.cpp Tiny§ / Base§ | 0.9× / 0.4× | 17.46% / 15.28% | — | — |
 
-*§ Speed timed on a 73-clip subset; word errors on all 730. Energy is CPU-core joules per second of audio (not wall power), shown only for the pair timed in the same interleaved blocks; other systems ran in separate sessions. Receipts: [`docs/paper/data/`](../paper/data/).*
+*§ Speed timed on a 73-clip subset; word errors on all 730. Energy is idle-subtracted CPU-core joules per second of audio (not wall power), shown only for the pair timed in the same interleaved blocks; other systems ran in separate sessions. Receipts: [`docs/paper/data/`](../paper/data/).*
 
 Isosyll and Zipformer INT8 were timed in the same blocks on the same core; the 2.33× and 57% figures are medians of within-block ratios. Isosyll's final text (5.00%) versus Zipformer (5.25%) has paired bounds that include zero, so the two are statistically level. Larger 0.6-billion-parameter models (Nemotron, Parakeet) make fewer errors at far higher compute.
 

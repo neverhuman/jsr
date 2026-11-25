@@ -40,7 +40,7 @@
 \end{minipage}\hfill
 \begin{minipage}[t]{0.242\textwidth}
   \vspace{0pt}%
-  \kpicard{navy}{\VsEnergyPctOne\%}{Of the Rival's Energy}{\textbf{\ColdRcTwoLiveLmWatts\,J} vs.\ \ColdZipRsixWatts\,J of CPU-core energy per second of audio (core only, not wall power).}
+  \kpicard{navy}{\VsEnergyPctOne\%}{Of the Rival's Energy}{\textbf{\ColdRcTwoLiveLmWatts\,J} vs.\ \ColdZipRsixWatts\,J of idle-subtracted CPU-core energy per second of audio (not wall power).}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.242\textwidth}
   \vspace{0pt}%
@@ -156,7 +156,7 @@
         \node[anchor=north west,inner sep=0pt,font=\sffamily\fontsize{5.9}{7.0}\selectfont,text=sub] at (0,#1-1.08) {#8};
       }
       \hbars{-1.05}{Speed (\x{} real time) $\uparrow$}{}{3.2}{\ColdRcTwoLiveLmSpeed\x}{3.2*\ColdZipRsixSpeed/\ColdRcTwoLiveLmSpeed}{\ColdZipRsixSpeed\x}{paired ratio \VsSpeedXOne\x}
-      \hbars{-3.05}{Energy (J per audio-second) $\downarrow$}{}{3.2*\ColdRcTwoLiveLmWatts/\ColdZipRsixWatts}{\ColdRcTwoLiveLmWatts\,J}{3.20}{\ColdZipRsixWatts\,J}{\VsEnergyPctOne\% of rival (paired); CPU core, not wall power}
+      \hbars{-3.05}{Energy (J per audio-second) $\downarrow$}{}{3.2*\ColdRcTwoLiveLmWatts/\ColdZipRsixWatts}{\ColdRcTwoLiveLmWatts\,J}{3.20}{\ColdZipRsixWatts\,J}{\VsEnergyPctOne\% of rival (paired); idle-subtracted CPU core, not wall power}
       \hbars{-5.05}{Peak memory (MB) $\downarrow$}{}{3.2*\ColdRcTwoLiveLmRss/\ColdZipRsixRss}{\ColdRcTwoLiveLmRss\,MB}{3.20}{\ColdZipRsixRss\,MB}{\VsRssPctOne\% of rival (paired)}
       \draw[hair,line width=0.5pt] (0,-6.70) -- (4.95,-6.70);
       \node[anchor=north west,inner sep=0pt,text width=4.9cm,align=left] at (0,-6.86) {\hyphenpenalty=10000{\sffamily\bfseries\fontsize{7.4}{8.9}\selectfont\color{accentdark}Same fleet, \VsSpeedXOne\x{} the streams}\\[1pt]{\sffamily\fontsize{6.3}{7.6}\selectfont\color{sub}or the same streams at about half the energy.}};
@@ -218,7 +218,7 @@ Whisper.cpp Tiny\S{} / Base\S & 0.9\x{} / 0.4\x & \ColdWhisperCppTinyWer\% / \Co
 \bottomrule
 \end{tabularx}}
 \vspace{1.5pt}
-\noindent{\sffamily\fontsize{6.2}{7.7}\selectfont\color{sub}\S\,Speed timed on a 73-clip subset of the panel; word errors on all 730. Energy is CPU-core joules per second of audio (not wall power), shown only for the side-by-side pair. Final-mode energy is in the CTO brief. Receipts: \texttt{docs/paper/data/}.}
+\noindent{\sffamily\fontsize{6.2}{7.7}\selectfont\color{sub}\S\,Speed timed on a 73-clip subset of the panel; word errors on all 730. Energy is idle-subtracted CPU-core joules per second of audio (not wall power), shown only for the side-by-side pair. Final-mode energy is in the CTO brief. Receipts: \texttt{docs/paper/data/}.}
 
 \vspace{3pt}
 \briefsection{03}{How to Pilot in 30 Days --- and What Leadership Should Know}
