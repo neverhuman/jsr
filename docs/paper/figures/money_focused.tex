@@ -92,22 +92,23 @@
 \draw[leader] (axis cs:\HeroNemoThreeFiveX,\HeroNemoThreeFiveY) -- (axis cs:0.15,8.7);
 \node[compmuted,anchor=west,align=left] at (axis cs:0.3,8.7) {Nemotron\\3.5};
 
-\draw[leader] (axis cs:\HeroMoonSmallX,\HeroMoonSmallY) -- (axis cs:3.35,7.55);
-\node[compmuted,anchor=west,align=left] at (axis cs:3.55,7.55) {Moonshine\\Small};
+\draw[leader] (axis cs:\HeroMoonSmallX,\HeroMoonSmallY) -- (axis cs:4.55,6.05);
+\node[compmuted,anchor=west,align=left] at (axis cs:4.75,6.05) {Moonshine\\Small};
 
-\draw[oursleader] (axis cs:\HeroZipX,\HeroZipY) -- (axis cs:12.15,7.35);
+\draw[leader] (axis cs:\HeroZipX,\HeroZipY) -- (axis cs:12.15,7.35);
 \node[identity,anchor=south east,text=ink] at (axis cs:12.05,7.55) {Zipformer INT8};
 \node[metric,anchor=south east] at (axis cs:12.05,6.25) {\HeroZipSpeed$\times$\,\textperiodcentered\,\HeroZipWer\%};
 
 \draw[leader] (axis cs:\HeroNemoOneSixtyX,\HeroNemoOneSixtyY) -- (axis cs:0.15,1.85);
 \node[compmuted,anchor=west,align=left] at (axis cs:0.3,1.85) {Nemotron\\160\,ms};
-\draw[leader] (axis cs:\HeroNemoFiveSixtyX,\HeroNemoFiveSixtyY) -- (axis cs:4.55,1.15);
-\node[compmuted,anchor=west,align=left] at (axis cs:4.75,1.05) {Nemotron\\560\,ms\,\S};
+\draw[leader] (axis cs:\HeroNemoFiveSixtyX,\HeroNemoFiveSixtyY) -- (axis cs:4.55,0.55);
+\node[compmuted,anchor=west,align=left] at (axis cs:4.75,0.45) {Nemotron\\560\,ms\,\S};
 
 \draw[leader] (axis cs:\HeroParakeetOnnxX,\HeroParakeetOnnxY) -- (axis cs:10.3,4.35);
 \node[comp,anchor=west] at (axis cs:10.5,4.35) {Parakeet onnx-asr};
 \node[metric,anchor=west] at (axis cs:10.5,3.15) {\HeroParakeetOnnxSpeed$\times$\,\textperiodcentered\,\HeroParakeetOnnxWer\%};
-\draw[leader] (axis cs:\HeroParakeetSherpaX,\HeroParakeetSherpaY) -- (axis cs:10.3,1.85);
+\draw[leader] (axis cs:\HeroParakeetSherpaX,\HeroParakeetSherpaY)
+  -- (axis cs:\HeroParakeetSherpaX,2.30) -- (axis cs:9.4,2.30) -- (axis cs:10.25,1.85);
 \node[comp,anchor=west] at (axis cs:10.5,1.85) {Parakeet sherpa-onnx};
 \node[metric,anchor=west] at (axis cs:10.5,0.65) {\HeroParakeetSherpaSpeed$\times$\,\textperiodcentered\,\HeroParakeetSherpaWer\%};
 
@@ -178,5 +179,5 @@
 \pgfresetboundingbox
 \path[use as bounding box]
   ([xshift=-32pt,yshift=-112pt]matchedplot.south west)
-  rectangle ([xshift=8pt,yshift=56pt]matchedplot.north east);
+  rectangle ([xshift=8pt,yshift=72pt]matchedplot.north east);
 \end{tikzpicture}%
