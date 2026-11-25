@@ -156,6 +156,9 @@ fn parse_transcribe(c: &mut Cursor) -> Result<Command, String> {
     if a.files.is_empty() {
         return Err("transcribe needs at least one audio file".into());
     }
+    if a.rms_norm && a.mode == Mode::Live {
+        return Err("--rms-norm applies to --mode final only".into());
+    }
     Ok(Command::Transcribe(a))
 }
 
@@ -177,8 +180,14 @@ fn parse_stream(c: &mut Cursor) -> Result<Command, String> {
                 speed = v
                     .parse::<f64>()
                     .map_err(|_| format!("--speed: invalid value '{v}'"))?;
-                if !speed.is_finite() || speed < 0.0 {
-                    return Err("--speed must be finite and >= 0 (0 = as fast as possible)".into());
+                if !speed.is_finite()
+                    || speed < 0.0
+                    || (speed > 0.0 && speed < 0.01)
+                    || speed > 1000.0
+                {
+                    return Err(
+                        "--speed must be 0 (as fast as possible) or between 0.01 and 1000".into(),
+                    );
                 }
             }
             f if f.starts_with('-') && f.len() > 1 => return Err(format!("unknown option '{f}'")),
@@ -245,12 +254,17 @@ mod tests {
     #[test]
     fn transcribe_all_flags_and_many_files() {
         let Ok(Command::Transcribe(a)) =
-            p("transcribe a.wav b.wav --mode live --json --model /m --threads 2 --rms-norm")
+            p("transcribe a.wav b.wav --mode live --json --model /m --threads 2")
         else {
             panic!("parse");
         };
         assert_eq!(a.mode, Mode::Live);
-        assert!(a.json && a.rms_norm);
+        assert!(a.json && !a.rms_norm);
+        assert!(p("transcribe a.wav --mode live --rms-norm").is_err());
+        assert!(p("transcribe a.wav --rms-norm").is_ok());
+        assert!(p("stream a.wav --speed 1e-300").is_err());
+        assert!(p("stream a.wav --speed 1e300").is_err());
+        assert!(p("stream a.wav --speed 0").is_ok());
         assert_eq!(a.threads, 2);
         assert_eq!(a.model, Some(PathBuf::from("/m")));
         assert_eq!(a.files.len(), 2);

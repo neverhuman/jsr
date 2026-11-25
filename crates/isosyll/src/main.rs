@@ -177,7 +177,7 @@ fn stream(a: &StreamArgs) -> Result<(), Failure> {
             let due = ((i * PACKET_SAMPLES + pkt.len()) as f64 / 16_000.0) / a.speed;
             let wait = due - start.elapsed().as_secs_f64();
             if wait > 0.0 {
-                std::thread::sleep(Duration::from_secs_f64(wait));
+                std::thread::sleep(Duration::try_from_secs_f64(wait).unwrap_or(Duration::ZERO));
             }
         }
         show(seg.push(pkt)?)?;

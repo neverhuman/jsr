@@ -13,7 +13,7 @@ VERSION="${ISOSYLL_VERSION:-v4.0.0}"
 PREFIX="${ISOSYLL_PREFIX:-$HOME/.local}"
 SIGNER="219957145+neverhumanbot@users.noreply.github.com"
 SIGNER_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDD7oTCogsiEzaLS9nv6Q0n387XE+De+iqoN+VRKF91O"
-REQUIRE_SIG=0
+VERIFY_SIG=1
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -22,11 +22,12 @@ usage() {
 	cat <<EOF
 Install Isosyll ($VERSION) from GitHub releases.
 
-usage: install.sh [--prefix DIR] [--version TAG] [--require-signature]
+usage: install.sh [--prefix DIR] [--version TAG] [--no-verify-signature]
 
-  --prefix DIR           install to DIR/bin and DIR/share/isosyll (default: ~/.local)
-  --version TAG          release tag to install (default: $VERSION)
-  --require-signature    fail if ssh-keygen is unavailable to check the signature
+  --prefix DIR             install to DIR/bin and DIR/share/isosyll (default: ~/.local)
+  --version TAG            release tag to install (default: $VERSION)
+  --no-verify-signature    skip the SSH signature check (checksums are still verified);
+                           needed only where ssh-keygen is not installed
 EOF
 }
 
@@ -36,11 +37,12 @@ while [ $# -gt 0 ]; do
 	--prefix=*) PREFIX=${1#*=}; shift ;;
 	--version) [ $# -ge 2 ] || die "--version needs a tag"; VERSION=$2; shift 2 ;;
 	--version=*) VERSION=${1#*=}; shift ;;
-	--require-signature) REQUIRE_SIG=1; shift ;;
+	--no-verify-signature) VERIFY_SIG=0; shift ;;
 	-h | --help) usage; exit 0 ;;
 	*) usage >&2; die "unknown option: $1" ;;
 	esac
 done
+[ -n "$PREFIX" ] || die "--prefix must not be empty"
 
 os=$(uname -s)
 arch=$(uname -m)
@@ -79,16 +81,16 @@ for f in SHA256SUMS SHA256SUMS.sig "$bin_tgz" "$model_tgz"; do
 	fetch "$base/$f" "$tmp/$f" || die "download failed: $base/$f"
 done
 
-if command -v ssh-keygen >/dev/null 2>&1; then
+if [ "$VERIFY_SIG" = 1 ]; then
+	command -v ssh-keygen >/dev/null 2>&1 ||
+		die "ssh-keygen (OpenSSH) is needed to check the release signature; install it, or rerun with --no-verify-signature to rely on checksums only"
 	printf '%s namespaces="file" %s\n' "$SIGNER" "$SIGNER_KEY" >"$tmp/allowed_signers"
 	ssh-keygen -Y verify -f "$tmp/allowed_signers" -I "$SIGNER" -n file \
 		-s "$tmp/SHA256SUMS.sig" <"$tmp/SHA256SUMS" >/dev/null 2>&1 ||
 		die "SHA256SUMS signature does not verify; refusing to install"
 	say "Signature verified (release key SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA)"
-elif [ "$REQUIRE_SIG" = 1 ]; then
-	die "ssh-keygen not found and --require-signature was given"
 else
-	say "note: ssh-keygen not found; skipping the signature check (checksums are still verified)"
+	say "warning: signature check skipped (--no-verify-signature); relying on checksums only"
 fi
 
 for f in "$bin_tgz" "$model_tgz"; do
