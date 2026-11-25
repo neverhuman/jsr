@@ -10,9 +10,9 @@ cd "$(ci_repo_root)"
 ci_lane pytest-light "bash ops/ci/pytest-light.sh"
 
 venv="${RUNNER_TEMP:-$PWD/target}/ci-pytest-venv"
-ci_step "python venv (pinned: pytest, pytest-asyncio, numpy, aiohttp)"
+ci_step "python venv (pinned: pytest, pytest-asyncio, numpy, aiohttp, pyarrow)"
 python3 -m venv "$venv"
-"$venv/bin/pip" install -q pytest==9.2.0 pytest-asyncio==1.5.0 numpy==2.5.5 aiohttp==3.14.5
+"$venv/bin/pip" install -q pytest==9.2.0 pytest-asyncio==1.5.0 numpy==2.5.5 aiohttp==3.14.5 pyarrow==17.0.0
 
 ci_step "pytest (files listed in ops/ci/pytest-light.txt)"
 mapfile -t files < <(grep -vE '^\s*(#|$)' ops/ci/pytest-light.txt)
