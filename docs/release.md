@@ -6,8 +6,9 @@ JSR ships a library and a command-line tool that run on the user's own CPU; ther
 no hosted service, account system or server to operate.
 
 **Releases so far:**
-- **v3.1.0** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)): the RC2 INT8 model with its live and final decoders, both LMs and the scorer, signed, published 2026-11-24. It was released by owner decision with its registered gate misses stated. Record: [`v3.1.0.md`](ultra/releases/v3.1.0.md).
-- **v3.0.1** is the previous release and the rollback target: the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
+- **v3.2.0** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)): a runtime-only update of v3.1.0. Same RC2 INT8 weights, LMs and scorer; new decoders built at 6d95f37d with the opt-in `--rms-norm` final-pass level normalisation (off by default; off is byte-identical to v3.1.0). Record: [`v3.2.0.md`](ultra/releases/v3.2.0.md).
+- **v3.1.0** is the previous release and the rollback target: the RC2 INT8 model with its live and final decoders, both LMs and the scorer, signed, published 2026-11-24. It was released by owner decision with its registered gate misses stated. Record: [`v3.1.0.md`](ultra/releases/v3.1.0.md).
+- **v3.0.1** is the release before that: the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
 - **v3.0.0** is the same artifact as v3.0.1, with an unsigned tag. Record: [`v3.0.0.md`](ultra/releases/v3.0.0.md).
 
 ## Signing
@@ -50,8 +51,8 @@ The example runs in a subshell with `set -eu`. It stops at the first failed chec
   # 3. Every file matches the checksum list
   sha256sum -c SHA256SUMS
   # 4. Unpack the model bundle and check its contents
-  tar -xf ultra-v3.1.0-int8-bundle.tar
-  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS
+  tar -xf ultra-v3.2.0-int8-bundle.tar
+  sha256sum -c ultra-v3.2.0-int8-bundle.SHA256SUMS
   chmod +x ultra-cold-wav ultra-engine-commit ultra-score
   # 5. Run: utts.jsonl in this directory has one {"uid", "wav"} row per utterance (16 kHz mono WAV)
   ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
@@ -64,7 +65,8 @@ The example runs in a subshell with `set -eu`. It stops at the first failed chec
 ```
 - **Output:** `commit.jsonl` rows hold `uid`, the live stream text (`provisional`), the final text (`committed`) and timing fields, followed by one summary row without `uid`. The live decoder writes `{"id", "hyp"}` rows.
 - **Without `gh`:** download each file from the `download_base` URL in `pinned.json`.
-- **Rollback:** point at the previous install directory. For v3.1.0 that is v3.0.1's (`models/sha256-7612d5be…`), installed from its own record.
+- **Rollback:** point at the previous install directory. For v3.2.0 that is v3.1.0's (`models/sha256-7aa74cd1…`), installed from its own record; for v3.1.0 it is v3.0.1's (`models/sha256-7612d5be…`).
+- **Optional Z1:** add `--rms-norm` to the `ultra-engine-commit` line to level-normalise the final pass. It is off by default.
 
 ## Steps
 

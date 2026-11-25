@@ -81,7 +81,7 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
     for must in ("Isosyll v3.1.0 live +LM (160 ms)", "32.7", "0.328", "Released by owner decision after missing the registered gates",
                  "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.1.0.md", "docs/ultra/releases/v3.0.1.md",
-                 "ultra-v3.1.0-int8-bundle.tar", "ultra-cold-wav --chunk 4" if False else "./ultra-cold-wav --chunk 4",
+                 "ultra-v3.2.0-int8-bundle.tar", "ultra-cold-wav --chunk 4" if False else "./ultra-cold-wav --chunk 4",
                  "./ultra-engine-commit --model int8"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     # Claims moved out of the lean README stay asserted, in the paper sources and records
@@ -353,7 +353,7 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
     install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)[0]
     assert "<wav-dir>" not in install and "./wav-dir ./live.jsonl" in install and "u00000.wav" in install
     assert "`provisional` and `committed`" in install and "`id` and `hyp`" in install
-    assert "tar -xf ultra-v3.1.0-int8-bundle.tar\n  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS" in install and "&& sha256sum" not in install
+    assert "tar -xf ultra-v3.2.0-int8-bundle.tar\n  sha256sum -c ultra-v3.2.0-int8-bundle.SHA256SUMS" in install and "&& sha256sum" not in install
     release = (pd.REPO / "docs/release.md").read_text()
     assert "<wav-dir>" not in release and "{\"id\", \"hyp\"}" in release
     rc2 = (pd.REPO / "docs/ultra/releases/v3.1.0-rc2.md").read_text()

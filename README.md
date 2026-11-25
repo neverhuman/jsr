@@ -35,7 +35,7 @@ Released by owner decision after missing the registered gates (5540 vs. 5489 ful
 
 ## Install the signed release
 
-Isosyll was released as **ULTRA**, and the tags, `ultra-*` binaries and checkpoint IDs keep that name. The pinned release is **`v3.1.0`**: the RC2 INT8 bundle (`int8/`), the decoders `ultra-engine-commit` (final text) and `ultra-cold-wav` (live text) for x86-64 Linux (glibc 2.35 or newer), the language models `M5.ulm` and `c4_p0_0_10_40.v2.ulm`, and the pinned `ultra-score`. Everything is listed in `SHA256SUMS`, which is signed with the project SSH key `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`.
+Isosyll was released as **ULTRA**, and the tags, `ultra-*` binaries and checkpoint IDs keep that name. The pinned release is **`v3.2.0`**, a runtime-only update of v3.1.0 (same weights and LMs; adds the opt-in `--rms-norm` final-pass level normalisation, off by default). It ships the RC2 INT8 bundle (`int8/`), the decoders `ultra-engine-commit` (final text) and `ultra-cold-wav` (live text) for x86-64 Linux (glibc 2.35 or newer), the language models `M5.ulm` and `c4_p0_0_10_40.v2.ulm`, and the pinned `ultra-score`. Everything is listed in `SHA256SUMS`, which is signed with the project SSH key `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`.
 
 From the repository root, download the pinned release, verify the signature and hashes, then unpack the bundle.
 
@@ -51,8 +51,8 @@ From the repository root, download the pinned release, verify the signature and 
     -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
   test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")"
   sha256sum -c SHA256SUMS
-  tar -xf ultra-v3.1.0-int8-bundle.tar
-  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS
+  tar -xf ultra-v3.2.0-int8-bundle.tar
+  sha256sum -c ultra-v3.2.0-int8-bundle.SHA256SUMS
   chmod +x ultra-cold-wav ultra-engine-commit ultra-score
 )
 ```
@@ -70,7 +70,7 @@ cd "$(python3 -c 'import json; print(json.load(open("docs/ultra/releases/pinned.
   --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 ./wav-dir ./live.jsonl
 ```
 
-The [install guide](docs/release.md#install-the-pinned-release) has the details; the final decoder writes `provisional` and `committed` text per `uid`, while the live decoder writes `id` and `hyp`. Record: [v3.1.0](docs/ultra/releases/v3.1.0.md). Rollback: the previous release, [v3.0.1](docs/ultra/releases/v3.0.1.md), installs the same way into its own directory.
+The [install guide](docs/release.md#install-the-pinned-release) has the details; the final decoder writes `provisional` and `committed` text per `uid`, while the live decoder writes `id` and `hyp`. Record: [v3.2.0](docs/ultra/releases/v3.2.0.md), which keeps the v3.1.0 model and numbers ([v3.1.0](docs/ultra/releases/v3.1.0.md)). Rollback: the previous release, v3.1.0, and before it [v3.0.1](docs/ultra/releases/v3.0.1.md), install the same way into their own directories.
 
 ## Reproduce every number
 
