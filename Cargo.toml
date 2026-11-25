@@ -15,6 +15,7 @@ members = [
   "crates/ultra-engine",
   "crates/ultra-gate",
   "crates/ultra-alwayson",
+  "crates/isosyll",
 ]
 
 [workspace.package]
