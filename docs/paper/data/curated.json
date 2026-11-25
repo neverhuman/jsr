@@ -1762,6 +1762,20 @@
    "unit": "WER percentage points",
    "workload": "2,782-utterance DEV selection half, H0",
    "workload_digest": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac (DEV split manifest)"
+  },
+  "WaveLightNoiseDelta": {
+   "configuration": "H66 seed 7919 terminal EMA minus matched PyTorch RC2, cold c4 at 5 dB MUSAN-TEST",
+   "decimals": 3,
+   "label": "exploratory",
+   "line": 49,
+   "quote": "−10.3131 pp",
+   "raw": -10.3131,
+   "section": "Results",
+   "signed": true,
+   "source": "research/H66_lightnoise_tail/README.md",
+   "unit": "WER percentage points",
+   "workload": "2,782-utterance DEV selection half, H0",
+   "workload_digest": "002ac7aee51519b4657d56b887b859660cfda51cf925c76aae61574150f29cac (DEV split manifest)"
   }
  }
 }

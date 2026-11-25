@@ -44,11 +44,15 @@ workload.
 | 10,000 | 6.8971% | 14.9322% |
 | 15,000 | 7.0312% | 14.4513% |
 
-Matched PyTorch RC2 and terminal M1-v4 scored 24.7509% and 25.5039% on
-5 dB MUSAN-TEST. The clean leg closed the screen while the terminal noise
-runs were in progress. The release decision retains the
-[signed v3.2.0 package](../../docs/ultra/releases/v3.2.0.md).
+Terminal EMA scored 14.4379% WER (7,536 edits) and raw scored 14.4590%
+(7,547 edits) on 5 dB MUSAN-TEST. With 10,000 paired speaker-cluster
+replicates (seed 20261122), terminal EMA changed WER by **−10.3131 pp**
+against matched PyTorch RC2 (24.7509% WER, one-sided 95% upper −9.1486 pp)
+and **−11.0660 pp** against terminal M1-v4 EMA (25.5039% WER, upper
+−9.8406 pp). Both noise legs cleared their zero upper limit. The clean
+miss kept the [signed v3.2.0 package](../../docs/ultra/releases/v3.2.0.md)
+as the release for this cycle.
 
 The [evidence checksums](../v3.2.0-closeout.SHA256SUMS) identify the preregistration,
-launch configuration, both node-local terminal states, trajectory receipts
-and the independent clean screen.
+launch configuration, both node-local terminal states, trajectory receipts,
+the independent clean screen and paired terminal noise replay.

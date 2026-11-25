@@ -115,7 +115,8 @@ PyTorch RC2 on the DEV confirmation half at 5\,dB MUSAN-TEST. Its clean
 upper of \WaveSoupCleanUpper\pp{} exceeded the preregistered
 \WaveSoupCleanMargin\pp{} non-inferiority margin.
 With lighter noise augmentation and a longer clean tail, the terminal EMA
-checkpoint missed the DEV selection-half screen. Its clean c4 WER changed
-by \WaveLightCleanDelta\pp{} against signed RC2, exceeding the
+checkpoint changed c4 WER at 5\,dB MUSAN-TEST by \WaveLightNoiseDelta\pp{}
+against matched PyTorch RC2 on the DEV selection half. Its clean c4 WER
+changed by \WaveLightCleanDelta\pp{} against signed RC2, exceeding the
 \WaveLightCleanMargin\pp{} point tolerance. The published release retained
 the RC2 weights.
