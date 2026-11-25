@@ -29,7 +29,7 @@
 \draw[figblue,line width=.65pt,{Stealth[length=3.8pt]}-{Stealth[length=3.8pt]}]
   (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveLmX,\HeroArrowY)
   node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput, paired};
-% previous release (v3.0.0, earlier session) to v3.1.0, same decoding mode
+% previous release (v3.0.0, earlier session) to v3.1.0 (identical RC2 weights in v3.2.0), same decoding mode
 \draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
   (axis cs:\HeroOldLiveX,\HeroOldLiveY) -- (axis cs:\HeroLiveGreedyX,\HeroLiveGreedyY);
 \draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
@@ -73,7 +73,7 @@
 \def\HeroDot#1{\HeroMk{\node[circle,fill=#1,inner sep=1.7pt]{};}}%
 \ifnum\HeroHaveEnergy>0\relax
 \node[draw=figgrid,fill=figwash,rounded corners=1.5pt,anchor=north west,
-  inner xsep=6pt,inner ysep=4pt,font=\sffamily\scriptsize,text width=210pt]
+  inner xsep=6pt,inner ysep=4pt,font=\sffamily\scriptsize,text width=226pt]
   at ([xshift=-19pt,yshift=-30pt]matchedplot.south west)
   {\setlength{\tabcolsep}{2.5pt}\renewcommand{\arraystretch}{1.05}%
    \begin{tabular}{@{}l l r r r r@{}}
@@ -84,14 +84,16 @@
    \HeroDiaO{figblue} & v3.1.0 final & +commit & \HeroFinalSpeed$\times$ & \HeroFinalWer\% & \HeroFinalEnergy\\
    \HeroDot{figink} & Zipformer INT8 & 320 ms & \HeroZipSpeed$\times$ & \HeroZipWer\% & \HeroZipEnergy\\
    \end{tabular}\par\vspace{2pt}
-   {\scriptsize Energy uses active-core joules per audio-second.\par
+   {\scriptsize Active-core J/audio-s (v3.1.0 measured; identical weights in v3.2.0).\par
    \textbf{Live +LM vs.\ Zipformer} (paired one-sided 95\% WER bounds).\par
    Selection panel, 160\,ms: \HeroGapPanel\,pp.\par
    Unselected C half, 160\,ms: \HeroGapC\,pp.\par
-   Unselected C half, 320\,ms: \HeroGapCWide\,pp.}};
+   Unselected C half, 320\,ms: \HeroGapCWide\,pp.\par\vspace{2pt}
+   \textbf{v3.2.0 opt-in \texttt{-{}-rms-norm} (Z1):} \HeroZOneCThirty\,pp ($-$30\,dB synthetic, C half);\par
+   native 0\,dB \HeroZOneCClean\,pp (within noise); $\le$\,\HeroZOneCpuStream\% CPU (H0).}};
 \fi
 \pgfresetboundingbox
 \path[use as bounding box]
-  ([xshift=-28pt,yshift=-132pt]matchedplot.south west)
+  ([xshift=-28pt,yshift=-155pt]matchedplot.south west)
   rectangle ([xshift=11pt,yshift=31pt]matchedplot.north east);
 \end{tikzpicture}%

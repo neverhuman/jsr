@@ -19,7 +19,7 @@ from .common import PaperDataError, csv_text, fmt
 from .evidence import HEADLINE, derived
 from .labels import LINE_PT, place
 from .records import Records
-from .words import name
+from .words import name, signed as _sg, tex as _words_tex
 
 AXIS_W, AXIS_H = 197.0, 168.0  # pt; with tick, 4-row header table, legend and key the figure fits page 1 cleanly
 FONT_PT = 7.0  # \scriptsize labels
@@ -157,12 +157,12 @@ def hero_rows(rows: list[dict]) -> dict[str, dict]:
 
 
 def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
-    """The Figure 1 sentences (Unicode source text) for the v3.1.0 foreground: caption headline and subtitle.
-    The 730-utterance panel overlaps the selection half, so the unselected-half gap always stands beside it."""
+    """The Figure 1 sentences (Unicode source text) for the v3.1.0 foreground (identical weights in v3.2.0):
+    caption headline and subtitle. The 730-utterance panel overlaps the selection half, so the unselected-half gap always stands beside it."""
     d = {label: derived(row) for label, row in hero.items()}
     live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
     gap_c = rec.rows["CandLiveLmCDelta"]["value"].replace("$-$", "\u2212")
-    headline = (f"Isosyll v3.1.0 live (160 ms, +LM): {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}% WER on the selection "
+    headline = (f"Isosyll v3.1.0 live (160 ms, +LM; identical weights in v3.2.0): {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}% WER on the selection "
                 f"panel ({gap_c} pp on unselected DEV) vs. Zipformer INT8 {speed_text(zip_['speed'])}\u00d7, {fmt(zip_['wer'], 2)}%; "
                 f"final {fmt(fin['wer'], 2)}%, {speed_text(fin['speed'])}\u00d7.")
     subtitle = (f"Live (160 ms chunk, +LM): {speed_text(live['speed'])}\u00d7 real time, {fmt(live['wer'], 2)}% WER (selection panel) \u00b7 "
@@ -211,6 +211,10 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):
         # the live +LM gap to Zipformer on both panels (160 ms row; the 320 ms row's C-half gap as its own macro)
         macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"Cand{mode}{tag}{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
+    macros["ZOneCClean"] = _words_tex(_sg(float(rec.rows["AudioZOneCleanDelta"]["raw"]), 2))
+    macros["ZOneCThirty"] = _words_tex(_sg(float(rec.rows["AudioZOneThirtyDelta"]["raw"]), 2))
+    macros["ZOneCpuEngine"] = rec.rows["AudioZOneCpuEngineUpper"]["value"]
+    macros["ZOneCpuStream"] = rec.rows["AudioZOneCpuStreamUpper"]["value"]
     return [f"\\def\\Hero{key}{{{value}}}%" for key, value in macros.items()]
 
 
@@ -312,8 +316,11 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             configuration="generated: broader comparison figure", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
     if hero:
-        marks = ["The v3.1.0 live and final modes share the same prepared INT8 weights, and Zipformer INT8 was timed in "
-                 "the same three interleaved blocks; grey marks are v3.0.0, timed in an earlier session.",
+        cpu_eng = rec.rows["AudioZOneCpuEngineUpper"]["value"]
+        cpu_str = rec.rows["AudioZOneCpuStreamUpper"]["value"]
+        marks = ["The v3.1.0 live and final modes (identical prepared INT8 weights in v3.2.0) were timed with Zipformer INT8 "
+                 "in the same three interleaved blocks on quiet H1; grey marks are v3.0.0, timed in an earlier session. "
+                 f"Opt-in v3.2.0 \\texttt{{-{{}}-rms-norm}} (Z1) is off by default (at most {cpu_eng}\\% engine / {cpu_str}\\% stream CPU on H0).",
                  "The final mode uses reference utterance boundaries. Parakeet decodes whole clips."]
         if nemotron_note:
             marks.append(_tex(nemotron_note).replace("×", r"$\times$"))
