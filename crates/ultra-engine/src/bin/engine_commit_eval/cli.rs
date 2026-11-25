@@ -36,6 +36,8 @@ pub(super) struct Args {
     pub(super) rescore_r2l: Option<PathBuf>,
     pub(super) rescore_weight: f32,
     pub(super) rescore_m5_sub: f32,
+    /// Z1: whole-utterance RMS gain before the commit pass. Off by default.
+    pub(super) rms_norm: bool,
 }
 
 pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args, String> {
@@ -64,6 +66,7 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
         rescore_r2l: None,
         rescore_weight: DEFAULT_RESCORE_WEIGHT,
         rescore_m5_sub: DEFAULT_RESCORE_M5_SUB,
+        rms_norm: false,
     };
     while let Some(k) = it.next() {
         let mut v = || it.next().ok_or_else(|| format!("{k} needs a value"));
@@ -90,6 +93,7 @@ pub(super) fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Result<Args
             }
             "--ctc-weight" => a.ctc_weight = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--mbr" => a.mbr = true,
+            "--rms-norm" => a.rms_norm = true,
             "--mbr-temp" => a.mbr_temp = v()?.parse().map_err(|e| format!("{k}: {e}"))?,
             "--rescore-l2r" => a.rescore_l2r = Some(v()?.into()),
             "--rescore-r2l" => a.rescore_r2l = Some(v()?.into()),

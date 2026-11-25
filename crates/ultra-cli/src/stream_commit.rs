@@ -224,6 +224,7 @@ impl StreamCommitCliOptions {
                 ctc_weight: 0.0,
                 mbr_enabled: false,
                 mbr_temp: 1.0,
+                rms_norm: false,
             },
             hangover_ms: self.hangover_ms,
             preroll_ms: self.preroll_ms,

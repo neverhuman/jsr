@@ -62,8 +62,9 @@ pub(crate) fn decode_commit_segment(
     model_ctc_vocab: Option<&CtcVocab>,
     tf: Option<(&CommitTfRescoreConfig, &mut TfWorkspace)>,
 ) -> Result<(String, usize), EngineError> {
+    let pcm = super::types::commit_input_pcm(pcm, cfg.rms_norm);
     let mut cs = eng.create_stream();
-    cs.accept_i16(pcm)?;
+    cs.accept_i16(&pcm)?;
     if cfg.tail_pad_samples > 0 {
         cs.accept_i16(&vec![0i16; cfg.tail_pad_samples])?;
     }

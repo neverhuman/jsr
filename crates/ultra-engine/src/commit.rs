@@ -139,6 +139,7 @@ impl CommitPassSession {
         self.commit_engine
             .effective_decode_config()
             .with_tail_pad_samples(self.cfg.tail_pad_samples)
+            .with_commit_rms_norm(self.cfg.rms_norm)
     }
     pub fn committed_prefix(&self) -> &str {
         &self.committed_prefix
