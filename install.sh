@@ -47,7 +47,15 @@ done
 os=$(uname -s)
 arch=$(uname -m)
 case "$os/$arch" in
-Linux/x86_64 | Linux/amd64) target=x86_64-linux ;;
+Linux/x86_64 | Linux/amd64)
+	# glibc >= 2.35 gets the timed glibc build; anything else (musl, older glibc) the static one.
+	glibc=$(getconf GNU_LIBC_VERSION 2>/dev/null | sed -n 's/^glibc //p')
+	if [ -n "$glibc" ] && [ "$(printf '%s\n2.35\n' "$glibc" | sort -t. -k1,1n -k2,2n | head -n 1)" = 2.35 ]; then
+		target=x86_64-linux
+	else
+		target=x86_64-linux-musl
+	fi
+	;;
 Linux/aarch64 | Linux/arm64) target=aarch64-linux ;;
 Darwin/arm64 | Darwin/aarch64) target=aarch64-macos ;;
 *) die "no prebuilt binary for $os/$arch (supported: Linux x86-64, Linux arm64, macOS Apple silicon)" ;;

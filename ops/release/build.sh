@@ -3,6 +3,7 @@
 #
 #   ops/release/build.sh [TRIPLE...]          # default: the host's release triple
 #   ops/release/build.sh x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+#   ops/release/build-glibc.sh                # x86-64 glibc 2.35 build in ubuntu:22.04 (the timed asset)
 #   ops/release/build.sh aarch64-apple-darwin  # run on a macOS arm64 host
 #   ops/release/build.sh --package aarch64-apple-darwin path/to/isosyll
 #                                             # archive a binary built elsewhere
@@ -22,7 +23,8 @@ mkdir -p "$out"
 
 name_of() {
 	case "$1" in
-	x86_64-unknown-linux-musl | x86_64-unknown-linux-gnu) echo x86_64-linux ;;
+	x86_64-unknown-linux-gnu) echo x86_64-linux ;; # glibc >= 2.35, the timed build
+	x86_64-unknown-linux-musl) echo x86_64-linux-musl ;; # static fallback
 	aarch64-unknown-linux-musl | aarch64-unknown-linux-gnu) echo aarch64-linux ;;
 	aarch64-apple-darwin) echo aarch64-macos ;;
 	*) echo "error: unsupported triple $1" >&2; return 1 ;;
