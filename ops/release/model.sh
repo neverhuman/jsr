@@ -14,7 +14,7 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/crates/isosyll/Cargo.toml" | head -n 1)
 out=${DIST_DIR:-$root/dist}
 mkdir -p "$out"
-stage=$(mktemp -d "$out/.model.XXXXXX")
+stage=$(mktemp -d) # local fs, so file modes are exact
 trap 'rm -rf "$stage"' EXIT
 m="$stage/isosyll-model"
 mkdir -p "$m/lm" "$stage/x"
@@ -27,7 +27,7 @@ done
 cp "$2" "$m/lm/live.ulm"
 cp "$3" "$m/lm/final.ulm"
 (cd "$m" && find . -type f ! -name MANIFEST | sed 's|^\./||' | LC_ALL=C sort | xargs sha256sum >../MANIFEST.tmp && mv ../MANIFEST.tmp MANIFEST)
-chmod -R a+rX,go-w "$m"
+find "$m" -type d -exec chmod 755 {} + && find "$m" -type f -exec chmod 644 {} +
 tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='@0' \
 	-C "$stage" -cf - isosyll-model | gzip -n -9 >"$out/isosyll-v$version-model.tar.gz"
 echo "$out/isosyll-v$version-model.tar.gz"

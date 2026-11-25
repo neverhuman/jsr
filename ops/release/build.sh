@@ -33,11 +33,12 @@ package() { # triple binary
 	local name pkg stage
 	name=$(name_of "$1")
 	pkg="isosyll-v$version-$name"
-	stage=$(mktemp -d "$out/.stage.XXXXXX")
+	stage=$(mktemp -d) # local fs, so file modes are exact
 	mkdir -p "$stage/$pkg/bin"
 	install -m 755 "$2" "$stage/$pkg/bin/isosyll"
 	cp LICENSE "$stage/$pkg/LICENSE"
 	cp ops/release/PACKAGE_README.md "$stage/$pkg/README.md"
+	chmod 644 "$stage/$pkg/LICENSE" "$stage/$pkg/README.md"
 	# Deterministic archive: fixed order, owner and mtime (GNU tar).
 	tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='@0' \
 		-C "$stage" -cf - "$pkg" | gzip -n -9 >"$out/$pkg.tar.gz"
