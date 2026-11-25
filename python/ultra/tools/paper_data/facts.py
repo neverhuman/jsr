@@ -131,11 +131,11 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
         fact("Speed", "Speed & memory",
              f"One live stream ({_name(live)}) uses {live_share}% of one quiet Zen\u00a02 core "
              f"({speed_text(lv['speed'])}\u00d7 real time{speed_ratio}) and {fmt(lv['rss_mb'], 0)}\u2009MB peak RAM "
-             f"(smaller than every comparator); {_name(head)} runs at {speed_text(h['speed'])}\u00d7 real time and "
+             f"; {_name(head)} runs at {speed_text(h['speed'])}\u00d7 real time and "
              f"{fmt(h['rss_mb'], 0)}\u2009MB RAM{delay_str}{zip_cmp}.",
-             f"{_name(live)} is faster than every comparator at {speed_text(lv['speed'])}× "
+             f"{_name(live)} runs at {speed_text(lv['speed'])}× "
              f"real time{speed_ratio_md} ({live_share}% of one quiet Zen 2 core, {fmt(lv['rss_mb'], 0)} MB peak "
-             f"RAM, smaller than every comparator ({fmt(derived(fast)['rss_mb'], 0)} MB for {_name(fast)})"
+             f"RAM against {fmt(derived(fast)['rss_mb'], 0)} MB for matched {_name(fast)})"
              + (f", against {vs_peers}" if vs_peers else "")
              + f". {_name(head)} runs at {speed_text(h['speed'])}× real time and {fmt(h['rss_mb'], 0)} MB peak "
              f"RAM{delay_str}{zip_cmp}.",
@@ -157,7 +157,7 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     # 3. Watts
     wrows = sorted((r for r in peers if r.get("watts") is not None), key=lambda r: r["watts"])
     if h["watts"] is not None and wrows:
-        vs_w = _names([f"{fmt(r['watts'], 3)}\u2009W for {timing_name(r)}" for r in wrows])
+        vs_w = _names([f"{fmt(r['watts'], 3)}\u2009J per audio-second for {timing_name(r)}" for r in wrows])
         pkg = rec.rows["RelCommitPkgWatts"]["value"] if "RelCommitPkgWatts" in rec.rows and not current else None
         pkg_s = f" ({pkg}\u2009W package)" if pkg else ""
         if has_live and lv["watts"] is not None:
@@ -167,18 +167,18 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
             live_energy = (f" ({fmt(100 * lv['watts'] / zipformer['watts'], 0)}% of Zipformer INT8's active core energy)"
                            if zipformer else "")
             fact("Watts", "Watts",
-                 f"Unpaced active core power on quiet H1 is {fmt(lv['watts'], 3)}\u2009W per stream for "
-                 f"{_name(live)} and {fmt(h['watts'], 3)}\u2009W{pkg_s} for {_name(head)}, against {vs_w} (CPU domain "
+                 f"Unpaced active core energy on quiet H1 is {fmt(lv['watts'], 3)}\u2009J per audio-second for "
+                 f"{_name(live)} and {fmt(h['watts'], 3)}\u2009J{pkg_s} for {_name(head)}, against {vs_w} (CPU domain "
                  "only, not wall power).",
-                 f"Unpaced active core W per stream on quiet H1: {fmt(lv['watts'], 3)} W for "
+                 f"Unpaced active core J per audio-second on quiet H1: {fmt(lv['watts'], 3)} J for "
                  f"{_name(live)}{live_energy} and "
-                 f"{fmt(h['watts'], 3)} W{pkg_s} for {_name(head)}, against {vs_w} (CPU domain only, not wall power).",
+                 f"{fmt(h['watts'], 3)} J{pkg_s} for {_name(head)}, against {vs_w} (CPU domain only, not wall power).",
                  rowsrc(live, head, *wrows), "core-register watts per stream", panel)
         else:
             fact("Watts", "Watts",
-                 f"Unpaced active core power on quiet H1 is {fmt(h['watts'], 3)}\u2009W per stream{pkg_s} "
+                 f"Unpaced active core energy on quiet H1 is {fmt(h['watts'], 3)}\u2009J per audio-second{pkg_s} "
                  f"for {_name(head)}, against {vs_w} (CPU domain only, not wall power; live-only energy hold pending).",
-                 f"Unpaced active core W per stream on quiet H1: {fmt(h['watts'], 3)} W{pkg_s} for "
+                 f"Unpaced active core J per audio-second on quiet H1: {fmt(h['watts'], 3)} J{pkg_s} for "
                  f"{_name(head)}, against {vs_w} (CPU domain only, not wall power; standalone live-only hold pending).",
                  rowsrc(head, *wrows), "core-register watts per stream", panel)
     else:

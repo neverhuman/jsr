@@ -14,7 +14,7 @@ removing them leaves the relative LM WER gain unchanged.
 
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
 Shared-host (H0) rows stay marked interim until quiet H1 holds complete. Energy measurements are
-active core (CPU-domain) watts per stream from RAPL registers (\texttt{core\_msr\_active}, including
+active core (CPU-domain) joules per audio-second from RAPL registers (\texttt{core\_msr\_active}, including
 the core idle floor; package domain was measured only for the prior release), never board or wall power, and are
 measured unpaced for apples-to-apples comparison across recognisers. All accuracy numbers are LibriSpeech DEV only; as disclosed in
 \cref{sec:protocol}, LibriSpeech test-clean and test-other were read several times before our

@@ -57,12 +57,12 @@ The example runs in a subshell with `set -eu`. It stops at the first failed chec
   ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
     --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --tail-pad-ms 320 --threads 1 \
     --commit-lm M5.ulm --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
-  # Live text only (160 ms chunk + 34.5 MiB LM) over a directory of WAV files:
+  # Live text only (160 ms chunk + 34.5 MiB LM) over ./wav-dir, which holds WAVs named u00000.wav, u00001.wav, ...:
   # ./ultra-cold-wav --chunk 4 --beam 4 --beam-max-symbols 1 --beam-margin 0.0 --lm c4_p0_0_10_40.v2.ulm \
-  #   --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 <wav-dir> live.jsonl
+  #   --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 ./wav-dir ./live.jsonl
 )
 ```
-- **Output:** each row holds the live stream text (`provisional`) and the final text (`committed`).
+- **Output:** `commit.jsonl` rows hold `uid`, the live stream text (`provisional`), the final text (`committed`) and timing fields, followed by one summary row without `uid`. The live decoder writes `{"id", "hyp"}` rows.
 - **Without `gh`:** download each file from the `download_base` URL in `pinned.json`.
 - **Rollback:** point at the previous install directory. For v3.1.0 that is v3.0.1's (`models/sha256-7612d5be…`), installed from its own record.
 

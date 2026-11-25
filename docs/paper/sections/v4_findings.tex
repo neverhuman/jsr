@@ -2,21 +2,19 @@
 
 This section reports the negative results of the V4 research wave that followed the registered look of \cref{sec:candidate}. Every
 number is exploratory and, except for the ReLU$^2$ kill readings (trainer dev-clean WER), was read on the selection half of DEV (S) with the pinned Rust scorer and a paired speaker bootstrap of \VfBootReps{}
-resamples; the unselected half (C) was used only for the diagnosis of the live gap, and the test sets were not read
-(\cref{sec:protocol}). Differences are in percentage points of pooled WER at the live setting c4 (a 160\,ms chunk for RC2), negative meaning lower WER.
+resamples; the diagnosis of the live gap uses the unselected half (C), and the test sets were not read. Differences are in percentage points of pooled WER at the live setting c4 (a 160\,ms chunk for RC2), negative meaning lower WER.
 
 \para{Where the live gap sits.} Of the \VfDiagPositions{} C-half reference positions that the compact-LM live stream gets wrong and
 Zipformer INT8 gets right, \VfDiagInterior{} (\VfDiagInteriorPct\%) are interior words, not the first or last word of an utterance
-(\VfDiagEdge{} positions). \VfDiagFreqOther{} are dev-other interior substitutions of words that occur at least \VfFreqMin{} times in the training
-transcripts, and of \VfDelTotal{} deletions only \VfDelLast{} are final words, so the \VfDelGap-deletion excess over Zipformer is
-not a tail-drop. The residual therefore looks like acoustic discrimination of common words in hard audio, not
+(\VfDiagEdge{} positions); \VfDiagFreqOther{} are dev-other interior substitutions of words seen at least \VfFreqMin{} times in training, and
+of \VfDelTotal{} deletions only \VfDelLast{} are final words. The residual therefore looks like acoustic discrimination of common words in hard audio, not
 vocabulary, endpointing or boundaries; \VfCellCount{} such S-half positions were frozen as a secondary read.
 
-\para{Reranking and LM cannot reach the target.} On S, the 1-best of the live stream with the compact LM makes
+\para{Reranking cannot reach the target.} On S, the 1-best of the live stream with the compact LM makes
 \VfOracleOneBestEdits{} edits (\VfOracleOneBestWer\% WER). A perfect ranker over its beam would reach \VfOracleDepthTwoWer\% at depth \VfDepthTwo{}
 and \VfOracleDepthFourWer\% (\VfOracleDepthFourEdits{} edits) with the full beam of \VfDepthFour{}, against a
-\VfOracleTargetWer\% target of \VfOracleTargetEdits{} edits. Reranking or a stronger live LM on this beam therefore cannot reach \VfOracleTargetWer\% WER (at most \VfOracleSecondaryEdits{}
-edits of headroom). A width-1 fused greedy decoder with an LM was \VfNineDeltaEdits{} edits worse than greedy
+\VfOracleTargetWer\% target of \VfOracleTargetEdits{} edits. Reranking the recorded fixed beam therefore cannot reach \VfOracleTargetWer\% WER (at most \VfOracleSecondaryEdits{}
+edits of headroom); a changed LM would change the hypotheses. A width-1 fused greedy decoder with an LM was \VfNineDeltaEdits{} edits worse than greedy
 decoding (\VfNineLmEdits{} vs.\ \VfNineGreedyEdits), missing its \VfNineBar\pp\ gain gate.
 
 \para{Stronger teacher labels.} Continuing RC2 training on audio re-labelled by a stronger teacher (PL3) did not lower live WER
@@ -27,19 +25,20 @@ to \VfPlThreeHi\pp) against a required gain above \VfPlThreeBar\pp, an independe
 was stopped by its registered kill at optimizer step \VfReluKillStep: dev-clean EMA WER was \VfReluOneEma\% (raw \VfReluOneRaw\%) in one
 arm, with \VfReluOneZero\% of the activations already zero, and raw WER was \VfReluTwoRaw\% in the other, far beyond the
 \VfReluKillPp\pp\ allowance. Chunk-causal lookahead convolution ($k_\mathrm{right}{=}\VfBoneRight$) did not help either (below). In a small-model scout trained on LibriSpeech only, a TDT output head was
-\VfTdtDelta\pp\ worse than exact RNN-T at that scout's own c4 setting (\VfTdtChunkMs\,ms; bounds \VfTdtLo{} to \VfTdtHi\pp; RNN-T reference \VfTdtRnntWer\% pooled, not comparable with RC2), so exact RNN-T stays the control.
+\VfTdtDelta\pp\ worse than exact RNN-T at that scout's own c4 setting (\VfTdtChunkMs\,ms; bounds \VfTdtLo{} to \VfTdtHi\pp), so exact RNN-T stays the control.
 Skipping the upper encoder on blank chunks after midpoint-CTC certification, with the refresh needed to keep the state exact,
-netted only \VfSkipLo--\VfSkipHi\% skipped chunks against a \VfSkipGate\% gate, so it was dropped.
+netted only \VfSkipLo--\VfSkipHi\% skipped chunks against a \VfSkipGate\% gate, so it was dropped. Separately, weight-amortised
+multi-stream decoding (R10), measured on the H0 development CPU, used \VfRtenRatio$\times$ the CPU time per audio-second at
+\VfRtenStreams{} paced streams as at one, with identical transcripts; it is not energy-qualified, and energy is left to a later
+matched-N fixed-audio benchmark.
 
 \para{Regularisers and the screen protocol.} Short fine-tuning screens (\VfScreenSteps{} steps from RC2, EMA weights) were each paired
 against a matched control (S-NULL) with the same recipe, data and seed. A second control seed differed from the first by
 \VfFloorDelta\pp\ (bounds \VfFloorLo{} to \VfFloorHi\pp), with seed and device confounded, so a single-seed screen cannot resolve effects
 below about \VfSingleSeedPp\pp. Each arm reported here was therefore run with \VfScreenSeeds{} seeds. Only the chunk-causal convolution had a registered
 bar, \VfScreenBar\pp; the other screens were descriptive and are read against the noise floor.
-The chunk-causal convolution gave \VfBoneSeedA\pp{} and \VfBoneSeedB\pp{} on the two seeds (mean \VfBoneMean\pp) and
-\VfBoneOnLd\pp{} on top of layer drop. Layer drop at rate \VfLdRate{} averaged \VfLdMean\pp, a SpecAugment time-mask budget capped at \VfSpecCapPct\% of frames
-(\VfSpecMasks{} masks of up to \VfSpecWidth{} frames, \VfSpecMaskedPct\% of frames masked) \VfSpecMean\pp, and both together \VfComboMean\pp, of which adding the mask
-cap to layer drop contributed \VfComboOnLd\pp. All of these lie inside the control noise floor and the chunk-causal convolution did not reach its bar; they are
+The chunk-causal convolution gave \VfBoneSeedA\pp{} and \VfBoneSeedB\pp{} on the two seeds (mean \VfBoneMean\pp). Layer drop at rate \VfLdRate{} averaged \VfLdMean\pp, and a SpecAugment time-mask cap of \VfSpecCapPct\% of frames
+(\VfSpecMaskedPct\% masked) \VfSpecMean\pp. All of these lie inside the control noise floor and the chunk-causal convolution did not reach its bar; they are
 no detectable effect, not a measured zero. The full-length layer-drop run (O3-LD, layer drop \VfLdRate{} over the full training schedule, seed \VfSeed) was read against
 its registered rule on the same selection half: greedy c4 differed from its matched control by \VfOThreeDelta\pp (bounds
 \VfOThreeLo{} to \VfOThreeHi\pp; \VfOThreeEdits{} vs.\ \VfOThreeControlEdits{} edits), against a required gain of

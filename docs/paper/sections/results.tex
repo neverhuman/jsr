@@ -23,7 +23,7 @@ on their respective timing hosts (offline Parakeet TDT v3 on quiet H1; Nemotron 
 \RelSubsetNote{}
 
 \para{Memory and energy.} \ColdMemorySentence{} \ColdWattsSentence{} For the prior release \PriorVer{}
-(final, seg.), package-domain power per stream was \RelCommitPkgWatts\,W; package energy was not clean in the
+(final, seg.), package-domain energy was \RelCommitPkgWatts\,J per audio-second; package energy was not clean in the
 \ReleaseVer{} blocks and is not reported for it.
 
 \subsection{Head-to-Head with Zipformer INT8}\label{sec:versus}
@@ -39,9 +39,9 @@ stream with the language model trails Zipformer by \CandLiveLmCDelta\pp (bounds 
 \VsEnergyPctOne\% of the active core energy per audio second, in \VsRssPctOne\% of the memory, with half
 the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its pooled WER is \VsVerdictOne{} Zipformer's (\VsDeltaOne\pp, one-sided 95\% bounds \VsLoOne{} to
 \VsHiOne\pp). The final text from the same weights is \VsVerdictTwo{} Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp) at \VsSpeedXTwo$\times$ its
-single-core speed and \VsEnergyPctTwo\% of its active core energy per audio second. An application that consumes utterance-end text therefore gets Zipformer-class
-accuracy from the final pass, and the live stream supplies the always-on, low-latency path at a
-fraction of the cost.
+single-core speed and \VsEnergyPctTwo\% of its active core energy per audio second. For an application that consumes utterance-end text, the final pass therefore matches
+Zipformer's accuracy within bounds that do not resolve a difference (inconclusive on both the selection panel and
+the unselected half), and the live stream supplies the always-on, low-latency path at a fraction of the cost.
 
 \input{data/table_versus.tex}
 
@@ -51,10 +51,8 @@ Zipformer's chunk, runs at \VsWideSpeedX$\times$ its speed and \VsWideEnergyPct\
 for the 160\,ms row); its gap on the unselected half is \CandLiveLmEightCDelta\pp. The prior release \PriorVer{} (timed in an earlier session, against that
 session's Zipformer, so no ratio is formed) ran live at \VsPriorLiveSpeed$\times$ with \VsPriorLiveWer\% WER and \VsPriorLiveWatts\,J per audio-second
 (\VsPriorLiveDelta\pp, bounds \VsPriorLiveLo{} to \VsPriorLiveHi) and its final pass at \VsPriorFinalSpeed$\times$ with \VsPriorFinalWer\% WER
-and \VsPriorFinalWatts\,J (\VsPriorFinalDelta\pp, bounds \VsPriorFinalLo{} to \VsPriorFinalHi). Against \PriorVer{}'s live greedy on the
-same panel, \ReleaseVer{} live with the language model is \CandLiveLmOldDelta\pp (bounds \CandLiveLmOldLo{} to \CandLiveLmOldHi), live greedy
-\CandLiveGreedyOldDelta\pp (\CandLiveGreedyOldLo{} to \CandLiveGreedyOldHi), and the final pass \CandFinalOldDelta\pp (\CandFinalOldLo{} to
-\CandFinalOldHi).
+and \VsPriorFinalWatts\,J (\VsPriorFinalDelta\pp, bounds \VsPriorFinalLo{} to \VsPriorFinalHi). Against \PriorVer{} on the same panel, \ReleaseVer{} live with the language model is \CandLiveLmOldDelta\pp
+(bounds \CandLiveLmOldLo{} to \CandLiveLmOldHi), live greedy \CandLiveGreedyOldDelta\pp and the final pass \CandFinalOldDelta\pp.
 
 
 \subsection{The Registered Look at \ReleaseVer{} (RC2)}\label{sec:candidate}

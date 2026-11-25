@@ -66,7 +66,7 @@ Quantity & Definition and boundary \\
 \midrule
 Cold throughput & Median audio-s / CPU-s across 3 cold runs on 1 pinned Zen~2 core (process tree, model load included). \\
 Paced utilisation & Fraction of one core busy while serving $N$ real-time paced (20\,ms packet) live streams. \\
-Active core W & Service-core RAPL energy per audio-s (\texttt{core\_msr\_active}, includes core idle floor; CPU domain only, not wall power). \\
+Active core J/audio-s & Service-core RAPL energy per audio-s (\texttt{core\_msr\_active}, includes core idle floor; CPU domain only, not wall power). \\
 Net / gross W & Paced core power per stream with (net) or without (gross) subtracting the idle core floor. \\
 Peak RSS & Peak resident memory of the full recogniser process tree (MB, $10^6$ bytes), distinct from on-disk artifact size. \\
 Lag vs.\ delay & Live stable-word lag vs.\ forced-aligned word ends (128\,s continuous stream); final commit delay after utterance endpoint. \\

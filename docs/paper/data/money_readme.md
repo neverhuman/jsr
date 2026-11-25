@@ -6,8 +6,8 @@
 
 **Figure 1.** Isosyll v3.1.0 live (160 ms, +LM): 32.7×, 5.54% WER on the selection panel (+0.81 pp on unselected DEV) vs. Zipformer INT8 14.0×, 5.25%; final 5.00%, 16.8×. [Paper](docs/paper/paper.pdf) · [v3.1.0 record](docs/ultra/releases/v3.1.0.md).
 
-- **Always-on.** 2.33× Zipformer INT8's speed at 57% of its active core energy and 72% of its memory (greedy: 2.46×, 56%, 49%), with a WER gap to Zipformer of +0.28 [−0.02, +0.58] pp on the selection panel and +0.81 [+0.62, +1.02] pp on unselected DEV.
-- **Final text.** 5.00% WER from the same weights against Zipformer's 5.25% (paired bounds include 0 on both halves), at 1.19× its speed and 115% of its energy.
+- **Always-on.** 32.67× vs. 14.04× real time for Zipformer INT8 (2.33× paired), at 57.3% of its active-core J/audio-s and 109.47 MB (72% of its memory); greedy: 2.46×, 56%, 49%. WER gap to Zipformer: +0.28 [−0.02, +0.58] pp on the selection panel, +0.81 [+0.62, +1.02] pp on the unselected C half.
+- **Final text.** 5.00% WER from the same weights against Zipformer's 5.25% (paired bounds include 0 on the selection panel and on the unselected C half), at 1.19× its speed and 115% of its energy.
 - **Bit-exact and portable.** 18 witness runs on other x86 and ARM CPUs reproduce all 730 transcripts (three SIMD backends); the four-backend scalar parity holds on main from b6a924e8, not for the v3.1.0 binary.
 
 | | WER (%) | Δ selection panel (pp) | Δ unselected C half (pp) | Speed (× RT) | J per audio-s | RSS (MB) |
@@ -17,5 +17,5 @@
 | **Isosyll v3.1.0 live +LM (160 ms)** | 5.54 | +0.28 [−0.02, +0.58] | +0.81 [+0.62, +1.02] | 32.7 (2.33×) | 0.328 (57%) | 109 (72%) |
 | **Isosyll v3.1.0 final** | 5.00 | −0.26 [−0.57, +0.05] | −0.11 [−0.35, +0.11] | 16.8 (1.19×) | 0.661 (115%) | 387 (254%) |
 
-Released by owner decision after missing the registered gates (5540 vs. 5489 full-DEV final edits; 800 vs. 722 live and 722 vs. 650 final panel edits). LibriSpeech DEV only, exploratory. Δ is ours minus Zipformer's, one-sided 95% bounds; ratios in parentheses are medians of within-block ratios to Zipformer timed in the same blocks. [v3.1.0 record](docs/ultra/releases/v3.1.0.md) · [paper](docs/paper/paper.pdf) (320 ms row, v3.0.0 comparison, protocol, limits).
+Released by owner decision after missing the registered gates (5540 vs. 5489 full-DEV final edits; 800 vs. 722 live and 722 vs. 650 final panel edits); live +LM scores 6.10% on full DEV (descriptive: it contains the selection half) and +0.81 [+0.62, +1.02] pp against Zipformer on the unselected C half. LibriSpeech DEV only, exploratory. Δ is ours minus Zipformer's, one-sided 95% bounds; ratios in parentheses are medians of within-block ratios to Zipformer timed in the same blocks. [v3.1.0 record](docs/ultra/releases/v3.1.0.md) · [paper](docs/paper/paper.pdf) (320 ms row, v3.0.0 comparison, protocol, limits).
 <!-- money-plot:end -->

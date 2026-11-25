@@ -341,3 +341,30 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
     assert "not for the v3.1.0 binary" in block and rec["ScalarMainCommit"]["value"] in block
     results = (PAPER / "sections" / "results.tex").read_text()
     assert "does not\napply to the" in results and "ScalarMainCommit" in results and "ScalarRelCommit" in results
+
+
+def test_headline_precision_gate_scope_and_install_sample_are_exact():
+    readme = (pd.REPO / "README.md").read_text()
+    block = (DATA / "money_readme.md").read_text()
+    for must in ("32.67× vs. 14.04×", "57.3%", "109.47 MB", "live +LM scores 6.10% on full DEV", "the selection panel and on the unselected C half"):
+        assert must in block, must
+    assert "both halves" not in block and "reranking those lists cannot reach 5%" in (DATA / "v4_readme.md").read_text()
+    # install sample: no `<wav-dir>` (a Bash redirection), staged names and output schemas stated, extraction and check on separate lines
+    install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)[0]
+    assert "<wav-dir>" not in install and "./wav-dir ./live.jsonl" in install and "u00000.wav" in install
+    assert "`provisional` and `committed`" in install and "`id` and `hyp`" in install
+    assert "tar -xf ultra-v3.1.0-int8-bundle.tar\n  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS" in install and "&& sha256sum" not in install
+    release = (pd.REPO / "docs/release.md").read_text()
+    assert "<wav-dir>" not in release and "{\"id\", \"hyp\"}" in release
+    rc2 = (pd.REPO / "docs/ultra/releases/v3.1.0-rc2.md").read_text()
+    assert "Historical record" in rc2 and "v3.1.0.md" in rc2 and "are complete" in rc2 and "Pending: the quiet-host" not in rc2
+    # intro/limitations claims are scoped to the matched Zipformer, and benchmark energy is in J per audio-second
+    rec = _records()
+    for rid in ("ColdIntroLiveItem", "ColdSpeedSentence", "ColdMemorySentence", "ColdIntroContrib", "ColdLimitLive", "ColdConclusionResult", "ColdWattsSentence"):
+        text = rec[rid]["value"]
+        assert "every comparator" not in text and not re.search(r"\d\\,W\b", text), rid
+    assert "J per audio-second" in rec["ColdIntroLiveItem"]["value"] and "matched streaming" in rec["ColdIntroLiveItem"]["value"]
+    results = (PAPER / "sections" / "results.tex").read_text()
+    assert "inconclusive on both the selection panel" in results and "Zipformer-class" not in results
+    v4 = (PAPER / "sections" / "v4_findings.tex").read_text()
+    assert "VfRtenRatio" in v4 and "development CPU" in v4 and "not energy-qualified" in v4 and "recorded fixed beam" in v4
