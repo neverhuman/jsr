@@ -1,12 +1,12 @@
 {
  "schema": "ultra.release-pin/v1",
- "release": "v3.1.0",
- "artifact": "ULTRA v3.1.0 (RC2: REGctl boundary step 43,980 EMA INT8 + 3bd85e9e decoders), signed",
- "tag": "v3.1.0",
- "tag_object": "a0d5916503982c6e2ff356fec69ee00208533bca",
- "tag_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
- "build_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
- "download_base": "https://github.com/neverhuman/jsr/releases/download/v3.1.0/",
+ "release": "v3.2.0",
+ "artifact": "ULTRA v3.2.0 (RC2 INT8 model unchanged; 6d95f37d decoders with opt-in Z1 --rms-norm), signed",
+ "tag": "v3.2.0",
+ "tag_object": "TODO-LEAD",
+ "tag_commit": "TODO-LEAD",
+ "build_commit": "6d95f37d320085aa27806e0e83b1538db02a5684",
+ "download_base": "https://github.com/neverhuman/jsr/releases/download/v3.2.0/",
  "signing": {
   "format": "ssh",
   "key_type": "ed25519",
@@ -15,7 +15,7 @@
   "allowed_signers": "docs/ultra/releases/allowed_signers",
   "file_namespace": "file"
  },
- "sha256sums_sha256": "7aa74cd10ccc68371fae2eb3d9825e739a1452138ea91f0a4c361b3ac7d546e2",
+ "sha256sums_sha256": "7d656490a0ff1e749b5af90bcd2d27c37aa1c4956eec2603526da131a8b847fd",
  "assets": {
   "M5.ulm": {
    "sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982",
@@ -25,31 +25,35 @@
    "sha256": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e",
    "bytes": 36195286
   },
-  "ultra-engine-commit": {
-   "sha256": "69abed7968b8dce2b5cf4b6e7604630af05f15563a408c06df2fc90d03f4e6f1",
-   "bytes": 7994032
-  },
   "ultra-cold-wav": {
-   "sha256": "2f3f01af6dda7f1b4b7fe66b999a076d62c26117c87b61a965d8dd4301609848",
-   "bytes": 8200152
+   "sha256": "55e13eee0cc443fa32e81430c093c5c30b81ca4000ad34cdfa5036dc67fb83a1",
+   "bytes": 8298360
+  },
+  "ultra-engine-commit": {
+   "sha256": "8e70f57645474aa38732c55bf07c155d04a8d23c0d2b30621220f36d6465eb86",
+   "bytes": 8106600
   },
   "ultra-score": {
    "sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
    "bytes": 4207152
   },
-  "ultra-v3.1.0-int8-bundle.SHA256SUMS": {
+  "ultra-v3.2.0-int8-bundle.SHA256SUMS": {
    "sha256": "871d2b19ab07aa5206d3efacebe9b6da03d4bc45ffda3aac48415e2562025c76",
    "bytes": 425
   },
-  "ultra-v3.1.0-int8-bundle.tar": {
+  "ultra-v3.2.0-int8-bundle.tar": {
    "sha256": "3f7d377633bd5fb73fc20203293a2b6bc20902359d48101a56c343e6ac287bbd",
    "bytes": 59914240
+  },
+  "ultra-v3.2.0-sbom.tar": {
+   "sha256": "1d134ba3713fb70d72bb93e4366c03d8d3eb21d99e6c1ed7993c7b8e836f14a4",
+   "bytes": 522240
   }
  },
- "install_dir": "models/sha256-7aa74cd10ccc68371fae2eb3d9825e739a1452138ea91f0a4c361b3ac7d546e2",
+ "install_dir": "models/sha256-7d656490a0ff1e749b5af90bcd2d27c37aa1c4956eec2603526da131a8b847fd",
  "bundle": {
-  "tar": "ultra-v3.1.0-int8-bundle.tar",
-  "manifest": "ultra-v3.1.0-int8-bundle.SHA256SUMS",
+  "tar": "ultra-v3.2.0-int8-bundle.tar",
+  "manifest": "ultra-v3.2.0-int8-bundle.SHA256SUMS",
   "files": {
    "int8/arch.json": {
     "sha256": "9cbe50ed97ac4570445389ca71921d3fcd46acab9238cf98f47f52b68b85d875",
@@ -147,7 +151,11 @@
    ]
   }
  },
- "rollback": "v3.0.1 (install_dir models/sha256-7612d5beb2b577893b649033073d44c6198c0e83a275e3980b3ede38e0162ef7)",
- "record": "docs/ultra/releases/v3.1.0.md",
- "published": "2026-11-24T23:54:58Z"
+ "rollback": "v3.1.0 (install_dir models/sha256-7aa74cd10ccc68371fae2eb3d9825e739a1452138ea91f0a4c361b3ac7d546e2)",
+ "record": "docs/ultra/releases/v3.2.0.md",
+ "optional_flags": {
+  "ultra-engine-commit": [
+   "--rms-norm"
+  ]
+ }
 }
