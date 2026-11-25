@@ -9,6 +9,7 @@
 //! - `5`: resource limit / backpressure failure
 
 pub mod bench_cmd;
+pub mod bench_paced_cmd;
 pub mod bundle_cmd;
 pub mod display_text;
 pub mod inventory;
@@ -252,6 +253,10 @@ pub fn usage_text() -> &'static str {
        bench --candidate ID [--split SPLIT | --npz PATH] [--limit N] [--offset N] [--duration-s S]\n\
              [--streams N] [--decode single|batch] [--grid-ms G] [--precision int8|fp32] [--paced]\n\
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\
+       bench-paced --candidate PATH --out-dir DIR [--split SPLIT | --npz PATH] [--panel PATH]\n\
+                   [--limit N] [--offset N] [--streams N] [--packet-ms 20] [--grid-ms 20]\n\
+                   [--coalesce-ms MS] [--max-chunks K] [--chunk C] [--beam B] [--lm PATH]\n\
+                   [--precision int8|fp32] [--threads N]\n\
        bench-suite --out-dir DIR [--candidates CSV] [--split SPLIT] [--limit N] [--batch-streams N]\n\
                    [--density-workers W] [--density-streams N] [--density-seconds S] [--latency-limit N]\n\
                    [--sustained-seconds S] [--silence-probe] [--observer-cpus LIST] [--precision int8|fp32]\n\
@@ -276,6 +281,7 @@ pub fn run_cli_args(args: &[String]) -> Result<(), CliError> {
         "transcribe" => runner::cmd_transcribe(rest, false),
         "stream" => runner::cmd_transcribe(rest, true),
         "sp-a" | "bench" => bench_cmd::cmd_bench(rest),
+        "bench-paced" => bench_paced_cmd::cmd_bench_paced(rest),
         "bench-suite" => suite_cmd::cmd_bench_suite(rest),
         "score" => bench_cmd::cmd_score(rest),
         "compare" => bench_cmd::cmd_compare(rest),
