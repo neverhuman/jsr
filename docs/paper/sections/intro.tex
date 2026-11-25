@@ -16,10 +16,9 @@ points:
 \item \textbf{Live streaming (\ultra{} \ReleaseVer{} live):} \ColdIntroLiveItem{}
 \item \textbf{Utterance-segmented final text (\ultra{} \ReleaseVer{} final, seg.):} the exact same
   INT8 weights run a second-pass 640\,ms chunk commit pass with a 5-gram language model and
-  log-density-ratio (LODR) beam search at utterance endpoints, running within two percent of
-  streaming Zipformer INT8's single-core speed (\ColdHeadSpeed$\times$ utterance-segmented vs.\
-  \ColdZipSpeed$\times$ streaming) at \ColdHeadWer\% pooled 730-utterance DEV panel WER
-  (\RelFullFinalPooled\% on full LibriSpeech DEV), \VsVerdictTwo{} Zipformer's \ColdZipWer\%.
+  log-density-ratio (LODR) beam search at utterance endpoints, running \ColdFinalVsZipSpeed{}
+  at \ColdHeadWer\% pooled 730-utterance DEV panel WER
+  (\CandFinalFullWer\% on full LibriSpeech DEV), \VsVerdictTwo{} Zipformer's \ColdZipWer\%.
 \end{itemize}
 
 \para{Integer exactness.} Every quantised GEMM accumulates exactly in int32, every activation row
@@ -34,18 +33,23 @@ at our cost point, streaming Zipformer INT8 (\cref{tab:versus}).
 \begin{enumerate}
 \item \textbf{Always-on cost.} The live stream needs \VsCpuPctOne\% of Zipformer INT8's CPU time and
   \VsEnergyPctOne\% of its active core energy per audio second, in \VsRssPctOne\% of its memory, with
-  half its chunk length; sixteen paced live streams share one quiet Zen~2 core at
-  \RelCapSixteenBusy\% load (\RelCapSixteenNetW\,W net core power per stream, \RelCapSixteenLagPninetyFive\,ms
-  p95 stable-word lag; \cref{sec:versus,sec:capacity}).
+  half its chunk length, timed in the same interleaved blocks (\cref{sec:versus}); for the prior release,
+  sixteen paced live streams share one quiet Zen~2 core at \RelCapSixteenBusy\% load
+  (\RelCapSixteenNetW\,W net core power per stream, \RelCapSixteenLagPninetyFive\,ms p95 stable-word lag;
+  \cref{sec:capacity}).
 \item \textbf{Final text from the same weights.} An utterance-end commit pass on the same INT8 artifact is
   \VsVerdictTwo{} Zipformer INT8 on pooled WER under a paired, speaker-clustered test, at
-  \VsSpeedXTwo$\times$ its single-core speed (\cref{sec:versus}).
+  \VsSpeedXTwo$\times$ its single-core speed (\cref{sec:versus}). \ultra{} \ReleaseVer{} is released by owner
+  decision after missing its registered full-DEV final gate (\CandFinalFullEdits{} edits against
+  \CandGateFinalFull); its live gap to Zipformer on unselected DEV is \CandLiveLmCDelta{} points
+  (\cref{sec:candidate}).
 \item \textbf{Reproducible integer-exact CPU engine.} Pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp on full DEV (\RelFullUtts{} utterances)
   with batch-invariant, repeatable execution and identical live transcripts across x86 and ARM kernels
   (\cref{sec:engine}).
-\item \textbf{Long-run training evidence.} A \TrainTotalKh\,h training record showing where a small
-  streaming model saturates and which data moves it (\cref{sec:training}).
+\item \textbf{Long-run training evidence and negative results.} A \TrainTotalKh\,h training record of the
+  prior release showing where a small streaming model saturates and which data moves it
+  (\cref{sec:training}), and a report of what did not move live accuracy afterwards (\cref{sec:v4negative}).
 \item \textbf{Unified protocol and honest scope.} Same 730 DEV utterances (\ColdAudioMinutes\,min),
   one pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, same-run active
   core power, and explicit host/subset provenance tags (\cref{sec:protocol}).

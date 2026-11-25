@@ -4,20 +4,25 @@
 \newcommand{\PaperTitle}{Isosyll: Always Listening, Barely Computing}
 \newcommand{\PaperDescriptor}{Bit-Exact Streaming Speech Recognition on One CPU Core}
 
-\newcommand{\AbsAccuracy}{On the 730-utterance LibriSpeech DEV panel, \ultra{} v3.0.0 (final, seg.) scores 5.06\% pooled WER (3.25\% dev-clean, 7.65\% dev-other), ranking 8th of 17 complete-panel systems (lower point-estimate WER than 8 of 15 public comparators (including streaming Zipformer INT8 at 5.25\%)); \ultra{} v3.0.0 (live) on the exact same INT8 weights scores 6.85\% pooled. On full LibriSpeech DEV (5,567 utt), final text reaches 5.48\% pooled (2.92\% clean / 8.20\% other; live 7.45\%). Larger models score lower at higher CPU cost on their respective timing hosts (3.56\% for Nemotron 560\,ms and 3.36\% for Parakeet TDT v3 (onnx-asr, offline)).}% [exploratory] sentence
+\newcommand{\AbsAccuracy}{On the 730-utterance LibriSpeech DEV panel, \ultra{} v3.1.0 (final, seg.) scores 5.00\% pooled WER (3.03\% dev-clean, 7.80\% dev-other), ranking 8th of 17 complete-panel systems (lower point-estimate WER than 8 of 15 public comparators (including streaming Zipformer INT8 at 5.25\%)); \ultra{} v3.1.0 (live +LM) on the exact same INT8 weights scores 5.54\% pooled. On full LibriSpeech DEV (5,567 utt), final text reaches 5.22\% pooled (2.78\% clean / 7.82\% other; live 6.10\%). Larger models score lower at higher CPU cost on their respective timing hosts (3.56\% for Nemotron 560\,ms and 3.36\% for Parakeet TDT v3 (onnx-asr, offline)).}% [exploratory] sentence
 \newcommand{\AbsParity}{Per-row centred INT8 with exact int32 accumulation and portable log-mel matches FP32 PyTorch on full DEV (5,567 utterances) within $-$0.003\,pp (95\% bounds $-$0.033 to +0.028\,pp), with repeatable, batch-invariant execution.}% [exploratory] sentence
-\newcommand{\AbsSpeed}{One live stream (\ultra{} v3.0.0 (live)) uses 3.4\% of one quiet Zen~2 core (29.1$\times$ real time (2.0$\times$ streaming Zipformer INT8, fastest in the quiet full-panel H1 cohort)) and 74\,MB peak RAM (smallest quiet-H1 footprint); \ultra{} v3.0.0 (final, seg.) runs at 14.2$\times$ real time and 725\,MB RAM (median final-text delay 211\,ms after endpoint), within 2\% of streaming Zipformer INT8's single-core speed (14.2$\times$ utterance-segmented vs. 14.5$\times$ streaming).}% [exploratory] sentence
-\newcommand{\AbsWatts}{Unpaced active core power on quiet H1 is 0.344\,W per stream for \ultra{} v3.0.0 (live) and 0.720\,W (1.64\,W package) for \ultra{} v3.0.0 (final, seg.), against 0.591\,W for Zipformer INT8, 1.077\,W for Moonshine Tiny, 1.711\,W for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513\,W for Nemotron 560\,ms (quiet 73-clip timing) (CPU domain only, not wall power).}% [exploratory] sentence
+\newcommand{\AbsSpeed}{One live stream (\ultra{} v3.1.0 (live +LM)) uses 3.1\% of one quiet Zen~2 core (32.7$\times$ real time (2.3$\times$ streaming Zipformer INT8, the fastest comparator)) and 109\,MB peak RAM (smaller than every comparator); \ultra{} v3.1.0 (final, seg.) runs at 16.8$\times$ real time and 387\,MB RAM, at 1.19x streaming Zipformer INT8's single-core speed (16.8$\times$ utterance-segmented vs. 14.0$\times$ streaming).}% [exploratory] sentence
+\newcommand{\AbsWatts}{Unpaced active core power on quiet H1 is 0.328\,W per stream for \ultra{} v3.1.0 (live +LM) and 0.661\,W for \ultra{} v3.1.0 (final, seg.), against 0.573\,W for Zipformer INT8, 1.077\,W for Moonshine Tiny, 1.711\,W for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513\,W for Nemotron 560\,ms (quiet 73-clip timing) (CPU domain only, not wall power).}% [exploratory] sentence
+\newcommand{\CandCUtts}{2785}% [exploratory] utterances
 \newcommand{\CandFinalCDelta}{$-$0.11}% [exploratory] pp WER
 \newcommand{\CandFinalCHi}{+0.11}% [exploratory] pp WER
 \newcommand{\CandFinalCLo}{$-$0.35}% [exploratory] pp WER
 \newcommand{\CandFinalEdits}{722}% [exploratory] edits
+\newcommand{\CandFinalFullClean}{2.78}% [exploratory] % WER
 \newcommand{\CandFinalFullEdits}{5540}% [exploratory] edits
+\newcommand{\CandFinalFullOther}{7.82}% [exploratory] % WER
 \newcommand{\CandFinalFullWer}{5.22}% [exploratory] % WER
 \newcommand{\CandFinalLowmemCDelta}{$-$0.10}% [exploratory] pp WER
 \newcommand{\CandFinalLowmemCHi}{+0.12}% [exploratory] pp WER
 \newcommand{\CandFinalLowmemCLo}{$-$0.35}% [exploratory] pp WER
 \newcommand{\CandFinalLowmemEdits}{735}% [exploratory] edits
+\newcommand{\CandFinalLowmemFullClean}{2.84}% [exploratory] % WER
+\newcommand{\CandFinalLowmemFullOther}{7.79}% [exploratory] % WER
 \newcommand{\CandFinalLowmemFullWer}{5.24}% [exploratory] % WER
 \newcommand{\CandFinalLowmemPanelDelta}{$-$0.17}% [exploratory] pp WER
 \newcommand{\CandFinalLowmemPanelHi}{+0.15}% [exploratory] pp WER
@@ -30,6 +35,8 @@
 \newcommand{\CandFinalPanelHi}{+0.05}% [exploratory] pp WER
 \newcommand{\CandFinalPanelLo}{$-$0.57}% [exploratory] pp WER
 \newcommand{\CandFinalWer}{5.00}% [exploratory] % WER
+\newcommand{\CandFullCleanUtts}{2703}% [exploratory] utterances
+\newcommand{\CandFullOtherUtts}{2864}% [exploratory] utterances
 \newcommand{\CandGateFinalFull}{5489}% [exploratory] edits
 \newcommand{\CandGateFinalPanel}{650}% [exploratory] edits
 \newcommand{\CandGateLivePanel}{722}% [exploratory] edits
@@ -41,6 +48,8 @@
 \newcommand{\CandLiveGreedyCHi}{+1.90}% [exploratory] pp WER
 \newcommand{\CandLiveGreedyCLo}{+1.31}% [exploratory] pp WER
 \newcommand{\CandLiveGreedyEdits}{900}% [exploratory] edits
+\newcommand{\CandLiveGreedyFullClean}{3.66}% [exploratory] % WER
+\newcommand{\CandLiveGreedyFullOther}{10.22}% [exploratory] % WER
 \newcommand{\CandLiveGreedyFullWer}{6.83}% [exploratory] % WER
 \newcommand{\CandLiveGreedyOldDelta}{$-$0.62}% [exploratory] pp WER
 \newcommand{\CandLiveGreedyOldHi}{$-$0.38}% [exploratory] pp WER
@@ -57,6 +66,8 @@
 \newcommand{\CandLiveLmEightCHi}{+0.84}% [exploratory] pp WER
 \newcommand{\CandLiveLmEightCLo}{+0.47}% [exploratory] pp WER
 \newcommand{\CandLiveLmEightEdits}{794}% [exploratory] edits
+\newcommand{\CandLiveLmEightFullClean}{3.12}% [exploratory] % WER
+\newcommand{\CandLiveLmEightFullOther}{8.79}% [exploratory] % WER
 \newcommand{\CandLiveLmEightFullWer}{5.87}% [exploratory] % WER
 \newcommand{\CandLiveLmEightOldDelta}{$-$1.35}% [exploratory] pp WER
 \newcommand{\CandLiveLmEightOldHi}{$-$1.03}% [exploratory] pp WER
@@ -65,6 +76,8 @@
 \newcommand{\CandLiveLmEightPanelHi}{+0.52}% [exploratory] pp WER
 \newcommand{\CandLiveLmEightPanelLo}{$-$0.04}% [exploratory] pp WER
 \newcommand{\CandLiveLmEightWer}{5.50}% [exploratory] % WER
+\newcommand{\CandLiveLmFullClean}{3.25}% [exploratory] % WER
+\newcommand{\CandLiveLmFullOther}{9.13}% [exploratory] % WER
 \newcommand{\CandLiveLmFullWer}{6.10}% [exploratory] % WER
 \newcommand{\CandLiveLmOldDelta}{$-$1.31}% [exploratory] pp WER
 \newcommand{\CandLiveLmOldHi}{$-$1.00}% [exploratory] pp WER
@@ -77,51 +90,52 @@
 \newcommand{\CandTrainKh}{276{,}863}% [exploratory] audio-h
 \newcommand{\CandZipCWer}{5.13}% [exploratory] % WER
 \newcommand{\CandZipFullWer}{5.37}% [exploratory] % WER
-\newcommand{\ColdAbstractFinal}{The full live-plus-commit pipeline, committing at reference utterance boundaries, reaches 5.06\% pooled WER at 14.2$\times$ real time.}% [exploratory] sentence
-\newcommand{\ColdAbstractLive}{Live decoding runs at 29.1$\times$ real time with 74\,MB peak RSS, 0.344\,J active core energy per audio-second, and 6.85\% pooled WER.}% [exploratory] sentence
+\newcommand{\ColdAbstractFinal}{The full live-plus-commit pipeline, committing at reference utterance boundaries, reaches 5.00\% pooled WER at 16.8$\times$ real time.}% [exploratory] sentence
+\newcommand{\ColdAbstractLive}{Live decoding runs at 32.7$\times$ real time with 109\,MB peak RSS, 0.328\,J active core energy per audio-second, and 5.54\% pooled WER.}% [exploratory] sentence
 \newcommand{\ColdAbstractMoreAcc}{Seven of the 15 public recognisers we measured are more accurate than the final mode.}% [reported] sentence
-\newcommand{\ColdAbstractZip}{Streaming Zipformer INT8 reaches 14.5$\times$ real time and 5.25\% WER under the matched protocol; Isosyll live delivers 2.0$\times$ its throughput at 58\% of its active core energy.}% [exploratory] sentence
+\newcommand{\ColdAbstractZip}{Streaming Zipformer INT8 reaches 14.0$\times$ real time and 5.25\% WER under the matched protocol; Isosyll live delivers 2.3$\times$ its throughput at 57\% of its active core energy.}% [exploratory] sentence
 \newcommand{\ColdAccuracyCount}{7}% [reported] rows
-\newcommand{\ColdAccuracySentence}{\ultra{} v3.0.0 (final, seg.) (5.06\% pooled) ranks 8th of 17 complete-panel systems (lower point-estimate WER than 8 of 15 public comparators, including streaming Zipformer INT8 at 5.25\%). 7 of the 15 comparators achieve lower pooled WER. Among configurations with plotted throughput, Parakeet TDT v3 (onnx-asr, offline) has the lowest pooled WER at 3.36\% (2.52\% dev-clean, 4.58\% dev-other), 1.70 points below \ultra{} v3.0.0 (final, seg.).}% [reported] sentence
+\newcommand{\ColdAccuracySentence}{\ultra{} v3.1.0 (final, seg.) (5.00\% pooled) ranks 8th of 17 complete-panel systems (lower point-estimate WER than 8 of 15 public comparators, including streaming Zipformer INT8 at 5.25\%). 7 of the 15 comparators achieve lower pooled WER. Among configurations with plotted throughput, Parakeet TDT v3 (onnx-asr, offline) has the lowest pooled WER at 3.36\% (2.52\% dev-clean, 4.58\% dev-other), 1.63 points below \ultra{} v3.1.0 (final, seg.).}% [reported] sentence
 \newcommand{\ColdAnchorCount}{0}% [reported] rows
 \newcommand{\ColdAnchorSentence}{No system has a quiet second measurement yet, so there is no host-agreement check.}% [reported] sentence
 \newcommand{\ColdAudioMinutes}{87.7}% [reported] minutes of audio
 \newcommand{\ColdComparatorCount}{12}% [reported] rows
 \newcommand{\ColdCompleteCompCount}{15}% [reported] rows
 \newcommand{\ColdCompletePanelCount}{17}% [reported] rows
-\newcommand{\ColdConclusionResult}{both quiet full-panel H1 Pareto-frontier operating points on one INT8 artifact: 29.1$\times$ real-time continuous live streaming at 0.344\,W and 74\,MB RAM (6.85\% panel WER), and an utterance-segmented commit pass reaching 5.06\% pooled panel WER (5.48\% on full DEV) at 14.2$\times$ real time (725\,MB RAM, 0.720\,W, median 211\,ms delay)---within 2\% of streaming Zipformer INT8's single-core speed (14.2$\times$ utterance-segmented vs.\ 14.5$\times$ streaming) at 5.06\% vs.\ 5.25\% pooled WER}% [reported] sentence
-\newcommand{\ColdFinalCorePct}{7.1}% [exploratory] % of one core
-\newcommand{\ColdHeadCorePct}{3.4}% [exploratory] % of one core
-\newcommand{\ColdHeadCpu}{0.071}% [exploratory] CPU-s/audio-s
-\newcommand{\ColdHeadModel}{391}% [exploratory] MB of model files
-\newcommand{\ColdHeadRss}{725}% [exploratory] MB peak resident memory
-\newcommand{\ColdHeadSentence}{On one quiet Zen~2 core (host H1), \ultra{} v3.0.0 (live) decodes cold at 29.1$\times$ real time (3.4\% of one core, 74\,MB peak memory) at 6.85\% pooled panel WER (4.12\% dev-clean, 10.75\% dev-other). Adding the utterance-segmented commit pass on the same weights (\ultra{} v3.0.0 (final, seg.)) runs cold at 14.2$\times$ real time (725\,MB peak memory) and reaches pooled panel WER 5.06\% (3.25\% dev-clean, 7.65\% dev-other).}% [reported] sentence
-\newcommand{\ColdHeadSpeed}{14.2}% [exploratory] x real time, one core
-\newcommand{\ColdHeadSpeedOverFast}{2.0}% [exploratory] x
-\newcommand{\ColdHeadWatts}{0.720}% [exploratory] W per stream (live + commit)
-\newcommand{\ColdHeadWer}{5.06}% [exploratory] % WER, pooled
+\newcommand{\ColdConclusionResult}{two operating points on one INT8 artifact: 32.7$\times$ real-time continuous live streaming at 0.328\,W and 109\,MB RAM (5.54\% panel WER), and an utterance-segmented commit pass reaching 5.00\% pooled panel WER (5.22\% on full DEV) at 16.8$\times$ real time (387\,MB RAM, 0.661\,W, commit delay not re-measured)---at 1.19$\times$ streaming Zipformer INT8's single-core speed (16.8$\times$ utterance-segmented vs.\ 14.0$\times$ streaming) at 5.00\% vs.\ 5.25\% pooled WER}% [reported] sentence
+\newcommand{\ColdFinalCorePct}{5.9}% [exploratory] % of one core
+\newcommand{\ColdFinalVsZipSpeed}{at 1.19$\times$ streaming Zipformer INT8's single-core speed (16.8$\times$ utterance-segmented vs.\ 14.0$\times$ streaming)}% [reported] sentence
+\newcommand{\ColdHeadCorePct}{3.1}% [exploratory] % of one core
+\newcommand{\ColdHeadCpu}{0.059}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdHeadModel}{60}% [exploratory] MB of model files
+\newcommand{\ColdHeadRss}{387}% [exploratory] MB peak resident memory
+\newcommand{\ColdHeadSentence}{On one quiet Zen~2 core (host H1), \ultra{} v3.1.0 (live +LM) decodes cold at 32.7$\times$ real time (3.1\% of one core, 109\,MB peak memory) at 5.54\% pooled panel WER (3.20\% dev-clean, 8.88\% dev-other). Adding the utterance-segmented commit pass on the same weights (\ultra{} v3.1.0 (final, seg.)) runs cold at 16.8$\times$ real time (387\,MB peak memory) and reaches pooled panel WER 5.00\% (3.03\% dev-clean, 7.80\% dev-other).}% [reported] sentence
+\newcommand{\ColdHeadSpeed}{16.8}% [exploratory] x real time, one core
+\newcommand{\ColdHeadSpeedOverFast}{2.3}% [exploratory] x
+\newcommand{\ColdHeadWatts}{0.661}% [exploratory] W per stream (live + commit)
+\newcommand{\ColdHeadWer}{5.00}% [exploratory] % WER, pooled
 \newcommand{\ColdHeadWerBeaten}{8}% [reported] rows
-\newcommand{\ColdHeadWerClean}{3.25}% [exploratory] % WER, dev-clean half
-\newcommand{\ColdHeadWerGapBest}{1.70}% [exploratory] pp WER
-\newcommand{\ColdHeadWerOther}{7.65}% [exploratory] % WER, dev-other half
+\newcommand{\ColdHeadWerClean}{3.03}% [exploratory] % WER, dev-clean half
+\newcommand{\ColdHeadWerGapBest}{1.63}% [exploratory] pp WER
+\newcommand{\ColdHeadWerOther}{7.80}% [exploratory] % WER, dev-other half
 \newcommand{\ColdHeadWerRank}{8}% [reported] rows
 \newcommand{\ColdHeadWerRankOrd}{8th}% [reported] sentence
 \newcommand{\ColdHostAbstract}{3 of the 14 systems are still measured on a shared host; quiet-host rows replace them as they arrive.}% [reported] sentence
 \newcommand{\ColdHostSentence}{3 of the 14 points are still interim (lighter marks): measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
 \newcommand{\ColdHostShort}{Lighter marks (3 of 14 points): interim, measured on the shared host H0 until their quiet-host (H1) rows arrive.}% [reported] sentence
-\newcommand{\ColdIntroContrib}{Fastest live streaming on one quiet Zen~2 core (29.1$\times$ vs.\ 14.5$\times$ for Zipformer INT8, 2.0$\times$; 0.344\,W; 74\,MB RAM; 6.85\% pooled panel WER), paired on the same INT8 weights with an utterance-segmented commit pass (14.2$\times$, 0.720\,W, 725\,MB RAM) that reaches 5.06\% pooled panel WER against 5.25\% for streaming Zipformer INT8 (paired comparison in \cref{sec:versus}) within 2\% of its single-core speed.}% [reported] sentence
-\newcommand{\ColdIntroLiveItem}{160\,ms chunked greedy decoding with no endpoint detector required, using 3.4\% of one quiet Zen~2 core (29.1$\times$ real time, 74\,MB peak RAM, 0.344\,W active core power per stream)---the fastest, lowest-energy, and smallest-footprint system in the quiet full-panel cohort---at 6.85\% pooled panel WER (7.45\% full DEV).}% [reported] sentence
-\newcommand{\ColdLightRssOverHead}{2.1}% [exploratory] x
-\newcommand{\ColdLimitLive}{While \ultra{} v3.0.0 (live) streams continuously at 29.1$\times$ real time, 0.344\,W, and 74\,MB RAM without an endpoint detector, the higher-accuracy \ultra{} v3.0.0 (final, seg.) operating point requires utterance endpoints (capped at 40\,s), adds a median 211\,ms post-endpoint commit delay, and increases peak RSS to 725\,MB due to the 5-gram LM pack.}% [reported] sentence
-\newcommand{\ColdLiveCpu}{0.034}% [exploratory] CPU-s/audio-s
-\newcommand{\ColdLiveModel}{57}% [exploratory] MB of model files
-\newcommand{\ColdLiveRss}{74}% [exploratory] MB peak resident memory
-\newcommand{\ColdLiveSpeed}{29.1}% [exploratory] x real time, one core
-\newcommand{\ColdLiveWatts}{0.344}% [exploratory] W per live stream
-\newcommand{\ColdLiveWer}{6.85}% [exploratory] % WER, pooled
-\newcommand{\ColdLiveWerClean}{4.12}% [exploratory] % WER, dev-clean half
-\newcommand{\ColdLiveWerOther}{10.75}% [exploratory] % WER, dev-other half
-\newcommand{\ColdMemorySentence}{In live mode, \ultra{} peaks at 74\,MB---the smallest footprint in the quiet full-panel cohort, 2.1$\times$ less than the lightest comparator (Zipformer INT8, 153\,MB) and 102.9$\times$ less than Vosk Large (7629\,MB); loading the 5-gram LM for the commit pass raises peak RSS to 725\,MB.}% [reported] sentence
+\newcommand{\ColdIntroContrib}{Live streaming faster than every comparator on one quiet Zen~2 core (32.7$\times$ vs.\ 14.0$\times$ for Zipformer INT8, 2.3$\times$; 0.328\,W; 109\,MB RAM; 5.54\% pooled panel WER), paired on the same INT8 weights with an utterance-segmented commit pass (16.8$\times$, 0.661\,W, 387\,MB RAM) that reaches 5.00\% pooled panel WER against 5.25\% for streaming Zipformer INT8 (paired comparison in \cref{sec:versus}), at 1.19$\times$ streaming Zipformer INT8's single-core speed.}% [reported] sentence
+\newcommand{\ColdIntroLiveItem}{160\,ms chunked decoding with a 34.5\,MiB live language model with no endpoint detector required, using 3.1\% of one quiet Zen~2 core (32.7$\times$ real time, 109\,MB peak RAM, 0.328\,W active core power per stream)---faster, lower-energy and smaller than every comparator in the quiet full-panel cohort---at 5.54\% pooled panel WER (6.10\% full DEV).}% [reported] sentence
+\newcommand{\ColdLightRssOverHead}{1.4}% [exploratory] x
+\newcommand{\ColdLimitLive}{While \ultra{} v3.1.0 (live +LM) streams continuously at 32.7$\times$ real time, 0.328\,W, and 109\,MB RAM without an endpoint detector, the higher-accuracy \ultra{} v3.1.0 (final, seg.) operating point requires utterance endpoints (capped at 40\,s), adds a post-endpoint commit delay (median 211\,ms measured on the prior release, not re-measured), and increases peak RSS to 387\,MB due to the 5-gram LM pack.}% [reported] sentence
+\newcommand{\ColdLiveCpu}{0.031}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdLiveModel}{60}% [exploratory] MB of model files
+\newcommand{\ColdLiveRss}{109}% [exploratory] MB peak resident memory
+\newcommand{\ColdLiveSpeed}{32.7}% [exploratory] x real time, one core
+\newcommand{\ColdLiveWatts}{0.328}% [exploratory] W per live stream
+\newcommand{\ColdLiveWer}{5.54}% [exploratory] % WER, pooled
+\newcommand{\ColdLiveWerClean}{3.20}% [exploratory] % WER, dev-clean half
+\newcommand{\ColdLiveWerOther}{8.88}% [exploratory] % WER, dev-other half
+\newcommand{\ColdMemorySentence}{In live mode, \ultra{} peaks at 109\,MB---smaller than every comparator in the quiet full-panel cohort, 1.4$\times$ less than the lightest comparator (Zipformer INT8, 152\,MB) and 69.7$\times$ less than Vosk Large (7629\,MB); loading the larger 5-gram LM for the commit pass raises peak RSS to 387\,MB.}% [reported] sentence
 \newcommand{\ColdMoonSmallCorePct}{49.5}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdMoonSmallCpu}{0.495}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
@@ -169,7 +183,7 @@
 \newcommand{\ColdNemoThreeFiveWer}{6.14}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveWerClean}{4.14}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
-\newcommand{\ColdOrderSentence}{The dev-other split changes the rank order of 8 systems relative to dev-clean (notably the \ultra{} final mode has lower dev-other WER than Zipformer INT8).}% [reported] sentence
+\newcommand{\ColdOrderSentence}{The dev-other split changes the rank order of 6 systems relative to dev-clean (notably the \ultra{} final mode has lower dev-other WER than Zipformer INT8).}% [reported] sentence
 \newcommand{\ColdParakeetOnnxAsrCorePct}{15.0}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdParakeetOnnxAsrCpu}{0.150}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdParakeetOnnxAsrModel}{670}% [exploratory] MB of model files (10^6 bytes)
@@ -189,19 +203,59 @@
 \newcommand{\ColdParakeetTdtWer}{3.40}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerClean}{2.43}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerOther}{4.78}% [exploratory] % WER
+\newcommand{\ColdRcTwoFinalCorePct}{5.9}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdRcTwoFinalCpu}{0.059}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdRcTwoFinalModel}{60}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdRcTwoFinalRss}{387}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdRcTwoFinalRtfx}{16.8}% [exploratory] audio-s per wall-s
+\newcommand{\ColdRcTwoFinalSpeed}{16.8}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdRcTwoFinalWatts}{0.661}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdRcTwoFinalWer}{5.00}% [exploratory] % WER
+\newcommand{\ColdRcTwoFinalWerClean}{3.03}% [exploratory] % WER
+\newcommand{\ColdRcTwoFinalWerOther}{7.80}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveGreedyCorePct}{2.9}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdRcTwoLiveGreedyCpu}{0.029}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdRcTwoLiveGreedyModel}{60}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdRcTwoLiveGreedyRss}{74}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdRcTwoLiveGreedyRtfx}{34.2}% [exploratory] audio-s per wall-s
+\newcommand{\ColdRcTwoLiveGreedySpeed}{34.2}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdRcTwoLiveGreedyWatts}{0.322}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdRcTwoLiveGreedyWer}{6.23}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveGreedyWerClean}{3.68}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveGreedyWerOther}{9.87}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmCorePct}{3.1}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdRcTwoLiveLmCpu}{0.031}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdRcTwoLiveLmModel}{60}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdRcTwoLiveLmRss}{109}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdRcTwoLiveLmRtfx}{32.7}% [exploratory] audio-s per wall-s
+\newcommand{\ColdRcTwoLiveLmSpeed}{32.7}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdRcTwoLiveLmWatts}{0.328}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdRcTwoLiveLmWer}{5.54}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmWerClean}{3.20}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmWerOther}{8.88}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmWideCorePct}{3.0}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdRcTwoLiveLmWideCpu}{0.030}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdRcTwoLiveLmWideModel}{60}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdRcTwoLiveLmWideRss}{111}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdRcTwoLiveLmWideRtfx}{33.3}% [exploratory] audio-s per wall-s
+\newcommand{\ColdRcTwoLiveLmWideSpeed}{33.3}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdRcTwoLiveLmWideWatts}{0.316}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdRcTwoLiveLmWideWer}{5.50}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmWideWerClean}{3.27}% [exploratory] % WER
+\newcommand{\ColdRcTwoLiveLmWideWerOther}{8.68}% [exploratory] % WER
 \newcommand{\ColdRowsCount}{14}% [reported] rows
 \newcommand{\ColdRowsEnergy}{6}% [reported] rows
 \newcommand{\ColdRowsFaded}{3}% [reported] rows
 \newcommand{\ColdRowsInterim}{3}% [reported] rows
-\newcommand{\ColdRowsLag}{1}% [reported] rows
+\newcommand{\ColdRowsLag}{0}% [reported] rows
 \newcommand{\ColdRowsOffFrontier}{3}% [reported] rows
 \newcommand{\ColdRowsStreaming}{12}% [reported] rows
 \newcommand{\ColdRowsSubset}{4}% [reported] rows
-\newcommand{\ColdRowsUndrawn}{0}% [reported] rows
+\newcommand{\ColdRowsUndrawn}{1}% [reported] rows
 \newcommand{\ColdRowsWhole}{2}% [reported] rows
-\newcommand{\ColdSpeedSentence}{On the quiet full-panel host H1, \ultra{} v3.0.0 (live) is the fastest measured system (29.1$\times$ vs.\ 14.5$\times$ for streaming Zipformer INT8, 2.0$\times$), while utterance-segmented \ultra{} v3.0.0 (final, seg.) runs within 2\% of streaming Zipformer INT8's single-core speed (14.2$\times$ utterance-segmented vs.\ 14.5$\times$ streaming).}% [reported] sentence
+\newcommand{\ColdSpeedSentence}{On the quiet full-panel host H1, \ultra{} v3.1.0 (live +LM) is faster than every comparator (32.7$\times$ vs.\ 14.0$\times$ for streaming Zipformer INT8, 2.3$\times$), while utterance-segmented \ultra{} v3.1.0 (final, seg.) runs at 1.19$\times$ streaming Zipformer INT8's single-core speed (16.8$\times$ utterance-segmented vs.\ 14.0$\times$ streaming).}% [reported] sentence
 \newcommand{\ColdSubsetSentence}{4 slow systems are timed on a 73-utterance subset of the panel (Nemotron 560\,ms, Vosk Large, Whisper.cpp Tiny and Whisper.cpp Base); their WER is from the full panel.}% [reported] sentence
-\newcommand{\ColdSubtitle}{Live: 29.1$\times$ real time, 6.85\% WER $\cdot$ Final (commit pass at utterance ends): 14.2$\times$, 5.06\% WER}% [exploratory] sentence
+\newcommand{\ColdSubtitle}{Live: 32.7$\times$ real time, 5.54\% WER $\cdot$ Final (commit pass at utterance ends): 16.8$\times$, 5.00\% WER}% [exploratory] sentence
 \newcommand{\ColdUltraFinalCorePct}{7.1}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdUltraFinalCpu}{0.071}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdUltraFinalModel}{391}% [exploratory] MB of model files (10^6 bytes)
@@ -242,7 +296,7 @@
 \newcommand{\ColdVoskSmallWer}{14.90}% [exploratory] % WER
 \newcommand{\ColdVoskSmallWerClean}{10.74}% [exploratory] % WER
 \newcommand{\ColdVoskSmallWerOther}{20.86}% [exploratory] % WER
-\newcommand{\ColdWattsSentence}{Active core (CPU-domain) W per stream on host H1 is 0.344\,W per stream for \ultra{} v3.0.0 (live) and 0.720\,W for \ultra{} v3.0.0 (final, seg.), against 0.591\,W for Zipformer INT8, 1.077\,W for Moonshine Tiny, 1.711\,W for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513\,W for Nemotron 560\,ms (core energy registers; unpaced CPU core domain only, no board-power claim).}% [reported] sentence
+\newcommand{\ColdWattsSentence}{Active core (CPU-domain) W per stream on host H1 is 0.328\,W per stream for \ultra{} v3.1.0 (live +LM) and 0.661\,W for \ultra{} v3.1.0 (final, seg.), against 0.573\,W for Zipformer INT8, 1.077\,W for Moonshine Tiny, 1.711\,W for Parakeet TDT v3 (sherpa-onnx, offline) and 4.513\,W for Nemotron 560\,ms (core energy registers; unpaced CPU core domain only, no board-power claim).}% [reported] sentence
 \newcommand{\ColdWhisperCppBaseCorePct}{239.6}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdWhisperCppBaseCpu}{2.396}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdWhisperCppBaseModel}{148}% [exploratory] MB of model files (10^6 bytes)
@@ -264,6 +318,16 @@
 \newcommand{\ColdZipCorePct}{6.9}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdZipCpu}{0.069}% [exploratory] CPU-s/audio-s
 \newcommand{\ColdZipModel}{73}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdZipRsixCorePct}{7.1}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdZipRsixCpu}{0.071}% [exploratory] CPU-s/audio-s
+\newcommand{\ColdZipRsixModel}{73}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdZipRsixRss}{152}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdZipRsixRtfx}{14.0}% [exploratory] audio-s per wall-s
+\newcommand{\ColdZipRsixSpeed}{14.0}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdZipRsixWatts}{0.573}% [exploratory] W per live stream (= J per audio-s)
+\newcommand{\ColdZipRsixWer}{5.25}% [exploratory] % WER
+\newcommand{\ColdZipRsixWerClean}{3.03}% [exploratory] % WER
+\newcommand{\ColdZipRsixWerOther}{8.43}% [exploratory] % WER
 \newcommand{\ColdZipRss}{153}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdZipRtfx}{14.4}% [exploratory] audio-s per wall-s
 \newcommand{\ColdZipSpeed}{14.5}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -272,12 +336,13 @@
 \newcommand{\ColdZipWer}{5.25}% [exploratory] % WER
 \newcommand{\ColdZipWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdZipWerOther}{8.43}% [exploratory] % WER
+\newcommand{\HeroSubtitle}{Live (160 ms chunk, +LM): 32.7$\times$ real time, 5.54\% WER (selection panel) $\cdot$ Final (commit pass at utterance ends): 16.8$\times$, 5.00\% WER}% [exploratory] sentence
 \newcommand{\LmOverlapCount}{42}% [exploratory] dev transcripts (12+ words) found verbatim in the LM text
 \newcommand{\LmOverlapOf}{3719}% [exploratory] dev transcripts with 12+ words checked
 \newcommand{\LmPackMb}{334}% [exploratory] MB (engine pack of M5 + LODR, q8)
 \newcommand{\MoneyFullMarksCaption}{Blue diamonds: ours (same INT8 weights). Hollow: offline. Lighter: H0 interim (3). \S: 73-clip timing (4).}% [reported] sentence
-\newcommand{\MoneyHeadline}{One INT8 model on one quiet Zen~2 core: \ultra{} v3.0.0 (live) runs at 29.1$\times$ (0.344\,W, 6.85\% WER); the final mode reaches 5.06\% at 14.2$\times$ (0.720\,W) vs. 14.5$\times$, 5.25\% for Zipformer INT8.}% [exploratory] sentence
-\newcommand{\MoneyMarksCaption}{The live and final modes share the same prepared INT8 weights. The final mode uses reference utterance boundaries. Parakeet decodes whole clips. Nemotron 560 ms scores 3.56\% WER on the same 730 utterances and runs at 2.38$\times$ in the separate quiet 73-clip timing test.}% [reported] sentence
+\newcommand{\MoneyHeadline}{\ultra{} v3.1.0 live (160 ms, +LM): 32.7$\times$, 5.54\% WER on the selection panel (+0.81 pp on unselected DEV) vs. Zipformer INT8 14.0$\times$, 5.25\%; final 5.00\%, 16.8$\times$.}% [exploratory] sentence
+\newcommand{\MoneyMarksCaption}{The v3.1.0 live and final modes share the same prepared INT8 weights, and Zipformer INT8 was timed in the same three interleaved blocks; grey marks are v3.0.0, timed in an earlier session. The final mode uses reference utterance boundaries. Parakeet decodes whole clips. Nemotron 560 ms scores 3.56\% WER on the same 730 utterances and runs at 2.38$\times$ in the separate quiet 73-clip timing test.}% [reported] sentence
 \newcommand{\MoneyWattsCaption}{Active core W per stream (core energy registers, same run), not device power.}% [reported] sentence
 \newcommand{\RelCapEightBusy}{30.1}% [exploratory] % of one core
 \newcommand{\RelCapEightGrossW}{0.382}% [exploratory] W/stream (gross core)
@@ -331,6 +396,10 @@
 \newcommand{\RelParakeetWholeWer}{2.30}% [exploratory] % WER
 \newcommand{\RelSubsetNemotronStreamWer}{7.74}% [exploratory] % WER
 \newcommand{\RelSubsetNote}{Also measured, not ranked (subset WER, other hardware): Nemotron labs unified (stream 160 ms) (7.74\% on panel10, Xeon 8358).}% [reported] sentence
+\newcommand{\ScalarDiffs}{0}% [exploratory] utterances with a differing transcript
+\newcommand{\ScalarMainCommit}{b6a924e8}% [exploratory] commit
+\newcommand{\ScalarRelCommit}{3bd85e9e}% [exploratory] commit
+\newcommand{\ScalarUtts}{730}% [exploratory] panel utterances compared
 \newcommand{\TrainCoolKh}{10{,}000}% [exploratory] audio-h
 \newcommand{\TrainEngineEnd}{8.27}% [exploratory] % WER
 \newcommand{\TrainFinalGain}{0.61}% [exploratory] pp
@@ -345,24 +414,131 @@
 \newcommand{\TrainStageOneKh}{78{,}970}% [exploratory] audio-h
 \newcommand{\TrainStageTwoKh}{41{,}658}% [exploratory] audio-h
 \newcommand{\TrainTotalKh}{130{,}628}% [exploratory] audio-h
+\newcommand{\VfBoneMean}{$-$0.004}% [exploratory] pp WER
+\newcommand{\VfBoneOnLd}{$-$0.019}% [exploratory] pp WER
+\newcommand{\VfBoneRight}{3}% [exploratory] lookahead frames (k_right)
+\newcommand{\VfBoneSeedA}{$-$0.038}% [exploratory] pp WER
+\newcommand{\VfBoneSeedB}{+0.031}% [exploratory] pp WER
+\newcommand{\VfBootReps}{10{,}000}% [exploratory] bootstrap resamples
+\newcommand{\VfCellCount}{1174}% [exploratory] reference positions
+\newcommand{\VfComboMean}{$-$0.053}% [exploratory] pp WER
+\newcommand{\VfComboOnLd}{$-$0.011}% [exploratory] pp WER
+\newcommand{\VfDelGap}{98}% [exploratory] deletions
+\newcommand{\VfDelLast}{5}% [exploratory] deletions
+\newcommand{\VfDelTotal}{350}% [exploratory] deletions
+\newcommand{\VfDepthFour}{4}% [exploratory] oracle depth (beam size)
+\newcommand{\VfDepthTwo}{2}% [exploratory] oracle depth
+\newcommand{\VfDiagEdge}{156}% [exploratory] positions
+\newcommand{\VfDiagFreqOther}{569}% [exploratory] positions
+\newcommand{\VfDiagInterior}{1025}% [exploratory] positions
+\newcommand{\VfDiagInteriorPct}{86.8}% [exploratory] % of residual positions
+\newcommand{\VfDiagPositions}{1181}% [exploratory] reference positions
+\newcommand{\VfFloorDelta}{$-$0.069}% [exploratory] pp WER
+\newcommand{\VfFloorHi}{$-$0.011}% [exploratory] pp WER
+\newcommand{\VfFloorLo}{$-$0.127}% [exploratory] pp WER
+\newcommand{\VfFloorPp}{0.069}% [exploratory] pp WER
+\newcommand{\VfFreqMin}{10}% [exploratory] minimum TRAIN occurrences
+\newcommand{\VfLdMean}{$-$0.042}% [exploratory] pp WER
+\newcommand{\VfLdRate}{0.1}% [exploratory] layer_drop probability
+\newcommand{\VfNineBar}{0.10}% [exploratory] pp WER (required gain)
+\newcommand{\VfNineDeltaEdits}{43}% [exploratory] edits (worse)
+\newcommand{\VfNineGreedyEdits}{3626}% [exploratory] edits
+\newcommand{\VfNineLmEdits}{3669}% [exploratory] edits
+\newcommand{\VfOThreeBar}{0.15}% [exploratory] pp WER (required C4 gain)
+\newcommand{\VfOThreeControlEdits}{3597}% [exploratory] edits (H57-PL3, C4)
+\newcommand{\VfOThreeDelta}{+0.0115}% [exploratory] pp WER (C4 greedy)
+\newcommand{\VfOThreeEdits}{3603}% [exploratory] edits (O3-LD, C4)
+\newcommand{\VfOThreeEightDelta}{+0.038}% [exploratory] pp WER (C8 greedy)
+\newcommand{\VfOThreeGuard}{0.087}% [exploratory] pp WER (c8/c16 guard)
+\newcommand{\VfOThreeHi}{+0.118}% [exploratory] pp WER
+\newcommand{\VfOThreeLo}{$-$0.088}% [exploratory] pp WER
+\newcommand{\VfOThreeSixteenDelta}{+0.021}% [exploratory] pp WER (C16 greedy)
+\newcommand{\VfOracleDepthFourEdits}{2829}% [exploratory] edits
+\newcommand{\VfOracleDepthFourWer}{5.42}% [exploratory] % WER
+\newcommand{\VfOracleDepthTwoWer}{5.49}% [exploratory] % WER
+\newcommand{\VfOracleOneBestEdits}{3267}% [exploratory] edits
+\newcommand{\VfOracleOneBestWer}{6.26}% [exploratory] % WER
+\newcommand{\VfOracleSecondaryEdits}{438}% [exploratory] edits
+\newcommand{\VfOracleTargetEdits}{2610}% [exploratory] edits
+\newcommand{\VfOracleTargetWer}{5}% [exploratory] % WER
+\newcommand{\VfPlThreeBar}{0.173}% [exploratory] pp WER (required gain)
+\newcommand{\VfPlThreeDelta}{$-$0.036}% [exploratory] pp WER
+\newcommand{\VfPlThreeHi}{+0.067}% [exploratory] pp WER
+\newcommand{\VfPlThreeLo}{$-$0.140}% [exploratory] pp WER
+\newcommand{\VfReluKillPp}{1.0}% [exploratory] pp WER
+\newcommand{\VfReluKillStep}{1000}% [exploratory] optimizer step
+\newcommand{\VfReluOneEma}{97.9}% [exploratory] % WER (EMA)
+\newcommand{\VfReluOneRaw}{6.38}% [exploratory] % WER (raw)
+\newcommand{\VfReluOneZero}{96.4}% [exploratory] % of u7 activations zero
+\newcommand{\VfReluTwoRaw}{10.12}% [exploratory] % WER (raw)
+\newcommand{\VfRsixEnergy}{0.56}% [exploratory] x of Zipformer core J per audio-s
+\newcommand{\VfRsixSpeed}{2.46}% [exploratory] x Zipformer speed (paired, greedy)
+\newcommand{\VfRtenRatio}{0.55}% [exploratory] x of N=1 CPU-s per audio-s
+\newcommand{\VfRtenStreams}{16}% [exploratory] streams
+\newcommand{\VfScreenBar}{0.10}% [exploratory] pp WER (registered bar of the chunk-causal arm F-B1 only)
+\newcommand{\VfScreenSeeds}{2}% [exploratory] seeds per arm
+\newcommand{\VfScreenSteps}{3500}% [exploratory] optimizer steps
+\newcommand{\VfSeed}{7919}% [exploratory] seed
+\newcommand{\VfSingleSeedPp}{0.10}% [exploratory] pp WER
+\newcommand{\VfSkipGate}{20}% [exploratory] % net skip (registered gate)
+\newcommand{\VfSkipHi}{7.2}% [exploratory] % of chunks net skipped
+\newcommand{\VfSkipLo}{5.2}% [exploratory] % of chunks net skipped
+\newcommand{\VfSpecCapPct}{15}% [exploratory] % of frames (time-mask cap)
+\newcommand{\VfSpecMaskedPct}{11.2}% [exploratory] % of frames masked (measured)
+\newcommand{\VfSpecMasks}{4}% [exploratory] time masks
+\newcommand{\VfSpecMean}{+0.004}% [exploratory] pp WER
+\newcommand{\VfSpecWidth}{60}% [exploratory] max time-mask width (frames)
+\newcommand{\VfTdtChunkMs}{320}% [exploratory] ms
+\newcommand{\VfTdtDelta}{1.40}% [exploratory] pp WER
+\newcommand{\VfTdtHi}{1.68}% [exploratory] pp WER
+\newcommand{\VfTdtLo}{1.13}% [exploratory] pp WER
+\newcommand{\VfTdtRnntWer}{14.7}% [exploratory] % WER pooled
 \newcommand{\VsChunkOne}{160}% [exploratory] ms
 \newcommand{\VsChunkTwo}{160}% [exploratory] ms
-\newcommand{\VsCpuPctOne}{50}% [exploratory] %
-\newcommand{\VsCpuPctTwo}{102}% [exploratory] %
-\newcommand{\VsDeltaOne}{+1.59}% [exploratory] pp WER
-\newcommand{\VsDeltaTwo}{$-$0.19}% [exploratory] pp WER
-\newcommand{\VsEnergyPctOne}{58}% [exploratory] %
-\newcommand{\VsEnergyPctTwo}{122}% [exploratory] %
-\newcommand{\VsHiOne}{+1.92}% [exploratory] pp WER
-\newcommand{\VsHiTwo}{+0.14}% [exploratory] pp WER
-\newcommand{\VsLoOne}{+1.27}% [exploratory] pp WER
-\newcommand{\VsLoTwo}{$-$0.53}% [exploratory] pp WER
-\newcommand{\VsRssPctOne}{48}% [exploratory] %
-\newcommand{\VsRssPctTwo}{474}% [exploratory] %
-\newcommand{\VsSpeedXOne}{2.01}% [exploratory] x
-\newcommand{\VsSpeedXTwo}{0.98}% [exploratory] x
-\newcommand{\VsVerdictOne}{higher than}% [exploratory] text
+\newcommand{\VsCpuPctOne}{43}% [exploratory] %
+\newcommand{\VsCpuPctTwo}{84}% [exploratory] %
+\newcommand{\VsDeltaOne}{+0.28}% [exploratory] pp WER
+\newcommand{\VsDeltaTwo}{$-$0.26}% [exploratory] pp WER
+\newcommand{\VsEnergyPctOne}{57}% [exploratory] %
+\newcommand{\VsEnergyPctTwo}{115}% [exploratory] %
+\newcommand{\VsGreedyEnergyPct}{56}% [exploratory] %
+\newcommand{\VsGreedyRssMb}{74.3}% [exploratory] MB
+\newcommand{\VsGreedyRssPct}{49}% [exploratory] %
+\newcommand{\VsGreedySpeed}{34.2}% [exploratory] x real time
+\newcommand{\VsGreedySpeedX}{2.46}% [exploratory] x
+\newcommand{\VsGreedyWatts}{0.322}% [exploratory] J per audio-s
+\newcommand{\VsGreedyWer}{6.23}% [exploratory] % WER
+\newcommand{\VsHiOne}{+0.58}% [exploratory] pp WER
+\newcommand{\VsHiTwo}{+0.05}% [exploratory] pp WER
+\newcommand{\VsLoOne}{$-$0.02}% [exploratory] pp WER
+\newcommand{\VsLoTwo}{$-$0.57}% [exploratory] pp WER
+\newcommand{\VsPriorFinalDelta}{$-$0.19}% [exploratory] pp WER
+\newcommand{\VsPriorFinalHi}{+0.14}% [exploratory] pp WER
+\newcommand{\VsPriorFinalLo}{$-$0.53}% [exploratory] pp WER
+\newcommand{\VsPriorFinalRssMb}{725}% [exploratory] MB
+\newcommand{\VsPriorFinalSpeed}{14.2}% [exploratory] x real time
+\newcommand{\VsPriorFinalWatts}{0.720}% [exploratory] J per audio-s
+\newcommand{\VsPriorFinalWer}{5.06}% [exploratory] % WER
+\newcommand{\VsPriorLiveDelta}{+1.59}% [exploratory] pp WER
+\newcommand{\VsPriorLiveHi}{+1.92}% [exploratory] pp WER
+\newcommand{\VsPriorLiveLo}{+1.27}% [exploratory] pp WER
+\newcommand{\VsPriorLiveRssMb}{74}% [exploratory] MB
+\newcommand{\VsPriorLiveSpeed}{29.1}% [exploratory] x real time
+\newcommand{\VsPriorLiveWatts}{0.344}% [exploratory] J per audio-s
+\newcommand{\VsPriorLiveWer}{6.85}% [exploratory] % WER
+\newcommand{\VsRssPctOne}{72}% [exploratory] %
+\newcommand{\VsRssPctTwo}{254}% [exploratory] %
+\newcommand{\VsSpeedXOne}{2.33}% [exploratory] x
+\newcommand{\VsSpeedXTwo}{1.19}% [exploratory] x
+\newcommand{\VsVerdictOne}{not significantly different from}% [exploratory] text
 \newcommand{\VsVerdictTwo}{not significantly different from}% [exploratory] text
+\newcommand{\VsWideEnergyPct}{55}% [exploratory] %
+\newcommand{\VsWideRssMb}{110.6}% [exploratory] MB
+\newcommand{\VsWideRssPct}{73}% [exploratory] %
+\newcommand{\VsWideSpeed}{33.3}% [exploratory] x real time
+\newcommand{\VsWideSpeedX}{2.40}% [exploratory] x
+\newcommand{\VsWideWatts}{0.316}% [exploratory] J per audio-s
+\newcommand{\VsWideWer}{5.50}% [exploratory] % WER
 \newcommand{\VsZipChunk}{320}% [exploratory] ms
 
-\newcommand{\MoneyCaption}{Linear speed axis (median of 3 cold runs, 1 Zen~2 core, model load included; dashed line = 1$\times$ real time) vs.\ common 730-utt DEV pooled WER. \MoneyMarksCaption{} \MoneyWattsCaption{}}
+\newcommand{\MoneyCaption}{Grey: v3.0.0.}

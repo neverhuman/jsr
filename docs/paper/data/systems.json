@@ -1,5 +1,5 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Only our single release artifact (v3.0.0 RC1-EMA INT8 edac19d8 + release decoder 9a142e8e: live and utterance-segmented final) vs ALL 11 public CPU comparators measured on the same 730-utterance LibriSpeech DEV panel. Zero legacy ULTRA checkpoints appear here.",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Headline: Isosyll v3.1.0 (RC2 INT8, live +LM and utterance-segmented final) beside Zipformer INT8 timed in the same interleaved blocks and the other public CPU comparators on the same 730-utterance LibriSpeech DEV panel; v3.0.0 is the prior release (kept for history). The extra v3.1.0 modes appear in Fig. 1 only (plot false).",
   "variants": {
     "rc1-ema-live": {
       "system": "ULTRA v3.0.0 (live)",
@@ -11,7 +11,7 @@
       "checkpoint": "v3.0.0 (live)",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "rc1-ema-final": {
       "system": "ULTRA v3.0.0 (final, seg.)",
@@ -23,7 +23,7 @@
       "checkpoint": "v3.0.0 (final, seg.)",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "r0-int8": {
       "system": "Zipformer INT8",
@@ -37,7 +37,7 @@
         "sherpaonnx"
       ],
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "moonshine-tiny": {
       "system": "Moonshine Tiny Streaming",
@@ -182,16 +182,90 @@
         "whispercpp"
       ],
       "plot": true
+    },
+    "rc2-live-greedy": {
+      "system": "ULTRA v3.1.0 (live greedy)",
+      "short": "ULTRA v3.1.0 live greedy",
+      "macro": "RcTwoLiveGreedy",
+      "order": 3,
+      "text": "\\ultra{} v3.1.0 (live greedy)",
+      "detail": "v3.1.0 INT8, greedy 160 ms live stream",
+      "checkpoint": "v3.1.0 (live greedy)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": false
+    },
+    "rc2-live-lm": {
+      "system": "ULTRA v3.1.0 (live +LM)",
+      "short": "ULTRA v3.1.0 live +LM",
+      "macro": "RcTwoLiveLm",
+      "order": 4,
+      "text": "\\ultra{} v3.1.0 (live +LM)",
+      "detail": "v3.1.0 INT8, 160 ms live stream, beam 4 with the 34.5 MiB LM",
+      "checkpoint": "v3.1.0 (live +LM)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": true
+    },
+    "rc2-live-lm320": {
+      "system": "ULTRA v3.1.0 (live 320 ms)",
+      "short": "ULTRA v3.1.0 live 320 ms",
+      "macro": "RcTwoLiveLmWide",
+      "order": 5,
+      "text": "\\ultra{} v3.1.0 (live 320 ms)",
+      "detail": "v3.1.0 INT8, 320 ms live stream, beam 4 with the 34.5 MiB LM",
+      "checkpoint": "v3.1.0 (live 320 ms)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": false
+    },
+    "rc2-final": {
+      "system": "ULTRA v3.1.0 (final, seg.)",
+      "short": "ULTRA v3.1.0 final seg.",
+      "macro": "RcTwoFinal",
+      "order": 6,
+      "text": "\\ultra{} v3.1.0 (final, seg.)",
+      "detail": "v3.1.0 INT8, commit pass at utterance ends (M5 LM, beam 16)",
+      "checkpoint": "v3.1.0 (final, seg.)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": true
+    },
+    "r0-int8-r6": {
+      "system": "Zipformer INT8",
+      "short": "Zipformer INT8",
+      "macro": "ZipRsix",
+      "order": 21,
+      "text": "Zipformer INT8",
+      "runtime_short": "sherpa-onnx",
+      "cite": [
+        "yao2024zipformer",
+        "sherpaonnx"
+      ],
+      "segmenter": "no",
+      "plot": true
     }
   },
   "headline": {
-    "ours": "rc1-ema-final",
-    "ours_live": "rc1-ema-live"
+    "ours": "rc2-final",
+    "ours_live": "rc2-live-lm"
   },
-  "release": "v3.0.0",
+  "release": "v3.1.0",
   "versus": {
-    "comparator": "r0-int8",
+    "comparator": "r0-int8-r6",
     "pairs": [
+      {
+        "mode": "live",
+        "variant": "rc2-live-lm",
+        "paired": "raw/versus/v310/zip-vs-rc2-live_c4_lm.panel730.score.json"
+      },
+      {
+        "mode": "final",
+        "variant": "rc2-final",
+        "paired": "raw/versus/v310/zip-vs-rc2-final_m5.panel730.score.json"
+      }
+    ],
+    "prior": [
       {
         "mode": "live",
         "variant": "rc1-ema-live",

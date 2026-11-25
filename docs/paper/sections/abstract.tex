@@ -2,19 +2,22 @@
 An always-on speech recogniser pays for every second of audio, speech or not, so its compute, memory
 and energy per stream matter as much as its word error rate (WER). \ultra{} \ReleaseVer{} pairs a
 compact streaming Conformer transducer with a pure-Rust engine built on per-row INT8 quantisation,
-exact integer accumulation and a portable log-mel front end. One prepared INT8 artifact serves two
-operating points. On the same 730 LibriSpeech development utterances and the same pinned Zen~2 core,
-the 160\,ms live stream delivers \VsSpeedXOne$\times$ the single-core throughput of streaming
-Zipformer INT8 at \VsEnergyPctOne\% of its active core energy and \VsRssPctOne\% of its memory, with
-half its chunk length; its pooled WER is \VsVerdictOne{} Zipformer's by \VsDeltaOne{} percentage
-points (paired one-sided 95\% bounds \VsLoOne{} to \VsHiOne). At utterance ends, a commit pass on the same
-weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's \ColdZipWer\% (paired bounds
-\VsLoTwo{} to \VsHiTwo), at \VsSpeedXTwo$\times$ its speed. Sixteen paced live streams share one core at
-\RelCapSixteenBusy\% load with a 95th-percentile stable-word lag of \RelCapSixteenLagPninetyFive\,ms.
-\RelIsaProof{} Greedy INT8 changes full-DEV pooled WER by \RelIntEightDelta{} percentage points relative to FP32 PyTorch
-(one-sided 95\% bounds \RelIntEightLo{} to \RelIntEightHi). Over \TrainTotalKh\,h of training audio, the model
-saturates on LibriSpeech 960\,h alone, and Zipformer-pseudo-labelled Libri-Light then lowers live WER
-by \TrainLiveGain{} points. A successor trained on \CandTrainKh\,h lowers live WER further but trails Zipformer by \CandLiveLmCDelta{} points on unselected data and missed its registered gates; we report it rather than release it. All results are exploratory and use development data only.
+exact integer accumulation and a portable log-mel front end; one prepared INT8 artifact serves two
+operating points. \emph{Cost:} on the same 730 LibriSpeech development utterances and the same pinned Zen~2 core,
+timed in the same interleaved blocks, the 160\,ms live stream with a compact language model delivers
+\VsSpeedXOne$\times$ the single-core throughput of streaming Zipformer INT8 at \VsEnergyPctOne\% of its
+active core energy and \VsRssPctOne\% of its memory, with half its chunk length.
+\emph{Accuracy:} on this selection panel its pooled WER is \VsVerdictOne{} Zipformer's (\VsDeltaOne{} percentage points,
+paired one-sided 95\% bounds \VsLoOne{} to \VsHiOne{}, which include zero), but on the unselected half of DEV the gap is
+\CandLiveLmCDelta{} points (bounds \CandLiveLmCLo{} to \CandLiveLmCHi). At utterance
+ends, a commit pass on the same weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's
+\ColdZipWer\% (paired bounds \VsLoTwo{} to \VsHiTwo), at \VsSpeedXTwo$\times$ its speed and \VsEnergyPctTwo\% of its active core energy.
+\ultra{} \ReleaseVer{} is released by owner decision, not as a gate pass: its registered full-DEV final gate was
+missed (\CandFinalFullEdits{} edits against \CandGateFinalFull). \CandIsaRuns{} witness decodes on other x86
+and ARM CPUs reproduce its Zen~2 transcripts exactly.
+\emph{What did not help:} reranking the beam, stronger teacher labels, lookahead convolution and regularisation
+did not move live accuracy; the residual sits in common interior words on hard audio, so fresh audio is the next lever.
+All results are exploratory and use development data only.
 \end{abstract}
 
 \begin{IEEEkeywords}

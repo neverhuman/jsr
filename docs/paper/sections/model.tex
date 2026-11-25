@@ -48,7 +48,7 @@ final-text delay of \RelCommitDelayPfifty\,ms after endpoint declaration
 \draw[->] (enc.east) -- ++(2mm,0) |- (fout.west);
 \end{tikzpicture}}
 \caption{Dual operating points of \ultra{} \ReleaseVer{} on one prepared INT8 artifact: a
-continuous 160\,ms greedy live stream ($c=4$) and an utterance-segmented 640\,ms commit pass
+continuous 160\,ms live stream ($c=4$, greedy or with a compact LM) and an utterance-segmented 640\,ms commit pass
 ($c=16$) with 5-gram LM and LODR beam search.}
 \label{fig:arch}
 \end{figure}

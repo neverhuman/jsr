@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .cold import speed_text
+from .compare import FULL_DEV, _rel
 from .common import fmt
 from .evidence import HEADLINE, derived
 from .records import Records
@@ -71,10 +72,15 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
         comparison = tuple(quiet_ours + top_quiet)
 
     # 1. Accuracy (panel 730 utt + full DEV 5,567 utt)
-    full_final = rec.rows["RelFullFinalPooled"]["value"] if "RelFullFinalPooled" in rec.rows else None
-    full_clean = rec.rows["RelFullFinalClean"]["value"] if "RelFullFinalClean" in rec.rows else None
-    full_other = rec.rows["RelFullFinalOther"]["value"] if "RelFullFinalOther" in rec.rows else None
-    full_live = rec.rows["RelFullLivePooled"]["value"] if "RelFullLivePooled" in rec.rows else None
+    current = head["variant"].startswith("rc2")  # delay, package energy and the 16-stream capacity belong to the prior release
+    def _rv(new: str, old: str) -> str | None:
+        key = new if current else old
+        return rec.rows[key]["value"] if key in rec.rows else None
+    full_final = _rv("CandFinalFullWer", "RelFullFinalPooled")
+    full_clean = _rv("CandFinalFullClean", "RelFullFinalClean")
+    full_other = _rv("CandFinalFullOther", "RelFullFinalOther")
+    full_live = (rec.rows[FULL_DEV[live["variant"]]]["value"] if has_live and current and live["variant"] in FULL_DEV
+                 else rec.rows["RelFullLivePooled"]["value"] if "RelFullLivePooled" in rec.rows else None)
     panel_live = (fmt(lv["wer"], 2) if has_live else
                   rec.rows["RelPanelLivePooled"]["value"] if "RelPanelLivePooled" in rec.rows else None)
     all_comp_wers = [derived(r)["wer"] for r in others] + [e["wer"] for e in extra_complete]
@@ -95,7 +101,8 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     ])
     full_tail = (f" On full LibriSpeech DEV (5,567 utt), final text reaches {full_final}% pooled "
                  f"({full_clean}% clean / {full_other}% other; live {full_live}%)." if full_final else "")
-    live_wer_s = f"; Isosyll v3.0.0 (live) on the exact same INT8 weights scores {panel_live}% pooled" if panel_live else ""
+    live_wer_s = (f"; {_name(live)} on the exact same INT8 weights scores {panel_live}% pooled" if panel_live and has_live
+                  else f"; the live mode on the exact same INT8 weights scores {panel_live}% pooled" if panel_live else "")
     fact("Accuracy", "Accuracy",
          f"On the 730-utterance LibriSpeech DEV panel, {_name(head)} scores {fmt(h['wer'], 2)}% pooled WER "
          f"({fmt(h['wer_clean'], 2)}% dev-clean, {fmt(h['wer_other'], 2)}% dev-other){beat_clause}{live_wer_s}."
@@ -113,22 +120,22 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
 
     vs_peers = _names([f"{speed_text(derived(r)['speed'])}\u00d7 for {timing_name(r)}" for r in peers]) if peers else ""
     delay_str = (f" (median final-text delay {rec.rows['RelCommitDelayPfifty']['value']}\u2009ms after endpoint)"
-                 if "RelCommitDelayPfifty" in rec.rows else "")
+                 if "RelCommitDelayPfifty" in rec.rows and not current else "")
     if has_live:
         live_share = fmt(100.0 * lv["cpu"], 1)
-        speed_ratio = (f" ({fmt(lv['speed'] / derived(fast)['speed'], 1)}\u00d7 streaming {_name(fast)}, fastest in "
-                       "the quiet full-panel H1 cohort)" if fast else "")
+        speed_ratio = (f" ({fmt(lv['speed'] / derived(fast)['speed'], 1)}\u00d7 streaming {_name(fast)}, the fastest "
+                       "comparator)" if fast else "")
         speed_ratio_md = f" ({fmt(lv['speed'] / derived(fast)['speed'], 1)}\u00d7 streaming {_name(fast)})" if fast else ""
-        zip_cmp = (f", within 2% of streaming {_name(fast)}'s single-core speed ({speed_text(h['speed'])}\u00d7 "
-                   f"utterance-segmented vs. {speed_text(derived(fast)['speed'])}\u00d7 streaming)" if fast else "")
+        zip_cmp = (f", {_rel(h['speed'], derived(fast)['speed'], _name(fast), (head.get('paired_vs_anchor') or {}).get('speed')).replace('\\%', '%').replace('$\\times$', 'x')} "
+                   f"({speed_text(h['speed'])}\u00d7 utterance-segmented vs. {speed_text(derived(fast)['speed'])}\u00d7 streaming)" if fast else "")
         fact("Speed", "Speed & memory",
              f"One live stream ({_name(live)}) uses {live_share}% of one quiet Zen\u00a02 core "
              f"({speed_text(lv['speed'])}\u00d7 real time{speed_ratio}) and {fmt(lv['rss_mb'], 0)}\u2009MB peak RAM "
-             f"(smallest quiet-H1 footprint); {_name(head)} runs at {speed_text(h['speed'])}\u00d7 real time and "
+             f"(smaller than every comparator); {_name(head)} runs at {speed_text(h['speed'])}\u00d7 real time and "
              f"{fmt(h['rss_mb'], 0)}\u2009MB RAM{delay_str}{zip_cmp}.",
-             f"{_name(live)} is the fastest system in the quiet full-panel H1 cohort at {speed_text(lv['speed'])}× "
+             f"{_name(live)} is faster than every comparator at {speed_text(lv['speed'])}× "
              f"real time{speed_ratio_md} ({live_share}% of one quiet Zen 2 core, {fmt(lv['rss_mb'], 0)} MB peak "
-             f"RAM—smallest footprint vs. {fmt(derived(fast)['rss_mb'], 0)} MB for {_name(fast)})"
+             f"RAM, smaller than every comparator ({fmt(derived(fast)['rss_mb'], 0)} MB for {_name(fast)})"
              + (f", against {vs_peers}" if vs_peers else "")
              + f". {_name(head)} runs at {speed_text(h['speed'])}× real time and {fmt(h['rss_mb'], 0)} MB peak "
              f"RAM{delay_str}{zip_cmp}.",
@@ -151,10 +158,10 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     wrows = sorted((r for r in peers if r.get("watts") is not None), key=lambda r: r["watts"])
     if h["watts"] is not None and wrows:
         vs_w = _names([f"{fmt(r['watts'], 3)}\u2009W for {timing_name(r)}" for r in wrows])
-        pkg = rec.rows["RelCommitPkgWatts"]["value"] if "RelCommitPkgWatts" in rec.rows else None
+        pkg = rec.rows["RelCommitPkgWatts"]["value"] if "RelCommitPkgWatts" in rec.rows and not current else None
         pkg_s = f" ({pkg}\u2009W package)" if pkg else ""
         if has_live and lv["watts"] is not None:
-            zipformer = next((r for r in wrows if r["variant"] == "r0-int8" and r["timing_panel"] == "full"
+            zipformer = next((r for r in wrows if r["variant"].startswith("r0-int8") and r["timing_panel"] == "full"
                               and not r["interim"]
                               and r.get("energy_method") == live.get("energy_method") == "core_msr_active"), None)
             live_energy = (f" ({fmt(100 * lv['watts'] / zipformer['watts'], 0)}% of Zipformer INT8's active core energy)"
