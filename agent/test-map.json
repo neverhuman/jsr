@@ -201,6 +201,10 @@
       "command": "cargo test -p ultra-engine",
       "purpose": "kernel scalar-vs-AVX2 agreement, safetensors validation, and per-layer/transcript parity of the pure-Rust R1 engine against the torch reference"
     },
+    "python/ultra/tools/plbt/": {
+      "command": "cd python/ultra && ../../.venv/bin/python -m pytest -q tests/test_plbt.py",
+      "purpose": "book-text projection rules, synthetic manifest and label-map round trip, and historical panel self-check"
+    },
     "python/ultra/tools/": {
       "command": "cargo test -p ultra-engine",
       "purpose": "the converted weights load and match the torch per-layer reference in the engine's parity tests"
