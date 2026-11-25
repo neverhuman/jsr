@@ -57,7 +57,7 @@ The example runs in a subshell with `set -eu`. It stops at the first failed chec
   ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
     --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --tail-pad-ms 320 --threads 1 \
     --commit-lm M5.ulm --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
-  # Live text only (160 ms chunk + 34.5 MiB LM) over ./wav-dir, which holds WAVs named u00000.wav, u00001.wav, ...:
+  # Live text only (160 ms chunk + 34.5 MiB LM) over ./wav-dir, which must hold only regular files named u00000.wav, u00001.wav, ... (any other entry is rejected):
   # ./ultra-cold-wav --chunk 4 --beam 4 --beam-max-symbols 1 --beam-margin 0.0 --lm c4_p0_0_10_40.v2.ulm \
   #   --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 ./wav-dir ./live.jsonl
 )

@@ -57,7 +57,7 @@ From the repository root, download the pinned release, verify the signature and 
 )
 ```
 
-Then, from the repository root, change into the install directory. `utts.jsonl` holds one `{"uid", "wav"}` row per 16 kHz mono PCM16 WAV. The live decoder reads a directory of WAVs named `u00000.wav`, `u00001.wav`, and so on.
+Then, from the repository root, change into the install directory. `utts.jsonl` holds one `{"uid", "wav"}` row per 16 kHz mono PCM16 WAV. The live decoder reads a nonempty directory that holds only regular files named `u00000.wav`, `u00001.wav`, and so on (any other entry is rejected).
 
 ```bash
 cd "$(python3 -c 'import json; print(json.load(open("docs/ultra/releases/pinned.json"))["install_dir"])')"
