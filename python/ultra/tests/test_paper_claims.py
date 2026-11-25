@@ -160,7 +160,8 @@ def test_readme_shows_the_current_figure_block():
     shown = readme[readme.index(publish.START):readme.index(publish.END) + len(publish.END)]
     assert shown == block, f"README.md shows an old Figure 1 block; {REFRESH}"
     title, tagline, summary, image, caption, *_ = [
-        line for line in readme.splitlines() if line and not line.startswith("<!--")
+        line for line in readme.splitlines()
+        if line and not line.startswith(("<!--", "[![", "| "))  # brief badges and audience table sit above Figure 1
     ]
     paper_title = re.search(r"\\newcommand\{\\PaperTitle\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
     assert paper_title and title == f"# {paper_title[1]}"
