@@ -139,6 +139,7 @@ impl CommitPassSession {
         self.commit_engine
             .effective_decode_config()
             .with_tail_pad_samples(self.cfg.tail_pad_samples)
+            .with_commit_rms_norm(self.cfg.rms_norm)
     }
     pub fn committed_prefix(&self) -> &str {
         &self.committed_prefix
@@ -208,6 +209,8 @@ impl CommitPassSession {
     pub fn commit_endpoint(&mut self) -> Result<CommitResult, EngineError> {
         Ok(self.commit_inner(0, None)?.0)
     }
+    /// Note: with `CommitConfig::rms_norm` on, the external CTC log-probs `lp` are taken from the
+    /// caller's raw audio; only the RNNT commit re-encode sees the normalised PCM.
     pub fn commit_endpoint_with_ctc(
         &mut self,
         v: &CtcVocab,

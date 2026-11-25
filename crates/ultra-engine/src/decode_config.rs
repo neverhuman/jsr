@@ -81,6 +81,10 @@ pub struct EffectiveDecodeConfig {
     pub tail_pad_policy: String,
     pub session_bias_policy: SessionBiasPolicy,
     pub context_mode: String,
+    /// Z1 commit-pass RMS normalisation. Absent from the canonical policy when off, so Z1-off
+    /// hashes are unchanged from releases that predate the flag.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub commit_rms_norm: bool,
 }
 
 /// Path-free canonical projection hashed by [`EffectiveDecodeConfig::policy_sha256`].
@@ -109,6 +113,8 @@ struct CanonicalDecodePolicy<'a> {
     tail_pad_policy: &'a str,
     session_bias_policy: SessionBiasPolicy,
     context_mode: &'a str,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    commit_rms_norm: bool,
 }
 
 #[inline]
@@ -297,6 +303,7 @@ impl EffectiveDecodeConfig {
             tail_pad_policy,
             session_bias_policy: SessionBiasPolicy::default(),
             context_mode: resolve_context_mode(engine),
+            commit_rms_norm: false,
         }
     }
 
@@ -312,6 +319,12 @@ impl EffectiveDecodeConfig {
         self.tail_pad_samples = samples;
         self.tail_pad_frames = frames;
         self.tail_pad_policy = policy;
+        self
+    }
+
+    /// Return a copy recording whether the commit pass applies Z1 RMS normalisation.
+    pub fn with_commit_rms_norm(mut self, on: bool) -> Self {
+        self.commit_rms_norm = on;
         self
     }
 
@@ -352,6 +365,7 @@ impl EffectiveDecodeConfig {
             tail_pad_policy: &self.tail_pad_policy,
             session_bias_policy: self.session_bias_policy.normalized(),
             context_mode: &self.context_mode,
+            commit_rms_norm: self.commit_rms_norm,
         };
         serde_json::to_string(&canonical)
             .expect("CanonicalDecodePolicy serialization is infallible")
@@ -394,6 +408,7 @@ mod tests {
             tail_pad_policy: "eof_flush_no_pad".into(),
             session_bias_policy: SessionBiasPolicy::default(),
             context_mode: "streaming_dense_left16_chunk4_maxchunks1_kv_f32".into(),
+            commit_rms_norm: false,
         }
     }
 
@@ -438,6 +453,24 @@ mod tests {
         let g = sample_cfg().with_tail_pad_samples(5_120);
         assert_eq!(g.tail_pad_frames, 8);
         assert_ne!(a.policy_sha256(), g.policy_sha256());
+
+        // Z1-off receipts (full serde, as written by engine_eval) carry no new key.
+        assert!(!serde_json::to_string(&sample_cfg())
+            .expect("serialize")
+            .contains("commit_rms_norm"));
+        let on_json = serde_json::to_string(&sample_cfg().with_commit_rms_norm(true)).expect("ser");
+        assert!(on_json.contains("\"commit_rms_norm\":true"));
+        let rt: EffectiveDecodeConfig = serde_json::from_str(&on_json).expect("rt");
+        assert!(rt.commit_rms_norm);
+        // Z1: on differs from off; off is byte-identical to a pre-Z1 canonical policy.
+        let z = sample_cfg().with_commit_rms_norm(true);
+        assert_ne!(a.policy_sha256(), z.policy_sha256());
+        assert!(!a.canonical_json().contains("commit_rms_norm"));
+        assert!(z.canonical_json().contains("\"commit_rms_norm\":true"));
+        assert_eq!(
+            a.policy_sha256(),
+            z.with_commit_rms_norm(false).policy_sha256()
+        );
 
         let h = sample_cfg().with_session_bias_config(SessionLexicalConfig {
             enabled: true,

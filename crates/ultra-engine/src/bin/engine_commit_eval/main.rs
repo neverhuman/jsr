@@ -48,6 +48,7 @@ fn run(a: &Args) -> Result<Value, String> {
         ctc_weight: a.ctc_weight,
         mbr_enabled: a.mbr,
         mbr_temp: a.mbr_temp,
+        rms_norm: a.rms_norm,
     };
     let lm_cfg = a
         .commit_lm
@@ -115,6 +116,9 @@ fn run(a: &Args) -> Result<Value, String> {
             map.insert("lm_scale".into(), json!(a.lm_scale));
             map.insert("lodr_scale".into(), json!(a.lodr_scale));
             map.insert("token_bonus".into(), json!(a.token_bonus));
+        }
+        if a.rms_norm {
+            map.insert("rms_norm".into(), json!(true));
         }
         if a.ctc_weight > 0.0 || a.mbr {
             map.insert("ctc_weight".into(), json!(a.ctc_weight));
@@ -222,6 +226,14 @@ mod tests {
         }
         let xs = [10.0, 20.0, 30.0, 40.0, 50.0];
         assert_eq!((pct(&xs, 0.50), pct(&xs, 0.95)), (30.0, 50.0));
+        assert!(!base.rms_norm, "Z1 must be off by default");
+        let on = parse_args(
+            "--model m --manifest in.jsonl --out o.jsonl --rms-norm"
+                .split_whitespace()
+                .map(String::from),
+        )
+        .expect("rms-norm");
+        assert!(on.rms_norm);
     }
 
     fn write_tiny_wav(path: &std::path::Path, samples: &[i16]) {

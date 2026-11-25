@@ -13,6 +13,7 @@
 //!   `ultra_core::numeric::{isqrt_u64, requant, clipped_relu}`.
 
 pub mod cochlea;
+pub mod level;
 pub mod mel;
 pub mod npz;
 pub mod portable_math;
@@ -21,6 +22,7 @@ mod trainer_mel_avx2;
 pub mod wav;
 
 pub use cochlea::{CochleaConfig, StreamingCochlea};
+pub use level::{rms_gain, rms_normalize, rms_normalize_in_place, RmsNormStats};
 pub use mel::{MelConfig, StreamingLogMel, MEL_BINS};
 pub use npz::{load_npz_audio_only, load_npz_references, AudioUtterance, RefUtterance};
 pub use trainer_mel::{GlobalCmvn, TrainerLogMel, TrainerMelConfig, SPEC_BINS};

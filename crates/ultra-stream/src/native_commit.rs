@@ -101,6 +101,7 @@ impl LiveCommitAsrStream {
                 self.live_cfg.deadline_ms
             ))
             .with_tail_pad_samples(self.live_cfg.commit.tail_pad_samples)
+            .with_commit_rms_norm(self.live_cfg.commit.rms_norm)
             .with_session_bias_config(self.session_bias.config())
     }
 

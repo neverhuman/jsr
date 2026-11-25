@@ -20,6 +20,10 @@ pub struct CommitConfig {
     pub ctc_weight: f32,
     pub mbr_enabled: bool,
     pub mbr_temp: f32,
+    /// Z1: scale the closed segment to a fixed whole-segment RMS before the commit re-encode
+    /// (strictly before tail padding). Off by default; folded into the policy hash.
+    #[serde(default)]
+    pub rms_norm: bool,
 }
 
 impl Default for CommitConfig {
@@ -32,6 +36,7 @@ impl Default for CommitConfig {
             ctc_weight: 0.0,
             mbr_enabled: false,
             mbr_temp: 1.0,
+            rms_norm: false,
         }
     }
 }
@@ -110,6 +115,16 @@ impl CommitResult {
             commit_ms: self.commit_wall_ms,
             audio_ms: self.audio_ms,
         }
+    }
+}
+
+/// Z1 input stage shared by every commit decode path: borrows `pcm` unchanged when `rms_norm` is
+/// off, otherwise returns the whole-segment RMS-normalised copy. Call before tail padding.
+pub fn commit_input_pcm(pcm: &[i16], rms_norm: bool) -> std::borrow::Cow<'_, [i16]> {
+    if rms_norm {
+        std::borrow::Cow::Owned(ultra_frontend::rms_normalize(pcm).0)
+    } else {
+        std::borrow::Cow::Borrowed(pcm)
     }
 }
 
@@ -212,5 +227,25 @@ mod tests {
             " cat sat"
         );
         assert_eq!(reconcile_immutable_suffix("the cat", "the"), "");
+    }
+}
+
+#[cfg(test)]
+mod z1_tests {
+    use super::*;
+
+    #[test]
+    fn commit_input_pcm_off_borrows_on_normalises_before_padding() {
+        let pcm: Vec<i16> = (0..4000).map(|i| ((i % 50) as i16 - 25) * 4).collect();
+        let off = commit_input_pcm(&pcm, false);
+        assert!(matches!(off, std::borrow::Cow::Borrowed(_)));
+        assert_eq!(&*off, pcm.as_slice());
+        let on = commit_input_pcm(&pcm, true);
+        assert_eq!(&*on, ultra_frontend::rms_normalize(&pcm).0.as_slice());
+        assert_ne!(&*on, pcm.as_slice());
+        // Padding is appended after normalisation, so the pad stays digital silence.
+        let padded = pad_tail_silence(&on, 320);
+        assert!(padded[on.len()..].iter().all(|&s| s == 0));
+        assert!(!CommitConfig::default().rms_norm);
     }
 }
