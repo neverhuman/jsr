@@ -248,7 +248,7 @@ pub fn usage_text() -> &'static str {
               [--packet-ms N] [--pace F] [--wake-per-chunk|--wake-per-packet] [--threads N]\n\
               [--commit-pass] [--commit-hangover-ms 200|300|500|800] [--commit-preroll-ms 300] [--commit-deadline-ms 800] [--commit-chunk 16] [--commit-tail-pad-ms 320]\n\
               [--commit-lm PATH] [--commit-beam 16] [--commit-lm-scale 0.80] [--commit-lodr-scale 0.60]\n\
-              [--commit-max-audio-s 40.0] [--session-lexical-bias] [--events JSONL] [--receipt JSON]\n\
+              [--commit-max-audio-s 40.0] [--commit-rms-norm] [--session-lexical-bias] [--events JSONL] [--receipt JSON]\n\
        bench --candidate ID [--split SPLIT | --npz PATH] [--limit N] [--offset N] [--duration-s S]\n\
              [--streams N] [--decode single|batch] [--grid-ms G] [--precision int8|fp32] [--paced]\n\
              [--threads N] [--lease PATH] [--out JSONL] [--scores-out JSONL] [--receipt-out JSON]\n\
