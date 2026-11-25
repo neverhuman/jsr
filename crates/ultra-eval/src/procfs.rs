@@ -461,24 +461,54 @@ mod tests {
 
     #[test]
     fn sampler_sees_a_burning_child_and_its_threads() {
-        let mut child = std::process::Command::new("sh")
-            .args(["-c", "i=0; while [ $i -lt 400000 ]; do i=$((i+1)); done"])
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Command, Stdio};
+
+        // Touch 4 MiB before the first sample. Keep the shell alive at both sample boundaries.
+        let mut child = Command::new("sh")
+            .args([
+                "-c",
+                r#"
+                    payload=x
+                    i=0
+                    while [ "$i" -lt 22 ]; do payload=$payload$payload; i=$((i+1)); done
+                    printf 'ready\n'
+                    read -r signal || exit 1
+                    i=0
+                    while [ "$i" -lt 400000 ]; do i=$((i+1)); done
+                    printf 'done\n'
+                    read -r signal || :
+                "#,
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
             .spawn()
             .unwrap();
-        let pid = child.id() as i32;
-        let mut t = TreeSampler::new(pid);
-        let start = Instant::now();
-        while child.try_wait().unwrap().is_none() && start.elapsed() < Duration::from_secs(30) {
-            t.sample();
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        let mut input = child.stdin.take().unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        let mut line = String::new();
+        output.read_line(&mut line).unwrap();
+        assert_eq!(line, "ready\n");
+
+        let mut t = TreeSampler::new(child.id() as i32);
+        let before = t.sample();
+        writeln!(input, "burn").unwrap();
+        line.clear();
+        output.read_line(&mut line).unwrap();
+        assert_eq!(line, "done\n");
+        let after = t.sample();
+        drop(input);
+        assert!(child.wait().unwrap().success());
+
         let s = t.summary();
-        assert!(s.samples >= 1);
+        assert_eq!(s.samples, 2);
         assert!(s.max_threads >= 1);
         assert!(s.peak_rss_bytes > 0);
-        if start.elapsed() > Duration::from_millis(300) {
-            assert!(s.cpu_seconds_user + s.cpu_seconds_sys > 0.0, "{s:?}");
-        }
+        assert!(
+            after.cpu_seconds_user + after.cpu_seconds_sys
+                > before.cpu_seconds_user + before.cpu_seconds_sys,
+            "{before:?} -> {after:?}"
+        );
     }
 
     #[test]
