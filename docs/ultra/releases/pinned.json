@@ -3,8 +3,8 @@
  "release": "v3.2.0",
  "artifact": "ULTRA v3.2.0 (RC2 INT8 model unchanged; 6d95f37d decoders with opt-in Z1 --rms-norm), signed",
  "tag": "v3.2.0",
- "tag_object": "TODO-LEAD",
- "tag_commit": "TODO-LEAD",
+ "tag_object": "e6239becafa6f96872937a23d45c5c76ef1e50f5",
+ "tag_commit": "6d95f37d320085aa27806e0e83b1538db02a5684",
  "build_commit": "6d95f37d320085aa27806e0e83b1538db02a5684",
  "download_base": "https://github.com/neverhuman/jsr/releases/download/v3.2.0/",
  "signing": {
@@ -157,5 +157,6 @@
   "ultra-engine-commit": [
    "--rms-norm"
   ]
- }
+ },
+ "published": "2026-11-25T15:25:10Z"
 }
