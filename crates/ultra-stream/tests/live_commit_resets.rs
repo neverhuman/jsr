@@ -86,6 +86,7 @@ fn tiny_backend() -> Arc<NativeEngineBackend> {
         rope_inv: vec![1.0, 0.1],
         mel_cfg,
         tokens,
+        assets: Default::default(),
         int8_prepared: None,
         ctc_head: None,
     });

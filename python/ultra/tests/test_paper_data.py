@@ -67,6 +67,35 @@ def test_curated_quotes_still_appear_in_their_sources():
     assert checked >= 1
 
 
+def test_signed_curated_values_keep_their_sign_and_match_their_quote():
+    """A difference is printed with its sign from the raw number, and the quoted source line shows that signed number."""
+    cur = json.loads((DATA / "curated.json").read_text())
+    recs = {r["id"]: r for r in map(json.loads, (DATA / "records.jsonl").read_text().splitlines())}
+    signed = {k: e for k, e in cur["metrics"].items() if e.get("signed")}
+    assert len(signed) >= 10 and all("text" not in e for e in signed.values())
+    for rid, e in signed.items():
+        dec, raw = int(e["decimals"]), float(e["raw"])
+        from decimal import ROUND_HALF_UP, Decimal
+        digits = Decimal(repr(abs(raw))).quantize(Decimal(1).scaleb(-dec), rounding=ROUND_HALF_UP)
+        assert recs[rid]["value"] == ("+" if raw >= 0 else "$-$") + str(digits), rid
+        quoted = [float(x) for x in re.findall(r"[+\-\u2212]?\d+\.\d+", e["quote"].replace("\u2212", "-"))]
+        assert any(abs(q - raw) < 1e-9 for q in quoted), f"{rid}: {raw} is not a signed number of its quote {e['quote']!r}"
+
+
+def test_v4_findings_receipts_are_the_exact_chat_posts():
+    """Each v4 finding cites a copied chat post under raw/v4_findings: one `## <ts> | <agent> |` post per file."""
+    cur = json.loads((DATA / "curated.json").read_text())
+    cited = {e["source"] for k, e in cur["metrics"].items() if k.startswith("Vf")}
+    assert cited and all(c.startswith("docs/paper/data/raw/v4_findings/") for c in cited)
+    for c in cited:
+        text = (pd.REPO / c).read_text(encoding="utf-8")
+        lines = text.splitlines()
+        assert lines[0].startswith("## 20") and sum(l.startswith("## ") for l in lines) == 1, c
+    for k, e in cur["metrics"].items():
+        if k.startswith("Vf"):
+            assert e["quote"] in (pd.REPO / e["source"]).read_text(encoding="utf-8").splitlines()[e["line"] - 1], k
+
+
 def test_manifest_refuses_tampered_raw(tmp_path):
     root = tmp_path / "repo"
     shutil.copytree(pd.REPO / pd.RAW, root / pd.RAW)

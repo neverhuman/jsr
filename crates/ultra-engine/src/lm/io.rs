@@ -126,7 +126,7 @@ pub(super) fn load(path: &Path) -> Result<NgramLm, EngineError> {
 }
 
 pub(super) fn load_streaming(path: &Path) -> Result<NgramLm, EngineError> {
-    let payload_len = verify_sha256_streaming(path)?;
+    let (payload_len, file_sha256) = verify_sha256_streaming(path)?;
     let mut cur = open_payload_reader(path, payload_len)?;
     let mut magic = [0u8; 8];
     cur.read_exact_buf(&mut magic)?;
@@ -265,6 +265,9 @@ pub(super) fn load_streaming(path: &Path) -> Result<NgramLm, EngineError> {
         lodr_bigram,
         lodr_row_min,
         max_lm_logp,
+        source_path: Some(path.to_string_lossy().into_owned()),
+        lodr_source_path: None,
+        file_sha256: Some(file_sha256),
     })
 }
 

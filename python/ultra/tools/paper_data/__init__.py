@@ -45,13 +45,14 @@ from .compare import add_comparison
 from .evidence import presentation
 from .facts import add_facts
 from .macros import metrics_tex, records_jsonl, sources_md
-from .money import add_money, hero_rows, nemotron_timing_note
-from .publish import publish_figure, readme_block
+from .money import add_money, hero_rows, hero_sentences, nemotron_timing_note
+from .words import md, tex
+from .publish import publish_figure, readme_block, v4_block
 from .records import Records, add_curated
 from .release import add_release
 from .reported import add_reported
 from .tables import hardware_table, measured_table
-from .versus import add_versus
+from .versus import _paired, add_versus
 from .training import add_training
 from .candidate import add_candidate
 
@@ -63,21 +64,31 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     out: dict[str, str] = {}
     add_curated(root, rec)
     extras = add_release(root, rec)
+    add_candidate(root, rec, out)
     rows = load_evidence(root, rec, out)
     headline = presentation(root).get("headline", {})
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
     hero = hero_rows(rows)
+    if hero:  # Figure 1 headlines the v3.1.0 operating points: its sentences replace the v3.0.0 ones
+        sentences = hero_sentences(hero, rec)
+        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v3.1.0 foreground)",
+                                         source="; ".join(f"docs/paper/data/evidence/{r['_where']} id={r['id']}" for r in hero.values()))
+        facts["figure"] = md(sentences["headline"])
+        rec.add("HeroSubtitle", tex(sentences["subtitle"]).replace("\u00b7", "$\\cdot$"), unit="sentence", label="exploratory",
+                configuration="README summary line of the v3.1.0 foreground", workload=hero["Zip"]["workload"],
+                workload_digest=hero["Zip"]["workload_digest"], source=rec.rows["MoneyHeadline"]["source"])
     nemotron_note = nemotron_timing_note(rows)
     watts = add_money(rows, out, rec, facts["comparison"], hero, nemotron_note)
     pres = presentation(root)
     versus = add_versus(root, rows, pres.get("versus", {}), rec)
+    prior = {q["mode"]: _paired(root, q["paired"]) for q in pres.get("versus", {}).get("prior", [])}  # v3.0.0's own record
     out["table_versus.tex"] = versus["table"]
     add_training(root, rec, out)
-    add_candidate(root, rec, out)
     out["money_readme.md"] = readme_block(rows, facts, watts, extras, focused=bool(hero), nemotron_note=nemotron_note,
-                                          subtitle=rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else "",
-                                          versus=versus, rec_rows=rec.rows, release=pres.get("release", "v3.0.0"))
+                                          subtitle=(rec.rows["HeroSubtitle"]["value"] if hero else rec.rows["ColdSubtitle"]["value"] if "ColdSubtitle" in rec.rows else ""),
+                                          versus=versus, rec_rows=rec.rows, release=pres.get("release", "v3.0.0"), hero=hero, prior=prior)
+    out["v4_readme.md"] = v4_block(rec.rows)
     out["table_measured.tex"] = measured_table(rows, extras)
     out["table_hardware.tex"] = hardware_table(rows)
     out["metrics.tex"] = metrics_tex(rec)

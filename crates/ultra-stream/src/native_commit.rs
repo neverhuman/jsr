@@ -6,7 +6,8 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use ultra_core::events::{Emitter, TranscriptEvent};
-use ultra_engine::commit::{CommitPassSession, CommitSnapshot, SessionLexicalMemory};
+use ultra_engine::commit::{CommitPassSession, CommitSnapshot, CommitTiming, SessionLexicalMemory};
+use ultra_engine::EffectiveDecodeConfig;
 
 use crate::api::{
     AsrStream, PollResult, PushReport, PushStatus, StreamClock, StreamConfig, StreamError,
@@ -76,6 +77,43 @@ impl LiveCommitAsrStream {
         &self.session_bias
     }
 
+    /// Resolved [`EffectiveDecodeConfig`] for the live provisional pass (`F10`).
+    pub fn provisional_decode_config(&self) -> EffectiveDecodeConfig {
+        self.sess
+            .provisional_engine()
+            .effective_decode_config()
+            .with_endpoint_policy(format!(
+                "live_commit_hangover_{}ms_deadline_{}ms",
+                self.live_cfg.hangover_ms, self.live_cfg.deadline_ms
+            ))
+            .with_session_bias_config(self.session_bias.config())
+    }
+
+    /// Resolved [`EffectiveDecodeConfig`] for the background commit pass (`F10`).
+    pub fn commit_decode_config(&self) -> EffectiveDecodeConfig {
+        self.sess
+            .commit_engine()
+            .effective_decode_config()
+            .with_endpoint_policy(format!(
+                "commit_pass_chunk{}_hangover_{}ms_deadline_{}ms",
+                self.live_cfg.commit.commit_chunk,
+                self.live_cfg.hangover_ms,
+                self.live_cfg.deadline_ms
+            ))
+            .with_tail_pad_samples(self.live_cfg.commit.tail_pad_samples)
+            .with_session_bias_config(self.session_bias.config())
+    }
+
+    /// Total CPU seconds burned by timed-out, stale, or cancelled background commit jobs (`F09`).
+    pub fn stale_worker_cpu_s(&self) -> f64 {
+        self.st.stale_worker_cpu_s + self.worker.unreaped_worker_cpu_s()
+    }
+
+    /// Count of timed-out, stale, or cancelled background commit jobs (`F09`).
+    pub fn stale_worker_jobs(&self) -> u64 {
+        self.st.stale_worker_jobs + self.worker.unreaped_worker_jobs()
+    }
+
     fn settle_pending(&mut self, wait_until_deadline: bool) -> Result<(), StreamError> {
         let (cfg, emitter, bias, clock, events) = (
             &self.live_cfg,
@@ -114,7 +152,7 @@ impl LiveCommitAsrStream {
                 s1: snap.end_sample,
                 provisional: &snap.provisional,
                 raw_committed: &snap.provisional,
-                commit_wall_ms: 0.0,
+                commit_timing: CommitTiming::default(),
                 speech_end_ns,
                 pcm_truncated: snap.pcm_truncated,
                 fallback_reason: reason,
@@ -193,7 +231,8 @@ impl AsrStream for LiveCommitAsrStream {
                 + (cur_frames as u64) * R1_SAMPLES_PER_ENC_FRAME)
                 .min(self.st.metrics.accepted_samples);
             self.st.metrics.processed_samples = self.st.metrics.processed_samples.max(proc_now);
-            if cur_tok > self.st.last_tokens_len {
+            let prog = self.sess.last_decode_progress();
+            if prog.has_activity() || cur_tok != self.st.last_tokens_len {
                 (self.st.last_tokens_len, self.st.speech_armed) = (cur_tok, true);
                 (self.st.trailing_blank_samples, self.st.speech_end_ns) = (0, None);
                 let hyp = self.sess.provisional_text();
@@ -276,6 +315,7 @@ impl AsrStream for LiveCommitAsrStream {
         if !self.st.finished && self.st.failed.is_none() {
             self.st.cancelled = true;
             self.pending = None;
+            self.worker.drain_stale(&mut self.st);
             self.events.clear();
         }
         Ok(())
@@ -283,6 +323,7 @@ impl AsrStream for LiveCommitAsrStream {
 
     fn metrics(&self) -> StreamMetrics {
         let mut m = self.st.metrics;
+        m.refiner_charged_cpu_s += self.worker.unreaped_worker_cpu_s();
         m.cap_hits += self.sess.live_progress().2;
         let pcm = self.sess.buffered_samples() * std::mem::size_of::<i16>();
         let evs = self.events.capacity() * std::mem::size_of::<TranscriptEvent>();

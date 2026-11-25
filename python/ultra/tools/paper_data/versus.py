@@ -82,19 +82,53 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
             f"{q['mode']} minus Zipformer INT8, pooled 730-utt panel WER (paired)", p["src"], p["digest"])
         put(f"VsLo{t}", tex(_sg(p["lo"], 2)), p["lo"], "pp WER", f"{q['mode']}: one-sided 95% lower bound (5% bootstrap quantile)", p["src"], p["digest"])
         put(f"VsHi{t}", tex(_sg(p["hi"], 2)), p["hi"], "pp WER", f"{q['mode']}: one-sided 95% upper bound (95% bootstrap quantile)", p["src"], p["digest"])
-        put(f"VsSpeedX{t}", fmt(o["speed"] / z["speed"], 2), o["speed"] / z["speed"], "x",
-            f"{q['mode']} single-core speed / Zipformer INT8", evs, comp["workload_digest"])
-        put(f"VsRssPct{t}", fmt(100.0 * o["rss_mb"] / z["rss_mb"], 0), 100.0 * o["rss_mb"] / z["rss_mb"], "%",
-            f"{q['mode']} peak RSS as % of Zipformer INT8", evs, comp["workload_digest"])
+        pr = r.get("paired_vs_anchor")  # rows timed in interleaved blocks: the median of the within-block ratios
+        how = "median of the within-block ratios" if pr else "ratio of the two medians"
+        speed_x = pr["speed"] if pr else o["speed"] / z["speed"]
+        rss_pct = 100.0 * (pr["rss"] if pr else o["rss_mb"] / z["rss_mb"])
+        put(f"VsSpeedX{t}", fmt(speed_x, 2), speed_x, "x",
+            f"{q['mode']} single-core speed / Zipformer INT8 ({how})", evs, comp["workload_digest"])
+        put(f"VsRssPct{t}", fmt(rss_pct, 0), rss_pct, "%",
+            f"{q['mode']} peak RSS as % of Zipformer INT8 ({how})", evs, comp["workload_digest"])
         if o["watts"] is not None and z["watts"] is not None:
-            put(f"VsEnergyPct{t}", fmt(100.0 * o["watts"] / z["watts"], 0), 100.0 * o["watts"] / z["watts"], "%",
-                f"{q['mode']} active core energy per audio-second as % of Zipformer INT8", evs, comp["workload_digest"])
+            en_pct = 100.0 * (pr["energy"] if pr else o["watts"] / z["watts"])
+            put(f"VsEnergyPct{t}", fmt(en_pct, 0), en_pct, "%",
+                f"{q['mode']} active core energy per audio-second as % of Zipformer INT8 ({how})", evs, comp["workload_digest"])
         verdict = {"lower WER": "lower than", "inconclusive": "not significantly different from", "higher WER": "higher than"}
         put(f"VsVerdict{t}", verdict[_verdict(p)], None, "text", f"{q['mode']}: paired verdict vs Zipformer INT8",
             p["src"], p["digest"])
-        put(f"VsCpuPct{t}", fmt(100.0 * z["speed"] / o["speed"], 0), 100.0 * z["speed"] / o["speed"], "%",
-            f"{q['mode']} CPU-s per audio-s as % of Zipformer INT8", evs, comp["workload_digest"])
+        cpu_pct = 100.0 / speed_x
+        put(f"VsCpuPct{t}", fmt(cpu_pct, 0), cpu_pct, "%",
+            f"{q['mode']} CPU-s per audio-s as % of Zipformer INT8 ({how})", evs, comp["workload_digest"])
         put(f"VsChunk{t}", str(q["chunk"]), q["chunk"], "ms", f"{q['mode']} live chunk", evs, comp["workload_digest"])
+
+    # Rows beside the two paired modes: the chunk-matched 320 ms live row and live greedy (same blocks, paired ratios),
+    # and the prior release against the Zipformer of its own, earlier session (never against this session's blocks).
+    by_variant = {r["variant"]: r for r in rows if (r["machine"], r["threads"]) == HEADLINE and r["host"] == "xbabe0"}
+    for t, variant, what in (("Wide", "rc2-live-lm320", "live +LM, 320 ms"), ("Greedy", "rc2-live-greedy", "live greedy, 160 ms")):
+        r = by_variant.get(variant)
+        if r is None or "paired_vs_anchor" not in r:
+            continue
+        o, pr, evs = derived(r), r["paired_vs_anchor"], f"docs/paper/data/evidence/{r['_where']} id={r['id']}"
+        for key, val, text, unit in (("SpeedX", pr["speed"], fmt(pr["speed"], 2), "x"), ("EnergyPct", 100 * pr["energy"], fmt(100 * pr["energy"], 0), "%"),
+                                     ("RssPct", 100 * pr["rss"], fmt(100 * pr["rss"], 0), "%"), ("RssMb", o["rss_mb"], fmt(o["rss_mb"], 1), "MB"),
+                                     ("Wer", o["wer"], fmt(o["wer"], 2), "% WER"), ("Speed", o["speed"], speed_text(o["speed"]), "x real time"),
+                                     ("Watts", o["watts"], fmt(o["watts"], 3), "J per audio-s")):
+            put(f"Vs{t}{key}", text, val, unit, f"{what}: {key} (same interleaved blocks as Zipformer INT8; ratios are medians of within-block ratios)",
+                evs, comp["workload_digest"])
+    for item in spec.get("prior", []):
+        r = by_variant.get({"live": "rc1-ema-live", "final": "rc1-ema-final"}[item["mode"]])
+        if r is None:
+            continue
+        o, p, t = derived(r), _paired(root, item["paired"]), item["mode"].capitalize()
+        evs = f"docs/paper/data/evidence/{r['_where']} id={r['id']}"
+        for key, val, text, unit in (("Wer", o["wer"], fmt(o["wer"], 2), "% WER"), ("Speed", o["speed"], speed_text(o["speed"]), "x real time"),
+                                     ("Watts", o["watts"], fmt(o["watts"], 3), "J per audio-s"), ("RssMb", o["rss_mb"], fmt(o["rss_mb"], 0), "MB"),
+                                     ("Delta", p["delta"], tex(_sg(p["delta"], 2)), "pp WER"), ("Lo", p["lo"], tex(_sg(p["lo"], 2)), "pp WER"),
+                                     ("Hi", p["hi"], tex(_sg(p["hi"], 2)), "pp WER")):
+            src = p["src"] if key in ("Delta", "Lo", "Hi") else evs
+            put(f"VsPrior{t}{key}", text, val, unit, f"v3.0.0 {item['mode']} {key} (its own earlier session; paired against that session's Zipformer INT8)",
+                src, p["digest"] if key in ("Delta", "Lo", "Hi") else comp["workload_digest"])
 
     def j(v) -> str:
         return "—" if v is None else fmt(v, 3)
@@ -137,8 +171,10 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         ("Peak RSS (MB)", lambda q: fmt(z["rss_mb"] if q is None else q["d"]["rss_mb"], 0)),
     ]
     tx = [r"\begin{table}[t]", r"\centering",
-          r"\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances, same quiet Zen~2 core, cold, "
-          r"median of three. $\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
+          r"\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances (the selection panel; the "
+          r"unselected-half gaps are in \cref{sec:candidate}), same quiet Zen~2 core, same interleaved blocks, median of three. "
+          r"Ratios are medians of within-block ratios. "
+          r"$\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
           r"\textsuperscript{a}Live stream plus a commit pass at reference utterance boundaries.}",
           r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{3pt}",
           r"\begin{tabular}{@{}l" + "r" * len(cols) + r"@{}}", r"\toprule",

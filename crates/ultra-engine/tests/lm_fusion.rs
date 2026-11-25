@@ -172,6 +172,7 @@ fn tiny_model() -> TinyWeights {
         mel_cfg,
         tokens,
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     };
     TinyWeights {

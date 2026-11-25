@@ -38,13 +38,13 @@ pub fn run_sp_a_native_engine_shared_workers(
     if audio_utts.is_empty() {
         return Err(StreamError::Protocol("no audio utterances loaded".into()));
     }
-    let backend = NativeEngineBackend::load_with_options(
+    let load_cfg = cfg.resolved_load_config();
+    let backend = NativeEngineBackend::load_with_config(
         &cfg.weights_dir,
         cfg.precision,
         cfg.threads,
         true,
-        cfg.max_chunks.max(1),
-        cfg.beam.max(1),
+        &load_cfg,
     )?;
     let bundle_id = backend.bundle_id();
     let worker_cpus = assign_worker_cpus(workers, &current_affinity(), observer_cpus, false)?;
@@ -88,6 +88,7 @@ pub fn run_sp_a_native_engine_shared_workers(
                         max_batch: cfg.max_batch,
                         packet_ms: cfg.packet_ms,
                         grid_ms: cfg.grid_ms,
+                        coalesce_ms: cfg.coalesce_ms,
                         paced: cfg.paced,
                         duration_s: cfg.duration_s,
                     },
@@ -134,6 +135,7 @@ pub fn run_sp_a_native_engine_shared_workers(
     let mut total_processed_s = 0.0f64;
     let mut total_unfinished_s = 0.0f64;
     let mut total_wakeups = 0u64;
+    let mut total_paced_wakeups = 0u64;
     let mut total_forced = 0u64;
     let mut summaries = Vec::with_capacity(workers);
     let mut sustained_workers = 0usize;
@@ -149,7 +151,8 @@ pub fn run_sp_a_native_engine_shared_workers(
         total_audio_s += sim.audio_accepted_s;
         total_processed_s += sim.audio_processed_s;
         total_unfinished_s += sim.audio_unfinished_s;
-        total_wakeups += sim.wakeups;
+        total_wakeups += sim.engine_decode_calls;
+        total_paced_wakeups += sim.paced_wakeups;
         all_ticks.extend(sim.tick_compute_ms);
         let sust = sim
             .lateness_ms
@@ -195,7 +198,12 @@ pub fn run_sp_a_native_engine_shared_workers(
         format!("audio_accepted_s:{total_audio_s:.3}"),
         format!("audio_processed_s:{total_processed_s:.3}"),
         format!("audio_unfinished_s:{total_unfinished_s:.3}"),
+        format!("engine_decode_calls:{total_wakeups}"),
+        format!("paced_wakeups:{total_paced_wakeups}"),
     ]);
+    if cfg.coalesce_ms > 0 {
+        status_events.push(format!("coalesce_ms:{}", cfg.coalesce_ms));
+    }
     let receipt = Receipt {
         schema: RECEIPT_SCHEMA.into(),
         bundle: bundle_id.clone(),

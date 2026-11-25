@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .common import DATA, LABELS, NAME_RE, PaperDataError, REQUIRED, fmt, read_json, thousands
+from .words import signed, tex
 
 
 class Records:
@@ -55,6 +56,9 @@ def add_curated(root: Path, rec: Records) -> dict:
             value, raw = e["text"], None
         elif e.get("raw") is None:
             value, raw = None, None
+        elif e.get("signed"):  # a difference: the sign is part of the value ("+0.03", "$-$0.04"), from the raw number
+            raw = e["raw"]
+            value = tex(signed(float(raw), int(e["decimals"])))
         else:
             raw = e["raw"]
             value = thousands(fmt(float(raw), int(e["decimals"])))

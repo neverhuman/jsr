@@ -108,6 +108,7 @@ fn tiny_model() -> Arc<Model> {
         mel_cfg,
         tokens,
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }

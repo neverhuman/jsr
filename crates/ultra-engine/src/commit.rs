@@ -19,10 +19,10 @@ use std::time::Instant;
 
 use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
-use crate::{lm::TfWorkspace, Engine, EngineError, EngineStream, Workspace};
+use crate::{lm::TfWorkspace, DecodeProgress, Engine, EngineError, EngineStream, Workspace};
 
 pub use ctc_head::aggregate_duplicate_hyps;
-pub use live::{run_commit_pcm, CommitSnapshot};
+pub use live::{run_commit_pcm, run_commit_pcm_timed, CommitSnapshot, CommitTiming};
 pub use lm::{CommitLmConfig, CommitLmGateConfig};
 pub use lm_gate::{CommitTokenLm, InternalLm, LmGateConfig};
 pub use rescore::{
@@ -71,6 +71,7 @@ pub struct CommitPassSession {
     stream_id: String,
     model_config_id: String,
     pub(super) stream: EngineStream,
+    pub(super) last_live_progress: DecodeProgress,
     pub(super) seg: SegBuf,
     pub(super) ws: Workspace,
     pub(crate) tf: Option<(CommitTfRescoreConfig, TfWorkspace)>,
@@ -98,6 +99,7 @@ impl CommitPassSession {
             .with_beam(cfg.beam_size);
         ce.endpoint_reset_ms = 0;
         ce.endpoint_replay_ms = 0;
+        ce.tail_pad_samples = 0;
         let stream = engine.create_stream();
         let model_ctc_vocab = (cfg.ctc_weight > 0.0)
             .then(|| ctc_head::load_model_ctc_vocab(&engine.model))
@@ -109,6 +111,7 @@ impl CommitPassSession {
             stream_id: stream_id.to_owned(),
             model_config_id: model_config_id.to_owned(),
             stream,
+            last_live_progress: DecodeProgress::default(),
             seg: SegBuf::default(),
             ws: Workspace::default(),
             tf: None,
@@ -126,6 +129,16 @@ impl CommitPassSession {
     }
     pub fn commit_engine(&self) -> &Engine {
         &self.commit_engine
+    }
+    /// Resolved [`crate::EffectiveDecodeConfig`] for the provisional pass.
+    pub fn provisional_decode_config(&self) -> crate::EffectiveDecodeConfig {
+        self.provisional_engine.effective_decode_config()
+    }
+    /// Resolved [`crate::EffectiveDecodeConfig`] for the endpoint commit pass (including `tail_pad_samples`).
+    pub fn commit_decode_config(&self) -> crate::EffectiveDecodeConfig {
+        self.commit_engine
+            .effective_decode_config()
+            .with_tail_pad_samples(self.cfg.tail_pad_samples)
     }
     pub fn committed_prefix(&self) -> &str {
         &self.committed_prefix
@@ -289,6 +302,7 @@ impl CommitPassSession {
             ..SegBuf::default()
         };
         self.stream = self.provisional_engine.create_stream();
+        self.last_live_progress = DecodeProgress::default();
     }
 
     pub fn reset_all(&mut self) {

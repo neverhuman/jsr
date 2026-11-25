@@ -1,6 +1,6 @@
-"""The measured next candidate (RC2): accuracy from its single registered confirmatory look.
+"""RC2 (released as v3.1.0 by owner decision): accuracy from its single registered confirmatory look.
 
-RC2 is NOT the release; it missed registered gates (docs/ultra/releases/v3.1.0-rc2.md). This module reads the
+RC2 missed registered gates (docs/ultra/releases/v3.1.0-rc2.md). This module reads the
 pinned `ultra-score` receipts in raw/versus/v310 (paired, 730-utt panel and the unselected C half of DEV) and
 raw/release_v31 (full-DEV reports, the Holm audit against shipped v3.0.0 outputs) and emits \\Cand* macros plus
 data/table_candidate.tex. No timing here: speed claims wait for the quiet-host receipts.
@@ -67,6 +67,8 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
             raise PaperDataError(f"candidate: {key} shipped-v3.0.0 pair is not on the same RC2 outputs")
         rows.append({"key": key, "label": label, "chunk": chunk, "panel": panel, "c": chalf,
                      "full": 100 * full["system_a"]["pooled_wer"], "full_edits": _edits(full),
+                     "full_clean": 100 * full["system_a"]["datasets"]["dev-clean"]["wer"],
+                     "full_other": 100 * full["system_a"]["datasets"]["dev-other"]["wer"],
                      "panel_edits": _edits(_load(root, V / f"zip-vs-rc2-{key}.panel730.score.json"), "system_b"),
                      "old": vs_old})
     holm = _load(root, R / "rc2-panel-holm-shipped-v300.json")
@@ -88,6 +90,10 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
         put(f"Cand{t}Edits", str(r["panel_edits"]), r["panel_edits"], "edits", f"RC2 {r['key']} panel edits", psrc, pdig, "730-utt DEV panel")
         put(f"Cand{t}FullWer", fmt(r["full"], 2), r["full"], "% WER", f"RC2 {r['key']} full-DEV pooled WER (descriptive: contains the selection half)",
             str(R / f"rc2-{r['key']}.fulldev.score.json"), sha256_file(root / R / f"rc2-{r['key']}.fulldev.score.json"), "full LibriSpeech DEV (5,567 utt)")
+        for which, key, split in (("Clean", "full_clean", "dev-clean"), ("Other", "full_other", "dev-other")):
+            put(f"Cand{t}Full{which}", fmt(r[key], 2), r[key], "% WER", f"RC2 {r['key']} full-DEV {split} WER (descriptive)",
+                str(R / f"rc2-{r['key']}.fulldev.score.json"), sha256_file(root / R / f"rc2-{r['key']}.fulldev.score.json"),
+                "full LibriSpeech DEV (5,567 utt)")
         for which, p, src, dig, wl in (("Panel", r["panel"], psrc, pdig, "730-utt DEV panel"),
                                        ("C", r["c"], csrc, cdig, "DEV C half (2,785 utt, never used for selection)")):
             put(f"Cand{t}{which}Delta", tex(_sg(p["delta"], 2)), p["delta"], "pp WER", f"RC2 {r['key']} minus Zipformer INT8 ({which})", src, dig, wl)
@@ -100,6 +106,13 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
                 f"RC2 {r['key']} minus shipped v3.0.0 (same-family mode)", osrc, odig, "730-utt DEV panel")
             put(f"Cand{t}OldLo", tex(_sg(r["old"]["lo"], 2)), r["old"]["lo"], "pp WER", "one-sided 95% lower bound vs v3.0.0", osrc, odig, "730-utt DEV panel")
             put(f"Cand{t}OldHi", tex(_sg(r["old"]["hi"], 2)), r["old"]["hi"], "pp WER", "one-sided 95% upper bound vs v3.0.0", osrc, odig, "730-utt DEV panel")
+    r0 = rows[0]
+    fin0 = _load(root, R / "rc2-final_m5.fulldev.score.json")["system_a"]["datasets"]
+    for rid, val, what, src, wl in (
+            ("CandCUtts", r0["c"]["utts"], "utterances in the unselected DEV C half", str(V / "zip-vs-rc2-live_c4_greedy.c_half.score.json"), "DEV C half"),
+            ("CandFullCleanUtts", fin0["dev-clean"]["utterances"], "dev-clean utterances in full DEV", str(R / "rc2-final_m5.fulldev.score.json"), "full LibriSpeech DEV (5,567 utt)"),
+            ("CandFullOtherUtts", fin0["dev-other"]["utterances"], "dev-other utterances in full DEV", str(R / "rc2-final_m5.fulldev.score.json"), "full LibriSpeech DEV (5,567 utt)")):
+        put(rid, thousands(str(val)), val, "utterances", what, src, sha256_file(root / src), wl)
     zc = rows[0]["c"]["a"]
     zrel = R / "zipformer_int8.fulldev.score.json"
     zfull = 100 * _load(root, zrel)["system_a"]["pooled_wer"]
@@ -139,8 +152,8 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
     put("CandTrainKh", thousands(fmt(kh, 0)), kh, "audio-h", "RC2 total logged training audio (7 hops; ~32 h unlogged excluded)",
         str(R / "lineage.csv"), sha256_file(root / R / "lineage.csv"), "training logs (train.jsonl audio_s sums)")
     tx = [r"\begin{table*}[t]", r"\centering",
-          r"\caption{\textbf{Measured next candidate (RC2), single registered look.} Not the release: it missed its "
-          r"registered gates. $\Delta$ is RC2 minus Zipformer INT8 (or minus shipped v3.0.0) on the same utterances, with "
+          r"\caption{\textbf{RC2 (released as v3.1.0), single registered look.} It missed its "
+          r"registered gates and is released by owner decision, not as a gate pass. $\Delta$ is RC2 minus Zipformer INT8 (or minus shipped v3.0.0) on the same utterances, with "
           r"one-sided 95\% bounds from the pinned scorer; negative means fewer errors. The 730-utterance panel overlaps "
           r"the half of DEV used for selection; the C half (2,785 utterances) was never used for selection. Full-DEV WER is "
           r"descriptive. Live rows compare with shipped v3.0.0 live greedy (160\,ms); the final rows with its final pass. "

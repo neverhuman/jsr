@@ -111,8 +111,14 @@ pub(crate) fn run_engine_candidate(
         max_batch: 1024,
         max_chunks: ctx.max_chunks,
         beam: ctx.beam,
+        decode_config: ctx.decode_config.clone(),
         packet_ms: 20,
         grid_ms: ctx.grid_ms,
+        coalesce_ms: if matches!(dec, DecodeMode::Batch) {
+            ctx.coalesce_ms
+        } else {
+            0
+        },
         lateness_bound_ms: DEFAULT_LATENESS_BOUND_MS,
         paced,
         source_commit: ctx.commit.into(),

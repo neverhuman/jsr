@@ -20,10 +20,11 @@ use std::cell::RefCell;
 
 use super::super::NR;
 use super::int8_fast_prep::{
-    epilogue_store, prefer_unsigned, prepare_signed_runs, prepare_u_runs, TileMode, I8_PF_NTA,
-    I8_PF_T0,
+    epilogue_store, epilogue_store_preloaded, prefer_unsigned, prepare_signed_quad_runs,
+    prepare_signed_runs, prepare_u_runs, PanelEpilogue, PanelQsum, TileMode, I8_PF_NTA, I8_PF_T0,
 };
-use super::int8_fast_signed::tile_signed_pair_4;
+use super::int8_fast_signed::{tile_signed_pair_4, PF_NONE, PF_NTA, PF_T0};
+use super::int8_fast_signed_quad::tile_signed_quad_4;
 use super::int8_fast_u128::tile_u_pair_4;
 use super::int8_fast_u128_quad::tile_u_quad_4;
 
@@ -186,7 +187,10 @@ fn gemm_i8_abs_avx2(
             }
         }
         let b0 = bad_idx.len();
-        if prepare_signed_runs(aar, kp, bad_idx) {
+        if !stream_nta && prepare_signed_quad_runs(aar, kp, bad_idx) {
+            tile_modes[ti] = TileMode::SignedQuad;
+            bad_ranges[ti] = (b0, bad_idx.len());
+        } else if prepare_signed_runs(aar, kp, bad_idx) {
             tile_modes[ti] = TileMode::SignedPair;
             bad_ranges[ti] = (b0, bad_idx.len());
         } else {
@@ -197,13 +201,15 @@ fn gemm_i8_abs_avx2(
 
     for p in 0..panels {
         let panel = w.panel(p);
-        let sw = &w.scale[p * NR..(p + 1) * NR];
-        let ws = &w.wsum[p * NR..(p + 1) * NR];
-        let bias = &w.bias[p * NR..(p + 1) * NR];
-        let qs = if has_qsum {
-            &w.qsum[p * NR..(p + 1) * NR]
+        let ep = PanelEpilogue::load(
+            &w.scale[p * NR..(p + 1) * NR],
+            &w.wsum[p * NR..(p + 1) * NR],
+            &w.bias[p * NR..(p + 1) * NR],
+        );
+        let qs = if has_qsum && u_tiles > 0 {
+            Some(PanelQsum::load(&w.qsum[p * NR..(p + 1) * NR]))
         } else {
-            &[]
+            None
         };
         let ncols = NR.min(n - p * NR);
 
@@ -214,15 +220,14 @@ fn gemm_i8_abs_avx2(
             let os = &mut out[r * n + p * NR..];
             let (b0, b1) = bad_ranges[ti];
             let b = &bad_idx[b0..b1];
-            match (tile_modes[ti], stream_nta) {
-                (TileMode::U128Pos, true) => tile_u_pair_4::<false>(
+            let pf_first = ti == 0;
+            match (tile_modes[ti], stream_nta, pf_first) {
+                (TileMode::U128Pos, true, _) => tile_u_pair_4::<false>(
                     &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
                     kp,
                     panel,
-                    qs,
-                    sw,
-                    ws,
-                    bias,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -230,14 +235,12 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::U127Neg, true) => tile_u_pair_4::<true>(
+                (TileMode::U127Neg, true, _) => tile_u_pair_4::<true>(
                     &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
                     kp,
                     panel,
-                    qs,
-                    sw,
-                    ws,
-                    bias,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -245,14 +248,12 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::U128Pos, false) => tile_u_quad_4::<false>(
+                (TileMode::U128Pos, false, true) => tile_u_quad_4::<false, true>(
                     &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
                     kp,
                     panel,
-                    qs,
-                    sw,
-                    ws,
-                    bias,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -260,14 +261,12 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::U127Neg, false) => tile_u_quad_4::<true>(
+                (TileMode::U128Pos, false, false) => tile_u_quad_4::<false, false>(
                     &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
                     kp,
                     panel,
-                    qs,
-                    sw,
-                    ws,
-                    bias,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -275,14 +274,38 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::SignedPair, true) => tile_signed_pair_4::<true>(
+                (TileMode::U127Neg, false, true) => tile_u_quad_4::<true, true>(
+                    &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
+                    kp,
+                    panel,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                    b,
+                ),
+                (TileMode::U127Neg, false, false) => tile_u_quad_4::<true, false>(
+                    &u_buf[u_offs[ti]..u_offs[ti] + 4 * kp],
+                    kp,
+                    panel,
+                    qs.as_ref().expect("u_tiles > 0 requires qsum"),
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                    b,
+                ),
+                (TileMode::SignedQuad, _, true) => tile_signed_quad_4::<true>(
                     &a[r * kp..(r + 4) * kp],
                     &a_abs[r * kp..(r + 4) * kp],
                     kp,
                     panel,
-                    sw,
-                    ws,
-                    bias,
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -290,14 +313,12 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::SignedPair, false) => tile_signed_pair_4::<false>(
+                (TileMode::SignedQuad, _, false) => tile_signed_quad_4::<false>(
                     &a[r * kp..(r + 4) * kp],
                     &a_abs[r * kp..(r + 4) * kp],
                     kp,
                     panel,
-                    sw,
-                    ws,
-                    bias,
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -305,28 +326,75 @@ fn gemm_i8_abs_avx2(
                     ncols,
                     b,
                 ),
-                (TileMode::SignedFallback, true) => tile_abs_small::<4, true>(
+                (TileMode::SignedPair, true, _) => tile_signed_pair_4::<PF_NTA>(
                     &a[r * kp..(r + 4) * kp],
                     &a_abs[r * kp..(r + 4) * kp],
                     kp,
                     panel,
-                    sw,
-                    ws,
-                    bias,
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                    b,
+                ),
+                (TileMode::SignedPair, false, true) => tile_signed_pair_4::<PF_T0>(
+                    &a[r * kp..(r + 4) * kp],
+                    &a_abs[r * kp..(r + 4) * kp],
+                    kp,
+                    panel,
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                    b,
+                ),
+                (TileMode::SignedPair, false, false) => tile_signed_pair_4::<PF_NONE>(
+                    &a[r * kp..(r + 4) * kp],
+                    &a_abs[r * kp..(r + 4) * kp],
+                    kp,
+                    panel,
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                    b,
+                ),
+                (TileMode::SignedFallback, true, _) => tile_abs_small::<4, PF_NTA>(
+                    &a[r * kp..(r + 4) * kp],
+                    &a_abs[r * kp..(r + 4) * kp],
+                    kp,
+                    panel,
+                    &ep,
                     sr,
                     cr,
                     os,
                     n,
                     ncols,
                 ),
-                (TileMode::SignedFallback, false) => tile_abs_small::<4, false>(
+                (TileMode::SignedFallback, false, true) => tile_abs_small::<4, PF_T0>(
                     &a[r * kp..(r + 4) * kp],
                     &a_abs[r * kp..(r + 4) * kp],
                     kp,
                     panel,
-                    sw,
-                    ws,
-                    bias,
+                    &ep,
+                    sr,
+                    cr,
+                    os,
+                    n,
+                    ncols,
+                ),
+                (TileMode::SignedFallback, false, false) => tile_abs_small::<4, PF_NONE>(
+                    &a[r * kp..(r + 4) * kp],
+                    &a_abs[r * kp..(r + 4) * kp],
+                    kp,
+                    panel,
+                    &ep,
                     sr,
                     cr,
                     os,
@@ -344,25 +412,41 @@ fn gemm_i8_abs_avx2(
             let sr = &sa[rem_r..rows];
             let cr = &ca[rem_r..rows];
             let os = &mut out[rem_r * n + p * NR..];
-            match (m, stream_nta) {
-                (3, true) => tile_abs_small::<3, true>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
-                (2, true) => tile_abs_small::<2, true>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
-                (_, true) => tile_abs_small::<1, true>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
-                (3, false) => tile_abs_small::<3, false>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
-                (2, false) => tile_abs_small::<2, false>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
-                (_, false) => tile_abs_small::<1, false>(
-                    ar, aar, kp, panel, sw, ws, bias, sr, cr, os, n, ncols,
-                ),
+            let tail_pf = if full_tiles > 0 {
+                PF_NONE
+            } else if stream_nta {
+                PF_NTA
+            } else {
+                PF_T0
+            };
+            match (m, tail_pf) {
+                (3, PF_NTA) => {
+                    tile_abs_small::<3, PF_NTA>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (2, PF_NTA) => {
+                    tile_abs_small::<2, PF_NTA>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (_, PF_NTA) => {
+                    tile_abs_small::<1, PF_NTA>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (3, PF_T0) => {
+                    tile_abs_small::<3, PF_T0>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (2, PF_T0) => {
+                    tile_abs_small::<2, PF_T0>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (_, PF_T0) => {
+                    tile_abs_small::<1, PF_T0>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (3, _) => {
+                    tile_abs_small::<3, PF_NONE>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (2, _) => {
+                    tile_abs_small::<2, PF_NONE>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
+                (_, _) => {
+                    tile_abs_small::<1, PF_NONE>(ar, aar, kp, panel, &ep, sr, cr, os, n, ncols)
+                }
             }
         }
     }
@@ -371,14 +455,12 @@ fn gemm_i8_abs_avx2(
 /// Tail `M = 1..=4` rows x 16 cols using precomputed `a_abs` (zero `vpabsb` in inner loop).
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2,fma")]
-fn tile_abs_small<const M: usize, const NTA: bool>(
+fn tile_abs_small<const M: usize, const PF: u8>(
     a: &[i8],
     a_abs: &[u8],
     kp: usize,
     panel: &[i8],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
+    ep: &PanelEpilogue,
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
@@ -386,7 +468,7 @@ fn tile_abs_small<const M: usize, const NTA: bool>(
     ncols: usize,
 ) {
     assert!(kp.is_multiple_of(4) && a.len() >= M * kp && a_abs.len() >= M * kp);
-    assert!(panel.len() >= kp * NR && sw.len() >= NR && wsum.len() >= NR && bias.len() >= NR);
+    assert!(panel.len() >= kp * NR);
     assert!(sa.len() >= M && ca.len() >= M && ncols <= NR);
     assert!((M - 1)
         .checked_mul(ldo)
@@ -397,9 +479,9 @@ fn tile_abs_small<const M: usize, const NTA: bool>(
     let (ap, aap, wp) = (a.as_ptr(), a_abs.as_ptr(), panel.as_ptr());
     let groups = kp / 4;
     for g in 0..groups {
-        if NTA {
+        if PF == PF_NTA {
             _mm_prefetch::<_MM_HINT_NTA>(wp.wrapping_add(g * 64 + I8_PF_NTA).cast());
-        } else {
+        } else if PF == PF_T0 {
             _mm_prefetch::<_MM_HINT_T0>(wp.wrapping_add(g * 64 + I8_PF_T0).cast());
         }
         // SAFETY: g * 64 + 64 <= kp * 16 <= panel.len().
@@ -425,7 +507,7 @@ fn tile_abs_small<const M: usize, const NTA: bool>(
             acc_m[1] = _mm256_add_epi32(acc_m[1], _mm256_madd_epi16(p1, ones));
         }
     }
-    epilogue_store(&acc, sw, wsum, bias, sa, ca, out, ldo, ncols);
+    epilogue_store_preloaded(&acc, ep, sa, ca, out, ldo, ncols);
 }
 
 /// Multi-panel (`P` panels of 16 cols) tile for small `M = 1, 2` with precomputed `a_abs`.

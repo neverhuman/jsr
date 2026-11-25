@@ -358,6 +358,7 @@ pub fn run_sp_a_ort_r1(cfg: &R1SpAConfig) -> Result<SpAResult, StreamError> {
             max_batch: cfg.max_batch,
             packet_ms: cfg.packet_ms,
             grid_ms: cfg.grid_ms,
+            coalesce_ms: 0,
             paced: cfg.paced,
             duration_s: cfg.duration_s,
         },

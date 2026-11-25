@@ -2,9 +2,11 @@
 //! frontier, §4.4 density ladder, `--panel`, sustained series, ABAB timing, and `--qualified` runner.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ultra_core::receipt::Partition;
-use ultra_stream::default_npz_for_split;
+use ultra_engine::{LmConfig, NgramLm};
+use ultra_stream::{default_npz_for_split, NativeEngineLoadConfig};
 
 use crate::bench_cmd::{parse_next, partition_for_split_and_npz};
 use crate::runner::{resolve_bundle_or_zipformer, resolve_r1_bundle};
@@ -31,6 +33,37 @@ use crate::suite_r1_z::{run_r1_candidate, run_zipformer_candidate};
 use crate::suite_runners::{run_nemotron_candidate, run_offline_candidate, SuiteCtx};
 use crate::{git_short_commit, jsr_data_root, BenchLease, CliError};
 
+/// Enforce scheduler-policy guards for `--coalesce-ms`:
+/// - `coalesce_ms == 0` is always allowed (100% backwards-compatible legacy behavior).
+/// - `--abab-blocks > 0` runs single-stream unpaced blocks (`streams=1, paced=false, coalesce_ms=0`)
+///   for kernel-only timing and must never silently write an uncoalesced ABAB file when
+///   `--coalesce-ms > 0` is requested.
+/// - `--qualified` locks the frozen `FREEZE.md §3` schedule (`coalesce_ms == 0`) so an
+///   unregistered coalescing window cannot silently slip into a qualified run.
+pub fn validate_coalesce_policy(
+    coalesce_ms: u32,
+    abab_blocks: usize,
+    qualified: bool,
+) -> Result<(), CliError> {
+    if coalesce_ms == 0 {
+        return Ok(());
+    }
+    if abab_blocks > 0 {
+        return Err(CliError::Config(format!(
+            "--abab-blocks ({abab_blocks}) cannot be combined with --coalesce-ms {coalesce_ms}: \
+             ABAB timing runs single-stream unpaced blocks (streams=1, paced=false, coalesce_ms=0) \
+             for kernel-only comparisons; measure coalescing with a separately counterbalanced paced run"
+        )));
+    }
+    if qualified {
+        return Err(CliError::Config(format!(
+            "--qualified locks --coalesce-ms 0 per FREEZE.md §3 (got --coalesce-ms {coalesce_ms}); \
+             unregistered scheduler coalescing is exploratory-only"
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut candidates_csv =
         String::from("zipformer-int8,r1-d1,moonshine-v2-base-en-int8,moonshine-v2-tiny-en-int8");
@@ -40,8 +73,16 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
     let mut limit: Option<usize> = Some(100);
     let mut batch_streams = 16usize;
     let mut grid_ms = 320u32;
+    let mut coalesce_ms = 0u32;
     let mut max_chunks = 2usize;
     let mut beam = 1usize;
+    let mut beam_max_symbols = 1usize;
+    let mut beam_margin = 0.0f32;
+    let mut chunk_override: Option<usize> = None;
+    let mut lm_path: Option<PathBuf> = None;
+    let mut lm_weight = 0.0f32;
+    let mut lodr_weight = 0.0f32;
+    let mut blank_penalty = 0.0f32;
     let mut density_workers = 4usize;
     let mut density_workers_explicit = false;
     let mut full_machine_requested = false;
@@ -80,8 +121,18 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             }
             "--batch-streams" => batch_streams = parse_next(args, &mut i, "--batch-streams")?,
             "--grid-ms" => grid_ms = parse_next(args, &mut i, "--grid-ms")?,
+            "--coalesce-ms" => coalesce_ms = parse_next(args, &mut i, "--coalesce-ms")?,
             "--max-chunks" => max_chunks = parse_next(args, &mut i, "--max-chunks")?,
             "--beam" => beam = parse_next(args, &mut i, "--beam")?,
+            "--beam-max-symbols" => {
+                beam_max_symbols = parse_next(args, &mut i, "--beam-max-symbols")?;
+            }
+            "--beam-margin" => beam_margin = parse_next(args, &mut i, "--beam-margin")?,
+            "--chunk" => chunk_override = Some(parse_next(args, &mut i, "--chunk")?),
+            "--lm" => lm_path = Some(parse_next(args, &mut i, "--lm")?),
+            "--lm-weight" => lm_weight = parse_next(args, &mut i, "--lm-weight")?,
+            "--lodr-weight" => lodr_weight = parse_next(args, &mut i, "--lodr-weight")?,
+            "--blank-penalty" => blank_penalty = parse_next(args, &mut i, "--blank-penalty")?,
             "--density-workers" => {
                 density_workers = parse_next(args, &mut i, "--density-workers")?;
                 density_workers_explicit = true;
@@ -149,6 +200,7 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--full-machine and --density-workers are mutually exclusive (re-review N7)".into(),
         ));
     }
+    validate_coalesce_policy(coalesce_ms, abab_blocks, qualified_requested)?;
     if full_machine_requested {
         density_workers = 60; // 15 CCX x 4 physical cores (16th CCX = observer)
     }
@@ -192,6 +244,48 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             "--beam must be in 1..=16 (got {beam})"
         )));
     }
+    if !(1..=8).contains(&beam_max_symbols) {
+        return Err(CliError::Config(format!(
+            "--beam-max-symbols must be in 1..=8 (got {beam_max_symbols})"
+        )));
+    }
+    if !beam_margin.is_finite() || beam_margin < 0.0 {
+        return Err(CliError::Config(
+            "--beam-margin must be finite and >= 0".into(),
+        ));
+    }
+    let lm_cfg = LmConfig {
+        lm_weight,
+        lodr_weight,
+        blank_penalty,
+    };
+    lm_cfg
+        .validate()
+        .map_err(|e| CliError::Config(e.to_string()))?;
+    let loaded_lm = match &lm_path {
+        Some(p) => {
+            let loaded = NgramLm::load(p)
+                .map_err(|e| CliError::Unavailable(format!("--lm {}: {e}", p.display())))?;
+            Some((Arc::new(loaded), lm_cfg))
+        }
+        None => {
+            if lm_weight != 0.0 || lodr_weight != 0.0 || blank_penalty != 0.0 {
+                return Err(CliError::Config(
+                    "--lm-weight, --lodr-weight, and --blank-penalty require --lm".into(),
+                ));
+            }
+            None
+        }
+    };
+    let native_decode_cfg = NativeEngineLoadConfig {
+        max_chunks: max_chunks.clamp(1, 16),
+        chunk: chunk_override,
+        beam,
+        beam_max_symbols,
+        beam_margin,
+        lm: loaded_lm,
+        ..NativeEngineLoadConfig::default()
+    };
     if !density_seconds.is_finite() || density_seconds < 0.0 {
         return Err(CliError::Config(format!(
             "--density-seconds must be finite and >= 0 (got {density_seconds})"
@@ -239,10 +333,10 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
 
     let confirm_s = ladder_confirm_seconds.unwrap_or(if qualified_requested { 300.0 } else { 0.0 });
     let status_tag = if qualified_requested {
-        // FREEZE.md §3: lock grid_ms=320, max_chunks=2, threads=1, and per-CCX=4 / full-machine=60.
-        if grid_ms != 320 || max_chunks != 2 || threads != 1 {
+        // FREEZE.md §3: lock grid_ms=320, max_chunks=2, threads=1, coalesce_ms=0, and per-CCX=4 / full-machine=60.
+        if grid_ms != 320 || max_chunks != 2 || threads != 1 || coalesce_ms != 0 {
             return Err(CliError::Config(format!(
-                "--qualified locks --grid-ms 320, --max-chunks 2, and --threads 1 per FREEZE.md §3 (got grid_ms={grid_ms}, max_chunks={max_chunks}, threads={threads})"
+                "--qualified locks --grid-ms 320, --max-chunks 2, --threads 1, and --coalesce-ms 0 per FREEZE.md §3 (got grid_ms={grid_ms}, max_chunks={max_chunks}, threads={threads}, coalesce_ms={coalesce_ms})"
             )));
         }
         let expected_workers = if full_machine_requested { 60 } else { 4 };
@@ -388,8 +482,10 @@ pub(crate) fn cmd_bench_suite(args: &[String]) -> Result<(), CliError> {
             panel_manifest_sha256: resolved_panel.as_ref().map(|p| p.manifest_sha256.as_str()),
             batch_streams,
             grid_ms,
+            coalesce_ms,
             max_chunks: max_chunks.clamp(1, 16),
             beam,
+            decode_config: &native_decode_cfg,
             density_workers,
             density_streams,
             density_seconds,

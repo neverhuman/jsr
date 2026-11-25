@@ -12,8 +12,8 @@ use crate::EngineError;
 const IO_BUF_BYTES: usize = 65_536;
 
 /// Verify trailing 32-byte SHA-256 digest in `64 KiB` chunks without buffering the file in RAM.
-/// Returns the verified payload length (`file_len - 32`).
-pub(super) fn verify_sha256_streaming(path: &Path) -> Result<usize, EngineError> {
+/// Returns `(payload_len, whole_file_sha256_hex)`.
+pub(super) fn verify_sha256_streaming(path: &Path) -> Result<(usize, String), EngineError> {
     let file_len = std::fs::metadata(path)?.len();
     if file_len < 32 + 28 {
         return Err(EngineError::Format("LM file truncated".into()));
@@ -32,12 +32,14 @@ pub(super) fn verify_sha256_streaming(path: &Path) -> Result<usize, EngineError>
     }
     let mut tail = [0u8; 32];
     f.read_exact(&mut tail)?;
+    let mut whole_hasher = hasher.clone();
     if tail.as_slice() != hasher.finalize().as_slice() {
         return Err(EngineError::Integrity(
             "LM file SHA-256 verification failed".into(),
         ));
     }
-    Ok(payload_len)
+    whole_hasher.update(tail);
+    Ok((payload_len, format!("{:x}", whole_hasher.finalize())))
 }
 
 pub(super) fn open_payload_reader(

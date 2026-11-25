@@ -12,7 +12,7 @@ use ultra_frontend::npz::AudioUtterance;
 use crate::api::StreamError;
 use crate::contrast::{load_selected_audio, read_loadavg};
 use crate::grid_sim::{simulate_grid, DecodeMode, SimParams, SimSlotBank};
-use crate::native_engine::NativeEngineBackend;
+use crate::native_engine::{NativeEngineBackend, NativeEngineLoadConfig};
 use crate::scheduler::{finalize_sp_a_result, RealClock, SpAMeta, SpAResult};
 
 struct EngineActiveSlot {
@@ -28,6 +28,7 @@ pub struct NativeEngineSlotBank<'a> {
     pub utts: &'a [AudioUtterance],
     utt_offset: usize,
     slots: Vec<Option<EngineActiveSlot>>,
+    ready_indices: Vec<usize>,
     ws: Workspace,
     sampler: Option<&'a mut TreeSampler>,
     pub forced_advances: u64,
@@ -47,6 +48,7 @@ impl<'a> NativeEngineSlotBank<'a> {
             utts,
             utt_offset,
             slots: (0..streams).map(|_| None).collect(),
+            ready_indices: Vec::with_capacity(streams),
             ws: Workspace::default(),
             sampler,
             forced_advances: 0,
@@ -129,26 +131,24 @@ impl SimSlotBank for NativeEngineSlotBank<'_> {
     }
 
     fn decode_ready_step(&mut self, decode: DecodeMode, max_batch: usize) -> (usize, u64) {
-        let ready_indices: Vec<usize> = self
-            .slots
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, s)| {
-                s.as_ref()
-                    .filter(|st| self.backend.engine.is_ready(&st.raw))
-                    .map(|_| idx)
-            })
-            .collect();
-        if ready_indices.is_empty() {
+        self.ready_indices.clear();
+        for (idx, s) in self.slots.iter().enumerate() {
+            if let Some(st) = s.as_ref() {
+                if self.backend.engine.is_ready(&st.raw) {
+                    self.ready_indices.push(idx);
+                }
+            }
+        }
+        if self.ready_indices.is_empty() {
             return (0, 0);
         }
-        let max_ready = ready_indices.len();
+        let max_ready = self.ready_indices.len();
         let step_cap = match decode {
             DecodeMode::Single => 1,
             DecodeMode::Batch => max_batch.max(1),
         };
         let mut wakeups = 0u64;
-        for chunk in ready_indices.chunks(step_cap) {
+        for chunk in self.ready_indices.chunks(step_cap) {
             let mut refs: Vec<&mut EngineStream> = Vec::with_capacity(chunk.len());
             let mut iter_idx = 0usize;
             for (slot_i, opt) in self.slots.iter_mut().enumerate() {
@@ -305,8 +305,13 @@ pub struct EngineSpAConfig {
     pub max_batch: usize,
     pub max_chunks: usize,
     pub beam: usize,
+    /// Full native decode policy (chunk override, beam_max_symbols, beam_margin, compact LM/LODR,
+    /// kv_int8, endpoint_reset, live_only) propagated directly into `load_with_config` (`F10`).
+    pub decode_config: NativeEngineLoadConfig,
     pub packet_ms: u32,
     pub grid_ms: u32,
+    /// Deadline-aware coalescing window in milliseconds (`0` = off, byte-identical legacy mode).
+    pub coalesce_ms: u32,
     pub lateness_bound_ms: f64,
     pub paced: bool,
     pub source_commit: String,
@@ -314,8 +319,25 @@ pub struct EngineSpAConfig {
     pub completion_status: String,
 }
 
+impl EngineSpAConfig {
+    /// Merge legacy `max_chunks`/`beam` fields with `decode_config` without dropping LM/chunk knobs.
+    pub fn resolved_load_config(&self) -> NativeEngineLoadConfig {
+        let mut c = self.decode_config.clone();
+        if c.max_chunks <= 1 && self.max_chunks > 1 {
+            c.max_chunks = self.max_chunks;
+        }
+        c.max_chunks = c.max_chunks.clamp(1, 16);
+        if c.beam <= 1 && self.beam > 1 {
+            c.beam = self.beam;
+        }
+        c.beam = c.beam.clamp(1, 64);
+        c
+    }
+}
+
 pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
     let a = &b.engine.model.arch;
+    let eff = b.effective_decode_config();
     let mut evs = vec![
         format!("isa:{}", b.engine.isa.name()),
         format!("int8_source:{}", b.int8_source),
@@ -323,7 +345,18 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
         format!("checkpoint_sha256:{}", a.checkpoint_sha256),
         format!("max_chunks:{}", b.engine.max_chunks),
         format!("beam:{}", b.engine.beam),
+        format!("beam_max_symbols:{}", eff.beam_max_symbols),
+        format!("chunk:{}", b.engine.chunk),
+        format!("numerical_policy:{}", eff.numerical_policy),
+        format!("live_only:{}", eff.live_only),
+        format!("lm_active:{}", b.engine.lm.is_some()),
+        format!("decode_policy_sha256:{}", eff.policy_sha256()),
     ];
+    if let Some(lm_sha) = &eff.lm_sha256 {
+        evs.push(format!("lm_sha256:{lm_sha}"));
+        evs.push(format!("lm_weight:{}", eff.lm_weight));
+        evs.push(format!("lodr_weight:{}", eff.lodr_weight));
+    }
     if let Some(prep) = &b.engine.model.int8_prepared {
         evs.push(format!("weights_int8_sha256:{}", prep.sha256));
     }
@@ -332,13 +365,13 @@ pub(crate) fn engine_status_events(b: &NativeEngineBackend) -> Vec<String> {
 
 /// Run the fixed-deadline SP-A loop over [`NativeEngineBackend`] and emit a validated receipt.
 pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, StreamError> {
-    let backend = NativeEngineBackend::load_with_options(
+    let load_cfg = cfg.resolved_load_config();
+    let backend = NativeEngineBackend::load_with_config(
         &cfg.weights_dir,
         cfg.precision,
         cfg.threads,
         true,
-        cfg.max_chunks.max(1),
-        cfg.beam.max(1),
+        &load_cfg,
     )?;
     let utts = load_selected_audio(
         &cfg.npz_path,
@@ -368,6 +401,7 @@ pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, Stream
             max_batch: cfg.max_batch,
             packet_ms: cfg.packet_ms,
             grid_ms: cfg.grid_ms,
+            coalesce_ms: cfg.coalesce_ms,
             paced: cfg.paced,
             duration_s: cfg.duration_s,
         },
@@ -421,5 +455,10 @@ pub fn run_sp_a_native_engine(cfg: &EngineSpAConfig) -> Result<SpAResult, Stream
     res.receipt
         .status_events
         .extend(engine_status_events(&backend));
+    if cfg.coalesce_ms > 0 {
+        res.receipt
+            .status_events
+            .push(format!("coalesce_ms:{}", cfg.coalesce_ms));
+    }
     Ok(res)
 }

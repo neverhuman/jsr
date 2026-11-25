@@ -5,7 +5,8 @@ use std::arch::x86_64::*;
 
 use super::super::NR;
 use super::int8_fast_prep::{
-    accum_u_group_exact, epilogue_u_store, Align32, Avx2Consts, AVX2_CONSTS,
+    accum_u_group_exact, epilogue_u_store_preloaded, Align32, Avx2Consts, PanelEpilogue, PanelQsum,
+    AVX2_CONSTS,
 };
 
 /// Single-call zero-spill AVX2 `M = 4` unsigned-offset 2-group paired kernel across ALL `pairs`
@@ -262,10 +263,8 @@ pub(super) fn tile_u_pair_4<const NEG: bool>(
     u: &[u8],
     kp: usize,
     panel: &[i8],
-    qsum: &[i32],
-    sw: &[f32],
-    wsum: &[f32],
-    bias: &[f32],
+    qs: &PanelQsum,
+    ep: &PanelEpilogue,
     sa: &[f32],
     ca: &[f32],
     out: &mut [f32],
@@ -311,5 +310,5 @@ pub(super) fn tile_u_pair_4<const NEG: bool>(
         }
     }
 
-    epilogue_u_store::<NEG>(acc.0, qsum, sw, wsum, bias, sa, ca, out, ldo, ncols);
+    epilogue_u_store_preloaded::<NEG>(acc.0, qs, ep, sa, ca, out, ldo, ncols);
 }

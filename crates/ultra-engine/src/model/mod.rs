@@ -316,6 +316,18 @@ impl BlankCert {
     }
 }
 
+/// Content SHA-256 digests of the actual `arch.json`-resolved asset files loaded by
+/// [`Model::load_with_mode`], independent of on-disk filenames or staging directories.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LoadedAssetsIdentity {
+    /// Actual SHA-256 of the loaded `files.tokens` file (regardless of filename).
+    pub tokens_sha256: Option<String>,
+    /// Actual SHA-256 of the loaded `files.bpe` file (when declared/loaded).
+    pub bpe_sha256: Option<String>,
+    /// Actual SHA-256 of the loaded `files.mel_fbank` file (regardless of filename).
+    pub mel_fbank_sha256: Option<String>,
+}
+
 /// Everything the engine needs, loaded and packed once, shared read-only by all workers.
 #[derive(Debug)]
 pub struct Model {
@@ -349,6 +361,8 @@ pub struct Model {
     pub rope_inv: Vec<f32>,
     pub mel_cfg: Arc<TrainerMelConfig>,
     pub tokens: Arc<TokenTable>,
+    /// Content SHA-256 digests of the actual `arch.json`-resolved asset files loaded from disk.
+    pub assets: LoadedAssetsIdentity,
     /// Set when the int8 weights were read from a prepared `weights.int8.safetensors`
     /// (no weight quantisation at load); `None` for an fp32 directory.
     pub int8_prepared: Option<prepared::PreparedInt8>,
@@ -516,12 +530,27 @@ impl Model {
             file(&raw, key)?;
         }
         let mut verified = std::collections::BTreeMap::new();
+        let mut verified_sha256 = std::collections::BTreeMap::new();
         for (key, f) in &raw.files {
             if slim_int8 && key == "weights" {
                 continue;
             }
             verified.insert(key.as_str(), verify(root, f, verify_hashes)?);
+            if verify_hashes {
+                verified_sha256.insert(key.as_str(), f.sha256.clone());
+            }
         }
+        let asset_sha256 = |key: &str| -> Result<String, EngineError> {
+            if let Some(hex) = verified_sha256.get(key) {
+                return Ok(hex.clone());
+            }
+            arch_json::sha256_file(&verified[key])
+        };
+        let assets = LoadedAssetsIdentity {
+            tokens_sha256: Some(asset_sha256("tokens")?),
+            bpe_sha256: Some(asset_sha256("bpe")?),
+            mel_fbank_sha256: Some(asset_sha256("mel_fbank")?),
+        };
         let st_path = if slim_int8 {
             &verified["weights_int8"]
         } else {
@@ -556,6 +585,7 @@ impl Model {
         let has_ctc_in_file = st.contains("ctc_head.weight") && st.contains("ctc_head.bias");
         let mut model =
             Self::from_tensors(arch, &st, root, mel_cfg, tokens, &int8_only, live_only)?;
+        model.assets = assets;
         if let Some(i8) = &raw.int8 {
             let wf = file(&raw, "weights_int8")?;
             let path = verified
@@ -779,6 +809,7 @@ impl Model {
             rope_inv,
             mel_cfg,
             tokens,
+            assets: LoadedAssetsIdentity::default(),
             int8_prepared: None,
             root: root.to_path_buf(),
             arch,

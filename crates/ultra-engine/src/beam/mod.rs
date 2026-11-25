@@ -53,6 +53,8 @@ pub struct Hyp {
 #[derive(Debug, Clone)]
 pub struct BeamState {
     pub hyps: Vec<Hyp>,
+    /// `true` iff any active hypothesis emitted a non-blank symbol during the last beam chunk.
+    pub last_non_blank_step: bool,
 }
 
 impl BeamState {
@@ -66,6 +68,7 @@ impl BeamState {
                 dec_ok: false,
                 lm_ctx: None,
             }],
+            last_non_blank_step: false,
         }
     }
 
@@ -202,6 +205,9 @@ pub fn beam_chunk_with_lm(
         acc += n;
     }
     let tmax = ns.iter().copied().max().unwrap_or(0);
+    for st in states.iter_mut() {
+        st.last_non_blank_step = false;
+    }
     let t_all = ws.q.prof.start();
     let gemm0 = ws.q.prof.ns;
 
@@ -550,6 +556,9 @@ pub fn beam_chunk_with_lm(
                     && ws.beam_cands.iter().all(|c| c.k == blank)
                     && (0..ws.beam_cands.len())
                         .all(|i| ws.beam_cands[..i].iter().all(|p| p.h != ws.beam_cands[i].h));
+                if ws.beam_cands.first().is_some_and(|c| c.k != blank) {
+                    st.last_non_blank_step = true;
+                }
 
                 if max_sym == 1 {
                     if all_blank_distinct {
@@ -761,16 +770,19 @@ mod tests {
         };
         let single = BeamState {
             hyps: vec![mk(vec![1, 2, 3])],
+            last_non_blank_step: false,
         };
         assert_eq!(single.shared_prefix(), &[1, 2, 3]);
 
         let partial = BeamState {
             hyps: vec![mk(vec![1, 2, 3]), mk(vec![1, 2, 4, 5])],
+            last_non_blank_step: false,
         };
         assert_eq!(partial.shared_prefix(), &[1, 2]);
 
         let empty = BeamState {
             hyps: vec![mk(vec![1, 2, 3]), mk(vec![1, 2, 4]), mk(vec![9, 2, 3])],
+            last_non_blank_step: false,
         };
         assert_eq!(empty.shared_prefix(), &[] as &[u32]);
     }

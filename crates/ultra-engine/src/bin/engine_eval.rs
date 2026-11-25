@@ -482,8 +482,11 @@ fn run(a: &Args) -> Result<serde_json::Value, String> {
             )
         })
         .collect();
+    let eff_cfg = engine.effective_decode_config();
     let extra = json!({
         "schema": "ultra.engine-eval/v2",
+        "effective_decode_config": eff_cfg,
+        "decode_policy_sha256": eff_cfg.policy_sha256(),
         "npz": wl.sources.iter().map(|s| &s.npz).collect::<Vec<_>>(),
         "panel": a.panel, "panel_manifest_sha256": wl.panel_manifest_sha256,
         "utterances": utts.len(), "audio_s": audio_s,

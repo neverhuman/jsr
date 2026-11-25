@@ -89,6 +89,7 @@ fn synthetic_model(vocab: usize, pred_emb: usize, joiner: usize) -> Model {
         rope_inv: vec![],
         mel_cfg,
         tokens,
+        assets: Default::default(),
         int8_prepared: None,
     }
 }

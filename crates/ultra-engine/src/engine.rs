@@ -61,6 +61,41 @@ pub struct Engine {
     /// - `> 0`: re-arms periodically every `endpoint_reset_ms` of blanks, re-encoding the last
     ///   `endpoint_replay_ms` of features into the fresh encoder cache so speech onsets are never clipped.
     pub endpoint_replay_ms: u32,
+    /// `true` when loaded in live-only mode (auxiliary CTC/unused FP32 tensors skipped).
+    pub live_only: bool,
+    /// Trailing zero-PCM silence samples appended on [`EngineStream::input_finished`] before EOF
+    /// flush (`0` default = no extra silence, 0-ULP bit-identical).
+    pub tail_pad_samples: usize,
+}
+
+/// Per-stream decode progression signal recorded on each [`Engine::decode`] step (`F07`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DecodeProgress {
+    /// Number of encoder frames advanced in this step.
+    pub frames_advanced: usize,
+    /// `true` iff `tokens.len() > prev_tokens.len()`.
+    pub emitted_new_tokens: bool,
+    /// `true` iff the top token sequence changed (growth, equal-length substitution, or contraction).
+    pub hypothesis_changed: bool,
+    /// `true` iff any active hypothesis emitted a non-blank symbol during this step.
+    pub non_blank_step: bool,
+}
+
+impl DecodeProgress {
+    /// Returns `true` when the step showed genuine hypothesis or non-blank emission activity.
+    #[inline]
+    pub fn has_activity(self) -> bool {
+        self.emitted_new_tokens || self.hypothesis_changed || self.non_blank_step
+    }
+
+    /// Accumulate progression across multiple consecutive decode steps.
+    #[inline]
+    pub fn merge(&mut self, other: Self) {
+        self.frames_advanced += other.frames_advanced;
+        self.emitted_new_tokens |= other.emitted_new_tokens;
+        self.hypothesis_changed |= other.hypothesis_changed;
+        self.non_blank_step |= other.non_blank_step;
+    }
 }
 
 /// One utterance/stream: frontend, feature ring, encoder caches and decoder state.
@@ -72,6 +107,7 @@ pub struct EngineStream {
     replay_rows: Vec<[f32; MEL_BINS]>,
     replay_base: usize,
     replay_cap: usize,
+    tail_pad_samples: usize,
     finished: bool,
     /// Set when a chunk step failed after this stream's features or state were consumed;
     /// the stream is terminal (a retry could silently skip audio).
@@ -79,6 +115,7 @@ pub struct EngineStream {
     blank_frames: usize,
     reset_armed: bool,
     endpoint_resets: u64,
+    last_progress: DecodeProgress,
     pub enc: EncState,
     pub dec: DecState,
 }
@@ -170,6 +207,20 @@ impl EngineStream {
     }
 
     pub fn input_finished(&mut self) {
+        if !self.finished && !self.failed && self.tail_pad_samples > 0 {
+            let pad = vec![0i16; self.tail_pad_samples];
+            self.rows.clear();
+            self.mel.push_i16_into(&pad, &mut self.rows);
+            self.ring.push_rows(&self.rows);
+            if self.replay_cap > 0 && !self.rows.is_empty() {
+                self.replay_rows.extend_from_slice(&self.rows);
+                if self.replay_rows.len() > self.replay_cap {
+                    let drop_n = self.replay_rows.len() - self.replay_cap;
+                    self.replay_rows.drain(..drop_n);
+                    self.replay_base += drop_n;
+                }
+            }
+        }
         self.finished = true;
     }
 
@@ -192,6 +243,10 @@ impl EngineStream {
     pub fn endpoint_resets(&self) -> u64 {
         self.endpoint_resets
     }
+
+    pub fn last_progress(&self) -> DecodeProgress {
+        self.last_progress
+    }
 }
 
 /// Per-worker scratch. Tensor buffers are reused (grown on demand, never shrunk); each
@@ -203,6 +258,9 @@ pub struct Workspace {
     feats: Vec<f32>,
     enc_out: Vec<f32>,
     ready: Vec<(usize, usize)>,
+    ns: Vec<usize>,
+    prev_tok_lens: Vec<usize>,
+    hyp_changed: Vec<bool>,
 }
 
 impl Workspace {
@@ -250,6 +308,8 @@ impl Engine {
             ));
         }
         let chunk = model.arch.chunk;
+        let live_only =
+            model.ctc_head.is_none() && model.emb.is_empty() && model.pred_cache.is_some();
         Ok(Self {
             model,
             isa,
@@ -265,7 +325,39 @@ impl Engine {
             lm: None,
             endpoint_reset_ms: 0,
             endpoint_replay_ms: 0,
+            live_only,
+            tail_pad_samples: 0,
         })
+    }
+
+    /// Record whether this engine was loaded in live-only weight mode (skips auxiliary CTC weights).
+    pub fn with_live_only(mut self, on: bool) -> Self {
+        self.live_only = on;
+        self
+    }
+
+    /// Append `samples` of trailing zero-PCM silence at [`EngineStream::input_finished`] (`0` = off).
+    pub fn with_tail_pad_samples(mut self, samples: usize) -> Self {
+        self.tail_pad_samples = samples;
+        self
+    }
+
+    /// Append `ms` milliseconds (`16 * ms` samples at 16 kHz) of trailing zero-PCM silence at EOF.
+    pub fn with_tail_pad_ms(mut self, ms: usize) -> Self {
+        self.tail_pad_samples = ms.saturating_mul(16);
+        self
+    }
+
+    /// Returns `true` when decoding runs through [`crate::beam::BeamState`]: either multi-beam
+    /// (`beam > 1`) OR width-1 fused greedy LM/LODR (`beam == 1 && lm.is_some()`, `T9`).
+    #[inline]
+    pub fn uses_beam_state(&self) -> bool {
+        self.beam > 1 || self.lm.is_some()
+    }
+
+    /// Resolve the shared, hashable runtime decode policy (`F01` / `F10`).
+    pub fn effective_decode_config(&self) -> crate::EffectiveDecodeConfig {
+        crate::EffectiveDecodeConfig::from_engine(self)
     }
 
     /// Override the streaming chunk length (in 25 Hz encoder frames, `1..=64`; must be even for
@@ -340,9 +432,9 @@ impl Engine {
         self
     }
 
-    /// Attach a pure-Rust token n-gram LM (+ optional LODR bigram) for beam-search shallow fusion.
-    /// Requires `lm.vocab == model.arch.vocab`. When `beam == 1`, LM fusion is inactive unless
-    /// `with_beam(k > 1)` is also set.
+    /// Attach a pure-Rust token n-gram LM (+ optional LODR bigram) for shallow fusion.
+    /// Requires `lm.vocab == model.arch.vocab`. Works both with multi-beam (`beam > 1`) and
+    /// width-1 fused greedy LM (`beam == 1`, append-only, zero retractions).
     pub fn with_lm(
         mut self,
         lm: Arc<crate::lm::NgramLm>,
@@ -390,11 +482,13 @@ impl Engine {
             replay_rows: Vec::with_capacity(replay_cap),
             replay_base: 0,
             replay_cap,
+            tail_pad_samples: self.tail_pad_samples,
             finished: false,
             failed: false,
             blank_frames: 0,
             reset_armed: false,
             endpoint_resets: 0,
+            last_progress: DecodeProgress::default(),
             enc: EncState::new_with_kv_and_chunk(
                 &self.model,
                 self.max_chunks,
@@ -487,11 +581,12 @@ impl Engine {
                 }
             }
         }
-        let ns: Vec<usize> = ws.ready.iter().map(|&(_, n)| n).collect();
+        ws.ns.clear();
+        ws.ns.extend(ws.ready.iter().map(|&(_, n)| n));
         let mut decs: Vec<&mut DecState> = Vec::with_capacity(encs.len());
         let mut jobs: Vec<ChunkJob<'_>> = Vec::with_capacity(encs.len());
         let mut off = 0;
-        for ((enc, dec), &n) in encs.into_iter().zip(&ns) {
+        for ((enc, dec), &n) in encs.into_iter().zip(&ws.ns) {
             jobs.push(ChunkJob {
                 state: enc,
                 feats: &ws.feats[off..off + per(n)],
@@ -505,11 +600,10 @@ impl Engine {
         let split = self.pool.clone().map(|p| (p, self.model.clone()));
         ws.enc.q.split = split.clone();
         ws.dec.q.split = split;
-        let prev_tok_lens: Vec<usize> = if self.endpoint_reset_ms > 0 {
-            decs.iter().map(|d| d.tokens.len()).collect()
-        } else {
-            Vec::new()
-        };
+        ws.prev_tok_lens.clear();
+        ws.prev_tok_lens.extend(decs.iter().map(|d| d.tokens.len()));
+        ws.hyp_changed.clear();
+        ws.hyp_changed.resize(decs.len(), false);
         let m = &self.model;
         let result = encode_chunk(
             m,
@@ -521,7 +615,7 @@ impl Engine {
             tap,
         )
         .and_then(|_| {
-            if self.beam > 1 {
+            if self.uses_beam_state() {
                 let mut bs: Vec<&mut crate::beam::BeamState> = decs
                     .iter_mut()
                     .map(|d| d.beam.get_or_insert_with(|| crate::beam::BeamState::new(m)))
@@ -536,13 +630,18 @@ impl Engine {
                     self.beam_margin,
                     lm_ref,
                     &mut bs,
-                    &ns,
+                    &ws.ns,
                     &ws.enc_out,
                     &mut ws.dec,
                 )?;
-                for d in decs.iter_mut() {
+                for (d, changed) in decs.iter_mut().zip(&mut ws.hyp_changed) {
                     if let Some(b) = &d.beam {
-                        d.tokens.clone_from(&b.best_hyp().tokens);
+                        let best = &b.best_hyp().tokens;
+                        if d.tokens != *best {
+                            d.tokens.clone_from(best);
+                            *changed = true;
+                        }
+                        d.last_non_blank_step = b.last_non_blank_step;
                     }
                 }
                 Ok(())
@@ -552,10 +651,16 @@ impl Engine {
                     self.isa,
                     self.precision,
                     &mut decs,
-                    &ns,
+                    &ws.ns,
                     &ws.enc_out,
                     &mut ws.dec,
-                )
+                )?;
+                for ((d, &prev_len), changed) in
+                    decs.iter().zip(&ws.prev_tok_lens).zip(&mut ws.hyp_changed)
+                {
+                    *changed = d.tokens.len() != prev_len;
+                }
+                Ok(())
             }
         });
         drop(jobs);
@@ -567,6 +672,17 @@ impl Engine {
             }
             return Err(e);
         }
+        for ((&(i, n), &prev_len), &changed) in
+            ws.ready.iter().zip(&ws.prev_tok_lens).zip(&ws.hyp_changed)
+        {
+            let s = &mut *streams[i];
+            s.last_progress = DecodeProgress {
+                frames_advanced: n,
+                emitted_new_tokens: s.dec.tokens.len() > prev_len,
+                hypothesis_changed: changed,
+                non_blank_step: s.dec.last_non_blank_step,
+            };
+        }
         if self.endpoint_reset_ms > 0 {
             let threshold_ms = self.endpoint_reset_ms as usize;
             let replay_target_frames = if self.endpoint_replay_ms > 0 {
@@ -575,9 +691,9 @@ impl Engine {
                 0
             };
             let periodic = self.endpoint_replay_ms > 0;
-            for (&(i, n), &prev_len) in ws.ready.iter().zip(&prev_tok_lens) {
+            for &(i, n) in &ws.ready {
                 let s = &mut *streams[i];
-                if s.dec.tokens.len() > prev_len {
+                if s.last_progress.has_activity() {
                     s.blank_frames = 0;
                     s.reset_armed = true;
                 } else if periodic || s.reset_armed {
@@ -632,7 +748,7 @@ impl Engine {
                 }
             }
         }
-        Ok(ns.len())
+        Ok(ws.ns.len())
     }
 
     /// Detokenised transcript so far.

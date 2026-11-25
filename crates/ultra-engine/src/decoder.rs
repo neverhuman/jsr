@@ -22,7 +22,9 @@ pub struct DecState {
     pub dec_ok: bool,
     pub tokens: Vec<u32>,
     pub forced: u64,
-    /// Beam search state (`Engine::with_beam(k)`, k > 1); `None` for greedy.
+    /// `true` iff the most recent decode step emitted at least one non-blank symbol.
+    pub last_non_blank_step: bool,
+    /// Beam search state (`Engine::with_beam(k)` or width-1 fused LM); `None` for plain greedy.
     pub beam: Option<crate::beam::BeamState>,
 }
 
@@ -34,6 +36,7 @@ impl DecState {
             dec_ok: false,
             tokens: Vec::new(),
             forced: 0,
+            last_non_blank_step: false,
             beam: None,
         }
     }
@@ -175,6 +178,9 @@ pub fn greedy_chunk(
         })
         .collect();
     let tmax = ns.iter().copied().max().unwrap_or(0);
+    for st in states.iter_mut() {
+        st.last_non_blank_step = false;
+    }
     let t_all = ws.q.prof.start();
     let gemm0 = ws.q.prof.ns;
     for t in 0..tmax {
@@ -230,6 +236,7 @@ pub fn greedy_chunk(
                 if k != m.arch.blank {
                     let st = &mut *states[s];
                     st.tokens.push(k as u32);
+                    st.last_non_blank_step = true;
                     st.ctx.rotate_left(1);
                     let last = st.ctx.len() - 1;
                     st.ctx[last] = k;
@@ -410,6 +417,7 @@ mod tests {
             rope_inv: Vec::new(),
             mel_cfg,
             tokens,
+            assets: Default::default(),
             int8_prepared: None,
         };
 

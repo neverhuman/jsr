@@ -6,8 +6,9 @@ JSR ships a library and a command-line tool that run on the user's own CPU; ther
 no hosted service, account system or server to operate.
 
 **Releases so far:**
-- **v3.0.1** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)). It is the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
-- **v3.0.0** is the same artifact, with an unsigned tag. Record: [`v3.0.0.md`](ultra/releases/v3.0.0.md).
+- **v3.1.0** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)): the RC2 INT8 model with its live and final decoders, both LMs and the scorer, signed, published 2026-11-24. It was released by owner decision with its registered gate misses stated. Record: [`v3.1.0.md`](ultra/releases/v3.1.0.md).
+- **v3.0.1** is the previous release and the rollback target: the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
+- **v3.0.0** is the same artifact as v3.0.1, with an unsigned tag. Record: [`v3.0.0.md`](ultra/releases/v3.0.0.md).
 
 ## Signing
 - **Tags:** release tags are SSH-signed annotated tags. The tagger is `NeverHuman <219957145+neverhumanbot@users.noreply.github.com>`.
@@ -49,18 +50,21 @@ The example runs in a subshell with `set -eu`. It stops at the first failed chec
   # 3. Every file matches the checksum list
   sha256sum -c SHA256SUMS
   # 4. Unpack the model bundle and check its contents
-  tar -xf ultra-v3.0.1-int8-bundle.tar
-  sha256sum -c ultra-v3.0.1-int8-bundle.SHA256SUMS
-  chmod +x ultra-engine-commit ultra-score
+  tar -xf ultra-v3.1.0-int8-bundle.tar
+  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS
+  chmod +x ultra-cold-wav ultra-engine-commit ultra-score
   # 5. Run: utts.jsonl in this directory has one {"uid", "wav"} row per utterance (16 kHz mono WAV)
   ./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
-    --commit-chunk 16 --tail-pad-ms 320 --threads 1 \
-    --commit-lm M5.ulm --commit-beam 16 --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
+    --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --tail-pad-ms 320 --threads 1 \
+    --commit-lm M5.ulm --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
+  # Live text only (160 ms chunk + 34.5 MiB LM) over ./wav-dir, which must hold only regular files named u00000.wav, u00001.wav, ... (any other entry is rejected):
+  # ./ultra-cold-wav --chunk 4 --beam 4 --beam-max-symbols 1 --beam-margin 0.0 --lm c4_p0_0_10_40.v2.ulm \
+  #   --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 ./wav-dir ./live.jsonl
 )
 ```
-- **Output:** each row holds the live stream text (`provisional`) and the final text (`committed`).
+- **Output:** `commit.jsonl` rows hold `uid`, the live stream text (`provisional`), the final text (`committed`) and timing fields, followed by one summary row without `uid`. The live decoder writes `{"id", "hyp"}` rows.
 - **Without `gh`:** download each file from the `download_base` URL in `pinned.json`.
-- **Rollback:** point at the previous install directory. v3.0.1 is the first release with files.
+- **Rollback:** point at the previous install directory. For v3.1.0 that is v3.0.1's (`models/sha256-7612d5be…`), installed from its own record.
 
 ## Steps
 

@@ -135,20 +135,39 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
     return text.replace("\\,", " ").replace("\\%", "%")
 
 
+HERO_VARIANTS = {
+    "LiveLm": "rc2-live-lm", "LiveLmWide": "rc2-live-lm320", "LiveGreedy": "rc2-live-greedy", "Final": "rc2-final",
+    "Zip": "r0-int8-r6", "OldLive": "rc1-ema-live", "OldFinal": "rc1-ema-final", "Parakeet": "parakeet-v3-onnxasr-int8",
+}
+
+
 def hero_rows(rows: list[dict]) -> dict[str, dict]:
-    """Select directly comparable release and baseline rows for the foreground figure."""
+    """Select the rows of the foreground figure: v3.1.0 live, final and Zipformer INT8 from the same quiet
+    interleaved blocks, the previous release (v3.0.0) and the whole-clip reference, all on one workload."""
     matched = {
         row["variant"]: row for row in rows
-        if (row["machine"], row["threads"]) == HEADLINE and row["plot"]
+        if (row["machine"], row["threads"]) == HEADLINE and row["variant"] in HERO_VARIANTS.values()
         and row["host"] == "xbabe0" and not row["interim"] and row["timing_panel"] == "full"
         and len(row.get("cpu_reps", [])) == 3
     }
-    variants = {"Live": "rc1-ema-live", "Final": "rc1-ema-final",
-                "Zip": "r0-int8", "Parakeet": "parakeet-v3-onnxasr-int8"}
-    if not set(variants.values()) <= matched.keys():
+    if not set(HERO_VARIANTS.values()) <= matched.keys():
         return {}
-    chosen = {label: matched[variant] for label, variant in variants.items()}
+    chosen = {label: matched[variant] for label, variant in HERO_VARIANTS.items()}
     return chosen if len({row["workload_digest"] for row in chosen.values()}) == 1 else {}
+
+
+def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
+    """The Figure 1 sentences (Unicode source text) for the v3.1.0 foreground: caption headline and subtitle.
+    The 730-utterance panel overlaps the selection half, so the unselected-half gap always stands beside it."""
+    d = {label: derived(row) for label, row in hero.items()}
+    live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
+    gap_c = rec.rows["CandLiveLmCDelta"]["value"].replace("$-$", "\u2212")
+    headline = (f"Isosyll v3.1.0 live (160 ms, +LM): {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}% WER on the selection "
+                f"panel ({gap_c} pp on unselected DEV) vs. Zipformer INT8 {speed_text(zip_['speed'])}\u00d7, {fmt(zip_['wer'], 2)}%; "
+                f"final {fmt(fin['wer'], 2)}%, {speed_text(fin['speed'])}\u00d7.")
+    subtitle = (f"Live (160 ms chunk, +LM): {speed_text(live['speed'])}\u00d7 real time, {fmt(live['wer'], 2)}% WER (selection panel) \u00b7 "
+                f"Final (commit pass at utterance ends): {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}% WER")
+    return {"headline": headline, "subtitle": subtitle}
 
 
 def nemotron_timing_note(rows: list[dict]) -> str:
@@ -162,19 +181,21 @@ def nemotron_timing_note(rows: list[dict]) -> str:
             f"and runs at {speed_text(data['speed'])}× in the separate quiet 73-clip timing test.")
 
 
-def _hero_layout(chosen: dict[str, dict]) -> list[str]:
+def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     points = {label: derived(row) for label, row in chosen.items()}
     bounds = axis_limits(list(points.values()))
     ticks = range(bounds["xmin"], bounds["xmax"] + 1, bounds["xstep"])
-    live, zipformer = points["Live"], points["Zip"]
+    live, zipformer = points["LiveLm"], points["Zip"]
     y_max = max(8.8, max(point["wer"] for point in points.values()) + 1.9)
+    drawn = ("LiveLm", "LiveLmWide", "LiveGreedy", "Final", "Zip")
     energy = all(
         points[label]["watts"] is not None and chosen[label].get("energy_method") == "core_msr_active"
-        for label in ("Live", "Final", "Zip")
+        for label in drawn
     )
     macros = {
         "Xmax": bounds["xmax"], "Xticks": ",".join(map(str, ticks)), "Ymax": f"{y_max:g}",
-        "ArrowY": f"{y_max - 0.85:g}", "Ratio": fmt(live["speed"] / zipformer["speed"], 1),
+        "ArrowY": f"{y_max - 0.85:g}",
+        "Ratio": fmt(chosen["LiveLm"]["paired_vs_anchor"]["speed"], 1),
         "HaveEnergy": int(energy),
     }
     for label, point in points.items():
@@ -182,11 +203,14 @@ def _hero_layout(chosen: dict[str, dict]) -> list[str]:
             label + "X": f"{point['speed']:.6f}", label + "Y": f"{point['wer']:.6f}",
             label + "Speed": speed_text(point["speed"]), label + "Wer": fmt(point["wer"], 2),
         })
-    for label in ("Live", "Final", "Zip"):
+    for label in drawn:
         macros[label + "Name"] = _tex(chosen[label]["system"])
     if energy:
-        for label in ("Live", "Final", "Zip"):
+        for label in drawn:
             macros[label + "Energy"] = fmt(points[label]["watts"], 3)
+    for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):
+        # the live +LM gap to Zipformer on both panels (160 ms row; the 320 ms row's C-half gap as its own macro)
+        macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"Cand{mode}{tag}{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
     return [f"\\def\\Hero{key}{{{value}}}%" for key, value in macros.items()]
 
 
@@ -240,8 +264,8 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             p["tex"] = _tex(p["label"]) + sub_t + (f"\\,$\\cdot$\\,{callout}\\,W" if callout else "")
     spec = tuple((p["id"], p["plain"], p["role"] == "ours", *to_pt(p["speed"], p["wer"]), MARK_R[p["role"]]) for p in pts)
     quiet_full = {p["id"]: p for p in pts if p["frontier"] and p["row"]["timing_panel"] == "full"}
-    zipformer = quiet_full.get("r0-int8-zen2-t1")
-    live = quiet_full.get("rc1-ema-live-zen2-t1")
+    zipformer = quiet_full.get("r0-int8-r6-zen2-t1")
+    live = quiet_full.get("rc2-live-lm-zen2-t1")
     speed_gap, reserved = "", ()
     if zipformer and live and live["speed"] > zipformer["speed"]:
         left = to_pt(zipformer["speed"], 0)[0]
@@ -288,7 +312,8 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             configuration="generated: broader comparison figure", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
     if hero:
-        marks = ["The live and final modes share the same prepared INT8 weights.",
+        marks = ["The v3.1.0 live and final modes share the same prepared INT8 weights, and Zipformer INT8 was timed in "
+                 "the same three interleaved blocks; grey marks are v3.0.0, timed in an earlier session.",
                  "The final mode uses reference utterance boundaries. Parakeet decodes whole clips."]
         if nemotron_note:
             marks.append(_tex(nemotron_note).replace("×", r"$\times$"))
@@ -336,7 +361,7 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
     body.append("\\def\\MoneyKey{" + "\\quad ".join(key_items) + "}%")
     body.append(f"\\def\\MoneyHeroOn{{{int(bool(hero))}}}%")
     if hero:
-        body.extend(_hero_layout(hero))
+        body.extend(_hero_layout(hero, rec))
     out["money_layout.tex"] = "\n".join(body) + "\n"
     out["money_frontier.csv"] = csv_text(["speed", "wer"], [[f"{x:.4f}", f"{y:.3f}"] for x, y in line])
     return _note(rec, rows, pts, axis)

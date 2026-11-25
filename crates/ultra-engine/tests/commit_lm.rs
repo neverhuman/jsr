@@ -129,6 +129,7 @@ fn synthetic_near_tie_model(bias1: f32, bias2: f32) -> Arc<Model> {
         mel_cfg: Arc::new(TrainerMelConfig::default_htk(GlobalCmvn::identity()).expect("mel")),
         tokens: Arc::new(tok),
         ctc_head: None,
+        assets: Default::default(),
         int8_prepared: None,
     })
 }

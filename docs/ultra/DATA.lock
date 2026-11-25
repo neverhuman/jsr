@@ -132,3 +132,25 @@ Everything below is training input only. It is never used for evaluation. It mus
   - the release decoder and the scorer.
   - They are attached to `v3.0.0` (unsigned) and `v3.0.1` (signed; [`releases/pinned.json`](releases/pinned.json)).
 - **Attribution in the release notes:** LibriSpeech (CC BY 4.0): V. Panayotov, G. Chen, D. Povey, S. Khudanpur, "LibriSpeech: an ASR corpus based on public domain audio books", ICASSP 2015.
+
+## Release clearance: v3.1.0 (RC2), 2026-11-24
+- **Cleared by:** the owner's direct release decision on 2026-11-24 (about 22:50Z, instruction to the lead in session).
+- **What is cleared as GitHub release files** (record: [`releases/v3.1.0.md`](releases/v3.1.0.md)):
+  - the RC2 INT8 weights (`int8/weights.int8.safetensors` sha256 `94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0`) and its bundle files;
+  - `M5.ulm` (listed above, sha256 `72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982`);
+  - `c4_p0_0_10_40.v2.ulm`, the live LM (below);
+  - the decoders `ultra-engine-commit` and `ultra-cold-wav` and the scorer `ultra-score`, as in the v3.1.0 record.
+- **RC2 weights, training sources** (TRAIN only; lineage in [`releases/v3.1.0-rc2.md`](releases/v3.1.0-rc2.md), 276,863.5 audio-h logged):
+  - LibriSpeech 960 h (CC BY 4.0, above), with R0's BPE vocabulary;
+  - Libri-Light small and medium with R0 v1.1 pseudo-labels (manifests as in "Libri-Light small + medium" above);
+  - Libri-Light large, tier A subset, with R0 v1.1 pseudo-labels (manifest as in "v3.1 training data" above, `SHA256SUMS` `e6077dcba9b75b54faec78b5dc68403d1b42338c98d8959425cb670f7a8905fb`);
+  - the S4a hop on the path is the v1.1 arm; the fork checkpoint is `5c38a6cb…` and the PL2 arm never reached it.
+- **Not in RC2's training:** PL2 labels, PL3 (Nemotron Labs Unified) labels, Parakeet-derived labels, MLS-EN, People's Speech, VoxPopuli. I found no chat record of MUSAN or the OpenSLR 28 RIRs being used on RC2's path (the REGctl control is the plain C recipe), but I did not inspect the training configs; if they were used, both are approved above and need their attribution in the release record.
+- **Live LM `c4_p0_0_10_40.v2.ulm`** (36,195,286 B, sha256 `113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e`):
+  - a count-pruned token 4-gram plus LODR bigram in the `.v2.ulm` pack format;
+  - built with the H46 token-n-gram pipeline (`python/ultra/train/ops/h46_build_ngram.sh`: `lmplz --prune`, from the "leak-free token stream" of H46 item 3: the OpenSLR 11 `librispeech-lm-norm` text tokenised as in H42, minus the lines holding H42's 42 verbatim DEV transcripts, 50 lines removed; `research/H46_lm_and_text/README.md`, `research/H42_ngram_lm/README.md`);
+  - the LODR low-order LM comes from the LibriSpeech 960 h training transcripts only (H42);
+  - **Checked:** the pipeline, its text source and its leak removal. **Not checked:** the exact build command. The prune thresholds `0 0 10 40` come from the file name and runtime-lane's report in AGENT_CHAT.md (2026-11-24, "Compact Leak-Free OpenSLR-11 4-gram+LODR `.v2.ulm` Ladder"). No build script or receipt for this file was found.
+  - Rights follow "LM text: OpenSLR 11" above (public domain) and LibriSpeech (CC BY 4.0).
+- **Binaries:** the project's own code, built from commit `3bd85e9eab41371e4ca17c02c007a104f9e6fc4a`: `ultra-engine-commit` `69abed7968b8dce2b5cf4b6e7604630af05f15563a408c06df2fc90d03f4e6f1`, `ultra-cold-wav` `2f3f01af6dda7f1b4b7fe66b999a076d62c26117c87b61a965d8dd4301609848`. `ultra-score` is the v3.0.1 pinned scorer `d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1`.
+- **Attribution in the release notes:** LibriSpeech (CC BY 4.0), as above.

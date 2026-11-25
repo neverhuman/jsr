@@ -331,11 +331,11 @@ def test_money_speed_comparison_uses_true_positions():
     layout = (DATA / "money_layout.tex").read_text()
     ticks = re.search(r"\\def\\MoneyXticks\{([\d,]+)\}", layout)
     assert ticks
-    assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 36, 5))
+    assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 41, 5))
     _, _, marks = _boxes()
-    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.0\$\\times\$ as fast as Zipformer INT8", layout)
+    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.3\$\\times\$ as fast as Zipformer INT8", layout)
     assert arrow
-    for x, row in zip(arrow.groups(), ("r0-int8-zen2-t1", "rc1-ema-live-zen2-t1")):
+    for x, row in zip(arrow.groups(), ("r0-int8-r6-zen2-t1", "rc2-live-lm-zen2-t1")):
         left, _, right, _ = marks[row]
         assert float(x) == pytest.approx((left + right) / 2, abs=0.01)
 
@@ -448,12 +448,13 @@ def test_no_label_runs_under_a_frontier_system_and_ours_keeps_its_name():
 
 
 def test_hero_requires_matched_full_panel_cold_repetitions():
-    variants = ("rc1-ema-live", "rc1-ema-final", "r0-int8", "parakeet-v3-onnxasr-int8")
+    variants = tuple(money.HERO_VARIANTS.values())
     rows = [
-        _row(variant=variant, host="xbabe0", plot=True, interim=False, timing_panel="full")
+        _row(variant=variant, host="xbabe0", plot=variant.startswith(("rc1", "parakeet")), interim=False, timing_panel="full")
         for variant in variants
     ]
-    assert set(money.hero_rows(rows)) == {"Live", "Final", "Zip", "Parakeet"}
+    assert set(money.hero_rows(rows)) == set(money.HERO_VARIANTS)
+    assert {r["variant"] for r in money.hero_rows(rows).values()} == set(variants)
     for changes in (
         {"timing_panel": "p73"},
         {"interim": True},
@@ -461,3 +462,28 @@ def test_hero_requires_matched_full_panel_cold_repetitions():
         {"cpu_reps": [0.2]},
     ):
         assert money.hero_rows([*rows[:-1], rows[-1] | changes]) == {}
+        assert money.hero_rows([rows[0] | changes, *rows[1:]]) == {}, "the v3.1.0 foreground rows are held to the same rules"
+    assert money.hero_rows(rows[1:]) == {}, "a missing foreground row withdraws the figure"
+
+
+def test_v31_rows_reproduce_the_audited_r6_medians():
+    """The committed v3.1.0 evidence rows are exactly what the pinned R6 receipts give, and match the audited medians."""
+    from tools.paper_data import v31_rows
+
+    committed = (DATA / "evidence" / "xbabe0-v31-release.jsonl").read_text(encoding="utf-8")
+    assert committed == v31_rows.text(pd.REPO), "evidence/xbabe0-v31-release.jsonl is stale: python -m tools.paper_data.v31_rows"
+    audited = {"live_c4_greedy": (34.237, 0.3224, 74305536), "live_c4_lm": (32.668, 0.3277, 109473792),
+               "live_c8_lm": (33.319, 0.3157, 110624768), "final_m5": (16.813, 0.6608, 387096576),
+               "zipformer_anchor": (14.043, 0.5730, 152264704)}
+    rows = {r["arm"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") is None}
+    energy = {r["row"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") == "energy"}
+    assert set(rows) == set(audited)
+    for arm, (xrt, joules, rss) in audited.items():
+        row = rows[arm]
+        assert 1.0 / row["cpu_s_per_audio_s"] == pytest.approx(xrt, abs=6e-4)
+        assert energy[row["id"]]["joules_per_audio_s"] == pytest.approx(joules, abs=6e-5)
+        assert row["peak_rss_bytes"] == rss and len(row["cpu_reps"]) == 3
+        assert row["wer_source"].startswith("docs/paper/data/raw/release_v31/confirmatory_look_summary.json")
+    # WER of the same 730-utterance panel, from the confirmatory look
+    assert {a: rows[a]["wer_pct"] for a in rows} == {
+        "live_c4_greedy": 6.2292, "live_c4_lm": 5.5371, "live_c8_lm": 5.4956, "final_m5": 4.9972, "zipformer_anchor": 5.2533}
