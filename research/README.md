@@ -74,4 +74,12 @@ This is a chronological record of the experiments behind JSR/ULTRA: what was tri
 | [H54](H54_v3_release_qualification/README.md) | **v3 release qualification:** final matrix, metered-device watts, quiet holds, soak, paper, tag v3.0.0 | EXPLORATORY (v3.0.0 record) | v3.0.0 = S2's RC1 EMA + the release decoder. Final text 5.476% (utterance-segmented; E1 PASS, −0.61 pp against B0 with the same decoder); live stream 7.447%; 14.3× real time on one quiet core; A6 PASS. Metered-device watts and the 24 h soak are not done |
 | [H60](H60_v3_error_anatomy/README.md) | **v3.0.0 error anatomy:** S / D / I by split, position in the sentence, utterance length, confusion class and concentration; the fixes ranked by where the errors are | EXPLORATORY | Final 5.476% = S 78.7 / D 11.8 / I 9.6%; the commit pass removes 28% of S, 18% of D and 22% of I. First word 8.1 against 4.6 errors per 100 words from word 16 on; 1-9-word utterances 7.7% against 4.7% for 35+ words; the worst 10% of utterances hold 49% of edits |
 
-H14 is the chunk-2 fine-tune; dual-mode / 3-mask tier training is executed in H27. H27–H33 were placeholders from an earlier plan and are superseded by the v3 waves. Next free: **H61**. H55-H59 are claimed by the v3.1 waves in flight (claude-lead 15:37:07Z), and their rows land with their records.
+| [H61](H61_v5_audio_features/SUMMARY.md) | Audio features, guarded context and level handling | Recorded | Z1 shipped as opt-in RMS normalization in v3.2.0 |
+| [H63](H63_full_horizon_noise/README.md) | Full-horizon turn-switch training with noise | CLOSED | M1-v5 and M1-v6 cut 5 dB MUSAN WER by about 11 pp and missed clean |
+| [H64](H64_warm_engine/README.md) | Guarded encoder-state carry | CLOSED | NAT and SHUF accuracy gates failed and CPU exceeded the bound |
+| [H65](H65_weight_soup/README.md) | Weight interpolation | CLOSED | C-half noise improved by 11.57 pp and clean non-inferiority failed |
+| [H66](H66_lightnoise_tail/README.md) | Light noise augmentation and a longer clean tail | CLOSED | Seed 7919 missed the clean screen at +0.107 pp vs signed RC2 |
+
+[v3.2.0 research and release handoff](v3.2.0-closeout.md)
+
+H14 is the chunk-2 fine-tune; dual-mode / 3-mask tier training is executed in H27. H27–H33 were placeholders from an earlier plan and are superseded by the v3 waves. H55–H59 are reserved for the v3.1 waves. H62 covered the warmed-context protocol used in H64.
