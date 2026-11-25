@@ -1,0 +1,32 @@
+{
+ "primary_weights": "ema",
+ "arm": "M1v4",
+ "clean_M1v4_vs_signed_RC2": {
+  "delta_pp": -0.0517,
+  "lower95_pp": -0.1494,
+  "upper95_pp": 0.0441,
+  "ci95_two_sided_pp": [
+   -0.1658,
+   0.0623
+  ]
+ },
+ "clean_M1v4_vs_python_RC2": {
+  "delta_pp": -0.0441,
+  "lower95_pp": -0.1487,
+  "upper95_pp": 0.0528,
+  "ci95_two_sided_pp": [
+   -0.1695,
+   0.0693
+  ]
+ },
+ "clean_leg_pass": false,
+ "musan_test5_M1v4_vs_RC2": {
+  "delta_pp": 0.7529,
+  "lower95_pp": 0.498,
+  "upper95_pp": 1.0112,
+  "ci95_two_sided_pp": [
+   0.4508,
+   1.0549
+  ]
+ }
+}

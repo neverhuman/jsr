@@ -1,0 +1,60 @@
+{
+  "schema": "jsr.v5.z2.c3-transcript-replay/v1",
+  "binary_sha256": "41744b9c5b705e17b633458213233e5ec6900e5162ad3227c794a1a44ad4bdf7",
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "cache_snapshot_sha256": "bdfbb3614f2b89602e8990947c6d9a2c569f028d824a7e8bab2410ae3f084b70",
+  "pieces": 164,
+  "counts": {
+    "off": {
+      "substitutions": 8689,
+      "deletions": 1996,
+      "insertions": 1100,
+      "ref_words": 106054
+    },
+    "arm_b_neg65": {
+      "substitutions": 8773,
+      "deletions": 2033,
+      "insertions": 1075,
+      "ref_words": 106054
+    }
+  },
+  "delta_pp": 0.09051992381239746,
+  "absolute_wer_within_0_087_pp": false,
+  "off_transcript_mismatches_vs_archived_v300": [],
+  "pilot_archived_off_substitutions": [],
+  "total_inserted_repeats": {
+    "off": 8,
+    "arm_b_neg65": 9
+  },
+  "added_repeat_events": [
+    {
+      "piece": 5,
+      "ref_start": 364,
+      "ref_end": 364,
+      "word": "THOU",
+      "count": 1
+    },
+    {
+      "piece": 18,
+      "ref_start": 315,
+      "ref_end": 315,
+      "word": "OUGHT",
+      "count": 1
+    },
+    {
+      "piece": 39,
+      "ref_start": 133,
+      "ref_end": 135,
+      "word": "THESE",
+      "count": 1
+    },
+    {
+      "piece": 66,
+      "ref_start": 576,
+      "ref_end": 576,
+      "word": "YES",
+      "count": 1
+    }
+  ],
+  "scope": "retained transcript replay; PCM, weights and effective-policy receipts are separate"
+}

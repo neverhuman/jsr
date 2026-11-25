@@ -1,0 +1,11 @@
+{
+  "schema": "jsr.v5.h62.g2n-train-replay/v1",
+  "input_sha256": "e24fe95e1d56c3f5d8dd32be760d4ad72de21a7a36e8f68803c2bd68c2e24030",
+  "same_speaker_pairs": 1200,
+  "different_speaker_pairs": 1200,
+  "nonfinite_pairs": 0,
+  "train_youden_j": 0.09499999999999997,
+  "threshold": -0.03573003715428058,
+  "minimum_j_for_s": 0.3,
+  "advance_to_s": false
+}

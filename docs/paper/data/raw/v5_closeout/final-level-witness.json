@@ -1,0 +1,2194 @@
+{
+  "ultra_score_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "cross_isa_s50": {
+    "rms_norm_off": {
+      "clips": 50,
+      "avx2_vs_neon_diffs": 0,
+      "avx2_vs_scalar_diffs": 0,
+      "neon_vs_scalar_diffs": 0,
+      "avx2_vs_codex_oracle_committed_diffs": 0,
+      "avx2_committed_sha256": "70b2d0722d91c0891a212fc19fe04b542ba29dfaef46a865b4df190d3aad4506",
+      "neon_committed_sha256": "70b2d0722d91c0891a212fc19fe04b542ba29dfaef46a865b4df190d3aad4506",
+      "scalar_committed_sha256": "70b2d0722d91c0891a212fc19fe04b542ba29dfaef46a865b4df190d3aad4506"
+    },
+    "rms_norm_on": {
+      "clips": 50,
+      "avx2_vs_neon_diffs": 0,
+      "avx2_vs_scalar_diffs": 0,
+      "neon_vs_scalar_diffs": 0,
+      "avx2_vs_codex_oracle_committed_diffs": 0,
+      "avx2_committed_sha256": "7631174de41e5b523a45145e7401956bc1e7528c424b954c26fdc564ce116e5b",
+      "neon_committed_sha256": "7631174de41e5b523a45145e7401956bc1e7528c424b954c26fdc564ce116e5b",
+      "scalar_committed_sha256": "7631174de41e5b523a45145e7401956bc1e7528c424b954c26fdc564ce116e5b"
+    }
+  },
+  "refcut_300": {
+    "T2_g3_Q_off": {
+      "stream": "T2_g3_Q",
+      "mode": "off",
+      "utterances": 300,
+      "pooled_wer_pct": 5.8042,
+      "macro_wer_pct": 5.9906,
+      "pooled_edits": 297,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 2.7357,
+          "edits": 74,
+          "S": 63,
+          "D": 3,
+          "I": 8,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 9.2454,
+          "edits": 223,
+          "S": 175,
+          "D": 27,
+          "I": 21,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "revised_count": 126,
+      "pcm_truncated_count": 0,
+      "p50_commit_ms": 1123.203,
+      "p95_commit_ms": 3266.373
+    },
+    "T2_g3_Q_on": {
+      "stream": "T2_g3_Q",
+      "mode": "on",
+      "utterances": 300,
+      "pooled_wer_pct": 5.8433,
+      "macro_wer_pct": 6.0253,
+      "pooled_edits": 299,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 2.8466,
+          "edits": 77,
+          "S": 64,
+          "D": 4,
+          "I": 9,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 9.204,
+          "edits": 222,
+          "S": 176,
+          "D": 28,
+          "I": 18,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "revised_count": 127,
+      "pcm_truncated_count": 0,
+      "p50_commit_ms": 1036.446,
+      "p95_commit_ms": 2696.459
+    },
+    "T2_g3_N20_off": {
+      "stream": "T2_g3_N20",
+      "mode": "off",
+      "utterances": 300,
+      "pooled_wer_pct": 7.2113,
+      "macro_wer_pct": 7.4292,
+      "pooled_edits": 369,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 3.6229,
+          "edits": 98,
+          "S": 84,
+          "D": 5,
+          "I": 9,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 11.2355,
+          "edits": 271,
+          "S": 216,
+          "D": 32,
+          "I": 23,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "revised_count": 139,
+      "pcm_truncated_count": 0,
+      "p50_commit_ms": 1076.179,
+      "p95_commit_ms": 2636.997
+    },
+    "T2_g3_N20_on": {
+      "stream": "T2_g3_N20",
+      "mode": "on",
+      "utterances": 300,
+      "pooled_wer_pct": 7.2308,
+      "macro_wer_pct": 7.4365,
+      "pooled_edits": 370,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 3.8447,
+          "edits": 104,
+          "S": 87,
+          "D": 7,
+          "I": 10,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 11.0282,
+          "edits": 266,
+          "S": 213,
+          "D": 31,
+          "I": 22,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "revised_count": 140,
+      "pcm_truncated_count": 0,
+      "p50_commit_ms": 1086.996,
+      "p95_commit_ms": 2798.021
+    }
+  },
+  "paced300_d800": {
+    "T2_g3_Q_off": {
+      "prefix": "paced300_T2_g3_Q_off",
+      "stream": "T2_g3_Q",
+      "rms_norm": false,
+      "pace": 1.0,
+      "deadline_ms": 800,
+      "scored_utterances": 28,
+      "total_audio_s": 300.0,
+      "ownership_contiguous": true,
+      "final_segments": 69,
+      "revised_segments": 24,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 68
+      },
+      "fallback_counts": {
+        "deadline": 37,
+        "none": 32
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 17.8241,
+      "macro_wer_pct": 17.9602,
+      "pooled_edits": 77,
+      "pooled_words": 432,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 14.2857,
+          "edits": 32,
+          "S": 9,
+          "D": 22,
+          "I": 1,
+          "words": 224,
+          "utterances": 14
+        },
+        "dev-other": {
+          "wer_pct": 21.6346,
+          "edits": 45,
+          "S": 22,
+          "D": 19,
+          "I": 4,
+          "words": 208,
+          "utterances": 14
+        }
+      },
+      "first_word_recall": 0.85714,
+      "first_word_hits": 24,
+      "first_word_total": 28,
+      "gap_false_words": 6,
+      "outside_words": 0,
+      "process_cpu_s": 485.057,
+      "wall_s": 442.22,
+      "peak_rss_kib": 480468,
+      "worker_commit_executed_count": 32,
+      "worker_commit_wall_ms_executed": {
+        "mean": 460.486,
+        "p50": 459.661,
+        "p95": 552.924,
+        "p99": 606.977
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 455.579,
+        "p50": 457.03,
+        "p95": 524.309,
+        "p99": 601.655
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 1035.534,
+        "n": 68,
+        "p50": 915.212,
+        "p95": 994.266,
+        "p99": 1014.636
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 1035.534,
+        "p50": 911.59,
+        "p95": 994.266,
+        "p99": 1014.636
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 28,
+        "p50": 71988.109,
+        "p95": 136162.583,
+        "p99": 147999.389
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 28,
+        "p50": 865.0,
+        "p95": 8205.0,
+        "p99": 8785.0
+      },
+      "stale_worker_cpu_s": 32.142081,
+      "stale_worker_jobs": 37,
+      "stream_metrics": {
+        "accepted_samples": 4800000,
+        "cap_hits": 0,
+        "events_emitted": 628,
+        "processed_samples": 4800000,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 46.720616064000005,
+        "refiner_rejects": 0,
+        "wakeups": 1875
+      }
+    },
+    "T2_g3_Q_on": {
+      "prefix": "paced300_T2_g3_Q_on",
+      "stream": "T2_g3_Q",
+      "rms_norm": true,
+      "pace": 1.0,
+      "deadline_ms": 800,
+      "scored_utterances": 28,
+      "total_audio_s": 300.0,
+      "ownership_contiguous": true,
+      "final_segments": 69,
+      "revised_segments": 20,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 68
+      },
+      "fallback_counts": {
+        "deadline": 37,
+        "none": 31,
+        "worker_busy": 1
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 18.5185,
+      "macro_wer_pct": 18.6813,
+      "pooled_edits": 80,
+      "pooled_words": 432,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 14.2857,
+          "edits": 32,
+          "S": 10,
+          "D": 21,
+          "I": 1,
+          "words": 224,
+          "utterances": 14
+        },
+        "dev-other": {
+          "wer_pct": 23.0769,
+          "edits": 48,
+          "S": 23,
+          "D": 21,
+          "I": 4,
+          "words": 208,
+          "utterances": 14
+        }
+      },
+      "first_word_recall": 0.85714,
+      "first_word_hits": 24,
+      "first_word_total": 28,
+      "gap_false_words": 6,
+      "outside_words": 0,
+      "process_cpu_s": 490.65,
+      "wall_s": 446.319,
+      "peak_rss_kib": 482588,
+      "worker_commit_executed_count": 31,
+      "worker_commit_wall_ms_executed": {
+        "mean": 497.856,
+        "p50": 462.982,
+        "p95": 655.847,
+        "p99": 838.548
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 458.036,
+        "p50": 440.585,
+        "p95": 556.425,
+        "p99": 557.566
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 1135.895,
+        "n": 68,
+        "p50": 882.356,
+        "p95": 1089.001,
+        "p99": 1129.358
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 1135.895,
+        "p50": 875.366,
+        "p95": 1089.001,
+        "p99": 1129.358
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 28,
+        "p50": 73444.22,
+        "p95": 140374.66,
+        "p99": 152098.458
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 28,
+        "p50": 865.0,
+        "p95": 8045.0,
+        "p99": 8785.0
+      },
+      "stale_worker_cpu_s": 36.909744,
+      "stale_worker_jobs": 37,
+      "stream_metrics": {
+        "accepted_samples": 4800000,
+        "cap_hits": 0,
+        "events_emitted": 629,
+        "processed_samples": 4800000,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 51.10885047299998,
+        "refiner_rejects": 0,
+        "wakeups": 1875
+      }
+    },
+    "T2_g3_N20_off": {
+      "prefix": "paced300_T2_g3_N20_off",
+      "stream": "T2_g3_N20",
+      "rms_norm": false,
+      "pace": 1.0,
+      "deadline_ms": 800,
+      "scored_utterances": 28,
+      "total_audio_s": 300.0,
+      "ownership_contiguous": true,
+      "final_segments": 70,
+      "revised_segments": 28,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 69
+      },
+      "fallback_counts": {
+        "deadline": 32,
+        "none": 36,
+        "worker_busy": 2
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 23.6111,
+      "macro_wer_pct": 23.7637,
+      "pooled_edits": 102,
+      "pooled_words": 432,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 19.6429,
+          "edits": 44,
+          "S": 11,
+          "D": 29,
+          "I": 4,
+          "words": 224,
+          "utterances": 14
+        },
+        "dev-other": {
+          "wer_pct": 27.8846,
+          "edits": 58,
+          "S": 20,
+          "D": 32,
+          "I": 6,
+          "words": 208,
+          "utterances": 14
+        }
+      },
+      "first_word_recall": 0.78571,
+      "first_word_hits": 22,
+      "first_word_total": 28,
+      "gap_false_words": 13,
+      "outside_words": 0,
+      "process_cpu_s": 488.975,
+      "wall_s": 440.625,
+      "peak_rss_kib": 481100,
+      "worker_commit_executed_count": 36,
+      "worker_commit_wall_ms_executed": {
+        "mean": 471.332,
+        "p50": 459.778,
+        "p95": 632.824,
+        "p99": 634.812
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 460.203,
+        "p50": 441.005,
+        "p95": 623.709,
+        "p99": 628.911
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 985.467,
+        "n": 69,
+        "p50": 888.955,
+        "p95": 968.004,
+        "p99": 984.423
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 985.467,
+        "p50": 888.955,
+        "p95": 968.004,
+        "p99": 984.423
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 28,
+        "p50": 69906.727,
+        "p95": 133752.945,
+        "p99": 146404.289
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 28,
+        "p50": 895.0,
+        "p95": 8760.0,
+        "p99": 8785.0
+      },
+      "stale_worker_cpu_s": 34.714931,
+      "stale_worker_jobs": 32,
+      "stream_metrics": {
+        "accepted_samples": 4800000,
+        "cap_hits": 0,
+        "events_emitted": 612,
+        "processed_samples": 4800000,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 51.282243036999986,
+        "refiner_rejects": 0,
+        "wakeups": 1875
+      }
+    },
+    "T2_g3_N20_on": {
+      "prefix": "paced300_T2_g3_N20_on",
+      "stream": "T2_g3_N20",
+      "rms_norm": true,
+      "pace": 1.0,
+      "deadline_ms": 800,
+      "scored_utterances": 28,
+      "total_audio_s": 300.0,
+      "ownership_contiguous": true,
+      "final_segments": 70,
+      "revised_segments": 18,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 69
+      },
+      "fallback_counts": {
+        "deadline": 41,
+        "none": 26,
+        "worker_busy": 3
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 25.2315,
+      "macro_wer_pct": 25.4121,
+      "pooled_edits": 109,
+      "pooled_words": 432,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 20.5357,
+          "edits": 46,
+          "S": 8,
+          "D": 35,
+          "I": 3,
+          "words": 224,
+          "utterances": 14
+        },
+        "dev-other": {
+          "wer_pct": 30.2885,
+          "edits": 63,
+          "S": 19,
+          "D": 37,
+          "I": 7,
+          "words": 208,
+          "utterances": 14
+        }
+      },
+      "first_word_recall": 0.78571,
+      "first_word_hits": 22,
+      "first_word_total": 28,
+      "gap_false_words": 13,
+      "outside_words": 0,
+      "process_cpu_s": 489.405,
+      "wall_s": 445.435,
+      "peak_rss_kib": 480684,
+      "worker_commit_executed_count": 26,
+      "worker_commit_wall_ms_executed": {
+        "mean": 483.503,
+        "p50": 467.56,
+        "p95": 557.293,
+        "p99": 749.616
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 460.194,
+        "p50": 451.096,
+        "p95": 553.905,
+        "p99": 557.977
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 1134.337,
+        "n": 69,
+        "p50": 897.384,
+        "p95": 1009.108,
+        "p99": 1134.091
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 1134.337,
+        "p50": 897.384,
+        "p95": 1009.108,
+        "p99": 1134.091
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 28,
+        "p50": 71360.36,
+        "p95": 139606.926,
+        "p99": 151213.994
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 28,
+        "p50": 825.0,
+        "p95": 8600.0,
+        "p99": 8785.0
+      },
+      "stale_worker_cpu_s": 38.966161,
+      "stale_worker_jobs": 41,
+      "stream_metrics": {
+        "accepted_samples": 4800000,
+        "cap_hits": 0,
+        "events_emitted": 613,
+        "processed_samples": 4800000,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 50.93120483299999,
+        "refiner_rejects": 0,
+        "wakeups": 1875
+      }
+    }
+  },
+  "full_d800": {
+    "T2_g3_Q_off": {
+      "prefix": "full_d800_T2_g3_Q_off",
+      "stream": "T2_g3_Q",
+      "rms_norm": false,
+      "pace": 0.0,
+      "deadline_ms": 800,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 817,
+      "revised_segments": 234,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 816
+      },
+      "fallback_counts": {
+        "deadline": 322,
+        "none": 403,
+        "worker_busy": 92
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 20.5198,
+      "macro_wer_pct": 20.7962,
+      "pooled_edits": 1050,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 15.9704,
+          "edits": 432,
+          "S": 128,
+          "D": 271,
+          "I": 33,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 25.6219,
+          "edits": 618,
+          "S": 255,
+          "D": 324,
+          "I": 39,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.79333,
+      "first_word_hits": 238,
+      "first_word_total": 300,
+      "gap_false_words": 116,
+      "outside_words": 0,
+      "process_cpu_s": 2682.649,
+      "wall_s": 2139.064,
+      "peak_rss_kib": 482432,
+      "worker_commit_executed_count": 403,
+      "worker_commit_wall_ms_executed": {
+        "mean": 348.722,
+        "p50": 328.454,
+        "p95": 601.725,
+        "p99": 659.845
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 324.096,
+        "p50": 297.604,
+        "p95": 581.86,
+        "p99": 643.374
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 975.035,
+        "n": 816,
+        "p50": 642.241,
+        "p95": 850.537,
+        "p99": 890.472
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 975.035,
+        "p50": 639.789,
+        "p95": 850.537,
+        "p99": 890.472
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -503352.695,
+        "p95": -50107.185,
+        "p99": -7824.133
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1275.1,
+        "p95": 9055.1,
+        "p99": 10715.1
+      },
+      "stale_worker_cpu_s": 438.583984,
+      "stale_worker_jobs": 322,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 7135,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 569.1946080569983,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_Q_on": {
+      "prefix": "full_d800_T2_g3_Q_on",
+      "stream": "T2_g3_Q",
+      "rms_norm": true,
+      "pace": 0.0,
+      "deadline_ms": 800,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 817,
+      "revised_segments": 206,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 816
+      },
+      "fallback_counts": {
+        "deadline": 337,
+        "none": 361,
+        "worker_busy": 119
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 20.598,
+      "macro_wer_pct": 20.8925,
+      "pooled_edits": 1054,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 15.7486,
+          "edits": 426,
+          "S": 127,
+          "D": 264,
+          "I": 35,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 26.0365,
+          "edits": 628,
+          "S": 266,
+          "D": 324,
+          "I": 38,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.79667,
+      "first_word_hits": 239,
+      "first_word_total": 300,
+      "gap_false_words": 118,
+      "outside_words": 0,
+      "process_cpu_s": 2714.753,
+      "wall_s": 2132.366,
+      "peak_rss_kib": 483448,
+      "worker_commit_executed_count": 361,
+      "worker_commit_wall_ms_executed": {
+        "mean": 333.343,
+        "p50": 303.444,
+        "p95": 629.334,
+        "p99": 683.507
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 309.988,
+        "p50": 268.986,
+        "p95": 583.813,
+        "p99": 653.017
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 976.721,
+        "n": 816,
+        "p50": 656.921,
+        "p95": 857.437,
+        "p99": 889.623
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 976.721,
+        "p50": 656.911,
+        "p95": 857.437,
+        "p99": 889.623
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -477550.804,
+        "p95": -42309.242,
+        "p99": -8299.603
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1245.1,
+        "p95": 9195.0,
+        "p99": 10780.1
+      },
+      "stale_worker_cpu_s": 495.43263,
+      "stale_worker_jobs": 337,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 7114,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 607.3383159330004,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_N20_off": {
+      "prefix": "full_d800_T2_g3_N20_off",
+      "stream": "T2_g3_N20",
+      "rms_norm": false,
+      "pace": 0.0,
+      "deadline_ms": 800,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 829,
+      "revised_segments": 254,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 828
+      },
+      "fallback_counts": {
+        "deadline": 326,
+        "none": 389,
+        "worker_busy": 114
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 24.7411,
+      "macro_wer_pct": 25.029,
+      "pooled_edits": 1266,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 20.0,
+          "edits": 541,
+          "S": 157,
+          "D": 343,
+          "I": 41,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 30.058,
+          "edits": 725,
+          "S": 293,
+          "D": 399,
+          "I": 33,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.76333,
+      "first_word_hits": 229,
+      "first_word_total": 300,
+      "gap_false_words": 117,
+      "outside_words": 0,
+      "process_cpu_s": 2701.992,
+      "wall_s": 2164.69,
+      "peak_rss_kib": 483452,
+      "worker_commit_executed_count": 389,
+      "worker_commit_wall_ms_executed": {
+        "mean": 340.769,
+        "p50": 322.367,
+        "p95": 620.706,
+        "p99": 672.941
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 310.331,
+        "p50": 268.256,
+        "p95": 567.688,
+        "p99": 645.905
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 1053.058,
+        "n": 828,
+        "p50": 634.428,
+        "p95": 855.486,
+        "p99": 909.911
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 1053.058,
+        "p50": 634.199,
+        "p95": 855.486,
+        "p99": 909.911
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -454986.411,
+        "p95": -29653.09,
+        "p99": -4891.433
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1240.0,
+        "p95": 8920.0,
+        "p99": 10620.1
+      },
+      "stale_worker_cpu_s": 451.343364,
+      "stale_worker_jobs": 326,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 7012,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 572.0622203629988,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_N20_on": {
+      "prefix": "full_d800_T2_g3_N20_on",
+      "stream": "T2_g3_N20",
+      "rms_norm": true,
+      "pace": 0.0,
+      "deadline_ms": 800,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 829,
+      "revised_segments": 216,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 828
+      },
+      "fallback_counts": {
+        "deadline": 361,
+        "none": 334,
+        "worker_busy": 134
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 24.956,
+      "macro_wer_pct": 25.2436,
+      "pooled_edits": 1277,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 20.2218,
+          "edits": 547,
+          "S": 154,
+          "D": 351,
+          "I": 42,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 30.2653,
+          "edits": 730,
+          "S": 292,
+          "D": 411,
+          "I": 27,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.75,
+      "first_word_hits": 225,
+      "first_word_total": 300,
+      "gap_false_words": 115,
+      "outside_words": 0,
+      "process_cpu_s": 2764.795,
+      "wall_s": 2173.062,
+      "peak_rss_kib": 481408,
+      "worker_commit_executed_count": 334,
+      "worker_commit_wall_ms_executed": {
+        "mean": 319.091,
+        "p50": 292.87,
+        "p95": 608.025,
+        "p99": 679.176
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 294.827,
+        "p50": 262.933,
+        "p95": 534.85,
+        "p99": 654.59
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 1043.176,
+        "n": 828,
+        "p50": 652.496,
+        "p95": 858.968,
+        "p99": 906.77
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 1043.176,
+        "p50": 651.282,
+        "p95": 858.968,
+        "p99": 906.77
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -412127.188,
+        "p95": -29320.932,
+        "p99": -6882.322
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1210.1,
+        "p95": 9045.1,
+        "p99": 10760.0
+      },
+      "stale_worker_cpu_s": 521.109461,
+      "stale_worker_jobs": 361,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 7010,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 619.5817494619979,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    }
+  },
+  "full_d0": {
+    "T2_g3_Q_off": {
+      "prefix": "full_d0_T2_g3_Q_off",
+      "stream": "T2_g3_Q",
+      "rms_norm": false,
+      "pace": 0.0,
+      "deadline_ms": 0,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 817,
+      "revised_segments": 457,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 816
+      },
+      "fallback_counts": {
+        "deadline": 15,
+        "none": 787,
+        "worker_busy": 15
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 18.0575,
+      "macro_wer_pct": 18.3189,
+      "pooled_edits": 924,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 13.7523,
+          "edits": 372,
+          "S": 142,
+          "D": 183,
+          "I": 47,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 22.8856,
+          "edits": 552,
+          "S": 256,
+          "D": 250,
+          "I": 46,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.80333,
+      "first_word_hits": 241,
+      "first_word_total": 300,
+      "gap_false_words": 122,
+      "outside_words": 0,
+      "process_cpu_s": 2718.048,
+      "wall_s": 2157.953,
+      "peak_rss_kib": 483448,
+      "worker_commit_executed_count": 787,
+      "worker_commit_wall_ms_executed": {
+        "mean": 773.689,
+        "p50": 531.093,
+        "p95": 2126.547,
+        "p99": 3243.329
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 741.947,
+        "p50": 469.767,
+        "p95": 2081.075,
+        "p99": 3084.793
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 6690.985,
+        "n": 816,
+        "p50": 760.636,
+        "p95": 2301.638,
+        "p99": 3329.054
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 6690.985,
+        "p50": 755.948,
+        "p95": 2301.638,
+        "p99": 3329.054
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -450983.471,
+        "p95": -46085.867,
+        "p99": -8070.412
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1705.0,
+        "p95": 9885.0,
+        "p99": 13005.1
+      },
+      "stale_worker_cpu_s": 35.067763,
+      "stale_worker_jobs": 15,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 6606,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 618.9800576510015,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_Q_on": {
+      "prefix": "full_d0_T2_g3_Q_on",
+      "stream": "T2_g3_Q",
+      "rms_norm": true,
+      "pace": 0.0,
+      "deadline_ms": 0,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 817,
+      "revised_segments": 465,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 816
+      },
+      "fallback_counts": {
+        "deadline": 18,
+        "none": 781,
+        "worker_busy": 18
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 18.1161,
+      "macro_wer_pct": 18.3834,
+      "pooled_edits": 927,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 13.7153,
+          "edits": 371,
+          "S": 135,
+          "D": 187,
+          "I": 49,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 23.0514,
+          "edits": 556,
+          "S": 264,
+          "D": 245,
+          "I": 47,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.80333,
+      "first_word_hits": 241,
+      "first_word_total": 300,
+      "gap_false_words": 122,
+      "outside_words": 0,
+      "process_cpu_s": 2694.548,
+      "wall_s": 2144.896,
+      "peak_rss_kib": 483448,
+      "worker_commit_executed_count": 781,
+      "worker_commit_wall_ms_executed": {
+        "mean": 766.416,
+        "p50": 502.902,
+        "p95": 2067.37,
+        "p99": 2871.184
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 729.399,
+        "p50": 450.899,
+        "p95": 2046.935,
+        "p99": 2869.231
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 5313.014,
+        "n": 816,
+        "p50": 747.543,
+        "p95": 2338.71,
+        "p99": 3046.084
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 5313.014,
+        "p50": 746.834,
+        "p95": 2338.71,
+        "p99": 3046.084
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -447962.544,
+        "p95": -41023.508,
+        "p99": -6905.682
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1785.1,
+        "p95": 9965.1,
+        "p99": 11835.1
+      },
+      "stale_worker_cpu_s": 45.541011,
+      "stale_worker_jobs": 18,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 6552,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 615.201664037001,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_N20_off": {
+      "prefix": "full_d0_T2_g3_N20_off",
+      "stream": "T2_g3_N20",
+      "rms_norm": false,
+      "pace": 0.0,
+      "deadline_ms": 0,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 829,
+      "revised_segments": 496,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 828
+      },
+      "fallback_counts": {
+        "deadline": 16,
+        "none": 797,
+        "worker_busy": 16
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 22.4155,
+      "macro_wer_pct": 22.7171,
+      "pooled_edits": 1147,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 17.4492,
+          "edits": 472,
+          "S": 176,
+          "D": 245,
+          "I": 51,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 27.9851,
+          "edits": 675,
+          "S": 311,
+          "D": 318,
+          "I": 46,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.76667,
+      "first_word_hits": 230,
+      "first_word_total": 300,
+      "gap_false_words": 121,
+      "outside_words": 0,
+      "process_cpu_s": 2703.4,
+      "wall_s": 2163.268,
+      "peak_rss_kib": 483264,
+      "worker_commit_executed_count": 797,
+      "worker_commit_wall_ms_executed": {
+        "mean": 749.059,
+        "p50": 545.212,
+        "p95": 1971.462,
+        "p99": 2964.859
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 716.723,
+        "p50": 486.558,
+        "p95": 1892.787,
+        "p99": 2806.965
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 4648.231,
+        "n": 828,
+        "p50": 757.988,
+        "p95": 2153.188,
+        "p99": 2980.017
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 4648.231,
+        "p50": 756.869,
+        "p95": 2153.188,
+        "p99": 2980.017
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -438118.411,
+        "p95": -38363.155,
+        "p99": -7521.729
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1625.1,
+        "p95": 9480.1,
+        "p99": 11155.0
+      },
+      "stale_worker_cpu_s": 32.213293,
+      "stale_worker_jobs": 16,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 6466,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 603.4413664839998,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    },
+    "T2_g3_N20_on": {
+      "prefix": "full_d0_T2_g3_N20_on",
+      "stream": "T2_g3_N20",
+      "rms_norm": true,
+      "pace": 0.0,
+      "deadline_ms": 0,
+      "scored_utterances": 300,
+      "total_audio_s": 3371.7299375,
+      "ownership_contiguous": true,
+      "final_segments": 829,
+      "revised_segments": 491,
+      "trigger_counts": {
+        "eof": 1,
+        "hangover": 828
+      },
+      "fallback_counts": {
+        "deadline": 16,
+        "none": 795,
+        "worker_busy": 18
+      },
+      "pcm_truncated_count": 0,
+      "pooled_wer_pct": 22.6109,
+      "macro_wer_pct": 22.9065,
+      "pooled_edits": 1157,
+      "pooled_words": 5117,
+      "by_dataset": {
+        "dev-clean": {
+          "wer_pct": 17.7449,
+          "edits": 480,
+          "S": 172,
+          "D": 255,
+          "I": 53,
+          "words": 2705,
+          "utterances": 150
+        },
+        "dev-other": {
+          "wer_pct": 28.068,
+          "edits": 677,
+          "S": 319,
+          "D": 314,
+          "I": 44,
+          "words": 2412,
+          "utterances": 150
+        }
+      },
+      "first_word_recall": 0.76667,
+      "first_word_hits": 230,
+      "first_word_total": 300,
+      "gap_false_words": 120,
+      "outside_words": 0,
+      "process_cpu_s": 2734.712,
+      "wall_s": 2164.649,
+      "peak_rss_kib": 482432,
+      "worker_commit_executed_count": 795,
+      "worker_commit_wall_ms_executed": {
+        "mean": 780.103,
+        "p50": 574.419,
+        "p95": 2016.894,
+        "p99": 2810.449
+      },
+      "worker_commit_cpu_ms_executed": {
+        "mean": 746.842,
+        "p50": 535.889,
+        "p95": 1899.848,
+        "p99": 2510.021
+      },
+      "endpoint_to_final_ms_hangover": {
+        "max": 5295.437,
+        "n": 828,
+        "p50": 809.977,
+        "p95": 2204.927,
+        "p99": 2994.671
+      },
+      "endpoint_to_final_ms_all": {
+        "max": 5295.437,
+        "p50": 804.675,
+        "p95": 2204.927,
+        "p99": 2994.671
+      },
+      "mfa_last_word_to_final_wall_ms": {
+        "n": 300,
+        "p50": -409808.121,
+        "p95": -25855.524,
+        "p99": -8824.461
+      },
+      "mfa_last_word_to_final_audio_ms": {
+        "n": 300,
+        "p50": 1690.1,
+        "p95": 9885.0,
+        "p99": 12005.1
+      },
+      "stale_worker_cpu_s": 43.244796,
+      "stale_worker_jobs": 16,
+      "stream_metrics": {
+        "accepted_samples": 53947679,
+        "cap_hits": 0,
+        "events_emitted": 6364,
+        "processed_samples": 53947679,
+        "refiner_accepts": 0,
+        "refiner_attempts": 0,
+        "refiner_charged_cpu_s": 636.9844261090005,
+        "refiner_rejects": 0,
+        "wakeups": 21073
+      }
+    }
+  },
+  "paired_off_vs_on": {
+    "refcut_300_T2_g3_Q": {
+      "macro_delta": {
+        "observed_a": 0.0599055707292251,
+        "observed_b": 0.060252802530784154,
+        "delta": 0.0003472318015590517,
+        "relative_delta": 0.005796319062354808,
+        "lower": -0.0010160103393009046,
+        "upper": 0.0017761798536332085,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.05804182137971468,
+        "observed_b": 0.058432675395739694,
+        "delta": 0.0003908540160250176,
+        "relative_delta": 0.006734006734006785,
+        "lower": -0.0009478672985782019,
+        "upper": 0.001805416248746236,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.02735674676524954,
+          "observed_b": 0.028465804066543438,
+          "delta": 0.0011090573012938996,
+          "relative_delta": 0.04054054054054052,
+          "lower": -0.00035574528637495606,
+          "upper": 0.0028771064529387602,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.09245439469320066,
+          "observed_b": 0.09203980099502487,
+          "delta": -0.00041459369817578584,
+          "relative_delta": -0.004484304932735406,
+          "lower": -0.002644336712208012,
+          "upper": 0.0018770530267479962,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "refcut_300_T2_g3_N20": {
+      "macro_delta": {
+        "observed_a": 0.07429204869061962,
+        "observed_b": 0.07436462174647404,
+        "delta": 7.257305585442464e-05,
+        "relative_delta": 0.0009768616848439121,
+        "lower": -0.0024499795835034727,
+        "upper": 0.002883922134102379,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.07211256595661521,
+        "observed_b": 0.07230799296462771,
+        "delta": 0.00019542700801250534,
+        "relative_delta": 0.002710027100270975,
+        "lower": -0.002399314481576695,
+        "upper": 0.0030883261272390272,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.03622920517560074,
+          "observed_b": 0.03844731977818854,
+          "delta": 0.0022181146025877993,
+          "relative_delta": 0.06122448979591833,
+          "lower": -0.0012053033346725583,
+          "upper": 0.006540977298961137,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.11235489220563848,
+          "observed_b": 0.11028192371475953,
+          "delta": -0.002072968490878943,
+          "relative_delta": -0.018450184501845057,
+          "lower": -0.005521048999309858,
+          "upper": 0.0014727540500736325,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "paced300_d800_T2_g3_Q": {
+      "macro_delta": {
+        "observed_a": 0.17960164835164835,
+        "observed_b": 0.18681318681318682,
+        "delta": 0.007211538461538464,
+        "relative_delta": 0.04015296367112812,
+        "lower": -0.007661614015205154,
+        "upper": 0.023347427277558286,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 13,
+            "den": 224,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 11,
+            "den": 208,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.17824074074074073,
+        "observed_b": 0.18518518518518517,
+        "delta": 0.0069444444444444475,
+        "relative_delta": 0.03896103896103898,
+        "lower": -0.007425742574257405,
+        "upper": 0.021834061135371174,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 13,
+            "den": 224,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 11,
+            "den": 208,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.14285714285714285,
+          "observed_b": 0.14285714285714285,
+          "delta": 0.0,
+          "relative_delta": 0.0,
+          "lower": -0.011235955056179775,
+          "upper": 0.00896860986547085,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 13,
+              "den": 224,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.21634615384615385,
+          "observed_b": 0.23076923076923078,
+          "delta": 0.014423076923076927,
+          "relative_delta": 0.06666666666666668,
+          "lower": -0.012121212121212116,
+          "upper": 0.04568527918781726,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 11,
+              "den": 208,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "paced300_d800_T2_g3_N20": {
+      "macro_delta": {
+        "observed_a": 0.23763736263736263,
+        "observed_b": 0.2541208791208791,
+        "delta": 0.01648351648351648,
+        "relative_delta": 0.06936416184971098,
+        "lower": 0.0004919678714859765,
+        "upper": 0.03632310516653553,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 13,
+            "den": 224,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 11,
+            "den": 208,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.2361111111111111,
+        "observed_b": 0.2523148148148148,
+        "delta": 0.01620370370370372,
+        "relative_delta": 0.06862745098039223,
+        "lower": 0.0,
+        "upper": 0.03448275862068967,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 13,
+            "den": 224,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 11,
+            "den": 208,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.19642857142857142,
+          "observed_b": 0.20535714285714285,
+          "delta": 0.008928571428571425,
+          "relative_delta": 0.045454545454545435,
+          "lower": 0.0,
+          "upper": 0.019230769230769218,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 13,
+              "den": 224,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.27884615384615385,
+          "observed_b": 0.30288461538461536,
+          "delta": 0.02403846153846151,
+          "relative_delta": 0.08620689655172403,
+          "lower": -0.005747126436781602,
+          "upper": 0.06282722513089006,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 11,
+              "den": 208,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "full_d800_T2_g3_Q": {
+      "macro_delta": {
+        "observed_a": 0.2079615784294792,
+        "observed_b": 0.20892548961906426,
+        "delta": 0.0009639111895850538,
+        "relative_delta": 0.004635044592681436,
+        "lower": -0.005405079913311017,
+        "upper": 0.006920279699563381,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.2051983584131327,
+        "observed_b": 0.2059800664451827,
+        "delta": 0.0007817080320500214,
+        "relative_delta": 0.003809523809523771,
+        "lower": -0.005373134328358203,
+        "upper": 0.006612145467200264,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.15970425138632163,
+          "observed_b": 0.15748613678373383,
+          "delta": -0.0022181146025878062,
+          "relative_delta": -0.013888888888888925,
+          "lower": -0.008631319358816253,
+          "upper": 0.003963535473642504,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.2562189054726368,
+          "observed_b": 0.2603648424543947,
+          "delta": 0.004145936981757858,
+          "relative_delta": 0.01618122977346271,
+          "lower": -0.006823027718550145,
+          "upper": 0.01421091997008228,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "full_d800_T2_g3_N20": {
+      "macro_delta": {
+        "observed_a": 0.25029021558872305,
+        "observed_b": 0.2524357571354564,
+        "delta": 0.002145541546733354,
+        "relative_delta": 0.008572215025212604,
+        "lower": -0.0041996220791262195,
+        "upper": 0.007977787701030414,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.2474105921438343,
+        "observed_b": 0.24956028923197185,
+        "delta": 0.0021496970881375588,
+        "relative_delta": 0.00868878357030007,
+        "lower": -0.004307922831990996,
+        "upper": 0.008139314783267071,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.2,
+          "observed_b": 0.2022181146025878,
+          "delta": 0.0022181146025877785,
+          "relative_delta": 0.011090573012938892,
+          "lower": -0.008617459722742582,
+          "upper": 0.011978097193702963,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.3005804311774461,
+          "observed_b": 0.30265339966832505,
+          "delta": 0.002072968490878957,
+          "relative_delta": 0.0068965517241379925,
+          "lower": -0.004276827371695158,
+          "upper": 0.008574007220216617,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "full_d0_T2_g3_Q": {
+      "macro_delta": {
+        "observed_a": 0.18318941337673922,
+        "observed_b": 0.18383375788954182,
+        "delta": 0.0006443445128025971,
+        "relative_delta": 0.0035173676301777698,
+        "lower": -0.0026292725679228635,
+        "upper": 0.004143239905195495,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.18057455540355677,
+        "observed_b": 0.18116083642759429,
+        "delta": 0.000586281024037516,
+        "relative_delta": 0.003246753246753214,
+        "lower": -0.00260869565217392,
+        "upper": 0.003950338600451464,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.13752310536044363,
+          "observed_b": 0.13715341959334565,
+          "delta": -0.00036968576709797696,
+          "relative_delta": -0.002688172043010827,
+          "lower": -0.0033869602032176316,
+          "upper": 0.0031570639305445736,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.22885572139303484,
+          "observed_b": 0.23051409618573798,
+          "delta": 0.0016583747927031434,
+          "relative_delta": 0.007246376811594169,
+          "lower": -0.004094165813715439,
+          "upper": 0.007535460992907805,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    },
+    "full_d0_T2_g3_N20": {
+      "macro_delta": {
+        "observed_a": 0.2271712141694485,
+        "observed_b": 0.2290645509360162,
+        "delta": 0.0018933367665676937,
+        "relative_delta": 0.008334404398417492,
+        "lower": -0.0019816235252694825,
+        "upper": 0.005786691522254417,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "pooled_delta": {
+        "observed_a": 0.2241547781903459,
+        "observed_b": 0.22610904827047099,
+        "delta": 0.001954270080125081,
+        "relative_delta": 0.008718395815170045,
+        "lower": -0.0019120458891013492,
+        "upper": 0.005846774193548371,
+        "replicates": 10000,
+        "seed": 20260101,
+        "alpha": 0.05,
+        "strata": [
+          {
+            "dataset": "dev-clean",
+            "clusters": 36,
+            "den": 2705,
+            "sparse": false
+          },
+          {
+            "dataset": "dev-other",
+            "clusters": 32,
+            "den": 2412,
+            "sparse": false
+          }
+        ],
+        "limited": false
+      },
+      "per_dataset": {
+        "dev-clean": {
+          "observed_a": 0.1744916820702403,
+          "observed_b": 0.17744916820702403,
+          "delta": 0.0029574861367837324,
+          "relative_delta": 0.016949152542372874,
+          "lower": -0.0020711080428028883,
+          "upper": 0.008050847457627103,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-clean",
+              "clusters": 36,
+              "den": 2705,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        },
+        "dev-other": {
+          "observed_a": 0.2798507462686567,
+          "observed_b": 0.2806799336650083,
+          "delta": 0.0008291873963516272,
+          "relative_delta": 0.002962962962963148,
+          "lower": -0.00519255733448723,
+          "upper": 0.0068306010928961824,
+          "replicates": 10000,
+          "seed": 20260101,
+          "alpha": 0.05,
+          "strata": [
+            {
+              "dataset": "dev-other",
+              "clusters": 32,
+              "den": 2412,
+              "sparse": false
+            }
+          ],
+          "limited": false
+        }
+      }
+    }
+  }
+}

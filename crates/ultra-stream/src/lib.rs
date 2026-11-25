@@ -9,6 +9,7 @@ pub mod contrast;
 pub mod coordinator;
 pub mod delivery;
 pub mod fake;
+pub mod fixed_packet;
 pub mod fleet_inproc;
 pub mod grid_sim;
 pub mod native_commit;
@@ -40,11 +41,12 @@ pub use coalesce::{ChunkWakeCoalescer, CoalesceStats};
 pub use contrast::{run_offline_contrast, ContrastConfig, ContrastResult};
 pub use coordinator::{DeliveryFilter, RefinerTicket, StreamCoordinator};
 pub use fake::{FakeBackend, FakeBackendConfig, FakeWord, UninterruptibleWorkerSim};
+pub use fixed_packet::{run_fixed_packet_paced_engine, FixedPacketPacedResult, StreamDigest};
 pub use fleet_inproc::{
     run_sp_a_shared_workers, run_sp_a_shared_workers_with_observer, SharedFleetResult,
     WorkerSummary,
 };
-pub use grid_sim::SustainedSample;
+pub use grid_sim::{simulate_grid_fixed_slots, SustainedSample};
 pub use native_commit::{LiveCommitAsrStream, LiveCommitConfig};
 pub use native_engine::{NativeEngineBackend, NativeEngineLoadConfig};
 pub use native_engine_bank::{

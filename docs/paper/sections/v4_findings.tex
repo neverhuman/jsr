@@ -1,7 +1,6 @@
 \section{What Did Not Move Live Accuracy, and Why}\label{sec:v4negative}
 
-This section reports the negative results of the V4 research wave that followed the registered look of \cref{sec:candidate}. Every
-number is exploratory and, except for the ReLU$^2$ kill readings (trainer dev-clean WER), was read on the selection half of DEV (S) with the pinned Rust scorer and a paired speaker bootstrap of \VfBootReps{}
+This section reports the negative results of the V4 research wave that followed the registered look of \cref{sec:candidate}. Each V4 result below is exploratory and, except for the ReLU$^2$ kill readings (trainer dev-clean WER), was read on the selection half of DEV (S) with the pinned Rust scorer and a paired speaker bootstrap of \VfBootReps{}
 resamples; the diagnosis of the live gap uses the unselected half (C), and the test sets were not read. Differences are in percentage points of pooled WER at the live setting c4 (a 160\,ms chunk for RC2), negative meaning lower WER.
 
 \para{Where the live gap sits.} Of the \VfDiagPositions{} C-half reference positions that the compact-LM live stream gets wrong and
@@ -49,3 +48,41 @@ its registered rule on the same selection half: greedy c4 differed from its matc
 regularisation did not move live accuracy, and the residual is concentrated in common interior words on hard audio. The remaining
 levers are more acoustic evidence (fresh audio, not relabelled audio) and capacity paid for by the power savings of \cref{sec:versus}; we do not
 yet have a result showing that either closes the gap.
+
+\subsection{Audio Robustness and Context}\label{sec:vfive}
+
+\para{Learned acoustic inputs.} The frozen encoder probe missed its transfer
+screen. In the short matched training screen, the learned input packet changed
+c4 WER by \AudioProbeWhiteGain\pp{} in white noise and \AudioProbeMusanGain\pp{}
+in MUSAN against the equal-capacity mel control. In the later noise-trained
+clean-tail experiment, terminal EMA clean c4 WER exceeded signed RC2 by
+\AudioHSixtyOneCleanDelta\pp{} (one-sided 95\% fixed-seed upper \AudioHSixtyOneCleanFixed\pp{},
+registered joint seed and speaker upper \AudioHSixtyOneCleanJoint\pp{}).
+The clean leg therefore failed. On held-out MUSAN at 5\,dB, ALL-ON differed by
+\AudioHSixtyOneNoisePython\pp{} from Python RC2 and \AudioHSixtyOneNoiseDelta\pp{}
+from the matched capacity control. For the latter contrast the fixed-seed upper
+was \AudioHSixtyOneNoiseFixed\pp{} and the joint upper was \AudioHSixtyOneNoiseJoint\pp{}.
+Both fine-tuned arms used the noise recipe. The Python RC2 contrast also changes
+the continuation recipe and does not isolate the effect of noise augmentation.
+
+\para{Level handling.} The frozen M5 final pass with file-end commits on the
+DEV confirmation half passed the RMS normalization gate. In level order
+0, $-20$, and $-30$\,dB, the WER changes were \AudioZOneCleanDelta\pp{},
+\AudioZOneTwentyDelta\pp{}, and \AudioZOneThirtyDelta\pp{}, with one-sided
+95\% uppers of \AudioZOneCleanUpper\pp{}, \AudioZOneTwentyUpper\pp{}, and
+\AudioZOneThirtyUpper\pp{}. Fresh automatic-endpoint accuracy and exact-package
+service cost still await qualification. On the full continuous-stream panel,
+the two Z2 gain-controller variants changed WER by \AudioProbeAgcDelta\pp{}
+and \AudioProbeAgcCalDelta\pp{} against a \AudioProbeAgcBar\pp{} tolerance.
+They inserted \AudioProbeAgcRepeatOn{} and \AudioProbeAgcCalRepeat{} repeats
+against \AudioProbeAgcRepeatOff{} with gain control off. Both failed the repeat gate.
+
+\para{Context across turns.} Natural-order carry improved DEV WER, and
+shuffling speakers increased errors. No frozen-model warm guard advanced.
+The token-window variant reached TRAIN Youden's \(J=\AudioProbeTokenYouden\)
+against a \(J=\AudioProbeTokenBar\) threshold. Both short-horizon turn-switch
+screens missed signed RC2 on clean speech, including the zero-augmentation
+screen. In the full-horizon M1-v4 screen, terminal EMA clean c4 WER changed by
+\AudioMOneFourDelta\pp{} versus signed RC2, with an upper of \AudioMOneFourUpper\pp{}.
+This also missed the strict clean gate. The change across runs reflects a
+different schedule, exposure and context recipe.

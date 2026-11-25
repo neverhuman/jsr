@@ -1,0 +1,60 @@
+{
+  "schema": "jsr.v5.h62.registered-S-replay/v1",
+  "scorer_sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+  "signed_cold_sha256": "83616192e6cb240f588fcbf36e447e19326b92e78cdd67db40a5c89d5d6f5ec8",
+  "part2_summary_sha256": "300122e556afec27c7526f3051f6bacff72a00d76bd2788f08681accff0daada",
+  "replicates": 10000,
+  "seed": 20261122,
+  "results": {
+    "nat_G1": {
+      "delta_pp": -0.009579278105602274,
+      "lower95_pp": -0.03531281266552777,
+      "upper95_pp": 0.016268098259314412,
+      "input_sha256": "8e6bc3be38be99e92f41739ccf341750d68ba5c09cafb25f525781dd3fe9a72f"
+    },
+    "shuf_G1": {
+      "delta_pp": 0.022990267453444624,
+      "lower95_pp": -0.007439230783536088,
+      "upper95_pp": 0.06080577458710823,
+      "input_sha256": "8c09f4b25d29dd1cbcdd946bd6b240263cad3f306c0e2216678793a9578d3506"
+    },
+    "nat_G2": {
+      "delta_pp": -0.17242700590083537,
+      "lower95_pp": -0.32527090149208626,
+      "upper95_pp": -0.020147073637553914,
+      "input_sha256": "cbc53dfa44118f39b46d52b390b3378fe771db3a727fb1ac525e7653116c89f7"
+    },
+    "shuf_G2": {
+      "delta_pp": 1.0958694152808646,
+      "lower95_pp": 0.8265767098696017,
+      "upper95_pp": 1.398865071734254,
+      "input_sha256": "3a047af24cb5664e66c5bd076c58f63cce16fe184cf30a2ae32c732cdd2bbe6c"
+    },
+    "nat_G2c": {
+      "delta_pp": -0.019158556211204547,
+      "lower95_pp": -0.05604543416529717,
+      "upper95_pp": 0.01700102006120391,
+      "input_sha256": "1c4736980e99dc816f3dd43084c0eb4350141203e01dcbfa0ab9cbb5e2bdd21b"
+    },
+    "shuf_G2c": {
+      "delta_pp": 0.12069890413058393,
+      "lower95_pp": 0.0686156277290309,
+      "upper95_pp": 0.17482199114963737,
+      "input_sha256": "7e0160558f2a973789422e048417e37010976d7e0d245f4f8452ed642b06a9cf"
+    },
+    "nat_H": {
+      "delta_pp": -0.011495133726723006,
+      "lower95_pp": -0.031918289179699855,
+      "upper95_pp": 0.005903420048014585,
+      "input_sha256": "35bcafaf1ef4295468658e3b861a914aa50ff87ad899ca67cfac2fdc6469e6e9"
+    },
+    "shuf_H": {
+      "delta_pp": 0.007663422484481541,
+      "lower95_pp": 0.0,
+      "upper95_pp": 0.016892843065487162,
+      "input_sha256": "fdb0d69f5841eaba3f1c7e923e2d6ac8abf4957cbd3fb62b2d28949c8c45edd2"
+    }
+  },
+  "advancing_rules": [],
+  "G2n": "TRAIN threshold result pending"
+}

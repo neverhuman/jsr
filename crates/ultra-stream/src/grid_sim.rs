@@ -173,6 +173,8 @@ pub struct SimOutcome {
     pub engine_decode_calls: u64,
     /// Exact count of paced capture-timer sleep wakeups (`0` when `!paced`).
     pub paced_wakeups: u64,
+    /// Total stream-step decodes executed across all decode batches (`sum(ready_n)`).
+    pub decoded_stream_steps: u64,
     pub drained: bool,
     pub tick_compute_ms: Vec<f64>,
     pub lateness_ms: Option<LatenessQuantiles>,
@@ -234,6 +236,33 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
     clock: &mut C,
     backlog_us_sink: Option<&Arc<AtomicU64>>,
 ) -> Result<SimOutcome, StreamError> {
+    simulate_grid_core(bank, params, clock, backlog_us_sink, false)
+}
+
+/// Fixed-packet grid simulator where every slot `s in 0..streams` owns the deterministic utterance
+/// stream `[s, s + streams, s + 2*streams, ...] ∩ [0, n_utts)` and drains cleanly to EOF.
+/// Refuses duration-capped (`duration_s.is_some()`) configurations fail-closed.
+pub fn simulate_grid_fixed_slots<B: SimSlotBank, C: SimClock>(
+    bank: &mut B,
+    params: &SimParams,
+    clock: &mut C,
+    backlog_us_sink: Option<&Arc<AtomicU64>>,
+) -> Result<SimOutcome, StreamError> {
+    if params.duration_s.is_some() {
+        return Err(StreamError::Protocol(
+            "fixed-slot schedule requires duration_s = None (no wall-clock cutoff)".into(),
+        ));
+    }
+    simulate_grid_core(bank, params, clock, backlog_us_sink, true)
+}
+
+fn simulate_grid_core<B: SimSlotBank, C: SimClock>(
+    bank: &mut B,
+    params: &SimParams,
+    clock: &mut C,
+    backlog_us_sink: Option<&Arc<AtomicU64>>,
+    fixed_slot_schedule: bool,
+) -> Result<SimOutcome, StreamError> {
     let n_utts = bank.num_utterances();
     if params.streams == 0 || params.packet_ms == 0 || params.max_batch == 0 || n_utts == 0 {
         return Err(StreamError::Protocol(
@@ -248,37 +277,44 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
         ((f64::from(params.grid_ms) / f64::from(params.packet_ms)).round() as u64).max(1)
     };
     let effective_grid_ms = (grid_every as u32) * params.packet_ms;
-    let allow_wrap = params.duration_s.is_some();
+    let allow_wrap = params.duration_s.is_some() && !fixed_slot_schedule;
     let mut queue_cursor = 0usize;
+    let mut slot_next: Vec<usize> = (0..params.streams).collect();
 
-    let refill =
-        |bank: &mut B, queue_cursor: &mut usize, cutoff: bool| -> Result<(), StreamError> {
-            if cutoff {
-                return Ok(());
+    let refill = |bank: &mut B,
+                  queue_cursor: &mut usize,
+                  slot_next: &mut [usize],
+                  cutoff: bool|
+     -> Result<(), StreamError> {
+        if cutoff {
+            return Ok(());
+        }
+        for (slot, next_u) in slot_next.iter_mut().enumerate() {
+            if bank.has_slot(slot) {
+                continue;
             }
-            for slot in 0..params.streams {
-                if !bank.has_slot(slot) {
-                    let pos = if *queue_cursor < n_utts {
-                        let p = *queue_cursor;
-                        *queue_cursor += 1;
-                        Some(p)
-                    } else if allow_wrap {
-                        let p = *queue_cursor % n_utts;
-                        *queue_cursor += 1;
-                        Some(p)
-                    } else {
-                        None
-                    };
-                    if let Some(utt_pos) = pos {
-                        bank.open_slot(slot, utt_pos)?;
-                    }
-                }
+            let pos = if fixed_slot_schedule {
+                (*next_u < n_utts).then(|| {
+                    let p = *next_u;
+                    *next_u += params.streams;
+                    p
+                })
+            } else if *queue_cursor < n_utts || allow_wrap {
+                let p = *queue_cursor % n_utts;
+                *queue_cursor += 1;
+                Some(p)
+            } else {
+                None
+            };
+            if let Some(utt_pos) = pos {
+                bank.open_slot(slot, utt_pos)?;
             }
-            Ok(())
-        };
+        }
+        Ok(())
+    };
 
     let any_active = |bank: &B| (0..params.streams).any(|s| bank.has_slot(s));
-    refill(bank, &mut queue_cursor, false)?;
+    refill(bank, &mut queue_cursor, &mut slot_next, false)?;
 
     let cpu0 = clock.cpu_s()?;
     let t0 = clock.now_s();
@@ -297,6 +333,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
     let mut max_ready_batch = 0usize;
     let mut wakeups = 0u64;
     let mut paced_wakeups = 0u64;
+    let mut decoded_stream_steps = 0u64;
     let mut first_ready_deadline_s: Option<f64> = None;
     let coalesce_active = params.coalesce_ms > 0 && params.decode == DecodeMode::Batch;
     let coalesce_s = f64::from(params.coalesce_ms) / 1000.0;
@@ -327,7 +364,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
                         &mut accepted_samples,
                         &mut k_acc,
                     );
-                    refill(bank, &mut queue_cursor, false)?;
+                    refill(bank, &mut queue_cursor, &mut slot_next, false)?;
                 }
             } else if deadline_s(k_acc) <= t_cut + 1e-12 || params.duration_s.is_none() {
                 accept_one_packet(
@@ -398,6 +435,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
                     let step_done_t = clock.now_s();
                     max_ready_batch = max_ready_batch.max(ready_n);
                     total_ready_decoded += ready_n;
+                    decoded_stream_steps += ready_n as u64;
                     wakeups += w;
                     if params.paced {
                         // FREEZE §3 unified A1: per-chunk step completion against capture deadline,
@@ -447,7 +485,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
                     }
                 }
             }
-            refill(bank, &mut queue_cursor, cutoff)?;
+            refill(bank, &mut queue_cursor, &mut slot_next, cutoff)?;
             bank.on_periodic_tick();
         }
     }
@@ -484,6 +522,7 @@ pub(crate) fn simulate_grid_with_backlog<B: SimSlotBank, C: SimClock>(
         wakeups,
         engine_decode_calls: wakeups,
         paced_wakeups,
+        decoded_stream_steps,
         drained,
         tick_compute_ms,
         lateness_ms: summarize_lateness(&steady_lat_s),
