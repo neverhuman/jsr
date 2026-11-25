@@ -450,7 +450,7 @@ def test_no_label_runs_under_a_frontier_system_and_ours_keeps_its_name():
 def test_hero_requires_matched_full_panel_cold_repetitions():
     variants = tuple(money.HERO_VARIANTS.values())
     rows = [
-        _row(variant=variant, host="xbabe0", plot=variant.startswith(("rc1", "parakeet")), interim=False, timing_panel="full")
+        _row(variant=variant, host="xbabe0", plot=True, interim=False, timing_panel="full")
         for variant in variants
     ]
     assert set(money.hero_rows(rows)) == set(money.HERO_VARIANTS)
@@ -461,8 +461,8 @@ def test_hero_requires_matched_full_panel_cold_repetitions():
         {"workload_digest": "unmatched panel"},
         {"cpu_reps": [0.2]},
     ):
-        assert money.hero_rows([*rows[:-1], rows[-1] | changes]) == {}
-        assert money.hero_rows([rows[0] | changes, *rows[1:]]) == {}, "the v3.1.0 foreground rows are held to the same rules"
+        assert money.hero_rows([rows[0] | changes, *rows[1:]]) == {}, "foreground quiet-full rows are held to full-panel 3-rep rules"
+    assert money.hero_rows([*rows[:-1], rows[-1] | {"workload_digest": "unmatched panel"}]) == {}
     assert money.hero_rows(rows[1:]) == {}, "a missing foreground row withdraws the figure"
 
 

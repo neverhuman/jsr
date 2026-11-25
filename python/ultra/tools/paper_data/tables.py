@@ -12,11 +12,14 @@ from .evidence import derived
 from .macros import tex_escape
 
 COLUMNS = 10  # system, runtime, 1-core speed, WER rank, clean/other/pooled WER, RSS, artifact, watts
+_OURS_EXTRA = {"rc2-live-greedy", "rc2-live-lm320"}
 GROUPS = (
-    ("Live streaming and streaming + utterance-segmented commit pass (sorted by 1-core speed)",
-     lambda r: r["role"] != "ablation" and r["class"] == "streaming"),
+    ("Our method: Isosyll (single 60 MB INT8 artifact, sorted by 1-core speed)",
+     lambda r: r["role"] == "ours"),
+    ("Public streaming comparators (sorted by 1-core speed)",
+     lambda r: r["role"] == "comparator" and r["class"] == "streaming"),
     ("Offline whole-utterance reference (sees full clip before emitting)",
-     lambda r: r["role"] != "ablation" and r["class"] == "whole_utterance"),
+     lambda r: r["role"] == "comparator" and r["class"] == "whole_utterance"),
 )
 
 
@@ -51,13 +54,16 @@ def measured_table(rows: list[dict], extras: dict | None = None) -> str:
            "% Columns: system, runtime, 1-core speed (x RT), WER rank, WER dev-clean / dev-other / pooled,",
            "% peak RSS (MB), artifact files (MB), active core W per stream."]
     plain = [r for r in rows if not r.get("anchor") and r["plot"]]
+    extra_ours = [r for r in rows if not r.get("anchor") and not r["plot"] and r["variant"] in _OURS_EXTRA
+                  and r["machine"] == "zen2" and r["threads"] == 1 and r["host"] == "xbabe0"]
     extra_complete = (extras or {}).get("complete", [])
     zen_one = [r for r in plain if r["machine"] == "zen2" and r["threads"] == 1]
     all_wer_items = [(r["id"], derived(r)["wer"]) for r in zen_one] + [(e["id"], e["wer"]) for e in extra_complete]
     wer_rank = {rid: 1 + sum(w < wer for _, w in all_wer_items) for rid, wer in all_wer_items}
     n_complete = len(all_wer_items)
+    shown = plain + extra_ours
     for machine in MACHINES:
-        one = [r for r in plain if r["machine"] == machine and r["threads"] == 1]
+        one = [r for r in shown if r["machine"] == machine and r["threads"] == 1]
         if not one:
             continue
         out.append(f"\\multicolumn{{{COLUMNS}}}{{@{{}}l}}{{\\textbf{{{MACHINES[machine]['name']}}}}} \\\\")
