@@ -17,7 +17,7 @@ use serde_json::json;
 use ultra_frontend::read_audio_16k_mono;
 
 const MAIN_HELP: &str = "\
-isosyll - streaming speech recognition (pure Rust, CPU)
+isosyll - streaming speech recognition on one CPU core (pure Rust, INT8 safetensors model)
 
 USAGE:
     isosyll transcribe <AUDIO>... [--mode final|live] [--json] [--model DIR] [--threads N] [--rms-norm]
@@ -43,12 +43,13 @@ OPTIONS:
                         live: low-latency streaming text.
     --json              one JSON object per file: file, text, mode, audio_s, wall_s
     --model DIR         model directory (see `isosyll --help` for the search order)
-    --threads N         GEMM threads (default 1; output is identical for any N)
+    --threads N         matrix-multiply threads (default 1, the measured setting)
     --rms-norm          final mode only: whole-segment RMS gain before the commit pass
     -h, --help          show this help
 
 Output is one line of text per file, prefixed with `<path>TAB` when several files are given.
-Audio must be readable as 16 kHz mono (WAV, raw s16le).
+Input: WAV (16-bit PCM, any sample rate, mono or stereo; resampled to 16 kHz mono)
+or raw 16 kHz 16-bit little-endian PCM (.pcm, .s16le).
 Final mode on audio up to 40 s uses a single commit pass. Longer audio is cut at the quietest
 point 20-30 s into each piece, each piece is committed separately, and the texts are joined with
 a space. Live mode has no length limit.
