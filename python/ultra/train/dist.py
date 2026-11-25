@@ -79,6 +79,14 @@ def all_reduce_max(value: float, device) -> float:
     return float(t[0])
 
 
+def any_step_flags(stop: bool, checkpoint_due: bool, device) -> tuple[bool, bool]:
+    """Agree on shutdown and checkpoint collectives at one step boundary."""
+    t = torch.tensor([stop, checkpoint_due], dtype=torch.int32, device=device)
+    dist.all_reduce(t, op=dist.ReduceOp.MAX)
+    stop, due = t.tolist()
+    return bool(stop), bool(due)
+
+
 def broadcast_value(value: float | None, device) -> float | None:
     t = torch.tensor([float("nan") if value is None else value], dtype=torch.float64, device=device)
     dist.broadcast(t, 0)

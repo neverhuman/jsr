@@ -23,6 +23,7 @@ import pyarrow.parquet as pq
 import soundfile as sf
 import torch
 
+from train.batch_plan import apply_data_shard, pack, stratified_parts, weighted_share  # noqa: F401  (re-exported)
 from train.errors import DataError
 from train.features import LogMel, pcm_to_float
 from train.tokenizer import Tokenizer
@@ -58,6 +59,7 @@ class Batch:
     active: bool = True  # collective-only dummy inputs do not contribute audio or gradients
     ctx: torch.Tensor | None = None  # per-row prepended context frames (train.stream_ctx)
     anchor: torch.Tensor | None = None  # H48c (B, S) MFA anchor frames, -1 = none / padding
+    row_keep: torch.Tensor | None = None  # optional Boolean quality gate across all supervision
 
     @property
     def audio_seconds(self) -> float:
@@ -69,7 +71,29 @@ class Batch:
             self.feats, self.feat_lens, self.rnnt, self.rnnt_lens, self.ctc, self.ctc_lens)),
             kd=tuple(t.to(device) for t in self.kd) if self.kd is not None else None,
             active=self.active, ctx=self.ctx.to(device) if self.ctx is not None else None,
-            anchor=self.anchor.to(device) if self.anchor is not None else None)
+            anchor=self.anchor.to(device) if self.anchor is not None else None,
+            row_keep=self.row_keep.to(device) if self.row_keep is not None else None)
+
+    def supervised(self) -> Batch:
+        """Exclude rejected rows from every head and retain one collective-only dummy if empty."""
+        if self.row_keep is None:
+            return self
+        keep = self.row_keep.detach()
+        if keep.dtype != torch.bool or keep.shape != (len(self.uids),):
+            raise DataError("row_keep must have one Boolean per batch row")
+        rows = keep.nonzero(as_tuple=True)[0].tolist()
+        if len(rows) == len(self.uids):
+            return self
+        active = self.active and bool(rows)
+        rows = rows or [0]
+        return Batch(
+            [self.uids[i] for i in rows], [self.texts[i] for i in rows],
+            self.feats[rows], self.feat_lens[rows], self.rnnt[rows], self.rnnt_lens[rows],
+            self.ctc[rows], self.ctc_lens[rows],
+            kd=tuple(t[rows] for t in self.kd) if self.kd is not None else None,
+            active=active, ctx=self.ctx[rows] if self.ctx is not None else None,
+            anchor=self.anchor[rows] if self.anchor is not None else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -137,74 +161,6 @@ def _collate_kd(exs: list[Example]):
         u[i, :n] = torch.from_numpy(np.asarray(e.kd[2]))
         mask[i, :n] = True
     return ids, lp, u, mask
-
-
-def pack(durations: list[float], budget_s: float, max_batch: int) -> list[list[int]]:
-    """Greedy packing of indices sorted by duration: padded seconds <= budget_s per batch."""
-    order = sorted(range(len(durations)), key=lambda i: durations[i])
-    batches, cur, cur_max = [], [], 0.0
-    for i in order:
-        m = max(cur_max, durations[i])
-        if cur and (m * (len(cur) + 1) > budget_s or len(cur) >= max_batch):
-            batches.append(cur)
-            cur, m = [], durations[i]
-        cur.append(i)
-        cur_max = m
-    if cur:
-        batches.append(cur)
-    return batches
-
-
-def weighted_share(group: list[int], durations: list[float], weights, rank: int) -> list[int]:
-    """This rank's part of one global batch when ranks differ in speed (throughput-weighted
-    shards). Utterances are dealt in the group's order to the rank whose seconds so far, relative
-    to its weight, would stay smallest, so each rank gets about weight / sum(weights) of the
-    seconds and its part spans the group's duration range. Every rank computes the same deal, so
-    the parts are disjoint and complete. Only used when weights are set; without them the
-    loader keeps the plain group[rank::world] split."""
-    given = [0.0] * len(weights)
-    mine = []
-    for i in group:
-        d = durations[i]
-        r = min(range(len(weights)), key=lambda k: ((given[k] + d) / weights[k], k))
-        given[r] += d
-        if r == rank:
-            mine.append(i)
-    return mine
-
-
-def stratified_parts(groups: list[list[int]], durations: list[float], world: int, rank: int,
-                     seed) -> list[list[int]]:
-    """This rank's groups under duration stratification (frontier OPT-2.2): groups (a multiple of
-    `world`) are ordered by their longest member, cut into `world` equal strata and shuffled within
-    each stratum; at step i rank r takes the i-th group of stratum (r + i) % world."""
-    if len(groups) % world:
-        raise DataError("stratified parts need a multiple of world groups")
-    order = sorted(range(len(groups)), key=lambda k: (max(durations[i] for i in groups[k]), k))
-    per = len(order) // world
-    rng = np.random.default_rng(list(seed) + [7919])
-    strata = []
-    for j in range(world):
-        s = order[j * per:(j + 1) * per]
-        rng.shuffle(s)
-        strata.append(s)
-    return [groups[strata[(rank + i) % world][i]] for i in range(per)]
-
-
-def apply_data_shard(source, cfg, world: int) -> None:
-    """H50 DiLoCo island: one process (data_world > 0) reads exactly what DDP rank data_rank of
-    data_world reads from the same ordered global batches (global-batch split, no rank weights)."""
-    if getattr(cfg, "ddp_stratify_lengths", False) and cfg.ddp_global_batches:
-        raise ValueError("ddp_stratify_lengths stratifies per-rank batches; it needs ddp_global_batches=false")
-    if cfg.data_world <= 0:
-        return
-    if world != 1:
-        raise ValueError("data_rank / data_world name a single-process island's shard; DDP ranks use their own")
-    if not 0 <= cfg.data_rank < cfg.data_world or not hasattr(source, "world"):
-        raise ValueError("need 0 <= data_rank < data_world and a source that shards (ParquetBatches)")
-    if cfg.ddp_rank_weights or getattr(cfg, "ddp_stratify_lengths", False):
-        raise ValueError("island shards use the plain global-batch split")
-    source.rank, source.world, source.ddp_global_batches = cfg.data_rank, cfg.data_world, True
 
 
 class Featurizer:
