@@ -118,6 +118,12 @@ paper-refresh: paper
     (cd python/ultra && "$pybin" -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py tests/test_paper_claims.py)
     echo "paper-refresh: docs/paper/paper.pdf, docs/paper/money.png and the README block are current"
 
+# Build the two-page CEO and CTO briefs (docs/briefs/isosyll-v4-*-brief.pdf, committed). Numbers come
+# from docs/paper/data/metrics.tex. Fails unless each PDF is exactly 2 pages with Type 1 fonts only
+# and no overfull boxes. `just briefs --check` verifies the committed PDFs are current.
+briefs *args:
+    bash docs/briefs/scripts/build_briefs.sh {{args}}
+
 # Real-time fleet dashboard (loss / WER / throughput per run, GPU + CPU per node) on 127.0.0.1:8765.
 # View remotely: ssh -L 8765:127.0.0.1:8765 <this host>, then open http://localhost:8765
 dashboard:

@@ -225,6 +225,10 @@
       "command": "just score",
       "purpose": "research waves (summaries only) stay visible to the audit"
     },
+    "docs/briefs/": {
+      "command": "just briefs --check",
+      "purpose": "the CEO and CTO briefs build to exactly 2 pages each with Type 1 fonts, no overfull boxes, every number from docs/paper/data/metrics.tex, and match the committed PDFs"
+    },
     "docs/paper/": {
       "command": "just paper",
       "purpose": "the IEEE paper builds with no undefined references, Type-1 fonts, and every number generated from sourced records (tests/test_paper_data.py)"
