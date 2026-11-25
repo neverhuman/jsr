@@ -43,9 +43,9 @@ and are drawn hollow in \cref{fig:money}.
 
 \para{Energy.} On the quiet host H1, CPU energy is read from the service core's RAPL energy
 register during the exact same timing run and divided by decoded audio seconds, yielding
-\emph{active core watts per live stream} (unpaced, \texttt{core\_msr\_active}, including the core
+\emph{active core joules per audio-second} (J/audio-s; unpaced, \texttt{core\_msr\_active}, including the core
 idle floor; CPU core domain only, not wall power). For the \ultra{} \PriorVer{} commit pass we
-also record package-domain watts per stream.
+also record package-domain J/audio-s.
 
 \para{Test-set disclosure and INT8 gate.} All accuracy numbers in this paper are LibriSpeech DEV
 only; no test-set numbers appear. In accordance with our benchmark freeze protocol, LibriSpeech
