@@ -26,8 +26,7 @@ def metrics_tex(rec: Records) -> str:
         missing = r.get("pending") or any(r.get(k) in (None, "") for k in REQUIRED)
         body = f"\\PaperMissing{{{rid}}}" if missing else r["value"]
         lines.append(f"\\newcommand{{\\{rid}}}{{{body}}}% [{r['label']}] {r['unit']}")
-    cap_m = ("Linear speed axis (median of 3 cold runs, 1 Zen~2 core, model load included; dashed line = 1$\\times$ "
-             "real time) vs.\\ common 730-utt DEV pooled WER. \\MoneyMarksCaption{} \\MoneyWattsCaption{}")
+    cap_m = "Grey: v3.0.0."
     lines += ["", f"\\newcommand{{\\MoneyCaption}}{{{cap_m}}}", ""]
     return "\n".join(lines)
 

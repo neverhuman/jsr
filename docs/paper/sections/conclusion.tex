@@ -5,6 +5,10 @@ We presented \ultra{} \ReleaseVer{}, a compact streaming Conformer transducer an
 integer-exact CPU engine evaluated against all \ColdCompleteCompCount{} complete-panel public
 open-weights CPU comparators on the same 730-utterance LibriSpeech DEV panel. On one pinned quiet
 Zen~2 core and one prepared INT8 artifact, \ultra{} \ReleaseVer{} delivers \ColdConclusionResult{},
-sustains sixteen real-time paced live streams at \RelCapSixteenBusy\% of one core
-(\RelCapSixteenNetW\,W net per stream, \RelCapSixteenLagPninetyFive\,ms p95 lag), and maintains
-batch-invariant, repeatable INT8 execution within \RelIntEightDelta\pp of FP32.
+reproduces its transcripts exactly on \CandIsaRuns{} witness decodes across x86 and ARM CPUs; the
+prior release sustained sixteen real-time paced live streams at \RelCapSixteenBusy\% of one core
+(\RelCapSixteenNetW\,W net per stream, \RelCapSixteenLagPninetyFive\,ms p95 lag) with INT8 execution within
+\RelIntEightDelta\pp of FP32. \ultra{} \ReleaseVer{} is released by owner decision: it missed its registered
+full-DEV final gate (\CandFinalFullEdits{} edits against \CandGateFinalFull) and trails Zipformer by
+\CandLiveLmCDelta{} points on the unselected half of DEV for the live stream with a language model.
+All results are exploratory and use development data only. The negative results of \cref{sec:v4negative} point to the next lever: more acoustic evidence, that is fresh audio rather than relabelled audio, and capacity paid for by the power savings.

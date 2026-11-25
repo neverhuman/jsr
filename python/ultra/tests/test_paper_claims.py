@@ -28,15 +28,16 @@ def _records():
 def test_claims_made_in_words_hold_in_the_measured_rows():
     """Verify every headline claim in the prose and README holds quantitatively in the admitted rows."""
     rec = _records()
-    # Final point beats Zipformer on pooled WER and dev-other, trails Zipformer on dev-clean, and trails best comparator
+    # Final point is not worse than Zipformer on pooled WER, beats it on dev-other, equals it on dev-clean (to the printed
+    # precision), and trails the best comparator
     assert rec["ColdHeadWer"]["raw"] < rec["ColdZipWer"]["raw"], "Isosyll final no longer beats Zipformer on pooled WER"
     assert rec["ColdHeadWerOther"]["raw"] < rec["ColdZipWerOther"]["raw"], "Isosyll final no longer beats Zipformer on dev-other"
-    assert rec["ColdHeadWerClean"]["raw"] > rec["ColdZipWerClean"]["raw"], "dev-clean claim flipped; update prose"
+    assert abs(rec["ColdHeadWerClean"]["raw"] - rec["ColdZipWerClean"]["raw"]) < 0.005, "dev-clean is no longer equal; update prose"
     assert rec["ColdHeadWerGapBest"]["raw"] > 0.0, "Isosyll final no longer trails the lowest-WER comparator"
     # Live point claims checked whenever the standalone live cold row (14q) is admitted
     if "ColdLiveSpeed" in rec:
         assert rec["ColdHeadSpeedOverFast"]["raw"] > 1.8, "Isosyll live is no longer ~2x faster than Zipformer"
-        assert rec["ColdLightRssOverHead"]["raw"] > 1.5, "Isosyll live no longer uses less memory than every comparator"
+        assert rec["ColdLightRssOverHead"]["raw"] > 1.2, "Isosyll live no longer uses clearly less memory than every comparator"  # live +LM: 1.4x
         assert rec["ColdLiveWatts"]["raw"] < rec["ColdZipWatts"]["raw"], "Isosyll live is no longer lower watts than Zipformer"
     # INT8 parity within pre-registered +-0.10 pp gate on full DEV
     assert abs(rec["RelIntEightDelta"]["raw"]) <= 0.10, "INT8 vs FP32 parity exceeded 0.10 pp"
@@ -58,17 +59,17 @@ def test_front_page_pairs_each_modes_speed_and_accuracy():
     assert f"Live decoding runs at {live}$\\times$" in live_abs and f"{live_wer}\\% pooled WER" in live_abs
     assert "active core energy per audio-second" in live_abs
     assert f"reference utterance boundaries, reaches {final_wer}\\% pooled WER at {final}$\\times$" in final_abs
-    assert "58\\%" in rec["ColdAbstractZip"]["value"]
+    assert "57\\%" in rec["ColdAbstractZip"]["value"]
     assert rec["ColdAbstractMoreAcc"]["value"] == "Seven of the 15 public recognisers we measured are more accurate than the final mode."
 
 
 def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
-    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v3.0.0 + all 15 public comparators."""
+    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v3.1.0 (v3.0.0 only as the prior release) + all 15 public comparators."""
     plotted = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
                if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
     variants = {c[1] for c in plotted}
     expected = {
-        "rc1-ema-live", "rc1-ema-final", "r0-int8", "parakeet-tdt-v3-int8", "parakeet-v3-onnxasr-int8",
+        "rc2-live-lm", "rc2-final", "r0-int8-r6", "parakeet-tdt-v3-int8", "parakeet-v3-onnxasr-int8",
         "nemotron-en-560", "nemotron-en-160", "nemotron-35", "moonshine-small", "moonshine-tiny",
         "vosk-small", "vosk-large", "whispercpp-stream-tiny", "whispercpp-stream-base",
     }
@@ -78,14 +79,23 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert rec["ColdCompletePanelCount"]["raw"] == 17
     assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    for must in ("Isosyll v3.0.0 (live)", "Isosyll v3.0.0 (final, seg.)", "29.1", "0.344",
-                 "Head-to-head with Zipformer INT8", "inconclusive", "RC2 qualification record", "16 real-time live streams",
-                 "p95 stable-word lag 457 ms", "for all 15 open recognisers we measured",
-                 "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.0.1.md"):
+    for must in ("Isosyll v3.1.0 live +LM (160 ms)", "32.7", "0.328", "Released by owner decision after missing the registered gates",
+                 "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.1.0.md", "docs/ultra/releases/v3.0.1.md",
+                 "ultra-v3.1.0-int8-bundle.tar", "ultra-cold-wav --chunk 4" if False else "./ultra-cold-wav --chunk 4",
+                 "./ultra-engine-commit --model int8"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
+    # Claims moved out of the lean README stay asserted, in the paper sources and records
+    sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
+    assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
+    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["abstract.tex"]
+    assert rec["VsPriorLiveSpeed"]["value"] == "29.1" and rec["VsPriorLiveWatts"]["value"] == "0.344" and rec["VsPriorFinalWatts"]["value"] == "0.720"
+    assert all(m in sections["results.tex"] for m in ("VsPriorLiveSpeed", "VsPriorLiveWatts", "VsPriorFinalWatts"))
+    assert rec["RelCapSixteenLagPninetyFive"]["value"] == "457" and "RelCapSixteenLagPninetyFive" in sections["results.tex"]
+    assert rec["ColdCompleteCompCount"]["raw"] == 15 and "ColdCompleteCompCount" in sections["related.tex"]
     # Zero non-plotted legacy rows in cold_dev.csv
     all_csv = [ln.split(",")[1] for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
-    assert set(all_csv) == variants, f"cold_dev.csv holds unplotted legacy rows: {set(all_csv) - variants}"
+    v31_unplotted = {"rc2-live-greedy", "rc2-live-lm320", "rc1-ema-live", "rc1-ema-final", "r0-int8"}  # Fig. 1 foreground and the prior release
+    assert set(all_csv) == variants | v31_unplotted, f"cold_dev.csv holds unexpected rows: {set(all_csv) - variants - v31_unplotted}"
     # Release provenance must never borrow older checkpoint receipts
     rel_ev = (DATA / "evidence" / "xbabe0-v3-release.jsonl").read_text(encoding="utf-8")
     for old_ck in ("a1-30000", "a1-20000", "h22ctl", "d2e", "4701787c"):
@@ -147,20 +157,23 @@ def test_readme_shows_the_current_figure_block():
     assert paper_title and title == f"# {paper_title[1]}"
     descriptor = re.search(r"\\newcommand\{\\PaperDescriptor\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
     assert descriptor and tagline == f"**{descriptor[1]}**"
-    subtitle = _records()["ColdSubtitle"]["value"]
+    subtitle = _records()["HeroSubtitle"]["value"]
     summary_text = subtitle.replace("$\\times$", "×").replace("$\\cdot$", "·").replace("\\%", "%").replace("\\,", " ")
     assert summary == f"**{summary_text}**"
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
-    assert caption.startswith("**Figure 1.**") and "[Read the paper](docs/paper/paper.pdf)" in caption
+    assert caption.startswith("**Figure 1.**") and "[Paper](docs/paper/paper.pdf)" in caption
+    assert "selection panel" in caption and "unselected DEV" in caption and "docs/ultra/releases/v3.1.0.md" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
     pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
-    assert len(table) == 2 + len(pairs), "head-to-head: header, the comparator, one line per paired mode"
+    assert len(table) == 1 + 1 + 3, "lean table: header, Zipformer, live greedy, live +LM at 160 ms, final"
+    assert len(pairs) == 2
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
-    assert labels == ["Always-on at a fraction of the cost", "Final text from the same weights", "Bit-exact and portable"]
+    assert labels == ["Always-on", "Final text", "Bit-exact and portable"]
+    assert all(len(b.splitlines()) == 1 for b in re.findall(r"^- \*\*.*$", block, flags=re.M)), "one source line per bullet"
     layout = (DATA / "money_layout.tex").read_text()
-    assert (r"\def\MoneyOursLegend{\shortstack[l]{Isosyll v3.0.0 (live)\\"
-            "Isosyll v3.0.0 (final, seg.)}}") in layout
-    assert "Isosyll v3.0.0\\\\(live)" in layout and "Isosyll v3.0.0\\\\(final, seg.)" in layout
+    assert (r"\def\MoneyOursLegend{\shortstack[l]{Isosyll v3.1.0 (live +LM)\\"
+            "Isosyll v3.1.0 (final, seg.)}}") in layout
+    assert "Isosyll v3.1.0\\\\(live +LM)" in layout and "Isosyll v3.1.0\\\\(final, seg.)" in layout
 
 
 def test_release_branding_is_consistent():
@@ -178,7 +191,7 @@ def test_release_branding_is_consistent():
 
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
     assert readme.startswith(f"# {expected_title}\n")
-    assert "| **Isosyll v3.0.0 (live)** |" in readme and "| **Isosyll v3.0.0 (final, seg.)** |" in readme
+    assert "| **Isosyll v3.1.0 live +LM (160 ms)** |" in readme and "| **Isosyll v3.1.0 final** |" in readme
     install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)
     assert install and "v3.0.1" in install[0], "README install section must mention v3.0.1"
     non_install_readme = readme[:install.start()] + readme[install.end():]
@@ -265,3 +278,93 @@ def test_measured_table_has_one_line_per_measured_system_and_only_generated_cell
     plain = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
     drawn = [c for c in plain if c[21] == "1"]
     assert len(re.findall(r"\\Cold[A-Za-z]+Speed[A-Za-z]* &", table)) == len(drawn)
+
+
+def test_readme_v4_section_is_generated_outside_the_money_block():
+    readme = (pd.REPO / "README.md").read_text()
+    block = (DATA / "v4_readme.md").read_text().rstrip("\n")
+    assert readme.count(publish.V4_START) == 1 and readme.count(publish.V4_END) == 1
+    shown = readme[readme.index(publish.V4_START):readme.index(publish.V4_END) + len(publish.V4_END)]
+    assert shown == block, f"README.md shows an old V4 section; {REFRESH}"
+    assert readme.index(publish.END) < readme.index(publish.V4_START), "the V4 section sits after the money block, not inside it"
+    assert "SPEC15" in block and "O3-LD" in block and "not adopted" in block and "fresh audio" in block
+    assert "pending" not in block, "the O3-LD verdict landed; no pending wording"
+    assert len([l for l in block.splitlines() if l.startswith("- ")]) == 3, "three-line V4 summary"
+    assert "cannot reach" in block and "cannot close" not in block
+    money = (DATA / "money_readme.md").read_text()
+    assert "800 vs. 722" in money and "722 vs. 650" in money and "2.46×" in money
+    v4 = (PAPER / "sections" / "v4_findings.tex").read_text()  # the detail the README no longer carries
+    rec = _records()
+    assert rec["VfOThreeDelta"]["value"] == "+0.0115" and "VfOThreeDelta" in v4 and "stopped at the read, as registered" in v4
+    assert "160\\,ms chunk for RC2" in v4 and "VfTdtChunkMs" in v4 and "ReLU$^2$ kill readings" in v4 and "VfSingleSeedPp" in v4
+    assert "5.288" not in block, "the PL3 final 5.288% is not tied to this verdict"
+
+
+def test_release_is_stated_as_owner_decision_not_a_gate_pass():
+    readme = (pd.REPO / "README.md").read_text()
+    assert "Released by owner decision after missing the registered gates" in readme
+    for name in ("abstract", "conclusion"):
+        txt = (PAPER / "sections" / f"{name}.tex").read_text()
+        assert "owner decision" in txt and "CandFinalFullEdits" in txt and "CandGateFinalFull" in txt, name
+    rec = _records()
+    assert rec["CandFinalFullEdits"]["raw"] > rec["CandGateFinalFull"]["raw"], "the gate is no longer missed; reword"
+    assert rec["CandLiveLmCDelta"]["raw"] > 0, "live +LM no longer trails Zipformer on the C half; reword"
+
+
+def test_ratios_to_zipformer_are_medians_of_within_block_ratios():
+    """Paired ratios come from the same-block anchor (grok review): final speed prints 1.19x, not the 1.20x of the two medians."""
+    rec = _records()
+    summary = json.loads((DATA / "raw/release_v31/timing_interleaved/summary_report.json").read_text())["paired_ratios_vs_zipformer"]
+    assert abs(rec["VsSpeedXOne"]["raw"] - summary["live_c4_lm"]["speed_ratio_median"]) < 5e-5
+    assert abs(rec["VsSpeedXTwo"]["raw"] - summary["final_m5"]["speed_ratio_median"]) < 5e-5
+    assert rec["VsSpeedXTwo"]["value"] == "1.19" and rec["VsEnergyPctTwo"]["value"] == "115"
+    block = (DATA / "money_readme.md").read_text()
+    assert "(1.19×)" in block and "1.20" not in block
+
+
+def test_prior_release_rows_carry_their_own_record_not_the_new_intervals():
+    """The README no longer lists v3.0.0; the paper does, with v3.0.0's own record (not the v3.1.0 intervals)."""
+    rec = _records()
+    assert (rec["VsPriorLiveDelta"]["value"], rec["VsPriorLiveLo"]["value"], rec["VsPriorLiveHi"]["value"]) == ("+1.59", "+1.27", "+1.92")
+    assert (rec["VsPriorFinalDelta"]["value"], rec["VsPriorFinalLo"]["value"], rec["VsPriorFinalHi"]["value"]) == ("$-$0.19", "$-$0.53", "+0.14")
+    results = (PAPER / "sections" / "results.tex").read_text()
+    assert "that\nsession's Zipformer, so no ratio is formed" in results and "CandLiveGreedyOldDelta" in results and "live greedy" in results
+    assert rec["VsWideRssMb"]["value"] == "110.6" and rec["CandLiveLmEightCDelta"]["value"] == "+0.65" and "VsWideRssMb" in results
+    assert "v3.0.0" not in (DATA / "money_readme.md").read_text().split("<!-- money-plot:end -->")[0].split("| **Isosyll v3.1.0 final**")[0]
+
+
+
+def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
+    block = (DATA / "money_readme.md").read_text()
+    rec = _records()
+    assert rec["ScalarDiffs"]["raw"] == 0 and rec["ScalarUtts"]["raw"] == 730
+    assert "not for the v3.1.0 binary" in block and rec["ScalarMainCommit"]["value"] in block
+    results = (PAPER / "sections" / "results.tex").read_text()
+    assert "does not\napply to the" in results and "ScalarMainCommit" in results and "ScalarRelCommit" in results
+
+
+def test_headline_precision_gate_scope_and_install_sample_are_exact():
+    readme = (pd.REPO / "README.md").read_text()
+    block = (DATA / "money_readme.md").read_text()
+    for must in ("32.67× vs. 14.04×", "57.3%", "109.47 MB", "live +LM scores 6.10% on full DEV", "the selection panel and on the unselected C half"):
+        assert must in block, must
+    assert "both halves" not in block and "reranking those lists cannot reach 5%" in (DATA / "v4_readme.md").read_text()
+    # install sample: no `<wav-dir>` (a Bash redirection), staged names and output schemas stated, extraction and check on separate lines
+    install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)[0]
+    assert "<wav-dir>" not in install and "./wav-dir ./live.jsonl" in install and "u00000.wav" in install
+    assert "`provisional` and `committed`" in install and "`id` and `hyp`" in install
+    assert "tar -xf ultra-v3.1.0-int8-bundle.tar\n  sha256sum -c ultra-v3.1.0-int8-bundle.SHA256SUMS" in install and "&& sha256sum" not in install
+    release = (pd.REPO / "docs/release.md").read_text()
+    assert "<wav-dir>" not in release and "{\"id\", \"hyp\"}" in release
+    rc2 = (pd.REPO / "docs/ultra/releases/v3.1.0-rc2.md").read_text()
+    assert "Historical record" in rc2 and "v3.1.0.md" in rc2 and "are complete" in rc2 and "Pending: the quiet-host" not in rc2
+    # intro/limitations claims are scoped to the matched Zipformer, and benchmark energy is in J per audio-second
+    rec = _records()
+    for rid in ("ColdIntroLiveItem", "ColdSpeedSentence", "ColdMemorySentence", "ColdIntroContrib", "ColdLimitLive", "ColdConclusionResult", "ColdWattsSentence"):
+        text = rec[rid]["value"]
+        assert "every comparator" not in text and not re.search(r"\d\\,W\b", text), rid
+    assert "J per audio-second" in rec["ColdIntroLiveItem"]["value"] and "matched streaming" in rec["ColdIntroLiveItem"]["value"]
+    results = (PAPER / "sections" / "results.tex").read_text()
+    assert "inconclusive on both the selection panel" in results and "Zipformer-class" not in results
+    v4 = (PAPER / "sections" / "v4_findings.tex").read_text()
+    assert "VfRtenRatio" in v4 and "development CPU" in v4 and "not energy-qualified" in v4 and "recorded fixed beam" in v4

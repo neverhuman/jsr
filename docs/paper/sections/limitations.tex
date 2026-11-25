@@ -3,10 +3,7 @@
 \para{Utterance-segmented final mode and memory.} \ColdLimitLive{} Shrinking LM memory
 (\LmPackMb\,MB on disk) and commit CPU without losing accuracy is active work.
 
-\para{Live accuracy.} The endpoint-free live stream trades accuracy for cost: its pooled panel WER
-is \VsVerdictOne{} streaming Zipformer INT8's by \VsDeltaOne\pp (paired one-sided 95\% bounds \VsLoOne{} to
-\VsHiOne\pp) at half its chunk length and \VsCpuPctOne\% of its CPU time. The measured successor (\cref{sec:candidate}) narrows but does not close this gap. Applications that need
-Zipformer-class text before an utterance ends should not assume the final-pass accuracy.
+\para{Live accuracy.} The endpoint-free live stream trades accuracy for cost: its gap to Zipformer INT8 is \CandLiveLmCDelta\pp on the unselected half of DEV (\cref{sec:candidate,sec:v4negative}), so applications that need Zipformer-class text before an utterance ends should not assume the final-pass accuracy.
 
 \para{Training data and LM overlap.} \ultra{} \ReleaseVer{} is trained on LibriSpeech 960\,h plus
 Libri-Light pseudo-labelled by R0 (the Zipformer comparator). All evaluations use read English
@@ -17,8 +14,8 @@ removing them leaves the relative LM WER gain unchanged.
 
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
 Shared-host (H0) rows stay marked interim until quiet H1 holds complete. Energy measurements are
-active core (CPU-domain) watts per stream from RAPL registers (\texttt{core\_msr\_active}, including
-the core idle floor, plus package domain for the commit pass), never board or wall power, and are
+active core (CPU-domain) joules per audio-second from RAPL registers (\texttt{core\_msr\_active}, including
+the core idle floor; package domain was measured only for the prior release), never board or wall power, and are
 measured unpaced for apples-to-apples comparison across recognisers. All accuracy numbers are LibriSpeech DEV only; as disclosed in
 \cref{sec:protocol}, LibriSpeech test-clean and test-other were read several times before our
 benchmark freeze, and no test-set numbers appear here.

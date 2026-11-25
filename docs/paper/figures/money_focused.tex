@@ -27,41 +27,68 @@
 ]
 \draw[figquiet!40,densely dashed,line width=.48pt] (axis cs:1,0) -- (axis cs:1,\HeroYmax);
 \draw[figblue,line width=.65pt,{Stealth[length=3.8pt]}-{Stealth[length=3.8pt]}]
-  (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveX,\HeroArrowY)
+  (axis cs:\HeroZipX,\HeroArrowY) -- (axis cs:\HeroLiveLmX,\HeroArrowY)
   node[midway,above=2pt,font=\sffamily\footnotesize\bfseries,text=figblue] {\HeroRatio$\times$ Zipformer throughput};
+% previous release (v3.0.0, earlier session) to v3.1.0, same decoding mode
+\draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
+  (axis cs:\HeroOldLiveX,\HeroOldLiveY) -- (axis cs:\HeroLiveGreedyX,\HeroLiveGreedyY);
+\draw[figquiet!70,line width=.5pt,-{Stealth[length=3pt]},shorten >=4pt,shorten <=3pt]
+  (axis cs:\HeroOldFinalX,\HeroOldFinalY) -- (axis cs:\HeroFinalX,\HeroFinalY);
 \addplot[only marks,mark=*,mark size=2.1pt,figink] coordinates {(\HeroZipX,\HeroZipY)};
 \addplot[only marks,mark=o,mark size=2.25pt,figink,line width=.65pt] coordinates {(\HeroParakeetX,\HeroParakeetY)};
+\addplot[only marks,mark=diamond*,mark size=2.6pt,figquiet!55] coordinates {(\HeroOldLiveX,\HeroOldLiveY)};
+\addplot[only marks,mark=diamond,mark size=2.6pt,figquiet!70,line width=.7pt] coordinates {(\HeroOldFinalX,\HeroOldFinalY)};
 \addplot[only marks,mark=diamond,mark size=2.55pt,figblue,line width=.78pt] coordinates {(\HeroFinalX,\HeroFinalY)};
-\addplot[only marks,mark=diamond*,mark size=3.3pt,figblue] coordinates {(\HeroLiveX,\HeroLiveY)};
+\addplot[only marks,mark=diamond*,mark size=2.4pt,figblue!55] coordinates {(\HeroLiveGreedyX,\HeroLiveGreedyY)};
+\addplot[only marks,mark=diamond*,mark size=3.3pt,figblue] coordinates {(\HeroLiveLmX,\HeroLiveLmY)};
+\addplot[only marks,mark=square*,mark size=1.7pt,figblue!80!black] coordinates {(\HeroLiveLmWideX,\HeroLiveLmWideY)};
 
-\draw[leader] (axis cs:\HeroZipX,\HeroZipY) -- (axis cs:16.3,5.45);
-\node[identity,anchor=south west] at (axis cs:16.6,5.47) {\HeroZipName};
-\node[metric,anchor=north west] at (axis cs:16.6,5.32) {\HeroZipSpeed$\times$ \enspace\textperiodcentered\enspace \HeroZipWer\% WER};
+\draw[leader] (axis cs:\HeroZipX,\HeroZipY) -- (axis cs:10.2,6.35);
+\node[identity,anchor=south east,align=right] at (axis cs:12.4,6.3) {Zipformer INT8};
+\node[metric,anchor=north east,align=right] at (axis cs:12.4,6.2) {\HeroZipSpeed$\times$ \enspace\textperiodcentered\enspace \HeroZipWer\%};
 
-\draw[leader] (axis cs:\HeroFinalX,\HeroFinalY) -- (axis cs:14.5,4.30);
-\node[identity,anchor=north west,text=figblue] at (axis cs:13.7,4.18) {\HeroFinalName};
-\node[metric,anchor=north west] at (axis cs:13.7,3.58) {\HeroFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroFinalWer\% WER};
+\draw[leader] (axis cs:\HeroFinalX,\HeroFinalY) -- (axis cs:18.2,4.1);
+\node[identity,anchor=north west,text=figblue] at (axis cs:17.0,3.95) {v3.1.0 final};
+\node[metric,anchor=north west] at (axis cs:17.0,3.35) {\HeroFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroFinalWer\%};
+
+\node[metric,anchor=north west,text=figquiet] at (axis cs:17.0,2.75) {v3.0.0 final \HeroOldFinalSpeed$\times$ \enspace\textperiodcentered\enspace \HeroOldFinalWer\%};
 
 \draw[leader] (axis cs:\HeroParakeetX,\HeroParakeetY) -- (axis cs:6.0,2.67);
 \node[identity,anchor=north west] at (axis cs:2.9,2.56) {Parakeet TDT v3};
-\node[metric,anchor=north west] at (axis cs:2.9,1.99) {Whole clip (onnx-asr) \enspace\textperiodcentered\enspace \HeroParakeetSpeed$\times$ \enspace\textperiodcentered\enspace \HeroParakeetWer\% WER};
+\node[metric,anchor=north west] at (axis cs:2.9,1.99) {Whole clip (onnx-asr) \enspace\textperiodcentered\enspace \HeroParakeetSpeed$\times$ \enspace\textperiodcentered\enspace \HeroParakeetWer\%};
 
-\node[identity,anchor=south east,text=figblue] at (axis cs:32.9,6.99) {\HeroLiveName};
-\node[metric,anchor=north east] at (axis cs:33.2,6.54) {\HeroLiveSpeed$\times$ \enspace\textperiodcentered\enspace \HeroLiveWer\% WER};
+\node[identity,anchor=north east,text=figblue] at (axis cs:39.8,4.85) {v3.1.0 live, 160 ms};
+\node[metric,anchor=north east] at (axis cs:39.8,4.25) {+LM \HeroLiveLmSpeed$\times$ \enspace\textperiodcentered\enspace \HeroLiveLmWer\%};
+\draw[leader] (axis cs:\HeroLiveLmX,\HeroLiveLmY) -- (axis cs:30.6,4.95);
+\node[metric,anchor=north west,text=figquiet] at (axis cs:21.5,7.45) {v3.0.0 live \HeroOldLiveSpeed$\times$ \enspace\textperiodcentered\enspace \HeroOldLiveWer\%};
 \end{axis}
 \node[anchor=south west,inner sep=0pt,font=\sffamily\bfseries\normalsize]
   at ([xshift=-19pt,yshift=17pt]matchedplot.north west) {Throughput and accuracy on one CPU core};
 \node[anchor=south west,inner sep=0pt,font=\sffamily\scriptsize,text=figquiet]
-  at ([xshift=-19pt,yshift=7pt]matchedplot.north west) {730 LibriSpeech DEV utterances \enspace\textperiodcentered\enspace Quiet Zen~2 \enspace\textperiodcentered\enspace 3 cold runs};
+  at ([xshift=-19pt,yshift=7pt]matchedplot.north west) {730 LibriSpeech DEV utterances \enspace\textperiodcentered\enspace Quiet Zen~2 \enspace\textperiodcentered\enspace 3 interleaved blocks};
+\def\HeroMk#1{\makebox[8pt][c]{\tikz[baseline=-.6ex]{#1}}}%
+\def\HeroDiaF#1{\HeroMk{\node[rotate=45,rectangle,fill=#1,inner sep=2.3pt]{};}}%
+\def\HeroDiaO#1{\HeroMk{\node[rotate=45,rectangle,draw=#1,line width=.7pt,inner sep=1.9pt]{};}}%
+\def\HeroSqF#1{\HeroMk{\node[rectangle,fill=#1,inner sep=1.7pt]{};}}%
+\def\HeroDot#1{\HeroMk{\node[circle,fill=#1,inner sep=1.7pt]{};}}%
 \ifnum\HeroHaveEnergy>0\relax
 \node[draw=figgrid,fill=figwash,rounded corners=1.5pt,anchor=north west,
-  inner xsep=6pt,inner ysep=4pt,font=\sffamily\scriptsize,text width=222pt]
+  inner xsep=6pt,inner ysep=4pt,font=\sffamily\scriptsize,text width=210pt]
   at ([xshift=-19pt,yshift=-30pt]matchedplot.south west)
-  {\textbf{Measured active core energy per audio-second}\par
-    Isosyll live \HeroLiveEnergy\,J \enspace\textperiodcentered\enspace Zipformer \HeroZipEnergy\,J \enspace\textperiodcentered\enspace Isosyll final \HeroFinalEnergy\,J};
+  {\setlength{\tabcolsep}{2.5pt}\renewcommand{\arraystretch}{1.05}%
+   \begin{tabular}{@{}l l r r r r@{}}
+   \multicolumn{2}{@{}l}{\textbf{Same blocks, same core}} & Chunk & Speed & WER & J/s\textsuperscript{a}\\[1pt]
+   \HeroDiaF{figblue} & v3.1.0 live +LM & 160 ms & \HeroLiveLmSpeed$\times$ & \HeroLiveLmWer\% & \HeroLiveLmEnergy\\
+   \HeroSqF{figblue!80!black} & v3.1.0 live +LM & 320 ms & \HeroLiveLmWideSpeed$\times$ & \HeroLiveLmWideWer\% & \HeroLiveLmWideEnergy\\
+   \HeroDiaF{figblue!55} & v3.1.0 live greedy & 160 ms & \HeroLiveGreedySpeed$\times$ & \HeroLiveGreedyWer\% & \HeroLiveGreedyEnergy\\
+   \HeroDiaO{figblue} & v3.1.0 final & +commit & \HeroFinalSpeed$\times$ & \HeroFinalWer\% & \HeroFinalEnergy\\
+   \HeroDot{figink} & Zipformer INT8 & 320 ms & \HeroZipSpeed$\times$ & \HeroZipWer\% & \HeroZipEnergy\\
+   \end{tabular}\par\vspace{2pt}
+   {\scriptsize\textsuperscript{a}active core joules per audio-second. Live +LM, 160\,ms, vs.\ Zipformer, paired one-sided
+   95\% bounds: selection panel \HeroGapPanel\,pp; unselected C half \HeroGapC\,pp (320\,ms row: \HeroGapCWide\,pp).}};
 \fi
 \pgfresetboundingbox
 \path[use as bounding box]
-  ([xshift=-28pt,yshift=-56pt]matchedplot.south west)
+  ([xshift=-28pt,yshift=-122pt]matchedplot.south west)
   rectangle ([xshift=11pt,yshift=31pt]matchedplot.north east);
 \end{tikzpicture}%

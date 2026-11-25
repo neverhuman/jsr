@@ -26,6 +26,19 @@ def _name(r: dict) -> str:
     return r.get("text") or r["short"]
 
 
+def _rel(h_speed: float, f_speed: float, name: str, ratio: float | None = None) -> str:
+    """Our commit pass against a streaming comparator's single-core speed: 'within 2%' or an explicit ratio
+    (the median of within-block ratios when the rows were timed in interleaved blocks)."""
+    ratio = ratio or h_speed / f_speed
+    if abs(ratio - 1.0) <= 0.02:
+        return f"within 2\\% of streaming {name}'s single-core speed"
+    return f"at {fmt(ratio, 2)}$\\times$ streaming {name}'s single-core speed"
+
+
+# Full-DEV pooled WER macros of the v3.1.0 rows (candidate.py), keyed by evidence variant.
+FULL_DEV = {"rc2-live-lm": "CandLiveLmFullWer", "rc2-live-greedy": "CandLiveGreedyFullWer", "rc2-final": "CandFinalFullWer"}
+
+
 def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict | None = None) -> None:
     group = [r for r in rows if (r["machine"], r["threads"]) == HEADLINE and r["plot"]]
     for r in group:
@@ -71,6 +84,7 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     has_live = live is not None and live is not head
     h, n = head["_d"], len(others)
     lv = live["_d"] if has_live else None
+    live_pair = ((live or {}).get("paired_vs_anchor") or {}) if has_live else {}
 
     def src(*rs: dict) -> dict:
         return dict(label=head["label"], workload=head["workload"], workload_digest=head["workload_digest"],
@@ -100,17 +114,17 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     rec.add("ColdAbstractFinal",
             f"{final_lead} reaches {fmt(h['wer'], 2)}\\% pooled WER at {speed_text(h['speed'])}$\\times$ real time.",
             unit="sentence", configuration="abstract reference-boundary final operating point", **src(head))
-    zipformer = next((r for r in others if r["variant"] == "r0-int8" and r["host"] == head["host"]
+    zipformer = next((r for r in others if r["variant"].startswith("r0-int8") and r["host"] == head["host"]
                       and not r["interim"] and r["timing_panel"] == "full"), None)
     if zipformer:
         z = zipformer["_d"]
         zip_txt = (f"Streaming Zipformer INT8 reaches {speed_text(z['speed'])}$\\times$ real time and "
                    f"{fmt(z['wer'], 2)}\\% WER under the matched protocol")
         if has_live:
-            ratio = fmt(lv["speed"] / z["speed"], 1)
+            ratio = fmt(live_pair.get("speed") or lv["speed"] / z["speed"], 1)
             if (lv["watts"] is not None and z["watts"] is not None
                     and live.get("energy_method") == zipformer.get("energy_method") == "core_msr_active"):
-                pct = fmt(100.0 * lv["watts"] / z["watts"], 0)
+                pct = fmt(100.0 * (live_pair.get("energy") or lv["watts"] / z["watts"]), 0)
                 zip_txt += f"; Isosyll live delivers {ratio}$\\times$ its throughput at {pct}\\% of its active core energy."
             else:
                 zip_txt += f"; Isosyll live delivers {ratio}$\\times$ its throughput."
@@ -163,10 +177,10 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     num("ColdHeadWerGapBest", gap, fmt(gap, 2), "pp WER", "pooled panel WER of ours (final) minus lowest comparator",
         head, best)
     count("ColdAccuracyCount", better, "complete-panel comparators with lower pooled WER than our final mode")
-    count("ColdHeadWerRank", wer_rank, "pooled WER rank of Isosyll v3.0.0 final among all complete-panel systems")
-    count("ColdHeadWerBeaten", beaten_n, "complete-panel comparators beaten by Isosyll v3.0.0 final on pooled WER")
+    count("ColdHeadWerRank", wer_rank, "pooled WER rank of our final mode among all complete-panel systems")
+    count("ColdHeadWerBeaten", beaten_n, "complete-panel comparators beaten by our final mode on pooled WER")
     ord_rank = f"{wer_rank}{'th' if 11 <= wer_rank % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(wer_rank % 10, 'th')}"
-    say("ColdHeadWerRankOrd", ord_rank, "ordinal pooled WER rank of Isosyll v3.0.0 final")
+    say("ColdHeadWerRankOrd", ord_rank, "ordinal pooled WER rank of our final mode")
 
     if fast and has_live:
         num("ColdHeadSpeedOverFast", lv["speed"] / fast["_d"]["speed"], fmt(lv["speed"] / fast["_d"]["speed"], 1),
@@ -178,12 +192,26 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
                 fmt(fast["_d"]["watts"] / lv["watts"], 1), "x",
                 "fastest streaming comparator active core W / our live active core W", live, fast)
 
-    full_final = rec.rows["RelFullFinalPooled"]["value"] if "RelFullFinalPooled" in rec.rows else fmt(h["wer"], 2)
+    def full(variant: str, old: str, default: str) -> str:
+        key = FULL_DEV.get(variant, old)
+        return rec.rows[key]["value"] if key in rec.rows else default
+
+    full_final = full(head["variant"], "RelFullFinalPooled", fmt(h["wer"], 2))
     panel_live = rec.rows["RelPanelLivePooled"]["value"] if "RelPanelLivePooled" in rec.rows else "--"
-    full_live = rec.rows["RelFullLivePooled"]["value"] if "RelFullLivePooled" in rec.rows else "--"
+    full_live = full(live["variant"], "RelFullLivePooled", "--") if has_live else "--"
+    released_now = head["variant"].startswith("rc2")  # the commit delay and live capacity were measured on the prior release
+    delay = (f"a post-endpoint commit delay (median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms measured on the prior "
+             "release, not re-measured)" if released_now else
+             f"a median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms post-endpoint commit delay")
+    decode = ("chunked greedy decoding" if has_live and "greedy" in live["configuration"] else
+              "chunked decoding with a 34.5\\,MiB live language model")
+    pair_x = (head.get("paired_vs_anchor") or {}).get("speed")
+    speed_rel = _rel(h["speed"], fast["_d"]["speed"], _name(fast), pair_x) if fast else ""
+    say("ColdFinalVsZipSpeed", f"{speed_rel} ({speed_text(h['speed'])}$\\times$ utterance-segmented vs.\\ "
+        f"{speed_text(fast['_d']['speed'])}$\\times$ streaming)" if fast else NOTHING, "final commit pass speed against Zipformer")
 
     if has_live:
-        w_lv = f", {fmt(lv['watts'], 3)}\\,W" if lv["watts"] is not None else ""
+        w_lv = f", {fmt(lv['watts'], 3)}\\,J per audio-second of active core energy" if lv["watts"] is not None else ""
         rec.add("ColdSubtitle", f"Live: {speed_text(lv['speed'])}$\\times$ real time, {fmt(lv['wer'], 2)}\\% WER "
                 f"$\\cdot$ Final (commit pass at utterance ends): {speed_text(h['speed'])}$\\times$, "
                 f"{fmt(h['wer'], 2)}\\% WER",
@@ -198,54 +226,55 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
             f"dev-other).", "the two operating points of our release model")
         if fast:
             f = fast["_d"]
-            say("ColdSpeedSentence", f"On the quiet full-panel host {host}, {_name(live)} is the fastest measured "
-                f"system ({speed_text(lv['speed'])}$\\times$ vs.\\ {speed_text(f['speed'])}$\\times$ for streaming "
-                f"{_name(fast)}, {fmt(lv['speed'] / f['speed'], 1)}$\\times$), while utterance-segmented "
-                f"{_name(head)} runs within 2\\% of streaming {_name(fast)}'s single-core speed "
+            say("ColdSpeedSentence", f"On the quiet full-panel host {host}, {_name(live)} runs at "
+                f"{speed_text(lv['speed'])}$\\times$ against {speed_text(f['speed'])}$\\times$ for matched streaming "
+                f"{_name(fast)} ({fmt(live_pair.get('speed') or lv['speed'] / f['speed'], 1)}$\\times$), while utterance-segmented "
+                f"{_name(head)} runs {_rel(h['speed'], f['speed'], _name(fast), pair_x)} "
                 f"({speed_text(h['speed'])}$\\times$ utterance-segmented vs.\\ {speed_text(f['speed'])}$\\times$ "
                 f"streaming).", "speed")
         else:
             say("ColdSpeedSentence", NOTHING, "speed")
-        say("ColdMemorySentence", f"In live mode, \\ultra{{}} peaks at {fmt(lv['rss_mb'], 0)}\\,MB---the smallest "
-            f"footprint in the quiet full-panel cohort, {fmt(light['_d']['rss_mb'] / lv['rss_mb'], 1)}$\\times$ "
-            f"less than the lightest comparator ({_name(light)}, {fmt(light['_d']['rss_mb'], 0)}\\,MB) and "
+        say("ColdMemorySentence", f"In live mode, \\ultra{{}} peaks at {fmt(lv['rss_mb'], 0)}\\,MB, "
+            f"{fmt(100.0 * (live_pair.get('rss') or lv['rss_mb'] / light['_d']['rss_mb']), 0)}\\% of matched streaming "
+            f"{_name(light)} ({fmt(light['_d']['rss_mb'], 0)}\\,MB) and "
             f"{fmt(heavy['_d']['rss_mb'] / lv['rss_mb'], 1)}$\\times$ less than {_name(heavy)} "
-            f"({fmt(heavy['_d']['rss_mb'], 0)}\\,MB); loading the 5-gram LM for the commit pass raises peak RSS to "
+            f"({fmt(heavy['_d']['rss_mb'], 0)}\\,MB, timed separately); loading the larger 5-gram LM for the commit pass raises peak RSS to "
             f"{fmt(h['rss_mb'], 0)}\\,MB.", "memory")
-        say("ColdIntroLiveItem", f"160\\,ms chunked greedy decoding with no endpoint detector required, using "
+        say("ColdIntroLiveItem", f"160\\,ms {decode} with no endpoint detector required, using "
             f"{fmt(100.0 * lv['cpu'], 1)}\\% of one quiet Zen~2 core ({speed_text(lv['speed'])}$\\times$ real time, "
-            f"{fmt(lv['rss_mb'], 0)}\\,MB peak RAM{w_lv} active core power per stream)---the fastest, lowest-energy, "
-            f"and smallest-footprint system in the quiet full-panel cohort---at {fmt(lv['wer'], 2)}\\% pooled panel "
+            f"{fmt(lv['rss_mb'], 0)}\\,MB peak RAM{w_lv})---"
+            f"{fmt(live_pair.get('speed') or 0, 1)}$\\times$ the throughput of matched streaming Zipformer INT8 at "
+            f"{fmt(100.0 * (live_pair.get('energy') or 0), 0)}\\% of its active core energy per audio-second---at {fmt(lv['wer'], 2)}\\% pooled panel "
             f"WER ({full_live}\\% full DEV).", "intro live bullet")
-        say("ColdIntroContrib", f"Fastest live streaming on one quiet Zen~2 core ({speed_text(lv['speed'])}$\\times$ "
+        say("ColdIntroContrib", f"Live streaming on one quiet Zen~2 core ({speed_text(lv['speed'])}$\\times$ "
             f"vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ for {_name(fast)}, "
-            f"{fmt(lv['speed'] / fast['_d']['speed'], 1)}$\\times$; {fmt(lv['watts'], 3)}\\,W; "
+            f"{fmt(lv['speed'] / fast['_d']['speed'], 1)}$\\times$; {fmt(lv['watts'], 3)}\\,J per audio-second; "
             f"{fmt(lv['rss_mb'], 0)}\\,MB RAM; {fmt(lv['wer'], 2)}\\% pooled panel WER), paired on the same INT8 "
             f"weights with an utterance-segmented commit pass ({speed_text(h['speed'])}$\\times$, "
-            f"{fmt(h['watts'], 3)}\\,W, {fmt(h['rss_mb'], 0)}\\,MB RAM) that reaches "
+            f"{fmt(h['watts'], 3)}\\,J per audio-second, {fmt(h['rss_mb'], 0)}\\,MB RAM) that reaches "
             f"{fmt(h['wer'], 2)}\\% pooled panel WER against {fmt(fast['_d']['wer'], 2)}\\% for streaming {_name(fast)} "
-            f"(paired comparison in \\cref{{sec:versus}}) within 2\\% of its single-core speed." if (fast and lv["watts"] is not None and h["watts"] is not None)
+            f"(paired comparison in \\cref{{sec:versus}}), {speed_rel}." if (fast and lv["watts"] is not None and h["watts"] is not None)
             else f"Dual operating points on one INT8 artifact (\\cref{{sec:results}}).", "intro contribution 2")
-        w_lv_plain = f", {fmt(lv['watts'], 3)}\\,W" if lv["watts"] is not None else ""
+        w_lv_plain = f", {fmt(lv['watts'], 3)}\\,J per audio-second" if lv["watts"] is not None else ""
         say("ColdLimitLive", f"While {_name(live)} streams continuously at {speed_text(lv['speed'])}$\\times$ real time"
             f"{w_lv_plain}, and {fmt(lv['rss_mb'], 0)}\\,MB RAM without an endpoint detector, the "
-            f"higher-accuracy {_name(head)} operating point requires utterance endpoints (capped at 40\\,s), adds a "
-            f"median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms post-endpoint commit delay, and increases peak "
+            f"higher-accuracy {_name(head)} operating point requires utterance endpoints (capped at 40\\,s), adds "
+            f"{delay}, and increases peak "
             f"RSS to {fmt(h['rss_mb'], 0)}\\,MB due to the 5-gram LM pack.", "limitations live vs final")
-        w_lv_at = f" at {fmt(lv['watts'], 3)}\\,W and" if lv["watts"] is not None else " at"
-        w_hd_c = f", {fmt(h['watts'], 3)}\\,W," if h["watts"] is not None else ","
-        vs_zip = (f"---within 2\\% of streaming {_name(fast)}'s single-core speed ({speed_text(h['speed'])}$\\times$ "
+        w_lv_at = f" at {fmt(lv['watts'], 3)}\\,J per audio-second and" if lv["watts"] is not None else " at"
+        w_hd_c = f", {fmt(h['watts'], 3)}\\,J per audio-second," if h["watts"] is not None else ","
+        vs_zip = (f"---{speed_rel} ({speed_text(h['speed'])}$\\times$ "
                   f"utterance-segmented vs.\\ {speed_text(fast['_d']['speed'])}$\\times$ streaming) at "
                   f"{fmt(h['wer'], 2)}\\% vs.\\ {fmt(fast['_d']['wer'], 2)}\\% pooled WER" if fast else "")
-        say("ColdConclusionResult", f"both quiet full-panel H1 Pareto-frontier operating points on one INT8 artifact: "
+        say("ColdConclusionResult", f"two operating points on one INT8 artifact: "
             f"{speed_text(lv['speed'])}$\\times$ real-time continuous live streaming{w_lv_at} "
             f"{fmt(lv['rss_mb'], 0)}\\,MB RAM ({fmt(lv['wer'], 2)}\\% panel WER), and an utterance-segmented commit "
             f"pass reaching {fmt(h['wer'], 2)}\\% pooled panel WER ({full_final}\\% on full DEV) at "
             f"{speed_text(h['speed'])}$\\times$ real time ({fmt(h['rss_mb'], 0)}\\,MB RAM{w_hd_c} "
-            f"median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms delay){vs_zip}", "conclusion summary")
+            f"{'commit delay not re-measured' if released_now else 'median ' + rec.rows['RelCommitDelayPfifty']['value'] + '\\,ms delay'}){vs_zip}", "conclusion summary")
     else:
-        w_hd = f", {fmt(h['watts'], 3)}\\,W" if h["watts"] is not None else ""
-        w_hd_and = f" and {fmt(h['watts'], 3)}\\,W" if h["watts"] is not None else ""
+        w_hd = f", {fmt(h['watts'], 3)}\\,J per audio-second" if h["watts"] is not None else ""
+        w_hd_and = f" and {fmt(h['watts'], 3)}\\,J per audio-second" if h["watts"] is not None else ""
         say("ColdSubtitle", f"Utterance-segmented final text: {fmt(h['wer'], 2)}\\% panel WER ({full_final}\\% full "
             f"DEV) at {speed_text(h['speed'])}$\\times$ real time{w_hd} on one Zen~2 core", "subtitle")
         say("ColdHeadSentence", f"On one quiet Zen~2 core (host {host}), {_name(head)} decodes cold at "
@@ -316,11 +345,11 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
                     key=lambda r: r["watts"])
     if h["watts"] is not None and rest_w:
         if has_live and lv["watts"] is not None:
-            ours_w = f"{fmt(lv['watts'], 3)}\\,W per stream for {_name(live)} and {fmt(h['watts'], 3)}\\,W for {_name(head)}"
+            ours_w = f"{fmt(lv['watts'], 3)}\\,J per audio-second for {_name(live)} and {fmt(h['watts'], 3)}\\,J for {_name(head)}"
         else:
-            ours_w = f"{fmt(h['watts'], 3)}\\,W per stream for {_name(head)}"
-        say("ColdWattsSentence", f"Active core (CPU-domain) W per stream on host {host} is {ours_w}, against "
-            + _names([f"{fmt(r['watts'], 3)}\\,W for {_name(r)}" for r in rest_w])
+            ours_w = f"{fmt(h['watts'], 3)}\\,J per audio-second for {_name(head)}"
+        say("ColdWattsSentence", f"Unpaced active core (CPU-domain) energy on host {host} is {ours_w}, against "
+            + _names([f"{fmt(r['watts'], 3)}\\,J for {_name(r)}" for r in rest_w])
             + f" ({ENERGY_WORDS[head['energy_method']]}; unpaced CPU core domain only, no board-power claim).", "energy rows")
     else:
         say("ColdWattsSentence", "Core-register energy rows are pending.", "no energy row")

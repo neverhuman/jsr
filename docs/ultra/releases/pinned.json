@@ -1,45 +1,153 @@
 {
-  "schema": "ultra.release-pin/v1",
-  "release": "v3.0.1",
-  "artifact": "ULTRA v3.0.0 (RC1 EMA INT8 + release decoder), signed re-issue",
-  "tag": "v3.0.1",
-  "tag_object": "ec990c5e1d6569d374eba8c8f4287ee74616c229",
-  "tag_commit": "9c8c05e5a07daaf783bb46f9878fa96aa1ac4f9b",
-  "download_base": "https://github.com/neverhuman/jsr/releases/download/v3.0.1/",
-  "signing": {
-    "format": "ssh",
-    "key_type": "ed25519",
-    "fingerprint": "SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA",
-    "principal": "219957145+neverhumanbot@users.noreply.github.com",
-    "allowed_signers": "docs/ultra/releases/allowed_signers",
-    "file_namespace": "file"
+ "schema": "ultra.release-pin/v1",
+ "release": "v3.1.0",
+ "artifact": "ULTRA v3.1.0 (RC2: REGctl boundary step 43,980 EMA INT8 + 3bd85e9e decoders), signed",
+ "tag": "v3.1.0",
+ "tag_object": "a0d5916503982c6e2ff356fec69ee00208533bca",
+ "tag_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+ "build_commit": "3bd85e9eab41371e4ca17c02c007a104f9e6fc4a",
+ "download_base": "https://github.com/neverhuman/jsr/releases/download/v3.1.0/",
+ "signing": {
+  "format": "ssh",
+  "key_type": "ed25519",
+  "fingerprint": "SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA",
+  "principal": "219957145+neverhumanbot@users.noreply.github.com",
+  "allowed_signers": "docs/ultra/releases/allowed_signers",
+  "file_namespace": "file"
+ },
+ "sha256sums_sha256": "7aa74cd10ccc68371fae2eb3d9825e739a1452138ea91f0a4c361b3ac7d546e2",
+ "assets": {
+  "M5.ulm": {
+   "sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982",
+   "bytes": 334427094
   },
-  "sha256sums_sha256": "7612d5beb2b577893b649033073d44c6198c0e83a275e3980b3ede38e0162ef7",
-  "assets": {
-    "M5.ulm": {"sha256": "72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982", "bytes": 334427094},
-    "ultra-engine-commit": {"sha256": "9a142e8e5478dc8b055672577edfa236f55c7b9710225c1fb496a3620677c6a2", "bytes": 6876512},
-    "ultra-score": {"sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1", "bytes": 4207152},
-    "ultra-v3.0.1-int8-bundle.SHA256SUMS": {"sha256": "add3e1af647d182346555d1b230af910deb4532da32094069a10a2cc8ee8af80", "bytes": 516},
-    "ultra-v3.0.1-int8-bundle.tar": {"sha256": "4551a574a58dc4260ce20a10be7b411ff651c1f17af9e04b89328725ff6e1086", "bytes": 283852800}
+  "c4_p0_0_10_40.v2.ulm": {
+   "sha256": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e",
+   "bytes": 36195286
   },
-  "install_dir": "models/sha256-7612d5beb2b577893b649033073d44c6198c0e83a275e3980b3ede38e0162ef7",
-  "bundle": {
-    "tar": "ultra-v3.0.1-int8-bundle.tar",
-    "manifest": "ultra-v3.0.1-int8-bundle.SHA256SUMS",
-    "files": {
-      "int8/arch.json": {"sha256": "880a38c0d6a21ea9f2b0ba4123f58b48590b00bfc98a2625f21368b93e4dcc5a", "bytes": 9452},
-      "int8/bpe.model": {"sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5", "bytes": 244865},
-      "int8/mel_fbank.f32": {"sha256": "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439", "bytes": 82240},
-      "int8/tokens.txt": {"sha256": "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1", "bytes": 5044},
-      "int8/weights.int8.safetensors": {"sha256": "edac19d8d6f6968994c4235362155b726c26b107b3d85f0b79405a2b90acd46a", "bytes": 56512984},
-      "int8/weights.safetensors": {"sha256": "dd4121aa600aa82e9f41edbed523f0df33f7a68f14fc6fdbf3adfbcc14a7c349", "bytes": 226988160}
-    }
+  "ultra-engine-commit": {
+   "sha256": "69abed7968b8dce2b5cf4b6e7604630af05f15563a408c06df2fc90d03f4e6f1",
+   "bytes": 7994032
   },
-  "decoder_args": [
-    "--commit-chunk", "16", "--tail-pad-ms", "320", "--threads", "1",
-    "--commit-lm", "M5.ulm", "--commit-beam", "16",
-    "--lm-scale", "0.80", "--lodr-scale", "0.60", "--token-bonus", "0.0"
-  ],
-  "rollback": "none: v3.0.1 is the first release with attached files (v3.0.0 has the same bytes, unsigned)",
-  "record": "docs/ultra/releases/v3.0.1.md"
+  "ultra-cold-wav": {
+   "sha256": "2f3f01af6dda7f1b4b7fe66b999a076d62c26117c87b61a965d8dd4301609848",
+   "bytes": 8200152
+  },
+  "ultra-score": {
+   "sha256": "d784f8ca65a0df52c2dc2f58aa0d22912428f3595effa0625367d6e8aad063e1",
+   "bytes": 4207152
+  },
+  "ultra-v3.1.0-int8-bundle.SHA256SUMS": {
+   "sha256": "871d2b19ab07aa5206d3efacebe9b6da03d4bc45ffda3aac48415e2562025c76",
+   "bytes": 425
+  },
+  "ultra-v3.1.0-int8-bundle.tar": {
+   "sha256": "3f7d377633bd5fb73fc20203293a2b6bc20902359d48101a56c343e6ac287bbd",
+   "bytes": 59914240
+  }
+ },
+ "install_dir": "models/sha256-7aa74cd10ccc68371fae2eb3d9825e739a1452138ea91f0a4c361b3ac7d546e2",
+ "bundle": {
+  "tar": "ultra-v3.1.0-int8-bundle.tar",
+  "manifest": "ultra-v3.1.0-int8-bundle.SHA256SUMS",
+  "files": {
+   "int8/arch.json": {
+    "sha256": "9cbe50ed97ac4570445389ca71921d3fcd46acab9238cf98f47f52b68b85d875",
+    "bytes": 9325
+   },
+   "int8/bpe.model": {
+    "sha256": "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5",
+    "bytes": 244865
+   },
+   "int8/mel_fbank.f32": {
+    "sha256": "a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439",
+    "bytes": 82240
+   },
+   "int8/tokens.txt": {
+    "sha256": "261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1",
+    "bytes": 5044
+   },
+   "int8/weights.int8.safetensors": {
+    "sha256": "94a9879f1a2e1159279992a51566ad88ba6ea801504def3aeaeb3dac33a596f0",
+    "bytes": 59558368
+   }
+  }
+ },
+ "decoder_args": [
+  "--commit-chunk",
+  "16",
+  "--commit-beam",
+  "16",
+  "--max-sym-per-frame",
+  "1",
+  "--tail-pad-ms",
+  "320",
+  "--threads",
+  "1",
+  "--commit-lm",
+  "M5.ulm",
+  "--lm-scale",
+  "0.80",
+  "--lodr-scale",
+  "0.60",
+  "--token-bonus",
+  "0.0"
+ ],
+ "decoder_args_binary": "ultra-engine-commit",
+ "live_modes": {
+  "live_c4_greedy": {
+   "binary": "ultra-cold-wav",
+   "args": [
+    "--chunk",
+    "4",
+    "--beam",
+    "1"
+   ]
+  },
+  "live_c4_lm": {
+   "binary": "ultra-cold-wav",
+   "args": [
+    "--chunk",
+    "4",
+    "--beam",
+    "4",
+    "--beam-max-symbols",
+    "1",
+    "--beam-margin",
+    "0.0",
+    "--lm",
+    "c4_p0_0_10_40.v2.ulm",
+    "--lm-weight",
+    "0.70",
+    "--lodr-weight",
+    "0.50",
+    "--blank-penalty",
+    "0.0"
+   ]
+  },
+  "live_c8_lm": {
+   "binary": "ultra-cold-wav",
+   "args": [
+    "--chunk",
+    "8",
+    "--beam",
+    "4",
+    "--beam-max-symbols",
+    "1",
+    "--beam-margin",
+    "0.0",
+    "--lm",
+    "c4_p0_0_10_40.v2.ulm",
+    "--lm-weight",
+    "0.70",
+    "--lodr-weight",
+    "0.50",
+    "--blank-penalty",
+    "0.0"
+   ]
+  }
+ },
+ "rollback": "v3.0.1 (install_dir models/sha256-7612d5beb2b577893b649033073d44c6198c0e83a275e3980b3ede38e0162ef7)",
+ "record": "docs/ultra/releases/v3.1.0.md",
+ "published": "2026-11-24T23:54:58Z"
 }
