@@ -103,3 +103,20 @@ screen. In the full-horizon M1-v4 screen, terminal EMA clean c4 WER changed by
 \AudioMOneFourDelta\pp{} versus signed RC2, with an upper of \AudioMOneFourUpper\pp{}.
 This also missed the strict clean gate. The change across runs reflects a
 different schedule, exposure and context recipe.
+
+\para{Noise and context follow-up.} On the DEV selection half, the M1-v5
+and M1-v6 terminal EMA checkpoints changed c4 WER at 5\,dB MUSAN-TEST
+by \WaveNoiseFiveDelta\pp{} and \WaveNoiseSixDelta\pp{} against the
+matched PyTorch RC2 reference. Both missed the clean gate against signed
+RC2. Guarded encoder-state carry with M1-v4 INT8 missed both accuracy
+gates, and the H0 CPU upper exceeded its bound. The selected M1-v4/M1-v5
+weight interpolation retained a \WaveSoupNoiseDelta\pp{} change against
+PyTorch RC2 on the DEV confirmation half at 5\,dB MUSAN-TEST. Its clean
+upper of \WaveSoupCleanUpper\pp{} exceeded the preregistered
+\WaveSoupCleanMargin\pp{} non-inferiority margin.
+With lighter noise augmentation and a longer clean tail, the terminal EMA
+checkpoint changed c4 WER at 5\,dB MUSAN-TEST by \WaveLightNoiseDelta\pp{}
+against matched PyTorch RC2 on the DEV selection half. Its clean c4 WER
+changed by \WaveLightCleanDelta\pp{} against signed RC2, exceeding the
+\WaveLightCleanMargin\pp{} point tolerance. The published release retained
+the RC2 weights.
