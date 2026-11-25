@@ -162,6 +162,15 @@ def convert(ckpt: str, out: str, bundle: str | None) -> dict:
         raise ConvertError(
             "checkpoint uses Factor D text_tables predictor; refusing export until ultra-engine supports TextTables"
         )
+    if (
+        enc.get("side_mode")
+        or (enc.get("side_film_dim") or 0) > 0
+        or any(k.startswith("encoder.side.") or ".side_film." in k for k in p["model"])
+    ):
+        raise ConvertError(
+            "checkpoint uses side-feature conditioning (side_mode / side_film_dim); "
+            "refusing export under ultra.r1-weights/v1 until ultra-engine supports side features"
+        )
     if os.path.exists(out) and os.listdir(out):
         raise ConvertError(f"{out} is not empty; outputs go to a fresh directory, never overwrite")
     os.makedirs(out, exist_ok=True)
