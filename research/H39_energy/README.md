@@ -3,6 +3,8 @@
 Status: **EXPLORATORY** (shared hosts, CPU-internal energy model, no wall meter).
 Owner: `energy` agent, lane `bench/energy`. Tool: `python/ultra/tools/energy_bench.py`.
 
+The eight recognizers with no admitted core-energy receipt have a labeled prediction in `guesstimate.md`. That band is not a receipt and does not recolor the figure.
+
 ## 1. Question
 
 1. How many watts does one live stream cost on a Zen 2 core, for our engine and for the other recognisers?
