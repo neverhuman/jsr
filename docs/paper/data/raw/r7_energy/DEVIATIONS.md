@@ -57,9 +57,9 @@ looks at an energy value; selection uses disturbance metrics only. Facts below a
     exists)" at 04:47:13Z.
 13. Lost receipt. The first live-anchor attempt (DONE at 03:58:53Z, 0.317888 J, not core-clean) has no
     receipt. The log says it was kept as `.unclean`, but no file with that name or value exists on the host or
-    in the archive: it was overwritten when the next attempt reused the path. Its only record is
+    in the archive. How it was lost is not recorded (possibly a hand rename); its only record is
     that `campaign.log` line and the matching line in `arm-1-anchor730-live.log`.
-14. Live anchor attempts and the rerun cap. The live anchor took 5 attempts: 03:47Z (0.3179 J, unclean, lost),
+14. Live anchor attempts and the rerun cap. The live anchor took 5 attempts: about 03:53Z, after the driver started waiting at 03:47Z (0.3179 J, unclean, lost),
     04:00Z (nonzero exit after 0.18 s, 0.00025 J), 04:15Z (0.2472 J, unclean), 04:31Z (0.3064 J, unclean) and
     04:43Z (0.3209 J, core-clean, used). Under the pre-registration's literal rule ("rerun once ... the rerun is
     the one used") the anchor would have been the 04:00 nonzero-exit rerun, far outside the 5% band, and R7
