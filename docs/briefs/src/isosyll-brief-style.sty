@@ -230,6 +230,42 @@
   label style={font=\sffamily\fontsize{6.8}{8.2}\selectfont,text=sub},
   grid style={draw=gridline,line width=0.45pt},clip=false}}
 
+% ---- Publication Heatmap Cells (shared Emerald -> Cream -> Coral ramp) ------
+% Direction-aware per-column perceptual pastels (>= 8:1 contrast with ink text).
+\definecolor{hmNA}{HTML}{F3F4F6}
+\definecolor{emerald}{HTML}{15803D}
+\definecolor{emeraldtint}{HTML}{ECFDF5}
+\newcommand{\hmcell}[2]{\cellcolor[HTML]{#1}#2}
+\newcommand{\hmna}{\cellcolor{hmNA}\textcolor{sub}{---}}
+\newcommand{\hmlegend}{%
+  \tikz[baseline=-0.35ex]{%
+    \foreach \hex [count=\i from 0] in {A7F3D0,D9F99D,FEF9C3,FED7AA,FECACA} {%
+      \definecolor{hml\i}{HTML}{\hex}%
+      \fill[hml\i] (\i*7pt,0) rectangle ++(7pt,4.8pt);
+    }%
+    \draw[hair,line width=0.35pt] (0,0) rectangle (35pt,4.8pt);
+  }%
+}
+
+% ---- Unified Vector Hero Embed (canonical docs/paper/figures/hero.pdf) ------
+% Aspect ratio 490.06:334.74 (0.6831). Falls back cleanly to a matching-aspect box
+% only when hero.pdf has not yet been generated.
+\newcommand{\briefherographic}[2]{% #1 = target width, #2 = max height
+  \IfFileExists{../../paper/figures/hero.pdf}{%
+    \includegraphics[width=#1,height=#2,keepaspectratio]{../../paper/figures/hero.pdf}%
+  }{%
+    \begin{tikzpicture}
+      \pgfmathsetlengthmacro{\phw}{#1}%
+      \pgfmathsetlengthmacro{\phh}{min(#2, 0.6831*\phw)}%
+      \filldraw[fill=surfacealt,draw=hair,dashed,line width=0.7pt,rounded corners=2pt]
+        (0,0) rectangle (\phw,\phh);
+      \node[align=center,font=\sffamily\fontsize{8}{10.5}\selectfont,text=sub] at (0.5*\phw,0.5*\phh) {%
+        \textbf{\color{ink}Canonical Vector Hero Graphic (\texttt{docs/paper/figures/hero.pdf})}\\[2pt]
+        Option-A power-colormap scatter (490:335 aspect) --- awaiting \texttt{hero-v5} merge};
+    \end{tikzpicture}%
+  }%
+}
+
 % ---- Numbered Step Badge ----------------------------------------------------
 \newcommand{\stepbadge}[1]{%
   \tikz[baseline=(c.base)]\node[circle,fill=accent,text=white,inner sep=1.1pt,
