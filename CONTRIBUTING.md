@@ -39,6 +39,18 @@ just required    # the full push gate
 ```
 Build with `CARGO_INCREMENTAL=0`; the Justfile sets it.
 
+For local Jankurai audit hooks, run these commands from the repository root.
+
+```bash
+bash -o pipefail -c 'curl --proto "=https" --tlsv1.2 -fsSL https://raw.githubusercontent.com/neverhuman/jankurai/v1.7.0/jankurai-installer.sh | bash -s -- --tag v1.7.0'
+export PATH="$HOME/.local/bin:$PATH"
+jankurai init --yes
+jankurai hooks install --yes
+```
+
+The pre-commit hook runs `jankurai diff-audit --base-ref HEAD`. Run `just score`
+for the full repository audit and `jankurai upgrade` to upgrade the tool.
+
 ## 4. Data
 - **Location:** set `JSR_DATA` to a directory with at least 100 GB free. The maintainers use `/mnt/xbabe3-external/jsr`.
 - **Download:** `python/ultra/scripts/fetch_librispeech_hf.py` fetches LibriSpeech (CC BY 4.0) from the `openslr/librispeech_asr` parquet mirror into `$JSR_DATA`. Check the hashes against `docs/ultra/DATA.lock`.
