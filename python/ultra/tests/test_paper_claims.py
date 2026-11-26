@@ -115,6 +115,8 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
             assert name in caption and name in layout, name
         assert r"\def\HeroBarTitle{Energy per audio-second (J, log)}" in layout
         assert "Isosyll live and Zipformer INT8 in the same blocks" in caption
+    # the blocks clause names a single matched campaign only when every coloured value comes from it (R7)
+    assert ("all from one matched campaign" in caption) != ("others in separate sessions" in caption), caption
     assert "not wall power" in caption and caption.count("not wall power") == 1 and caption.count(". ") == 1, caption
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}

@@ -416,8 +416,12 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         floor = [_tex(hero[k]["short"]) for k in hero_floor_included(hero)]
         floor_txt = f"idle floor subtracted except for {', '.join(floor)}, which include it" if floor else "idle floor subtracted"
         grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
+        metered = hero_energy(hero)
+        one_campaign = bool(metered) and all(hero[k].get("energy_idle_subtracted_n_clean") for k in metered)
+        blocks = ("all from one matched campaign, median over clean counterbalanced blocks" if one_campaign
+                  else "Isosyll live and Zipformer INT8 in the same blocks, others in separate sessions")
         marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
-                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, others in separate sessions; not wall power{grey}).",
+                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}; {blocks}; not wall power{grey}).",
                  "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; "
                  "circles stream, squares are offline whole-clip, \\S\\ marks timing on a 73-clip subset only"
                  + (", and \\ddag\\ marks interim timing on a shared host" if any(hero[k]["faded"] for k in HERO_PLOTTED) else "")
