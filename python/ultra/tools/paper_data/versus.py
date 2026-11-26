@@ -176,12 +176,12 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
           r"unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, same interleaved blocks, median of three. "
           r"Ratios are medians of within-block ratios. "
           r"$\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
-          r"Cell colour: green is better, red worse.}",
+          r"Cell colour (speed, energy, memory): green is better, red worse; WER is judged by the paired $\Delta$ row, not by colour.}",
           r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{1.5pt}",
           r"\begin{tabular}{@{}l" + "r" * len(cols) + r"@{}}", r"\toprule",
           " & ".join(["Metric"] + [c for c, _ in cols]) + r" \\", r"\midrule"]
     heat_rows = {  # label -> (value of Zipformer, value of live, log, higher is better)
-        "Pooled WER (\\%)": (lambda d: d["wer"], False, False), "1-core speed ($\\times$ RT)": (lambda d: d["speed"], True, True),
+        "1-core speed ($\\times$ RT)": (lambda d: d["speed"], True, True),
         "J per audio-s (core)": (lambda d: d["watts"], True, False), "Peak RSS (MB)": (lambda d: d["rss_mb"], True, False)}
     zd = z
     for label, f in body:

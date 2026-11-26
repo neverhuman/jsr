@@ -138,7 +138,7 @@ Whisper.cpp Base\S{} (streaming) & \hmcell{\HmSpeedWhisperBase}{\rone{\ColdWhisp
 
   \vspace{2.5pt}
   \begin{execbox}[emerald]{CPU vs.\ GPU Hardware Power Context (External Vendor Specs)}
-    All 12 comparators above ran on \textbf{one CPU core}. In production, 0.6B-class models (Nemotron, Parakeet, Whisper) are typically hosted on GPUs with published board TDP from \textbf{70\,W (NVIDIA T4) to 250\,W (NVIDIA A100 PCIe)} (vendor datasheets --- external context, not measured here). Isosyll's live stream draws \textbf{\ColdRcTwoLiveLmWatts\,W} of idle-subtracted CPU-core power, leaving any GPU absent or idle.
+    All 12 comparators in Figure~1 ran on \textbf{one CPU core}; every joule figure in this brief is CPU-core energy from that setup. In production, 0.6B-class models such as Nemotron and Parakeet are often hosted on GPUs; published board TDPs run from 70\,W (NVIDIA T4) to 250\,W (NVIDIA A100 PCIe). Those are vendor datasheet figures, not measured here, and are not comparable to the CPU-core numbers above.
   \end{execbox}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.486\textwidth}

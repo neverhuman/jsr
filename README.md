@@ -20,7 +20,7 @@
 **Figure 1.** Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: live +LM runs at 32.7× (0.328 J/audio-s, 5.54% WER at 160 ms; +0.81 pp on unselected DEV) and the utterance-end commit pass reaches 5.00% at 16.8× vs. Zipformer INT8 at 14.0× (0.573 J/audio-s, 5.25%). [Paper](docs/paper/paper.pdf) · [Release record](docs/ultra/releases/v4.0.0.md).
 
 - **Fastest, with the lowest measured energy.** On one quiet Zen 2 core, **Isosyll live** (160 ms chunks, +LM) runs at **32.7×** real time and **0.328 J/audio-s** (**5.54%** panel / **6.10%** full DEV WER, **109 MB** RAM): **2.3×** the paired throughput of Zipformer INT8 at **57%** of its energy per audio-second (same blocks).
-- **One small artifact.** A single 60 MB INT8 model; an optional utterance-end commit pass on the same weights (`isosyll transcribe`, the default) reaches **5.00%** panel WER at **16.8×** real time.
+- **One small artifact.** A single 60 MB INT8 model; the utterance-end commit pass on the same weights (the `isosyll transcribe` default) reaches **5.00%** panel WER at **16.8×** real time.
 - **Bit-exact pure-Rust engine.** No external runtime or BLAS (AVX2, AVX-512 VNNI, ARM NEON, scalar), with identical transcripts across **18** cross-ISA witness runs.
 
 | System | Class | Speed (× RT) | J/audio-s | Panel WER (%) | Peak RSS (MB) |

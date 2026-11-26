@@ -290,10 +290,11 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     for label in HERO_PLOTTED:
         macros[label + "Color"] = ramp_hex(pos(energy[label])) if label in energy else NOT_METERED_HEX
         macros[label + "Metered"] = int(label in energy)
+        macros[label + "Mark"] = "\\,\\ddag" if chosen[label]["faded"] else ""  # shared-host interim timing
         if label in energy:
             macros[label + "Energy"] = fmt(energy[label], 3)
     macros["RampHex"] = ",".join(ramp_hex(i / (RAMP_STEPS - 1)) for i in range(RAMP_STEPS))
-    macros["RampTicks"] = ",".join(f"{pos(v):.5f}/{fmt(v, 0) if v >= 1 else fmt(v, 1)}" for v in sorted({lo, hi, *_decade_ticks(lo, hi)}))
+    macros["RampTicks"] = ",".join(f"{pos(v):.5f}/{fmt(v, 0) if v >= 1 else fmt(v, 1)}" for v in sorted({round(v, 6) for v in (lo, hi, *_decade_ticks(lo, hi))}))
     macros["RampLo"], macros["RampHi"] = f"{lo:g}", f"{hi:g}"
     macros["NotMetered"] = ", ".join(_tex(chosen[k]["short"]) for k in HERO_PLOTTED if k not in energy) or "none"
     macros["ShowFinal"] = int(HERO_SHOW_FINAL)
@@ -416,9 +417,11 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         floor_txt = f"idle floor subtracted except for {', '.join(floor)}, which include it" if floor else "idle floor subtracted"
         grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
         marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
-                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}, same blocks; not wall power{grey}).",
+                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, others in separate sessions; not wall power{grey}).",
                  "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; "
-                 "circles stream, squares are offline whole-clip, and \\S\\ marks timing on a 73-clip subset only."]
+                 "circles stream, squares are offline whole-clip, \\S\\ marks timing on a 73-clip subset only"
+                 + (", and \\ddag\\ marks interim timing on a shared host" if any(hero[k]["faded"] for k in HERO_PLOTTED) else "")
+                 + "."]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")

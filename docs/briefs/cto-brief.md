@@ -42,7 +42,7 @@
 ## 4. Deployment, Supply Chain & Hardware Power Context
 
 - **Targets:** Linux x86-64 (glibc primary + static musl fallback), Linux arm64, Apple-silicon macOS; AVX2, AVX-512 VNNI, NEON and scalar kernels.
-- **CPU vs. GPU hardware power context:** All 12 comparators above ran on one CPU core. In production, 0.6B-class models (Nemotron, Parakeet, Whisper) are typically hosted on GPUs with published board TDP from **70 W (NVIDIA T4) to 250 W (NVIDIA A100 PCIe)** (vendor datasheets — external hardware context, not a benchmark measurement). Isosyll's live stream draws **0.328 W** of idle-subtracted CPU-core power, leaving any GPU absent or idle.
+- **CPU vs. GPU hardware power context:** All 12 comparators in Figure 1 ran on one CPU core; every joule figure in this brief is CPU-core energy from that setup. In production, 0.6B-class models such as Nemotron and Parakeet are often hosted on GPUs; published board TDPs run from 70 W (NVIDIA T4) to 250 W (NVIDIA A100 PCIe). Those are vendor datasheet figures, not measured here, and are not comparable to the CPU-core numbers above.
 - **Signed release:** `SHA256SUMS` signed with the project SSH key; the installer verifies signature and checksums before installing.
 
 ```sh

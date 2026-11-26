@@ -97,8 +97,8 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
             f"**{speed_x}×** the paired throughput of Zipformer INT8 at **{energy_pct}%** of its energy per audio-second (same blocks)."
         ),
         (
-            f"- **One small artifact.** A single 60 MB INT8 model; an optional utterance-end commit pass on the same weights "
-            f"(`isosyll transcribe`, the default) reaches **{fmt(d['Final']['wer'], 2)}%** panel WER at **{fmt(d['Final']['speed'], 1)}×** real time."
+            f"- **One small artifact.** A single 60 MB INT8 model; the utterance-end commit pass on the same weights "
+            f"(the `isosyll transcribe` default) reaches **{fmt(d['Final']['wer'], 2)}%** panel WER at **{fmt(d['Final']['speed'], 1)}×** real time."
         ),
         (
             f"- **Bit-exact pure-Rust engine.** No external runtime or BLAS (AVX2, AVX-512 VNNI, ARM NEON, scalar), "

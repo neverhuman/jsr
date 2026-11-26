@@ -54,8 +54,6 @@ def test_scan_passes_clean_text_and_noreply():
 
 @pytest.mark.skipif(not shutil.which("pdflatex"), reason="needs TeX Live")
 def test_stage_only_builds_a_clean_tree():
-    if "github.com/neverhuman" in (REPO / "docs/paper/paper.tex").read_text():
-        pytest.skip("paper.tex still carries the repo link the privacy scan bans")
     r = subprocess.run([str(REPO / "ops/paper/build_arxiv.sh"), "--stage-only"], cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
     src = REPO / "target/arxiv/src"

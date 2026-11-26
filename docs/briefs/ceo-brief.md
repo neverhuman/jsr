@@ -22,7 +22,7 @@ Isosyll is a compact *streaming* recognizer: it writes words while the person is
 
 - **Cheaper listening fleets:** 2.33× the single-core throughput of the fastest open streaming rival, so each CPU core transcribes 2.33× as much audio for under 60% of the core energy.
 - **Private by default:** speech is recognized where it is captured; recordings never leave the building.
-- **Zero-GPU power profile:** 0.328 W of CPU-core power per live stream rather than GPU accelerators (NVIDIA T4 70 W to A100 PCIe 250 W published board TDP; vendor datasheets, external context, not a benchmark measurement).
+- **Zero-GPU power profile:** 0.328 J of CPU-core energy per audio-second (about 0.328 W for one real-time stream) and 109 MB RAM: always-on captions run on ordinary CPUs, no GPU accelerator needed.
 - **Optional final polish:** an optional utterance-end commit pass on the same 60 MB weights reaches 5.00% word errors at 16.8× real time (statistically level with Zipformer's 5.25%, at 115% of its core energy and 387 MB RAM).
 
 ## 3. Measured Scoreboard at a Glance

@@ -24,7 +24,7 @@ deterministic function of the input audio and weights, independent of batch comp
 DEV panel (\cref{fig:money,tab:measured}) and head-to-head against the strongest streaming
 comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \begin{enumerate}
-\item \textbf{Lowest-power, fastest always-on streaming.} \ultra{} live delivers
+\item \textbf{Fastest always-on streaming, lowest measured core energy.} \ultra{} live delivers
   \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
   core energy per audio second and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live gap to Zipformer on unselected DEV of
   \CandLiveLmCDelta\pp.
@@ -32,7 +32,7 @@ comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp, with batch-invariant execution and
   identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).
 \item \textbf{Unified all-comparator protocol.} Same 730 DEV utterances (\ColdAudioMinutes\,min), one
-  pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, and same-run active core
-  energy across all comparators (\cref{sec:protocol}).
+  pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, and active core energy for
+  every metered system, paired in the same blocks for Zipformer INT8 (\cref{sec:protocol}).
 \end{enumerate}
 All accuracy results are LibriSpeech DEV only; no test-set numbers appear (\cref{sec:protocol}).

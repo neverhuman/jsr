@@ -1,6 +1,6 @@
 % Full-width hero (Figure 1, docs/paper/money.png, docs/paper/figures/hero.pdf).
 % One Isosyll mark (live, 160 ms) against all 12 timed public CPU comparators.
-% Names and marker fills are coloured by idle-subtracted core energy per audio-second (log ramp, green lowest);
+% Names and marker fills are coloured by core energy per audio-second (see \HeroEnergyNote for any floor-included values) (log ramp, green lowest);
 % a system with no energy value is grey. Every number comes from data/money_layout.tex.
 \def\herokicker#1#2#3#4{%
   \begin{minipage}[t]{#1}%
@@ -74,10 +74,10 @@
 \syslabel{VoskLarge}{west}{4.85}{\HeroVoskLargeY}{Vosk Large\,\S}
 \syslabel{MoonTiny}{west}{8.9}{\HeroMoonTinyY}{Moonshine Tiny}
 \sysleader{NemoThreeFive}{-- (axis cs:1.3,7.5)}
-\syslabel{NemoThreeFive}{west}{1.4}{7.5}{Nemotron 3.5}
-\syslabel{MoonSmall}{west}{2.7}{\HeroMoonSmallY}{Moonshine Small}
+\syslabel{NemoThreeFive}{west}{1.4}{7.5}{Nemotron 3.5\HeroNemoThreeFiveMark}
+\syslabel{MoonSmall}{west}{2.7}{\HeroMoonSmallY}{Moonshine Small\HeroMoonSmallMark}
 \sysleader{NemoOneSixty}{-- (axis cs:\HeroNemoOneSixtyX,1.05)}
-\syslabel{NemoOneSixty}{west}{1.6}{1.05}{Nemotron 160\,ms}
+\syslabel{NemoOneSixty}{west}{1.6}{1.05}{Nemotron 160\,ms\HeroNemoOneSixtyMark}
 \sysleader{NemoFiveSixty}{-- (axis cs:\HeroNemoFiveSixtyX,2.4)}
 \syslabel{NemoFiveSixty}{west}{2.7}{2.4}{Nemotron 560\,ms\,\S}
 \syslabel{ParakeetOnnx}{west}{7.4}{\HeroParakeetOnnxY}{Parakeet onnx-asr}
@@ -119,6 +119,7 @@
     \tikz[baseline=-.45ex]\draw[ink!80,fill=white,line width=.45pt] (0,0) rectangle (4.6pt,4.6pt);~offline
     \enspace\textperiodcentered\enspace
     \S~timed on a 73-clip subset only%
+    \ifnum\HeroAnyFaded>0\relax\enspace\textperiodcentered\enspace\ddag~shared-host interim timing\fi
     \ifnum\HeroAnyNotMetered>0\relax\enspace\textperiodcentered\enspace
     \tikz[baseline=-.4ex]\draw[ink!80,fill=nmgrey,line width=.45pt] (0,0) circle (2.5pt);~not metered\fi}%
   \end{minipage}};

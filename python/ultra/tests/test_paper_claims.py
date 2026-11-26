@@ -106,6 +106,15 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                    "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0", "figblue!35,densely dashed"):
         assert banned not in hero_tex, banned
     caption = rec["MoneyMarksCaption"]["value"]
+    # energy honesty: every floor-included system is named on the hero itself, in the caption, and the
+    # colorbar only says "idle-subtracted" when no colored value includes the idle floor
+    layout = (DATA / "money_layout.tex").read_text(encoding="utf-8")
+    assert r"\HeroEnergyNote" in hero_tex
+    if "include it" in caption or "floor included" in layout:
+        for name in ("Moonshine Tiny", "Nemotron 560"):
+            assert name in caption and name in layout, name
+        assert r"\def\HeroBarTitle{Energy per audio-second (J, log)}" in layout
+        assert "Isosyll live and Zipformer INT8 in the same blocks" in caption
     assert "not wall power" in caption and caption.count("not wall power") == 1 and caption.count(". ") == 1, caption
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
@@ -180,7 +189,7 @@ def test_readme_shows_the_current_figure_block():
     assert summary == "**Isosyll live: 32.7× real time · 0.328 J/audio-s · 5.54% WER on one CPU core**"
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Paper](docs/paper/paper.pdf)" in caption
-    assert "docs/ultra/releases/v4.0.0.md" in caption
+    assert "unselected DEV" in caption and "docs/ultra/releases/v4.0.0.md" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
     pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
     assert len(table) == 1 + 1 + 12, "all-comparator table: header + Isosyll live + 12 timed public comparators"
