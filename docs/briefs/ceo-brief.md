@@ -50,7 +50,7 @@ Isosyll is a compact *streaming* recognizer: it writes words while the person is
 > - **Live text trails slightly:** On the unselected half of DEV, live Isosyll makes +0.81 points more word errors than Zipformer (bounds +0.62 to +1.02). The optional end-of-sentence pass closes the gap (5.00% WER).
 > - **Energy edge is live mode:** the optional end-of-sentence pass uses 115% of Zipformer's CPU-core energy and 387 MB of memory.
 > - **Bigger models are more accurate:** 0.6B-parameter models (Nemotron, Parakeet) make fewer errors at far higher compute.
-> - **Power scope:** Measured energy is CPU-core joules only (not wall/battery power); GPU TDP figures (70–250 W) are external hardware context, not a benchmark measurement. No latency claim is made here.
+> - **Power scope:** Measured energy is CPU-core joules only (not wall or battery power). No latency claim is made here.
 
 ## 5. How to Pilot in 30 Days
 

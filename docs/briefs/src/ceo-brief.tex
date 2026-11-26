@@ -167,7 +167,7 @@ isosyll transcribe meeting.wav
       \item \textbf{Live text trails slightly:} On the unselected half of DEV, live Isosyll makes \CandLiveLmCDelta\,pp more word errors than Zipformer (bounds \CandLiveLmCLo{} to \CandLiveLmCHi). The optional end-of-sentence pass closes the gap (\ColdRcTwoFinalWer\% WER).
       \item \textbf{Energy edge is live mode:} the optional commit pass uses \VsEnergyPctTwo\% of Zipformer's CPU-core energy and \ColdRcTwoFinalRss\,MB RAM.
       \item \textbf{Bigger models are more accurate:} 0.6B-parameter models (Nemotron, Parakeet) make fewer errors at far higher compute.
-      \item \textbf{Power scope:} Measured energy is CPU-core joules only (not wall/battery power); GPU TDP figures (70--250\,W) are external hardware context, not a benchmark measurement. No latency claim is made here.
+      \item \textbf{Power scope:} Measured energy is CPU-core joules only (not wall or battery power). No latency claim is made here.
     \end{itemize}
   \end{govbox}
 \end{minipage}
