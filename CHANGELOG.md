@@ -1,6 +1,18 @@
 # Changelog
 
-Versions follow the workspace `version` in `Cargo.toml`. Model bundles carry their own content hashes. ULTRA model releases (`v3.0.0`, ...) name one artifact, weights + decoder + scorer, and each has a release record under [`docs/ultra/releases/`](docs/ultra/releases/). They do not change the crate versions.
+Workspace crates and published speech-recognition packages track their own
+versions. Model bundles carry content hashes. Qualification and signed asset
+details are in the [release records](docs/ultra/releases/).
+
+## v4.0.0 · 2026-11-26
+
+- Signed `isosyll` CLI for Linux x86-64, Linux arm64, and Apple silicon macOS.
+  It bundles live and final transcription commands and verifies the model
+  manifest. [Install and quick start](docs/install.md)
+- The timed Linux x86-64 glibc build reproduced the reference transcripts and
+  passed the registered relative CPU gates. The static musl fallback missed
+  the final-mode CPU gate and is available for systems without glibc 2.35.
+  [Release qualification](docs/ultra/releases/v4.0.0.md#qualification)
 
 ## Unreleased
 - **ULTRA v3.2.0** (runtime-only release, staged 2026-11-25): the v3.1.0 weights and LMs with new decoders built at `6d95f37d`.

@@ -64,24 +64,12 @@ isosyll transcribe --json *.wav              # one JSON object per file
 
 `isosyll` reads WAV files (16-bit PCM at any sample rate, mono or stereo) and raw 16 kHz PCM (`.pcm`, `.s16le`). It runs on one thread by default. Its decoder settings are the released ones, so it reproduces the numbers above. Run `isosyll --help` to see the options, and `isosyll model verify` to re-check the installed model.
 
-<details>
-<summary>Manual install and signature check</summary>
+For a verified manual install, use `ssh-keygen -Y verify` with the checkout's trusted release key
+(`SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`) and check each
+archive before unpacking it. [Install guide](docs/install.md#verify-and-unpack-by-hand)
 
-Every release asset is listed in `SHA256SUMS`, which is signed with the project's SSH release key (`SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`). To install by hand:
-
-```bash
-v=v4.0.0; t=x86_64-linux        # or x86_64-linux-musl, aarch64-linux, aarch64-macos
-base=https://github.com/neverhuman/jsr/releases/download/$v
-for f in SHA256SUMS SHA256SUMS.sig allowed_signers isosyll-$v-$t.tar.gz isosyll-$v-model.tar.gz; do curl -fsSLO "$base/$f"; done
-ssh-keygen -Y verify -f allowed_signers -I 219957145+neverhumanbot@users.noreply.github.com \
-  -n file -s SHA256SUMS.sig < SHA256SUMS
-sha256sum -c --ignore-missing SHA256SUMS        # macOS: shasum -a 256 -c --ignore-missing SHA256SUMS
-tar -xzf isosyll-$v-$t.tar.gz && tar -xzf isosyll-$v-model.tar.gz
-./isosyll-$v-$t/bin/isosyll transcribe --model isosyll-model meeting.wav
-```
-
-The research decoders and the scorer behind the paper's tables (`ultra-engine-commit`, `ultra-cold-wav`, `ultra-score`) are documented in [docs/release.md](docs/release.md).
-</details>
+The research decoders and scorer behind the paper's tables are documented in
+[docs/release.md](docs/release.md).
 <!-- install:end -->
 
 ## Reproduce every number
@@ -89,6 +77,8 @@ The research decoders and the scorer behind the paper's tables (`ultra-engine-co
 Every number in this README and in the [paper](docs/paper/paper.pdf) is generated from `docs/paper/data/`: evidence rows plus receipts pinned by sha256 in `docs/paper/data/raw/MANIFEST.txt`. `just paper-refresh` regenerates the tables, Figure 1, the block above and the PDF, then runs the tests that keep them consistent. The [freeze protocol](docs/ultra/FREEZE.md) describes how the test sets are kept sealed.
 
 ## Repository
+
+[Documentation index](docs/README.md)
 
 | Path | What |
 |---|---|

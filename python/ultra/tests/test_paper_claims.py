@@ -393,8 +393,14 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
     assert "\ncurl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh\n" in install
     assert "isosyll transcribe meeting.wav" in install and "isosyll transcribe --mode live" in install
     assert "SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA" in install
-    assert "ssh-keygen -Y verify -f allowed_signers" in install and "-s SHA256SUMS.sig < SHA256SUMS" in install
-    assert "sha256sum -c --ignore-missing SHA256SUMS" in install and "<wav-dir>" not in install
+    assert "docs/install.md#verify-and-unpack-by-hand" in install and "<wav-dir>" not in install
+    guide = (pd.REPO / "docs/install.md").read_text()
+    manual = guide.split("## Verify and unpack by hand\n", 1)[1]
+    assert 'signers="$PWD/docs/ultra/releases/allowed_signers"' in manual
+    assert 'ssh-keygen -Y verify -f "$signers"' in manual and "-s SHA256SUMS.sig < SHA256SUMS" in manual
+    assert "set -euo pipefail" in manual
+    assert manual.index("ssh-keygen -Y verify") < manual.index('for f in "$bundle" "$model"')
+    assert manual.index("sha256sum -c selected.sha256") < manual.index('tar -xzf "$bundle"')
     assert "[docs/release.md](docs/release.md)" in install
     release = (pd.REPO / "docs/release.md").read_text()
     assert "<wav-dir>" not in release and "{\"id\", \"hyp\"}" in release

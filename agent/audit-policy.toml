@@ -12,6 +12,8 @@ mirror_max_rows = 5000
 
 [scan]
 excluded_paths = ["tips/", ".agent/", ".claude/worktrees/",
+  # Local signed-release installs are output, like the Cargo target tree.
+  "models/",
   # As-ran experiment code kept verbatim inside research records (owner's rule: a wave folder holds the scripts
   # that ran). CI never imports or runs it; the records' documents and results stay in the scan.
   "research/H43_v3_baseline_and_measurement/records/bin/", "research/H45_zero_training_wins/bin/",
