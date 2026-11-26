@@ -102,6 +102,15 @@ paper:
     [ "$fail" = 0 ] || exit 1
     echo "paper: docs/paper/paper.pdf ($(pdfinfo paper.pdf | awk '/^Pages/ {print $2}') pages)"
 
+# arXiv source package: stage what pdflatex reads, precompile figures, verify in a clean TeX Live 2023
+# container, write dist/arxiv/* and the committed docs/paper/arxiv/{isosyll-arxiv.zip,ARXIV_UPLOAD.md}.
+arxiv:
+    ops/paper/build_arxiv.sh
+
+# Fail if the committed arXiv zip or upload notes are stale against the paper sources (no docker).
+arxiv-check:
+    ops/paper/build_arxiv.sh --check
+
 # One command to refresh the paper from docs/paper/data/evidence/*.jsonl: regenerate the data and
 # Fig. 1, rebuild the PDF (just paper), export Fig. 1 as docs/paper/money.png, copy its block into
 # README.md, stamp the PNG with the hash of its inputs, and run the paper tests.

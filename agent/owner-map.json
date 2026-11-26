@@ -120,6 +120,8 @@
     "python/ultra/tests/test_wave2_objectives.py": "training",
     "LICENSE": "workspace",
     "install.sh": "ops",
-    "crates/isosyll/": "runtime"
+    "crates/isosyll/": "runtime",
+    "ops/paper/": "ops",
+    "docs/paper/arxiv/": "lead"
   }
 }
