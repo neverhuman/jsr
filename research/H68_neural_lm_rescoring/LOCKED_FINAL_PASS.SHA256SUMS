@@ -1,0 +1,10 @@
+9fdc75ff2fcd6fe411dc9df266c199b071fa83a14a87d3a1eeda846a1b8c10e1  lock_h141_m12l/ultra-engine-commit
+15330e31b99b59863d2e98949fa6360085b1a080af1aa16770bc106d4820d730  lock_h141_m12l/m12_l2r_32k.utfr
+6cd1098727a5984225b7abaafc624c819659c8de571cf8f516efc74af6592e11  /mnt/xbabe3-external/jsr/wer-push/H141/ema-int8/arch.json
+c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5  /mnt/xbabe3-external/jsr/wer-push/H141/ema-int8/bpe.model
+a6215a2153a395aade579c42ba01beb61561da1fb506a0abb7c63ed65adc6439  /mnt/xbabe3-external/jsr/wer-push/H141/ema-int8/mel_fbank.f32
+261114a908e41e0855125316e600c932969647dade1514adf5ffd622c213ecd1  /mnt/xbabe3-external/jsr/wer-push/H141/ema-int8/tokens.txt
+70a162c91992179e93d2dca07ce6eda60dcebf0d55bf3a2acc600c5fc582a958  /mnt/xbabe3-external/jsr/wer-push/H141/ema-int8/weights.int8.safetensors
+72a621c263e60a6e67979dd4989291a0b1ea10346baa5409360791ac1be46982  /mnt/xbabe3-external/jsr/wer-push/shared/isosyll/isosyll-model/lm/final.ulm
+ec1e1cd1223f58dab18bf04582bfd5789feafea1fa149709f62af444df353d41  panel147.npz
+1e01cbc70e08f012a98dd16d6b4b624ef35871533e678b16bd8e6f551370ce34  snap/m12_l2r_32k.pt

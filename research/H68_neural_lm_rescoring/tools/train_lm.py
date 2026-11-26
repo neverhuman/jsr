@@ -110,6 +110,10 @@ def main() -> None:
     ap.add_argument("--save-every", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--init", help="start from these student weights (fresh optimizer and schedule)")
+    ap.add_argument("--teacher", help="frozen teacher checkpoint (same direction) for token-level KD")
+    ap.add_argument("--kd-w", type=float, default=0.7, help="loss = (1-w)*CE + w*KL(teacher||student)")
+    ap.add_argument("--kd-t", type=float, default=1.0)
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     torch.manual_seed(a.seed)
@@ -121,6 +125,16 @@ def main() -> None:
     dev = torch.device("cuda")
     trt = torch.from_numpy(tr.view(np.int16))  # values < 501: reinterpret, no extra host copy
     model = LM(501, a.d, a.layers, a.heads, a.ff, a.ctx, a.drop).to(dev)
+    if a.init:
+        ik = torch.load(a.init, map_location="cpu", weights_only=False)
+        assert bool(ik.get("reverse", False)) == a.reverse, "init direction mismatch"
+        model.load_state_dict(ik["model"])
+    teacher = None
+    if a.teacher:
+        teacher = load_lm(a.teacher, "cuda")
+        assert teacher.reverse == a.reverse, "teacher direction mismatch"
+        for p_ in teacher.parameters():
+            p_.requires_grad_(False)
     nparam = sum(p.numel() for p in model.parameters())
     decay = [p for n, p in model.named_parameters() if p.dim() >= 2]
     nodecay = [p for n, p in model.named_parameters() if p.dim() < 2]
@@ -164,7 +178,14 @@ def main() -> None:
             g["lr"] = lr
         w = batch()
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            loss = F.cross_entropy(cmodel(w[:, :-1]).float().reshape(-1, 501), w[:, 1:].reshape(-1))
+            logits = cmodel(w[:, :-1]).float().reshape(-1, 501)
+            loss = F.cross_entropy(logits, w[:, 1:].reshape(-1))
+            if teacher is not None:
+                with torch.no_grad():
+                    tl = teacher(w[:, :-1]).float().reshape(-1, 501)
+                kt = a.kd_t
+                kd = F.kl_div(F.log_softmax(logits / kt, -1), F.log_softmax(tl / kt, -1), log_target=True, reduction="batchmean") * kt * kt
+                loss = (1 - a.kd_w) * loss + a.kd_w * kd
         opt.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
