@@ -29,7 +29,11 @@ def _read(root: Path) -> tuple[list[dict], list[dict], dict]:
             r = json.loads(line)
             r["_where"] = f"{p.name}:{n}"
             kind = r.get("kind", "cost")
-            if kind == "cost":
+            if "energy_j_per_audio_s" in r:  # matched-campaign energy line (R7): Figure 1 colour only
+                kind = "r7_energy"
+            if kind == "r7_energy":
+                sidecars.append(r)
+            elif kind == "cost":
                 rows.append(r)
             elif kind in ("lag", "energy"):
                 sidecars.append(r)
@@ -49,11 +53,20 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
             raise PaperDataError(f"duplicate evidence ids: {r['id']} ({by_id[r['id']]['_where']} and {r['_where']})")
         by_id[r.get("id")] = r
     for s in sidecars:
-        target = by_id.get(s.get("row"))
+        target = by_id.get(s.get("row", s.get("id")))
+        if s["kind"] == "r7_energy":
+            if target is None:
+                raise PaperDataError(f"{s['_where']}: energy line points at unknown row {s.get('id', s.get('row'))!r}")
+            if s.get("energy_method") != "core_idle_subtracted":
+                raise PaperDataError(f"{s['_where']}: energy_method must be core_idle_subtracted")
+            target["energy_idle_subtracted"] = float(s["energy_j_per_audio_s"])
+            continue
         if target is None:
             raise PaperDataError(f"{s['_where']}: {s['kind']} sidecar points at unknown row {s.get('row')!r}")
         if s["kind"] == "energy":
             attach_energy(target, s, s["_where"])
+            if s.get("energy_method") == "core_msr_active":  # Figure 1 says which rows still include the idle floor
+                target["energy_includes_idle"] = "idle-subtracted" not in str(s.get("energy_tool", ""))
             continue
         for k in LAG_KEYS:
             if s.get(k) is not None and target.get(k) is not None:

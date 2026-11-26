@@ -91,20 +91,21 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                  "isosyll transcribe", "ssh-keygen -Y verify"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
-    # Hero plot: two Isosyll marks vs all 12 timed comparators. Wide and greedy stay in the table only.
+    # Hero plot: ONE Isosyll mark (live) vs all 12 timed comparators, names only, colored by energy.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
-    for must_tex in ("Isosyll live +LM", "Isosyll final",
-                     "Zipformer INT8", "Moonshine Tiny", "Moonshine\\\\Small", "Vosk Small", "Whisper.cpp Tiny",
-                     "Nemotron 560", "Nemotron\\\\160", "Nemotron\\\\3.5",
-                     "Parakeet onnx-asr", "Parakeet sherpa-onnx", "Idle-subtracted core energy",
-                     r"\HeroRatio$\times$", "Zipformer INT8's paired throughput",
-                     "energy per audio-second (same blocks)", r"\VsEnergyPctOne", "same blocks"):
+    for must_tex in ("Isosyll live", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
+                     "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
+                     r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
+                     "Energy per audio-second (J, idle-subtracted, log)", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
+                     "Isosyll vs.\\ all", "names colored by energy"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
-    for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide",
-                   "HeroRatioMoon", "HeroEnergyRatioNemo", "HeroMoonTinyBarPt", "HeroParakeetSherpaBarPt",
-                   "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0",
-                   "figblue!35,densely dashed"):
+    for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",
+                   "HeroEnergyRatioNemo", "BarPt", "HeroHaveEnergy", "Idle-subtracted core energy (J/audio-s", "H0 lighter",
+                   "HeroZipSpeed", "HeroZipWer", "HeroLiveLmSpeed", "HeroLiveLmWer", "HeroFinalSpeed", "HeroFinalWer",
+                   "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0", "figblue!35,densely dashed"):
         assert banned not in hero_tex, banned
+    caption = rec["MoneyMarksCaption"]["value"]
+    assert "not wall power" in caption and caption.count("not wall power") == 1 and caption.count(". ") == 1, caption
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
