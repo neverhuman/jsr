@@ -72,11 +72,9 @@ fn run(a: &Args) -> Result<Value, String> {
         a.rescore_m5_sub,
     )
     .map_err(|e| e.to_string())?
-    .map(|c| {
-        match a.rescore_r2l_top_k {
-            Some(k) => c.with_r2l_top_k(k),
-            None => c,
-        }
+    .map(|c| match a.rescore_r2l_top_k {
+        Some(k) => c.with_r2l_top_k(k),
+        None => c,
     });
     let mut sess = CommitPassSession::new(eng, cfg)
         .and_then(|s| s.with_commit_lm(lm_cfg))
