@@ -69,6 +69,8 @@ def main() -> None:
     ap.add_argument("--cache-grid", default="0,0.5,1,2,4")
     ap.add_argument("--no-ablate", action="store_true")
     ap.add_argument("--cache", action="store_true", help="H77: causal chapter name-cache feature (rare words seen in earlier top-1 hyps)")
+    ap.add_argument("--family", choices=["free", "tied", "engine"], default="free",
+                    help="tied: b = a; engine: b = a and no word bonus (exactly crates/ultra-engine commit/tf.rs)")
     ap.add_argument("--session", action="store_true", help="L2R gets the previous utterance (same chapter) top-1 text as context")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -140,7 +142,13 @@ def main() -> None:
     grid_s = [float(x) for x in a.sub_grid.split(",")] if "m5" in feats else [0.0]
     grid_k = [float(x) for x in a.cache_grid.split(",")] if "cache" in feats else [0.0]
     results = []
+    if a.family != "free":
+        grid_b = [None]
+    if a.family == "engine":
+        grid_c = [0.0]
     for wa, wb, wc, ws, wk in itertools.product(grid_a, grid_b, grid_c, grid_s, grid_k):
+        if wb is None:
+            wb = wa
         s = base + wc * nw + (wa * feats["l2r"] if wa else 0) + (wb * feats["r2l"] if wb else 0) - (ws * feats["m5"] if ws else 0) + (wk * feats["cache"] if wk else 0)
         idx = pick(s)
         e = ed[idx]
