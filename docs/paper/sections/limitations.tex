@@ -25,7 +25,7 @@ unchanged.
 
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
 Energy is active core (CPU-domain) joules per audio-second from RAPL registers, never board or wall
-power; the R6 rows subtract the core idle floor, while separately timed Moonshine, Parakeet, and
-Nemotron joins include it, and all are measured unpaced. All accuracy numbers are LibriSpeech DEV only;
+power, measured unpaced; every plotted system is idle-subtracted in the R7 campaign on a
+\RsevenClips-clip subset while CI jobs ran on other cores, and the paired ratio is from the R6 blocks. All accuracy numbers are LibriSpeech DEV only;
 as disclosed in \cref{sec:protocol}, test-clean and test-other were read several times before our
 benchmark freeze.

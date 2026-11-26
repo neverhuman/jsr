@@ -213,11 +213,12 @@ PY
             "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" "runs/out/$1/rep{rep}-w{worker}.trace.jsonl"
         ;;
     sherpa-offline)
-        # The runtime-lane runner of the H0/H1 Parakeet TDT v3 row (copy: docs/paper/opponents/sherpa_parakeet_offline.py).
+        # The runtime-lane runner of the H0/H1 Parakeet TDT v3 row; docs/paper/opponents/sherpa_parakeet_offline.py
+        # is a byte-identical copy (same sha256). -I like the other Python arms; the R7 receipts ran without it.
         mapfile -t set < <(audio "$2")
         model=$opp/runtime-lane/parakeet-tdt-v3-sherpa
         measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$model/encoder.int8.onnx" --hash "$opp/zipformer-int8/sherpa-venv.freeze.txt" \
-            -- "$opp/zipformer-int8/sherpa-venv/bin/python" "$opp/runtime-lane/run_parakeet_tdt_v3.py" \
+            -- "$opp/zipformer-int8/sherpa-venv/bin/python" -I "$opp/runtime-lane/run_parakeet_tdt_v3.py" \
             "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" 1
         ;;
     *)

@@ -65,6 +65,8 @@ def _check_r7(s: dict, seen: set) -> str:
     if "void" in str(s.get("anchor_check", "")).lower() or "void" in str(s.get("validity", "")).lower() \
             or s.get("void") is True:
         raise PaperDataError(f"{where}: R7 row for {tid!r} is marked VOID")
+    if s.get("anchor_check") != "VALID":  # only the summarizer's verdict admits a row: missing or other is refused
+        raise PaperDataError(f"{where}: R7 row for {tid!r} needs anchor_check 'VALID', got {s.get('anchor_check')!r}")
     if tid in seen:
         raise PaperDataError(f"{where}: duplicate R7 energy target {tid!r}")
     seen.add(tid)
@@ -96,6 +98,8 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
                 raise PaperDataError(f"{s['_where']}: energy_method must be core_idle_subtracted")
             target["energy_idle_subtracted"] = float(s["energy_j_per_audio_s"])
             target["energy_idle_subtracted_n_clean"] = s.get("n_clean")
+            target["energy_r7_source"] = (f"docs/paper/data/evidence/{s['_where']} id={tid}; R7 receipt "
+                                          f"{s.get('receipt')} sha256 {str(s.get('receipt_sha256'))[:12]}")
             continue
         target = by_id.get(s.get("row", s.get("id")))
         if target is None:
@@ -178,6 +182,18 @@ def _group(group: tuple, members: list[dict], chosen: str | None) -> None:
             raise PaperDataError(f"rows {stems[r['macro']]} and {r['id']} share the macro stem {r['macro']}")
 
 
+def r7_campaign(root: Path) -> dict | None:
+    """The verdict line of the R7 matched energy campaign (anchors, clip count, audio manifest), or None.
+    _read has already refused any verdict other than VALID."""
+    edir = root / DATA / "evidence"
+    heads = [json.loads(line) for p in (sorted(edir.glob("*.jsonl")) if edir.is_dir() else [])
+             for line in p.read_text(encoding="utf-8").splitlines()
+             if line.strip() and json.loads(line).get("kind") == "r7_validity"]
+    if len(heads) > 1:
+        raise PaperDataError("more than one r7_validity line in the evidence files")
+    return heads[0] if heads else None
+
+
 def presentation(root: Path) -> dict:
     """data/systems.json: paper-side names per variant and the headline row of ours."""
     return read_json(root, str(DATA / "systems.json")) if (root / DATA / "systems.json").is_file() else {}
@@ -217,5 +233,5 @@ def derived(r: dict) -> dict:
         "wer_clean": float(r["wer_clean_pct"]), "wer_other": float(r["wer_other_pct"]),
         "rss_mb": r["peak_rss_bytes"] / 1e6, "model_mb": r["artifact_bytes"] / 1e6,
         "installed_mb": r["installed_bytes"] / 1e6 if r.get("installed_bytes") else None,
-        "watts": r.get("watts"), **{k: r.get(k) for k in LAG_KEYS if k not in LAG_PROOF + ("lag_host",)},
+        "watts": r.get("watts"), "energy_r7": r.get("energy_idle_subtracted"), **{k: r.get(k) for k in LAG_KEYS if k not in LAG_PROOF + ("lag_host",)},
     }

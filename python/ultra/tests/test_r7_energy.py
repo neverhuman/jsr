@@ -26,20 +26,25 @@ r7 = load_tool("r7_summarize")
 stage = load_tool("r7_stage")
 
 
-def receipt(j, clean=True, sib=0.0, elsewhere=0):
+FULL_PANEL_S = 5259.56  # audio-seconds of the 730-utterance DEV panel, what an anchor must decode
+
+
+def receipt(j, clean=True, sib=0.0, elsewhere=0, audio=100.0):
     return {
         "joules_per_audio_s": j, "cpu_s_per_audio_s": 0.05, "flags": [] if clean else ["idle_drift_core"],
         "clean_repetitions": {"core": 1 if clean else 0, "package": 0},
-        "reps": [{"wall_seconds": 10.0, "audio_seconds": 100.0, "core": {"idle_watts": 0.1},
+        "reps": [{"wall_seconds": 10.0, "audio_seconds": audio, "core": {"idle_watts": 0.1},
                   "package": {"idle_watts": 60.0}, "mean_mhz": 4200,
                   "busy": {"sibling_busy_fraction_run": sib, "elsewhere_busy_cpus_run": elsewhere}}],
     }
 
 
-def put(root, block, key, j, clean=True):
+def put(root, block, key, j, clean=True, audio=None):
     d = root / f"block{block}"
     d.mkdir(exist_ok=True)
-    (d / f"{key}.json").write_text(json.dumps(receipt(j, clean)))
+    if audio is None:
+        audio = FULL_PANEL_S if key.startswith("anchor730") else 100.0
+    (d / f"{key}.json").write_text(json.dumps(receipt(j, clean, audio=audio)))
 
 
 def manifest(root):
@@ -68,12 +73,33 @@ def run(root, monkeypatch, out):
     r7.main()
 
 
+def arm_rows(out):
+    return {r["id"]: r for r in map(json.loads, out.read_text().splitlines()) if r["kind"] == "r7_energy"}
+
+
+def assert_void_marker(out):
+    """After a failed run the evidence file holds one VOID line, and the paper loader refuses it."""
+    lines = out.read_text().splitlines()
+    assert len(lines) == 1
+    head = json.loads(lines[0])
+    assert head["kind"] == "r7_validity" and head["validity"] == "VOID" and head["problems"]
+    root = out.parent / "paper"
+    ev = root / pd.DATA / "evidence"
+    ev.mkdir(parents=True, exist_ok=True)
+    (ev / "xbabe0-r7-energy.jsonl").write_bytes(out.read_bytes())
+    with pytest.raises(PaperDataError, match="not VALID"):
+        evidence._read(root)
+
+
 def test_valid_run_median_over_clean_blocks_and_grey_arm(tmp_path, monkeypatch):
     full(tmp_path, {(2, "vosk-small"): (9.0, False), (3, "vosk-small"): (1.2, True),
                     (1, "vosk-large"): (5.0, False), (2, "vosk-large"): (6.0, False), (3, "vosk-large"): (7.0, False)})
     out = tmp_path / "evidence.jsonl"
     run(tmp_path, monkeypatch, out)
-    rows = {r["id"]: r for r in map(json.loads, out.read_text().splitlines())}
+    rows = arm_rows(out)
+    head = json.loads(out.read_text().splitlines()[0])
+    assert head["kind"] == "r7_validity" and head["validity"] == "VALID" and head["arms"] == len(rows)
+    assert head["anchors"]["live"]["audio_seconds"] == FULL_PANEL_S
     assert "vosk-large-zen2-t1" not in rows
     row = rows["vosk-small-zen2-t1"]
     assert row["kind"] == "r7_energy" and row["n_clean"] == 2 and row["clean_blocks"] == [1, 3]
@@ -93,17 +119,41 @@ BAD_RUNS = {
 
 
 @pytest.mark.parametrize("case", sorted(BAD_RUNS))
-def test_void_or_partial_run_exits_nonzero_and_keeps_existing_evidence(tmp_path, monkeypatch, case):
+def test_void_or_partial_run_exits_nonzero_and_replaces_stale_valid_evidence(tmp_path, monkeypatch, case):
+    good = tmp_path / "good"
+    good.mkdir()
+    full(good)
+    out = tmp_path / "evidence.jsonl"
+    run(good, monkeypatch, out)  # a VALID file from an earlier run, able to colour the figure
+    assert arm_rows(out)
     root = tmp_path / "receipts"
     root.mkdir()
     full(root, **BAD_RUNS[case])
-    out = tmp_path / "evidence.jsonl"
-    out.write_bytes(b'{"keep": "me"}\n')
     with pytest.raises(SystemExit) as exc:
         run(root, monkeypatch, out)
     assert exc.value.code not in (0, None)
-    assert out.read_bytes() == b'{"keep": "me"}\n'
+    assert_void_marker(out)
+    assert not list(tmp_path.glob("evidence.jsonl.tmp"))
     assert json.loads((root / "summary.json").read_text())["validity"] == "VOID"
+
+
+@pytest.mark.parametrize("audio", [597.09, FULL_PANEL_S - 0.06, FULL_PANEL_S + 0.06])
+def test_an_anchor_that_is_not_the_full_panel_voids_the_run(tmp_path, monkeypatch, audio):
+    full(tmp_path)
+    put(tmp_path, 1, "anchor730-zip", 0.573, audio=audio)
+    manifest(tmp_path)
+    out = tmp_path / "evidence.jsonl"
+    with pytest.raises(SystemExit):
+        run(tmp_path, monkeypatch, out)
+    assert_void_marker(out)
+    assert any("not the full panel" in p for p in json.loads((tmp_path / "summary.json").read_text())["problems"])
+
+
+def test_an_anchor_within_the_audio_tolerance_is_the_full_panel(tmp_path, monkeypatch):
+    full(tmp_path)
+    put(tmp_path, 1, "anchor730-zip", 0.573, audio=FULL_PANEL_S + 0.04)
+    manifest(tmp_path)
+    run(tmp_path, monkeypatch, tmp_path / "evidence.jsonl")
 
 
 def test_receipt_changed_after_staging_is_refused_before_any_output(tmp_path, monkeypatch):
@@ -129,7 +179,7 @@ def test_evidence_hashes_are_of_the_bytes_parsed(tmp_path, monkeypatch):
     full(tmp_path)
     out = tmp_path / "evidence.jsonl"
     run(tmp_path, monkeypatch, out)
-    for row in map(json.loads, out.read_text().splitlines()):
+    for row in arm_rows(out).values():
         for rc in row["receipts"]:
             assert rc["sha256"] == hashlib.sha256((tmp_path / rc["path"]).read_bytes()).hexdigest()
     summary = json.loads((tmp_path / "summary.json").read_text())
@@ -152,8 +202,7 @@ def test_receipts_swapped_after_verification_do_not_reach_the_output(tmp_path, m
     monkeypatch.setattr(r7, "check_manifest", check_then_swap)
     out = tmp_path / "evidence.jsonl"
     run(tmp_path, monkeypatch, out)
-    rows = {r["id"]: r for r in map(json.loads, out.read_text().splitlines())}
-    row = rows["vosk-small-zen2-t1"]
+    row = arm_rows(out)["vosk-small-zen2-t1"]
     assert row["energy_j_per_audio_s"] == pytest.approx(1.0) and row["blocks"] == [1.0, 1.0, 1.0]
     assert row["receipt_sha256"] == sel["b1-vosk-small"]["used_sha256"]
     summary = json.loads((tmp_path / "summary.json").read_text())
@@ -171,12 +220,12 @@ def test_each_receipt_is_read_once(tmp_path, monkeypatch):
     assert len(reads) == len(set(reads))
 
 
-def test_void_run_creates_no_evidence_file(tmp_path, monkeypatch):
+def test_void_run_writes_only_the_void_marker(tmp_path, monkeypatch):
     full(tmp_path, drop=[(1, "anchor730-live")])
     out = tmp_path / "evidence.jsonl"
     with pytest.raises(SystemExit):
         run(tmp_path, monkeypatch, out)
-    assert not out.exists()
+    assert_void_marker(out)
 
 
 @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
@@ -185,7 +234,7 @@ def test_rejects_non_positive_or_non_finite(tmp_path, monkeypatch, bad):
     out = tmp_path / "evidence.jsonl"
     with pytest.raises(SystemExit):
         run(tmp_path, monkeypatch, out)
-    assert not out.exists()
+    assert_void_marker(out)
 
 
 def test_rejects_duplicate_targets(tmp_path, monkeypatch):
@@ -194,7 +243,7 @@ def test_rejects_duplicate_targets(tmp_path, monkeypatch):
     out = tmp_path / "evidence.jsonl"
     with pytest.raises(SystemExit):
         run(tmp_path, monkeypatch, out)
-    assert not out.exists()
+    assert_void_marker(out)
 
 
 # ---- staging custody ----
@@ -272,7 +321,7 @@ def test_stage_refuses_a_used_output_dir_unless_asked(tmp_path):
 
 def r7_line(**kw):
     r = {"kind": "r7_energy", "id": "sys-a-zen2-t1", "energy_method": "core_idle_subtracted",
-         "energy_j_per_audio_s": 0.5, "n_clean": 3, "_where": "r7.jsonl:1"}
+         "energy_j_per_audio_s": 0.5, "n_clean": 3, "anchor_check": "VALID", "_where": "r7.jsonl:1"}
     r.update(kw)
     return r
 
@@ -307,6 +356,18 @@ def test_loader_rejects_duplicate_targets():
 def test_loader_rejects_void_rows(marker):
     with pytest.raises(PaperDataError, match="VOID"):
         merge(r7_line(**marker))
+
+
+@pytest.mark.parametrize("bad", ["valid", "Valid", "", None, True, "PENDING"])
+def test_loader_needs_anchor_check_valid_exactly(bad):
+    with pytest.raises(PaperDataError, match="anchor_check 'VALID'"):
+        merge(r7_line(anchor_check=bad))
+
+
+def test_loader_rejects_a_missing_anchor_check():
+    line = {k: v for k, v in r7_line().items() if k != "anchor_check"}
+    with pytest.raises(PaperDataError, match="anchor_check 'VALID'"):
+        merge(line)
 
 
 def test_loader_rejects_disagreeing_aliases_and_resolves_one_key():

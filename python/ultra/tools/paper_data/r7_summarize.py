@@ -7,6 +7,11 @@ RECEIPT_ROOT holds block1/, block2/, block3/ (one energy_bench receipt per arm, 
 are anchor730-live.json and anchor730-zip.json in block1/). Writes RECEIPT_ROOT/summary.json and, with
 --evidence, one JSON row per arm keyed by the id used in data/cold_dev.csv. The metric is the receipt's
 joules_per_audio_s: (core energy - idle power x wall time) / audio seconds, the R6 definition.
+
+A VALID evidence file starts with one r7_validity line (anchors, clip count, audio manifest) and every arm row
+carries anchor_check VALID. A VOID or partial run exits non-zero and, with --evidence, atomically replaces the
+evidence file with a single r7_validity VOID line, which the paper loader refuses: a stale VALID file never
+survives a failed rerun. Each anchor must decode the full 730-utterance panel (ANCHOR_AUDIO_S audio-seconds).
 """
 import argparse
 import csv
@@ -20,6 +25,8 @@ from pathlib import Path
 
 R6 = {"rc2-live-lm-zen2-t1": 0.328, "r0-int8-r6-zen2-t1": 0.573}
 TOL = 0.05
+ANCHOR_AUDIO_S = 5259.56  # the full 730-utterance DEV panel; an anchor on any other audio is not an anchor
+ANCHOR_AUDIO_TOL = 0.05
 # arm key used in the receipt file names -> id of data/cold_dev.csv
 IDS = {
     "rc2-live-lm": "rc2-live-lm-zen2-t1",
@@ -79,6 +86,8 @@ def row_of(d):
         "idle_pkg_w": rep["package"]["idle_watts"],
         "mean_mhz": rep.get("mean_mhz"),
         "audio_seconds": rep["audio_seconds"],
+        "clips": d.get("audio_files_per_worker"),
+        "workload_digest": d.get("audio_manifest_sha256"),
         "core_clean": d["clean_repetitions"]["core"] == 1,
         "flags": [f for f in d["flags"] if not f.startswith("no_clean_package") and "package" not in f],
     }
@@ -89,6 +98,20 @@ def write_atomic(path, text):
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text)
     os.replace(tmp, path)
+
+
+def void_marker(problems):
+    """The only content an evidence file keeps after a VOID or partial run: a line the paper loader refuses."""
+    return json.dumps({"kind": "r7_validity", "protocol": "R7", "validity": "VOID", "problems": problems},
+                      sort_keys=True) + "\n"
+
+
+def shared(values, what, problems):
+    """The single value every receipt of a set records (None when none records it); a mix is a problem."""
+    found = sorted({v for v in values if v is not None})
+    if len(found) > 1:
+        problems.append(f"arm receipts disagree on {what}: {found}")
+    return found[0] if len(found) == 1 else None
 
 
 def main():
@@ -170,7 +193,8 @@ def main():
             continue
         r = row_of(d)
         ref = R6[cid]
-        anchors[name] = {"j_per_audio_s": r["j_per_audio_s"], "r6": ref,
+        anchors[name] = {"j_per_audio_s": r["j_per_audio_s"], "r6": ref, "audio_seconds": r["audio_seconds"],
+                         "clips": r["clips"], "workload_digest": r["workload_digest"],
                          "deviation_pct": round(100 * (r["j_per_audio_s"] / ref - 1), 2),
                          "within_5pct": abs(r["j_per_audio_s"] / ref - 1) <= TOL,
                          "cpu_s_per_audio_s": r["cpu_s_per_audio_s"], "speed_x": round(1 / r["cpu_s_per_audio_s"], 3),
@@ -187,20 +211,32 @@ def main():
             problems.append(f"anchor {name} is not core-clean")
         if not a["within_5pct"]:
             problems.append(f"anchor {name} is {a['deviation_pct']}% from R6 (band 5%)")
+        if abs(a["audio_seconds"] - ANCHOR_AUDIO_S) > ANCHOR_AUDIO_TOL:
+            problems.append(f"anchor {name} decodes {a['audio_seconds']} audio-s, not the full panel ({ANCHOR_AUDIO_S})")
+    ids = [r["id"] for r in rows]
+    if len(ids) != len(set(ids)):
+        problems.append("duplicate target ids in evidence")
+    for r in rows:
+        v = r["energy_j_per_audio_s"]
+        if not (isinstance(v, float) and math.isfinite(v) and v > 0):
+            problems.append(f"bad energy value for {r['id']}: {v!r}")
+    arm_receipts = [row_of(d) for (_, key), (d, _, _) in sorted(snap.items()) if key in IDS]
+    clips = shared((b["clips"] for b in arm_receipts), "the clip count", problems)
+    digest = shared((b["workload_digest"] for b in arm_receipts), "the audio manifest", problems)
     verdict = "VALID" if not problems else "VOID"
     out = {"protocol": "R7", "validity": verdict, "anchors": anchors, "arms": summary, "problems": problems}
     (root / "summary.json").write_text(json.dumps(out, indent=1) + "\n")
     if args.evidence and verdict == "VALID":
-        ids = [r["id"] for r in rows]
-        if len(ids) != len(set(ids)):
-            raise SystemExit("duplicate target ids in evidence")
-        for r in rows:
-            v = r["energy_j_per_audio_s"]
-            if not (isinstance(v, float) and math.isfinite(v) and v > 0):
-                raise SystemExit(f"bad energy value for {r['id']}: {v!r}")
         for r in rows:
             r["anchor_check"] = verdict
-        write_atomic(args.evidence, "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+        head = {"kind": "r7_validity", "protocol": "R7", "validity": verdict, "arms": len(rows), "blocks": 3,
+                "clips": clips, "workload_digest": digest,
+                "anchors": {n: {k: a[k] for k in ("j_per_audio_s", "r6", "deviation_pct", "audio_seconds", "clips",
+                                                    "workload_digest", "core_clean", "receipt", "receipt_sha256")}
+                            for n, a in sorted(anchors.items())}}
+        write_atomic(args.evidence, "".join(json.dumps(r, sort_keys=True) + "\n" for r in [head, *rows]))
+    elif args.evidence:  # VOID or partial: a stale VALID file must not survive to colour the figure
+        write_atomic(args.evidence, void_marker(problems))
     print(verdict, json.dumps(anchors, indent=1))
     for k, v in summary.items():
         if v.get("grey"):

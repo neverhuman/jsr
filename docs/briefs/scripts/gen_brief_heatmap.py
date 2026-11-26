@@ -5,7 +5,8 @@ Computes direction-aware pastel-to-rich cell background hex colours (Emerald #A7
 Soft Sage #D9F99D -> Warm Cream #FEF9C3 -> Soft Peach #FED7AA -> Soft Coral #FECACA) for
 every numeric cell in the CEO and CTO brief scoreboards. Every text value stays a macro
 from docs/paper/data/metrics.tex; this script emits only cell-colour hex macros so the
-heatmap stays 100% data-driven and automatically picks up new energy measurements (e.g. R7).
+heatmap stays 100% data-driven. The energy column is the R7 matched campaign (cold_dev.csv energy_r7) for every
+row: one method per column, idle-subtracted core J per audio-second.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ METRICS = (
     ("Other", "wer_other", False, False, None),
     ("Rss", "rss_mb", False, True, None),
     ("Model", "model_mb", False, True, None),
-    ("Energy", "watts", False, True, (0.30, 5.00)),
+    ("Energy", "energy_r7", False, True, (0.30, 5.00)),
 )
 
 

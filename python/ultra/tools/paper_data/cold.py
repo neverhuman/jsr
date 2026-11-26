@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .common import HOST_NAMES, MACHINES, csv_text, fmt
-from .evidence import HEADLINE, derived, read_rows, spell
+from .evidence import HEADLINE, derived, r7_campaign, read_rows, spell
 from .records import Records
 
 # cold_dev.csv is read by pgfplots, which splits on every comma: no free-text column except `short`.
@@ -14,7 +14,7 @@ from .records import Records
 CSV_HEADER = ["id", "variant", "short", "role", "class", "machine", "threads", "series", "cpu", "speed", "rtfx",
               "wer", "wer_clean", "wer_other", "rss_mb", "model_mb", "lag_p50_ms", "lag_p95_ms", "watts", "label",
               "host", "plot", "lag_design_p50_ms", "lag_design_p95_ms", "final_latency_p50_ms", "final_latency_p95_ms",
-              "faded", "timing_panel"]
+              "faded", "timing_panel", "energy_r7"]
 
 
 PARALLEL_TAG = {"intra_op": "", "workers": "Workers", "processes": "Procs"}
@@ -43,7 +43,8 @@ def _csv_row(r: dict) -> list:
             num("cpu", 5), num("speed", 3), num("rtfx", 3), num("wer", 2), num("wer_clean", 2), num("wer_other", 2),
             num("rss_mb", 1), num("model_mb", 1), num("lag_p50_ms", 0), num("lag_p95_ms", 0), num("watts", 3),
             r["label"], r["host"], int(r["plot"]), num("lag_design_p50_ms", 0), num("lag_design_p95_ms", 0),
-            num("final_latency_p50_ms", 0), num("final_latency_p95_ms", 0), int(r["faded"]), r["timing_panel"]]
+            num("final_latency_p50_ms", 0), num("final_latency_p95_ms", 0), int(r["faded"]), r["timing_panel"],
+            num("energy_r7", 6)]
 
 
 def _add_row_records(rec: Records, r: dict) -> None:
@@ -87,6 +88,54 @@ def _add_row_records(rec: Records, r: dict) -> None:
         rec.add(f"Cold{r['macro']}{name}{suffix}", value, raw=raw, unit=unit, configuration=conf + note, **common)
 
 
+R7_WORDS = "R7 matched campaign on the timing subset (one pinned Zen 2 core, counterbalanced blocks)"
+R7_PAIR = ("rc2-live-lm", "r0-int8-r6")  # the paired headline systems: Isosyll live and Zipformer INT8
+
+
+def add_r7_records(root: Path, rows: list[dict], rec: Records) -> None:
+    """Campaign-level R7 numbers for the protocol text, captions and briefs, read from the verdict line and rows."""
+    camp = r7_campaign(root)
+    for r in rows:  # one record per R7 row, with the campaign's workload and receipt, not the timing row's
+        if r.get("anchor") or r.get("energy_idle_subtracted") is None:
+            continue
+        value = float(r["energy_idle_subtracted"])
+        rec.add(f"Cold{r['macro']}EnergyRseven{macro_suffix(r)}", fmt(value, 3), raw=value,
+                unit="J per audio-s (idle-subtracted core)", label=r["label"],
+                configuration=f"{r['system']}; {r['runtime']}; {R7_WORDS}, median of "
+                              f"{r['energy_idle_subtracted_n_clean']} core-clean blocks",
+                workload="R7 timing subset of the LibriSpeech DEV panel",
+                workload_digest=camp["workload_digest"] if camp else "pending (no R7 verdict line)",
+                source=r["energy_r7_source"])
+    have = [r for r in rows if (r["machine"], r["threads"]) == HEADLINE and not r.get("anchor")
+            and r.get("energy_idle_subtracted") is not None]
+    if camp is None or not have:
+        return
+    common = dict(label="exploratory", workload=f"R7: {camp['clips']}-clip subset of the 730-utterance DEV panel",
+                  workload_digest=camp["workload_digest"], source="docs/paper/data/evidence/xbabe0-r7-energy.jsonl")
+    n_clean = [int(r["energy_idle_subtracted_n_clean"]) for r in have]
+
+    def put(rid: str, value: str, raw, unit: str, what: str) -> None:
+        rec.add(rid, value, raw=raw, unit=unit, configuration=f"R7 matched energy campaign: {what}", **common)
+
+    put("RsevenArms", str(len(have)), len(have), "arms", "systems with an R7 energy value")
+    put("RsevenBlocks", str(camp["blocks"]), camp["blocks"], "blocks", "counterbalanced blocks over every arm")
+    put("RsevenClips", str(camp["clips"]), camp["clips"], "clips", "utterances of the timing subset every arm decodes")
+    put("RsevenCleanMin", str(min(n_clean)), min(n_clean), "blocks", "fewest core-clean blocks behind one arm's median")
+    put("RsevenCleanMax", str(max(n_clean)), max(n_clean), "blocks", "most core-clean blocks behind one arm's median")
+    for name, tag in (("live", "Live"), ("zip", "Zip")):
+        a = camp["anchors"][name]
+        dev = 100.0 * abs(a["j_per_audio_s"] / a["r6"] - 1.0)
+        put(f"RsevenAnchor{tag}Pct", fmt(dev, 1), dev, "%",
+            f"full-panel {name} anchor ({a['clips']} utterances, {a['audio_seconds']} audio-s) vs R6, absolute deviation")
+    pair = {r["variant"]: r for r in have if r["variant"] in R7_PAIR}
+    if len(pair) == 2:
+        live, zipf = (float(pair[v]["energy_idle_subtracted"]) for v in R7_PAIR)
+        put("RsevenLiveEnergy", fmt(live, 3), live, "J per audio-s", "Isosyll live, median over core-clean blocks")
+        put("RsevenZipEnergy", fmt(zipf, 3), zipf, "J per audio-s", "Zipformer INT8, median over core-clean blocks")
+        put("RsevenEnergyPct", fmt(100.0 * live / zipf, 0), 100.0 * live / zipf, "%",
+            "Isosyll live as % of Zipformer INT8 (ratio of the two R7 medians, corroborating the paired R6 ratio)")
+
+
 def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     """Write cold_dev.csv (every group, one line per row) and one record per printed quantity."""
     rows = read_rows(root)
@@ -95,6 +144,7 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
     for r in rows:
         if not r.get("anchor"):
             _add_row_records(rec, r)
+    add_r7_records(root, rows, rec)
     group = [r for r in rows if (r["machine"], r["threads"]) == HEADLINE and not r.get("anchor")]
     drawn = [r for r in group if r["plot"]]
     first = rows[0] if rows else None

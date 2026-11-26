@@ -35,6 +35,7 @@
 \newcommand{\ColdLiveWatts}{0.328}% [exploratory] W per live stream
 \newcommand{\ColdLiveWer}{5.54}% [exploratory] % WER, pooled
 \newcommand{\ColdMemorySentence}{In live mode, \ultra{} peaks at 109\,MB, 72\% of matched streaming Zipformer INT8 (152\,MB) and 69.7$\times$ less than Vosk Large (7629\,MB, timed separately); loading the larger 5-gram LM for the commit pass raises peak RSS to 387\,MB.}% [reported] sentence
+\newcommand{\ColdMoonSmallEnergyRseven}{4.301}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonSmallRss}{476}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMoonSmallSpeed}{2.02}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -42,27 +43,29 @@
 \newcommand{\ColdMoonSmallWerClean}{3.98}% [exploratory] % WER
 \newcommand{\ColdMoonSmallWerOther}{8.73}% [exploratory] % WER
 \newcommand{\ColdMoonTinyCorePct}{12.2}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdMoonTinyEnergyRseven}{1.096}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdMoonTinyModel}{45}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonTinyRss}{201}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdMoonTinySpeed}{8.20}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdMoonTinyWatts}{1.077}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdMoonTinyWer}{9.90}% [exploratory] % WER
 \newcommand{\ColdMoonTinyWerClean}{6.54}% [exploratory] % WER
 \newcommand{\ColdMoonTinyWerOther}{14.72}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyCorePct}{42.0}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdNemoFiveSixtyEnergyRseven}{4.208}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdNemoFiveSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtyRss}{987}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoFiveSixtySpeed}{2.38}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdNemoFiveSixtyWatts}{4.513}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdNemoFiveSixtyWer}{3.56}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyWerClean}{2.61}% [exploratory] % WER
 \newcommand{\ColdNemoFiveSixtyWerOther}{4.93}% [exploratory] % WER
+\newcommand{\ColdNemoOneSixtyEnergyRseven}{5.336}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdNemoOneSixtyModel}{700}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoOneSixtyRss}{1287}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoOneSixtySpeed}{1.28}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
 \newcommand{\ColdNemoOneSixtyWer}{3.94}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyWerClean}{2.90}% [exploratory] % WER
 \newcommand{\ColdNemoOneSixtyWerOther}{5.42}% [exploratory] % WER
+\newcommand{\ColdNemoThreeFiveEnergyRseven}{9.476}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdNemoThreeFiveModel}{742}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveRss}{1277}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdNemoThreeFiveSpeed}{0.84}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -70,16 +73,17 @@
 \newcommand{\ColdNemoThreeFiveWerClean}{4.14}% [exploratory] % WER
 \newcommand{\ColdNemoThreeFiveWerOther}{9.00}% [exploratory] % WER
 \newcommand{\ColdParakeetOnnxAsrCorePct}{15.0}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdParakeetOnnxAsrEnergyRseven}{1.585}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdParakeetOnnxAsrModel}{670}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdParakeetOnnxAsrRss}{1684}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdParakeetOnnxAsrSpeed}{6.69}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
 \newcommand{\ColdParakeetOnnxAsrWer}{3.36}% [exploratory] % WER
 \newcommand{\ColdParakeetOnnxAsrWerClean}{2.52}% [exploratory] % WER
 \newcommand{\ColdParakeetOnnxAsrWerOther}{4.58}% [exploratory] % WER
+\newcommand{\ColdParakeetTdtEnergyRseven}{1.730}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdParakeetTdtModel}{671}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdParakeetTdtRss}{1403}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdParakeetTdtSpeed}{5.92}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdParakeetTdtWatts}{1.711}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdParakeetTdtWer}{3.40}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerClean}{2.43}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerOther}{4.78}% [exploratory] % WER
@@ -90,6 +94,7 @@
 \newcommand{\ColdRcTwoFinalWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdRcTwoFinalWerOther}{7.80}% [exploratory] % WER
 \newcommand{\ColdRcTwoLiveLmCorePct}{3.1}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdRcTwoLiveLmEnergyRseven}{0.330}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdRcTwoLiveLmModel}{60}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdRcTwoLiveLmRss}{109}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdRcTwoLiveLmSpeed}{32.7}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -100,6 +105,7 @@
 \newcommand{\ColdRowsCount}{14}% [reported] rows
 \newcommand{\ColdSubsetSentence}{4 slow systems are timed on a 73-utterance subset of the panel (Nemotron 560\,ms, Vosk Large, Whisper.cpp Tiny and Whisper.cpp Base); their WER is from the full panel.}% [reported] sentence
 \newcommand{\ColdVoskLargeCorePct}{24.2}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdVoskLargeEnergyRseven}{2.167}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdVoskLargeModel}{2866}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdVoskLargeRss}{7629}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdVoskLargeSpeed}{4.13}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -107,6 +113,7 @@
 \newcommand{\ColdVoskLargeWerClean}{5.97}% [exploratory] % WER
 \newcommand{\ColdVoskLargeWerOther}{12.85}% [exploratory] % WER
 \newcommand{\ColdVoskSmallCorePct}{14.5}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdVoskSmallEnergyRseven}{1.184}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdVoskSmallModel}{71}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdVoskSmallRss}{257}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdVoskSmallSpeed}{6.88}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -114,6 +121,7 @@
 \newcommand{\ColdVoskSmallWerClean}{10.74}% [exploratory] % WER
 \newcommand{\ColdVoskSmallWerOther}{20.86}% [exploratory] % WER
 \newcommand{\ColdWhisperCppBaseCorePct}{239.6}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdWhisperCppBaseEnergyRseven}{22.598}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdWhisperCppBaseModel}{148}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdWhisperCppBaseRss}{339}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdWhisperCppBaseSpeed}{0.42}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -121,6 +129,7 @@
 \newcommand{\ColdWhisperCppBaseWerClean}{12.47}% [exploratory] % WER
 \newcommand{\ColdWhisperCppBaseWerOther}{19.31}% [exploratory] % WER
 \newcommand{\ColdWhisperCppTinyCorePct}{109.5}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdWhisperCppTinyEnergyRseven}{10.216}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdWhisperCppTinyModel}{78}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdWhisperCppTinyRss}{226}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdWhisperCppTinySpeed}{0.91}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -128,6 +137,7 @@
 \newcommand{\ColdWhisperCppTinyWerClean}{14.51}% [exploratory] % WER
 \newcommand{\ColdWhisperCppTinyWerOther}{21.68}% [exploratory] % WER
 \newcommand{\ColdZipRsixCorePct}{7.1}% [exploratory] % of one core for one always-on stream
+\newcommand{\ColdZipRsixEnergyRseven}{0.593}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdZipRsixModel}{73}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdZipRsixRss}{152}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdZipRsixSpeed}{14.0}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
@@ -146,6 +156,16 @@
 \newcommand{\RelIntEightDelta}{$-$0.003}% [exploratory] pp WER
 \newcommand{\RelIntEightHi}{+0.028}% [exploratory] pp WER
 \newcommand{\RelIntEightLo}{$-$0.033}% [exploratory] pp WER
+\newcommand{\RsevenAnchorLivePct}{2.2}% [exploratory] %
+\newcommand{\RsevenAnchorZipPct}{1.1}% [exploratory] %
+\newcommand{\RsevenArms}{14}% [exploratory] arms
+\newcommand{\RsevenBlocks}{3}% [exploratory] blocks
+\newcommand{\RsevenCleanMax}{3}% [exploratory] blocks
+\newcommand{\RsevenCleanMin}{2}% [exploratory] blocks
+\newcommand{\RsevenClips}{73}% [exploratory] clips
+\newcommand{\RsevenEnergyPct}{56}% [exploratory] %
+\newcommand{\RsevenLiveEnergy}{0.330}% [exploratory] J per audio-s
+\newcommand{\RsevenZipEnergy}{0.593}% [exploratory] J per audio-s
 \newcommand{\ScalarDiffs}{0}% [exploratory] utterances with a differing transcript
 \newcommand{\ScalarUtts}{730}% [exploratory] panel utterances compared
 \newcommand{\VfDiagInteriorPct}{86.8}% [exploratory] % of residual positions
@@ -166,4 +186,4 @@
 \newcommand{\VsVerdictTwo}{not significantly different from}% [exploratory] text
 \newcommand{\VsZipChunk}{320}% [exploratory] ms
 
-\newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest (AMD core-energy registers, idle floor subtracted; all from one matched campaign, median over clean counterbalanced blocks; not wall power). Isosyll live is the 160\,ms chunk of one \ColdHeadModel\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}
+\newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest; energy is all from the R7 matched campaign on the \RsevenClips-clip subset (AMD core-energy registers, idle floor subtracted, median over \RsevenCleanMin--\RsevenCleanMax\ clean counterbalanced blocks, not wall power; the \VsEnergyPctOne\% callout is the paired R6 full-panel run; the R7 colours give 56\%). Isosyll live is the 160\,ms chunk of one \ColdHeadModel\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}

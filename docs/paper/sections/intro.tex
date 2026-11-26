@@ -26,13 +26,13 @@ comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \begin{enumerate}
 \item \textbf{Fastest always-on streaming, lowest measured core energy.} \ultra{} live delivers
   \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
-  core energy per audio second and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live gap to Zipformer on unselected DEV of
+  core energy per audio second in the paired R6 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live gap to Zipformer on unselected DEV of
   \CandLiveLmCDelta\pp.
 \item \textbf{Reproducible integer-exact CPU engine.} A pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp, with batch-invariant execution and
   identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).
 \item \textbf{Unified all-comparator protocol.} Same 730 DEV utterances (\ColdAudioMinutes\,min), one
-  pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, and active core energy for
-  every metered system, paired in the same blocks for Zipformer INT8 (\cref{sec:protocol}).
+  pinned Zen~2 core, three cold repetitions, one text normaliser and scorer, and idle-subtracted core
+  energy for every system from one matched campaign, paired in the same blocks for Zipformer INT8 (\cref{sec:protocol}).
 \end{enumerate}
 All accuracy results are LibriSpeech DEV only; no test-set numbers appear (\cref{sec:protocol}).

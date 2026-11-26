@@ -115,8 +115,25 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
             assert name in caption and name in layout, name
         assert r"\def\HeroBarTitle{Energy per audio-second (J, log)}" in layout
         assert "Isosyll live and Zipformer INT8 in the same blocks" in caption
-    # the blocks clause names a single matched campaign only when every coloured value comes from it (R7)
-    assert ("all from one matched campaign" in caption) != ("others in separate sessions" in caption), caption
+    # the energy clause names the R7 campaign only when every coloured value comes from it, and then says
+    # where the energy comes from (73-clip subset) and how the R6 callout relates to the R7 colours
+    assert ("all from the R7 matched campaign" in caption) != ("others in separate sessions" in caption), caption
+    if "all from the R7 matched campaign" in caption:
+        r7_pct = rec["RsevenEnergyPct"]["value"]
+        assert r"\RsevenClips-clip subset" in caption and r"\RsevenCleanMin--\RsevenCleanMax" in caption
+        assert rf"the \VsEnergyPctOne\% callout is the paired R6 full-panel run; the R7 colours give {r7_pct}\%" in caption
+        # one energy method per column: Table I, the README table and the brief heat maps are all R7
+        table = (DATA / "table_measured.tex").read_text(encoding="utf-8")
+        body = [ln for ln in table.splitlines() if ln.count("&") == 8]
+        assert body and all("EnergyRseven}" in ln.rsplit("&", 1)[1] for ln in body), "Table I energy column is not all R7"
+        assert "Watts" not in table
+        block = readme_txt.split("<!-- money-plot:start -->")[1].split("<!-- money-plot:end -->")[0]
+        assert "| — |" not in block and "include the core idle floor" not in block
+        assert "R7 matched campaign: idle-subtracted core J per audio-second" in block
+        for brief in ("ceo-brief.tex", "cto-brief.tex"):
+            btxt = (pd.REPO / "docs" / "briefs" / "src" / brief).read_text(encoding="utf-8")
+            assert "not shown here" not in btxt and "omitted here" not in btxt and r"\hmna" not in btxt, brief
+            assert "R7 matched campaign: idle-subtracted core J per audio-second" in btxt, brief
     assert "not wall power" in caption and caption.count("not wall power") == 1 and caption.count(". ") == 1, caption
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
@@ -385,7 +402,7 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
     block = (DATA / "money_readme.md").read_text()
     for must in ("32.7×", "0.328 J/audio-s", "6.10%", "5.00%",
                  "+0.81 [+0.62, +1.02] pp",
-                 "| J/audio-s |", "idle floor", "same blocks", "160 ms chunks"):
+                 "| J/audio-s |", "idle-subtracted", "paired R6 full-panel", "160 ms chunks"):
         assert must in block, must
     assert "0.003" not in block and "half latency" not in block
     # install block: one-line installer, signed manual path with the release key, and the run commands
