@@ -223,7 +223,7 @@ def cmd_metadata(a: argparse.Namespace) -> int:
     mac = macros(paper / "data/metrics.tex", paper / "paper.tex", paper / "sections/fallbacks.tex")
     mac.update({"ultra": "Isosyll", "cpus": "CPU-s/s", "pp": " pp "})
     src = (paper / "paper.tex").read_text()
-    title = plain(mac.get("PaperTitle", "") + (": " + mac["PaperDescriptor"] if "PaperDescriptor" in mac else ""), mac)
+    title = plain(mac.get("PaperTitle", "") + (" \u2014 " + mac["PaperDescriptor"] if "PaperDescriptor" in mac else ""), mac)
     # Title as typeset is "PaperTitle" with descriptor as a subtitle; arXiv wants one line.
     m = re.search(r"pdfauthor=\{(.*?)\}\s*,\s*\n", src, re.S)
     authors = [x.strip() for x in re.split(r",\s*(?:and\s+)?|\s+and\s+", m.group(1)) if x.strip()] if m else []
