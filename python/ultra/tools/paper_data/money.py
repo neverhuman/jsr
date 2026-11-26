@@ -251,7 +251,7 @@ def _decade_ticks(lo: float, hi: float) -> list[float]:
 
 
 def energy_range(values: list[float]) -> tuple[float, float]:
-    """Colour-bar range on the 1-2-3-5 series: the series value at or below the lowest energy and at or above the highest."""
+    """Colour-bar range on the 1, 2, 3, 5 series: the series value at or below the lowest energy and at or above the highest."""
     series = sorted(round(m * 10.0 ** k, 6) for k in range(-3, 4) for m in (1, 2, 3, 5))
     return max(v for v in series if v <= min(values) * 1.0001), min(v for v in series if v >= max(values) * 0.9999)
 

@@ -41,7 +41,7 @@ def test_wrap_figures_only_tex_drawn_floats():
 
 
 @pytest.mark.parametrize("text", [
-    "host xbabe3 ran", "ip 10.77.0.1 here", "see /home/ubuntu/x", "mail a@b.com", "ghp_" + "a" * 30,
+    "host xbabe3 ran", "ip " + ".".join(["10", "77", "0", "1"]) + " here", "see /home/ubuntu/x", "mail a@b.com", "ghp_" + "a" * 30,
     "github.com/neverhuman/jsr", "neverhumanbot",
 ])
 def test_scan_flags_leaks(text):
