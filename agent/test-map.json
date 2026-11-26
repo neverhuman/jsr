@@ -496,6 +496,14 @@
     "crates/isosyll/": {
       "command": "cargo test -p isosyll",
       "purpose": "unit tests for the isosyll CLI (args, model resolution, manifest verify, segmentation)"
+    },
+    "ops/paper/": {
+      "command": ".venv/bin/python -m pytest -q python/ultra/tests/test_arxiv_stage.py",
+      "purpose": "the arXiv stager strips comments safely, resolves IfFileExists, wraps TikZ figures, and the privacy scan catches host, path, email, token and account leaks"
+    },
+    "docs/paper/arxiv/": {
+      "command": "just arxiv-check",
+      "purpose": "the committed arXiv source zip and upload notes match a fresh deterministic build from the paper sources"
     }
   }
 }
