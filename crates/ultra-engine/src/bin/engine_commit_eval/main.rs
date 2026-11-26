@@ -72,9 +72,16 @@ fn run(a: &Args) -> Result<Value, String> {
         a.rescore_m5_sub,
     )
     .map_err(|e| e.to_string())?
-    .map(|c| match a.rescore_r2l_top_k {
-        Some(k) => c.with_r2l_top_k(k),
-        None => c,
+    .map(|c| {
+        let c = match a.rescore_r2l_top_k {
+            Some(k) => c.with_r2l_top_k(k),
+            None => c,
+        };
+        let c = match a.rescore_skip_margin {
+            Some(m) => c.with_skip_margin(m),
+            None => c,
+        };
+        c.with_act7(a.rescore_act7)
     });
     let mut sess = CommitPassSession::new(eng, cfg)
         .and_then(|s| s.with_commit_lm(lm_cfg))
@@ -135,6 +142,8 @@ fn run(a: &Args) -> Result<Value, String> {
             map.insert("rescore_weight".into(), json!(a.rescore_weight));
             map.insert("rescore_m5_sub".into(), json!(a.rescore_m5_sub));
             map.insert("rescore_r2l_top_k".into(), json!(a.rescore_r2l_top_k));
+            map.insert("rescore_skip_margin".into(), json!(a.rescore_skip_margin));
+            map.insert("rescore_act7".into(), json!(a.rescore_act7));
         }
     }
     writeln!(out, "{summary}").map_err(|e| e.to_string())?;

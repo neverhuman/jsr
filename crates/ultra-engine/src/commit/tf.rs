@@ -27,6 +27,11 @@ pub struct CommitTfRescoreConfig {
     pub rescore_weight: f32,
     pub m5_sub: f32,
     pub r2l_top_k: usize,
+    /// Skip Transformer rescoring when the fused-beam top-1 minus top-2 score is at least this
+    /// margin (`f32::INFINITY` = always rescore, the default).
+    pub skip_margin: f32,
+    /// 7-bit activation codes in the rescorer's INT8 linears (`gemm_i8_a7` on AVX2); default off.
+    pub act7: bool,
 }
 
 impl CommitTfRescoreConfig {
@@ -42,6 +47,8 @@ impl CommitTfRescoreConfig {
             rescore_weight,
             m5_sub,
             r2l_top_k: DEFAULT_RESCORE_R2L_TOP_K,
+            skip_margin: f32::INFINITY,
+            act7: false,
         };
         cfg.validate()?;
         Ok(cfg)
@@ -50,6 +57,18 @@ impl CommitTfRescoreConfig {
     /// Override Stage-2 R2L finalist count (`0` scores all beam hypotheses exhaustively).
     pub fn with_r2l_top_k(mut self, top_k: usize) -> Self {
         self.r2l_top_k = top_k;
+        self
+    }
+
+    /// Only rescore utterances whose fused-beam top-1 margin is below `margin`.
+    pub fn with_skip_margin(mut self, margin: f32) -> Self {
+        self.skip_margin = margin;
+        self
+    }
+
+    /// Use 7-bit activation codes in the rescorer's INT8 linears.
+    pub fn with_act7(mut self, on: bool) -> Self {
+        self.act7 = on;
         self
     }
 
@@ -92,6 +111,11 @@ impl CommitTfRescoreConfig {
                 ));
             }
         }
+        if self.skip_margin.is_nan() || self.skip_margin < 0.0 {
+            return Err(EngineError::Format(
+                "skip_margin must be >= 0 (or +inf)".into(),
+            ));
+        }
         if !self.rescore_weight.is_finite()
             || self.rescore_weight < 0.0
             || !self.m5_sub.is_finite()
@@ -111,6 +135,20 @@ impl CommitTfRescoreConfig {
         hyps: &[Hyp],
         ws: &mut TfWorkspace,
     ) -> Result<Vec<f32>, EngineError> {
+        if self.skip_margin.is_finite() && hyps.len() > 1 {
+            let (mut b1, mut b2) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+            for h in hyps {
+                if h.score > b1 {
+                    b2 = b1;
+                    b1 = h.score;
+                } else if h.score > b2 {
+                    b2 = h.score;
+                }
+            }
+            if b1 - b2 >= self.skip_margin {
+                return Ok(hyps.iter().map(|h| h.score).collect());
+            }
+        }
         let seqs: Vec<&[u32]> = hyps.iter().map(|h| &h.tokens[h.ctx_start..]).collect();
         let ngram = eng.lm.as_ref().map(|(lm, _)| lm.as_ref());
         let l2r_sc = match &self.l2r {
@@ -173,7 +211,9 @@ impl super::CommitPassSession {
     ) -> Result<Self, EngineError> {
         if let Some(c) = cfg {
             c.validate()?;
-            self.tf = Some((c, TfWorkspace::default()));
+            let mut ws = TfWorkspace::default();
+            ws.set_act7(c.act7);
+            self.tf = Some((c, ws));
         } else {
             self.tf = None;
         }

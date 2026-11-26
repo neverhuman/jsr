@@ -148,7 +148,7 @@ def main() -> None:
         grid_c = [0.0]
     for wa, wb, wc, ws, wk in itertools.product(grid_a, grid_b, grid_c, grid_s, grid_k):
         if wb is None:
-            wb = wa
+            wb = wa if "r2l" in feats else 0.0
         s = base + wc * nw + (wa * feats["l2r"] if wa else 0) + (wb * feats["r2l"] if wb else 0) - (ws * feats["m5"] if ws else 0) + (wk * feats["cache"] if wk else 0)
         idx = pick(s)
         e = ed[idx]
