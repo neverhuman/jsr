@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Summarise the R7 matched energy campaign.
+
+    r7_summarize.py RECEIPT_ROOT [--evidence docs/paper/data/evidence/xbabe0-r7-energy.jsonl]
+
+RECEIPT_ROOT holds block1/, block2/, block3/ (one energy_bench receipt per arm, named <arm id>.json; anchors
+are anchor730-live.json and anchor730-zip.json in block1/). Writes RECEIPT_ROOT/summary.json and, with
+--evidence, one JSON row per arm keyed by the id used in data/cold_dev.csv. The metric is the receipt's
+joules_per_audio_s: (core energy - idle power x wall time) / audio seconds, the R6 definition.
+"""
+import argparse
+import csv
+import hashlib
+import json
+import math
+import statistics
+from pathlib import Path
+
+R6 = {"rc2-live-lm-zen2-t1": 0.328, "r0-int8-r6-zen2-t1": 0.573}
+TOL = 0.05
+# arm key used in the receipt file names -> id of data/cold_dev.csv
+IDS = {
+    "rc2-live-lm": "rc2-live-lm-zen2-t1",
+    "rc2-final": "rc2-final-zen2-t1",
+    "r0-int8-r6": "r0-int8-r6-zen2-t1",
+    "moonshine-tiny": "moonshine-tiny-zen2-t1",
+    "moonshine-small": "moonshine-small-zen2-t1-xbabe3",
+    "nemotron-en-560": "nemotron-en-560-zen2-t1",
+    "nemotron-en-160": "nemotron-en-160-zen2-t1-xbabe3",
+    "nemotron-35": "nemotron-35-zen2-t1-xbabe3",
+    "parakeet-tdt-v3-int8": "parakeet-tdt-v3-int8-zen2-t1",
+    "parakeet-v3-onnxasr-int8": "parakeet-v3-onnxasr-int8-zen2-t1",
+    "vosk-small": "vosk-small-zen2-t1",
+    "vosk-large": "vosk-large-zen2-t1",
+    "whispercpp-stream-tiny": "whispercpp-stream-tiny-zen2-t1",
+    "whispercpp-stream-base": "whispercpp-stream-base-zen2-t1",
+}
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load(root, block, key):
+    path = root / f"block{block}" / f"{key}.json"
+    if not path.exists():
+        return None, None
+    return json.loads(path.read_text()), path
+
+
+def row_of(d):
+    rep = d["reps"][0]
+    return {
+        "j_per_audio_s": d["joules_per_audio_s"],
+        "cpu_s_per_audio_s": d["cpu_s_per_audio_s"],
+        "wall_s_per_audio_s": rep["wall_seconds"] / rep["audio_seconds"],
+        "idle_core_w": rep["core"]["idle_watts"],
+        "idle_pkg_w": rep["package"]["idle_watts"],
+        "mean_mhz": rep.get("mean_mhz"),
+        "audio_seconds": rep["audio_seconds"],
+        "core_clean": d["clean_repetitions"]["core"] == 1,
+        "flags": [f for f in d["flags"] if not f.startswith("no_clean_package") and "package" not in f],
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("root", type=Path)
+    ap.add_argument("--evidence", type=Path)
+    ap.add_argument("--cold-dev", type=Path, default=Path(__file__).resolve().parents[4] / "docs" / "paper" / "data" / "cold_dev.csv")
+    args = ap.parse_args()
+    root = args.root
+    meta = {r["id"]: r for r in csv.DictReader(args.cold_dev.open())}
+    summary, rows = {}, []
+    for key, cid in IDS.items():
+        blocks, paths = [], []
+        for b in (1, 2, 3):
+            d, p = load(root, b, key)
+            if d is None:
+                continue
+            r = row_of(d)
+            r["block"] = b
+            blocks.append(r)
+            paths.append(p)
+        if not blocks:
+            continue
+        # Colour rule: only core-clean blocks count; an arm with none stays grey (no evidence row).
+        keep = [i for i, r in enumerate(blocks) if r["core_clean"]]
+        if not keep:
+            summary[key] = {"grey": True, "n_clean": 0, "id": cid,
+                            "disturbed_blocks_j_per_audio_s": [r["j_per_audio_s"] for r in blocks],
+                            "note": "no core-clean attempt; disturbed values stay in the receipts only"}
+            continue
+        blocks_all, paths_all = blocks, paths
+        blocks = [blocks_all[i] for i in keep]
+        paths = [paths_all[i] for i in keep]
+        med = statistics.median(r["j_per_audio_s"] for r in blocks)
+        cpu = statistics.median(r["cpu_s_per_audio_s"] for r in blocks)
+        mid = min(range(len(blocks)), key=lambda i: abs(blocks[i]["j_per_audio_s"] - med))
+        vals = [r["j_per_audio_s"] for r in blocks]
+        entry = {
+            "j_per_audio_s_median": round(med, 6),
+            "blocks": vals,
+            "n_clean": len(blocks),
+            "clean_blocks": [r["block"] for r in blocks],
+            "n_blocks_run": len(blocks_all),
+            "block_spread_pct": round(100 * (max(vals) - min(vals)) / med, 2) if med else None,
+            "cpu_s_per_audio_s": round(cpu, 6),
+            "speed_x": round(1 / cpu, 3),
+            "wall_speed_x": round(1 / statistics.median(r["wall_s_per_audio_s"] for r in blocks), 3),
+            "panel": "p73",
+            "audio_seconds": blocks[0]["audio_seconds"],
+            "idle_w": round(statistics.median(r["idle_core_w"] for r in blocks), 4),
+            "idle_pkg_w": round(statistics.median(r["idle_pkg_w"] for r in blocks), 2),
+            "block_core_clean": [r["core_clean"] for r in blocks],
+            "block_flags": [r["flags"] for r in blocks],
+            "id": cid,
+        }
+        summary[key] = entry
+        rel = [str(p.relative_to(root)) for p in paths]
+        m = meta.get(cid, {})
+        rows.append({
+            "id": cid, "variant": m.get("variant"), "short": m.get("short"), "role": m.get("role"),
+            "class": m.get("class"), "machine": "zen2", "host": "xbabe0", "threads": 1,
+            "series": m.get("series"), "panel": "p73", "protocol": "R7",
+            "energy_j_per_audio_s": entry["j_per_audio_s_median"], "energy_method": "core_idle_subtracted",
+            "kind": "r7_energy", "blocks": vals, "n_clean": len(blocks),
+            "clean_blocks": [r["block"] for r in blocks], "block_spread_pct": entry["block_spread_pct"],
+            "cpu_s_per_audio_s": entry["cpu_s_per_audio_s"], "speed_x": entry["speed_x"],
+            "idle_core_w": entry["idle_w"], "block_core_clean": entry["block_core_clean"],
+            "block_flags": entry["block_flags"],
+            "receipt": rel[mid], "receipt_sha256": sha(paths[mid]),
+            "receipts": [{"path": r, "sha256": sha(root / r)} for r in rel],
+            "label": "exploratory",
+        })
+    anchors = {}
+    for key, cid, name in (("anchor730-live", "rc2-live-lm-zen2-t1", "live"), ("anchor730-zip", "r0-int8-r6-zen2-t1", "zip")):
+        d, p = load(root, 1, key)
+        if d is None:
+            continue
+        r = row_of(d)
+        ref = R6[cid]
+        anchors[name] = {"j_per_audio_s": r["j_per_audio_s"], "r6": ref,
+                         "deviation_pct": round(100 * (r["j_per_audio_s"] / ref - 1), 2),
+                         "within_5pct": abs(r["j_per_audio_s"] / ref - 1) <= TOL,
+                         "cpu_s_per_audio_s": r["cpu_s_per_audio_s"], "speed_x": round(1 / r["cpu_s_per_audio_s"], 3),
+                         "core_clean": r["core_clean"], "flags": r["flags"], "panel": "full730",
+                         "receipt": str(p.relative_to(root)), "receipt_sha256": sha(p)}
+    verdict = "VALID" if anchors and all(a["within_5pct"] for a in anchors.values()) and len(anchors) == 2 else "VOID"
+    out = {"protocol": "R7", "validity": verdict, "anchors": anchors, "arms": summary}
+    (root / "summary.json").write_text(json.dumps(out, indent=1) + "\n")
+    if args.evidence:
+        ids = [r["id"] for r in rows]
+        if len(ids) != len(set(ids)):
+            raise SystemExit("duplicate target ids in evidence")
+        for r in rows:
+            v = r["energy_j_per_audio_s"]
+            if not (isinstance(v, float) and math.isfinite(v) and v > 0):
+                raise SystemExit(f"bad energy value for {r['id']}: {v!r}")
+            for rc in r["receipts"]:
+                if sha(root / rc["path"]) != rc["sha256"]:
+                    raise SystemExit(f"receipt sha256 mismatch: {rc['path']}")
+        for r in rows:
+            r["anchor_check"] = verdict
+        args.evidence.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+    print(verdict, json.dumps(anchors, indent=1))
+    for k, v in summary.items():
+        if v.get("grey"):
+            print(f"{k:28s} GREY (no clean block)")
+            continue
+        print(f"{k:28s} {v['j_per_audio_s_median']:8.4f} {v['blocks']} spread {v['block_spread_pct']}% speed {v['speed_x']}x")
+
+
+if __name__ == "__main__":
+    main()
