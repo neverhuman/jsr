@@ -176,7 +176,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
           r"Ratios are medians of within-block ratios. "
           r"$\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
           r"\textsuperscript{a}Live stream plus a commit pass at reference utterance boundaries.}",
-          r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{3pt}",
+          r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{1.5pt}",
           r"\begin{tabular}{@{}l" + "r" * len(cols) + r"@{}}", r"\toprule",
           " & ".join(["Metric"] + [c for c, _ in cols]) + r" \\", r"\midrule"]
     tx += [" & ".join([label] + [f(q) for _, q in cols]) + r" \\" for label, f in body]

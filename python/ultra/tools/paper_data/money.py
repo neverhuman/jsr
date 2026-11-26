@@ -136,20 +136,43 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
 
 
 HERO_VARIANTS = {
-    "LiveLm": "rc2-live-lm", "LiveLmWide": "rc2-live-lm320", "LiveGreedy": "rc2-live-greedy", "Final": "rc2-final",
-    "Zip": "r0-int8-r6", "OldLive": "rc1-ema-live", "OldFinal": "rc1-ema-final", "Parakeet": "parakeet-v3-onnxasr-int8",
+    # Our 4 operating points on one 60 MB INT8 artifact (quiet H1, same interleaved blocks)
+    "LiveLmWide": "rc2-live-lm320",
+    "LiveLm": "rc2-live-lm",
+    "LiveGreedy": "rc2-live-greedy",
+    "Final": "rc2-final",
+    # All 12 timed Zen 2 public comparators (quiet H1 primary, plus 3 H0 interim rows)
+    "Zip": "r0-int8-r6",
+    "MoonTiny": "moonshine-tiny",
+    "MoonSmall": "moonshine-small",
+    "VoskSmall": "vosk-small",
+    "VoskLarge": "vosk-large",
+    "ParakeetOnnx": "parakeet-v3-onnxasr-int8",
+    "ParakeetSherpa": "parakeet-tdt-v3-int8",
+    "NemoFiveSixty": "nemotron-en-560",
+    "NemoOneSixty": "nemotron-en-160",
+    "NemoThreeFive": "nemotron-35",
+    "WhisperTiny": "whispercpp-stream-tiny",
+    "WhisperBase": "whispercpp-stream-base",
 }
+_HERO_QUIET_FULL = {"rc2-live-lm320", "rc2-live-lm", "rc2-live-greedy", "rc2-final", "r0-int8-r6", "parakeet-v3-onnxasr-int8"}
 
 
 def hero_rows(rows: list[dict]) -> dict[str, dict]:
-    """Select the rows of the foreground figure: v3.1.0 live, final and Zipformer INT8 from the same quiet
-    interleaved blocks, the previous release (v3.0.0) and the whole-clip reference, all on one workload."""
-    matched = {
-        row["variant"]: row for row in rows
-        if (row["machine"], row["threads"]) == HEADLINE and row["variant"] in HERO_VARIANTS.values()
-        and row["host"] == "xbabe0" and not row["interim"] and row["timing_panel"] == "full"
-        and len(row.get("cpu_reps", [])) == 3
-    }
+    """Select all 4 Isosyll modes and all 12 timed Zen 2 public comparators on one 730-utt DEV workload."""
+    matched: dict[str, dict] = {}
+    for row in rows:
+        if (row["machine"], row["threads"]) != HEADLINE or row.get("anchor"):
+            continue
+        v = row["variant"]
+        if v not in HERO_VARIANTS.values():
+            continue
+        if v in _HERO_QUIET_FULL:
+            if row["host"] != "xbabe0" or row["interim"] or row["timing_panel"] != "full" or len(row.get("cpu_reps", [])) != 3:
+                continue
+        elif not row["plot"]:
+            continue
+        matched[v] = row
     if not set(HERO_VARIANTS.values()) <= matched.keys():
         return {}
     chosen = {label: matched[variant] for label, variant in HERO_VARIANTS.items()}
@@ -157,16 +180,16 @@ def hero_rows(rows: list[dict]) -> dict[str, dict]:
 
 
 def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
-    """The Figure 1 sentences (Unicode source text) for the v3.1.0 foreground (identical weights in v3.2.0):
-    caption headline and subtitle. The 730-utterance panel overlaps the selection half, so the unselected-half gap always stands beside it."""
+    """Figure 1 headline and README summary. The figure draws live +LM at 160 ms and final only."""
     d = {label: derived(row) for label, row in hero.items()}
     live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
     gap_c = rec.rows["CandLiveLmCDelta"]["value"].replace("$-$", "\u2212")
-    headline = (f"Isosyll v3.1.0 live (160 ms, +LM; identical weights in v3.2.0): {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}% WER on the selection "
-                f"panel ({gap_c} pp on unselected DEV) vs. Zipformer INT8 {speed_text(zip_['speed'])}\u00d7, {fmt(zip_['wer'], 2)}%; "
-                f"final {fmt(fin['wer'], 2)}%, {speed_text(fin['speed'])}\u00d7.")
-    subtitle = (f"Live (160 ms chunk, +LM): {speed_text(live['speed'])}\u00d7 real time, {fmt(live['wer'], 2)}% WER (selection panel) \u00b7 "
-                f"Final (commit pass at utterance ends): {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}% WER")
+    headline = (f"Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
+                f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER at 160 ms; "
+                f"{gap_c} pp on unselected DEV) and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
+                f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%).")
+    subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% "
+                f"\u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
     return {"headline": headline, "subtitle": subtitle}
 
 
@@ -183,38 +206,42 @@ def nemotron_timing_note(rows: list[dict]) -> str:
 
 def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     points = {label: derived(row) for label, row in chosen.items()}
-    bounds = axis_limits(list(points.values()))
-    ticks = range(bounds["xmin"], bounds["xmax"] + 1, bounds["xstep"])
-    live, zipformer = points["LiveLm"], points["Zip"]
-    y_max = max(8.8, max(point["wer"] for point in points.values()) + 1.9)
-    drawn = ("LiveLm", "LiveLmWide", "LiveGreedy", "Final", "Zip")
+    energy_order = ("LiveLmWide", "LiveGreedy", "LiveLm", "Zip", "Final", "MoonTiny", "ParakeetSherpa", "NemoFiveSixty")
     energy = all(
         points[label]["watts"] is not None and chosen[label].get("energy_method") == "core_msr_active"
-        for label in drawn
+        for label in energy_order
     )
+    wide_ratio = chosen["LiveLmWide"]["paired_vs_anchor"]["speed"]
+    live_ratio = chosen["LiveLm"]["paired_vs_anchor"]["speed"]
     macros = {
-        "Xmax": bounds["xmax"], "Xticks": ",".join(map(str, ticks)), "Ymax": f"{y_max:g}",
-        "ArrowY": f"{y_max - 0.85:g}",
-        "Ratio": fmt(chosen["LiveLm"]["paired_vs_anchor"]["speed"], 1),
+        "Xmax": 40,
+        "Xticks": "0,5,10,15,20,25,30,35,40",
+        "Ymax": "19.8",
+        "ArrowY": "13.1",
+        "Ratio": fmt(live_ratio, 1),
+        "RatioWide": fmt(wide_ratio, 1),
+        "RatioMoon": fmt(points["LiveLmWide"]["speed"] / points["MoonTiny"]["speed"], 0),
+        "RatioNemo": fmt(points["LiveLmWide"]["speed"] / points["NemoFiveSixty"]["speed"], 0),
+        "EnergyRatioNemo": fmt(points["NemoFiveSixty"]["watts"] / points["LiveLm"]["watts"], 0),
         "HaveEnergy": int(energy),
     }
     for label, point in points.items():
         macros.update({
             label + "X": f"{point['speed']:.6f}", label + "Y": f"{point['wer']:.6f}",
             label + "Speed": speed_text(point["speed"]), label + "Wer": fmt(point["wer"], 2),
+            label + "WerOne": fmt(point["wer"], 1),
         })
-    for label in drawn:
-        macros[label + "Name"] = _tex(chosen[label]["system"])
     if energy:
-        for label in drawn:
-            macros[label + "Energy"] = fmt(points[label]["watts"], 3)
+        for label in energy_order:
+            w = points[label]["watts"]
+            macros[label + "Energy"] = fmt(w, 3)
+            # Horizontal bar width in pt (0..2.0 J/s mapped to 0..68 pt; NemoFiveSixty capped at 70 pt with // break)
+            bar_pt = min(70.0, 68.0 * w / 2.0)
+            macros[label + "BarPt"] = f"{bar_pt:.2f}"
     for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):
-        # the live +LM gap to Zipformer on both panels (160 ms row; the 320 ms row's C-half gap as its own macro)
         macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"Cand{mode}{tag}{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
-    macros["ZOneCClean"] = _words_tex(_sg(float(rec.rows["AudioZOneCleanDelta"]["raw"]), 2))
-    macros["ZOneCThirty"] = _words_tex(_sg(float(rec.rows["AudioZOneThirtyDelta"]["raw"]), 2))
-    macros["ZOneCpuEngine"] = rec.rows["AudioZOneCpuEngineUpper"]["value"]
-    macros["ZOneCpuStream"] = rec.rows["AudioZOneCpuStreamUpper"]["value"]
+    macros["GapCDelta"] = rec.rows["CandLiveLmCDelta"]["value"]
+    macros["GapCWideDelta"] = rec.rows["CandLiveLmEightCDelta"]["value"]
     return [f"\\def\\Hero{key}{{{value}}}%" for key, value in macros.items()]
 
 
@@ -299,10 +326,10 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
                      f"([xshift={b[0]:.2f}pt, yshift={b[1]:.2f}pt] rel axis cs:0,0);")
         names = [_tex(p["row"]["system"]) for p in reversed(ours_pts)]
         ours_legend = r"\shortstack[l]{" + r"\\".join(names) + "}"
-        marks = ["Blue diamonds: ours (same INT8 weights)."]
+        marks = ["Orange diamonds: ours (same INT8 weights)."]
     else:
         ours_legend = "Isosyll v3.0.0 (final, seg.)"
-        marks = ["Blue diamond: ours (final commit pass)."]
+        marks = ["Orange diamond: ours (final commit pass)."]
     if has["whole"] or any(p["class"] == "whole_utterance" for p in pts):
         marks.append("Hollow: offline.")
     n_faded = sum(1 for p in pts if p["row"]["faded"])
@@ -316,14 +343,9 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             configuration="generated: broader comparison figure", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
     if hero:
-        cpu_eng = rec.rows["AudioZOneCpuEngineUpper"]["value"]
-        cpu_str = rec.rows["AudioZOneCpuStreamUpper"]["value"]
-        marks = ["The v3.1.0 live and final modes (identical prepared INT8 weights in v3.2.0) were timed with Zipformer INT8 "
-                 "in the same three interleaved blocks on quiet H1; grey marks are v3.0.0, timed in an earlier session. "
-                 f"Opt-in v3.2.0 \\texttt{{-{{}}-rms-norm}} (Z1) is off by default (at most {cpu_eng}\\% engine / {cpu_str}\\% stream CPU on H0).",
-                 "The final mode uses reference utterance boundaries. Parakeet decodes whole clips."]
-        if nemotron_note:
-            marks.append(_tex(nemotron_note).replace("×", r"$\times$"))
+        marks = ["Orange marks: Isosyll (single 60\\,MB INT8 artifact, model v3.1.0 weights, timed with Zipformer INT8 in the same quiet H1 blocks).",
+                 "Ink marks: all 12 timed public CPU comparators (filled = streaming, hollow = offline whole-clip, lighter = shared-host H0 interim, \\S = 73-clip subset timing).",
+                 "Bottom panel: idle-subtracted core energy for the three matched R6 rows only (same blocks; not wall power)."]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")

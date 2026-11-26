@@ -1,4 +1,4 @@
-# Isosyll paper (IEEE two-column, double-blind)
+# Isosyll paper (DOPE v3 house style)
 
 `paper.tex` is the main file; `paper.pdf` is committed on purpose. All numbers are LibriSpeech DEV
 measurements generated deterministically from SHA-256-pinned receipts in `docs/paper/data/`.
@@ -16,9 +16,10 @@ The recipe:
 2. runs `pdflatex`, `bibtex`, `pdflatex`, `pdflatex` in `docs/paper` with `SOURCE_DATE_EPOCH`
    set to the last commit time;
 3. fails on undefined references or citations, any overfull hbox, a non-Type-1 font, or a missing
-   `Fig. 1.` on page 1.
+   `Figure 1` caption on page 1.
 
-Needs TeX Live with IEEEtran, pgfplots, cleveref, microtype, booktabs and poppler-utils
+Needs TeX Live with the DOPE house packages (charter, helvet, geometry, titlesec, caption, natbib),
+pgfplots, cleveref, microtype, booktabs and poppler-utils
 (`pdffonts`, `pdftotext`, `pdfinfo`). `siunitx` is not used.
 
 ## Layout

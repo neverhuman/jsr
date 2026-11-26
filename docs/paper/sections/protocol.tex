@@ -42,10 +42,12 @@ and runs a second-pass commit decoder once an utterance endpoint is declared; an
 and are drawn hollow in \cref{fig:money}.
 
 \para{Energy.} On the quiet host H1, CPU energy is read from the service core's RAPL energy
-register during the exact same timing run and divided by decoded audio seconds, yielding
-\emph{active core joules per audio-second} (J/audio-s; unpaced, \texttt{core\_msr\_active}, including the core
-idle floor; CPU core domain only, not wall power). For the \ultra{} \PriorVer{} commit pass we
-also record package-domain J/audio-s.
+register during the timing run and divided by decoded audio seconds (CPU core domain only, not
+wall power). The interleaved R6 rows (\ultra{} and Zipformer INT8) subtract the core idle floor
+(\texttt{jsr.energy-bench/v1}, exact phase boundaries). Separately timed Moonshine, Parakeet, and
+Nemotron joins use \texttt{core\_msr\_active} and include that floor, so their joules are not a
+paired ratio against the R6 rows. For the \ultra{} \PriorVer{} commit pass we also record
+package-domain J/audio-s.
 
 \para{Test-set disclosure and INT8 gate.} All accuracy numbers in this paper are LibriSpeech DEV
 only; no test-set numbers appear. In accordance with our benchmark freeze protocol, LibriSpeech
@@ -60,13 +62,13 @@ bootstrap~\cite{bisani2004bootstrap} gate against FP32 within \PreregDeltaPP\pp 
 \label{tab:metrics}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{@{}p{2.35cm}p{5.85cm}@{}}
+\begin{tabular}{@{}p{2.35cm}p{5.75cm}@{}}
 \toprule
 Quantity & Definition and boundary \\
 \midrule
 Cold throughput & Median audio-s / CPU-s across 3 cold runs on 1 pinned Zen~2 core (process tree, model load included). \\
 Paced utilisation & Fraction of one core busy while serving $N$ real-time paced (20\,ms packet) live streams. \\
-Active core J/audio-s & Service-core RAPL energy per audio-s (\texttt{core\_msr\_active}, includes core idle floor; CPU domain only, not wall power). \\
+Active core J/audio-s & R6 rows (\ultra{}, Zipformer): service-core RAPL per audio-s with the idle floor subtracted. Moonshine, Parakeet, and Nemotron include the floor. CPU domain only, not wall power. \\
 Net / gross W & Paced core power per stream with (net) or without (gross) subtracting the idle core floor. \\
 Peak RSS & Peak resident memory of the full recogniser process tree (MB, $10^6$ bytes), distinct from on-disk artifact size. \\
 Lag vs.\ delay & Live stable-word lag vs.\ forced-aligned word ends (128\,s continuous stream); final commit delay after utterance endpoint. \\

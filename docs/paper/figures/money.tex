@@ -1,15 +1,15 @@
-% Fig. 1 body (paper-data): processing speed on ONE pinned core against pooled WER (730-utt DEV panel),
-% one IEEE column (<= 243 pt).
+% Figure 1 body (paper-data): processing speed on ONE pinned core against pooled WER (730-utt DEV panel),
+% full DOPE text width. The hand-drawn hero is money_focused.tex.
 % x: audio-seconds per CPU-second of the recognizer process tree (linear scale, faster to the right).
 % y: pooled WER (%) across all 730 utterances (400 dev-clean + 330 dev-other, lower is better).
-% Blue diamonds: our single winning release model (live stream and final commit pass on identical weights).
+% Orange diamonds: our single winning release model (live stream and final commit pass on identical weights).
 % Filled dark circles: live streaming comparators. Hollow circle: whole-utterance comparator.
 % Lighter circles: interim points from shared host H0 until quiet-host H1 rows land.
 \input{figures/style.tex}%
 \input{\paperdatadir money_layout.tex}%
 \providecommand{\moneyfullplot}{0}%
 \ifnum\numexpr\MoneyHeroOn-\moneyfullplot\relax>0\relax
-\resizebox{242pt}{!}{\input{figures/money_focused.tex}}%
+\input{figures/money_focused.tex}%
 \else
 
 \providecommand{\moneylabel}{}\providecommand{\moneyleader}{}\providecommand{\MoneyKey}{}\providecommand{\MoneyOursLine}{}\providecommand{\MoneyOursLegend}{Isosyll v3.0.0 (live / final)}%

@@ -3,9 +3,13 @@
 % peak RSS (MB), artifact files (MB), active core W per stream.
 \multicolumn{10}{@{}l}{\textbf{AMD Threadripper PRO 3995WX (Zen 2, AVX2)}} \\
 \midrule
-\multicolumn{10}{@{}l}{\textit{Live streaming and streaming + utterance-segmented commit pass (sorted by 1-core speed)}} \\
+\multicolumn{10}{@{}l}{\textit{Our method: Isosyll (single 60 MB INT8 artifact, sorted by 1-core speed)}} \\
+\textbf{Isosyll v3.1.0 (live greedy)} & ours & \ColdRcTwoLiveGreedySpeed & -- & \ColdRcTwoLiveGreedyWerClean & \ColdRcTwoLiveGreedyWerOther & \ColdRcTwoLiveGreedyWer & \ColdRcTwoLiveGreedyRss & \ColdRcTwoLiveGreedyModel & \ColdRcTwoLiveGreedyWatts \\
+\textbf{Isosyll v3.1.0 (live 320 ms)} & ours & \ColdRcTwoLiveLmWideSpeed & -- & \ColdRcTwoLiveLmWideWerClean & \ColdRcTwoLiveLmWideWerOther & \ColdRcTwoLiveLmWideWer & \ColdRcTwoLiveLmWideRss & \ColdRcTwoLiveLmWideModel & \ColdRcTwoLiveLmWideWatts \\
 \textbf{Isosyll v3.1.0 (live +LM)} & ours & \ColdRcTwoLiveLmSpeed & 10/17 & \ColdRcTwoLiveLmWerClean & \ColdRcTwoLiveLmWerOther & \ColdRcTwoLiveLmWer & \ColdRcTwoLiveLmRss & \ColdRcTwoLiveLmModel & \ColdRcTwoLiveLmWatts \\
 \textbf{Isosyll v3.1.0 (final, seg.)} & ours & \ColdRcTwoFinalSpeed & 8/17 & \ColdRcTwoFinalWerClean & \ColdRcTwoFinalWerOther & \ColdRcTwoFinalWer & \ColdRcTwoFinalRss & \ColdRcTwoFinalModel & \ColdRcTwoFinalWatts \\
+\midrule
+\multicolumn{10}{@{}l}{\textit{Public streaming comparators (sorted by 1-core speed)}} \\
 Zipformer INT8~\cite{yao2024zipformer,sherpaonnx} & sherpa-onnx & \ColdZipRsixSpeed & 9/17 & \ColdZipRsixWerClean & \ColdZipRsixWerOther & \ColdZipRsixWer & \ColdZipRsixRss & \ColdZipRsixModel & \ColdZipRsixWatts \\
 Moonshine Tiny Streaming~\cite{kudlur2026moonshinev2} & Moonshine Voice & \ColdMoonTinySpeed & 14/17 & \ColdMoonTinyWerClean & \ColdMoonTinyWerOther & \ColdMoonTinyWer & \ColdMoonTinyRss & \ColdMoonTinyModel & \ColdMoonTinyWatts \\
 Vosk Small (en-us 0.15)~\cite{vosk} & Vosk 0.3.45 & \ColdVoskSmallSpeed & 15/17 & \ColdVoskSmallWerClean & \ColdVoskSmallWerOther & \ColdVoskSmallWer & \ColdVoskSmallRss & \ColdVoskSmallModel & -- \\

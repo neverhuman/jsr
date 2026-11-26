@@ -1,28 +1,11 @@
-\begin{abstract}
-An always-on speech recogniser pays for every second of audio, speech or not, so its compute, memory
-and energy per stream matter as much as its word error rate (WER). \ultra{} \ReleaseVer{} pairs a
-compact streaming Conformer transducer with a pure-Rust engine built on per-row INT8 quantisation,
-exact integer accumulation and a portable log-mel front end; one prepared INT8 artifact serves two
-operating points. \emph{Cost:} on the same 730 LibriSpeech development utterances and the same pinned Zen~2 core,
-timed in the same interleaved blocks, the 160\,ms live stream with a compact language model delivers
-\VsSpeedXOne$\times$ the single-core throughput of streaming Zipformer INT8 at \VsEnergyPctOne\% of its
-active core energy and \VsRssPctOne\% of its memory, with half its chunk length.
-\emph{Accuracy:} on this selection panel its pooled WER is \VsVerdictOne{} Zipformer's (\VsDeltaOne{} percentage points,
-paired one-sided 95\% bounds \VsLoOne{} to \VsHiOne{}, which include zero), but on the unselected half of DEV the gap is
-\CandLiveLmCDelta{} points (bounds \CandLiveLmCLo{} to \CandLiveLmCHi). At utterance
-ends, a commit pass on the same weights reaches \ColdHeadWer\% pooled WER, \VsVerdictTwo{} Zipformer's
-\ColdZipWer\% (paired bounds \VsLoTwo{} to \VsHiTwo), at \VsSpeedXTwo$\times$ its speed and \VsEnergyPctTwo\% of its active core energy.
-\ultra{} \ReleaseVer{} is released by owner decision, not as a gate pass: its registered full-DEV final gate was
-missed (\CandFinalFullEdits{} edits against \CandGateFinalFull). \CandIsaRuns{} witness decodes on other x86
-and ARM CPUs reproduce its Zen~2 transcripts exactly.
-\emph{What did not help:} reranking the beam, stronger teacher labels, lookahead convolution and regularisation
-did not move live accuracy; the residual sits in common interior words on hard audio, so fresh audio is the next lever.
-All results are exploratory and use development data only.
-\end{abstract}
-
-\begin{IEEEkeywords}
-streaming speech recognition, always-on, reproducible inference, bit-exact inference, batch
-invariance, CPU inference, RNN-T, INT8 quantisation
-\end{IEEEkeywords}
-
-\input{sections/fig1.tex}%
+An always-on speech recogniser must keep its CPU cost low while audio arrives.
+\ultra{} runs a pure-Rust streaming transducer with one \ColdHeadModel\,MB RC2 INT8 artifact for live and
+utterance-end final text. On one pinned quiet Zen~2 core, live +LM at 160\,ms reaches
+\ColdLiveSpeed$\times$ real time, \ColdLiveWer\% word error rate (WER) and
+\ColdLiveWatts\,J per audio-second. In paired blocks, that is \VsSpeedXOne$\times$ the throughput
+of Zipformer INT8 at \VsEnergyPctOne\% of its idle-subtracted core energy per audio-second.
+The final pass reaches \ColdHeadWer\% WER at \ColdHeadSpeed$\times$ real time.
+On the unselected DEV confirmation half, live WER is \CandLiveLmCDelta\pp higher than Zipformer's.
+RC2 shipped by owner decision after missing registered edit gates
+(\CandFinalFullEdits{} vs.\ \CandGateFinalFull).
+All results are exploratory and use LibriSpeech DEV.
