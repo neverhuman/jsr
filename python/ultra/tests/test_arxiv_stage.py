@@ -1,4 +1,4 @@
-"""The arXiv stager (ops/paper/arxiv_stage.py, driven by ops/paper/build_arxiv.sh): comment stripping,
+"""The arXiv stager (python/ultra/tools/paper_data/arxiv_stage.py, driven by ops/paper/build_arxiv.sh): comment stripping,
 IfFileExists resolution, figure wrapping and the privacy scan. The docker verification is not run here."""
 
 import importlib.util
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[3]
-spec = importlib.util.spec_from_file_location("arxiv_stage", REPO / "ops/paper/arxiv_stage.py")
+spec = importlib.util.spec_from_file_location("arxiv_stage", REPO / "python/ultra/tools/paper_data/arxiv_stage.py")
 st = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(st)
 

@@ -23,7 +23,7 @@ done
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
-HELPER="python3 -I $ROOT/ops/paper/arxiv_stage.py"
+HELPER="python3 -I $ROOT/python/ultra/tools/paper_data/arxiv_stage.py"
 A="$ROOT/target/arxiv"
 WORK="$A/work"; EXT="$A/work-ext"; SRC="$A/src"; VER="$A/verify"
 DIST="$ROOT/dist/arxiv"; COMMITTED="$ROOT/docs/paper/arxiv"; NAME="isosyll-arxiv-$VERSION"
