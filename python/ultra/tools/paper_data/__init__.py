@@ -96,6 +96,8 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
         texts = [(paper / "paper.tex").read_text(encoding="utf-8")]
         texts += [p.read_text(encoding="utf-8") for p in sorted((paper / "sections").glob("*.tex")) if p.name != "fallbacks.tex"]
         texts += [p.read_text(encoding="utf-8") for p in sorted((paper / "figures").glob("*.tex"))]
+        # the CEO/CTO briefs \input metrics.tex too, so their macros must survive the pruning
+        texts += [p.read_text(encoding="utf-8") for p in sorted((paper.parent / "briefs" / "src").glob("*.tex"))]
         texts += [v for k, v in out.items() if k.endswith(".tex")]
         used = used_macros(rec, texts)
     out["metrics.tex"] = metrics_tex(rec, used)

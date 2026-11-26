@@ -112,7 +112,7 @@ arxiv-check:
     ops/paper/build_arxiv.sh --check
 
 # One command to refresh the paper from docs/paper/data/evidence/*.jsonl: regenerate the data and
-# Fig. 1, rebuild the PDF (just paper), export Fig. 1 as docs/paper/money.png, copy its block into
+# Fig. 1, rebuild the PDF (just paper), export Fig. 1 as docs/paper/money.png (300 dpi) and docs/paper/figures/hero.pdf (vector), copy its block into
 # README.md, stamp the PNG with the hash of its inputs, and run the paper tests.
 paper-refresh: paper
     #!/usr/bin/env bash
@@ -122,7 +122,9 @@ paper-refresh: paper
     out="$root/target/paper-figure"; mkdir -p "$out"
     (cd docs/paper && pdflatex -interaction=nonstopmode -halt-on-error -output-directory "$out" figures/money_standalone.tex > /dev/null) \
         || { tail -30 "$out/money_standalone.log"; exit 1; }
-    pdftoppm -r 220 -png -singlefile "$out/money_standalone.pdf" docs/paper/money
+    pdftoppm -r 300 -png -singlefile "$out/money_standalone.pdf" docs/paper/money
+    cp "$out/money_standalone.pdf" docs/paper/figures/hero.pdf
+    if pdffonts docs/paper/figures/hero.pdf | tail -n +3 | grep -v "Type 1" | grep .; then echo "hero.pdf: non-Type-1 font"; exit 1; fi
     (cd python/ultra && "$pybin" -m tools.paper_data --publish)
     (cd python/ultra && "$pybin" -m pytest -q tests/test_paper_data.py tests/test_paper_evidence.py tests/test_paper_claims.py)
     echo "paper-refresh: docs/paper/paper.pdf, docs/paper/money.png and the README block are current"

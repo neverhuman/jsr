@@ -79,11 +79,10 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert rec["ColdCompletePanelCount"]["raw"] == 17
     assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected RC1 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    for must in ("| **Isosyll live +LM (320 ms)** |", "| **Isosyll live +LM (160 ms)** |",
-                 "| **Isosyll live greedy (160 ms)** |", "| **Isosyll final (commit)** |",
+    for must in ("| **Isosyll live (160 ms, +LM)** |",
                  "| Zipformer INT8 (320 ms) |", "| Moonshine Tiny Streaming |", "| Vosk Small |",
                  "| Nemotron 0.6B (560 ms) § |", "| Parakeet TDT v3 (onnx-asr) |", "| Whisper.cpp Tiny § |",
-                 "33.3×", "0.316", "5.50", "32.7×", "0.328", "5.54",
+                 "32.7×", "0.328", "5.54",
                  "<!-- install:start -->", "<!-- install:end -->",
                  "released by owner decision after missing registered edit gates",
                  "docs/ultra/releases/v4.0.0.md", "[docs/release.md](docs/release.md)",
@@ -91,20 +90,23 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                  "isosyll transcribe", "ssh-keygen -Y verify"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
-    # Hero plot: two Isosyll marks vs all 12 timed comparators. Wide and greedy stay in the table only.
+    for banned in ("Isosyll live greedy", "Isosyll live +LM (320 ms)", "| **Isosyll final (commit)** |", "33.3×", "RC2", "v3.1.0", "v3.0.0"):
+        assert banned not in readme_txt.split("<!-- install:start -->")[0], f"README hero shows a prior/variant mode: {banned!r}"
+    # Hero plot: ONE Isosyll mark (live) vs all 12 timed comparators, names only, colored by energy.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
-    for must_tex in ("Isosyll live +LM", "Isosyll final",
-                     "Zipformer INT8", "Moonshine Tiny", "Moonshine\\\\Small", "Vosk Small", "Whisper.cpp Tiny",
-                     "Nemotron 560", "Nemotron\\\\160", "Nemotron\\\\3.5",
-                     "Parakeet onnx-asr", "Parakeet sherpa-onnx", "Idle-subtracted core energy",
-                     r"\HeroRatio$\times$", "Zipformer INT8's paired throughput",
-                     "energy per audio-second (same blocks)", r"\VsEnergyPctOne", "same blocks"):
+    for must_tex in ("Isosyll live", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
+                     "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
+                     r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
+                     "Energy per audio-second (J, idle-subtracted, log)", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
+                     "Isosyll vs.\\ all", "names colored by energy"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
-    for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide",
-                   "HeroRatioMoon", "HeroEnergyRatioNemo", "HeroMoonTinyBarPt", "HeroParakeetSherpaBarPt",
-                   "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0",
-                   "figblue!35,densely dashed"):
+    for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",
+                   "HeroEnergyRatioNemo", "BarPt", "HeroHaveEnergy", "Idle-subtracted core energy (J/audio-s", "H0 lighter",
+                   "HeroZipSpeed", "HeroZipWer", "HeroLiveLmSpeed", "HeroLiveLmWer", "HeroFinalSpeed", "HeroFinalWer",
+                   "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0", "figblue!35,densely dashed"):
         assert banned not in hero_tex, banned
+    caption = rec["MoneyMarksCaption"]["value"]
+    assert "not wall power" in caption and caption.count("not wall power") == 1 and caption.count(". ") == 1, caption
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
@@ -175,23 +177,17 @@ def test_readme_shows_the_current_figure_block():
     assert paper_title and title == f"# {paper_title[1]}"
     descriptor = re.search(r"\\newcommand\{\\PaperDescriptor\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
     assert descriptor and tagline == f"**{descriptor[1]}**"
-    subtitle = _records()["HeroSubtitle"]["value"]
-    summary_text = subtitle.replace("$\\times$", "×").replace("$\\cdot$", "·").replace("\\%", "%").replace("\\,", " ")
-    assert summary == f"**{summary_text}**"
+    assert summary == "**Isosyll live: 32.7× real time · 0.328 J/audio-s · 5.54% WER on one CPU core**"
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Paper](docs/paper/paper.pdf)" in caption
-    assert "unselected DEV" in caption and "docs/ultra/releases/v4.0.0.md" in caption
+    assert "docs/ultra/releases/v4.0.0.md" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
     pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
-    assert len(table) == 1 + 4 + 12, "all-comparator table: header + 4 Isosyll modes + 12 timed public comparators"
+    assert len(table) == 1 + 1 + 12, "all-comparator table: header + Isosyll live + 12 timed public comparators"
     assert len(pairs) == 2
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
-    assert labels == ["Fastest & lowest power", "Best accuracy from the same weights", "Bit-exact pure-Rust engine"]
+    assert labels == ["Fastest, with the lowest measured energy", "One small artifact", "Bit-exact pure-Rust engine"]
     assert all(len(b.splitlines()) == 1 for b in re.findall(r"^- \*\*.*$", block, flags=re.M)), "one source line per bullet"
-    layout = (DATA / "money_layout.tex").read_text()
-    assert (r"\def\MoneyOursLegend{\shortstack[l]{Isosyll v3.1.0 (live +LM)\\"
-            "Isosyll v3.1.0 (final, seg.)}}") in layout
-    assert "Isosyll v3.1.0\\\\(live +LM)" in layout and "Isosyll v3.1.0\\\\(final, seg.)" in layout
 
 
 def test_release_branding_is_consistent():
@@ -211,7 +207,7 @@ def test_release_branding_is_consistent():
 
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
     assert readme.startswith(f"# {expected_title}\n")
-    assert "| **Isosyll live +LM (320 ms)** |" in readme and "| **Isosyll live +LM (160 ms)** |" in readme and "| **Isosyll final (commit)** |" in readme
+    assert "| **Isosyll live (160 ms, +LM)** |" in readme
     assert "v3.0.1" not in readme, "v3.0.1 leaked into README"
     assert not re.search(r"\bULTRA\b", readme), "display name ULTRA in README"
     for path in (DATA / "metrics.tex", DATA / "money_layout.tex", DATA / "money_readme.md"):
@@ -329,7 +325,7 @@ def test_ratios_to_zipformer_are_medians_of_within_block_ratios():
     assert abs(rec["VsSpeedXTwo"]["raw"] - summary["final_m5"]["speed_ratio_median"]) < 5e-5
     assert rec["VsSpeedXTwo"]["value"] == "1.19" and rec["VsEnergyPctTwo"]["value"] == "115"
     block = (DATA / "money_readme.md").read_text()
-    assert "**1.19×**" in block and "1.20" not in block
+    assert "**2.3×**" in block and "**57%**" in block
 
 
 def test_paper_holds_only_isosyll_live_and_final():
@@ -376,10 +372,9 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
 def test_headline_precision_gate_scope_and_install_sample_are_exact():
     readme = (pd.REPO / "README.md").read_text()
     block = (DATA / "money_readme.md").read_text()
-    for must in ("33.3×", "0.316 J/audio-s", "5.50%", "5.87%", "32.7×", "0.328 J/audio-s", "6.10%", "5.00%", "5.22%",
-                 "+0.65 [+0.47, +0.84] pp", "+0.81 [+0.62, +1.02] pp",
-                 "| J/audio-s |", "rc2-compare.json", "idle floor", "same blocks",
-                 "160 ms chunk", "320 ms chunk"):
+    for must in ("32.7×", "0.328 J/audio-s", "6.10%", "5.00%",
+                 "+0.81 [+0.62, +1.02] pp",
+                 "| J/audio-s |", "idle floor", "same blocks", "160 ms chunks"):
         assert must in block, must
     assert "0.003" not in block and "half latency" not in block
     # install block: one-line installer, signed manual path with the release key, and the run commands

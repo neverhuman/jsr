@@ -204,40 +204,101 @@ def nemotron_timing_note(rows: list[dict]) -> str:
             f"and runs at {speed_text(data['speed'])}× in the separate quiet 73-clip timing test.")
 
 
+# Energy ramp: green (lowest J/audio-s) -> amber -> red (highest). OKLab lightness falls monotonically with energy,
+# so the order survives grayscale and colour-blind viewing; hue carries the green/amber/red reading.
+RAMP_ANCHORS = ("#10B981", "#84CC16", "#F59E0B", "#EA580C", "#DC2626")  # emerald, lime, amber, orange, red (saturated twins of the table cell tints); hue and chroma only # hue and chroma come from these; lightness is set linearly below
+RAMP_L = (0.73, 0.43)  # OKLab lightness at the lowest and the highest energy
+RAMP_STEPS = 48
+NOT_METERED_HEX = "9AA1AD"
+HERO_SHOW_FINAL = False  # one switch: True also plots Isosyll final (its spot has a free label slot in money_focused.tex)
+HERO_PLOTTED = (*(("Final",) if HERO_SHOW_FINAL else ()), "LiveLm", "Zip", "MoonTiny", "MoonSmall", "VoskSmall", "VoskLarge", "ParakeetOnnx", "ParakeetSherpa",
+                "NemoFiveSixty", "NemoOneSixty", "NemoThreeFive", "WhisperTiny", "WhisperBase")
+
+
+def _oklab(hex_: str) -> tuple[float, float, float]:
+    lin = lambda c: c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (lin(int(hex_.lstrip("#")[i:i + 2], 16) / 255) for i in (0, 2, 4))
+    l, m, s_ = (math.cbrt(v) for v in (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b,
+                                       0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
+                                       0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b))
+    return (0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s_,
+            1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s_,
+            0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s_)
+
+
+def _from_oklab(lab: tuple[float, float, float]) -> str:
+    L, a, b = lab
+    l, m, s_ = ((L + 0.3963377774 * a + 0.2158037573 * b) ** 3, (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+                (L - 0.0894841775 * a - 1.291485548 * b) ** 3)
+    rgb = (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s_, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s_,
+           -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s_)
+    enc = lambda c: 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055
+    return "".join(f"{round(255 * min(1.0, max(0.0, enc(max(c, 0.0))))):02X}" for c in rgb)
+
+
+def ramp_hex(t: float) -> str:
+    """Colour at position t in [0, 1] along the energy ramp (0 = lowest energy = green)."""
+    labs = [_oklab(h) for h in RAMP_ANCHORS]
+    t = min(1.0, max(0.0, t)) * (len(labs) - 1)
+    i = min(int(t), len(labs) - 2)
+    f = t - i
+    _, a, b = (x + (y - x) * f for x, y in zip(labs[i], labs[i + 1]))
+    return _from_oklab((RAMP_L[0] + (RAMP_L[1] - RAMP_L[0]) * t / (len(labs) - 1), a, b))
+
+
+def _decade_ticks(lo: float, hi: float) -> list[float]:
+    return [m * 10.0 ** k for k in range(-3, 4) for m in (1, 3) if lo * 0.999 <= m * 10.0 ** k <= hi * 1.001]
+
+
+def energy_range(values: list[float]) -> tuple[float, float]:
+    """Colour-bar range on the 1-2-3-5 series: the series value at or below the lowest energy and at or above the highest."""
+    series = sorted(round(m * 10.0 ** k, 6) for k in range(-3, 4) for m in (1, 2, 3, 5))
+    return max(v for v in series if v <= min(values) * 1.0001), min(v for v in series if v >= max(values) * 0.9999)
+
+
+def hero_floor_included(chosen: dict[str, dict]) -> list[str]:
+    """Plotted systems whose energy value still includes the idle floor (release-run receipts without the R7 value)."""
+    return [k for k in HERO_PLOTTED if k in hero_energy(chosen) and chosen[k].get("energy_idle_subtracted") is None
+            and chosen[k].get("energy_includes_idle")]
+
+
+def hero_energy(chosen: dict[str, dict]) -> dict[str, float]:
+    """J per audio-second, idle-subtracted, per plotted system: the matched-campaign (R7) value when its row has one,
+    else the release-run core energy. A system in neither is absent (drawn grey, named in the caption)."""
+    energy = {}
+    for label in HERO_PLOTTED:
+        row = chosen[label]
+        value = row.get("energy_idle_subtracted")
+        if value is None and row.get("energy_method") == "core_msr_active":
+            value = row.get("watts")
+        if value is not None:
+            energy[label] = float(value)
+    return energy
+
+
 def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     points = {label: derived(row) for label, row in chosen.items()}
-    energy_order = ("LiveLmWide", "LiveGreedy", "LiveLm", "Zip", "Final", "MoonTiny", "ParakeetSherpa", "NemoFiveSixty")
-    energy = all(
-        points[label]["watts"] is not None and chosen[label].get("energy_method") == "core_msr_active"
-        for label in energy_order
-    )
-    wide_ratio = chosen["LiveLmWide"]["paired_vs_anchor"]["speed"]
+    energy = hero_energy(chosen)
     live_ratio = chosen["LiveLm"]["paired_vs_anchor"]["speed"]
-    macros = {
-        "Xmax": 40,
-        "Xticks": "0,5,10,15,20,25,30,35,40",
-        "Ymax": "19.8",
-        "ArrowY": "13.1",
-        "Ratio": fmt(live_ratio, 1),
-        "RatioWide": fmt(wide_ratio, 1),
-        "RatioMoon": fmt(points["LiveLmWide"]["speed"] / points["MoonTiny"]["speed"], 0),
-        "RatioNemo": fmt(points["LiveLmWide"]["speed"] / points["NemoFiveSixty"]["speed"], 0),
-        "EnergyRatioNemo": fmt(points["NemoFiveSixty"]["watts"] / points["LiveLm"]["watts"], 0),
-        "HaveEnergy": int(energy),
-    }
-    for label, point in points.items():
-        macros.update({
-            label + "X": f"{point['speed']:.6f}", label + "Y": f"{point['wer']:.6f}",
-            label + "Speed": speed_text(point["speed"]), label + "Wer": fmt(point["wer"], 2),
-            label + "WerOne": fmt(point["wer"], 1),
-        })
-    if energy:
-        for label in energy_order:
-            w = points[label]["watts"]
-            macros[label + "Energy"] = fmt(w, 3)
-            # Horizontal bar width in pt (0..2.0 J/s mapped to 0..68 pt; NemoFiveSixty capped at 70 pt with // break)
-            bar_pt = min(70.0, 68.0 * w / 2.0)
-            macros[label + "BarPt"] = f"{bar_pt:.2f}"
+    macros = {"Xmax": 35, "Xticks": "0,5,10,15,20,25,30,35", "Ymax": 20, "Ratio": fmt(live_ratio, 1)}
+    for label in HERO_PLOTTED:
+        point = points[label]
+        macros.update({label + "X": f"{point['speed']:.6f}", label + "Y": f"{point['wer']:.6f}"})
+    lo, hi = energy_range(list(energy.values())) if energy else (0.3, 10.0)
+    span = math.log(hi / lo)
+    pos = lambda v: math.log(v / lo) / span
+    for label in HERO_PLOTTED:
+        macros[label + "Color"] = ramp_hex(pos(energy[label])) if label in energy else NOT_METERED_HEX
+        macros[label + "Metered"] = int(label in energy)
+        if label in energy:
+            macros[label + "Energy"] = fmt(energy[label], 3)
+    macros["RampHex"] = ",".join(ramp_hex(i / (RAMP_STEPS - 1)) for i in range(RAMP_STEPS))
+    macros["RampTicks"] = ",".join(f"{pos(v):.5f}/{fmt(v, 0) if v >= 1 else fmt(v, 1)}" for v in sorted({lo, hi, *_decade_ticks(lo, hi)}))
+    macros["RampLo"], macros["RampHi"] = f"{lo:g}", f"{hi:g}"
+    macros["NotMetered"] = ", ".join(_tex(chosen[k]["short"]) for k in HERO_PLOTTED if k not in energy) or "none"
+    macros["ShowFinal"] = int(HERO_SHOW_FINAL)
+    macros["AnyNotMetered"] = int(len(energy) < len(HERO_PLOTTED))
+    macros["AnyFaded"] = int(any(chosen[k]["faded"] for k in HERO_PLOTTED))
     for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):
         macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"Cand{mode}{tag}{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
     macros["GapCDelta"] = rec.rows["CandLiveLmCDelta"]["value"]
@@ -343,9 +404,14 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             configuration="generated: broader comparison figure", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
     if hero:
-        marks = ["Orange marks: Isosyll (single 60\\,MB INT8 artifact, model v3.1.0 weights, timed with Zipformer INT8 in the same quiet H1 blocks).",
-                 "Ink marks: all 12 timed public CPU comparators (filled = streaming, hollow = offline whole-clip, lighter = shared-host H0 interim, \\S = 73-clip subset timing).",
-                 "Bottom panel: idle-subtracted core energy for the three matched R6 rows only (same blocks; not wall power)."]
+        unmetered = [_tex(hero[k]["short"]) for k in HERO_PLOTTED if k not in hero_energy(hero)]
+        floor = [_tex(hero[k]["short"]) for k in hero_floor_included(hero)]
+        floor_txt = f"idle floor subtracted except for {', '.join(floor)}, which include it" if floor else "idle floor subtracted"
+        grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
+        marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
+                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}, same blocks; not wall power{grey}).",
+                 "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; "
+                 "circles stream, squares are offline whole-clip, and \\S\\ marks timing on a 73-clip subset only."]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",
             configuration="generated: the marks drawn in Figure 1", workload=first["workload"],
             workload_digest=first["workload_digest"], source="docs/paper/data/evidence/*.jsonl")
