@@ -86,17 +86,16 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                  "33.3×", "0.316", "5.50", "32.7×", "0.328", "5.54",
                  "<!-- install:start -->", "<!-- install:end -->",
                  "released by owner decision after missing registered edit gates",
-                 "docs/release.md#install-the-pinned-release", "docs/ultra/releases/v3.2.0.md",
-                 "docs/ultra/releases/v4.0.0.md", "docs/ultra/releases/v3.0.1.md",
-                 "ultra-v3.2.0-int8-bundle.tar", "./ultra-cold-wav --chunk 4",
-                 "./ultra-engine-commit --model int8"):
+                 "docs/ultra/releases/v4.0.0.md", "[docs/release.md](docs/release.md)",
+                 "curl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh",
+                 "isosyll transcribe", "ssh-keygen -Y verify"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
     # Hero plot: two Isosyll marks vs all 12 timed comparators. Wide and greedy stay in the table only.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
     for must_tex in ("Isosyll live +LM", "Isosyll final",
                      "Zipformer INT8", "Moonshine Tiny", "Moonshine\\\\Small", "Vosk Small", "Whisper.cpp Tiny",
-                     "Nemotron\\\\560", "Nemotron\\\\160", "Nemotron\\\\3.5",
+                     "Nemotron 560", "Nemotron\\\\160", "Nemotron\\\\3.5",
                      "Parakeet onnx-asr", "Parakeet sherpa-onnx", "Idle-subtracted core energy",
                      r"\HeroRatio$\times$", "Zipformer INT8's paired throughput",
                      "energy per audio-second (same blocks)", r"\VsEnergyPctOne", "same blocks"):
@@ -199,7 +198,7 @@ def test_readme_shows_the_current_figure_block():
 
 def test_release_branding_is_consistent():
     """Binding brand spec (owner, 2026-11-24): the system is Isosyll; exact title, descriptor;
-    the historical name ULTRA appears only where release artifacts are named; v3.0.1 is install-only."""
+    the historical name ULTRA and the old v3.0.1 release appear nowhere in the README."""
     expected_title = "Isosyll: Always Listening, Barely Computing"
     expected_descriptor = "Bit-Exact Streaming Speech Recognition on One CPU Core"
     expected_authors = ("Jepson Taylor, Ricky Ray Butler, Jordan Morrow, Alton Alexander, "
@@ -215,16 +214,13 @@ def test_release_branding_is_consistent():
     readme = (pd.REPO / "README.md").read_text(encoding="utf-8")
     assert readme.startswith(f"# {expected_title}\n")
     assert "| **Isosyll live +LM (320 ms)** |" in readme and "| **Isosyll live +LM (160 ms)** |" in readme and "| **Isosyll final (commit)** |" in readme
-    install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)
-    assert install and "v3.0.1" in install[0], "README install section must mention v3.0.1"
-    non_install_readme = readme[:install.start()] + readme[install.end():]
-    assert "v3.0.1" not in non_install_readme, "v3.0.1 leaked outside README install section"
-    assert not re.search(r"\bULTRA\b", non_install_readme), "display name ULTRA outside the README install section"
+    assert "v3.0.1" not in readme, "v3.0.1 leaked into README"
+    assert not re.search(r"\bULTRA\b", readme), "display name ULTRA in README"
     for path in (DATA / "metrics.tex", DATA / "money_layout.tex", DATA / "money_readme.md"):
         assert not re.search(r"\bULTRA\b", path.read_text(encoding="utf-8")), f"display name ULTRA in {path.name}"
 
     brand_re = re.compile(r"\b(?:ULTRA-S|Ultra-S|Isosyll-S|Ossicle|ISOSYLL|IsoSyll)\b|ULTRA v3\.0 \(|(?<!M3 )(?<!Apple M3 )\bUltra\b")
-    targets: dict[str, str] = {"README.md": non_install_readme}
+    targets: dict[str, str] = {"README.md": readme}
     for path in (
         PAPER / "paper.tex", DATA / "systems.json", DATA / "metrics.tex", DATA / "money_layout.tex",
         *sorted((PAPER / "sections").glob("*.tex")), *sorted((PAPER / "figures").glob("*.tex")),
@@ -360,11 +356,16 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
                  "160 ms chunk", "320 ms chunk"):
         assert must in block, must
     assert "0.003" not in block and "half latency" not in block
-    # install sample: no `<wav-dir>` (a Bash redirection), staged names and output schemas stated, extraction and check on separate lines
-    install = re.search(r"(?ms)^## Install the signed release\n.*?(?=^## |\Z)", readme)[0]
-    assert "<wav-dir>" not in install and "./wav-dir ./live.jsonl" in install and "u00000.wav" in install
-    assert "`provisional` and `committed`" in install and "`id` and `hyp`" in install
-    assert "tar -xf ultra-v3.2.0-int8-bundle.tar\n  sha256sum -c ultra-v3.2.0-int8-bundle.SHA256SUMS" in install and "&& sha256sum" not in install
+    # install block: one-line installer, signed manual path with the release key, and the run commands
+    install = re.search(r"(?ms)^<!-- install:start -->\n## Install\n.*?^<!-- install:end -->", readme)
+    assert install, "README install block must start with `## Install`"
+    install = install[0]
+    assert "\ncurl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh\n" in install
+    assert "isosyll transcribe meeting.wav" in install and "isosyll transcribe --mode live" in install
+    assert "SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA" in install
+    assert "ssh-keygen -Y verify -f allowed_signers" in install and "-s SHA256SUMS.sig < SHA256SUMS" in install
+    assert "sha256sum -c --ignore-missing SHA256SUMS" in install and "<wav-dir>" not in install
+    assert "[docs/release.md](docs/release.md)" in install
     release = (pd.REPO / "docs/release.md").read_text()
     assert "<wav-dir>" not in release and "{\"id\", \"hyp\"}" in release
     rc2 = (pd.REPO / "docs/ultra/releases/v3.1.0-rc2.md").read_text()

@@ -46,44 +46,45 @@ Measured on one pinned Zen 2 core (730-utterance LibriSpeech DEV selection panel
 <!-- money-plot:end -->
 
 <!-- install:start -->
-## Install the signed release
+## Install
 
-Isosyll was released as **ULTRA**, and the tags, `ultra-*` binaries and checkpoint IDs keep that name. The pinned release is **`v3.2.0`**, a runtime-only update of v3.1.0 (same weights and LMs; adds the opt-in `--rms-norm` final-pass level normalisation, off by default). It ships the RC2 INT8 bundle (`int8/`), the decoders `ultra-engine-commit` (final text) and `ultra-cold-wav` (live text) for x86-64 Linux (glibc 2.35 or newer), the language models `M5.ulm` and `c4_p0_0_10_40.v2.ulm`, and the pinned `ultra-score`. Everything is listed in `SHA256SUMS`, which is signed with the project SSH key `SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`.
-
-From the repository root, download the pinned release, verify the signature and hashes, then unpack the bundle.
+One command installs the `isosyll` binary and its model. The binary is pure Rust and the model is INT8 safetensors, so there is no Python, PyTorch or ONNX runtime.
 
 ```bash
-(
-  set -eu
-  pin=docs/ultra/releases/pinned.json
-  tag=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$pin")
-  dir=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["install_dir"])' "$pin")
-  gh release download "$tag" -R neverhuman/jsr -D "$dir" --skip-existing
-  cd "$dir"
-  ssh-keygen -Y verify -f ../../docs/ultra/releases/allowed_signers \
-    -I 219957145+neverhumanbot@users.noreply.github.com -n file -s SHA256SUMS.sig < SHA256SUMS
-  test "sha256-$(sha256sum SHA256SUMS | cut -c1-64)" = "$(basename "$PWD")"
-  sha256sum -c SHA256SUMS
-  tar -xf ultra-v3.2.0-int8-bundle.tar
-  sha256sum -c ultra-v3.2.0-int8-bundle.SHA256SUMS
-  chmod +x ultra-cold-wav ultra-engine-commit ultra-score
-)
+curl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh
 ```
 
-Then, from the repository root, change into the install directory. `utts.jsonl` holds one `{"uid", "wav"}` row per 16 kHz mono PCM16 WAV. The live decoder reads a nonempty directory that holds only regular files named `u00000.wav`, `u00001.wav`, and so on (any other entry is rejected).
+Prebuilt binaries are available for Linux x86-64, Linux arm64 and macOS on Apple silicon. On x86-64 the installer picks the glibc build (glibc 2.35 or newer, the build behind the timing numbers) and falls back to a fully static build elsewhere, such as Alpine; the arm64 Linux build is static. Before it installs anything, the installer checks the release signature with `ssh-keygen` from OpenSSH, and every checksum. It puts the binary in `~/.local/bin` and the model (about 430 MB unpacked, 207 MB to download, including both language models) in `~/.local/share/isosyll`; use `--prefix DIR` to install somewhere else.
+
+## Run
 
 ```bash
-cd "$(python3 -c 'import json; print(json.load(open("docs/ultra/releases/pinned.json"))["install_dir"])')"
-# Final text (commit pass, M5 LM): rows carry uid, provisional, committed and timings, then one summary row
-./ultra-engine-commit --model int8 --manifest utts.jsonl --out commit.jsonl \
-  --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --tail-pad-ms 320 --threads 1 \
-  --commit-lm M5.ulm --lm-scale 0.80 --lodr-scale 0.60 --token-bonus 0.0
-# Live text (160 ms chunk + 34.5 MiB LM) over ./wav-dir: rows are {"id", "hyp"}
-./ultra-cold-wav --chunk 4 --beam 4 --beam-max-symbols 1 --beam-margin 0.0 --lm c4_p0_0_10_40.v2.ulm \
-  --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 r1-engine-int8 int8 ./wav-dir ./live.jsonl
+isosyll transcribe meeting.wav               # final text (commit pass)
+isosyll transcribe --mode live meeting.wav   # 160 ms live text
+isosyll stream meeting.wav                   # live partials, then final text, in real time
+isosyll transcribe --json *.wav              # one JSON object per file
 ```
 
-The [install guide](docs/release.md#install-the-pinned-release) has the details; the final decoder writes `provisional` and `committed` text per `uid`, while the live decoder writes `id` and `hyp`. Record: [v3.2.0](docs/ultra/releases/v3.2.0.md), which keeps the v3.1.0 model and numbers ([v3.1.0](docs/ultra/releases/v3.1.0.md)). Rollback: the previous release, v3.1.0, and before it [v3.0.1](docs/ultra/releases/v3.0.1.md), install the same way into their own directories.
+`isosyll` reads WAV files (16-bit PCM at any sample rate, mono or stereo) and raw 16 kHz PCM (`.pcm`, `.s16le`). It runs on one thread by default. Its decoder settings are the released ones, so it reproduces the numbers above. Run `isosyll --help` to see the options, and `isosyll model verify` to re-check the installed model.
+
+<details>
+<summary>Manual install and signature check</summary>
+
+Every release asset is listed in `SHA256SUMS`, which is signed with the project's SSH release key (`SHA256:Z6YS73tC3B1XPvdmAWA9z+IM2vc2Tmch7AZmiyX0nqA`). To install by hand:
+
+```bash
+v=v4.0.0; t=x86_64-linux        # or x86_64-linux-musl, aarch64-linux, aarch64-macos
+base=https://github.com/neverhuman/jsr/releases/download/$v
+for f in SHA256SUMS SHA256SUMS.sig allowed_signers isosyll-$v-$t.tar.gz isosyll-$v-model.tar.gz; do curl -fsSLO "$base/$f"; done
+ssh-keygen -Y verify -f allowed_signers -I 219957145+neverhumanbot@users.noreply.github.com \
+  -n file -s SHA256SUMS.sig < SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS        # macOS: shasum -a 256 -c --ignore-missing SHA256SUMS
+tar -xzf isosyll-$v-$t.tar.gz && tar -xzf isosyll-$v-model.tar.gz
+./isosyll-$v-$t/bin/isosyll transcribe --model isosyll-model meeting.wav
+```
+
+The research decoders and the scorer behind the paper's tables (`ultra-engine-commit`, `ultra-cold-wav`, `ultra-score`) are documented in [docs/release.md](docs/release.md).
+</details>
 <!-- install:end -->
 
 ## Reproduce every number
