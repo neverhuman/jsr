@@ -14,12 +14,25 @@
 #   run-energy.sh nemotron NAME WORKERS REPS SET RIGHT_CONTEXT
 #   run-energy.sh nemotron35 NAME WORKERS REPS SET
 #   run-energy.sh moonshine NAME WORKERS REPS SET SIZE
+#   R7 matched campaign (one pinned core, one repetition; SET is panel73 or panel730; see research/H39_energy):
+#   run-energy.sh r7-live-lm NAME SET            Isosyll live +LM, RC2 160 ms, LM c4 v2 (3bd85e9e binaries)
+#   run-energy.sh r7-final NAME SET              Isosyll final: commit pass, M5 LM, beam 16 (3bd85e9e)
+#   run-energy.sh r7-zipformer NAME SET          Zipformer INT8, sherpa streaming, through the 3bd85e9e cold binary
+#   run-energy.sh vosk NAME SET small|large      Vosk 0.3.45, 20 ms packets
+#   run-energy.sh whispercpp NAME SET tiny|base  whisper.cpp 1.8.2 through pywhispercpp, 3 s chunks
+#   run-energy.sh onnxasr NAME SET               Parakeet TDT v3 INT8, onnx-asr, whole utterance
+#   run-energy.sh sherpa-offline NAME SET        Parakeet TDT v3 INT8, sherpa-onnx OfflineRecognizer, whole utterance
+#   (Nemotron 560 ms / 160 ms: `nemotron NAME 1 1 SET 6|1`; Nemotron 3.5: `nemotron35 NAME 1 1 SET`;
+#    Moonshine: `moonshine NAME 1 1 SET tiny|small`.)
+#   ENERGY_IDLE_SECONDS=5 shortens the idle windows for a dry run; the default is the protocol's 60 s.
 set -euo pipefail
 
 root=${ENERGY_ROOT:-$HOME/jsr-data/opponents/energy}
 lock=${ENERGY_LOCK:-$HOME/jsr-data/opponents/QUIET.lock}
 first=${ENERGY_FIRST_CPU:-16}        # first of up to eight physical cores; SMT siblings stay idle
 observer=${ENERGY_OBSERVER_CPU:-31}  # sampler and this script
+opp=${ENERGY_OPPONENTS:-$(dirname "$root")}  # staging root of the open-source opponents (venvs, models, harness)
+r6=$root/v31_3bd85e9e                        # the frozen 3bd85e9e binaries, RC2 model and LMs of the R6 timing
 engine_bin=${ENERGY_ENGINE_BIN:-bin/ultra-cold-wav}
 cd "$root"
 export ULTRA_SHERPA_LIB=$root/lib
@@ -35,7 +48,7 @@ measure() {
     shift 3
     mkdir -p "runs/$(dirname "$name")" "runs/out/$name"
     python3 energy_bench.py run --arm "$(basename "$name")" --cpus "$(cpus "$workers")" --workers "$workers" \
-        --reps "$reps" --observer-cpu "$observer" --idle-seconds 60 --log-dir "runs/out/$name" \
+        --reps "$reps" --observer-cpu "$observer" --idle-seconds "${ENERGY_IDLE_SECONDS:-60}" --log-dir "runs/out/$name" \
         --out "runs/$name.json" --series-out "runs/series/$(basename "$name").json" "$@"
 }
 
@@ -43,8 +56,13 @@ audio() { printf '%s\n' --wav-dir "audio/$1" --audio-manifest "audio/$1.audio.js
 
 # quiet MINUTES ARM...: hold the lock (renewed every minute, never more than 15 minutes ahead, never
 # past MINUTES), wait for runs in flight, run the arm, release.
+renew_pid=
+quiet_cleanup() {
+    if [[ -n $renew_pid ]]; then kill "$renew_pid" 2>/dev/null || true; fi
+    rm -f "$lock"
+}
 quiet() {
-    local end=$(($(date +%s) + $1 * 60)) renew waited=0 busy
+    local end=$(($(date +%s) + $1 * 60)) waited=0 busy
     shift
     write_lock() {
         local until=$(($(date +%s) + 900))
@@ -58,8 +76,9 @@ quiet() {
     fi
     write_lock main
     (while sleep 60; do write_lock renew; done) &
-    renew=$!
-    trap 'kill "$renew" 2>/dev/null || true; rm -f "$lock"' EXIT
+    renew_pid=$!
+    # the PID lives in script scope (a local would be gone when the EXIT trap fires, and `set -u` would abort)
+    trap quiet_cleanup EXIT
     while busy=$(top -b -n 2 -d 3 -w 200 | awk '/^top -/ {n++} n == 2 && $1 ~ /^[0-9]+$/ && $9 + 0 >= 25 {print $1 ":" $12}' | tr '\n' ' ') && [[ -n $busy ]]; do
         echo "$(date -u +%T) runs in flight, waiting: $busy"
         sleep 20
@@ -136,6 +155,71 @@ case "$arm" in
         measure "$1" "$2" "$3" --env "LD_LIBRARY_PATH=$root/ext/moonshine-sdk/lib" "${set[@]}" \
             --hash "models/moonshine-$5" --hash ext/moonshine-sdk/lib \
             -- bin/moonshine-stream "$5" "models/moonshine-$5" "audio/$4" "runs/out/$1/rep{rep}-w{worker}"
+        ;;
+    r7-live-lm)
+        # R6's live_c4_lm arm, byte for byte (docs/paper/data/raw/release_v31/timing_interleaved).
+        mapfile -t set < <(audio "$2")
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$r6/model_rc2" --hash "$r6/lms/c4_p0_0_10_40.v2.ulm" \
+            -- "$r6/bin/ultra-cold-wav" --chunk 4 --beam 4 --beam-max-symbols 1 --beam-margin 0.0 \
+            --lm "$r6/lms/c4_p0_0_10_40.v2.ulm" --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.0 \
+            r1-engine-int8 "$r6/model_rc2" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl"
+        ;;
+    r7-final)
+        mapfile -t set < <(audio "$2")
+        m5=$opp/bench-open/assays/l4-kit/M5.ulm
+        manifest=runs/r7/manifest-$2.jsonl
+        mkdir -p runs/r7
+        python3 - "$root" "$2" "$manifest" <<'PY'
+import json, sys
+root, name, out = sys.argv[1:]
+rows = json.load(open(f"{root}/audio/{name}.audio.json"))
+with open(out, "w") as w:
+    for row in rows:
+        w.write(json.dumps({"uid": row["id"], "wav": f"{root}/audio/{name}/{row['id']}.wav"}) + "\n")
+PY
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$r6/model_rc2" --hash "$m5" \
+            -- "$r6/bin/ultra-engine-commit" --model "$r6/model_rc2" --manifest "$root/$manifest" \
+            --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --commit-lm "$m5" --lm-scale 0.80 \
+            --lodr-scale 0.60 --token-bonus 0.0 --tail-pad-ms 320 --threads 1 \
+            --out "runs/out/$1/rep{rep}-w{worker}.commit.jsonl"
+        ;;
+    r7-zipformer)
+        mapfile -t set < <(audio "$2")
+        measure "$1" 1 1 "${threads[@]}" --env "ULTRA_SHERPA_LIB=$root/lib" "${set[@]}" \
+            --hash models/r0-zipformer-int8 --hash lib \
+            -- "$r6/bin/ultra-cold-wav" zipformer-int8 models/r0-zipformer-int8 "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl"
+        ;;
+    vosk)
+        mapfile -t set < <(audio "$2")
+        model=$opp/vosk/models/vosk-model-en-us-0.22
+        [[ $3 == small ]] && model=$opp/vosk/models/vosk-model-small-en-us-0.15
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$model.SHA256SUMS" --hash "$opp/vosk/venv.freeze.txt" \
+            -- "$opp/vosk/venv/bin/python" -I "$opp/bench-open/harness/docs/paper/opponents/vosk_stream.py" \
+            "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" "runs/out/$1/rep{rep}-w{worker}.trace.jsonl"
+        ;;
+    whispercpp)
+        mapfile -t set < <(audio "$2")
+        model=$opp/whispercpp-stream/models/ggml-$3.en.bin
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$model" --hash "$opp/whispercpp-stream/venv.freeze.txt" \
+            -- "$opp/whispercpp-stream/venv/bin/python" -I "$opp/bench-open/harness/docs/paper/opponents/whispercpp_stream.py" \
+            "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" "runs/out/$1/rep{rep}-w{worker}.trace.jsonl"
+        ;;
+    onnxasr)
+        mapfile -t set < <(audio "$2")
+        model=$opp/parakeet-onnx-asr/models/parakeet-tdt-0.6b-v3-onnx
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$model/encoder-model.int8.onnx" \
+            --hash "$model/decoder_joint-model.int8.onnx" --hash "$opp/parakeet-onnx-asr/venv.freeze.txt" \
+            -- "$opp/parakeet-onnx-asr/venv/bin/python" -I "$opp/bench-open/harness/docs/paper/opponents/onnxasr_whole.py" \
+            "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" "runs/out/$1/rep{rep}-w{worker}.trace.jsonl"
+        ;;
+    sherpa-offline)
+        # The runtime-lane runner of the H0/H1 Parakeet TDT v3 row; docs/paper/opponents/sherpa_parakeet_offline.py
+        # is a byte-identical copy (same sha256). -I like the other Python arms; the R7 receipts ran without it.
+        mapfile -t set < <(audio "$2")
+        model=$opp/runtime-lane/parakeet-tdt-v3-sherpa
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$model/encoder.int8.onnx" --hash "$opp/zipformer-int8/sherpa-venv.freeze.txt" \
+            -- "$opp/zipformer-int8/sherpa-venv/bin/python" -I "$opp/runtime-lane/run_parakeet_tdt_v3.py" \
+            "$model" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl" 1
         ;;
     *)
         echo "unknown arm $arm" >&2

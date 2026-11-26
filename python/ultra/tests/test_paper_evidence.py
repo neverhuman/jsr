@@ -47,9 +47,9 @@ def test_evidence_rows_are_ingested(tmp_path):
     assert files["cold_dev.csv"].splitlines() == [
         ",".join(cold.CSV_HEADER),
         "sys-a-zen2-t1,sys-a,A,comparator,streaming,zen2,1,zen2-t1-comparator-streaming,0.20000,5.000,4.000,3.00,"
-        "2.00,4.50,150.0,70.0,,,,exploratory,h0,1,,,,,0,full",
+        "2.00,4.50,150.0,70.0,,,,exploratory,h0,1,,,,,0,full,",
         "sys-b-zen2-t1,sys-b,B,ours,streaming,zen2,1,zen2-t1-ours-streaming,0.05000,20.000,4.000,9.00,2.00,4.50,"
-        "150.0,70.0,,,,exploratory,h0,1,,,,,0,full",
+        "150.0,70.0,,,,exploratory,h0,1,,,,,0,full,",
     ]
     for macro in ("\\newcommand{\\ColdRowsCount}{2}", "\\newcommand{\\ColdSysASpeed}{5.00}",
                   "\\newcommand{\\ColdSysBSpeed}{20.0}", "\\newcommand{\\ColdSysAWer}{3.00}",
@@ -207,7 +207,7 @@ def test_a_slow_system_timed_on_the_subset_is_drawn_and_counted(tmp_path):
               "lag_method": "replay", "lag_workload_digest": "d", "lag_receipt_sha256": "r"}  # no paced lag yet
     files, _ = pd.build(_mini_repo(tmp_path, [_row(role="ours"), slow, design]))
     line = next(ln for ln in files["cold_dev.csv"].splitlines() if ln.startswith("sys-s-zen2-t1,"))
-    assert line.endswith(",1,600,900,,,0,p73")
+    assert line.endswith(",1,600,900,,,0,p73,")
     tex = files["metrics.tex"]
     assert "\\ColdRowsSubset}{1}" in tex and "\\ColdSysSLagDesignPfifty}{600}" in tex and "ColdSysSLagPfifty" not in tex
     assert "1 slow system is timed on a 73-utterance subset of the panel (A)" in tex
@@ -265,8 +265,8 @@ def test_lag_and_energy_sidecars_join_by_row_id(tmp_path):
     design = dict(lag, lag_design_p50_ms=250, lag_design_p95_ms=480)
     files, _ = pd.build(_mini_repo(tmp_path, [_row(), ours, whole, design, final, core]))
     lines = {ln.split(",")[0]: ln for ln in files["cold_dev.csv"].splitlines()[1:]}
-    assert lines["sys-a-zen2-t1"].endswith(",310,720,0.750,exploratory,h0,1,250,480,,,0,full")
-    assert lines["sys-w-zen2-t1"].endswith(",,,,exploratory,h0,1,,,5100,9900,0,full")
+    assert lines["sys-a-zen2-t1"].endswith(",310,720,0.750,exploratory,h0,1,250,480,,,0,full,")
+    assert lines["sys-w-zen2-t1"].endswith(",,,,exploratory,h0,1,,,5100,9900,0,full,")
     for macro in ("\\ColdSysALagPfifty}{310}", "\\ColdSysALagPninetyFive}{720}", "\\ColdSysAWatts}{0.750}",
                   "\\ColdSysALagDesignPfifty}{250}", "\\ColdSysWFinalLatencyPninetyFive}{9900}",
                   "\\ColdRowsEnergy}{1}", "\\ColdRowsLag}{1}"):

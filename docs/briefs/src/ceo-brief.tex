@@ -30,7 +30,7 @@
 \end{minipage}\hfill
 \begin{minipage}[t]{0.242\textwidth}
   \vspace{0pt}%
-  \kpicard{navy}{\VsEnergyPctOne\%}{Of the Rival's Core Energy}{\textbf{\ColdRcTwoLiveLmWatts\,J} vs.\ \ColdZipRsixWatts\,J of idle-subtracted CPU-core energy per audio-second (not wall power).}
+  \kpicard{navy}{\VsEnergyPctOne\%}{Of the Rival's Core Energy}{\textbf{\ColdRcTwoLiveLmWatts\,J} vs.\ \ColdZipRsixWatts\,J of idle-subtracted CPU-core energy per audio-second (paired R6 run; not wall power).}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.242\textwidth}
   \vspace{0pt}%
@@ -108,21 +108,21 @@
 {\fontsize{7.4}{9.2}\selectfont\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.20}%
 \begin{tabularx}{\textwidth}{@{}L{4.55cm}R{1.55cm}R{1.95cm}R{1.75cm}R{1.50cm}Y@{}}
 \toprule
-\thd{Recognizer (mode)} & \thd{Speed $\uparrow$} & \thd{Word errors $\downarrow$} & \thd{Core J / s $\downarrow$} & \thd{Peak RAM $\downarrow$} & \thd{What it means} \\
+\thd{Recognizer (mode)} & \thd{Speed $\uparrow$} & \thd{Word errors $\downarrow$} & \thd{Core J / s$^\ast$ $\downarrow$} & \thd{Peak RAM $\downarrow$} & \thd{What it means} \\
 \midrule
-\textbf{Isosyll} (streaming, 160\,ms) & \hmcell{\HmSpeedIsoLive}{\textbf{\ColdRcTwoLiveLmSpeed\x}} & \hmcell{\HmWerIsoLive}{\textbf{\ColdRcTwoLiveLmWer\%}} & \hmcell{\HmEnergyIsoLive}{\textbf{\ColdRcTwoLiveLmWatts\,J$^\ast$}} & \hmcell{\HmRssIsoLive}{\textbf{\ColdRcTwoLiveLmRss\,MB}} & \textbf{\VsSpeedXOne\x{} Zipformer's speed, \VsEnergyPctOne\% of its energy} \\
-Zipformer INT8 (streaming) & \hmcell{\HmSpeedZip}{\ColdZipRsixSpeed\x} & \hmcell{\HmWerZip}{\ColdZipRsixWer\%} & \hmcell{\HmEnergyZip}{\ColdZipRsixWatts\,J$^\ast$} & \hmcell{\HmRssZip}{\ColdZipRsixRss\,MB} & Fastest open streaming rival \\
-Moonshine Tiny (streaming) & \hmcell{\HmSpeedMoonTiny}{\rone{\ColdMoonTinySpeed}\x} & \hmcell{\HmWerMoonTiny}{\ColdMoonTinyWer\%} & \hmna & \hmcell{\HmRssMoonTiny}{\ColdMoonTinyRss\,MB} & Slower, with more errors \\
-Vosk Small (streaming) & \hmcell{\HmSpeedVoskSmall}{\rone{\ColdVoskSmallSpeed}\x} & \hmcell{\HmWerVoskSmall}{\ColdVoskSmallWer\%} & \hmna & \hmcell{\HmRssVoskSmall}{\ColdVoskSmallRss\,MB} & Slower and less accurate \\
-Vosk Large\S{} (streaming) & \hmcell{\HmSpeedVoskLarge}{\rone{\ColdVoskLargeSpeed}\x} & \hmcell{\HmWerVoskLarge}{\ColdVoskLargeWer\%} & \hmna & \hmcell{\HmRssVoskLarge}{\ColdVoskLargeRss\,MB} & Heavy memory footprint (\textgreater 7\,GB) \\
-Nemotron 0.6B, 560\,ms\S{} (streaming) & \hmcell{\HmSpeedNemoFiveSixty}{\rone{\ColdNemoFiveSixtySpeed}\x} & \hmcell{\HmWerNemoFiveSixty}{\ColdNemoFiveSixtyWer\%} & \hmna & \hmcell{\HmRssNemoFiveSixty}{\ColdNemoFiveSixtyRss\,MB} & 0.6B params: more accurate, far slower \\
-Parakeet TDT v3 (offline) & \hmcell{\HmSpeedParakeetOnnx}{\rone{\ColdParakeetOnnxAsrSpeed}\x} & \hmcell{\HmWerParakeetOnnx}{\ColdParakeetOnnxAsrWer\%} & \hmna & \hmcell{\HmRssParakeetOnnx}{\ColdParakeetOnnxAsrRss\,MB} & More accurate; needs whole clip first \\
-Whisper.cpp Tiny\S{} (streaming) & \hmcell{\HmSpeedWhisperTiny}{\rone{\ColdWhisperCppTinySpeed}\x} & \hmcell{\HmWerWhisperTiny}{\ColdWhisperCppTinyWer\%} & \hmna & \hmcell{\HmRssWhisperTiny}{\ColdWhisperCppTinyRss\,MB} & Cannot keep up with live audio \\
-Whisper.cpp Base\S{} (streaming) & \hmcell{\HmSpeedWhisperBase}{\rone{\ColdWhisperCppBaseSpeed}\x} & \hmcell{\HmWerWhisperBase}{\ColdWhisperCppBaseWer\%} & \hmna & \hmcell{\HmRssWhisperBase}{\ColdWhisperCppBaseRss\,MB} & Cannot keep up with live audio \\
+\textbf{Isosyll} (streaming, 160\,ms) & \hmcell{\HmSpeedIsoLive}{\textbf{\ColdRcTwoLiveLmSpeed\x}} & \hmcell{\HmWerIsoLive}{\textbf{\ColdRcTwoLiveLmWer\%}} & \hmcell{\HmEnergyIsoLive}{\textbf{\ColdRcTwoLiveLmEnergyRseven\,J}} & \hmcell{\HmRssIsoLive}{\textbf{\ColdRcTwoLiveLmRss\,MB}} & \textbf{\VsSpeedXOne\x{} Zipformer's speed, \VsEnergyPctOne\% of its energy} \\
+Zipformer INT8 (streaming) & \hmcell{\HmSpeedZip}{\ColdZipRsixSpeed\x} & \hmcell{\HmWerZip}{\ColdZipRsixWer\%} & \hmcell{\HmEnergyZip}{\ColdZipRsixEnergyRseven\,J} & \hmcell{\HmRssZip}{\ColdZipRsixRss\,MB} & Fastest open streaming rival \\
+Moonshine Tiny (streaming) & \hmcell{\HmSpeedMoonTiny}{\rone{\ColdMoonTinySpeed}\x} & \hmcell{\HmWerMoonTiny}{\ColdMoonTinyWer\%} & \hmcell{\HmEnergyMoonTiny}{\ColdMoonTinyEnergyRseven\,J} & \hmcell{\HmRssMoonTiny}{\ColdMoonTinyRss\,MB} & Slower, with more errors \\
+Vosk Small (streaming) & \hmcell{\HmSpeedVoskSmall}{\rone{\ColdVoskSmallSpeed}\x} & \hmcell{\HmWerVoskSmall}{\ColdVoskSmallWer\%} & \hmcell{\HmEnergyVoskSmall}{\ColdVoskSmallEnergyRseven\,J} & \hmcell{\HmRssVoskSmall}{\ColdVoskSmallRss\,MB} & Slower and less accurate \\
+Vosk Large\S{} (streaming) & \hmcell{\HmSpeedVoskLarge}{\rone{\ColdVoskLargeSpeed}\x} & \hmcell{\HmWerVoskLarge}{\ColdVoskLargeWer\%} & \hmcell{\HmEnergyVoskLarge}{\ColdVoskLargeEnergyRseven\,J} & \hmcell{\HmRssVoskLarge}{\ColdVoskLargeRss\,MB} & Heavy memory footprint (\textgreater 7\,GB) \\
+Nemotron 0.6B, 560\,ms\S{} (streaming) & \hmcell{\HmSpeedNemoFiveSixty}{\rone{\ColdNemoFiveSixtySpeed}\x} & \hmcell{\HmWerNemoFiveSixty}{\ColdNemoFiveSixtyWer\%} & \hmcell{\HmEnergyNemoFiveSixty}{\ColdNemoFiveSixtyEnergyRseven\,J} & \hmcell{\HmRssNemoFiveSixty}{\ColdNemoFiveSixtyRss\,MB} & 0.6B params: more accurate, far slower \\
+Parakeet TDT v3 (offline) & \hmcell{\HmSpeedParakeetOnnx}{\rone{\ColdParakeetOnnxAsrSpeed}\x} & \hmcell{\HmWerParakeetOnnx}{\ColdParakeetOnnxAsrWer\%} & \hmcell{\HmEnergyParakeetOnnx}{\ColdParakeetOnnxAsrEnergyRseven\,J} & \hmcell{\HmRssParakeetOnnx}{\ColdParakeetOnnxAsrRss\,MB} & More accurate; needs whole clip first \\
+Whisper.cpp Tiny\S{} (streaming) & \hmcell{\HmSpeedWhisperTiny}{\rone{\ColdWhisperCppTinySpeed}\x} & \hmcell{\HmWerWhisperTiny}{\ColdWhisperCppTinyWer\%} & \hmcell{\HmEnergyWhisperTiny}{\ColdWhisperCppTinyEnergyRseven\,J} & \hmcell{\HmRssWhisperTiny}{\ColdWhisperCppTinyRss\,MB} & Cannot keep up with live audio \\
+Whisper.cpp Base\S{} (streaming) & \hmcell{\HmSpeedWhisperBase}{\rone{\ColdWhisperCppBaseSpeed}\x} & \hmcell{\HmWerWhisperBase}{\ColdWhisperCppBaseWer\%} & \hmcell{\HmEnergyWhisperBase}{\ColdWhisperCppBaseEnergyRseven\,J} & \hmcell{\HmRssWhisperBase}{\ColdWhisperCppBaseRss\,MB} & Cannot keep up with live audio \\
 \bottomrule
 \end{tabularx}}
 \vspace{3pt}
-\noindent{\sffamily\fontsize{6.15}{7.6}\selectfont\color{sub}$^\ast$\,Idle-subtracted CPU-core joules per audio-second (not wall power), timed side by side in the same interleaved blocks; other rivals ran in separate sessions so their energy is not shown here. \S\,Speed timed on a 73-clip subset; WER on all 730. Optional utterance-end commit pass on the same \ColdRcTwoLiveLmModel\,MB weights: \ColdRcTwoFinalWer\% WER at \ColdRcTwoFinalSpeed\x{} (\ColdRcTwoFinalWatts\,J, \ColdRcTwoFinalRss\,MB). Receipts: \texttt{docs/paper/data/}.}
+\noindent{\sffamily\fontsize{6.15}{7.6}\selectfont\color{sub}$^\ast$\,R7 matched campaign: idle-subtracted core J per audio-second, \RsevenClips-clip subset, median of \RsevenCleanMin--\RsevenCleanMax{} core-clean blocks (not wall power); the \VsEnergyPctOne\% headline is the paired R6 full-panel run. \S\,Speed timed on a 73-clip subset; WER on all 730. Optional utterance-end commit pass on the same \ColdRcTwoLiveLmModel\,MB weights: \ColdRcTwoFinalWer\% WER at \ColdRcTwoFinalSpeed\x{} (\ColdRcTwoFinalWatts\,J, \ColdRcTwoFinalRss\,MB). Receipts: \texttt{docs/paper/data/}.}
 
 \vspace{3.5pt}
 \briefsection{03}{How to Pilot in 30 Days --- and What Leadership Should Know}

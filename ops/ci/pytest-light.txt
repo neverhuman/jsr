@@ -18,6 +18,7 @@ tests/test_no_host_addresses.py
 tests/test_ood.py
 tests/test_opponents_tools.py
 tests/test_paper_claims.py
+tests/test_r7_energy.py
 tests/test_paper_data.py
 tests/test_paper_evidence.py
 tests/test_arxiv_stage.py

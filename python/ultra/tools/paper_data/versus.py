@@ -168,7 +168,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         ("$\\Delta$ WER vs.\\ Zip.\\ (pp)", lambda q: cell(q, lambda q: tex(_sg(q["p"]["delta"], 2)))),
         ("\\quad one-sided 95\\% bounds", lambda q: cell(q, lambda q: f"[{tex(_sg(q['p']['lo'], 2))}, {tex(_sg(q['p']['hi'], 2))}]")),
         ("1-core speed ($\\times$ RT)", lambda q: speed_text(z["speed"] if q is None else q["d"]["speed"])),
-        ("J per audio-s (core)", lambda q: j(z["watts"] if q is None else q["d"]["watts"])),
+        ("J per audio-s (core, R6)", lambda q: j(z["watts"] if q is None else q["d"]["watts"])),
         ("Peak RSS (MB)", lambda q: fmt(z["rss_mb"] if q is None else q["d"]["rss_mb"], 0)),
     ]
     tx = [r"\begin{table}[t]", r"\centering",
@@ -182,7 +182,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
           " & ".join(["Metric"] + [c for c, _ in cols]) + r" \\", r"\midrule"]
     heat_rows = {  # label -> (value of Zipformer, value of live, log, higher is better)
         "1-core speed ($\\times$ RT)": (lambda d: d["speed"], True, True),
-        "J per audio-s (core)": (lambda d: d["watts"], True, False), "Peak RSS (MB)": (lambda d: d["rss_mb"], True, False)}
+        "J per audio-s (core, R6)": (lambda d: d["watts"], True, False), "Peak RSS (MB)": (lambda d: d["rss_mb"], True, False)}
     zd = z
     for label, f in body:
         cells = [f(q) for _, q in cols]

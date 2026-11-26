@@ -1,4 +1,4 @@
-% Energy column: generated macros (tables.py); replacing the energy source later needs no edit here.
+% Energy column: generated R7 macros (tables.py), one method for every row.
 % The measured comparison (TABLE I): Isosyll live and final vs the public CPU
 % comparators on the 730-utterance LibriSpeech DEV panel.
 \begin{table*}[t]
@@ -6,9 +6,9 @@
 \caption{\textbf{Measured comparison on the 730-utterance LibriSpeech DEV panel} (400 dev-clean,
 330 dev-other; one scorer and normaliser). Speed: median of three cold runs on one pinned Zen~2
 core ($\times$ real time, model load included). RSS: peak resident memory of the process tree (MB).
-Artifact: model and LM files loaded (MB). Core~J: joules per audio-second on quiet host H1.
-R6 rows (\ultra{} and Zipformer INT8) subtract the core idle floor. Moonshine, Parakeet, and
-Nemotron include it. Not board or wall power. ``--'': quiet-host energy pending.
+Artifact: model and LM files loaded (MB). Core~J: R7 matched campaign: idle-subtracted core J per
+audio-second, \RsevenClips-clip subset, median of \RsevenCleanMin--\RsevenCleanMax{} core-clean blocks
+(not board or wall power).
 $^{\ddagger}$Shared-host timing (interim, host H0); WER is from the full 730-utterance panel.
 $^{\S}$Timed on a 73-utterance subset of the panel; WER is from the full 730-utterance panel.
 Parakeet TDT v3 is offline (whole utterance). Cell colour: green is better, red worse within a column. DEV-only.}

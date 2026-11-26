@@ -17,29 +17,29 @@
 
 ![Isosyll: Always Listening, Barely Computing. Single-core throughput vs. pooled WER for all 12 timed public CPU speech recognizers and Isosyll live on the 730-utterance LibriSpeech DEV panel, names colored by energy per audio-second](docs/paper/money.png)
 
-**Figure 1.** Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: live +LM runs at 32.7× (0.328 J/audio-s, 5.54% WER at 160 ms; +0.81 pp on unselected DEV) and the utterance-end commit pass reaches 5.00% at 16.8× vs. Zipformer INT8 at 14.0× (0.573 J/audio-s, 5.25%). [Paper](docs/paper/paper.pdf) · [Release record](docs/ultra/releases/v4.0.0.md).
+**Figure 1.** Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: live +LM runs at 32.7× (0.328 J/audio-s, 5.54% WER at 160 ms; +0.81 pp on unselected DEV) and the utterance-end commit pass reaches 5.00% at 16.8× vs. Zipformer INT8 at 14.0× (0.573 J/audio-s, 5.25%); J/audio-s from the paired R6 full-panel run. [Paper](docs/paper/paper.pdf) · [Release record](docs/ultra/releases/v4.0.0.md).
 
-- **Fastest, with the lowest measured energy.** On one quiet Zen 2 core, **Isosyll live** (160 ms chunks, +LM) runs at **32.7×** real time and **0.328 J/audio-s** (**5.54%** panel / **6.10%** full DEV WER, **109 MB** RAM): **2.3×** the paired throughput of Zipformer INT8 at **57%** of its energy per audio-second (same blocks).
+- **Fastest, with the lowest measured energy.** On one quiet Zen 2 core, **Isosyll live** (160 ms chunks, +LM) runs at **32.7×** real time and **0.328 J/audio-s** (**5.54%** panel / **6.10%** full DEV WER, **109 MB** RAM): **2.3×** the paired throughput of Zipformer INT8 at **57%** of its energy per audio-second (paired R6 full-panel blocks; the R7 matched campaign gives 56%).
 - **One small artifact.** A single 60 MB INT8 model; the utterance-end commit pass on the same weights (the `isosyll transcribe` default) reaches **5.00%** panel WER at **16.8×** real time.
 - **Bit-exact pure-Rust engine.** No external runtime or BLAS (AVX2, AVX-512 VNNI, ARM NEON, scalar), with identical transcripts across **18** cross-ISA witness runs.
 
 | System | Class | Speed (× RT) | J/audio-s | Panel WER (%) | Peak RSS (MB) |
 |---|---|---:|---:|---:|---:|
-| **Isosyll live (160 ms, +LM)** | Ours · streaming | **32.7×** | **0.328** | **5.54** | 109 |
-| Zipformer INT8 (320 ms) | Streaming | 14.0× | 0.573 | 5.25 | 152 |
-| Moonshine Tiny Streaming | Streaming | 8.2× | 1.077 | 9.90 | 201 |
-| Vosk Small | Streaming | 6.9× | — | 14.90 | 257 |
-| Vosk Large § | Streaming | 4.1× | — | 8.80 | 7629 |
-| Nemotron 0.6B (560 ms) § | Streaming | 2.4× | 4.513 | 3.56 | 987 |
-| Moonshine Small ‡ | Streaming | 2.0× | — | 5.93 | 476 |
-| Nemotron 0.6B (160 ms) ‡ | Streaming | 1.3× | — | 3.94 | 1287 |
-| Whisper.cpp Tiny § | Streaming | 0.9× | — | 17.46 | 226 |
-| Nemotron 3.5 (80 ms) ‡ | Streaming | 0.8× | — | 6.14 | 1277 |
-| Whisper.cpp Base § | Streaming | 0.4× | — | 15.28 | 339 |
-| Parakeet TDT v3 (onnx-asr) | Offline whole-clip | 6.7× | — | 3.36 | 1684 |
-| Parakeet TDT v3 (sherpa-onnx) | Offline whole-clip | 5.9× | 1.711 | 3.40 | 1403 |
+| **Isosyll live (160 ms, +LM)** | Ours · streaming | **32.7×** | **0.330** | **5.54** | 109 |
+| Zipformer INT8 (320 ms) | Streaming | 14.0× | 0.593 | 5.25 | 152 |
+| Moonshine Tiny Streaming | Streaming | 8.2× | 1.096 | 9.90 | 201 |
+| Vosk Small | Streaming | 6.9× | 1.184 | 14.90 | 257 |
+| Vosk Large § | Streaming | 4.1× | 2.167 | 8.80 | 7629 |
+| Nemotron 0.6B (560 ms) § | Streaming | 2.4× | 4.208 | 3.56 | 987 |
+| Moonshine Small ‡ | Streaming | 2.0× | 4.301 | 5.93 | 476 |
+| Nemotron 0.6B (160 ms) ‡ | Streaming | 1.3× | 5.336 | 3.94 | 1287 |
+| Whisper.cpp Tiny § | Streaming | 0.9× | 10.216 | 17.46 | 226 |
+| Nemotron 3.5 (80 ms) ‡ | Streaming | 0.8× | 9.476 | 6.14 | 1277 |
+| Whisper.cpp Base § | Streaming | 0.4× | 22.598 | 15.28 | 339 |
+| Parakeet TDT v3 (onnx-asr) | Offline whole-clip | 6.7× | 1.585 | 3.36 | 1684 |
+| Parakeet TDT v3 (sherpa-onnx) | Offline whole-clip | 5.9× | 1.730 | 3.40 | 1403 |
 
-Measured on one pinned Zen 2 core (730-utterance LibriSpeech DEV selection panel; § = 73-clip timing subset, ‡ = shared-host H0 interim). Unselected DEV C-half live gap vs. Zipformer INT8: +0.81 [+0.62, +1.02] pp. J/audio-s is CPU-domain RAPL only (not wall power). Isosyll and Zipformer INT8 are idle-subtracted core joules from the same blocks; Moonshine, Parakeet sherpa-onnx, and Nemotron 560 ms include the core idle floor and are not a paired ratio. Exploratory DEV-only results; released by owner decision after missing registered edit gates (protocol and limits in the [paper](docs/paper/paper.pdf) and [release record](docs/ultra/releases/v4.0.0.md)).
+Measured on one pinned Zen 2 core (730-utterance LibriSpeech DEV selection panel; § = 73-clip timing subset, ‡ = shared-host H0 interim). Unselected DEV C-half live gap vs. Zipformer INT8: +0.81 [+0.62, +1.02] pp. J/audio-s: R7 matched campaign: idle-subtracted core J per audio-second, 73-clip subset, median of 2–3 core-clean blocks (CPU-domain registers only, not wall power). The 0.328 J/audio-s and 57% above are the paired R6 full-panel run. Exploratory DEV-only results; released by owner decision after missing registered edit gates (protocol and limits in the [paper](docs/paper/paper.pdf) and [release record](docs/ultra/releases/v4.0.0.md)).
 <!-- money-plot:end -->
 
 <!-- install:start -->

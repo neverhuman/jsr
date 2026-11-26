@@ -187,7 +187,8 @@ def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
     headline = (f"Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
                 f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER at 160 ms; "
                 f"{gap_c} pp on unselected DEV) and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
-                f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%).")
+                f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%); "
+                f"J/audio-s from the paired R6 full-panel run.")
     subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% "
                 f"\u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
     return {"headline": headline, "subtitle": subtitle}
@@ -416,8 +417,19 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         floor = [_tex(hero[k]["short"]) for k in hero_floor_included(hero)]
         floor_txt = f"idle floor subtracted except for {', '.join(floor)}, which include it" if floor else "idle floor subtracted"
         grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
+        metered = hero_energy(hero)
+        one_campaign = bool(metered) and all(hero[k].get("energy_idle_subtracted_n_clean") for k in metered)
+        if one_campaign:  # every colour is an R7 value: say where the energy comes from and how it relates to the R6 callout
+            pct = fmt(100.0 * metered["LiveLm"] / metered["Zip"], 0)
+            energy = ("; energy is all from the R7 matched campaign on the \\RsevenClips-clip subset (AMD core-energy registers, "
+                      f"{floor_txt}, median over \\RsevenCleanMin--\\RsevenCleanMax\\ clean counterbalanced blocks, "
+                      f"not wall power{grey}; the \\VsEnergyPctOne\\% callout is the paired R6 full-panel run; "
+                      f"the R7 colours give {pct}\\%)")
+        else:
+            energy = (f" (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, "
+                      f"others in separate sessions; not wall power{grey})")
         marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
-                 f"per audio-second on a log scale, green lowest (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, others in separate sessions; not wall power{grey}).",
+                 f"per audio-second on a log scale, green lowest{energy}.",
                  "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; "
                  "circles stream, squares are offline whole-clip, \\S\\ marks timing on a 73-clip subset only"
                  + (", and \\ddag\\ marks interim timing on a shared host" if any(hero[k]["faded"] for k in HERO_PLOTTED) else "")

@@ -15,16 +15,23 @@ We report dev-clean, dev-other, and pooled panel WER for every system, plus full
 physical Zen~2 core, alone on its 4-core L3 complex. We report the median over three cold runs of
 CPU-seconds per audio-second (\cpus) and its reciprocal, throughput in $\times$ real time, with peak
 resident memory (RSS) and artifact size. Primary rows are measured on the otherwise idle host H1
-(AMD Threadripper PRO 3995WX, 4 of 8 memory channels; at most two other busy cores, host timers and CI
-paused). Rows measured earlier on the shared host H0 (same CPU, 2 of 8 channels) are marked interim. Systems are \emph{live streaming} (words emitted continuously, no endpoint),
+(AMD Threadripper PRO 3995WX, 4 of 8 memory channels; for timing runs at most two other busy cores,
+host timers and CI paused; CI stayed active during R7, below). Rows measured earlier on the shared host H0 (same CPU, 2 of 8 channels) are marked interim. Systems are \emph{live streaming} (words emitted continuously, no endpoint),
 \emph{streaming + utterance-segmented commit} (\ultra{} final), or \emph{offline whole-utterance}
 (Parakeet TDT v3, drawn hollow in \cref{fig:money}).
 
 \para{Energy.} On H1, CPU energy is read from the service core's RAPL energy register during the
-timing run and divided by decoded audio seconds (core domain only, not wall power); peak RSS is that of the recogniser process tree ($10^6$ bytes). The interleaved R6
-rows (\ultra{} and Zipformer INT8) subtract the core idle floor (a versioned energy-bench record).
-Separately timed Moonshine, Parakeet, and Nemotron joins include that floor, so their joules are not a
-paired ratio against the R6 rows.
+run, the core idle floor is subtracted, and the result is divided by decoded audio seconds (core domain
+only, not wall power); peak RSS is that of the recogniser process tree ($10^6$ bytes). The paired
+\ultra{}/Zipformer INT8 ratio comes from the interleaved R6 full-panel blocks, which Table~\ref{tab:versus} also reports;
+Figure~1 and Table~\ref{tab:measured} come from R7.
+
+\para{R7 matched energy campaign.} R7 measured all \RsevenArms{} systems on one pinned core on a
+\RsevenClips-clip subset of the panel, in \RsevenBlocks{} counterbalanced blocks; each value is the median
+of an arm's core-clean blocks (\RsevenCleanMin--\RsevenCleanMax{} per arm). Full-panel anchors of
+\ultra{} live and Zipformer INT8 reproduce R6 within \RsevenAnchorLivePct\% and \RsevenAnchorZipPct\%.
+CI virtual machines were active on the host throughout R7; core-only metering and the core-clean rule
+bound their effect.
 
 \para{Test-set disclosure and INT8 gate.} All accuracy numbers are LibriSpeech DEV only. Following our
 benchmark freeze protocol, LibriSpeech test-clean and test-other were read several times before the
