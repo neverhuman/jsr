@@ -15,7 +15,9 @@ On this Zen 2, joules per audio-second are the busy-core watts divided by the pu
 | Nemotron 560 ms | `nemotron-en-560-zen2-t1` | 2.38× | 10.726 | 4.513 |
 | Isosyll final | `rc2-final-zen2-t1` | 16.8× | 11.041 | 0.661 |
 
-`busy-core W / published speed` matches the measured joules within the rounding of the published speed. The largest gap is the final row: 11.041 / 16.8 = 0.657 against a receipt of 0.661. Package energy is not used. Idle-against-idle package power on this CPU moves by more than one core.
+Zipformer and both Isosyll rows are idle-subtracted core joules. Moonshine Tiny, Parakeet sherpa, and Nemotron 560 ms include the core idle floor, the same split the paper caption uses. The Zipformer and Isosyll rows are in `docs/paper/data/evidence/xbabe0-v31-release.jsonl`. The other three are in `docs/paper/data/evidence/xbabe0-comparators.jsonl`. Every row above is method `core_msr_active`.
+
+`busy-core W / published speed` agrees with the measured joules. The largest gap is the final row: 11.041 / 16.8 = 0.657 against a receipt of 0.661, about 0.6%. The quotient agrees with that receipt to within 0.7%. Package energy is not used. Idle-against-idle package power on this CPU moves by more than one core.
 
 ## Prediction for the eight grey names
 
@@ -32,7 +34,7 @@ Band = `8.04 / speed` to `11.04 / speed`, the observed min and max above. A § s
 | Nemotron 3.5 | 0.84× | 9.57–13.1 |
 | Whisper.cpp Base | 0.42× | 19.1–26.3 |
 
-Two older joins were left out of the paper and stay out. Vosk Small read 1.279 J with an idle near 0.94 W (`vosk-small-zen2-t1`, busy-core 8.80 W). Parakeet onnx-asr read 1.661 J with an idle near 0.99 W and other cores busy (`parakeet-v3-onnxasr-int8-zen2-t1`, busy-core 11.12 W). Both joule readings sit in the bands above. The idle floor on those joins is not the quiet-host floor, so they are a sanity check only.
+Two older joins were left out of the paper and stay out. Vosk Small read 1.279 J with an idle near 0.94 W (`vosk-small-zen2-t1`, busy-core 8.80 W). Parakeet onnx-asr read 1.661 J with an idle near 0.99 W and other cores busy (`parakeet-v3-onnxasr-int8-zen2-t1`, busy-core 11.12 W). Vosk Small sits inside 1.17–1.60. Parakeet onnx-asr is about 0.01 above the displayed upper bound 1.65, so the two readings are in or near the bands. The idle floor on those joins is about 1 W, above the quiet-host floor, so they are a sanity check only.
 
 ## H0 check, 2026-11-26, this machine (xbabe3)
 
