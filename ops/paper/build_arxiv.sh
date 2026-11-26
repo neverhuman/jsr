@@ -181,7 +181,7 @@ if [ "$DOCKER" = 1 ]; then
     || fail "container build failed"
   REF="$VER/out/paper.pdf"; LOG="$VER/out/paper.log"
 else
-  cp -r "$SRC" "$VER/local"; for i in 1 2 3; do latex "$VER/local" -no-shell-escape; done
+  cp -r "$SRC" "$VER/local"; for _ in 1 2 3; do latex "$VER/local" -no-shell-escape; done
   REF="$VER/local/paper.pdf"; LOG="$VER/local/paper.log"
 fi
 check_log "$LOG"
