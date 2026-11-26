@@ -167,4 +167,3 @@ def add_candidate(root: Path, rec: Records, out: dict[str, str]) -> None:
                               _bounds(r["panel"]), _bounds(r["c"]), _bounds(r["old"]) if r["old"] else "---"]) + r" \\")
     tx += [r"\midrule", " & ".join(["Zipformer INT8", "320", fmt(rows[0]["panel"]["a"], 2), fmt(zfull, 2), "---", f"WER {fmt(zc, 2)}", "---"]) + r" \\",
            r"\bottomrule", r"\end{tabular}", r"\end{table*}"]
-    out["table_candidate.tex"] = "\n".join(tx) + "\n"

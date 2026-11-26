@@ -20,11 +20,12 @@ python3 -m venv "$venv"
 ci_step "pytest (files listed in ops/ci/pytest-light.txt)"
 mapfile -t files < <(grep -vE '^\s*(#|$)' ops/ci/pytest-light.txt)
 cd python/ultra
-# Two figure tests compile LaTeX (pdflatex), which the CI image does not carry; they stay local-only.
+# These tests compile LaTeX (pdflatex), which the CI image does not carry; they stay local-only (just required runs them).
 # within_page was within_column until the full-width hero (c4374b3). A stale node id runs on CI.
 latex_skip=(
   tests/test_paper_data.py::test_figures_compile_standalone_within_page
   tests/test_paper_evidence.py::test_label_width_estimates_cover_the_typeset_labels
+  tests/test_arxiv_stage.py::test_stage_only_builds_a_clean_tree
 )
 for node in "${latex_skip[@]}"; do
   file=${node%%::*}

@@ -12,7 +12,7 @@ Outputs (docs/paper/data/ unless --out):
     metrics.tex      one \\newcommand per record; a missing value prints a red ?? and fails
     records.jsonl    every record: id, value, unit, label, configuration, workload, digest, source
     SOURCES.md       macro -> value -> label -> source table (only macros emitted for the paper)
-    cold_dev.csv, money_frontier.csv, money_layout.tex, money_readme.md, table_measured.tex, table_versus.tex, table_hardware.tex
+    cold_dev.csv, money_frontier.csv, money_layout.tex, money_readme.md, table_measured.tex, table_versus.tex
 """
 
 from __future__ import annotations
@@ -44,14 +44,14 @@ from .cold import load_evidence
 from .compare import add_comparison
 from .evidence import presentation
 from .facts import add_facts
-from .macros import metrics_tex, records_jsonl, sources_md
+from .macros import metrics_tex, records_jsonl, sources_md, used_macros
 from .money import add_money, hero_rows, hero_sentences, nemotron_timing_note
 from .words import md, tex
 from .publish import publish_figure, readme_block, v4_block
 from .records import Records, add_curated
 from .release import add_release
 from .reported import add_reported
-from .tables import hardware_table, measured_table
+from .tables import measured_table
 from .versus import _paired, add_versus
 from .training import add_training
 from .candidate import add_candidate
@@ -90,8 +90,17 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
                                           versus=versus, rec_rows=rec.rows, release=pres.get("release", "v3.0.0"), hero=hero, prior=prior)
     out["v4_readme.md"] = v4_block(rec.rows)
     out["table_measured.tex"] = measured_table(rows, extras)
-    out["table_hardware.tex"] = hardware_table(rows)
-    out["metrics.tex"] = metrics_tex(rec)
-    out["SOURCES.md"] = sources_md(rec)
+    paper = root / "docs" / "paper"
+    used = None  # a bare data tree (tests) has no paper sources: emit every macro
+    if (paper / "paper.tex").is_file():
+        texts = [(paper / "paper.tex").read_text(encoding="utf-8")]
+        texts += [p.read_text(encoding="utf-8") for p in sorted((paper / "sections").glob("*.tex")) if p.name != "fallbacks.tex"]
+        texts += [p.read_text(encoding="utf-8") for p in sorted((paper / "figures").glob("*.tex"))]
+        # the CEO/CTO briefs \input metrics.tex too, so their macros must survive the pruning
+        texts += [p.read_text(encoding="utf-8") for p in sorted((paper.parent / "briefs" / "src").glob("*.tex"))]
+        texts += [v for k, v in out.items() if k.endswith(".tex")]
+        used = used_macros(rec, texts)
+    out["metrics.tex"] = metrics_tex(rec, used)
+    out["SOURCES.md"] = sources_md(rec, used)
     out["records.jsonl"] = records_jsonl(rec)
     return dict(sorted(out.items())), rec.missing()

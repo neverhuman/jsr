@@ -154,7 +154,7 @@ def test_each_system_is_drawn_from_its_quiet_host_row_when_one_exists(tmp_path):
     tex = files["metrics.tex"]
     for text in ("\\ColdRowsCount}{3}", "\\ColdAnchorCount}{2}", "\\ColdRowsInterim}{1}", "\\ColdRowsFaded}{1}",
                  "\\ColdOursASpeed}{33.3}", "2 systems, measured on both hosts, cost 1.75 to 2.00 times as much CPU on the shared host H0 as on the quiet host H1",
-                 "1 of the 3 points is still interim (lighter marks): measured on host H0"):
+                 "is still interim: measured on host H0"):
         assert text in tex, text
     assert [ln.split(",")[1] for ln in files["money_frontier.csv"].splitlines()[1:]] == ["3.000"]  # sys-b is not on it: quiet rows only
 
@@ -487,3 +487,19 @@ def test_v31_rows_reproduce_the_audited_r6_medians():
     # WER of the same 730-utterance panel, from the confirmatory look
     assert {a: rows[a]["wer_pct"] for a in rows} == {
         "live_c4_greedy": 6.2292, "live_c4_lm": 5.5371, "live_c8_lm": 5.4956, "final_m5": 4.9972, "zipformer_anchor": 5.2533}
+
+
+def test_hero_energy_ramp_is_monotone_in_lightness_and_range_adapts():
+    lightness = [money._oklab(money.ramp_hex(i / 47))[0] for i in range(48)]
+    assert all(a > b for a, b in zip(lightness, lightness[1:])), "lightness must fall with energy (grayscale and CVD safe)"
+    assert money.energy_range([0.328, 4.513]) == (0.3, 5.0)
+    assert money.energy_range([0.9, 9.5]) == (0.5, 10.0)
+
+
+def test_hero_energy_prefers_the_matched_campaign_and_greys_the_rest():
+    chosen = {k: {"short": k} for k in money.HERO_PLOTTED}
+    chosen["Zip"] = {"short": "Zip", "energy_method": "core_msr_active", "watts": 0.5, "energy_includes_idle": False,
+                     "workload_digest": "x"}
+    assert money.hero_energy(chosen) == {"Zip": 0.5}, "only rows with a receipt are metered; the rest are absent (grey)"
+    chosen["Zip"]["energy_idle_subtracted"] = 0.4
+    assert money.hero_energy(chosen) == {"Zip": 0.4}

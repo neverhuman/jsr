@@ -38,6 +38,20 @@ else
 fi
 mkdir -p "$WORK_DIR"
 
+# Regenerate (or verify currency of) directional heatmap colours from cold_dev.csv.
+HEATMAP_GEN="$REPO_ROOT/docs/briefs/scripts/gen_brief_heatmap.py"
+HEATMAP_TEX="$SRC_DIR/brief-heatmap.tex"
+if [[ "$CHECK_MODE" -eq 1 ]]; then
+  tmp_hm="$WORK_DIR/brief-heatmap.tex"
+  python3 -c "import importlib.util, pathlib; s=importlib.util.spec_from_file_location('g', '$HEATMAP_GEN'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); pathlib.Path('$tmp_hm').write_text(m.generate(), encoding='utf-8', newline='\n')"
+  if [[ ! -f "$HEATMAP_TEX" ]] || ! cmp -s "$tmp_hm" "$HEATMAP_TEX"; then
+    echo "error: docs/briefs/src/brief-heatmap.tex is stale; run: just briefs" >&2
+    exit 1
+  fi
+else
+  python3 "$HEATMAP_GEN"
+fi
+
 compile_one() {
   local tex_stem="$1"
   local pdf_name="$2"

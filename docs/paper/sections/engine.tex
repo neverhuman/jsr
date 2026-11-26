@@ -32,31 +32,19 @@ flipping quantisation ties across architectures, the log-mel front end replaces 
 transcendentals with portable unfused IEEE double arithmetic (Cody--Waite range reduction,
 polynomial $\sin$/$\cos$/$\log$, precomputed FFT twiddles, and sparse triangular filterbank).
 
-\para{Native commit-pass LM/LODR decoder and parity.} The commit binary
-(\texttt{ultra-engine-commit}) shares the exact same INT8 encoder and joiner, runs the live
-160\,ms stream to emit provisional text, and at each utterance endpoint executes the 640\,ms
-commit pass with a packed 5-gram LM (\texttt{M5.ulm}) and LODR beam-16 search.
-Prepared INT8 weights are verified by SHA-256 at load time. On the prior release artifact of identical
-architecture and full LibriSpeech DEV (\RelFullUtts{} utterances), prepared INT8 matched FP32 PyTorch within \RelIntEightDelta\pp pooled
-WER (one-sided 95\% bootstrap bounds \RelIntEightLo{} to \RelIntEightHi\pp), well inside the
-pre-registered \PreregDeltaPP\pp / \PreregUpperPP\pp gate, and produces bit-identical transcripts
-across all three cold repetitions on the evaluated Zen~2 AVX2 host (\cref{tab:repro}).
+\para{Commit-pass decoder, parity, and reproducibility.} The commit binary
+(\texttt{ultra-engine-commit}) shares the exact same INT8 encoder and joiner, and runs the 640\,ms
+commit pass with a packed 5-gram LM (\texttt{M5.ulm}) and LODR beam-16 search. Prepared INT8 weights
+are verified by SHA-256 at load time. On full LibriSpeech DEV (\RelFullUtts{} utterances), measured
+on an earlier checkpoint of identical architecture, prepared INT8 matched FP32 PyTorch within
+\RelIntEightDelta\pp pooled WER (one-sided 95\% bootstrap bounds \RelIntEightLo{} to
+\RelIntEightHi\pp), inside the pre-registered \PreregDeltaPP\pp / \PreregUpperPP\pp gate, with
+bit-identical transcripts across three cold repetitions and batch sizes 1 to 32. Bit-exact parity
+holds across ISAs: \CandIsaRuns{} witness decodes on Intel Xeon (AVX2, AVX-512 VNNI) and Apple M3
+(NEON) reproduce the Zen~2 transcripts on all \ScalarUtts{} panel utterances, and
+on a later development build a forced scalar backend gives \ScalarDiffs/\ScalarUtts{} differing utterances.
 
-\begin{table}[t]
-\centering
-\caption{\textbf{Verified reproducibility evidence for \ultra{} \PriorVer{}} (scoped strictly to
-receipts verified on that release INT8 artifact; the \ReleaseVer{} witness decodes are in \cref{sec:candidate}).}
-\label{tab:repro}
-\footnotesize
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{@{}p{2.3cm}p{2.7cm}p{2.87cm}@{}}
-\toprule
-Property & Verified scope & Outcome \\
-\midrule
-INT8 vs.\ FP32 parity & Full DEV (\RelFullUtts{} utt) & \RelIntEightDelta\pp (\RelIntEightLo{} to \RelIntEightHi\pp) \\
-Repeated cold runs & 730-utt DEV panel, 3 reps & 730/730 identical (live \& final) \\
-Batch invariance & Batch sizes 1 to 32 & Bit-identical per-row tokens \\
-Weight integrity & Prepared INT8 bundle & Verified SHA-256 at load \\
-\bottomrule
-\end{tabular}
-\end{table}
+\para{Optional level normalisation.} An opt-in final-pass RMS normaliser (\texttt{-{}-rms-norm}, off by
+default) changed WER on the unselected C half by \AudioZOneCleanDelta\pp at native level and by
+\AudioZOneTwentyDelta\pp and \AudioZOneThirtyDelta\pp on synthetic $-$20\,dB and $-$30\,dB speech
+(negative is fewer errors).

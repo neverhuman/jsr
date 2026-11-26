@@ -1,18 +1,20 @@
 \section{Limitations}\label{sec:limitations}
 
-\para{Release gate.} \ultra{} \ReleaseVer{} is released by owner decision after missing its registered
+\para{Release gate.} The \ultra{} release is shipped by owner decision after missing its registered
 full-DEV final edit gate (\CandFinalFullEdits{} edits vs.\ \CandGateFinalFull).
 
-\para{Utterance-segmented final mode and memory.} \ColdLimitLive{} Shrinking LM memory
-(\LmPackMb\,MB on disk) and commit CPU without losing accuracy remains future work.
+\para{Utterance-segmented final mode and memory.} \ultra{} live streams continuously without an endpoint
+detector. \ultra{} final needs utterance endpoints (capped at 40\,s), adds a post-endpoint commit delay
+(median \RelCommitDelayPfifty\,ms, from an earlier checkpoint of identical cost), and raises peak RSS to
+\ColdHeadRss\,MB because of the 5-gram LM pack (\LmPackMb\,MB on disk); shrinking both without losing
+accuracy remains future work.
 
 \para{Live accuracy and next lever.} The endpoint-free live stream trades accuracy for extreme speed and
-low power: its gap to Zipformer INT8 on the unselected DEV C half is \CandLiveLmCDelta\pp at 160\,ms
-and \CandLiveLmEightCDelta\pp at 320\,ms (\cref{sec:candidate}). Error analysis shows that \VfDiagInteriorPct\%
-of live repair positions (\VfDiagInterior{} of \VfDiagPositions{}) are common interior words on hard audio
-(\texttt{dev-other}), and follow-up probes of reranking, regularisation, and relabelling existing audio
-did not move clean live WER; breaking further at the same single-core compute budget will require fresh
-acoustic diversity and stronger non-Zipformer supervision.
+low power: its gap to Zipformer INT8 on the unselected DEV C half is \CandLiveLmCDelta\pp
+(\cref{sec:versus}). Most live repair positions (\VfDiagInteriorPct\%) are common interior words on hard
+audio, and probes of reranking, regularisation, and relabelling existing audio did not move clean live
+WER; further gains at this compute budget will need fresh acoustic diversity and stronger
+non-Zipformer supervision.
 
 \para{Training data and LM overlap.} \ultra{} is trained on LibriSpeech 960\,h plus Libri-Light
 pseudo-labelled by R0 (the Zipformer comparator). Release comparisons use read English LibriSpeech DEV
@@ -22,9 +24,8 @@ the \LmOverlapOf{} longer DEV transcripts verbatim; removing them leaves the rel
 unchanged.
 
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
-Shared-host (H0) rows stay marked interim until quiet H1 holds complete. Energy measurements are
-active core (CPU-domain) joules per audio-second from RAPL registers, never board or wall power.
-The R6 rows subtract the core idle floor; separately timed Moonshine, Parakeet, and Nemotron joins
-include it. They are measured unpaced. All accuracy numbers are LibriSpeech DEV only; as disclosed in
-\cref{sec:protocol}, LibriSpeech test-clean and test-other were read several times before our
-benchmark freeze, and no test-set numbers appear here.
+Energy is active core (CPU-domain) joules per audio-second from RAPL registers, never board or wall
+power; the R6 rows subtract the core idle floor, while separately timed Moonshine, Parakeet, and
+Nemotron joins include it, and all are measured unpaced. All accuracy numbers are LibriSpeech DEV only;
+as disclosed in \cref{sec:protocol}, test-clean and test-other were read several times before our
+benchmark freeze.

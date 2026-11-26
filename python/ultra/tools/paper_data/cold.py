@@ -126,16 +126,16 @@ def load_evidence(root: Path, rec: Records, out: dict[str, str]) -> list[dict]:
         host = (f"Interim: every point was measured on host {other}, a shared host that ran other jobs; rows from the "
                 f"quiet host {quiet} replace them as they arrive.")
     elif interim:
-        host = (f"{len(interim)} of the {len(drawn)} points {'is' if len(interim) == 1 else 'are'} still interim "
-                f"(lighter marks): measured on host {other}, a shared host that ran other jobs and makes every "
-                f"system slower, until their rows from the quiet host {quiet} arrive.")
+        names = ", ".join(r["short"] for r in interim[:-1]) + (" and " if len(interim) > 1 else "") + interim[-1]["short"]
+        host = (f"{names} {'is' if len(interim) == 1 else 'are'} still interim: measured on host {other}, a shared host "
+                f"that ran other jobs and makes every system slower, until their rows from the quiet host {quiet} arrive.")
     else:
         host = (f"Every point was measured on host {quiet}, one system at a time on the otherwise idle machine."
                 if drawn else "No measured rows yet.")
     if interim and len(interim) == len(drawn):
         short = f"Interim: every point was measured on the shared host {other}; quiet-host ({quiet}) rows replace them."
     elif interim:
-        short = (f"Lighter marks ({len(interim)} of {len(drawn)} points): interim, measured on the shared host {other} "
+        short = (f"Interim ({len(interim)} systems): measured on the shared host {other} "
                  f"until their quiet-host ({quiet}) rows arrive.")
     else:
         short = f"Every point was measured on host {quiet}, one system at a time." if drawn else "No measured rows yet."
