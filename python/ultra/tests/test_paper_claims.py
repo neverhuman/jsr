@@ -97,7 +97,7 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     for must_tex in ("Isosyll live", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
                      "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
                      r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
-                     "Energy per audio-second (J, idle-subtracted, log)", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
+                     r"\HeroBarTitle", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
                      "Isosyll vs.\\ all", "names colored by energy"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
     for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",

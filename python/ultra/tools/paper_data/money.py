@@ -297,6 +297,9 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     macros["RampLo"], macros["RampHi"] = f"{lo:g}", f"{hi:g}"
     macros["NotMetered"] = ", ".join(_tex(chosen[k]["short"]) for k in HERO_PLOTTED if k not in energy) or "none"
     macros["ShowFinal"] = int(HERO_SHOW_FINAL)
+    # the colorbar may only say "idle-subtracted" when every colored value is idle-subtracted
+    macros["BarTitle"] = ("Energy per audio-second (J, idle-subtracted, log)" if not hero_floor_included(chosen)
+                          else "Energy per audio-second (J, log)")
     macros["AnyNotMetered"] = int(len(energy) < len(HERO_PLOTTED))
     macros["AnyFaded"] = int(any(chosen[k]["faded"] for k in HERO_PLOTTED))
     for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):

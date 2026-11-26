@@ -9,8 +9,6 @@
 \newcommand{\AudioZOneTwentyDelta}{$-$0.175}% [exploratory] percentage points
 \newcommand{\CandCUtts}{2785}% [exploratory] utterances
 \newcommand{\CandFinalCDelta}{$-$0.11}% [exploratory] pp WER
-\newcommand{\CandFinalCHi}{+0.11}% [exploratory] pp WER
-\newcommand{\CandFinalCLo}{$-$0.35}% [exploratory] pp WER
 \newcommand{\CandFinalFullEdits}{5540}% [exploratory] edits
 \newcommand{\CandFinalFullWer}{5.22}% [exploratory] % WER
 \newcommand{\CandGateFinalFull}{5489}% [exploratory] edits
@@ -18,7 +16,6 @@
 \newcommand{\CandLiveLmCDelta}{+0.81}% [exploratory] pp WER
 \newcommand{\CandLiveLmCHi}{+1.02}% [exploratory] pp WER
 \newcommand{\CandLiveLmCLo}{+0.62}% [exploratory] pp WER
-\newcommand{\CandLiveLmEightCDelta}{+0.65}% [exploratory] pp WER
 \newcommand{\CandLiveLmFullClean}{3.25}% [exploratory] % WER
 \newcommand{\CandLiveLmFullOther}{9.13}% [exploratory] % WER
 \newcommand{\CandLiveLmFullWer}{6.10}% [exploratory] % WER
@@ -86,18 +83,12 @@
 \newcommand{\ColdParakeetTdtWer}{3.40}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerClean}{2.43}% [exploratory] % WER
 \newcommand{\ColdParakeetTdtWerOther}{4.78}% [exploratory] % WER
-\newcommand{\ColdRcTwoFinalCorePct}{5.9}% [exploratory] % of one core for one always-on stream
-\newcommand{\ColdRcTwoFinalModel}{60}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdRcTwoFinalRss}{387}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
 \newcommand{\ColdRcTwoFinalSpeed}{16.8}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
 \newcommand{\ColdRcTwoFinalWatts}{0.661}% [exploratory] W per live stream (= J per audio-s)
 \newcommand{\ColdRcTwoFinalWer}{5.00}% [exploratory] % WER
 \newcommand{\ColdRcTwoFinalWerClean}{3.03}% [exploratory] % WER
 \newcommand{\ColdRcTwoFinalWerOther}{7.80}% [exploratory] % WER
-\newcommand{\ColdRcTwoLiveGreedyRss}{74}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
-\newcommand{\ColdRcTwoLiveGreedySpeed}{34.2}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdRcTwoLiveGreedyWatts}{0.322}% [exploratory] W per live stream (= J per audio-s)
-\newcommand{\ColdRcTwoLiveGreedyWer}{6.23}% [exploratory] % WER
 \newcommand{\ColdRcTwoLiveLmCorePct}{3.1}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdRcTwoLiveLmModel}{60}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdRcTwoLiveLmRss}{109}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
@@ -106,9 +97,6 @@
 \newcommand{\ColdRcTwoLiveLmWer}{5.54}% [exploratory] % WER
 \newcommand{\ColdRcTwoLiveLmWerClean}{3.20}% [exploratory] % WER
 \newcommand{\ColdRcTwoLiveLmWerOther}{8.88}% [exploratory] % WER
-\newcommand{\ColdRcTwoLiveLmWideSpeed}{33.3}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdRcTwoLiveLmWideWatts}{0.316}% [exploratory] W per live stream (= J per audio-s)
-\newcommand{\ColdRcTwoLiveLmWideWer}{5.50}% [exploratory] % WER
 \newcommand{\ColdRowsCount}{14}% [reported] rows
 \newcommand{\ColdSubsetSentence}{4 slow systems are timed on a 73-utterance subset of the panel (Nemotron 560\,ms, Vosk Large, Whisper.cpp Tiny and Whisper.cpp Base); their WER is from the full panel.}% [reported] sentence
 \newcommand{\ColdVoskLargeCorePct}{24.2}% [exploratory] % of one core for one always-on stream
@@ -163,7 +151,6 @@
 \newcommand{\ScalarUtts}{730}% [exploratory] panel utterances compared
 \newcommand{\VfDiagInteriorPct}{86.8}% [exploratory] % of residual positions
 \newcommand{\VsChunkOne}{160}% [exploratory] ms
-\newcommand{\VsChunkTwo}{160}% [exploratory] ms
 \newcommand{\VsCpuPctOne}{43}% [exploratory] %
 \newcommand{\VsDeltaOne}{+0.28}% [exploratory] pp WER
 \newcommand{\VsDeltaTwo}{$-$0.26}% [exploratory] pp WER
@@ -178,8 +165,6 @@
 \newcommand{\VsSpeedXTwo}{1.19}% [exploratory] x
 \newcommand{\VsVerdictOne}{not significantly different from}% [exploratory] text
 \newcommand{\VsVerdictTwo}{not significantly different from}% [exploratory] text
-\newcommand{\VsWideEnergyPct}{55}% [exploratory] %
-\newcommand{\VsWideSpeedX}{2.40}% [exploratory] x
 \newcommand{\VsZipChunk}{320}% [exploratory] ms
 
 \newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest (AMD core-energy registers, idle floor subtracted except for Moonshine Tiny, Parakeet v3 (sherpa), Nemotron 560 ms, which include it, same blocks; not wall power; grey = not metered: Moonshine Small, Vosk Small, Vosk Large, Parakeet v3 (onnx-asr), Nemotron 160 ms, Nemotron 3.5, Whisper.cpp Tiny, Whisper.cpp Base). Isosyll live is the 160\,ms chunk of one \ColdHeadModel\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, and \S\ marks timing on a 73-clip subset only.}
