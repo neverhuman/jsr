@@ -6,7 +6,8 @@ JSR ships a library and a command-line tool that run on the user's own CPU; ther
 no hosted service, account system or server to operate.
 
 **Releases so far:**
-- **v3.2.0** is the pinned release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)): a runtime-only update of v3.1.0. Same RC2 INT8 weights, LMs and scorer; new decoders built at 6d95f37d with the opt-in `--rms-norm` final-pass level normalisation (off by default; off is byte-identical to v3.1.0). Record: [`v3.2.0.md`](ultra/releases/v3.2.0.md).
+- **v4.0.0** is the Latest release: one pure-Rust binary, `isosyll`, for Linux x86-64 (glibc ≥ 2.35, plus a static fallback), Linux arm64 and macOS on Apple silicon, with the unchanged v3.1.0 model. Install with `curl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh`. Record: [`v4.0.0.md`](ultra/releases/v4.0.0.md). The research decoders below stay pinned at v3.2.0 for reproducing the paper.
+- **v3.2.0** is the pinned research release ([`docs/ultra/releases/pinned.json`](ultra/releases/pinned.json)): a runtime-only update of v3.1.0. Same RC2 INT8 weights, LMs and scorer; new decoders built at 6d95f37d with the opt-in `--rms-norm` final-pass level normalisation (off by default; off is byte-identical to v3.1.0). Record: [`v3.2.0.md`](ultra/releases/v3.2.0.md).
 - **v3.1.0** is the previous release and the rollback target: the RC2 INT8 model with its live and final decoders, both LMs and the scorer, signed, published 2026-11-24. It was released by owner decision with its registered gate misses stated. Record: [`v3.1.0.md`](ultra/releases/v3.1.0.md).
 - **v3.0.1** is the release before that: the v3.0.0 artifact, signed, with its files attached. Record: [`v3.0.1.md`](ultra/releases/v3.0.1.md).
 - **v3.0.0** is the same artifact as v3.0.1, with an unsigned tag. Record: [`v3.0.0.md`](ultra/releases/v3.0.0.md).

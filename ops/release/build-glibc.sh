@@ -12,12 +12,13 @@ toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
 tc="$HOME/.rustup/toolchains/$toolchain-x86_64-unknown-linux-gnu"
 [ -x "$tc/bin/cargo" ] || { echo "error: toolchain $toolchain not installed at $tc" >&2; exit 1; }
 target=${GLIBC_TARGET_DIR:-$root/target/release-glibc}
-src=$(mktemp -d)
+mkdir -p "$root/target"
+src=$(mktemp -d "$root/target/glibc-src.XXXXXX") # not /tmp: build inputs stay in the lane
 trap 'rm -rf "$src"' EXIT
 mkdir -p "$target"
 git archive HEAD | tar -x -C "$src"
 commit=$(git rev-parse --short=12 HEAD)
-docker run --rm --network host \
+docker run --rm --network host -e OWNER="$(id -u):$(id -g)" \
 	-e PATH="/rh/toolchains/$toolchain-x86_64-unknown-linux-gnu/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
 	-e RUSTUP_HOME=/rh -e CARGO_HOME=/ch -e CARGO_TARGET_DIR=/tgt \
 	-e ISOSYLL_BUILD_COMMIT="$commit" \
@@ -32,5 +33,6 @@ docker run --rm --network host \
 		cargo build --release --locked --offline -p isosyll
 		max=$(objdump -T /tgt/release/isosyll | grep -o "GLIBC_[0-9.]*" | sort -Vu | tail -n 1)
 		[ "$(printf "%s\nGLIBC_2.35\n" "$max" | sort -V | tail -n 1)" = GLIBC_2.35 ] ||
-			{ echo "error: binary needs $max" >&2; exit 1; }'
+			{ echo "error: binary needs $max" >&2; exit 1; }
+		chown -R "$OWNER" /tgt # the container runs as root; hand the target dir back'
 bash ops/release/build.sh --package x86_64-unknown-linux-gnu "$target/release/isosyll"
