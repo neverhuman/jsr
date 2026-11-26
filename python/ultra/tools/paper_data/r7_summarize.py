@@ -49,12 +49,13 @@ def load(root, block, key):
 
 
 def check_manifest(root, keys):
-    """Every receipt read must match the staged selection manifest (r7_stage.py) before anything is written."""
+    """Read each receipt once, check its hash against the staged selection manifest (r7_stage.py) and return
+    the verified snapshot {(block, key): (receipt, path, sha256)}. Nothing else may read the receipts."""
     sel_path = root / "selection.json"
     if not sel_path.exists():
         raise SystemExit(f"{sel_path} is missing: stage the receipts with r7_stage.py first")
     sel = json.loads(sel_path.read_bytes())
-    bad = []
+    snap, bad = {}, []
     for b, key in keys:
         d, p, h = load(root, b, key)
         if d is None:
@@ -62,8 +63,10 @@ def check_manifest(root, keys):
         want = sel.get(f"b{b}-{key}", {}).get("used_sha256")
         if want != h:
             bad.append(f"{p.relative_to(root)}: manifest {want}, bytes read {h}")
+        snap[(b, key)] = (d, p, h)
     if bad:
         raise SystemExit("receipts do not match selection.json:\n  " + "\n  ".join(bad))
+    return snap
 
 
 def row_of(d):
@@ -95,13 +98,13 @@ def main():
     ap.add_argument("--cold-dev", type=Path, default=Path(__file__).resolve().parents[4] / "docs" / "paper" / "data" / "cold_dev.csv")
     args = ap.parse_args()
     root = args.root
-    check_manifest(root, [(b, k) for k in IDS for b in (1, 2, 3)] + [(1, "anchor730-live"), (1, "anchor730-zip")])
+    snap = check_manifest(root, [(b, k) for k in IDS for b in (1, 2, 3)] + [(1, "anchor730-live"), (1, "anchor730-zip")])
     meta = {r["id"]: r for r in csv.DictReader(args.cold_dev.open())}
     summary, rows = {}, []
     for key, cid in IDS.items():
         blocks, paths = [], []
         for b in (1, 2, 3):
-            d, p, h = load(root, b, key)
+            d, p, h = snap.get((b, key), (None, None, None))
             if d is None:
                 continue
             r = row_of(d)
@@ -162,7 +165,7 @@ def main():
         })
     anchors = {}
     for key, cid, name in (("anchor730-live", "rc2-live-lm-zen2-t1", "live"), ("anchor730-zip", "r0-int8-r6-zen2-t1", "zip")):
-        d, p, h = load(root, 1, key)
+        d, p, h = snap.get((1, key), (None, None, None))
         if d is None:
             continue
         r = row_of(d)
@@ -173,7 +176,7 @@ def main():
                          "cpu_s_per_audio_s": r["cpu_s_per_audio_s"], "speed_x": round(1 / r["cpu_s_per_audio_s"], 3),
                          "core_clean": r["core_clean"], "flags": r["flags"], "panel": "full730",
                          "receipt": str(p.relative_to(root)), "receipt_sha256": h}
-    missing = [f"block{b}/{key}.json" for key in IDS for b in (1, 2, 3) if not (root / f"block{b}" / f"{key}.json").exists()]
+    missing = [f"block{b}/{key}.json" for key in IDS for b in (1, 2, 3) if (b, key) not in snap]
     problems = [f"missing receipt {m}" for m in missing]
     for name in ("live", "zip"):
         a = anchors.get(name)

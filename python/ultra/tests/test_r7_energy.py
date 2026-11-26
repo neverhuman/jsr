@@ -137,6 +137,40 @@ def test_evidence_hashes_are_of_the_bytes_parsed(tmp_path, monkeypatch):
     assert summary["anchors"]["live"]["receipt_sha256"] == hashlib.sha256(live.read_bytes()).hexdigest()
 
 
+def test_receipts_swapped_after_verification_do_not_reach_the_output(tmp_path, monkeypatch):
+    full(tmp_path)
+    sel = json.loads((tmp_path / "selection.json").read_text())
+    real_check = r7.check_manifest
+
+    def check_then_swap(root, keys):
+        snap = real_check(root, keys)
+        for b in (1, 2, 3):
+            put(root, b, "vosk-small", 99.0)  # the bytes change after the check, before the values are used
+        put(root, 1, "anchor730-live", 9.9)
+        return snap
+
+    monkeypatch.setattr(r7, "check_manifest", check_then_swap)
+    out = tmp_path / "evidence.jsonl"
+    run(tmp_path, monkeypatch, out)
+    rows = {r["id"]: r for r in map(json.loads, out.read_text().splitlines())}
+    row = rows["vosk-small-zen2-t1"]
+    assert row["energy_j_per_audio_s"] == pytest.approx(1.0) and row["blocks"] == [1.0, 1.0, 1.0]
+    assert row["receipt_sha256"] == sel["b1-vosk-small"]["used_sha256"]
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["validity"] == "VALID"
+    assert summary["anchors"]["live"]["j_per_audio_s"] == pytest.approx(0.328)
+    assert summary["anchors"]["live"]["receipt_sha256"] == sel["b1-anchor730-live"]["used_sha256"]
+
+
+def test_each_receipt_is_read_once(tmp_path, monkeypatch):
+    full(tmp_path)
+    reads = []
+    real = r7.load
+    monkeypatch.setattr(r7, "load", lambda root, b, k: reads.append((b, k)) or real(root, b, k))
+    run(tmp_path, monkeypatch, tmp_path / "evidence.jsonl")
+    assert len(reads) == len(set(reads))
+
+
 def test_void_run_creates_no_evidence_file(tmp_path, monkeypatch):
     full(tmp_path, drop=[(1, "anchor730-live")])
     out = tmp_path / "evidence.jsonl"
