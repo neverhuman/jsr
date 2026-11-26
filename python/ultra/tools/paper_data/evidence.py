@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 
 from .common import DATA, MACHINES, PaperDataError, read_json
 from .schema import (CROSS_CHECK_METHODS, LAG_KEYS, LAG_PROOF, PRESENTATION, attach_energy, check_row,  # noqa: F401
@@ -29,9 +30,14 @@ def _read(root: Path) -> tuple[list[dict], list[dict], dict]:
             r = json.loads(line)
             r["_where"] = f"{p.name}:{n}"
             kind = r.get("kind", "cost")
-            if "energy_j_per_audio_s" in r:  # matched-campaign energy line (R7): Figure 1 colour only
-                kind = "r7_energy"
-            if kind == "r7_energy":
+            if "energy_j_per_audio_s" in r and kind != "r7_energy":  # R7 rows name their kind explicitly
+                raise PaperDataError(f"{r['_where']}: an R7 energy row needs kind 'r7_energy', got {r.get('kind')!r}")
+            if kind == "r7_validity":  # file-level verdict line of a campaign
+                if str(r.get("validity", "")).upper() != "VALID":
+                    raise PaperDataError(f"{r['_where']}: R7 file is marked {r.get('validity')!r}, not VALID")
+            elif kind == "r7_energy":
+                if "void" in p.name.lower():
+                    raise PaperDataError(f"{r['_where']}: R7 evidence file is marked VOID by its name")
                 sidecars.append(r)
             elif kind == "cost":
                 rows.append(r)
@@ -46,20 +52,37 @@ def _read(root: Path) -> tuple[list[dict], list[dict], dict]:
     return rows, sidecars, headline
 
 
+def _check_r7(s: dict, seen: set) -> None:
+    """One R7 energy row: valid campaign, one finite positive value per target."""
+    where, tid = s["_where"], s.get("id", s.get("row"))
+    if "void" in str(s.get("anchor_check", "")).lower() or "void" in str(s.get("validity", "")).lower() \
+            or s.get("void") is True:
+        raise PaperDataError(f"{where}: R7 row for {tid!r} is marked VOID")
+    if tid in seen:
+        raise PaperDataError(f"{where}: duplicate R7 energy target {tid!r}")
+    seen.add(tid)
+    v = s["energy_j_per_audio_s"]
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+        raise PaperDataError(f"{where}: R7 energy for {tid!r} must be a finite positive number, got {v!r}")
+
+
 def _merge(rows: list[dict], sidecars: list[dict]) -> None:
     by_id: dict[str, dict] = {}
     for r in rows:
         if r.get("id") in by_id:
             raise PaperDataError(f"duplicate evidence ids: {r['id']} ({by_id[r['id']]['_where']} and {r['_where']})")
         by_id[r.get("id")] = r
+    r7_seen: set = set()
     for s in sidecars:
         target = by_id.get(s.get("row", s.get("id")))
         if s["kind"] == "r7_energy":
+            _check_r7(s, r7_seen)
             if target is None:
                 raise PaperDataError(f"{s['_where']}: energy line points at unknown row {s.get('id', s.get('row'))!r}")
             if s.get("energy_method") != "core_idle_subtracted":
                 raise PaperDataError(f"{s['_where']}: energy_method must be core_idle_subtracted")
             target["energy_idle_subtracted"] = float(s["energy_j_per_audio_s"])
+            target["energy_idle_subtracted_n_clean"] = s.get("n_clean")
             continue
         if target is None:
             raise PaperDataError(f"{s['_where']}: {s['kind']} sidecar points at unknown row {s.get('row')!r}")

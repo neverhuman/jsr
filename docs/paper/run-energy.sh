@@ -56,8 +56,13 @@ audio() { printf '%s\n' --wav-dir "audio/$1" --audio-manifest "audio/$1.audio.js
 
 # quiet MINUTES ARM...: hold the lock (renewed every minute, never more than 15 minutes ahead, never
 # past MINUTES), wait for runs in flight, run the arm, release.
+renew_pid=
+quiet_cleanup() {
+    if [[ -n $renew_pid ]]; then kill "$renew_pid" 2>/dev/null || true; fi
+    rm -f "$lock"
+}
 quiet() {
-    local end=$(($(date +%s) + $1 * 60)) renew waited=0 busy
+    local end=$(($(date +%s) + $1 * 60)) waited=0 busy
     shift
     write_lock() {
         local until=$(($(date +%s) + 900))
@@ -71,9 +76,9 @@ quiet() {
     fi
     write_lock main
     (while sleep 60; do write_lock renew; done) &
-    renew=$!
-    # expanded now: a local variable is out of scope when the EXIT trap fires, and `set -u` would abort
-    trap "kill $renew 2>/dev/null || true; rm -f '$lock'" EXIT
+    renew_pid=$!
+    # the PID lives in script scope (a local would be gone when the EXIT trap fires, and `set -u` would abort)
+    trap quiet_cleanup EXIT
     while busy=$(top -b -n 2 -d 3 -w 200 | awk '/^top -/ {n++} n == 2 && $1 ~ /^[0-9]+$/ && $9 + 0 >= 25 {print $1 ":" $12}' | tr '\n' ' ') && [[ -n $busy ]]; do
         echo "$(date -u +%T) runs in flight, waiting: $busy"
         sleep 20

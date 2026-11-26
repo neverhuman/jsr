@@ -13,7 +13,9 @@ import csv
 import hashlib
 import json
 import math
+import os
 import statistics
+import sys
 from pathlib import Path
 
 R6 = {"rc2-live-lm-zen2-t1": 0.328, "r0-int8-r6-zen2-t1": 0.573}
@@ -61,6 +63,13 @@ def row_of(d):
         "core_clean": d["clean_repetitions"]["core"] == 1,
         "flags": [f for f in d["flags"] if not f.startswith("no_clean_package") and "package" not in f],
     }
+
+
+def write_atomic(path, text):
+    """Temp file in the target directory, then rename: a reader never sees a half-written evidence file."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def main():
@@ -146,10 +155,21 @@ def main():
                          "cpu_s_per_audio_s": r["cpu_s_per_audio_s"], "speed_x": round(1 / r["cpu_s_per_audio_s"], 3),
                          "core_clean": r["core_clean"], "flags": r["flags"], "panel": "full730",
                          "receipt": str(p.relative_to(root)), "receipt_sha256": sha(p)}
-    verdict = "VALID" if anchors and all(a["within_5pct"] for a in anchors.values()) and len(anchors) == 2 else "VOID"
-    out = {"protocol": "R7", "validity": verdict, "anchors": anchors, "arms": summary}
+    missing = [f"block{b}/{key}.json" for key in IDS for b in (1, 2, 3) if not (root / f"block{b}" / f"{key}.json").exists()]
+    problems = [f"missing receipt {m}" for m in missing]
+    for name in ("live", "zip"):
+        a = anchors.get(name)
+        if a is None:
+            problems.append(f"anchor {name} missing")
+            continue
+        if not a["core_clean"]:
+            problems.append(f"anchor {name} is not core-clean")
+        if not a["within_5pct"]:
+            problems.append(f"anchor {name} is {a['deviation_pct']}% from R6 (band 5%)")
+    verdict = "VALID" if not problems else "VOID"
+    out = {"protocol": "R7", "validity": verdict, "anchors": anchors, "arms": summary, "problems": problems}
     (root / "summary.json").write_text(json.dumps(out, indent=1) + "\n")
-    if args.evidence:
+    if args.evidence and verdict == "VALID":
         ids = [r["id"] for r in rows]
         if len(ids) != len(set(ids)):
             raise SystemExit("duplicate target ids in evidence")
@@ -162,13 +182,17 @@ def main():
                     raise SystemExit(f"receipt sha256 mismatch: {rc['path']}")
         for r in rows:
             r["anchor_check"] = verdict
-        args.evidence.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+        write_atomic(args.evidence, "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
     print(verdict, json.dumps(anchors, indent=1))
     for k, v in summary.items():
         if v.get("grey"):
             print(f"{k:28s} GREY (no clean block)")
             continue
         print(f"{k:28s} {v['j_per_audio_s_median']:8.4f} {v['blocks']} spread {v['block_spread_pct']}% speed {v['speed_x']}x")
+    if verdict != "VALID":
+        for p in problems:
+            print("VOID:", p, file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
