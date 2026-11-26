@@ -2,7 +2,6 @@
 IfFileExists resolution, figure wrapping and the privacy scan. The docker verification is not run here."""
 
 import importlib.util
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -52,7 +51,6 @@ def test_scan_passes_clean_text_and_noreply():
     assert not st.scan_text("t", "Zen 2 core, 32.7x real time, v3.1.0, NEVERHUMAN Research, x@users.noreply.github.com")
 
 
-@pytest.mark.skipif(not shutil.which("pdflatex"), reason="needs TeX Live")
 def test_stage_only_builds_a_clean_tree():
     r = subprocess.run([str(REPO / "ops/paper/build_arxiv.sh"), "--stage-only"], cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]

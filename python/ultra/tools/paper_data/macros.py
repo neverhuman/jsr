@@ -19,13 +19,13 @@ _MACRO_RE = re.compile(r"\\([A-Z][A-Za-z]+)")
 def used_macros(rec: Records, texts: list[str]) -> set[str]:
     """Macro ids referenced by the paper sources (and, transitively, by other emitted macro values)."""
     seen: set[str] = set()
-    todo = [m for t in texts for m in _MACRO_RE.findall(re.sub(r"(?<!\\)%.*", "", t))]
-    while todo:
-        m = todo.pop()
+    pending = [m for t in texts for m in _MACRO_RE.findall(re.sub(r"(?<!\\)%.*", "", t))]
+    while pending:
+        m = pending.pop()
         if m in seen or m not in rec.rows:
             continue
         seen.add(m)
-        todo += _MACRO_RE.findall(str(rec.rows[m].get("value") or ""))
+        pending += _MACRO_RE.findall(str(rec.rows[m].get("value") or ""))
     return seen
 
 
