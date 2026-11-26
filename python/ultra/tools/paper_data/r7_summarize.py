@@ -39,15 +39,31 @@ IDS = {
 }
 
 
-def sha(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
 def load(root, block, key):
+    """(parsed receipt, path, sha256): the hash is of the exact bytes that were parsed, from one read."""
     path = root / f"block{block}" / f"{key}.json"
     if not path.exists():
-        return None, None
-    return json.loads(path.read_text()), path
+        return None, None, None
+    raw = path.read_bytes()
+    return json.loads(raw), path, hashlib.sha256(raw).hexdigest()
+
+
+def check_manifest(root, keys):
+    """Every receipt read must match the staged selection manifest (r7_stage.py) before anything is written."""
+    sel_path = root / "selection.json"
+    if not sel_path.exists():
+        raise SystemExit(f"{sel_path} is missing: stage the receipts with r7_stage.py first")
+    sel = json.loads(sel_path.read_bytes())
+    bad = []
+    for b, key in keys:
+        d, p, h = load(root, b, key)
+        if d is None:
+            continue
+        want = sel.get(f"b{b}-{key}", {}).get("used_sha256")
+        if want != h:
+            bad.append(f"{p.relative_to(root)}: manifest {want}, bytes read {h}")
+    if bad:
+        raise SystemExit("receipts do not match selection.json:\n  " + "\n  ".join(bad))
 
 
 def row_of(d):
@@ -79,16 +95,18 @@ def main():
     ap.add_argument("--cold-dev", type=Path, default=Path(__file__).resolve().parents[4] / "docs" / "paper" / "data" / "cold_dev.csv")
     args = ap.parse_args()
     root = args.root
+    check_manifest(root, [(b, k) for k in IDS for b in (1, 2, 3)] + [(1, "anchor730-live"), (1, "anchor730-zip")])
     meta = {r["id"]: r for r in csv.DictReader(args.cold_dev.open())}
     summary, rows = {}, []
     for key, cid in IDS.items():
         blocks, paths = [], []
         for b in (1, 2, 3):
-            d, p = load(root, b, key)
+            d, p, h = load(root, b, key)
             if d is None:
                 continue
             r = row_of(d)
             r["block"] = b
+            r["sha256"] = h
             blocks.append(r)
             paths.append(p)
         if not blocks:
@@ -138,13 +156,13 @@ def main():
             "cpu_s_per_audio_s": entry["cpu_s_per_audio_s"], "speed_x": entry["speed_x"],
             "idle_core_w": entry["idle_w"], "block_core_clean": entry["block_core_clean"],
             "block_flags": entry["block_flags"],
-            "receipt": rel[mid], "receipt_sha256": sha(paths[mid]),
-            "receipts": [{"path": r, "sha256": sha(root / r)} for r in rel],
+            "receipt": rel[mid], "receipt_sha256": blocks[mid]["sha256"],
+            "receipts": [{"path": r, "sha256": b["sha256"]} for r, b in zip(rel, blocks)],
             "label": "exploratory",
         })
     anchors = {}
     for key, cid, name in (("anchor730-live", "rc2-live-lm-zen2-t1", "live"), ("anchor730-zip", "r0-int8-r6-zen2-t1", "zip")):
-        d, p = load(root, 1, key)
+        d, p, h = load(root, 1, key)
         if d is None:
             continue
         r = row_of(d)
@@ -154,7 +172,7 @@ def main():
                          "within_5pct": abs(r["j_per_audio_s"] / ref - 1) <= TOL,
                          "cpu_s_per_audio_s": r["cpu_s_per_audio_s"], "speed_x": round(1 / r["cpu_s_per_audio_s"], 3),
                          "core_clean": r["core_clean"], "flags": r["flags"], "panel": "full730",
-                         "receipt": str(p.relative_to(root)), "receipt_sha256": sha(p)}
+                         "receipt": str(p.relative_to(root)), "receipt_sha256": h}
     missing = [f"block{b}/{key}.json" for key in IDS for b in (1, 2, 3) if not (root / f"block{b}" / f"{key}.json").exists()]
     problems = [f"missing receipt {m}" for m in missing]
     for name in ("live", "zip"):
@@ -177,9 +195,6 @@ def main():
             v = r["energy_j_per_audio_s"]
             if not (isinstance(v, float) and math.isfinite(v) and v > 0):
                 raise SystemExit(f"bad energy value for {r['id']}: {v!r}")
-            for rc in r["receipts"]:
-                if sha(root / rc["path"]) != rc["sha256"]:
-                    raise SystemExit(f"receipt sha256 mismatch: {rc['path']}")
         for r in rows:
             r["anchor_check"] = verdict
         write_atomic(args.evidence, "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))

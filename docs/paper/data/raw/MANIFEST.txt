@@ -4693,6 +4693,7 @@ e11eee20ea9c2aaee0e9a3ad4aaa67e78a3e17e81bef1781fb37e1a381a2ec89  panel_manifest
 c4db7a500e5fd506f7c8f36f22729c7319fa73b1e566a276a123bee155c1835c  panel_manifests/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json
 917d3eaa57e1f84a08f1beaf172d572e63995a5c835c1d97f5f9d1d703e9e01f  panel_manifests/zipformer-int8.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.job_manifest.json
 27015a726e75cb166578c6dffa7a305b9175b54cb8a31a386a920df0eefc2bf0  panel_manifests/zipformer-int8.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.receipt.json
+b8c9ec45b1304b9f34f0a5774469b51153da47ec67b70783eb8145a9a443dc0a  r7_energy/DEVIATIONS.md  R7 energy campaign deviations from the pre-registration (written 2026-11-26)
 7ed4f67740ba9add3979c107899e4d91558d0775eb4566d2ccc994bdd89c49cb  release_v3/14p_wer.json  eval-lane canonical ultra-score 730-utt DEV panel WER for 14p RC1-EMA committed + provisional (sha256 7ed4f67740ba)
 772fb698a373859ca1ca7d0eae165bc107f0c877e40b7532abf362b97493b893  release_v3/rc1_a6_int8.json  eval-lane RC1-EMA official A6 full-DEV INT8 verdict (weights.int8 edac19d8)
 1a4aeebac01bc329af7baa990a6d06bad7fe4164b104356b8373843ef07a3c28  release_v3/rc1_int8_vs_pytorch.json  eval-lane RC1-EMA official full-DEV INT8 vs FP32 PyTorch paired report (5,567 utts)
@@ -4790,11 +4791,16 @@ ee1e0aa726074c314116177faf3e9463633c66b4a0b6dbbd3f407e65d504d932  v5_closeout/fi
 a6ec3576774f6d2897dad155745cd19374ecf3eaa0bf74da3d34771afec3d935  v5_closeout/frozen-transfer-probe.json  unknown-origin
 52589f4810e0c826ba3731ad3c73607b3c91e7141494d1a6f7dda9f1e21f1d45  v5_closeout/gain-c3-protocol.json  unknown-origin
 b5b0597527ec5fe278550644e7c471bdf89533893f4eddea4f383e0251a3f9b9  v5_closeout/gain-c3-replay.json  unknown-origin
+9df3670891782419df81cadad5b2def32c772369e6a00fea1080d02c5e740f84  v5_closeout/h61-step-two-fixed-seeds.json  H61 Step 2 sealed fixed-seed bootstrap
+c88adfbd4ace6b5447f8138613115985bbc757696639b2ff1462abd7a9f76cb9  v5_closeout/h61-step-two-joint-resampling.json  H61 Step 2 alignment ledger replay of registered sampling
 d6895c610e2229bfc1b7a94e0af4ade8efb7b39c91302c0223d7ba4422ab2d65  v5_closeout/learned-inputs-long.json  unknown-origin
 9fc317e73bc54fb7c7229f32b1afcbcc1ccaa6d6970125efba159f286d941ac8  v5_closeout/learned-inputs-stress.json  unknown-origin
+9c99192351f6c586bcc692058f5e1133ca3ac3e415017adc0ed392c89813d881  v5_closeout/m1-v4-gate.json  Independent M1-v4 terminal EMA scorer
 fe4560771eab1dabc164043948e4f6bbd426901da4de7bc90f0c876a3a6c3a9f  v5_closeout/token-window-train.json  unknown-origin
 d3c8843db51a9b982fed61f8dd3bb8609bc3a4b7c3bfb1ece030cb8922c79162  v5_closeout/turn-switch-clean.json  unknown-origin
 2c9710b4d50e8c08b28f60df95d1bb13a814fe467c4d4cc72d316cff71de1799  v5_closeout/warm-guards-selection.json  unknown-origin
+0ee82ad9ac363e2f1e7ae9a1b1e830a64b2dd310aa7271fa049bad376d72d0c8  v5_closeout/z1-file-end-confirmation.json  A1 frozen DEV C-half M5 file-end gate
+a1f16e12b9aaeff855c2e436cd7bce731270139886f9eb079915a11237e01748  v5_closeout/z2-calibrated-c3.json  Frozen TRAIN-calibrated C3 paired continuous replay
 27bdd9bd43830d5910677ccb5dedbe769958a965d943d4bdb2d5bedd21a4002a  versus/v300/README.md  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
 439d46a1b9c0ac299a2309e6a5d9401dba0ce8a634df617cbc3d57271ec9b27e  versus/v300/v300-final.panel730.score-input.jsonl  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
 822f52dd518a1116cfc73735608e280bfe7d8a532df66918cefddc0105a4fd32  versus/v300/v300-live.panel730.score-input.jsonl  claude-lead 2026-11-24: paired ultra-score d784f8ca, Zipformer INT8 vs v3.0.0 on panel730
@@ -4826,8 +4832,3 @@ d8533d93b948c89db796ce26b2a968790868caebe011b9e8ebd0ed9ebc82e57e  versus/v310/zi
 203399ef03bdabdf2aab17956d48b1e75c99e7992fe7a8f18a84ab7acf9d428f  versus/v310/zip-vs-rc2-live_c8_lm.c_half.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
 7e75acd796a3029b943ff75816ec9d8e1d6a94316837a4c62c09caf697c0fc2e  versus/v310/zip-vs-rc2-live_c8_lm.panel730.score.json  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
 1600992e15077703dd76bb36439337e7f6f17b8326581eb5c252bc0a4da2f865  versus/v310/zipformer_int8.c_half.score-input.jsonl  release/v3.1.0/confirmatory_look/inputs + pinned ultra-score d784f8ca reports
-9df3670891782419df81cadad5b2def32c772369e6a00fea1080d02c5e740f84  v5_closeout/h61-step-two-fixed-seeds.json  H61 Step 2 sealed fixed-seed bootstrap
-c88adfbd4ace6b5447f8138613115985bbc757696639b2ff1462abd7a9f76cb9  v5_closeout/h61-step-two-joint-resampling.json  H61 Step 2 alignment ledger replay of registered sampling
-9c99192351f6c586bcc692058f5e1133ca3ac3e415017adc0ed392c89813d881  v5_closeout/m1-v4-gate.json  Independent M1-v4 terminal EMA scorer
-0ee82ad9ac363e2f1e7ae9a1b1e830a64b2dd310aa7271fa049bad376d72d0c8  v5_closeout/z1-file-end-confirmation.json  A1 frozen DEV C-half M5 file-end gate
-a1f16e12b9aaeff855c2e436cd7bce731270139886f9eb079915a11237e01748  v5_closeout/z2-calibrated-c3.json  Frozen TRAIN-calibrated C3 paired continuous replay

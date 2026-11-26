@@ -52,18 +52,31 @@ def _read(root: Path) -> tuple[list[dict], list[dict], dict]:
     return rows, sidecars, headline
 
 
-def _check_r7(s: dict, seen: set) -> None:
-    """One R7 energy row: valid campaign, one finite positive value per target."""
-    where, tid = s["_where"], s.get("id", s.get("row"))
+def _check_r7(s: dict, seen: set) -> str:
+    """One R7 energy row: valid campaign, one resolved target, one finite positive value, a real n_clean.
+    Returns the single target key used for validation and merge."""
+    where = s["_where"]
+    row, ident = s.get("row"), s.get("id")
+    if row is not None and ident is not None and row != ident:
+        raise PaperDataError(f"{where}: R7 row names two targets: row {row!r} and id {ident!r}")
+    tid = row if row is not None else ident
+    if not isinstance(tid, str) or not tid:
+        raise PaperDataError(f"{where}: R7 energy row has no target id")
     if "void" in str(s.get("anchor_check", "")).lower() or "void" in str(s.get("validity", "")).lower() \
             or s.get("void") is True:
         raise PaperDataError(f"{where}: R7 row for {tid!r} is marked VOID")
     if tid in seen:
         raise PaperDataError(f"{where}: duplicate R7 energy target {tid!r}")
     seen.add(tid)
+    if "energy_j_per_audio_s" not in s:
+        raise PaperDataError(f"{where}: R7 row for {tid!r} has no energy_j_per_audio_s")
     v = s["energy_j_per_audio_s"]
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
         raise PaperDataError(f"{where}: R7 energy for {tid!r} must be a finite positive number, got {v!r}")
+    n = s.get("n_clean")
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise PaperDataError(f"{where}: R7 row for {tid!r} needs n_clean >= 1 (integer), got {n!r}")
+    return tid
 
 
 def _merge(rows: list[dict], sidecars: list[dict]) -> None:
@@ -74,16 +87,17 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
         by_id[r.get("id")] = r
     r7_seen: set = set()
     for s in sidecars:
-        target = by_id.get(s.get("row", s.get("id")))
         if s["kind"] == "r7_energy":
-            _check_r7(s, r7_seen)
+            tid = _check_r7(s, r7_seen)
+            target = by_id.get(tid)
             if target is None:
-                raise PaperDataError(f"{s['_where']}: energy line points at unknown row {s.get('id', s.get('row'))!r}")
+                raise PaperDataError(f"{s['_where']}: energy line points at unknown row {tid!r}")
             if s.get("energy_method") != "core_idle_subtracted":
                 raise PaperDataError(f"{s['_where']}: energy_method must be core_idle_subtracted")
             target["energy_idle_subtracted"] = float(s["energy_j_per_audio_s"])
             target["energy_idle_subtracted_n_clean"] = s.get("n_clean")
             continue
+        target = by_id.get(s.get("row", s.get("id")))
         if target is None:
             raise PaperDataError(f"{s['_where']}: {s['kind']} sidecar points at unknown row {s.get('row')!r}")
         if s["kind"] == "energy":

@@ -42,6 +42,14 @@ def put(root, block, key, j, clean=True):
     (d / f"{key}.json").write_text(json.dumps(receipt(j, clean)))
 
 
+def manifest(root):
+    """selection.json as r7_stage.py writes it: the sha256 of every staged receipt."""
+    sel = {}
+    for f in root.glob("block[123]/*.json"):
+        sel[f"b{f.parent.name[5:]}-{f.stem}"] = {"used_sha256": hashlib.sha256(f.read_bytes()).hexdigest()}
+    (root / "selection.json").write_text(json.dumps(sel))
+
+
 def full(root, overrides=None, drop=()):
     """A complete campaign: every arm in blocks 1-3 plus both anchors. overrides: {(block, key): (j, clean)}."""
     overrides = overrides or {}
@@ -52,6 +60,7 @@ def full(root, overrides=None, drop=()):
     for key, j in (("anchor730-live", 0.328), ("anchor730-zip", 0.573)):
         if (1, key) not in drop:
             put(root, 1, key, *overrides.get((1, key), (j, True)))
+    manifest(root)
 
 
 def run(root, monkeypatch, out):
@@ -95,6 +104,37 @@ def test_void_or_partial_run_exits_nonzero_and_keeps_existing_evidence(tmp_path,
     assert exc.value.code not in (0, None)
     assert out.read_bytes() == b'{"keep": "me"}\n'
     assert json.loads((root / "summary.json").read_text())["validity"] == "VOID"
+
+
+def test_receipt_changed_after_staging_is_refused_before_any_output(tmp_path, monkeypatch):
+    root = tmp_path / "receipts"
+    root.mkdir()
+    full(root)
+    out = tmp_path / "evidence.jsonl"
+    out.write_bytes(b"old\n")
+    put(root, 1, "anchor730-live", 0.329)  # an anchor edited after the manifest was written
+    with pytest.raises(SystemExit, match="do not match selection.json"):
+        run(root, monkeypatch, out)
+    assert out.read_bytes() == b"old\n" and not (root / "summary.json").exists()
+
+
+def test_missing_manifest_is_refused(tmp_path, monkeypatch):
+    full(tmp_path)
+    (tmp_path / "selection.json").unlink()
+    with pytest.raises(SystemExit, match="selection.json"):
+        run(tmp_path, monkeypatch, tmp_path / "evidence.jsonl")
+
+
+def test_evidence_hashes_are_of_the_bytes_parsed(tmp_path, monkeypatch):
+    full(tmp_path)
+    out = tmp_path / "evidence.jsonl"
+    run(tmp_path, monkeypatch, out)
+    for row in map(json.loads, out.read_text().splitlines()):
+        for rc in row["receipts"]:
+            assert rc["sha256"] == hashlib.sha256((tmp_path / rc["path"]).read_bytes()).hexdigest()
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    live = tmp_path / summary["anchors"]["live"]["receipt"]
+    assert summary["anchors"]["live"]["receipt_sha256"] == hashlib.sha256(live.read_bytes()).hexdigest()
 
 
 def test_void_run_creates_no_evidence_file(tmp_path, monkeypatch):
@@ -233,6 +273,38 @@ def test_loader_rejects_duplicate_targets():
 def test_loader_rejects_void_rows(marker):
     with pytest.raises(PaperDataError, match="VOID"):
         merge(r7_line(**marker))
+
+
+def test_loader_rejects_disagreeing_aliases_and_resolves_one_key():
+    with pytest.raises(PaperDataError, match="two targets"):
+        merge(r7_line(row="sys-a-zen2-t1", id="other"))
+    assert merge(r7_line(row="sys-a-zen2-t1", id="sys-a-zen2-t1"))["energy_idle_subtracted"] == 0.5
+    only_row = {k: v for k, v in r7_line(row="sys-a-zen2-t1").items() if k != "id"}
+    assert merge(only_row)["energy_idle_subtracted"] == 0.5
+
+
+def test_loader_rejects_the_same_target_through_different_aliases():
+    by_row = {k: v for k, v in r7_line(row="sys-a-zen2-t1").items() if k != "id"}
+    with pytest.raises(PaperDataError, match="duplicate R7"):
+        merge(by_row, r7_line(_where="r7.jsonl:2"))
+
+
+def test_loader_rejects_a_missing_energy_field():
+    line = {k: v for k, v in r7_line().items() if k != "energy_j_per_audio_s"}
+    with pytest.raises(PaperDataError, match="no energy_j_per_audio_s"):
+        merge(line)
+
+
+@pytest.mark.parametrize("bad", [0, -1, "3", 2.5, True, None, [3]])
+def test_loader_rejects_a_malformed_n_clean(bad):
+    with pytest.raises(PaperDataError, match="n_clean"):
+        merge(r7_line(n_clean=bad))
+
+
+def test_loader_rejects_an_absent_n_clean():
+    line = {k: v for k, v in r7_line().items() if k != "n_clean"}
+    with pytest.raises(PaperDataError, match="n_clean"):
+        merge(line)
 
 
 def write_evidence(tmp_path, name, lines):
