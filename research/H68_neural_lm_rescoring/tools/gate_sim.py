@@ -17,6 +17,7 @@ from ultra.wer import edit_counts, normalise  # noqa: E402
 
 nb, cvdir, qual = sys.argv[1:4]
 budgets = [float(x) for x in sys.argv[4:]] or [15.0, 25.0]
+gates = {}
 R = {r["uid"]: r for r in map(json.loads, open("/mnt/xbabe3-external/jsr/wer-push/shared/s_half/refs.jsonl"))}
 rows = [json.loads(x) for x in open(nb)]
 top1 = {r["uid"]: r["nbest"][0][2] for r in rows}
@@ -65,5 +66,13 @@ for bud in budgets:
         pick[f] = best[1]
     g = np.where(fold == 0, m < pick[1], m < pick[0])  # thresholds transferred across folds
     ed = int(np.where(g, e_res, e_top).sum()); pct = 100 * cost[g].sum() / base_total
+    with open(f"{qual}/gate{int(bud)}.score-input.jsonl", "w") as fh:
+        for u, gi in zip(uids, g):
+            rr = R[u]
+            fh.write(json.dumps({"id": u, "speaker": str(rr["speaker"]), "dataset": rr["subset"], "ref": rr["ref"],
+                                 "hyp": resc[u] if gi else top1[u], "duration_s": rr["samples"] / 16000}) + "\n")
+    gates[int(bud)] = {"thresholds": [float(pick[0]), float(pick[1])], "engine_threshold": float((pick[0] + pick[1]) / 2),
+                       "sim_cpu_pct": round(pct, 1), "cv_edits": ed, "rescored_utt_frac": round(float(g.mean()), 3)}
+    json.dump(gates, open(f"{qual}/gates.json", "w"), indent=1)
     print(json.dumps({"budget_pct": bud, "cv_edits": ed, "gain_edits": int(e_top.sum() - ed), "realized_cpu_pct": round(pct, 1),
                       "rescored_utt_frac": round(float(g.mean()), 3), "thresholds": [float(pick[0]), float(pick[1])]}))
