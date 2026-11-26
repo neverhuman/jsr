@@ -159,7 +159,7 @@ and the same page count and text as the repository build.
 5. Fill the metadata form from this file: title, authors, abstract (paste the plain text above), comments.
 6. Preview, read the processing log (an unused-file warning is harmless), then Submit.
 7. After announcement, record the arXiv identifier in the repository README.
-""")
+""", end="")
 PY
 }
 

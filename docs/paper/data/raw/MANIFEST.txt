@@ -4693,7 +4693,7 @@ e11eee20ea9c2aaee0e9a3ad4aaa67e78a3e17e81bef1781fb37e1a381a2ec89  panel_manifest
 c4db7a500e5fd506f7c8f36f22729c7319fa73b1e566a276a123bee155c1835c  panel_manifests/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/_home_ubuntu_jsr-data_runs_engine_d2mr-50000_weights-int8prep.receipt.json
 917d3eaa57e1f84a08f1beaf172d572e63995a5c835c1d97f5f9d1d703e9e01f  panel_manifests/zipformer-int8.job_manifest.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.job_manifest.json
 27015a726e75cb166578c6dffa7a305b9175b54cb8a31a386a920df0eefc2bf0  panel_manifests/zipformer-int8.receipt.json  xbabe0:~/jsr-data/runtime-dryrun/out-panel-ce58952-20261122T011028Z/zipformer-int8.receipt.json
-b8c9ec45b1304b9f34f0a5774469b51153da47ec67b70783eb8145a9a443dc0a  r7_energy/DEVIATIONS.md  R7 energy campaign deviations from the pre-registration (written 2026-11-26)
+4c14b2d6f5065f3f1b8244f99e94d12d383a800a1b8c24c4eb2121e7f50da6e5  r7_energy/DEVIATIONS.md  R7 energy campaign deviations from the pre-registration (written 2026-11-26)
 7ed4f67740ba9add3979c107899e4d91558d0775eb4566d2ccc994bdd89c49cb  release_v3/14p_wer.json  eval-lane canonical ultra-score 730-utt DEV panel WER for 14p RC1-EMA committed + provisional (sha256 7ed4f67740ba)
 772fb698a373859ca1ca7d0eae165bc107f0c877e40b7532abf362b97493b893  release_v3/rc1_a6_int8.json  eval-lane RC1-EMA official A6 full-DEV INT8 verdict (weights.int8 edac19d8)
 1a4aeebac01bc329af7baa990a6d06bad7fe4164b104356b8373843ef07a3c28  release_v3/rc1_int8_vs_pytorch.json  eval-lane RC1-EMA official full-DEV INT8 vs FP32 PyTorch paired report (5,567 utts)

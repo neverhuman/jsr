@@ -16,6 +16,15 @@ campaign as run differs from it. None of them looks at an energy value; selectio
    trap calls a cleanup function).
 6. Log directory. The driver clears the log directory before each attempt, because the cold binary refuses to
    overwrite existing logs.
+7. Sampler lifetime (found during the campaign, 2026-11-26). The power-sampler helper lives about 1625 s
+   (600 + max-run 900 + idle + settle + idle). Whisper.cpp Base on the 73-clip panel needs about 1300 s of
+   decode plus idles, so two attempts (block 1 attempt 1, block 2 attempt 1) ended with `nonzero_exit` at the
+   final idle mark and recorded about 0.004 J. Both are flagged, kept as receipts and excluded; the rerun in
+   each block finished core-clean, and block 3 was clean on its first attempt, so no gap-fill run was needed.
+   The harness was not edited during the campaign.
+
+Outcome: the anchors passed (Isosyll live 0.3209, Zipformer INT8 0.5668, within 2.2% and 1.1% of R6). All 14
+arms have at least two core-clean blocks, and every block spread is under 5%.
 
 Validity rule unchanged: both full-panel anchors must be present, core-clean and within 5% of R6 (Isosyll live
 0.328, Zipformer INT8 0.573) with a complete three-block inventory, otherwise the campaign is VOID and no
