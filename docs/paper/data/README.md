@@ -35,7 +35,7 @@ on any record that is missing a required field, and on bare decimal or percent n
 - `SOURCES.md`: the same as a table.
 - `*.csv`: the figure tables read by `docs/paper/figures/*.tex`. `cold_dev.csv` holds every measured row of every
   group; only the generator writes it. Its columns are append-only.
-- `table_measured.tex`, `table_hardware.tex`: the bodies of the "measured here" table (one line per measured
+- `table_measured.tex`: the bodies of the "measured here" table (one line per measured
   system, every cell a `metrics.tex` macro) and of the hardware table (hosts, CPUs, memory configuration).
 - `table_always_on.tex`, `table_capacity.tex`: the cost of one always-on stream per quiet-host system, and the
   capacity test (live streams on one core).

@@ -68,7 +68,6 @@ def add_training(root: Path, rec: Records, out: dict[str, str]) -> None:
         rows.append({"stage": 2, "series": "s2live", "audio_kh": (s1_end + h) / 1000.0, "wer": live})
         rows.append({"stage": 2, "series": "s2final", "audio_kh": (s1_end + h) / 1000.0, "wer": final})
     lines = ["stage,series,audio_kh,wer"] + [f"{r['stage']},{r['series']},{r['audio_kh']:.3f},{r['wer']:.3f}" for r in rows]
-    out["training_curve.csv"] = "\n".join(lines) + "\n"
 
     def s1(step: int, c: int) -> float:
         return next(r["wer"] for r in rows if r["series"] == f"s1c{c}" and abs(r["audio_kh"] - expo[step] / 1000.0) < 1e-9)

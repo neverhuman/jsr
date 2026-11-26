@@ -16,7 +16,7 @@ REFRESH = "run `just paper-refresh`"
 BANNED_LEGACY_RE = re.compile(
     r"\b(?:A1|H22ctl|h22ctl|D2|D2MR|D2e|D3MR[a-z]?|B0|F1|S_MR|multirate|Multirate|ternary|Ternary|"
     r"Picovoice|Cheetah|Redux|Photon|PRELIMINARY)\b|"
-    r"earlier checkpoint|not drawn|training continues|Where we trail|tab:reported|"
+    r"not drawn|training continues|Where we trail|tab:reported|"
     r"(?<![\d.])(?:28\.2|0\.350)(?!\d)"
 )
 
@@ -108,9 +108,8 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
-    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["intro.tex"] and "VsVerdictTwo" in sections["results.tex"]
-    assert rec["RelCapSixteenLagPninetyFive"]["value"] == "457" and "RelCapSixteenLagPninetyFive" in sections["results.tex"]
-    assert rec["ColdCompleteCompCount"]["raw"] == 15 and "ColdCompleteCompCount" in sections["related.tex"]
+    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["results.tex"]
+    assert rec["ColdComparatorCount"]["raw"] == 12 and "ColdComparatorCount" in sections["related.tex"]
     # Zero non-plotted legacy rows in cold_dev.csv
     all_csv = [ln.split(",")[1] for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
     v31_unplotted = {"rc2-live-greedy", "rc2-live-lm320", "rc1-ema-live", "rc1-ema-final", "r0-int8"}  # Fig. 1 foreground and the prior release
@@ -128,7 +127,6 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
         DATA / "money_layout.tex",
         DATA / "money_readme.md",
         DATA / "table_measured.tex",
-        DATA / "table_hardware.tex",
         DATA / "metrics.tex",
         DATA / "SOURCES.md",
         *sorted((PAPER / "sections").glob("*.tex")),
@@ -296,7 +294,10 @@ def test_measured_table_has_one_line_per_measured_system_and_only_generated_cell
     assert cells and cells <= macros, f"table cells without a macro: {sorted(cells - macros)}"
     plain = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
     drawn = [c for c in plain if c[21] == "1"]
-    assert len(re.findall(r"\\Cold[A-Za-z]+Speed[A-Za-z]* &", table)) == len(drawn) + 2, "14 plotted rows + 2 extra Isosyll live modes (greedy, 320 ms)"
+    from tools.paper_data.heat import SHOW_FINAL
+    shown = [c for c in drawn if SHOW_FINAL or c[1] != "rc2-final"]
+    assert len(re.findall(r"\\Cold[A-Za-z]+Speed[A-Za-z]*\} &", table)) == len(shown), "one row per plotted system: Isosyll live and 12 comparators"
+    assert "Isosyll live" in table and "v3." not in table and "\\hmcell{" in table
 
 
 def test_readme_and_paper_omit_v4_dead_end_fluff():
@@ -306,13 +307,13 @@ def test_readme_and_paper_omit_v4_dead_end_fluff():
     assert "sections/v4_findings.tex" not in paper_tex
     results = (PAPER / "sections" / "results.tex").read_text()
     assert "sections/fig_comparison.tex" not in results
-    assert "Quiet-Speech Level Normalisation" in results and "AudioZOneThirtyDelta" in results
+    assert "AudioZOneThirtyDelta" in (PAPER / "sections" / "engine.tex").read_text()
 
 
 def test_release_is_stated_as_owner_decision_not_a_gate_pass():
     readme = (pd.REPO / "README.md").read_text()
     assert "released by owner decision after missing registered edit gates" in readme
-    for name in ("abstract", "conclusion"):
+    for name in ("abstract", "limitations"):
         txt = (PAPER / "sections" / f"{name}.tex").read_text()
         assert "owner decision" in txt and "CandFinalFullEdits" in txt and "CandGateFinalFull" in txt, name
     rec = _records()
@@ -331,20 +332,45 @@ def test_ratios_to_zipformer_are_medians_of_within_block_ratios():
     assert "**1.19×**" in block and "1.20" not in block
 
 
-def test_prior_release_rows_carry_their_own_record_not_the_new_intervals():
-    """The README and Figure 1 omit v3.0.0 clutter; the underlying v3.0.0 records stay intact with their own intervals."""
-    rec = _records()
-    assert (rec["VsPriorLiveDelta"]["value"], rec["VsPriorLiveLo"]["value"], rec["VsPriorLiveHi"]["value"]) == ("+1.59", "+1.27", "+1.92")
-    assert (rec["VsPriorFinalDelta"]["value"], rec["VsPriorFinalLo"]["value"], rec["VsPriorFinalHi"]["value"]) == ("$-$0.19", "$-$0.53", "+0.14")
-    assert rec["VsWideRssMb"]["value"] == "110.6" and rec["CandLiveLmEightCDelta"]["value"] == "+0.65"
-    assert "v3.0.0" not in (DATA / "money_readme.md").read_text()
+def test_paper_holds_only_isosyll_live_and_final():
+    """No prior version, greedy, 320 ms or wide variant, delta-vs-prior column or registered-look table survives in the paper."""
+    banned = re.compile(r"v3\.0\.0|\\PriorVer|\\ReleaseVer|VsPrior|VsGreedy|VsWide|LiveGreedy|LmWide|LmEight|\b320\\?,?\s*ms (?:chunk|live)|\bgreedy\b|prior release|prior artifact|RC1|RC2|[Ww]ide variant", re.I)
+    files = [PAPER / "paper.tex", DATA / "table_measured.tex", DATA / "table_versus.tex", DATA / "metrics.tex",
+             *sorted((PAPER / "sections").glob("*.tex"))]
+    hits = {}
+    for p in files:
+        txt = re.sub(r"(?<!\\)%.*", "", p.read_text(encoding="utf-8"))
+        if p.name == "metrics.tex":
+            txt = "\n".join(ln for ln in txt.splitlines() if not ln.startswith("\\newcommand{\\Hero"))
+        found = sorted(set(m.group(0) for m in banned.finditer(txt)))
+        if found:
+            hits[p.name] = found
+    assert not hits, f"prior or variant content in the paper: {hits}"
+    assert not (PAPER / "sections" / "v4_findings.tex").exists() and not (PAPER / "sections" / "fig_comparison.tex").exists()
+    for gone in ("tab:candidate", "tab:repro", "tab:hardware", "tab:metrics", "tab:capacity", "sec:candidate", "sec:capacity"):
+        assert gone not in "".join(p.read_text() for p in (PAPER / "sections").glob("*.tex")), gone
+
+
+def test_paper_is_at_most_nine_pages_and_names_no_github_account():
+    paper_tex = (PAPER / "paper.tex").read_text()
+    sources = paper_tex + "".join(p.read_text() for p in sorted((PAPER / "sections").glob("*.tex"))) \
+        + "".join(p.read_text() for p in sorted(DATA.glob("*.tex")))
+    forbidden = ("neverhuman/jsr", "github.com/neverhuman", "neverhumanbot")
+    for bad in forbidden:
+        assert bad not in sources, bad
+    if shutil.which("pdfinfo") and (PAPER / "paper.pdf").is_file():
+        pages = int(re.search(r"^Pages:\s+(\d+)", subprocess.check_output(["pdfinfo", str(PAPER / "paper.pdf")], text=True), re.M)[1])
+        assert pages <= 9, f"paper is {pages} pages; the limit is 9 (target 8)"
+        text = subprocess.check_output(["pdftotext", str(PAPER / "paper.pdf"), "-"], text=True)
+        for bad in forbidden:
+            assert bad not in text, f"{bad} in paper.pdf"
 
 
 def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
     rec = _records()
     assert rec["ScalarDiffs"]["raw"] == 0 and rec["ScalarUtts"]["raw"] == 730
-    results = (PAPER / "sections" / "results.tex").read_text()
-    assert "ScalarMainCommit" in results and "ScalarDiffs" in results and "ScalarUtts" in results
+    engine = (PAPER / "sections" / "engine.tex").read_text()
+    assert "ScalarMainCommit" in engine and "ScalarDiffs" in engine and "ScalarUtts" in engine
 
 
 def test_headline_precision_gate_scope_and_install_sample_are_exact():

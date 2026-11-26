@@ -15,6 +15,7 @@ import re
 from .cold import speed_text
 from .common import DATA, PaperDataError, fmt, sha256_file
 from .evidence import HEADLINE, derived
+from .heat import SHOW_FINAL, cell as heat_cell, scale
 from .records import Records
 from .words import signed as _sg, tex
 
@@ -157,7 +158,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
            "one-sided at 95% (together a central 90% interval) from `ultra-score` (10,000 speaker-cluster replicates). Speed, energy and memory ratios compare rows timed on "
            "the same host in the same protocol. Energy is active core (CPU-domain) joules per second of audio, not "
            "wall power."]
-    cols = [("Zipformer", None)] + [(f"\\ultra{{}} {q['mode']}", q) for q in pairs]
+    cols = [("Zipformer", None)] + [("\\ultra{} live", q) for q in pairs if SHOW_FINAL or q["mode"] == "live"]  # final stays in prose
 
     def cell(q, f):
         return "---" if q is None else f(q)
@@ -172,14 +173,24 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     ]
     tx = [r"\begin{table}[t]", r"\centering",
           r"\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances (the selection panel; the "
-          r"unselected-half gaps are in \cref{sec:candidate}), same quiet Zen~2 core, same interleaved blocks, median of three. "
+          r"unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, same interleaved blocks, median of three. "
           r"Ratios are medians of within-block ratios. "
           r"$\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
-          r"\textsuperscript{a}Live stream plus a commit pass at reference utterance boundaries.}",
+          r"Cell colour: green is better, red worse.}",
           r"\label{tab:versus}", r"\footnotesize", r"\setlength{\tabcolsep}{1.5pt}",
           r"\begin{tabular}{@{}l" + "r" * len(cols) + r"@{}}", r"\toprule",
           " & ".join(["Metric"] + [c for c, _ in cols]) + r" \\", r"\midrule"]
-    tx += [" & ".join([label] + [f(q) for _, q in cols]) + r" \\" for label, f in body]
+    heat_rows = {  # label -> (value of Zipformer, value of live, log, higher is better)
+        "Pooled WER (\\%)": (lambda d: d["wer"], False, False), "1-core speed ($\\times$ RT)": (lambda d: d["speed"], True, True),
+        "J per audio-s (core)": (lambda d: d["watts"], True, False), "Peak RSS (MB)": (lambda d: d["rss_mb"], True, False)}
+    zd = z
+    for label, f in body:
+        cells = [f(q) for _, q in cols]
+        if label in heat_rows:
+            get, lg, hb = heat_rows[label]
+            vals = [get(zd if q is None else q["d"]) for _, q in cols]
+            cells = [heat_cell(c, t) for c, t in zip(scale(vals, log=lg, higher_better=hb), cells)]
+        tx.append(" & ".join([label] + cells) + r" \\")
     tx += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
     return {"markdown": "\n".join(md) + "\n", "table": "\n".join(tx) + "\n", "pairs": summary,
             "zip": {"wer": z["wer"], "speed": z["speed"], "watts": z["watts"], "rss_mb": z["rss_mb"], "chunk": zc}}
