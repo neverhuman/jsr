@@ -26,7 +26,7 @@ usage: install.sh [--prefix DIR] [--version TAG] [--checksums-only]
 
   --prefix DIR             install to DIR/bin and DIR/share/isosyll (default: ~/.local)
   --version TAG            release tag to install (default: $VERSION)
-  --checksums-only    skip the SSH signature check (checksums are still verified);
+  --checksums-only         skip the SSH signature check (checksums are still verified);
                            needed only where ssh-keygen is not installed
 EOF
 }
