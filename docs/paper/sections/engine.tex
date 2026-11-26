@@ -41,8 +41,8 @@ on an earlier checkpoint of identical architecture, prepared INT8 matched FP32 P
 \RelIntEightHi\pp), inside the pre-registered \PreregDeltaPP\pp / \PreregUpperPP\pp gate, with
 bit-identical transcripts across three cold repetitions and batch sizes 1 to 32. Bit-exact parity
 holds across ISAs: \CandIsaRuns{} witness decodes on Intel Xeon (AVX2, AVX-512 VNNI) and Apple M3
-(NEON) reproduce the Zen~2 transcripts on all \ScalarUtts{} panel utterances, and on main from
-\ScalarMainCommit{} a forced scalar backend gives \ScalarDiffs/\ScalarUtts{} differing utterances.
+(NEON) reproduce the Zen~2 transcripts on all \ScalarUtts{} panel utterances, and
+on a later development build a forced scalar backend gives \ScalarDiffs/\ScalarUtts{} differing utterances.
 
 \para{Optional level normalisation.} An opt-in final-pass RMS normaliser (\texttt{-{}-rms-norm}, off by
 default) changed WER on the unselected C half by \AudioZOneCleanDelta\pp at native level and by

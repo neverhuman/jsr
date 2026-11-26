@@ -2,13 +2,13 @@
 
 \subsection{All Public CPU Comparators vs.\ \ultra{}}\label{sec:compare}
 
-\Cref{fig:money} and \cref{tab:measured} place \ultra{} live and \ultra{} final beside every timed public
+\Cref{fig:money} and \cref{tab:measured} place \ultra{} live beside every timed public
 open-weights CPU comparator. \ColdHostSentence{} \ColdSubsetSentence{}
 
 \para{Speed and power.} On one quiet Zen~2 core, \ultra{} live decodes cold at \ColdLiveSpeed$\times$
 real time (\ColdLiveRss\,MB peak memory) at \ColdLiveWer\% pooled panel WER and \ColdLiveWatts\,J per
 audio-second; \ultra{} final runs at \ColdHeadSpeed$\times$ and \ColdHeadWatts\,J. \ColdMemorySentence{}
-The bottom panel of \cref{fig:money} draws only the matched R6 rows: live is \ColdLiveWatts\,J per
+In the matched R6 blocks, live is \ColdLiveWatts\,J per
 audio-second, \VsEnergyPctOne\% of Zipformer INT8 (\ColdZipRsixWatts\,J) on the same blocks, with the idle
 floor subtracted. Moonshine, Parakeet, and Nemotron joules include the idle floor and are not a paired
 ratio. At utterance endpoints the commit pass runs at \ColdFinalCorePct\% of one core

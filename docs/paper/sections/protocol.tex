@@ -16,8 +16,7 @@ physical Zen~2 core, alone on its 4-core L3 complex. We report the median over t
 CPU-seconds per audio-second (\cpus) and its reciprocal, throughput in $\times$ real time, with peak
 resident memory (RSS) and artifact size. Primary rows are measured on the otherwise idle host H1
 (AMD Threadripper PRO 3995WX, 4 of 8 memory channels; at most two other busy cores, host timers and CI
-paused). Rows measured earlier on the shared host H0 (same CPU, 2 of 8 channels) are marked interim
-and drawn lighter. Systems are \emph{live streaming} (words emitted continuously, no endpoint),
+paused). Rows measured earlier on the shared host H0 (same CPU, 2 of 8 channels) are marked interim. Systems are \emph{live streaming} (words emitted continuously, no endpoint),
 \emph{streaming + utterance-segmented commit} (\ultra{} final), or \emph{offline whole-utterance}
 (Parakeet TDT v3, drawn hollow in \cref{fig:money}).
 

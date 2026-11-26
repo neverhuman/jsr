@@ -366,7 +366,7 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
     rec = _records()
     assert rec["ScalarDiffs"]["raw"] == 0 and rec["ScalarUtts"]["raw"] == 730
     engine = (PAPER / "sections" / "engine.tex").read_text()
-    assert "ScalarMainCommit" in engine and "ScalarDiffs" in engine and "ScalarUtts" in engine
+    assert "development build a forced scalar backend" in engine and "ScalarDiffs" in engine and "ScalarUtts" in engine
 
 
 def test_headline_precision_gate_scope_and_install_sample_are_exact():
