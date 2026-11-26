@@ -59,6 +59,7 @@
     "python/ultra/train/objective_contract.py": "training",
     "research/": "lead",
     "docs/paper/": "lead",
+    "docs/briefs/": "lead",
     "docs/paper/opponents/": "lead",
     "docs/paper/data/raw/opponents/": "lead",
     "python/ultra/tests/test_opponents_tools.py": "lead",
