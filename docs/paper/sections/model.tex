@@ -1,8 +1,9 @@
 \section{Model}\label{sec:model}
 
 \para{Artifact.} We evaluate the v4.1.0 release. One prepared INT8
-artifact serves two operating points, \emph{\ultra{} live} and \emph{\ultra{} final}; its weights come from a
-short fine-tune (450 steps) with the architecture below unchanged.
+artifact serves two operating points, \emph{\ultra{} live} and \emph{\ultra{} final}; its weights are a
+450-step minimum-word-error-rate (beam 12) fine-tune of a weight average of three research checkpoints, with the
+architecture below unchanged.
 
 \para{Streaming Conformer transducer.} \ultra{} is a dense 16-block streaming
 Conformer~\cite{gulati2020conformer} RNN-T~\cite{graves2012rnnt} with a stateless

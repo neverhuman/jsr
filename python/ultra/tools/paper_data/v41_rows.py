@@ -6,8 +6,10 @@ Inputs (all pinned in raw/MANIFEST.txt):
 R8 repeats the R6/R7 protocol on one pinned core of the quiet host: four arms on the full 730-utterance panel in three
 counterbalanced blocks (v4.1.0 live +LM, v4.1.0 final, and the v3.1.0 live +LM and Zipformer INT8 anchors). Every
 block-1 anchors must land within 5% of their R6 values or the campaign is void (the pre-registered rule, PREREG.md);
-later blocks' anchor deviations and core cleanliness are recorded with the rows. Ratios to Zipformer INT8 are medians
-of within-block ratios. `python -m tools.paper_data.v41_rows` rewrites data/evidence/xbabe0-v41-release.jsonl; a test
+later blocks' anchor deviations and core cleanliness are recorded with the rows. CPU and wall time are medians of all three
+blocks (the schema's three repetitions); energy and peak RSS use only the arm's core-clean blocks (a block whose arm
+stayed core-unclean after its one rerun is kept in the receipts and block lists but left out of those medians); ratios
+to Zipformer INT8 are medians of within-block ratios over the blocks where both arms are core-clean. `python -m tools.paper_data.v41_rows` rewrites data/evidence/xbabe0-v41-release.jsonl; a test
 checks the committed file against these receipts.
 """
 
@@ -73,11 +75,18 @@ def rows(root: Path) -> list[dict]:
     out: list[dict] = []
     for arm, (variant, system, config, paired) in ARMS.items():
         recs = [_load(root, T / b / f"{arm}.json") for b in BLOCKS]
+        clean = [i for i, r in enumerate(recs) if r["clean_repetitions"]["core"] == 1]
+        if len(clean) < 2:
+            raise PaperDataError(f"R8 {arm}: fewer than two core-clean blocks ({clean})")
+        both = [i for i in clean if zrecs[i]["clean_repetitions"]["core"] == 1]
+        if len(both) < 2:
+            raise PaperDataError(f"R8 {arm}: fewer than two blocks where it and Zipformer INT8 are core-clean ({both})")
         reps = [r["reps"][0] for r in recs]
-        cpu = [r["cpu_s_per_audio_s"] for r in recs]
-        wall = [x["wall_seconds"] / AUDIO_S for x in reps]
-        rss = [x["peak_rss_bytes"] for x in reps]
+        cpu_all = [r["cpu_s_per_audio_s"] for r in recs]
+        wall_all = [x["wall_seconds"] / AUDIO_S for x in reps]
         joules = [r["joules_per_audio_s"] for r in recs]
+        rss = [reps[i]["peak_rss_bytes"] for i in clean]
+        cj = [joules[i] for i in clean]
         score = _load(root, VS / paired)["system_b"]
         if score["utterances"] != 730:
             raise PaperDataError(f"{paired}: expected 730 utterances, got {score['utterances']}")
@@ -90,7 +99,9 @@ def rows(root: Path) -> list[dict]:
             "parallel": "intra_op", "configuration": config, "arm": arm,
             "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)", "workload_digest": DIGEST,
             "audio_seconds": AUDIO_S, "timing_panel": "full", "scope": "cold_process_tree_launch_to_exit",
-            "cpu_s_per_audio_s": _med(cpu), "cpu_reps": cpu, "wall_s_per_audio_s": _med(wall), "wall_reps": wall,
+            # Timing is the median of all three blocks (schema: >= 3 repetitions); an unclean block can only be its max.
+            "cpu_s_per_audio_s": _med(cpu_all), "cpu_reps": cpu_all, "wall_s_per_audio_s": _med(wall_all), "wall_reps": wall_all,
+            "core_clean_blocks": [i + 1 for i in clean],
             "peak_rss_bytes": int(_med(rss)), "artifact_bytes": WEIGHTS_BYTES,
             "n_busy_cores_reps": [1, 1, 1], "label": "exploratory", "session": SESSION,
             "source": f"docs/paper/data/raw/release_v41/timing_interleaved/block*/{arm}.json",
@@ -98,28 +109,25 @@ def rows(root: Path) -> list[dict]:
             "wer_pct": round(100.0 * score["pooled_wer"], 4), "wer_clean_pct": round(100.0 * ds["dev-clean"]["wer"], 4),
             "wer_other_pct": round(100.0 * ds["dev-other"]["wer"], 4),
             "wer_source": f"docs/paper/data/raw/versus/v410/{paired} system_b",
-            "xrt_median_audited": round(_med([1.0 / c for c in cpu]), 4),
+            "xrt_median_audited": round(_med([1.0 / c for c in cpu_all]), 4),
             "paired_vs_anchor": {
-                "speed": _med([z["cpu_s_per_audio_s"] / a["cpu_s_per_audio_s"] for a, z in zip(recs, zrecs)]),
-                "energy": _med([a["joules_per_audio_s"] / z["joules_per_audio_s"] for a, z in zip(recs, zrecs)]),
-                "rss": _med([a["reps"][0]["peak_rss_bytes"] / z["reps"][0]["peak_rss_bytes"] for a, z in zip(recs, zrecs)])},
+                "speed": _med([zrecs[i]["cpu_s_per_audio_s"] / recs[i]["cpu_s_per_audio_s"] for i in both]),
+                "energy": _med([recs[i]["joules_per_audio_s"] / zrecs[i]["joules_per_audio_s"] for i in both]),
+                "rss": _med([recs[i]["reps"][0]["peak_rss_bytes"] / zrecs[i]["reps"][0]["peak_rss_bytes"] for i in both]),
+                "blocks": [i + 1 for i in both]},
         })
         flags = sorted({f for r in recs for f in r["flags"]})
         out.append({
             "kind": "energy", "row": stem, "host": "xbabe0", "energy_method": "core_msr_active",
-            "joules_per_audio_s": _med(joules), "watts_per_stream": _med(joules), "energy_reps": joules,
-            "energy_active_w": _med([x["core"]["joules_per_cpu_s"] for x in reps]), "energy_receipt_sha256": ssha,
+            "joules_per_audio_s": _med(cj), "watts_per_stream": _med(cj), "energy_reps": joules,
+            "energy_active_w": _med([reps[i]["core"]["joules_per_cpu_s"] for i in clean]), "energy_receipt_sha256": ssha,
             "energy_host": "xbabe0",
             "energy_tool": "jsr.energy-bench/v1 (AMD core energy MSR, idle-subtracted, exact phase boundaries)",
-            "energy_flags": flags, "session": SESSION, "kwh_per_stream_year": round(_med(joules) * 8.76, 3),
+            "energy_flags": flags, "session": SESSION, "kwh_per_stream_year": round(_med(cj) * 8.76, 3),
             "energy_receipts": [f"{b}/{arm}.json" for b in BLOCKS],
-            "energy_note": "median of the three blocks' core-register joules per audio-second; block-1 anchors (v3.1.0 live +LM, "
+            "energy_note": "median of the core-clean blocks' core-register joules per audio-second; block-1 anchors (v3.1.0 live +LM, "
                            "Zipformer INT8) within 5% of R6 (pre-registered); per-block deviations in the r7_energy row",
         })
-        clean = [i for i, r in enumerate(recs) if r["clean_repetitions"]["core"] == 1]
-        if len(clean) < 2:
-            raise PaperDataError(f"R8 {arm}: fewer than two core-clean blocks ({clean})")
-        cj = [joules[i] for i in clean]
         mid = min(clean, key=lambda i: (abs(joules[i] - _med(cj)), i))
         out.append({  # the R7-protocol value for Figure 1 and Table 1: same core, same windows, full panel (R8)
             "kind": "r7_energy", "id": stem, "protocol": "R8", "panel": "p730", "anchor_check": "VALID",
@@ -127,7 +135,7 @@ def rows(root: Path) -> list[dict]:
             "n_clean": len(clean), "blocks": joules, "clean_blocks": [i + 1 for i in clean],
             "block_core_clean": [r["clean_repetitions"]["core"] == 1 for r in recs],
             "block_spread_pct": round(100.0 * (max(cj) - min(cj)) / _med(cj), 2),
-            "cpu_s_per_audio_s": _med(cpu), "class": "streaming", "host": "xbabe0", "machine": "zen2", "label": "exploratory",
+            "cpu_s_per_audio_s": _med(cpu_all), "class": "streaming", "host": "xbabe0", "machine": "zen2", "label": "exploratory",
             "receipt": f"{BLOCKS[mid]}/{arm}.json", "receipt_sha256": sha256_file(root / T / BLOCKS[mid] / f"{arm}.json"),
         })
     return out
