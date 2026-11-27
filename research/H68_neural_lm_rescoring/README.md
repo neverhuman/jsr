@@ -95,3 +95,5 @@ outputs** (`tools/engine_cv.py`), for the lock's own model too. Skip margin 2.76
   needs about +28% commit).
 - Proposal (config only, needs Jepson's OK): `kd12L_t2_16k.utfr` + `--rescore-weight 0.8 --rescore-m5-sub 0.8`.
   Codex's H244 stacked it on c32 lists (4.6287%).
+- Seed replicate kd12L_t2s2 (same recipe, seed 51): engine S at the fixed proposal weights 0.8/0.8 = 4.78,
+  −0.085 [−0.138, −0.030] vs engine lock; t2s2 − t2 = +0.007 [−0.064, +0.077]. The gain is the recipe's.
