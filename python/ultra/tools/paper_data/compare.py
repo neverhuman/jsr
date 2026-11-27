@@ -37,8 +37,9 @@ def _rel(h_speed: float, f_speed: float, name: str, ratio: float | None = None) 
 
 # Full-DEV pooled WER macros of the v3.1.0 rows (candidate.py), keyed by evidence variant.
 FULL_DEV = {"rc2-live-lm": "CandLiveLmFullWer", "rc2-live-greedy": "CandLiveGreedyFullWer", "rc2-final": "CandFinalFullWer",
-            "v41-live-lm": "LookLiveFullWer", "v41-final": "LookFinalFullWer"}  # v4.1.0: look41.py
-CURRENT = ("rc2", "v41")  # releases whose commit delay and capacity were measured on an earlier release
+            "v41-live-lm": "LookLiveFullWer", "v41-final": "LookFinalFullWer",  # v4.1.0: look41.py
+            "v42-final": "FinFullWer"}  # v4.2.0 final: look42.py
+CURRENT = ("rc2", "v41", "v42")  # releases whose commit delay and capacity were measured on an earlier release
 
 
 def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict | None = None) -> None:

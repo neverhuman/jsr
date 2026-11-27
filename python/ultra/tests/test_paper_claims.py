@@ -21,6 +21,13 @@ BANNED_LEGACY_RE = re.compile(
 )
 
 
+# v4.2.0 headline values (R9 + raw/versus/v420); a change in the receipts must be read and re-worded, not absorbed.
+RANK42 = 5
+SPEEDX42 = "TBD"
+ENERGYPCT42 = "TBD"
+SUMMARY42 = "TBD"
+
+
 def _records():
     return {r["id"]: r for r in map(json.loads, (DATA / "records.jsonl").read_text().splitlines())}
 
@@ -32,9 +39,13 @@ def test_claims_made_in_words_hold_in_the_measured_rows():
     # precision), and trails the best comparator
     assert rec["ColdHeadWer"]["raw"] < rec["ColdZipWer"]["raw"], "Isosyll final no longer beats Zipformer on pooled WER"
     assert rec["ColdHeadWerOther"]["raw"] < rec["ColdZipWerOther"]["raw"], "Isosyll final no longer beats Zipformer on dev-other"
-    # v4.1.0 on the unselected C half: live is not significantly different from Zipformer, final is lower (abstract, results)
+    # unselected C half: v4.1.0 live is not significantly different from Zipformer, v4.2.0 final is lower (abstract, results)
     assert rec["LookLiveCZipLo"]["raw"] < 0.0 < rec["LookLiveCZipHi"]["raw"], "live vs Zipformer on C is no longer inconclusive; reword"
-    assert rec["LookFinalCZipHi"]["raw"] < 0.0, "final is no longer lower than Zipformer on C; reword"
+    assert rec["FinCZipHi"]["raw"] < 0.0, "final is no longer lower than Zipformer on C; reword"
+    assert rec["FinCPrevHi"]["raw"] < 0.0 and rec["FinPanelPrevHi"]["raw"] < 0.0, "v4.2.0 final no longer beats v4.1.0 final; reword"
+    assert rec["FinSBaseHi"]["raw"] < 0.0, "the gated beam-48 re-search no longer lowers S-half WER; reword"
+    # the gate is reported as over its +5% CPU budget (owner choice): the words must match R9
+    assert rec["FinGateCpuPct"]["raw"] > float(rec["FinGateBudgetPct"]["raw"]), "the gate is no longer over its CPU budget; reword"
     assert rec["ColdHeadWerGapBest"]["raw"] > 0.0, "Isosyll final no longer trails the lowest-WER comparator"
     # Live point claims checked whenever the standalone live cold row (14q) is admitted
     if "ColdLiveSpeed" in rec:
@@ -68,12 +79,12 @@ def test_front_page_pairs_each_modes_speed_and_accuracy():
 
 
 def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
-    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v4.1.0 (earlier releases only as unplotted rows) + all 15 public comparators."""
+    """Figure 1, Table 1, evidence, systems.json, sections, README, and PDF hold ONLY v4.2.0 final and v4.1.0 live (earlier releases only as unplotted rows) + all 15 public comparators."""
     plotted = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]
                if ln.split(",")[5:7] == ["zen2", "1"] and ln.split(",")[21] == "1"]
     variants = {c[1] for c in plotted}
     expected = {
-        "v41-live-lm", "v41-final", "r0-int8-r6", "parakeet-tdt-v3-int8", "parakeet-v3-onnxasr-int8",
+        "v41-live-lm", "v42-final", "r0-int8-r6", "parakeet-tdt-v3-int8", "parakeet-v3-onnxasr-int8",
         "nemotron-en-560", "nemotron-en-160", "nemotron-35", "moonshine-small", "moonshine-tiny",
         "vosk-small", "vosk-large", "whispercpp-stream-tiny", "whispercpp-stream-base",
     }
@@ -81,24 +92,24 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     # Dynamic complete-panel WER ranking includes both Isosyll modes + all 15 public comparators (17 total)
     rec = _records()
     assert rec["ColdCompletePanelCount"]["raw"] == 17
-    assert rec["ColdHeadWerRank"]["raw"] == 8, f"expected v4.1.0 final rank 8, got {rec['ColdHeadWerRank']['raw']}"
+    assert rec["ColdHeadWerRank"]["raw"] == RANK42, f"expected v4.2.0 final rank {RANK42}, got {rec['ColdHeadWerRank']['raw']}"
     readme_txt = (pd.REPO / "README.md").read_text(encoding="utf-8")
-    for must in ("| **Isosyll live (160 ms, +LM)** |",
+    for must in ("| **Isosyll live (160 ms, +LM)** |", "| **Isosyll v4.2.0 final** |",
                  "| Zipformer INT8 (320 ms) |", "| Moonshine Tiny Streaming |", "| Vosk Small |",
                  "| Nemotron 0.6B (560 ms) § |", "| Parakeet TDT v3 (onnx-asr) |", "| Whisper.cpp Tiny § |",
                  "31.5×", "0.331", "5.08",
                  "<!-- install:start -->", "<!-- install:end -->",
                  "released by owner decision after missing registered edit gates",
-                 "docs/ultra/releases/v4.1.0.md", "[docs/release.md](docs/release.md)",
+                 "docs/ultra/releases/v4.2.0.md", "[docs/release.md](docs/release.md)",
                  "curl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh",
                  "isosyll transcribe", "ssh-keygen -Y verify"):
         assert must in readme_txt, f"README missing required comparator/install item: {must!r}"
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
     for banned in ("Isosyll live greedy", "Isosyll live +LM (320 ms)", "| **Isosyll final (commit)** |", "33.3×", "RC2", "v3.1.0", "v3.0.0"):
         assert banned not in readme_txt.split("<!-- install:start -->")[0], f"README hero shows a prior/variant mode: {banned!r}"
-    # Hero plot: ONE Isosyll mark (live) vs all 12 timed comparators, names only, colored by energy.
+    # Hero plot: two Isosyll marks (v4.2.0 final, live) vs all 12 timed comparators, names only, colored by energy.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
-    for must_tex in ("Isosyll live", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
+    for must_tex in ("Isosyll live", "Isosyll v4.2.0 final", r"\FinFullClean", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
                      "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
                      r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
                      r"\HeroBarTitle", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
@@ -209,13 +220,13 @@ def test_readme_shows_the_current_figure_block():
     assert paper_title and title == f"# {paper_title[1]}"
     descriptor = re.search(r"\\newcommand\{\\PaperDescriptor\}\{([^}]+)\}", (DATA / "metrics.tex").read_text())
     assert descriptor and tagline == f"**{descriptor[1]}**"
-    assert summary == "**Isosyll live: 31.5× real time · 0.331 J/audio-s · 5.08% WER (3.08% dev-clean) on one CPU core**"
+    assert summary == SUMMARY42, summary
     assert image.startswith(f"![{paper_title[1]}. ") and image.endswith("(docs/paper/money.png)")
     assert caption.startswith("**Figure 1.**") and "[Paper](docs/paper/paper.pdf)" in caption
-    assert "unselected DEV" in caption and "docs/ultra/releases/v4.1.0.md" in caption
+    assert "unselected DEV" in caption and "docs/ultra/releases/v4.2.0.md" in caption
     table = re.findall(r"^\| .*", block, flags=re.M)
     pairs = json.loads((DATA / "systems.json").read_text())["versus"]["pairs"]
-    assert len(table) == 1 + 1 + 12, "all-comparator table: header + Isosyll live + 12 timed public comparators"
+    assert len(table) == 1 + 2 + 12, "all-comparator table: header + Isosyll final and live + 12 timed public comparators"
     assert len(pairs) == 2
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
     assert labels == ["Fastest, with the lowest measured energy", "One small artifact", "Bit-exact pure-Rust engine"]
@@ -323,7 +334,7 @@ def test_measured_table_has_one_line_per_measured_system_and_only_generated_cell
     plain = [ln.split(",") for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
     drawn = [c for c in plain if c[21] == "1"]
     from tools.paper_data.heat import SHOW_FINAL
-    shown = [c for c in drawn if SHOW_FINAL or c[1] != "v41-final"]
+    shown = [c for c in drawn if SHOW_FINAL or c[1] != "v42-final"]
     assert len(re.findall(r"\\Cold[A-Za-z]+Speed[A-Za-z]*\} &", table)) == len(shown), "one row per plotted system: Isosyll live and 12 comparators"
     assert "Isosyll live" in table and "v3." not in table and "\\hmcell{" in table
 
@@ -339,33 +350,36 @@ def test_readme_and_paper_omit_v4_dead_end_fluff():
 
 
 def test_release_is_stated_as_owner_decision_not_a_gate_pass():
+    """v4.2.0: the final pass meets its gates; live (unchanged since v4.1.0) shipped by owner decision after missing its own."""
     readme = (pd.REPO / "README.md").read_text()
     assert "released by owner decision after missing registered edit gates" in readme
+    assert "meets its registered edit gates" in readme
     for name in ("abstract", "limitations"):
         txt = (PAPER / "sections" / f"{name}.tex").read_text()
         assert "owner decision" in txt and "LookLivePanelEdits" in txt and "CandGateLivePanel" in txt, name
-        assert "LookFinalPanelEdits" in txt and "CandGateFinalPanel" in txt, name
-    assert "LookFinalFullEdits" in (PAPER / "sections" / "limitations.tex").read_text()
+    lim = (PAPER / "sections" / "limitations.tex").read_text()
+    assert "FinPanelEdits" in lim and "CandGateFinalPanel" in lim and "FinFullEdits" in lim and "CandGateFinalFull" in lim
+    assert "FinGateBudgetPct" in lim and "owner choice" in lim
     rec = _records()
     assert rec["LookLivePanelEdits"]["raw"] > rec["CandGateLivePanel"]["raw"], "the live panel gate is no longer missed; reword"
-    assert rec["LookFinalPanelEdits"]["raw"] > rec["CandGateFinalPanel"]["raw"], "the final panel gate is no longer missed; reword"
-    assert rec["LookFinalFullEdits"]["raw"] <= rec["CandGateFinalFull"]["raw"], "the full-DEV final gate is no longer passed; reword"
+    assert rec["FinPanelEdits"]["raw"] <= rec["CandGateFinalPanel"]["raw"], "the final panel gate is no longer met; reword"
+    assert rec["FinFullEdits"]["raw"] <= rec["CandGateFinalFull"]["raw"], "the full-DEV final gate is no longer met; reword"
 
 
 def test_ratios_to_zipformer_are_medians_of_within_block_ratios():
-    """Paired ratios come from the same-block Zipformer anchor of the R8 blocks: medians of within-block ratios."""
+    """Paired ratios come from the same-block Zipformer anchor of the R8 (live) and R9 (v4.2.0 final) blocks: medians of within-block ratios."""
     import statistics
     rec = _records()
-    t = DATA / "raw/release_v41/timing_interleaved"
-    load = lambda b, arm: json.loads((t / b / f"{arm}.json").read_text())
+    t8, t9 = DATA / "raw/release_v41/timing_interleaved", DATA / "raw/release_v42/timing_interleaved"
+    load = lambda b, arm: json.loads(((t9 if arm.startswith("v42") or arm.endswith("@r9") else t8) / b / f"{arm.split('@')[0]}.json").read_text())
     blocks = ("block1", "block2", "block3")
     clean = lambda b, arm: load(b, arm)["clean_repetitions"]["core"] == 1
-    for key, arm in (("VsSpeedXOne", "v41-live-lm-730"), ("VsSpeedXTwo", "v41-final-730")):
-        both = [b for b in blocks if clean(b, arm) and clean(b, "anchor730-zip")]  # core-clean blocks of both arms
+    for key, arm, zip_ in (("VsSpeedXOne", "v41-live-lm-730", "anchor730-zip"), ("VsSpeedXTwo", "v42-final-730", "anchor730-zip@r9")):
+        both = [b for b in blocks if clean(b, arm) and clean(b, zip_)]  # core-clean blocks of both arms
         assert len(both) >= 2, (arm, both)
-        ratio = statistics.median(load(b, "anchor730-zip")["cpu_s_per_audio_s"] / load(b, arm)["cpu_s_per_audio_s"] for b in both)
+        ratio = statistics.median(load(b, zip_)["cpu_s_per_audio_s"] / load(b, arm)["cpu_s_per_audio_s"] for b in both)
         assert abs(rec[key]["raw"] - ratio) < 5e-5, key
-    assert rec["VsSpeedXTwo"]["value"] == "1.20" and rec["VsEnergyPctTwo"]["value"] == "113"
+    assert rec["VsSpeedXTwo"]["value"] == SPEEDX42 and rec["VsEnergyPctTwo"]["value"] == ENERGYPCT42
     block = (DATA / "money_readme.md").read_text()
     assert "**2.2×**" in block and "**57%**" in block
 
@@ -414,7 +428,7 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
 def test_headline_precision_gate_scope_and_install_sample_are_exact():
     readme = (pd.REPO / "README.md").read_text()
     block = (DATA / "money_readme.md").read_text()
-    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "5.02%",
+    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "4.27%", "4.32%", "2.34%", "paired R9 full-panel",
                  "+0.09 [−0.12, +0.30] pp",
                  "| J/audio-s |", "idle-subtracted", "paired R8 full-panel", "160 ms chunks"):
         assert must in block, must

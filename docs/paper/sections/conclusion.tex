@@ -3,9 +3,10 @@
 An always-on speech recogniser should barely register on the CPU and energy budget of its host. We
 presented \ultra{}, a compact streaming Conformer transducer and pure-Rust integer-exact CPU engine
 evaluated directly against all \ColdComparatorCount{} timed public open-weights CPU
-comparators on the same 730-utterance LibriSpeech DEV panel. From one \ColdHeadModel\,MB INT8 artifact on
-one pinned quiet Zen~2 core, \ultra{} live streams at \ColdLiveSpeed$\times$ real time and
-\ColdLiveWatts\,J/audio-s (\ColdLiveWer\% panel / \LookLiveFullWer\% full DEV, \ColdLiveRss\,MB RAM); an
-utterance-end final pass on the same weights reaches \ColdHeadWer\% panel WER. Transcripts reproduce bit-identically across \CandIsaRuns{} x86 and ARM
-witness decodes. On unselected DEV, \ultra{} live is not significantly different from Zipformer INT8 (\LookLiveCZipDelta\pp). All
+comparators on the same 730-utterance LibriSpeech DEV panel. On one pinned quiet Zen~2 core, \ultra{} live
+streams at \ColdLiveSpeed$\times$ real time and \ColdLiveWatts\,J/audio-s (\ColdLiveWer\% panel / \LookLiveFullWer\% full DEV,
+\ColdLiveRss\,MB RAM); the v4.2.0 utterance-end final pass on a second \ColdHeadModel\,MB INT8 artifact reaches
+\ColdHeadWer\% panel WER (\FinFullClean\% dev-clean on full DEV) at \ColdHeadSpeed$\times$ real time and \ColdHeadWatts\,J/audio-s. Transcripts reproduce bit-identically across \CandIsaRuns{} x86 and ARM
+witness decodes. On unselected DEV, \ultra{} final is lower than Zipformer INT8 (\FinCZipDelta\pp) and live is not significantly
+different (\LookLiveCZipDelta\pp). All
 results are exploratory and use development data only.

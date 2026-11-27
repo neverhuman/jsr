@@ -261,20 +261,32 @@
       "system": "ULTRA v4.1.0 (final, seg.)",
       "short": "ULTRA v4.1.0 final seg.",
       "macro": "VFourFinal",
-      "order": 8,
+      "order": 9,
       "text": "\\ultra{} v4.1.0 (final, seg.)",
-      "detail": "v4.1.0 INT8 (H247), commit pass at utterance ends (M5 LM, beam 16)",
+      "detail": "v4.1.0 INT8 (H247), commit pass at utterance ends (M5 LM, beam 16); superseded by v4.2.0 final",
       "checkpoint": "v4.1.0 (final, seg.)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": false
+    },
+    "v42-final": {
+      "system": "ULTRA v4.2.0 (final, seg.)",
+      "short": "ULTRA v4.2.0 final seg.",
+      "macro": "VFourTwoFinal",
+      "order": 8,
+      "text": "\\ultra{} v4.2.0 (final, seg.)",
+      "detail": "v4.2.0 final INT8 (F3 soup), commit pass at utterance ends (c32, M5 LM, beam 16; beam 48 on the 30% least-confident; content-word t2 rerank)",
+      "checkpoint": "v4.2.0 (final, seg.)",
       "runtime_short": "ours",
       "segmenter": "no",
       "plot": true
     }
   },
   "headline": {
-    "ours": "v41-final",
+    "ours": "v42-final",
     "ours_live": "v41-live-lm"
   },
-  "release": "v4.1.0",
+  "release": "v4.2.0",
   "versus": {
     "comparator": "r0-int8-r6",
     "pairs": [
@@ -285,8 +297,8 @@
       },
       {
         "mode": "final",
-        "variant": "v41-final",
-        "paired": "raw/versus/v410/zip-vs-v41-final.panel730.score.json"
+        "variant": "v42-final",
+        "paired": "raw/versus/v420/zip-vs-v42-final.panel730.score.json"
       }
     ],
     "prior": [

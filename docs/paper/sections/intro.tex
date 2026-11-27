@@ -9,17 +9,17 @@ the same hardware, the same audio, and the same scorer.
 \input{sections/tab_measured.tex}%
 \para{What we built.} We call the system \ultra{}, from \emph{iso-} (the same) and \emph{syllable}:
 live transcripts match across the tested SIMD kernels and batch sizes. \ultra{} co-designs a compact
-streaming Conformer transducer and an integer-exact pure-Rust CPU engine around a single
-\ColdHeadModel\,MB prepared INT8 artifact. \ultra{} live (160\,ms chunks, compact live LM, no endpoint
+streaming Conformer transducer and an integer-exact pure-Rust CPU engine around
+\ColdHeadModel\,MB prepared INT8 artifacts. \ultra{} live (160\,ms chunks, compact live LM, no endpoint
 detector) reaches \ColdLiveSpeed$\times$ real time at \ColdLiveWatts\,J per audio-second and
-\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \ColdVFourLiveLmWerClean\% dev-clean, \LookLiveFullWer\% full DEV). The same weights
-also power \ultra{} final, an utterance-end second pass (\cref{sec:model}) at \ColdHeadWer\% panel WER and
-\ColdHeadSpeed$\times$ real time.
+\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \ColdVFourLiveLmWerClean\% dev-clean, \LookLiveFullWer\% full DEV). A second artifact of the
+same architecture powers \ultra{} final, an utterance-end second pass (\cref{sec:model}) at \ColdHeadWer\% panel WER
+(\FinFullClean\% dev-clean on full DEV), \ColdHeadSpeed$\times$ real time and \ColdHeadWatts\,J per audio-second.
 Every quantised GEMM accumulates exactly in int32, every activation row is quantised from its own
 range, and the log-mel front end uses portable unfused IEEE double arithmetic, so outputs are a
 deterministic function of the input audio and weights, independent of batch composition.
 
-\para{Contributions.} We compare the single artifact directly against all
+\para{Contributions.} We compare \ultra{} directly against all
 \ColdComparatorCount{} timed public open-weights CPU comparators on the 730-utterance LibriSpeech
 DEV panel (\cref{fig:money,tab:measured}) and head-to-head against the strongest streaming
 comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):

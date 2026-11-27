@@ -9,12 +9,12 @@ open-weights CPU comparator. \ColdHostSentence{} \ColdSubsetSentence{}
 real time (\ColdLiveRss\,MB peak memory) at \ColdLiveWer\% pooled panel WER; \ultra{} final runs at
 \ColdHeadSpeed$\times$. \ColdMemorySentence{} In the paired R8 full-panel blocks, live is
 \ColdLiveWatts\,J per audio-second, \VsEnergyPctOne\% of the Zipformer INT8 anchor timed in the same blocks (R6 row:
-\ColdZipRsixWatts\,J), and final is \ColdHeadWatts\,J. The R7 matched campaign, which idle-subtracts every plotted comparator,
+\ColdZipRsixWatts\,J); in the paired R9 blocks (same protocol and anchors), the v4.2.0 final pass is \ColdHeadWatts\,J. The R7 matched campaign, which idle-subtracts every plotted comparator,
 puts Zipformer INT8 at \RsevenZipEnergy\,J on its \RsevenClips-clip subset. At utterance
 endpoints the commit pass runs at \ColdFinalCorePct\% of one core (\ColdFinalVsZipSpeed).
 
-\para{Accuracy.} The utterance-end \ultra{} final pass on the same weights reaches \ColdHeadWer\% pooled panel
-WER, \VsVerdictTwo{} streaming Zipformer INT8's \ColdZipWer\% under the paired test below, although
+\para{Accuracy.} The utterance-end \ultra{} final pass on its own weights reaches \ColdHeadWer\% pooled panel
+WER (\FinPanelClean\% dev-clean, \FinPanelOther\% dev-other), \VsVerdictTwo{} streaming Zipformer INT8's \ColdZipWer\% under the paired test below, although
 \ultra{} is trained on Libri-Light pseudo-labels from that Zipformer (R0). Larger 600M-parameter models
 achieve lower WER at much higher CPU cost and, where metered, higher energy.
 
@@ -22,19 +22,28 @@ achieve lower WER at much higher CPU cost and, where metered, higher energy.
 
 Zipformer INT8 is the strongest public streaming comparator near our cost point and the teacher of our
 pseudo-labels, so we compare against it directly on the same utterances and core (\cref{tab:versus}),
-timed in the same three interleaved blocks on quiet H1 (R8); speed, energy and memory ratios are medians of
+timed in the same three interleaved blocks on quiet H1 (R8 for live, R9 for the v4.2.0 final pass); speed, energy and memory ratios are medians of
 within-block ratios, and WER differences are paired with speaker-cluster bootstrap. Because the
 730-utterance panel overlaps the selection half of DEV, we also report the unselected confirmation half
-(C, \LookCUtts{} utterances), decoded once for the frozen release: there, \ultra{} live is \LookLiveCZipDelta\pp from
+(C, \LookCUtts{} utterances), decoded once for each frozen release: there, \ultra{} live is \LookLiveCZipDelta\pp from
 Zipformer (bounds \LookLiveCZipLo{} to \LookLiveCZipHi), not a significant difference. \ultra{} live uses \VsCpuPctOne\% of Zipformer's CPU time
 (\VsSpeedXOne$\times$ throughput), \VsEnergyPctOne\% of its active core energy (paired R8 blocks), and \VsRssPctOne\% of its
 memory with half the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its panel WER is \VsVerdictOne{}
 Zipformer's (\VsDeltaOne\pp, bounds \VsLoOne{} to \VsHiOne\pp). \ultra{} final is \VsVerdictTwo{}
-Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp; lower on C at \LookFinalCZipDelta\pp, bounds \LookFinalCZipLo{} to \LookFinalCZipHi) at
+Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp; lower on C at \FinCZipDelta\pp, bounds \FinCZipLo{} to \FinCZipHi) at
 \VsSpeedXTwo$\times$ its single-core speed and \VsEnergyPctTwo\% of its active core energy.
+
+\para{What v4.2.0 changes.} Only the final pass changed. Against the v4.1.0 final pass on the same utterances,
+v4.2.0 final is \FinPanelPrevDelta\pp on the panel (bounds \FinPanelPrevLo{} to \FinPanelPrevHi), \FinCPrevDelta\pp on
+the unselected C half (bounds \FinCPrevLo{} to \FinCPrevHi; dev-clean \FinPrevCClean\% $\to$ \FinCClean\%), and the gated beam-48
+re-search alone is \FinSBaseDelta\pp on the selection half against the same pass without it (bounds \FinSBaseLo{} to
+\FinSBaseHi). In the paired R9 blocks the whole pass changes CPU time per audio-second by \FinCostCpuPct\% and core
+energy by \FinCostEnergyPct\% against the released v4.1.0 final binary; the gate alone costs \FinGateCpuPct\% CPU and
+\FinGateEnergyPct\% energy against the same build with the gate off, above the +\FinGateBudgetPct\% budget set for it, by owner choice.
 
 On full LibriSpeech DEV (\RelFullUtts{} utterances, which contains the selection half and is therefore
 descriptive), \ultra{} live reaches \LookLiveFullClean\% dev-clean, \LookLiveFullOther\% dev-other
-and \LookLiveFullWer\% pooled WER; \ultra{} final reaches \LookFinalFullWer\% pooled.
+and \LookLiveFullWer\% pooled WER; \ultra{} final reaches \FinFullClean\% dev-clean, \FinFullOther\% dev-other and
+\FinFullWer\% pooled (v4.1.0 final: \LookFinalFullWer\%).
 
 \input{data/table_versus.tex}

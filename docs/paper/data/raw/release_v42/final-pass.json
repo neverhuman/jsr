@@ -1,0 +1,63 @@
+{
+ "schema": "jsr.release-v42-final-pass/v1",
+ "release": "v4.2.0",
+ "final_acoustic": {
+  "name": "F3",
+  "recipe": "float64 weight average of the EMA tensors of three fine-tuned research checkpoints (H234, H255, H256, each at step 2000)",
+  "weights": [
+   0.3,
+   0.55,
+   0.15
+  ],
+  "weights_text": "0.30/0.55/0.15",
+  "int8_weights_sha256": "5c5bfad9aef75af115e9e32a501ec257ab5562fafaba0b19eb4b17bbd4abae7a",
+  "note": "final/weights.int8.safetensors of the v4.2.0 model archive"
+ },
+ "commit": {
+  "chunk_frames": 32,
+  "chunk_ms": 1280,
+  "beam": 16,
+  "tail_pad_ms": 320,
+  "lm_scale": 0.8,
+  "lodr_scale": 0.6
+ },
+ "gate": {
+  "wide_beam": 48,
+  "train_route_pct": 30,
+  "margin": 0.6467037200927734,
+  "margin_f32_bits": "0x3f258e60",
+  "train_routed": 2759,
+  "train_utterances": 9196,
+  "rule": "replay the cached encoder projection at beam 48 when the beam-16 top-1 minus top-2 fused score is below the margin",
+  "source": "wer-push H294 thresholds.json (TRAIN utterances only)",
+  "thresholds_json": {
+   "thresholds": {
+    "10": {
+     "margin": 0.2029132843017578,
+     "train_count": 920
+    },
+    "20": {
+     "margin": 0.41074663400650024,
+     "train_count": 1839
+    },
+    "30": {
+     "margin": 0.6467037200927734,
+     "train_count": 2759
+    }
+   },
+   "train_utterances": 9196,
+   "train_sha256": "5ea4794cae039f6d8f60d41ba66c96e4cf5d8c4f433c89bf14eeb496e06c9fec",
+   "checkpoint": "407b0ecda11396c716f26aea736489d93cf0a47ec2ff5d5396daaf220d44860c",
+   "source_weights": "0f94165f6513fd99e86634f96b047309d7715d8b07edb93aa4cb4ba286e5b10a"
+  }
+ },
+ "cost_budget": {
+  "gate_cpu_pct": 5,
+  "decision": "owner locked beam 48 / TRAIN30 on 2026-11-27 although its measured cost is just over the +5% CPU budget"
+ },
+ "reranker": {
+  "lm": "left-to-right transformer t2.utfr (12,392,532 bytes)",
+  "fit": "frozen H261 content-word reranker (8088 training lists)",
+  "skip_margin": 3.75
+ }
+}
