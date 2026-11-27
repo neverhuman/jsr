@@ -22,7 +22,7 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 m = load_lm("/mnt/xbabe3-external/jsr/wer-push/H68/snap/kd12L_t2_16000.pt", dev)
 flat, owner, pos = [], [], []
 for ui, ln in enumerate(open(nb)):
-    for k, c in enumerate(json.loads(ln)["nbest"][:16]):
+    for k, c in enumerate(json.loads(ln)["nbest"][:int(__import__("os").environ.get("NB", "16"))]):
         flat.append(c); owner.append(ui); pos.append(k)
 def word_of_tokens(toks):
     # returns per-token word index and the word strings (pieces joined)

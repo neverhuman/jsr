@@ -109,7 +109,7 @@ def cv(d):
         print(json.dumps({"lambda": lam, "heldout_edit_delta_vs_init": tot}), flush=True)
 
 def ed_of(rows, R, u, idx, sc):
-    r = rows[u]; T = [str(c[2]) for c in r["nbest"][:16]]
+    r = rows[u]; T = [str(c[2]) for c in r["nbest"][:int(__import__("os").environ.get("NB", "16"))]]
     h = agg([T[i - idx[0]] for i in idx], sc[idx])
     return sum(edit_counts(normalise(R[r["uid"]]["ref"]), normalise(h)))
 
