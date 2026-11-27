@@ -1,0 +1,340 @@
+{
+ "schema": "jsr.energy-bench/v1",
+ "arm": "b2-r10-anchor730-live",
+ "note": null,
+ "machine": "xbabe0",
+ "energy_method": "amd-msr-core-energy-0xC001029A+package-0xC001029B, idle-subtracted, exact phase boundaries",
+ "joules_per_audio_s": 0.329255,
+ "watts_per_stream": 0.329255,
+ "joules_per_audio_s_package": 0.893772,
+ "watts_per_stream_package": 0.893772,
+ "joules_per_audio_s_package_robust": 0.855988,
+ "watts_per_busy_core": 10.5175,
+ "watts_per_busy_core_package": 28.55,
+ "watts_per_busy_core_package_robust": 27.3431,
+ "idle_watts": 71.9517,
+ "cpu_s_per_audio_s": 0.0313055,
+ "repetitions": 1,
+ "clean_repetitions": {
+  "core": 1,
+  "package": 0
+ },
+ "repetitions_disagree": false,
+ "flags": [
+  "foreign_load_changed",
+  "idle_drift_package",
+  "no_clean_package_rep"
+ ],
+ "summary": {
+  "joules_per_audio_s": {
+   "median": 0.329255,
+   "min": 0.329255,
+   "max": 0.329255,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "joules_per_audio_s_package": {
+   "median": 0.893772,
+   "min": 0.893772,
+   "max": 0.893772,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "gross_joules_per_audio_s": {
+   "median": 0.330432,
+   "min": 0.330432,
+   "max": 0.330432,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "watts_per_busy_core": {
+   "median": 10.5175,
+   "min": 10.5175,
+   "max": 10.5175,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "watts_per_busy_core_package": {
+   "median": 28.55,
+   "min": 28.55,
+   "max": 28.55,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "net_watts": {
+   "median": 10.5108,
+   "min": 10.5108,
+   "max": 10.5108,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "net_watts_package": {
+   "median": 28.5318,
+   "min": 28.5318,
+   "max": 28.5318,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "run_watts": {
+   "median": 10.5483,
+   "min": 10.5483,
+   "max": 10.5483,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "run_watts_package": {
+   "median": 100.483,
+   "min": 100.483,
+   "max": 100.483,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "idle_watts_cores": {
+   "median": 0.0375973,
+   "min": 0.0375973,
+   "max": 0.0375973,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "idle_watts": {
+   "median": 71.9517,
+   "min": 71.9517,
+   "max": 71.9517,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "joules_per_audio_s_package_robust": {
+   "median": 0.855988,
+   "min": 0.855988,
+   "max": 0.855988,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "watts_per_busy_core_package_robust": {
+   "median": 27.3431,
+   "min": 27.3431,
+   "max": 27.3431,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "net_watts_package_robust": {
+   "median": 27.3256,
+   "min": 27.3256,
+   "max": 27.3256,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "cpu_s_per_audio_s": {
+   "median": 0.0313055,
+   "min": 0.0313055,
+   "max": 0.0313055,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "wall_seconds": {
+   "median": 164.756,
+   "min": 164.756,
+   "max": 164.756,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  },
+  "mean_mhz": {
+   "median": 4244.12,
+   "min": 4244.12,
+   "max": 4244.12,
+   "spread": 0.0,
+   "spread_pct": 0.0,
+   "stdev": null,
+   "n": 1
+  }
+ },
+ "reps": [
+  {
+   "rep": 1,
+   "started_utc": "2026-11-27T20:04:01Z",
+   "wall_seconds": 164.756,
+   "cpu_seconds": 164.653,
+   "exit_codes": [
+    0
+   ],
+   "peak_rss_bytes": 109481984,
+   "loadavg_before": "0.59 1.12 2.31 1/3626 62965",
+   "loadavg_after": "1.75 1.35 2.19 2/3621 78358",
+   "core": {
+    "run_watts": 10.5483,
+    "idle_watts": 0.0375973,
+    "net_watts": 10.5108,
+    "net_joules": 1731.73,
+    "joules_per_audio_s": 0.329255,
+    "gross_joules_per_audio_s": 0.330432,
+    "joules_per_cpu_s": 10.5175,
+    "idle_before_watts": 0.0209459,
+    "idle_after_watts": 0.054249,
+    "run_window_seconds": 164.758,
+    "per_second_watts_stdev": 0.294226,
+    "run_watts_median": 10.6446,
+    "idle_watts_median": 0.0144434,
+    "net_watts_median": 10.6302,
+    "joules_per_audio_s_median": 0.332997,
+    "joules_per_cpu_s_median": 10.637
+   },
+   "net_watts_by_core": {
+    "16": 10.5108
+   },
+   "package": {
+    "run_watts": 100.483,
+    "idle_watts": 71.9517,
+    "net_watts": 28.5318,
+    "net_joules": 4700.85,
+    "joules_per_audio_s": 0.893772,
+    "gross_joules_per_audio_s": 3.1477,
+    "joules_per_cpu_s": 28.55,
+    "idle_before_watts": 63.5191,
+    "idle_after_watts": 80.3844,
+    "run_window_seconds": 164.758,
+    "per_second_watts_stdev": 14.2121,
+    "run_watts_median": 93.2305,
+    "idle_watts_median": 65.9049,
+    "net_watts_median": 27.3256,
+    "joules_per_audio_s_median": 0.855988,
+    "joules_per_cpu_s_median": 27.3431
+   },
+   "package_sysfs_over_msr": 0.999948,
+   "other_cores": {
+    "run_watts": 15.0634,
+    "idle_watts": 10.706,
+    "idle_before_watts": 4.71678,
+    "idle_after_watts": 16.6953
+   },
+   "mean_mhz": 4244.12,
+   "busy": {
+    "sibling_busy_fraction_run": 0.00145649,
+    "pinned_busy_fraction_run": 0.999939,
+    "pinned_busy_fraction_idle": 0.000500334,
+    "elsewhere_busy_cpus_run": 0.567956,
+    "elsewhere_busy_cpus_idle": 0.376653
+   },
+   "audio_seconds": 5259.56,
+   "cpu_s_per_audio_s": 0.0313055,
+   "flags": [
+    "foreign_load_changed",
+    "idle_drift_package"
+   ]
+  }
+ ],
+ "command": [
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/bin/ultra-cold-wav",
+  "--chunk",
+  "4",
+  "--beam",
+  "4",
+  "--beam-max-symbols",
+  "1",
+  "--beam-margin",
+  "0.0",
+  "--lm",
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/lms/c4_p0_0_10_40.v2.ulm",
+  "--lm-weight",
+  "0.70",
+  "--lodr-weight",
+  "0.50",
+  "--blank-penalty",
+  "0.0",
+  "r1-engine-int8",
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/model_rc2",
+  "audio/panel730",
+  "runs/out/r10/b2-r10-anchor730-live/rep{rep}-w{worker}.jsonl"
+ ],
+ "env": {
+  "OMP_NUM_THREADS": "1",
+  "OMP_THREAD_LIMIT": "1",
+  "MKL_NUM_THREADS": "1"
+ },
+ "cpus": [
+  16
+ ],
+ "measured_cores": [
+  16
+ ],
+ "smt_siblings_kept_idle": [
+  80
+ ],
+ "observer_cpu": 31,
+ "workers": 1,
+ "audio_seconds_per_worker": 5259.56,
+ "audio_files_per_worker": 730,
+ "audio_rate_per_worker": null,
+ "audio_manifest_sha256": "010aa985e8c677d4daf43561dd9600d1ad27429494e88b74c177825a8cbc3963",
+ "trim_seconds": 0.0,
+ "idle_seconds": 60.0,
+ "settle_seconds": 5.0,
+ "interval_seconds": 1.0,
+ "samples": 301,
+ "energy_unit_j": 1.52588e-05,
+ "thresholds": {
+  "sibling_busy": 0.01,
+  "foreign_watts": 1.0,
+  "idle_drift_core": 0.2,
+  "idle_drift_package": 2.0,
+  "on_cpu": 0.98,
+  "rep_spread_pct": 5.0
+ },
+ "busy_workers": 1,
+ "host": {
+  "hostname": "xbabe0",
+  "kernel": "6.8.0-149-generic",
+  "cpu_model": "AMD Ryzen Threadripper PRO 3995WX 64-Cores",
+  "cpu_vendor": "AuthenticAMD",
+  "microcode": "0x830107d",
+  "governor": {
+   "16": "schedutil"
+  },
+  "cpufreq_driver": "acpi-cpufreq",
+  "boost": "1",
+  "smt_active": "1",
+  "idle_states": [
+   "POLL",
+   "C1",
+   "C2"
+  ],
+  "online_cpus": "0-127"
+ },
+ "sha256": {
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/bin/ultra-cold-wav": "2f3f01af6dda7f1b4b7fe66b999a076d62c26117c87b61a965d8dd4301609848",
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/model_rc2": "30a4a18acd2d21eaef4795fb5b5b0d520e200b1279e2493192ddb5383bf694c1",
+  "/home/ubuntu/jsr-data/opponents/energy/v31_3bd85e9e/lms/c4_p0_0_10_40.v2.ulm": "113c45627a2e646211a57cbb43086db8adcd64e6c83a4f78793448555e392a2e"
+ },
+ "tool_sha256": "9faf97a462a59cf267b695da72c6fa11628cfab11b830ee3ec7aed7e5dc1ed5d"
+}

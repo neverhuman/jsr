@@ -26,11 +26,11 @@
 \newcommand{\ColdHeadWatts}{0.721}% [exploratory] W per stream (live + commit)
 \newcommand{\ColdHeadWer}{4.24}% [exploratory] % WER, pooled
 \newcommand{\ColdHostSentence}{Moonshine Small, Nemotron 160 ms and Nemotron 3.5 are still interim: measured on host H0, a shared host that ran other jobs and makes every system slower, until their rows from the quiet host H1 arrive.}% [reported] sentence
-\newcommand{\ColdLiveRss}{328}% [exploratory] MB peak resident memory
-\newcommand{\ColdLiveSpeed}{31.5}% [exploratory] x real time, one core
-\newcommand{\ColdLiveWatts}{0.331}% [exploratory] W per live stream
-\newcommand{\ColdLiveWer}{5.08}% [exploratory] % WER, pooled
-\newcommand{\ColdMemorySentence}{In live mode, \ultra{} peaks at 328\,MB, 219\% of matched streaming Zipformer INT8 (152\,MB) and 23.3$\times$ less than Vosk Large (7629\,MB, timed separately); loading the larger 5-gram LM for the commit pass raises peak RSS to 451\,MB.}% [reported] sentence
+\newcommand{\ColdLiveRss}{659}% [exploratory] MB peak resident memory
+\newcommand{\ColdLiveSpeed}{28.5}% [exploratory] x real time, one core
+\newcommand{\ColdLiveWatts}{0.366}% [exploratory] W per live stream
+\newcommand{\ColdLiveWer}{4.58}% [exploratory] % WER, pooled
+\newcommand{\ColdMemorySentence}{In live mode, \ultra{} peaks at 659\,MB, 434\% of matched streaming Zipformer INT8 (152\,MB) and 11.6$\times$ less than Vosk Large (7629\,MB, timed separately); loading the larger 5-gram LM for the commit pass raises peak RSS to 451\,MB.}% [reported] sentence
 \newcommand{\ColdMoonSmallEnergyRseven}{4.301}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdMoonSmallModel}{142}% [exploratory] MB of model files (10^6 bytes)
 \newcommand{\ColdMoonSmallRss}{476}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
@@ -100,13 +100,13 @@
 \newcommand{\ColdRcTwoLiveLmWerOther}{8.88}% [exploratory] % WER
 \newcommand{\ColdRowsCount}{14}% [reported] rows
 \newcommand{\ColdSubsetSentence}{4 slow systems are timed on a 73-utterance subset of the panel (Nemotron 560\,ms, Vosk Large, Whisper.cpp Tiny and Whisper.cpp Base); their WER is from the full panel.}% [reported] sentence
-\newcommand{\ColdVFourLiveLmEnergyRseven}{0.331}% [exploratory] J per audio-s (idle-subtracted core)
-\newcommand{\ColdVFourLiveLmModel}{60}% [exploratory] MB of model files (10^6 bytes)
-\newcommand{\ColdVFourLiveLmRss}{328}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
-\newcommand{\ColdVFourLiveLmSpeed}{31.5}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
-\newcommand{\ColdVFourLiveLmWer}{5.08}% [exploratory] % WER
-\newcommand{\ColdVFourLiveLmWerClean}{3.08}% [exploratory] % WER
-\newcommand{\ColdVFourLiveLmWerOther}{7.94}% [exploratory] % WER
+\newcommand{\ColdVFourTwoOneLiveEnergyRseven}{0.366}% [exploratory] J per audio-s (idle-subtracted core)
+\newcommand{\ColdVFourTwoOneLiveModel}{60}% [exploratory] MB of model files (10^6 bytes)
+\newcommand{\ColdVFourTwoOneLiveRss}{659}% [exploratory] MB peak resident memory of the process tree (10^6 bytes)
+\newcommand{\ColdVFourTwoOneLiveSpeed}{28.5}% [exploratory] audio-s per CPU-s (x real time on the pinned cores)
+\newcommand{\ColdVFourTwoOneLiveWer}{4.58}% [exploratory] % WER
+\newcommand{\ColdVFourTwoOneLiveWerClean}{2.74}% [exploratory] % WER
+\newcommand{\ColdVFourTwoOneLiveWerOther}{7.22}% [exploratory] % WER
 \newcommand{\ColdVoskLargeCorePct}{24.2}% [exploratory] % of one core for one always-on stream
 \newcommand{\ColdVoskLargeEnergyRseven}{2.167}% [exploratory] J per audio-s (idle-subtracted core)
 \newcommand{\ColdVoskLargeModel}{2866}% [exploratory] MB of model files (10^6 bytes)
@@ -179,6 +179,33 @@
 \newcommand{\FinSBaseHi}{$-$0.04}% [exploratory] pp WER
 \newcommand{\FinSBaseLo}{$-$0.13}% [exploratory] pp WER
 \newcommand{\FinSoupWeights}{0.30/0.55/0.15}% [exploratory] weights
+\newcommand{\LivCClean}{2.66}% [exploratory] % WER
+\newcommand{\LivCPrevDelta}{$-$0.55}% [exploratory] pp WER
+\newcommand{\LivCPrevHi}{$-$0.45}% [exploratory] pp WER
+\newcommand{\LivCPrevLo}{$-$0.66}% [exploratory] pp WER
+\newcommand{\LivCZipDelta}{$-$0.46}% [exploratory] pp WER
+\newcommand{\LivCZipHi}{$-$0.28}% [exploratory] pp WER
+\newcommand{\LivCZipLo}{$-$0.66}% [exploratory] pp WER
+\newcommand{\LivCostCpuPct}{+7.5}% [exploratory] %
+\newcommand{\LivCostEnergyPct}{+9.4}% [exploratory] %
+\newcommand{\LivCostRssMb}{329}% [exploratory] MB
+\newcommand{\LivDelayPFifty}{11.0}% [exploratory] ms
+\newcommand{\LivDelayPNinetyFive}{65.8}% [exploratory] ms
+\newcommand{\LivFullClean}{2.53}% [exploratory] % WER
+\newcommand{\LivFullOther}{7.20}% [exploratory] % WER
+\newcommand{\LivFullWer}{4.79}% [exploratory] % WER
+\newcommand{\LivPanelEdits}{662}% [exploratory] edits
+\newcommand{\LivPanelPrevDelta}{$-$0.50}% [exploratory] pp WER
+\newcommand{\LivPanelPrevHi}{$-$0.34}% [exploratory] pp WER
+\newcommand{\LivPanelPrevLo}{$-$0.66}% [exploratory] pp WER
+\newcommand{\LivResCpuPct}{+3}% [exploratory] %
+\newcommand{\LivResEndpointPNinetyFive}{2.6}% [exploratory] ms
+\newcommand{\LivResSWer}{4.92}% [exploratory] % WER
+\newcommand{\LivRoutedPct}{59}% [exploratory] %
+\newcommand{\LivSResDelta}{$-$0.01}% [exploratory] pp WER
+\newcommand{\LivSResHi}{+0.01}% [exploratory] pp WER
+\newcommand{\LivSResLo}{$-$0.02}% [exploratory] pp WER
+\newcommand{\LivSkipMargin}{3.75}% [exploratory] beam score
 \newcommand{\LmOverlapCount}{42}% [exploratory] dev transcripts (12+ words) found verbatim in the LM text
 \newcommand{\LmOverlapOf}{3719}% [exploratory] dev transcripts with 12+ words checked
 \newcommand{\LmPackMb}{334}% [exploratory] MB (engine pack of M5 + LODR, q8)
@@ -187,8 +214,6 @@
 \newcommand{\LookLiveCZipDelta}{+0.09}% [exploratory] pp WER
 \newcommand{\LookLiveCZipHi}{+0.30}% [exploratory] pp WER
 \newcommand{\LookLiveCZipLo}{$-$0.12}% [exploratory] pp WER
-\newcommand{\LookLiveFullClean}{2.84}% [exploratory] % WER
-\newcommand{\LookLiveFullOther}{7.97}% [exploratory] % WER
 \newcommand{\LookLiveFullWer}{5.32}% [exploratory] % WER
 \newcommand{\LookLivePanelEdits}{734}% [exploratory] edits
 \newcommand{\RelCommitDelayPfifty}{211}% [exploratory] ms
@@ -210,20 +235,20 @@
 \newcommand{\ScalarUtts}{730}% [exploratory] panel utterances compared
 \newcommand{\VfDiagInteriorPct}{86.8}% [exploratory] % of residual positions
 \newcommand{\VsChunkOne}{160}% [exploratory] ms
-\newcommand{\VsCpuPctOne}{45}% [exploratory] %
-\newcommand{\VsDeltaOne}{$-$0.17}% [exploratory] pp WER
+\newcommand{\VsCpuPctOne}{49}% [exploratory] %
+\newcommand{\VsDeltaOne}{$-$0.67}% [exploratory] pp WER
 \newcommand{\VsDeltaTwo}{$-$1.01}% [exploratory] pp WER
-\newcommand{\VsEnergyPctOne}{57}% [exploratory] %
+\newcommand{\VsEnergyPctOne}{63}% [exploratory] %
 \newcommand{\VsEnergyPctTwo}{123}% [exploratory] %
-\newcommand{\VsHiOne}{+0.14}% [exploratory] pp WER
+\newcommand{\VsHiOne}{$-$0.38}% [exploratory] pp WER
 \newcommand{\VsHiTwo}{$-$0.69}% [exploratory] pp WER
-\newcommand{\VsLoOne}{$-$0.50}% [exploratory] pp WER
+\newcommand{\VsLoOne}{$-$0.99}% [exploratory] pp WER
 \newcommand{\VsLoTwo}{$-$1.35}% [exploratory] pp WER
-\newcommand{\VsRssPctOne}{219}% [exploratory] %
-\newcommand{\VsSpeedXOne}{2.22}% [exploratory] x
+\newcommand{\VsRssPctOne}{434}% [exploratory] %
+\newcommand{\VsSpeedXOne}{2.04}% [exploratory] x
 \newcommand{\VsSpeedXTwo}{1.08}% [exploratory] x
-\newcommand{\VsVerdictOne}{not significantly different from}% [exploratory] text
+\newcommand{\VsVerdictOne}{lower than}% [exploratory] text
 \newcommand{\VsVerdictTwo}{lower than}% [exploratory] text
 \newcommand{\VsZipChunk}{320}% [exploratory] ms
 
-\newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest (AMD core-energy registers, idle floor subtracted, median over core-clean counterbalanced blocks; Isosyll from the R8/R9 full-panel blocks, others in separate sessions (the R7 matched campaign on the \RsevenClips-clip subset); the \VsEnergyPctOne\% callout is the paired R8 ratio to Zipformer INT8; not wall power). Isosyll final (utterance-end pass) and live (160\,ms chunk) use one \ColdHeadModel\,MB INT8 artifact each, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}
+\newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest (AMD core-energy registers, idle floor subtracted, median over core-clean counterbalanced blocks; Isosyll from the R10/R9 full-panel blocks, others in separate sessions (the R7 matched campaign on the \RsevenClips-clip subset); the \VsEnergyPctOne\% callout is the paired R10 ratio to Zipformer INT8; not wall power). Isosyll final (utterance-end pass) and live (160\,ms chunk) use one \ColdHeadModel\,MB INT8 artifact each, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}

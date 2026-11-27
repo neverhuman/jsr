@@ -177,8 +177,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     ]
     tx = [r"\begin{table}[t]", r"\centering",
           r"\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances (the selection panel; the "
-          r"unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, median of three. Isosyll v4.1.0 is timed in the "
-          r"R8 blocks beside its own Zipformer INT8 anchor (block-1 anchors within 5\% of R6); the Zipformer column is its R6 row. "
+          r"unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, median of three. Isosyll live (v4.2.1) is timed in the "
+          r"R10 blocks and final (v4.2.0) in the R9 blocks, each beside its own Zipformer INT8 anchor (block-1 anchors within 5\% of R6); the Zipformer column is its R6 row. "
           r"Ratios are medians of within-block ratios. "
           r"$\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. "
           r"Cell colour (speed, energy, memory): green is better, red worse; WER is judged by the paired $\Delta$ row, not by colour.}",

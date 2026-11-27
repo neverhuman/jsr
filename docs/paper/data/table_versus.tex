@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances (the selection panel; the unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, median of three. Isosyll v4.1.0 is timed in the R8 blocks beside its own Zipformer INT8 anchor (block-1 anchors within 5\% of R6); the Zipformer column is its R6 row. Ratios are medians of within-block ratios. $\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. Cell colour (speed, energy, memory): green is better, red worse; WER is judged by the paired $\Delta$ row, not by colour.}
+\caption{\textbf{Head-to-head with Zipformer INT8}: same 730 DEV utterances (the selection panel; the unselected-half gaps are in \cref{sec:versus}), same quiet Zen~2 core, median of three. Isosyll live (v4.2.1) is timed in the R10 blocks and final (v4.2.0) in the R9 blocks, each beside its own Zipformer INT8 anchor (block-1 anchors within 5\% of R6); the Zipformer column is its R6 row. Ratios are medians of within-block ratios. $\Delta$ is paired (speaker-cluster bootstrap); negative means fewer errors. Cell colour (speed, energy, memory): green is better, red worse; WER is judged by the paired $\Delta$ row, not by colour.}
 \label{tab:versus}
 \footnotesize
 \setlength{\tabcolsep}{1.5pt}
@@ -9,12 +9,12 @@
 Metric & Zipformer & \ultra{} live \\
 \midrule
 Live chunk (ms) & 320 & 160 \\
-Pooled WER (\%) & 5.25 & 5.08 \\
-$\Delta$ WER vs.\ Zip.\ (pp) & --- & $-$0.17 \\
-\quad one-sided 95\% bounds & --- & [$-$0.50, +0.14] \\
-1-core speed ($\times$ RT) & \hmcell{FECACA}{14.0} & \hmcell{A7F3D0}{31.5} \\
-J per audio-s (core) & \hmcell{FECACA}{0.573} & \hmcell{A7F3D0}{0.331} \\
-Peak RSS (MB) & \hmcell{A7F3D0}{152} & \hmcell{FECACA}{328} \\
+Pooled WER (\%) & 5.25 & 4.58 \\
+$\Delta$ WER vs.\ Zip.\ (pp) & --- & $-$0.67 \\
+\quad one-sided 95\% bounds & --- & [$-$0.99, $-$0.38] \\
+1-core speed ($\times$ RT) & \hmcell{FECACA}{14.0} & \hmcell{A7F3D0}{28.5} \\
+J per audio-s (core) & \hmcell{FECACA}{0.573} & \hmcell{A7F3D0}{0.366} \\
+Peak RSS (MB) & \hmcell{A7F3D0}{152} & \hmcell{FECACA}{659} \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -333,9 +333,9 @@ def test_money_speed_comparison_uses_true_positions():
     assert ticks
     assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 36, 5))
     _, _, marks = _boxes()
-    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.2\$\\times\$ as fast as Zipformer INT8", layout)
+    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.0\$\\times\$ as fast as Zipformer INT8", layout)
     assert arrow
-    for x, row in zip(arrow.groups(), ("r0-int8-r6-zen2-t1", "v41-live-lm-zen2-t1")):
+    for x, row in zip(arrow.groups(), ("r0-int8-r6-zen2-t1", "v421-live-zen2-t1")):
         left, _, right, _ = marks[row]
         assert float(x) == pytest.approx((left + right) / 2, abs=0.01)
 
@@ -532,3 +532,19 @@ def test_hero_energy_prefers_the_matched_campaign_and_greys_the_rest():
     assert money.hero_energy(chosen) == {"Zip": 0.5}, "only rows with a receipt are metered; the rest are absent (grey)"
     chosen["Zip"]["energy_idle_subtracted"] = 0.4
     assert money.hero_energy(chosen) == {"Zip": 0.4}
+
+
+def test_v421_rows_reproduce_the_r10_receipts():
+    """The committed v4.2.1 live row is exactly what the R10 receipts and the v4.2.1 panel score give."""
+    from tools.paper_data import v421_rows
+
+    committed = (DATA / "evidence" / "xbabe0-v421-release.jsonl").read_text(encoding="utf-8")
+    assert committed == v421_rows.text(pd.REPO), "evidence/xbabe0-v421-release.jsonl is stale: python -m tools.paper_data.v421_rows"
+    rows = {r["variant"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") is None}
+    assert set(rows) == {"v421-live"}
+    row = rows["v421-live"]
+    assert row["wer_pct"] == 4.5819 and row["wer_clean_pct"] == 2.7402
+    assert len(row["cpu_reps"]) == 3 and row["timing_panel"] == "full" and row["core_clean_blocks"] == [1, 2, 3]
+    assert set(row["cost"]) == {"vs_v42_live"} and "endpoint_delay" in row
+    r7 = [r for r in map(json.loads, committed.splitlines()) if r.get("kind") == "r7_energy"]
+    assert {r["protocol"] for r in r7} == {"R10"} and all(r["anchor_check"] == "VALID" for r in r7)

@@ -6,10 +6,10 @@
 \def\MoneyHasFrontier{1}\def\MoneyHasStream{1}\def\MoneyHasWhole{1}\def\MoneyHasFaded{1}%
 \def\MoneyWattTicks{}%
 \def\MoneyWattLabels{}%
-\def\MoneyComparisonRows{\textbf{Isosyll v4.1.0 (live +LM)} & 31.5$\times$ & 0.331 & 3.08\% & 5.08\%\\ \textbf{Isosyll v4.2.0 (final, seg.)} & 14.8$\times$ & 0.721 & 2.63\% & 4.24\%\\ Zipformer INT8 & 14.0$\times$ & 0.573 & 3.03\% & 5.25\%\\ Parakeet v3 (sherpa) & 5.92$\times$ & 1.711 & 2.43\% & 3.40\%\\}%
-\def\MoneyOursLine{\draw[okBlue!70, line width=0.8pt, densely dotted] ([xshift=83.21pt, yshift=39.60pt] rel axis cs:0,0) -- ([xshift=177.42pt, yshift=47.42pt] rel axis cs:0,0);}%
-\def\MoneyOursLegend{\shortstack[l]{Isosyll v4.1.0 (live +LM)\\Isosyll v4.2.0 (final, seg.)}}%
-\def\MoneySpeedGap{\draw[{Stealth[length=3.5pt]}-{Stealth[length=3.5pt]}, okBlue, line width=0.6pt] ([xshift=79.04pt, yshift=58.031pt] rel axis cs:0,0) -- ([xshift=177.42pt, yshift=58.031pt] rel axis cs:0,0) node[midway, above=2pt, font=\scriptsize\bfseries] {2.2$\times$ as fast as Zipformer INT8};}%
+\def\MoneyComparisonRows{\textbf{Isosyll v4.2.1 (live, +LM)} & 28.5$\times$ & 0.366 & 2.74\% & 4.58\%\\ \textbf{Isosyll v4.2.0 (final, seg.)} & 14.8$\times$ & 0.721 & 2.63\% & 4.24\%\\ Zipformer INT8 & 14.0$\times$ & 0.573 & 3.03\% & 5.25\%\\ Parakeet v3 (sherpa) & 5.92$\times$ & 1.711 & 2.43\% & 3.40\%\\}%
+\def\MoneyOursLine{\draw[okBlue!70, line width=0.8pt, densely dotted] ([xshift=83.21pt, yshift=39.60pt] rel axis cs:0,0) -- ([xshift=160.25pt, yshift=42.76pt] rel axis cs:0,0);}%
+\def\MoneyOursLegend{\shortstack[l]{Isosyll v4.2.1 (live, +LM)\\Isosyll v4.2.0 (final, seg.)}}%
+\def\MoneySpeedGap{\draw[{Stealth[length=3.5pt]}-{Stealth[length=3.5pt]}, okBlue, line width=0.6pt] ([xshift=79.04pt, yshift=58.031pt] rel axis cs:0,0) -- ([xshift=160.25pt, yshift=58.031pt] rel axis cs:0,0) node[midway, above=2pt, font=\scriptsize\bfseries] {2.0$\times$ as fast as Zipformer INT8};}%
 \def\MoneyAnnotations{%
   \moneylabel{17.33}{62.12}{number}{3}% moonshine-small-zen2-t1-xbabe3 w=5.83
   \moneylabel{79.00}{92.44}{comparator}{Moonshine Tiny}% moonshine-tiny-zen2-t1 w=58.32
@@ -19,8 +19,8 @@
   \moneylabel{26.69}{31.72}{number}{5}% parakeet-tdt-v3-int8-zen2-t1 w=5.83
   \moneylabel{44.26}{31.39}{number}{4}% parakeet-v3-onnxasr-int8-zen2-t1 w=5.83
   \moneylabel{46.49}{49.03}{comparator}{Zipformer INT8}% r0-int8-r6-zen2-t1 w=57.69
-  \moneylabel{146.74}{35.68}{ours}{Isosyll v4.1.0\\(live +LM)}% v41-live-lm-zen2-t1 w=53.82
   \moneylabel{83.21}{26.94}{ours}{Isosyll v4.2.0\\(final, seg.)}% v42-final-zen2-t1 w=53.82
+  \moneylabel{160.25}{30.11}{ours}{Isosyll v4.2.1\\(live, +LM)}% v421-live-zen2-t1 w=53.82
   \moneylabel{50.90}{82.17}{comparator}{Vosk Large~\S}% vosk-large-zen2-t1 w=47.89
   \moneylabel{63.22}{139.08}{comparator}{Vosk Small}% vosk-small-zen2-t1 w=41.59
   \moneylabel{40.86}{149.39}{comparator}{Whisper.cpp Base~\S}% whispercpp-stream-base-zen2-t1 w=70.92
@@ -31,11 +31,11 @@
 \def\HeroXmax{35}%
 \def\HeroXticks{0,5,10,15,20,25,30,35}%
 \def\HeroYmax{20}%
-\def\HeroRatio{2.2}%
+\def\HeroRatio{2.0}%
 \def\HeroFinalX{14.782971}%
 \def\HeroFinalY{4.242800}%
-\def\HeroLiveLmX{31.521578}%
-\def\HeroLiveLmY{5.080300}%
+\def\HeroLiveLmX{28.470886}%
+\def\HeroLiveLmY{4.581900}%
 \def\HeroZipX{14.042498}%
 \def\HeroZipY{5.253300}%
 \def\HeroMoonTinyX{8.196529}%
@@ -64,10 +64,10 @@
 \def\HeroFinalMetered{1}%
 \def\HeroFinalMark{}%
 \def\HeroFinalEnergy{0.721}%
-\def\HeroLiveLmColor{32C282}%
+\def\HeroLiveLmColor{39BF79}%
 \def\HeroLiveLmMetered{1}%
 \def\HeroLiveLmMark{}%
-\def\HeroLiveLmEnergy{0.331}%
+\def\HeroLiveLmEnergy{0.366}%
 \def\HeroZipColor{52B444}%
 \def\HeroZipMetered{1}%
 \def\HeroZipMark{}%
@@ -126,8 +126,8 @@
 \def\HeroEnergyNote{}%
 \def\HeroAnyNotMetered{0}%
 \def\HeroAnyFaded{1}%
-\def\HeroGapPanel{$-$0.17 [$-$0.50, +0.14]}%
-\def\HeroGapC{+0.09 [$-$0.12, +0.30]}%
+\def\HeroGapPanel{$-$0.67 [$-$0.99, $-$0.38]}%
+\def\HeroGapC{$-$0.46 [$-$0.66, $-$0.28]}%
 \def\HeroGapCWide{+0.65 [+0.47, +0.84]}%
-\def\HeroGapCDelta{+0.09}%
+\def\HeroGapCDelta{$-$0.46}%
 \def\HeroGapCWideDelta{+0.65}%

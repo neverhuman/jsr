@@ -4,6 +4,21 @@ Workspace crates and published speech-recognition packages track their own
 versions. Model bundles carry content hashes. Qualification and signed asset
 details are in the [release records](docs/ultra/releases/).
 
+## v4.2.1 · 2026-11-27
+
+- Live mode (`isosyll transcribe --mode live`) now reranks the live beam at each input end when its top two scores
+  differ by less than 3.75 (about 59% of DEV utterance ends in research H318), using the v4.2.0 final pass's frozen
+  content-word reranker (t2 transformer LM, M5 LM, lexicon) with weights refit on live beams
+  (`live-content-fit.json`, new in the model archive). The final pass and `isosyll stream` are unchanged.
+- DEV accuracy, live: 730-utterance panel 4.58% WER (2.74% dev-clean), down from 5.08%; full DEV 4.79% (2.53%
+  dev-clean), down from 5.32%. On the unselected DEV half, live is lower than v4.2.0 live (−0.55 pp) and than
+  Zipformer INT8 (−0.46 pp). The registered live panel edit gate now passes (662 ≤ 722).
+- Cost (paired R10 blocks, one quiet Zen 2 core, against v4.2.0 live): +7.5% CPU (28.5× real time), +9.4% core
+  energy (0.366 J per audio-second), peak RSS ×2.0 (659 MB, +329 MB: the final pass's M5 LM is now loaded in live
+  mode), and +11.0 ms median / +65.8 ms p95 of single-core compute at each utterance end. This is well above the
+  research estimate (about +3% CPU, +2.6 ms endpoint p95) the setting was chosen on.
+  Model archive sha256 `e028e5bf…`; all files in the signed `SHA256SUMS`. [Release record](docs/ultra/releases/v4.2.1.md)
+
 ## v4.2.0 · 2026-11-27
 
 - New final pass (`isosyll transcribe`, the default final mode): its own 60 MB INT8 model (a weight average of three

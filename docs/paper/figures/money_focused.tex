@@ -1,5 +1,5 @@
 % Full-width hero (Figure 1, docs/paper/money.png, docs/paper/figures/hero.pdf).
-% Two Isosyll marks (v4.2.0 final, live 160 ms) against all 12 timed public CPU comparators.
+% Two Isosyll marks (v4.2.0 final, v4.2.1 live 160 ms) against all 12 timed public CPU comparators.
 % Names and marker fills are coloured by core energy per audio-second (see \HeroEnergyNote for any floor-included values) (log ramp, green lowest);
 % a system with no energy value is grey. Every number comes from data/money_layout.tex.
 \def\herokicker#1#2#3#4{%
@@ -103,7 +103,7 @@
 % ------------------------------------------------------------------ title block
 \node[anchor=south west,inner sep=0pt] at ([xshift=-30pt,yshift=26pt]matchedplot.north west) {%
   \begin{minipage}{474pt}%
-  \herokicker{474pt}{accent}{v4.2.0}{Isosyll final\enspace\textperiodcentered\enspace \FinFullClean\% dev-clean WER (full DEV)\enspace\textperiodcentered\enspace live 160\,ms streaming\enspace\textperiodcentered\enspace\ColdHeadModel\,MB INT8 per mode}\par
+  \herokicker{474pt}{accent}{v4.2.1}{Isosyll final\enspace\textperiodcentered\enspace \FinFullClean\% dev-clean WER (full DEV)\enspace\textperiodcentered\enspace live 160\,ms streaming\enspace\textperiodcentered\enspace\ColdHeadModel\,MB INT8 per mode}\par
   \vspace{5pt}
   {\sffamily\bfseries\fontsize{12.5}{15}\selectfont\color{ink}Isosyll vs.\ all \ColdComparatorCount{} timed public CPU speech recognizers\par}
   \vspace{1pt}
@@ -144,7 +144,7 @@
   at ([xshift=-30pt,yshift=-34pt]matchedplot.south west) {%
   \HeroEnergyNote Unselected DEV C-half, live +LM vs.\ Zipformer INT8: \HeroGapCDelta\,pp WER (160\,ms chunk).
   Final: \FinCZipDelta\,pp (dev-clean \FinCClean\% vs.\ \FinCZipClean\%).
-  Full-DEV dev-clean: final \FinFullClean\%, live \LookLiveFullClean\%.};
+  Full-DEV dev-clean: final \FinFullClean\%, live \LivFullClean\%.};
 \pgfresetboundingbox
 \path[use as bounding box]
   ([xshift=-32pt,yshift=-50pt]matchedplot.south west)

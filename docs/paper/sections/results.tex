@@ -7,7 +7,7 @@ open-weights CPU comparator. \ColdHostSentence{} \ColdSubsetSentence{}
 
 \para{Speed and power.} On one quiet Zen~2 core, \ultra{} live decodes cold at \ColdLiveSpeed$\times$
 real time (\ColdLiveRss\,MB peak memory) at \ColdLiveWer\% pooled panel WER; \ultra{} final runs at
-\ColdHeadSpeed$\times$. \ColdMemorySentence{} In the paired R8 full-panel blocks, live is
+\ColdHeadSpeed$\times$. \ColdMemorySentence{} In the paired R10 full-panel blocks, v4.2.1 live is
 \ColdLiveWatts\,J per audio-second, \VsEnergyPctOne\% of the Zipformer INT8 anchor timed in the same blocks (R6 row:
 \ColdZipRsixWatts\,J); in the paired R9 blocks (same protocol and anchors), the v4.2.0 final pass is \ColdHeadWatts\,J. The R7 matched campaign, which idle-subtracts every plotted comparator,
 puts Zipformer INT8 at \RsevenZipEnergy\,J on its \RsevenClips-clip subset. At utterance
@@ -22,18 +22,32 @@ achieve lower WER at much higher CPU cost and, where metered, higher energy.
 
 Zipformer INT8 is the strongest public streaming comparator near our cost point and the teacher of our
 pseudo-labels, so we compare against it directly on the same utterances and core (\cref{tab:versus}),
-timed in the same three interleaved blocks on quiet H1 (R8 for live, R9 for the v4.2.0 final pass); speed, energy and memory ratios are medians of
+timed in the same three interleaved blocks on quiet H1 (R10 for v4.2.1 live, R9 for the v4.2.0 final pass); speed, energy and memory ratios are medians of
 within-block ratios, and WER differences are paired with speaker-cluster bootstrap. Because the
 730-utterance panel overlaps the selection half of DEV, we also report the unselected confirmation half
-(C, \LookCUtts{} utterances), decoded once for each frozen release: there, \ultra{} live is \LookLiveCZipDelta\pp from
-Zipformer (bounds \LookLiveCZipLo{} to \LookLiveCZipHi), not a significant difference. \ultra{} live uses \VsCpuPctOne\% of Zipformer's CPU time
-(\VsSpeedXOne$\times$ throughput), \VsEnergyPctOne\% of its active core energy (paired R8 blocks), and \VsRssPctOne\% of its
+(C, \LookCUtts{} utterances), decoded once for each frozen release: there, \ultra{} live is \LivCZipDelta\pp from
+Zipformer (bounds \LivCZipLo{} to \LivCZipHi), lower WER; before the v4.2.1 endpoint rerank it was \LookLiveCZipDelta\pp
+(bounds \LookLiveCZipLo{} to \LookLiveCZipHi), not a significant difference. \ultra{} live uses \VsCpuPctOne\% of Zipformer's CPU time
+(\VsSpeedXOne$\times$ throughput), \VsEnergyPctOne\% of its active core energy (paired R10 blocks), and \VsRssPctOne\% of its
 memory with half the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its panel WER is \VsVerdictOne{}
 Zipformer's (\VsDeltaOne\pp, bounds \VsLoOne{} to \VsHiOne\pp). \ultra{} final is \VsVerdictTwo{}
 Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp; lower on C at \FinCZipDelta\pp, bounds \FinCZipLo{} to \FinCZipHi) at
 \VsSpeedXTwo$\times$ its single-core speed and \VsEnergyPctTwo\% of its active core energy.
 
-\para{What v4.2.0 changes.} Only the final pass changed. Against the v4.1.0 final pass on the same utterances,
+\para{What v4.2.1 changes.} Only live mode changed. When a live input ends (each utterance file here; the
+continuous \texttt{isosyll stream} mode is unchanged) and the beam's top-1 and top-2 scores differ by less than \LivSkipMargin
+(about \LivRoutedPct\% of utterance ends in research), \ultra{} rescores the live beam with the frozen
+content-word t2 reranker of the final pass (left-to-right transformer, M5 LM and content-word features; weights refit
+on live beams) and commits its choice; otherwise it keeps the beam's best. Against v4.1.0/v4.2.0 live on the same
+utterances, v4.2.1 live is \LivPanelPrevDelta\pp on the panel (bounds \LivPanelPrevLo{} to \LivPanelPrevHi), \LivCPrevDelta\pp
+on the unselected C half (bounds \LivCPrevLo{} to \LivCPrevHi; dev-clean \LivCClean\%), and on the selection half it
+reproduces the research list (\LivSResDelta\pp vs.\ \LivResSWer\%, bounds \LivSResLo{} to \LivSResHi). In the paired R10
+blocks it changes CPU time per audio-second by \LivCostCpuPct\%, core energy by \LivCostEnergyPct\% and peak RSS by
++\LivCostRssMb\,MB (live mode now also loads the final pass's LM and rescorer) against the published v4.2.0 live
+binary, and adds \LivDelayPFifty\,ms median and \LivDelayPNinetyFive\,ms p95 of single-core compute at each utterance end
+(paired per-file wall time, decode unpaced).
+
+\para{What v4.2.0 changed.} Only the final pass changed. Against the v4.1.0 final pass on the same utterances,
 v4.2.0 final is \FinPanelPrevDelta\pp on the panel (bounds \FinPanelPrevLo{} to \FinPanelPrevHi), \FinCPrevDelta\pp on
 the unselected C half (bounds \FinCPrevLo{} to \FinCPrevHi; dev-clean \FinPrevCClean\% $\to$ \FinCClean\%), and the gated beam-48
 re-search alone is \FinSBaseDelta\pp on the selection half against the same pass without it (bounds \FinSBaseLo{} to
@@ -43,8 +57,8 @@ energy by \FinCostEnergyPct\% against the released v4.1.0 final binary; the gate
 research timing put it just over).
 
 On full LibriSpeech DEV (\RelFullUtts{} utterances, which contains the selection half and is therefore
-descriptive), \ultra{} live reaches \LookLiveFullClean\% dev-clean, \LookLiveFullOther\% dev-other
-and \LookLiveFullWer\% pooled WER; \ultra{} final reaches \FinFullClean\% dev-clean, \FinFullOther\% dev-other and
+descriptive), \ultra{} live reaches \LivFullClean\% dev-clean, \LivFullOther\% dev-other
+and \LivFullWer\% pooled WER (v4.1.0 live: \LookLiveFullWer\%); \ultra{} final reaches \FinFullClean\% dev-clean, \FinFullOther\% dev-other and
 \FinFullWer\% pooled (v4.1.0 final: \LookFinalFullWer\%).
 
 \input{data/table_versus.tex}

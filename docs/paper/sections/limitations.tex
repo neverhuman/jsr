@@ -1,11 +1,18 @@
 \section{Limitations}\label{sec:limitations}
 
 \para{Release gates and cost budget.} The v4.2.0 final pass meets its registered edit gates (panel \FinPanelEdits{} vs.\
-\CandGateFinalPanel, full DEV \FinFullEdits{} vs.\ \CandGateFinalFull). Live is unchanged from v4.1.0, which shipped
-by owner decision after missing its panel gate (\LookLivePanelEdits{} edits vs.\ \CandGateLivePanel). The final pass's confidence gate
+\CandGateFinalPanel, full DEV \FinFullEdits{} vs.\ \CandGateFinalFull). v4.2.1 live meets its registered panel gate (\LivPanelEdits{} edits vs.\ \CandGateLivePanel), which v4.1.0/v4.2.0
+live missed (\LookLivePanelEdits) and shipped by owner decision; its endpoint rerank setting (margin \LivSkipMargin) was chosen by
+the owner from timed research settings. The final pass's confidence gate
 was locked by owner choice when research timing put it just over its +\FinGateBudgetPct\% CPU budget; in R9 it sits at that
 budget (\FinGateCpuPct\%, median of within-block ratios), so on this host it neither clearly meets nor exceeds it. Both passes were selected on
 the DEV selection half and checked once on the unselected half; the gate margin and reranker were fitted on training audio.
+The live rerank adds \LivCostRssMb\,MB of peak memory and \LivDelayPNinetyFive\,ms p95 of compute at each utterance end on one
+core; it was not timed in a paced microphone stream, and \texttt{isosyll stream} does not use it. Its R10 cost
+against v4.2.0 live (\LivCostCpuPct\% CPU, \LivCostEnergyPct\% energy, +\LivCostRssMb\,MB, +\LivDelayPNinetyFive\,ms endpoint p95) is well above
+the research estimate from paced ARM timing (about \LivResCpuPct\% process CPU and +\LivResEndpointPNinetyFive\,ms endpoint p95) that the
+release decision relied on. The added memory matches the size of the final pass's 5-gram pack (\LmPackMb\,MB), which the live process now loads
+for the rerank alongside its own LM.
 
 \para{Utterance-segmented final mode and memory.} \ultra{} live streams continuously without an endpoint
 detector. \ultra{} final needs utterance endpoints (capped at 40\,s) and raises peak RSS to \ColdHeadRss\,MB because of the
@@ -14,9 +21,10 @@ commit pass (median post-endpoint delay \RelCommitDelayPfifty\,ms, from an earli
 because live and commit share one encoder state there; the new pass was not delay-tested, and loading a second
 artifact for streaming finals remains future work, as does shrinking memory without losing accuracy.
 
-\para{Live accuracy and next lever.} The endpoint-free live stream trades accuracy for extreme speed and
-low power: on the unselected DEV C half its WER is \LookLiveCZipDelta\pp from Zipformer INT8's, within the
-bootstrap bounds, and it is not more accurate on dev-other (\cref{sec:versus}); its compact live LM raises peak memory to \ColdLiveRss\,MB. Most live repair positions (\VfDiagInteriorPct\%) are common interior words on hard
+\para{Live accuracy and next lever.} The live stream trades accuracy for extreme speed and
+low power: on the unselected DEV C half its WER is \LivCZipDelta\pp from Zipformer INT8's (bounds \LivCZipLo{} to
+\LivCZipHi) only since the v4.2.1 utterance-end rerank (\cref{sec:versus}); its compact live LM and the rerank's LM and
+rescorer raise peak memory to \ColdLiveRss\,MB. Most live repair positions (\VfDiagInteriorPct\%) are common interior words on hard
 audio, and probes of reranking, regularisation, and relabelling existing audio did not move clean live
 WER; further gains at this compute budget will need fresh acoustic diversity and stronger
 non-Zipformer supervision.
@@ -31,7 +39,7 @@ unchanged.
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
 Energy is active core (CPU-domain) joules per audio-second from RAPL registers, never board or wall
 power, measured unpaced; every plotted comparator is idle-subtracted in the R7 campaign on a
-\RsevenClips-clip subset while CI jobs ran on other cores, and \ultra{} in the R8 full-panel blocks under the same protocol,
+\RsevenClips-clip subset while CI jobs ran on other cores, and \ultra{} in the R9 (final) and R10 (live) full-panel blocks under the same protocol,
 which also give the paired ratio. All accuracy numbers are LibriSpeech DEV only;
 as disclosed in \cref{sec:protocol}, test-clean and test-other were read several times before our
 benchmark freeze.

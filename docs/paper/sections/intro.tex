@@ -11,8 +11,8 @@ the same hardware, the same audio, and the same scorer.
 live transcripts match across the tested SIMD kernels and batch sizes. \ultra{} co-designs a compact
 streaming Conformer transducer and an integer-exact pure-Rust CPU engine around
 \ColdHeadModel\,MB prepared INT8 artifacts. \ultra{} live (160\,ms chunks, compact live LM, no endpoint
-detector) reaches \ColdLiveSpeed$\times$ real time at \ColdLiveWatts\,J per audio-second and
-\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \ColdVFourLiveLmWerClean\% dev-clean, \LookLiveFullWer\% full DEV). A second artifact of the
+detector, and since v4.2.1 a content-word rerank of the beam at each utterance end) reaches \ColdLiveSpeed$\times$ real time at \ColdLiveWatts\,J per audio-second and
+\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \ColdVFourTwoOneLiveWerClean\% dev-clean, \LivFullWer\% full DEV). A second artifact of the
 same architecture powers \ultra{} final, an utterance-end second pass (\cref{sec:model}) at \ColdHeadWer\% panel WER
 (\FinFullClean\% dev-clean on full DEV), \ColdHeadSpeed$\times$ real time and \ColdHeadWatts\,J per audio-second.
 Every quantised GEMM accumulates exactly in int32, every activation row is quantised from its own
@@ -26,8 +26,8 @@ comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \begin{enumerate}
 \item \textbf{Fastest always-on streaming, lowest measured core energy.} \ultra{} live delivers
   \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
-  core energy per audio second in the paired R8 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live WER difference to Zipformer on unselected DEV of
-  \LookLiveCZipDelta\pp, inside the bootstrap bounds.
+  core energy per audio second in the paired R10 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live WER difference to Zipformer on unselected DEV of
+  \LivCZipDelta\pp (bounds \LivCZipLo{} to \LivCZipHi).
 \item \textbf{Reproducible integer-exact CPU engine.} A pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp, with batch-invariant execution and
   identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).

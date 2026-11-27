@@ -58,6 +58,8 @@ from .candidate import add_candidate
 from .look41 import add_look41
 from .look42 import add_final_pass, add_look42
 from .v42_rows import add_cost42
+from .look421 import add_look421
+from .v421_rows import add_cost421
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -72,14 +74,16 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_look42(root, rec)
     add_final_pass(root, rec)
     add_cost42(root, rec)
+    add_look421(root, rec)
+    add_cost421(root, rec)
     rows = load_evidence(root, rec, out)
     headline = presentation(root).get("headline", {})
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
     hero = hero_rows(rows)
-    if hero:  # Figure 1 headlines the v4.2.0 final pass and the unchanged v4.1.0 live point
+    if hero:  # Figure 1 headlines the v4.2.0 final pass and the v4.2.1 live point
         sentences = hero_sentences(hero, rec)
-        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v4.2.0 final and v4.1.0 live measurements)",
+        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v4.2.0 final and v4.2.1 live measurements)",
                                          source="; ".join(f"docs/paper/data/evidence/{r['_where']} id={r['id']}" for r in hero.values()))
         facts["figure"] = md(sentences["headline"])
         rec.add("HeroSubtitle", tex(sentences["subtitle"]).replace("\u00b7", "$\\cdot$"), unit="sentence", label="exploratory",

@@ -249,13 +249,13 @@
       "system": "ULTRA v4.1.0 (live +LM)",
       "short": "ULTRA v4.1.0 live +LM",
       "macro": "VFourLiveLm",
-      "order": 7,
+      "order": 10,
       "text": "\\ultra{} v4.1.0 (live +LM)",
-      "detail": "v4.1.0 INT8 (H247), 160 ms live stream, beam 12 with the 243 MiB compact M5 LM",
+      "detail": "v4.1.0 INT8 (H247), 160 ms live stream, beam 12 with the 243 MiB compact M5 LM; superseded by v4.2.1 live",
       "checkpoint": "v4.1.0 (live +LM)",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "v41-final": {
       "system": "ULTRA v4.1.0 (final, seg.)",
@@ -280,20 +280,32 @@
       "runtime_short": "ours",
       "segmenter": "no",
       "plot": true
+    },
+    "v421-live": {
+      "system": "ULTRA v4.2.1 (live, +LM)",
+      "short": "ULTRA v4.2.1 live +LM",
+      "macro": "VFourTwoOneLive",
+      "order": 7,
+      "text": "\\ultra{} v4.2.1 (live, +LM)",
+      "detail": "v4.1.0 live INT8 (H247), 160 ms live stream, beam 12 with the 243 MiB compact M5 LM, plus a content-word t2 rerank of the endpoint beam when its top-2 margin is below 3.75 (about 59% of endpoints)",
+      "checkpoint": "v4.2.1 (live, +LM)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": true
     }
   },
   "headline": {
     "ours": "v42-final",
-    "ours_live": "v41-live-lm"
+    "ours_live": "v421-live"
   },
-  "release": "v4.2.0",
+  "release": "v4.2.1",
   "versus": {
     "comparator": "r0-int8-r6",
     "pairs": [
       {
         "mode": "live",
-        "variant": "v41-live-lm",
-        "paired": "raw/versus/v410/zip-vs-v41-live.panel730.score.json"
+        "variant": "v421-live",
+        "paired": "raw/versus/v421/zip-vs-v421-live.panel730.score.json"
       },
       {
         "mode": "final",

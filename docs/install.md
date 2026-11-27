@@ -2,18 +2,18 @@
 
 ## Install the release
 
-Isosyll v4.2.0 runs locally on Linux x86-64, Linux arm64, and macOS on Apple
+Isosyll v4.2.1 runs locally on Linux x86-64, Linux arm64, and macOS on Apple
 silicon. The installer needs curl or wget, OpenSSH's `ssh-keygen`, an SHA-256
 utility, and tar. It installs the binary and model under `~/.local` by default.
 On Linux x86-64 it selects the glibc build with glibc 2.35 or newer and uses the
-static build on other systems. [Release record](ultra/releases/v4.2.0.md)
+static build on other systems. [Release record](ultra/releases/v4.2.1.md)
 
 ```bash
 (
   set -euo pipefail
   curl --proto '=https' --proto-redir '=https' -fsSL \
-    https://github.com/neverhuman/jsr/releases/download/v4.2.0/install.sh |
-    sh -s -- --version v4.2.0
+    https://github.com/neverhuman/jsr/releases/download/v4.2.1/install.sh |
+    sh -s -- --version v4.2.1
 ) &&
 export PATH="$HOME/.local/bin:$PATH" &&
 isosyll --version &&
@@ -52,7 +52,7 @@ Linux arm64, or `aarch64-macos` for Apple silicon.
 ```bash
 (
   set -euo pipefail
-  v=v4.2.0
+  v=v4.2.1
   t=x86_64-linux
   base="https://github.com/neverhuman/jsr/releases/download/$v"
   bundle="isosyll-$v-$t.tar.gz"

@@ -1,0 +1,43 @@
+{
+  "schema": "isosyll.live-endpoint/v1",
+  "release": "v4.2.1",
+  "research": "H318 native engine confirmation of the live endpoint H261 rerank (research/H318_native_endpoint_h261_confirm, a299a002)",
+  "skip_margin": 3.75,
+  "dev_routed_pct": 59,
+  "dev_routed_note": "share of DEV endpoints whose live beam top1-top2 score margin is below 3.75 (H318 README; H244 routing)",
+  "fit": {
+    "file": "isosyll-model/live-content-fit.json",
+    "origin": "H318 fitLive_s375.json (identical to H305 fitLive.json)",
+    "sha256": "5a36e403c31e624aa508ec0eeb7435f24e0b95148f0105c491ea09f5dabf2f71"
+  },
+  "shared_with_final_pass": [
+    "lm/t2.utfr",
+    "lm/final.ulm",
+    "final/content-lexicon.json"
+  ],
+  "research_s_half_wer_pct": 4.9161,
+  "research_timing": "H314 paced (codex, ARM xbabe4, skip 3.75, two ABBA pairs): +2.97 / +2.92% process CPU, grid p95 +0.23 / -0.40 ms, endpoint p95 +1.63 / +2.61 ms",
+  "parity": {
+    "release_vs_research_s_half": {
+      "identical": 2742,
+      "of": 2782,
+      "note": "the 40 differing utterances all come from the cross-platform t2 RoPE tables (f64 rounded to f32, v4.2.0 commit 1477124f): a scratch build of the same source with only that commit reverted matched the research list on 2782/2782 (never shipped)"
+    },
+    "release_build": "ca4c230b"
+  },
+  "research_cost": {
+    "process_cpu_pct": [
+      2.97,
+      2.92
+    ],
+    "endpoint_p95_ms": [
+      1.63,
+      2.61
+    ],
+    "grid_p95_ms": [
+      0.23,
+      -0.4
+    ],
+    "note": "H314 paced ARM timing, two ABBA pairs (same as research_timing)"
+  }
+}
