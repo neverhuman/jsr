@@ -3,13 +3,13 @@
 # the `isosyll` binary and its model under a prefix (default ~/.local).
 #
 #   curl -fsSL https://github.com/neverhuman/jsr/releases/latest/download/install.sh | sh
-#   sh install.sh --prefix /opt/isosyll --version v4.2.0
+#   sh install.sh --prefix /opt/isosyll --version v4.2.1
 #
 # Nothing here needs root, Python, or a checkout of the repository.
 set -eu
 
 REPO="neverhuman/jsr"
-VERSION="${ISOSYLL_VERSION:-v4.2.0}"
+VERSION="${ISOSYLL_VERSION:-v4.2.1}"
 PREFIX="${ISOSYLL_PREFIX:-$HOME/.local}"
 SIGNER="219957145+neverhumanbot@users.noreply.github.com"
 SIGNER_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDD7oTCogsiEzaLS9nv6Q0n387XE+De+iqoN+VRKF91O"

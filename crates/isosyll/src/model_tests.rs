@@ -81,7 +81,7 @@ fn verify_detects_mismatch_and_version_line() {
     std::fs::write(root.join("MANIFEST"), format!("{good}  arch.json\n")).unwrap();
     let m = ModelDir { root: root.clone() };
     assert_eq!(verify(&m, |_, _| {}).unwrap(), (1, 0));
-    assert!(version_line(Some(&m)).starts_with("isosyll 4.2.0 ("));
+    assert!(version_line(Some(&m)).starts_with("isosyll 4.2.1 ("));
     assert!(version_line(Some(&m)).contains(
         &hex(&Sha256::digest(
             std::fs::read(root.join("MANIFEST")).unwrap()
@@ -110,4 +110,23 @@ fn final_pass_files_live_beside_the_live_bundle() {
         .map(PathBuf::from)
     );
     assert!(INSTALL_HINT.contains("final/arch.json") && INSTALL_HINT.contains("t2.utfr"));
+}
+
+#[test]
+fn live_endpoint_reranker_files_are_required_in_live_mode() {
+    let m = ModelDir {
+        root: PathBuf::from("/m"),
+    };
+    assert_eq!(m.live_content_fit(), Path::new("/m/live-content-fit.json"));
+    assert_eq!(
+        m.live_files(),
+        [
+            "/m/lm/live.ulm",
+            "/m/lm/final.ulm",
+            "/m/lm/t2.utfr",
+            "/m/live-content-fit.json",
+            "/m/final/content-lexicon.json",
+        ]
+        .map(PathBuf::from)
+    );
 }

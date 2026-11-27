@@ -105,7 +105,7 @@ fn transcribe(a: &TranscribeArgs) -> Result<(), Failure> {
     let dir = resolve_model(a.model.as_deref())?;
     let needed = match a.mode {
         Mode::Final => dir.final_files(),
-        Mode::Live => vec![dir.live_lm()],
+        Mode::Live => dir.live_files(),
     };
     for p in &needed {
         model::require_file(p)?;

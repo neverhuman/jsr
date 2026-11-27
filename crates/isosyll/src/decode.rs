@@ -8,7 +8,9 @@
 //!   (v4.2.0, research H294 `b48-train30`).
 //! * [`LiveDecoder`]: `ultra-cold-wav` backend `r1-engine-int8`
 //!   (`ultra-bridge/src/bin/ultra-cold-wav.rs` `load_native` + `decode`, over
-//!   `ultra-stream/src/native_engine.rs` `load_inner_cfg` / `NativeEngineAsrStream`).
+//!   `ultra-stream/src/native_engine.rs` `load_inner_cfg` / `NativeEngineAsrStream`), then at the
+//!   utterance endpoint the H261 content-word reranker over the native beam-12 list (v4.2.1,
+//!   research H318 `fitLive_s375`: [`EndpointReranker`]).
 //! * `stream::Segmenter` (`stream.rs`) drives `isosyll stream` with the live model for both passes
 //!   (its commit keeps the v4.1.0 c16 B16 M5 settings: [`stream_commit_config`]).
 //!
@@ -19,10 +21,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ultra_engine::commit::{
-    CommitConfig, CommitContentReranker, CommitLmConfig, CommitPassSession, CommitTfRescoreConfig,
-    CommitWideGate, DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE,
+    aggregate_duplicate_hyps, CommitConfig, CommitContentReranker, CommitLmConfig,
+    CommitPassSession, CommitTfRescoreConfig, CommitWideGate, DEFAULT_MAX_PCM_SAMPLES,
+    DEFAULT_SAMPLE_RATE,
 };
-use ultra_engine::{Engine, EngineError, Isa, LmConfig, Model, NgramLm, Precision, Workspace};
+use ultra_engine::lm::{TfDirection, TfRescorer, TfWorkspace};
+use ultra_engine::{
+    Engine, EngineError, EngineStream, Isa, LmConfig, Model, NgramLm, Precision, Workspace,
+};
 
 use crate::model::ModelDir;
 use crate::segment::plan_cuts;
@@ -60,6 +66,10 @@ const LIVE_BEAM_MARGIN: f32 = 4.0;
 const LIVE_BLANK_PENALTY: f32 = 0.24;
 const LIVE_LM_WEIGHT: f32 = 0.70;
 const LIVE_LODR_WEIGHT: f32 = 0.50;
+// v4.2.1 live endpoint (research H318, the H314-timed routing): rerank the native B12 list when
+// its top-1 minus top-2 score gap is below 3.75 (about 59% of DEV endpoints); the gate is also
+// stored in `live-content-fit.json` and must agree.
+const LIVE_ENDPOINT_SKIP: f32 = 3.75;
 
 pub(crate) fn e2s(e: EngineError) -> String {
     e.to_string()
@@ -114,10 +124,104 @@ pub(crate) fn live_engine(
         .map_err(e2s)
 }
 
-/// `ultra-cold-wav` `r1-engine-int8` release decoder.
+/// H261 content-word reranker at the live utterance endpoint (research H318 / H314 `endpoint-pace`):
+/// the native beam list, best first; when the top-1 minus top-2 gap is below the fitted skip, the
+/// fused t2 + M5 + content score picks the text, duplicate texts merged by log-add-exp (ties go to
+/// the higher-ranked hypothesis). Otherwise the live text is kept.
+pub struct EndpointReranker {
+    t2: TfRescorer,
+    fit: CommitContentReranker,
+    m5: NgramLm,
+    ws: TfWorkspace,
+    isa: Isa,
+}
+
+impl EndpointReranker {
+    pub fn new(dir: &ModelDir) -> Result<Self, String> {
+        let (t2p, fitp, lexp, m5p) = (
+            dir.final_rescorer(),
+            dir.live_content_fit(),
+            dir.content_lexicon(),
+            dir.final_lm(),
+        );
+        let skip = fit_skip(&fitp)?;
+        if skip != LIVE_ENDPOINT_SKIP {
+            return Err(format!(
+                "{}: skip {skip} is not the release gate {LIVE_ENDPOINT_SKIP}",
+                fitp.display()
+            ));
+        }
+        let fit = CommitContentReranker::from_files(&fitp, &lexp)
+            .map_err(|e| format!("{} / {}: {e}", fitp.display(), lexp.display()))?;
+        let t2 = TfRescorer::load(&t2p).map_err(|e| format!("{}: {e}", t2p.display()))?;
+        if t2.cfg.direction != TfDirection::L2r {
+            return Err(format!("{}: not an L2R Transformer", t2p.display()));
+        }
+        let m5 = NgramLm::load(&m5p).map_err(|e| format!("{}: {e}", m5p.display()))?;
+        Ok(Self {
+            t2,
+            fit,
+            m5,
+            ws: TfWorkspace::default(),
+            isa: Isa::detect(),
+        })
+    }
+
+    /// The endpoint text for a finished live stream, or `None` to keep the live text.
+    fn rerank(&mut self, model: &Model, stream: &EngineStream) -> Result<Option<String>, String> {
+        let Some(beam) = stream.dec.beam.as_ref() else {
+            return Ok(None);
+        };
+        let mut ranked: Vec<_> = beam.hyps.iter().collect();
+        ranked.sort_by(|a, b| b.score.total_cmp(&a.score));
+        let [first, second, ..] = ranked.as_slice() else {
+            return Ok(None);
+        };
+        if first.score - second.score >= LIVE_ENDPOINT_SKIP {
+            return Ok(None);
+        }
+        let candidates: Vec<(&[u32], f32)> = ranked
+            .iter()
+            .map(|h| (h.tokens.as_slice(), h.score))
+            .collect();
+        let scores = self
+            .fit
+            .score_batch(&self.t2, self.isa, &self.m5, &candidates, &mut self.ws)
+            .map_err(e2s)?;
+        let texts: Vec<(String, f32)> = ranked
+            .iter()
+            .zip(scores)
+            .map(|(h, s)| {
+                let ids: Vec<i64> = h.tokens.iter().map(|&t| i64::from(t)).collect();
+                (model.tokens.decode_ids(&ids), s)
+            })
+            .collect();
+        Ok(aggregate_duplicate_hyps(&texts)
+            .into_iter()
+            .max_by(|a, b| a.2.total_cmp(&b.2).then_with(|| b.3.cmp(&a.3)))
+            .map(|(_, text, _, _)| text))
+    }
+}
+
+fn fit_skip(path: &Path) -> Result<f32, String> {
+    let v: serde_json::Value = std::fs::File::open(path)
+        .map_err(|e| e.to_string())
+        .and_then(|f| {
+            serde_json::from_reader(std::io::BufReader::new(f)).map_err(|e| e.to_string())
+        })
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    v["skip"]
+        .as_f64()
+        .map(|s| s as f32)
+        .ok_or_else(|| format!("{}: no skip", path.display()))
+}
+
+/// `ultra-cold-wav` `r1-engine-int8` release decoder with the v4.2.1 endpoint reranker.
 pub struct LiveDecoder {
+    model: Arc<Model>,
     engine: Engine,
     ws: Workspace,
+    endpoint: Option<EndpointReranker>,
 }
 
 impl LiveDecoder {
@@ -125,7 +229,9 @@ impl LiveDecoder {
         let model = load_model(dir, true)?;
         Ok(Self {
             engine: live_engine(&model, &dir.live_lm(), threads, true)?,
+            model,
             ws: Workspace::default(),
+            endpoint: Some(EndpointReranker::new(dir)?),
         })
     }
 
@@ -148,6 +254,11 @@ impl LiveDecoder {
             self.engine
                 .decode(&mut [&mut raw], &mut self.ws)
                 .map_err(e2s)?;
+        }
+        if let Some(r) = self.endpoint.as_mut() {
+            if let Some(text) = r.rerank(&self.model, &raw)? {
+                return Ok(text);
+            }
         }
         Ok(self.engine.text(&raw))
     }
@@ -290,6 +401,31 @@ mod tests {
         assert!(commit_config(true).rms_norm);
         assert_eq!((LM_SCALE, LODR_SCALE, TOKEN_BONUS), (0.80, 0.60, 0.0));
         assert_eq!(RESCORE_SKIP_MARGIN, 3.75);
+    }
+
+    #[test]
+    fn live_endpoint_gate_is_the_h314_timed_skip() {
+        assert_eq!(LIVE_ENDPOINT_SKIP, 3.75);
+        assert_eq!(
+            (LIVE_BEAM, LIVE_BEAM_MARGIN, LIVE_BLANK_PENALTY),
+            (12, 4.0, 0.24)
+        );
+    }
+
+    #[test]
+    fn live_endpoint_fit_must_carry_the_release_skip() {
+        let td = tempfile::tempdir().expect("tempdir");
+        let p = td.path().join("live-content-fit.json");
+        std::fs::write(&p, r#"{"skip": 3.75}"#).expect("write");
+        assert_eq!(fit_skip(&p), Ok(3.75));
+        std::fs::write(&p, r#"{"weights": {}}"#).expect("write");
+        assert!(fit_skip(&p).expect_err("no skip").contains("no skip"));
+        let dir = ModelDir {
+            root: td.path().to_path_buf(),
+        };
+        std::fs::write(&p, r#"{"skip": 2.0}"#).expect("write");
+        let err = EndpointReranker::new(&dir).err().expect("wrong gate");
+        assert!(err.contains("release gate"), "{err}");
     }
 
     #[test]

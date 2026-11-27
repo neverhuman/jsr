@@ -76,6 +76,21 @@ impl ModelDir {
     pub fn content_lexicon(&self) -> PathBuf {
         self.root.join("final").join("content-lexicon.json")
     }
+    /// Live endpoint reranker weights (v4.2.1, research H318 `fitLive_s375`), beside the live bundle.
+    pub fn live_content_fit(&self) -> PathBuf {
+        self.root.join("live-content-fit.json")
+    }
+    /// Every file `--mode live` reads besides the live bundle: the live LM, and for the endpoint
+    /// reranker the t2 Transformer, the M5 LM, its fit and the shared content lexicon.
+    pub fn live_files(&self) -> Vec<PathBuf> {
+        vec![
+            self.live_lm(),
+            self.final_lm(),
+            self.final_rescorer(),
+            self.live_content_fit(),
+            self.content_lexicon(),
+        ]
+    }
     /// Every file `--mode final` reads besides the live bundle.
     pub fn final_files(&self) -> Vec<PathBuf> {
         vec![

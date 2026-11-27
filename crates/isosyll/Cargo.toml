@@ -1,7 +1,7 @@
 [package]
 name = "isosyll"
 description = "isosyll: pure-Rust streaming speech recognition CLI (v4.2.0 release decoders, release flags baked in)"
-version = "4.2.0"
+version = "4.2.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
