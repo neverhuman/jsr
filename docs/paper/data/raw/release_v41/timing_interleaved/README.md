@@ -1,7 +1,7 @@
 # v4.1.0 R8 quiet-host paired timing and energy (full panel)
 
 Copied byte-exact from the benchmark host's `opponents/energy/runs/r8/` (energy_bench.py receipts). Design and
-validity rule: `PREREG.md` (written before any R8 run). Driver: `campaign.sh`; arm commands: `run-energy.sh`
+validity rule: `PREREG.md` (written before any R8 run). Driver: `campaign_sh.txt` (`campaign.sh` at the origin, renamed so linters skip a receipt); arm commands: `run-energy_sh.txt` (the origin `run-energy.sh`; same arms as docs/paper/run-energy.sh)
 (`r7-live-lm`, `r7-zipformer`, `r8-live-lm`, `r8-final`); the driver's own log: `campaign_log.txt` (`campaign.log` at the origin).
 
 - **Arms (full 730-utterance DEV panel, one pinned core, 60 s idle windows, frozen 3bd85e9e binaries):**
