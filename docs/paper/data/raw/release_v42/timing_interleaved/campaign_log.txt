@@ -1,0 +1,56 @@
+2026-11-27T15:51:04Z waiting for the shared meter lease
+2026-11-27T15:51:04Z meter lease held
+2026-11-27T15:51:04Z [b1] BLOCK START order: anchor730-live anchor730-zip v41-final-730 v42-final-730 v42-nogate-730
+2026-11-27T15:51:04Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T15:51:07Z [b1] quiet wrapper rc=126 for anchor730-live, retry in 60 s
+2026-11-27T15:52:11Z [b1] quiet wrapper rc=126 for anchor730-live, retry in 60 s
+2026-11-27T15:58:16Z [b1] DONE anchor730-live attempt=1 core_clean/J/cpu/flags: 1 0.333631 0.0327086 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T15:58:16Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:06:57Z [b1] DONE anchor730-zip attempt=1 core_clean/J/cpu/flags: 1 0.58083 0.0734651 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T16:06:57Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:14:34Z [b1] DONE v41-final-730 attempt=1 core_clean/J/cpu/flags: 0 0.650168 0.0613743 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T16:14:34Z [b1] UNCLEAN core rep for v41-final-730; keeping it as .unclean and rerunning once
+2026-11-27T16:14:34Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:22:10Z [b1] DONE v41-final-730 attempt=2 core_clean/J/cpu/flags: 0 0.647671 0.0611818 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T16:22:10Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:30:27Z [b1] DONE v42-final-730 attempt=1 core_clean/J/cpu/flags: 0 0.719192 0.068974 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T16:30:27Z [b1] UNCLEAN core rep for v42-final-730; keeping it as .unclean and rerunning once
+2026-11-27T16:30:27Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:38:37Z [b1] DONE v42-final-730 attempt=2 core_clean/J/cpu/flags: 0 0.72603 0.0676454 foreign_load_changed,idle_drift_core,no_clean_core_rep,no_clean_package_rep
+2026-11-27T16:38:37Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:46:27Z [b1] DONE v42-nogate-730 attempt=1 core_clean/J/cpu/flags: 1 0.691125 0.0638563 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T16:46:27Z [b1] BLOCK DONE
+2026-11-27T16:46:27Z [b2] BLOCK START order: v42-nogate-730 v42-final-730 v41-final-730 anchor730-zip anchor730-live
+2026-11-27T16:46:27Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T16:54:24Z [b2] DONE v42-nogate-730 attempt=1 core_clean/J/cpu/flags: 1 0.701619 0.0652076 foreign_load_changed,no_clean_package_rep
+2026-11-27T16:54:24Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:02:35Z [b2] DONE v42-final-730 attempt=1 core_clean/J/cpu/flags: 0 0.707076 0.0677762 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T17:02:35Z [b2] UNCLEAN core rep for v42-final-730; keeping it as .unclean and rerunning once
+2026-11-27T17:02:35Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:10:45Z [b2] DONE v42-final-730 attempt=2 core_clean/J/cpu/flags: 1 0.712514 0.0675814 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T17:10:45Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:18:21Z [b2] DONE v41-final-730 attempt=1 core_clean/J/cpu/flags: 1 0.660981 0.0612868 foreign_load_changed,no_clean_package_rep
+2026-11-27T17:18:21Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:26:58Z [b2] DONE anchor730-zip attempt=1 core_clean/J/cpu/flags: 1 0.586119 0.0728187 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T17:26:58Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:32:01Z [b2] DONE anchor730-live attempt=1 core_clean/J/cpu/flags: 1 0.328765 0.0322538 foreign_load_changed,no_clean_package_rep
+2026-11-27T17:32:01Z [b2] BLOCK DONE
+2026-11-27T17:32:01Z [b3] BLOCK START order: v41-final-730 v42-nogate-730 anchor730-live v42-final-730 anchor730-zip
+2026-11-27T17:32:01Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:39:44Z [b3] DONE v41-final-730 attempt=1 core_clean/J/cpu/flags: 1 0.663373 0.0623603 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T17:39:44Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:47:37Z [b3] DONE v42-nogate-730 attempt=1 core_clean/J/cpu/flags: 0 0.686447 0.0644269 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T17:47:37Z [b3] UNCLEAN core rep for v42-nogate-730; keeping it as .unclean and rerunning once
+2026-11-27T17:47:37Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T17:55:32Z [b3] DONE v42-nogate-730 attempt=2 core_clean/J/cpu/flags: 1 0.686263 0.0647999 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T17:55:32Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T18:00:35Z [b3] DONE anchor730-live attempt=1 core_clean/J/cpu/flags: 0 0.327755 0.032175 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T18:00:35Z [b3] UNCLEAN core rep for anchor730-live; keeping it as .unclean and rerunning once
+2026-11-27T18:00:35Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T18:05:37Z [b3] DONE anchor730-live attempt=2 core_clean/J/cpu/flags: 0 0.325525 0.0319373 foreign_load_changed,idle_drift_core,idle_drift_package,no_clean_core_rep,no_clean_package_rep
+2026-11-27T18:05:37Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T18:13:49Z [b3] DONE v42-final-730 attempt=1 core_clean/J/cpu/flags: 1 0.730426 0.0680346 foreign_load_changed,idle_drift_package,no_clean_package_rep
+2026-11-27T18:13:49Z TIMING.lock not taken (CI VMs active=4 or lock held); QUIET.lock only
+2026-11-27T18:22:31Z [b3] DONE anchor730-zip attempt=1 core_clean/J/cpu/flags: 1 0.585322 0.0737673 foreign_load_changed,no_clean_package_rep
+2026-11-27T18:22:31Z [b3] BLOCK DONE
+2026-11-27T18:22:31Z CAMPAIGN DONE

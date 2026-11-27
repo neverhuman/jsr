@@ -249,6 +249,13 @@ impl EngineStream {
     }
 }
 
+/// Joiner-projected encoder rows of one commit segment, with the frame count of each decode step.
+#[derive(Debug, Default)]
+pub(crate) struct CommitProjection {
+    frames: Vec<f32>,
+    steps: Vec<usize>,
+}
+
 /// Per-worker scratch. Tensor buffers are reused (grown on demand, never shrunk); each
 /// `decode` call still allocates a few small O(streams) index/reference vectors.
 #[derive(Debug, Default)]
@@ -749,6 +756,55 @@ impl Engine {
             }
         }
         Ok(ws.ns.len())
+    }
+
+    /// Empty encoder-projection cache for [`Self::cache_commit_projection`].
+    pub(crate) fn commit_projection(&self) -> CommitProjection {
+        CommitProjection::default()
+    }
+
+    /// Append the joiner-projected encoder rows of the single stream just decoded to `cache`.
+    pub(crate) fn cache_commit_projection(&self, ws: &Workspace, cache: &mut CommitProjection) {
+        debug_assert_eq!(ws.ns.len(), 1);
+        let n = ws.ns[0];
+        cache
+            .frames
+            .extend_from_slice(&ws.enc_out[..n * self.model.arch.joiner]);
+        cache.steps.push(n);
+    }
+
+    /// Re-run beam search over a cached projection with this engine's beam settings, replacing
+    /// the stream's hypotheses. The encoder does not run again.
+    pub(crate) fn replay_commit_projection(
+        &self,
+        stream: &mut EngineStream,
+        cache: &CommitProjection,
+        ws: &mut Workspace,
+    ) -> Result<(), EngineError> {
+        let mut beam = crate::beam::BeamState::new(&self.model);
+        let lm = self.lm.as_ref().map(|(lm, cfg)| (lm.as_ref(), *cfg));
+        let mut offset = 0;
+        for &n in &cache.steps {
+            let end = offset + n * self.model.arch.joiner;
+            crate::beam::beam_chunk_with_lm(
+                &self.model,
+                self.isa,
+                self.precision,
+                self.beam,
+                self.beam_max_symbols,
+                self.beam_margin,
+                lm,
+                &mut [&mut beam],
+                &[n],
+                &cache.frames[offset..end],
+                &mut ws.dec,
+            )?;
+            offset = end;
+        }
+        debug_assert_eq!(offset, cache.frames.len());
+        stream.dec.tokens.clone_from(&beam.best_hyp().tokens);
+        stream.dec.beam = Some(beam);
+        Ok(())
     }
 
     /// Detokenised transcript so far.

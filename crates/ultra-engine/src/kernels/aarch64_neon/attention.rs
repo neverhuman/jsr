@@ -75,7 +75,20 @@ pub(crate) fn attention_values(
     let nk = (vals[0].len() + vals[1].len()) / dh;
     assert!(scores.len() >= n * nk && out.len() >= (n - 1) * o_stride + dh);
     let mut invs = [0.0f32; 64];
-    assert!(n <= invs.len(), "attention_values n > 64");
+    if n > invs.len() {
+        for start in (0..n).step_by(invs.len()) {
+            let end = (start + invs.len()).min(n);
+            attention_values(
+                end - start,
+                dh,
+                vals,
+                &mut scores[start * nk..end * nk],
+                &mut out[start * o_stride..(end - 1) * o_stride + dh],
+                o_stride,
+            );
+        }
+        return;
+    }
     for (i, inv_slot) in invs.iter_mut().enumerate().take(n) {
         let sc = &mut scores[i * nk..(i + 1) * nk];
         let mx = sc.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -144,5 +157,36 @@ pub(crate) fn attention_values(
         for (cidx, a) in acc[..nv].iter().enumerate() {
             a.store(o, 8 * cidx);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::attention_values;
+
+    #[test]
+    fn values_above_stack_query_limit_match_independent_queries() {
+        let (n, dh, nk, stride) = (129, 8, 11, 12);
+        let values: Vec<_> = (0..nk * dh).map(|i| (i as f32 - 23.0) / 13.0).collect();
+        let windows = [&values[..5 * dh], &values[5 * dh..]];
+        let logits: Vec<_> = (0..n * nk).map(|i| ((i * 7) % 31) as f32 / 6.0).collect();
+        let mut scores = logits.clone();
+        let mut actual = vec![-1.0; n * stride];
+        attention_values(n, dh, windows, &mut scores, &mut actual, stride);
+
+        let mut expected = vec![-1.0; n * stride];
+        let mut expected_scores = logits;
+        for i in 0..n {
+            attention_values(
+                1,
+                dh,
+                windows,
+                &mut expected_scores[i * nk..(i + 1) * nk],
+                &mut expected[i * stride..(i + 1) * stride],
+                stride,
+            );
+        }
+        assert_eq!(scores, expected_scores);
+        assert_eq!(actual, expected);
     }
 }

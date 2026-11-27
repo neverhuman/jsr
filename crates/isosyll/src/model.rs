@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-pub const INSTALL_HINT: &str = "install the isosyll model bundle so that <model>/arch.json, <model>/lm/live.ulm, <model>/lm/final.ulm and <model>/MANIFEST exist (see the release notes for the install instructions), or pass --model DIR";
+pub const INSTALL_HINT: &str = "install the isosyll model bundle so that <model>/arch.json, <model>/final/arch.json, <model>/lm/live.ulm, <model>/lm/final.ulm, <model>/lm/t2.utfr and <model>/MANIFEST exist (see the release notes for the install instructions), or pass --model DIR";
 
 /// Environment inputs for model resolution (injectable for tests).
 #[derive(Debug, Clone, Default)]
@@ -61,6 +61,30 @@ impl ModelDir {
     }
     pub fn final_lm(&self) -> PathBuf {
         self.root.join("lm").join("final.ulm")
+    }
+    /// Final-pass acoustic bundle (v4.2.0: F3 soup), separate from the live bundle at the root.
+    pub fn final_acoustic(&self) -> PathBuf {
+        self.root.join("final")
+    }
+    /// L2R INT8 Transformer used by the final pass's reranker.
+    pub fn final_rescorer(&self) -> PathBuf {
+        self.root.join("lm").join("t2.utfr")
+    }
+    pub fn content_fit(&self) -> PathBuf {
+        self.root.join("final").join("content-fit.json")
+    }
+    pub fn content_lexicon(&self) -> PathBuf {
+        self.root.join("final").join("content-lexicon.json")
+    }
+    /// Every file `--mode final` reads besides the live bundle.
+    pub fn final_files(&self) -> Vec<PathBuf> {
+        vec![
+            self.final_acoustic().join("arch.json"),
+            self.final_lm(),
+            self.final_rescorer(),
+            self.content_fit(),
+            self.content_lexicon(),
+        ]
     }
     pub fn manifest(&self) -> PathBuf {
         self.root.join("MANIFEST")

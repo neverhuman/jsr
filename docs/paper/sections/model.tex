@@ -1,9 +1,10 @@
 \section{Model}\label{sec:model}
 
-\para{Artifact.} We evaluate the v4.1.0 release. One prepared INT8
-artifact serves two operating points, \emph{\ultra{} live} and \emph{\ultra{} final}; its weights are a
-450-step minimum-word-error-rate (beam 12) fine-tune of a weight average of three research checkpoints, with the
-architecture below unchanged.
+\para{Artifacts.} We evaluate the v4.2.0 release. Two prepared INT8 artifacts of the same architecture
+(below) serve the two operating points. \emph{\ultra{} live} uses the v4.1.0 weights unchanged: a 450-step
+minimum-word-error-rate (beam 12) fine-tune of a weight average of three research checkpoints.
+\emph{\ultra{} final} uses a second weight average (\FinSoupWeights) of three further fine-tuned research
+checkpoints, chosen for the final pass only. Both are quantised and prepared the same way.
 
 \para{Streaming Conformer transducer.} \ultra{} is a dense 16-block streaming
 Conformer~\cite{gulati2020conformer} RNN-T~\cite{graves2012rnnt} with a stateless
@@ -20,12 +21,22 @@ bounded left context of 128 frames (\LeftCtxSec\,s) and zero right context, so s
 matches training exactly. Words are emitted continuously, without an endpoint detector, from a beam search of width 12 with a
 4-nat score margin, a blank penalty and a compact pruned 5-gram live LM (243\,MiB).
 
-\para{\ultra{} final (640\,ms + LM/LODR).} At each utterance endpoint, a second-pass commit decoder
-(\cref{fig:arch}) re-encodes the buffered segment (up to a 40\,s cap) with 640\,ms chunks (16 frames)
-and a 320\,ms synthetic zero tail pad, then runs a width-16 beam search fusing a 5-gram word-level
-LM (M5, scale \LmScale) with internal LODR subtraction (scale \LodrScale). It revises
-\RelCommitRevisedPct\% of panel utterances with a median final-text delay of
-\RelCommitDelayPfifty\,ms after the endpoint (95th percentile \RelCommitDelayPninetyFive\,ms; measured on an earlier checkpoint of identical cost).
+\para{\ultra{} final (1280\,ms + LM/LODR + gated wide beam + rerank).} At each utterance end, a second-pass
+commit decoder (\cref{fig:arch}) on the final artifact re-encodes the segment (up to a 40\,s cap) with
+1280\,ms chunks (32 frames) and a 320\,ms synthetic zero tail pad, then runs a width-16 beam search fusing a
+5-gram word-level LM (M5, scale \LmScale) with internal LODR subtraction (scale \LodrScale). A confidence
+gate re-runs the beam search at width \FinGateWideBeam{} on the cached encoder output when the top two fused hypothesis
+scores differ by less than a margin fitted to route the \FinGateTrainPct\% least-confident training utterances. The
+final $n$-best list is then rescored by a small frozen left-to-right transformer LM (12\,MB) through a
+linear content-word reranker fitted on training lists (skipped when the top hypothesis leads by a fitted margin); its rotary-position tables are computed in double precision
+and rounded, so this float stage gives the same words on x86-64 Linux and macOS. In
+v4.2.0 this pass runs in \texttt{isosyll}'s final (file) mode; the stream mode keeps the v4.1.0 commit pass
+(640\,ms chunks, beam 16, live weights), which revises \RelCommitRevisedPct\% of panel utterances with a median
+final-text delay of \RelCommitDelayPfifty\,ms after the endpoint (95th percentile
+\RelCommitDelayPninetyFive\,ms; measured on an earlier checkpoint of identical cost). The v4.2.0 final pass
+was not delay-tested. The gate changes CPU time per audio-second by \FinGateCpuPct\% against the same pass
+without it (at the +\FinGateBudgetPct\% budget set for it; locked by owner choice for its \FinSBaseDelta\,pp WER change on the DEV selection half), and the whole
+pass by \FinCostCpuPct\% against the v4.1.0 final pass (paired R9 blocks, \cref{sec:versus}).
 
 \begin{figure}[t]
 \centering
@@ -39,16 +50,16 @@ LM (M5, scale \LmScale) with internal LODR subtraction (scale \LodrScale). It re
   io/.style={blk, fill=gray!10, minimum width=15mm}]
 \node[io] (pcm) {PCM16\\16\,kHz};
 \node[io, right=3mm of pcm] (mel) {log-mel\\100\,Hz};
-\node[enc, right=3mm of mel] (enc) {16$\times$ Conformer-S\\$d=384$, INT8};
+\node[enc, right=3mm of mel] (enc) {16$\times$ Conformer-S\\$d=384$, INT8 ($\times$2)};
 \node[live, above right=2mm and 4mm of enc] (lout) {Live stream\\$c=4$, +LM};
-\node[fin, below right=2mm and 4mm of enc] (fout) {Commit (seg.)\\$c=16$, M5/LODR b16};
+\node[fin, below right=2mm and 4mm of enc] (fout) {Final (seg.)\\$c=32$, M5/LODR b16$\to$48};
 \draw[->] (pcm) -- (mel);
 \draw[->] (mel) -- (enc);
 \draw[->] (enc.east) -- ++(2mm,0) |- (lout.west);
 \draw[->] (enc.east) -- ++(2mm,0) |- (fout.west);
 \end{tikzpicture}}
-\caption{Operating points of \ultra{} on one prepared INT8 artifact: a continuous 160\,ms live stream
-($c=4$, +LM) and an utterance-segmented 640\,ms commit pass ($c=16$) with 5-gram LM and LODR beam
-search.}
+\caption{Operating points of \ultra{} on two prepared INT8 artifacts of one architecture: a continuous
+160\,ms live stream ($c=4$, +LM) and an utterance-segmented 1280\,ms final pass ($c=32$) with 5-gram LM and
+LODR beam search, a beam-48 re-search of low-margin utterances and a content-word transformer rerank.}
 \label{fig:arch}
 \end{figure}

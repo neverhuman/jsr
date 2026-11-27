@@ -136,9 +136,9 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
 
 
 HERO_VARIANTS = {
-    # Our 4 operating points on one 60 MB INT8 artifact (quiet H1, same interleaved blocks)
+    # Our 2 operating points: v4.1.0 live +LM (R8) and the v4.2.0 final pass (R9), 60 MB INT8 each (quiet H1)
     "LiveLm": "v41-live-lm",
-    "Final": "v41-final",
+    "Final": "v42-final",
     # All 12 timed Zen 2 public comparators (quiet H1 primary, plus 3 H0 interim rows)
     "Zip": "r0-int8-r6",
     "MoonTiny": "moonshine-tiny",
@@ -153,7 +153,7 @@ HERO_VARIANTS = {
     "WhisperTiny": "whispercpp-stream-tiny",
     "WhisperBase": "whispercpp-stream-base",
 }
-_HERO_QUIET_FULL = {"v41-live-lm", "v41-final", "r0-int8-r6", "parakeet-v3-onnxasr-int8"}
+_HERO_QUIET_FULL = {"v41-live-lm", "v42-final", "r0-int8-r6", "parakeet-v3-onnxasr-int8"}
 
 
 def hero_rows(rows: list[dict]) -> dict[str, dict]:
@@ -182,14 +182,15 @@ def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
     d = {label: derived(row) for label, row in hero.items()}
     live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
     gap_c = rec.rows["LookLiveCZipDelta"]["value"].replace("$-$", "\u2212")
-    headline = (f"Isosyll v4.1.0 vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
-                f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER, "
-                f"{fmt(live['wer_clean'], 2)}% dev-clean at 160 ms; {gap_c} pp vs. Zipformer on unselected DEV) "
-                f"and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
-                f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%); "
-                f"J/audio-s from the paired full-panel runs (R8 for v4.1.0, R6 for Zipformer).")
-    subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% "
-                f"({fmt(live['wer_clean'], 2)}% clean) \u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
+    headline = (f"Isosyll v4.2.0 vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
+                f"the utterance-end final pass reaches {fmt(fin['wer'], 2)}% WER ({fmt(fin['wer_clean'], 2)}% dev-clean) at "
+                f"{speed_text(fin['speed'])}\u00d7 and {fmt(fin['watts'], 3)} J/audio-s, vs. Zipformer INT8 at {fmt(zip_['wer'], 2)}% "
+                f"({fmt(zip_['wer_clean'], 2)}% dev-clean), {speed_text(zip_['speed'])}\u00d7 and {fmt(zip_['watts'], 3)} J/audio-s; "
+                f"live +LM (unchanged from v4.1.0) runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, "
+                f"{fmt(live['wer'], 2)}% WER at 160 ms; {gap_c} pp vs. Zipformer on unselected DEV); "
+                f"J/audio-s from the paired full-panel runs (R9 for v4.2.0 final, R8 for live, R6 for Zipformer).")
+    subtitle = (f"Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['watts'], 3)} J/audio-s, {fmt(fin['wer'], 2)}% "
+                f"({fmt(fin['wer_clean'], 2)}% clean) \u00b7 Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}%")
     return {"headline": headline, "subtitle": subtitle}
 
 
@@ -210,7 +211,7 @@ RAMP_ANCHORS = ("#10B981", "#84CC16", "#F59E0B", "#EA580C", "#DC2626")  # emeral
 RAMP_L = (0.73, 0.43)  # OKLab lightness at the lowest and the highest energy
 RAMP_STEPS = 48
 NOT_METERED_HEX = "9AA1AD"
-HERO_SHOW_FINAL = False  # one switch: True also plots Isosyll final (its spot has a free label slot in money_focused.tex)
+HERO_SHOW_FINAL = True  # one switch: True also plots Isosyll final (its spot has a free label slot in money_focused.tex)
 HERO_PLOTTED = (*(("Final",) if HERO_SHOW_FINAL else ()), "LiveLm", "Zip", "MoonTiny", "MoonSmall", "VoskSmall", "VoskLarge", "ParakeetOnnx", "ParakeetSherpa",
                 "NemoFiveSixty", "NemoOneSixty", "NemoThreeFive", "WhisperTiny", "WhisperBase")
 
@@ -419,25 +420,27 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
         metered = hero_energy(hero)
         one_campaign = bool(metered) and all(hero[k].get("energy_idle_subtracted_n_clean") for k in metered)
-        r8 = [k for k in metered if hero[k].get("energy_protocol") == "R8"]
+        r8 = [k for k in metered if hero[k].get("energy_protocol") in ("R8", "R9")]
         if one_campaign and not r8:  # every colour is an R7 value: say where the energy comes from and how it relates to the R6 callout
             pct = fmt(100.0 * metered["LiveLm"] / metered["Zip"], 0)
             energy = ("; energy is all from the R7 matched campaign on the \\RsevenClips-clip subset (AMD core-energy registers, "
                       f"{floor_txt}, median over \\RsevenCleanMin--\\RsevenCleanMax\\ clean counterbalanced blocks, "
                       f"not wall power{grey}; the \\VsEnergyPctOne\\% callout is the paired R6 full-panel run; "
                       f"the R7 colours give {pct}\\%)")
-        elif one_campaign:  # R8 rows (v4.1.0): same idle-subtracted protocol on the full panel, comparators from R7
-            names = " and ".join(_tex(hero[k]["short"]) for k in r8)
-            energy = (f" (AMD core-energy registers, {floor_txt}, median over core-clean counterbalanced blocks; {names} from the "
-                      "R8 full-panel blocks, others in separate sessions (the R7 matched campaign on the \\RsevenClips-clip subset); "
+        elif one_campaign:  # R8/R9 rows (v4.1.0 live, v4.2.0 final): same idle-subtracted protocol on the full panel, comparators from R7
+            names = "Isosyll from the " + "/".join(sorted({hero[k]["energy_protocol"] for k in r8}))
+            energy = (f" (AMD core-energy registers, {floor_txt}, median over core-clean counterbalanced blocks; {names} "
+                      "full-panel blocks, others in separate sessions (the R7 matched campaign on the \\RsevenClips-clip subset); "
                       f"the \\VsEnergyPctOne\\% callout is the paired R8 ratio to Zipformer INT8; not wall power{grey})")
         else:
             energy = (f" (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, "
                       f"others in separate sessions; not wall power{grey})")
         marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
                  f"per audio-second on a log scale, green lowest{energy}.",
-                 "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; "
-                 "circles stream, squares are offline whole-clip, \\S\\ marks timing on a 73-clip subset only"
+                 ("Isosyll final (utterance-end pass) and live (160\\,ms chunk) use one \\ColdHeadModel\\,MB INT8 artifact each, "
+                  "timed with Zipformer INT8 in the same quiet blocks; " if HERO_SHOW_FINAL else
+                  "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; ")
+                 + "circles stream, squares are offline whole-clip, \\S\\ marks timing on a 73-clip subset only"
                  + (", and \\ddag\\ marks interim timing on a shared host" if any(hero[k]["faded"] for k in HERO_PLOTTED) else "")
                  + "."]
     rec.add("MoneyMarksCaption", " ".join(marks), unit="sentence", label="reported",

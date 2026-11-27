@@ -76,10 +76,11 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
     def _rv(new: str, old: str) -> str | None:
         key = new if current else old
         return rec.rows[key]["value"] if key in rec.rows else None
-    v41 = head["variant"].startswith("v41")
-    full_final = _rv("LookFinalFullWer" if v41 else "CandFinalFullWer", "RelFullFinalPooled")
-    full_clean = _rv("LookFinalFullClean" if v41 else "CandFinalFullClean", "RelFullFinalClean")
-    full_other = _rv("LookFinalFullOther" if v41 else "CandFinalFullOther", "RelFullFinalOther")
+    v41, v42 = head["variant"].startswith("v41"), head["variant"].startswith("v42")
+    look = "Fin" if v42 else "LookFinal" if v41 else "CandFinal"  # v4.2.0: look42.py, v4.1.0: look41.py
+    full_final = _rv(f"{look}FullWer", "RelFullFinalPooled")
+    full_clean = _rv(f"{look}FullClean", "RelFullFinalClean")
+    full_other = _rv(f"{look}FullOther", "RelFullFinalOther")
     full_live = (rec.rows[FULL_DEV[live["variant"]]]["value"] if has_live and current and live["variant"] in FULL_DEV
                  else rec.rows["RelFullLivePooled"]["value"] if "RelFullLivePooled" in rec.rows else None)
     panel_live = (fmt(lv["wer"], 2) if has_live else

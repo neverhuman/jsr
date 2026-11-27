@@ -91,6 +91,8 @@ def _add_row_records(rec: Records, r: dict) -> None:
 R7_WORDS = "R7 matched campaign on the timing subset (one pinned Zen 2 core, counterbalanced blocks)"
 R8_WORDS = ("R8 follow-up on the full panel (R7 protocol: same pinned Zen 2 core, idle windows and counterbalanced "
             "blocks; v3.1.0 live and Zipformer INT8 anchors, block-1 anchors within 5% of R6)")
+R9_WORDS = ("R9 follow-up on the full panel for the v4.2.0 final pass (R8 protocol and anchors, block-1 anchors within 5% "
+            "of R6)")
 R7_PAIR = ("rc2-live-lm", "r0-int8-r6")  # the paired headline systems: Isosyll live and Zipformer INT8
 
 
@@ -101,12 +103,13 @@ def add_r7_records(root: Path, rows: list[dict], rec: Records) -> None:
         if r.get("anchor") or r.get("energy_idle_subtracted") is None:
             continue
         value = float(r["energy_idle_subtracted"])
-        r8 = r.get("energy_protocol") == "R8"
+        proto = r.get("energy_protocol")
+        r8 = proto in ("R8", "R9")
         rec.add(f"Cold{r['macro']}EnergyRseven{macro_suffix(r)}", fmt(value, 3), raw=value,
                 unit="J per audio-s (idle-subtracted core)", label=r["label"],
-                configuration=f"{r['system']}; {r['runtime']}; {R8_WORDS if r8 else R7_WORDS}, median of "
+                configuration=f"{r['system']}; {r['runtime']}; {R9_WORDS if proto == 'R9' else R8_WORDS if r8 else R7_WORDS}, median of "
                               f"{r['energy_idle_subtracted_n_clean']} core-clean blocks",
-                workload=("R8: the full 730-utterance LibriSpeech DEV panel" if r8 else "R7 timing subset of the LibriSpeech DEV panel"),
+                workload=(f"{proto}: the full 730-utterance LibriSpeech DEV panel" if r8 else "R7 timing subset of the LibriSpeech DEV panel"),
                 workload_digest=camp["workload_digest"] if camp else "pending (no R7 verdict line)",
                 source=r["energy_r7_source"])
     have = [r for r in rows if (r["machine"], r["threads"]) == HEADLINE and not r.get("anchor")

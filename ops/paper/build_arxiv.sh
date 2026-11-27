@@ -6,10 +6,10 @@
 # Inputs are discovered dynamically (pdflatex -recorder .fls), TikZ figures are precompiled to PDF via
 # the TikZ external library, comments are stripped, then the staged tree is rebuilt in a clean
 # texlive/texlive:TL2023-historic container and compared with the repo build (pages + pdftotext).
-# Outputs: target/arxiv/src (staged), dist/arxiv/isosyll-arxiv-v4.1.0.{tar.gz,zip,pdf}, ARXIV_METADATA.md, SHA256SUMS.
+# Outputs: target/arxiv/src (staged), dist/arxiv/isosyll-arxiv-v4.2.0.{tar.gz,zip,pdf}, ARXIV_METADATA.md, SHA256SUMS.
 set -euo pipefail
 
-VERSION="${ARXIV_VERSION:-v4.1.0}"
+VERSION="${ARXIV_VERSION:-v4.2.0}"
 IMAGE="texlive/texlive:TL2023-historic"
 DOCKER=1; STAGE_ONLY=0; CHECK=0
 for arg in "$@"; do

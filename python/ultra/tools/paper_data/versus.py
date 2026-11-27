@@ -68,7 +68,9 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         p = _paired(root, item["paired"])
         if abs(p["a"] - z["wer"]) > 0.005 or abs(p["b"] - o["wer"]) > 0.005 or p["utts"] != 730:
             raise PaperDataError(f"versus: paired receipt {item['paired']} disagrees with the evidence rows")
-        pairs.append({"row": row, "d": o, "p": p, "chunk": _chunk_ms(row), "mode": item["mode"], "tag": _TAGS[i]})
+        # v4.2.0: the final row is the whole-utterance commit pass (file mode), with no live chunk of its own
+        chunk = _chunk_ms(row) if item["mode"] == "live" or _CHUNK.search(row["configuration"]) else None
+        pairs.append({"row": row, "d": o, "p": p, "chunk": chunk, "mode": item["mode"], "tag": _TAGS[i]})
 
     def put(rid: str, value: str, raw, unit: str, what: str, src: str, dig: str) -> None:
         rec.add(rid, value, raw=raw, unit=unit, label="exploratory", configuration=what,
@@ -101,7 +103,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
         cpu_pct = 100.0 / speed_x
         put(f"VsCpuPct{t}", fmt(cpu_pct, 0), cpu_pct, "%",
             f"{q['mode']} CPU-s per audio-s as % of Zipformer INT8 ({how})", evs, comp["workload_digest"])
-        put(f"VsChunk{t}", str(q["chunk"]), q["chunk"], "ms", f"{q['mode']} live chunk", evs, comp["workload_digest"])
+        if q["chunk"] is not None:
+            put(f"VsChunk{t}", str(q["chunk"]), q["chunk"], "ms", f"{q['mode']} live chunk", evs, comp["workload_digest"])
 
     # Rows beside the two paired modes: the chunk-matched 320 ms live row and live greedy (same blocks, paired ratios),
     # and the prior release against the Zipformer of its own, earlier session (never against this session's blocks).
@@ -144,7 +147,8 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     for q in pairs:
         o, p, r = q["d"], q["p"], q["row"]
         bounds = f"{_sg(p['delta'], 2)} [{_sg(p['lo'], 2)}, {_sg(p['hi'], 2)}], {_verdict(p)}"
-        chunk_md = f"{q['chunk']} ms" if q["mode"] == "live" else f"{q['chunk']} ms live + commit at reference utterance ends"
+        chunk_md = (f"{q['chunk']} ms" if q["mode"] == "live" else "commit pass at reference utterance ends" if q["chunk"] is None
+                    else f"{q['chunk']} ms live + commit at reference utterance ends")
         md.append(f"| **{r['system']}** | {chunk_md} | {fmt(o['wer'], 2)} | {bounds} | "
                   f"{speed_text(o['speed'])} ({fmt(o['speed'] / z['speed'], 2)}×) | {j(o['watts'])}"
                   + (f" ({fmt(100.0 * o['watts'] / z['watts'], 0)}%)" if o["watts"] is not None and z["watts"] else "")
@@ -163,7 +167,7 @@ def add_versus(root: Path, rows: list[dict], spec: dict, rec: Records) -> dict:
     def cell(q, f):
         return "---" if q is None else f(q)
     body = [
-        ("Live chunk (ms)", lambda q: str(zc) if q is None else (str(q["chunk"]) if q["mode"] == "live" else f"{q['chunk']}\\textsuperscript{{a}}")),
+        ("Live chunk (ms)", lambda q: str(zc) if q is None else (str(q["chunk"]) if q["mode"] == "live" else "---" if q["chunk"] is None else f"{q['chunk']}\\textsuperscript{{a}}")),
         ("Pooled WER (\\%)", lambda q: fmt(z["wer"] if q is None else q["d"]["wer"], 2)),
         ("$\\Delta$ WER vs.\\ Zip.\\ (pp)", lambda q: cell(q, lambda q: tex(_sg(q["p"]["delta"], 2)))),
         ("\\quad one-sided 95\\% bounds", lambda q: cell(q, lambda q: f"[{tex(_sg(q['p']['lo'], 2))}, {tex(_sg(q['p']['hi'], 2))}]")),

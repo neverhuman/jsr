@@ -1,15 +1,18 @@
 \section{Limitations}\label{sec:limitations}
 
-\para{Release gate.} The \ultra{} release is shipped by owner decision after missing its registered
-panel edit gates (live \LookLivePanelEdits{} edits vs.\ \CandGateLivePanel, final \LookFinalPanelEdits{} vs.\ \CandGateFinalPanel);
-it passes the full-DEV final edit gate (\LookFinalFullEdits{} vs.\ \CandGateFinalFull). It was selected on the DEV
-selection half and checked once on the unselected half.
+\para{Release gates and cost budget.} The v4.2.0 final pass meets its registered edit gates (panel \FinPanelEdits{} vs.\
+\CandGateFinalPanel, full DEV \FinFullEdits{} vs.\ \CandGateFinalFull). Live is unchanged from v4.1.0, which shipped
+by owner decision after missing its panel gate (\LookLivePanelEdits{} edits vs.\ \CandGateLivePanel). The final pass's confidence gate
+was locked by owner choice when research timing put it just over its +\FinGateBudgetPct\% CPU budget; in R9 it sits at that
+budget (\FinGateCpuPct\%, median of within-block ratios), so on this host it neither clearly meets nor exceeds it. Both passes were selected on
+the DEV selection half and checked once on the unselected half; the gate margin and reranker were fitted on training audio.
 
 \para{Utterance-segmented final mode and memory.} \ultra{} live streams continuously without an endpoint
-detector. \ultra{} final needs utterance endpoints (capped at 40\,s), adds a post-endpoint commit delay
-(median \RelCommitDelayPfifty\,ms, from an earlier checkpoint of identical cost), and raises peak RSS to
-\ColdHeadRss\,MB because of the 5-gram LM pack (\LmPackMb\,MB on disk); shrinking both without losing
-accuracy remains future work.
+detector. \ultra{} final needs utterance endpoints (capped at 40\,s) and raises peak RSS to \ColdHeadRss\,MB because of the
+5-gram LM pack (\LmPackMb\,MB on disk). The v4.2.0 final pass runs in file mode only: streaming keeps the v4.1.0
+commit pass (median post-endpoint delay \RelCommitDelayPfifty\,ms, from an earlier checkpoint of identical cost),
+because live and commit share one encoder state there; the new pass was not delay-tested, and loading a second
+artifact for streaming finals remains future work, as does shrinking memory without losing accuracy.
 
 \para{Live accuracy and next lever.} The endpoint-free live stream trades accuracy for extreme speed and
 low power: on the unselected DEV C half its WER is \LookLiveCZipDelta\pp from Zipformer INT8's, within the

@@ -56,6 +56,8 @@ from .versus import _paired, add_versus
 from .training import add_training
 from .candidate import add_candidate
 from .look41 import add_look41
+from .look42 import add_final_pass, add_look42
+from .v42_rows import add_cost42
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -67,14 +69,17 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     extras = add_release(root, rec)
     add_candidate(root, rec, out)
     add_look41(root, rec)
+    add_look42(root, rec)
+    add_final_pass(root, rec)
+    add_cost42(root, rec)
     rows = load_evidence(root, rec, out)
     headline = presentation(root).get("headline", {})
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
     hero = hero_rows(rows)
-    if hero:  # Figure 1 headlines the v4.1.0 operating points (v3.1.0 live drawn as the previous release)
+    if hero:  # Figure 1 headlines the v4.2.0 final pass and the unchanged v4.1.0 live point
         sentences = hero_sentences(hero, rec)
-        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v4.1.0 measurements; v3.1.0 live as the previous release)",
+        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v4.2.0 final and v4.1.0 live measurements)",
                                          source="; ".join(f"docs/paper/data/evidence/{r['_where']} id={r['id']}" for r in hero.values()))
         facts["figure"] = md(sentences["headline"])
         rec.add("HeroSubtitle", tex(sentences["subtitle"]).replace("\u00b7", "$\\cdot$"), unit="sentence", label="exploratory",

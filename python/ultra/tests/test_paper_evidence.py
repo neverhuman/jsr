@@ -503,6 +503,21 @@ def test_v41_rows_reproduce_the_r8_receipts():
     assert {r["protocol"] for r in r7} == {"R8"} and all(r["anchor_check"] == "VALID" for r in r7)
 
 
+def test_v42_rows_reproduce_the_r9_receipts():
+    """The committed v4.2.0 final row is exactly what the R9 receipts and the v4.2.0 panel score give."""
+    from tools.paper_data import v42_rows
+
+    committed = (DATA / "evidence" / "xbabe0-v42-release.jsonl").read_text(encoding="utf-8")
+    assert committed == v42_rows.text(pd.REPO), "evidence/xbabe0-v42-release.jsonl is stale: python -m tools.paper_data.v42_rows"
+    rows = {r["variant"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") is None}
+    assert set(rows) == {"v42-final"}
+    assert rows["v42-final"]["wer_pct"] == 4.2428 and rows["v42-final"]["wer_clean_pct"] == 2.6344
+    assert len(rows["v42-final"]["cpu_reps"]) == 3 and rows["v42-final"]["timing_panel"] == "full"
+    assert set(rows["v42-final"]["cost"]) == {"vs_v41_final", "vs_nogate"}
+    r7 = [r for r in map(json.loads, committed.splitlines()) if r.get("kind") == "r7_energy"]
+    assert {r["protocol"] for r in r7} == {"R9"} and all(r["anchor_check"] == "VALID" for r in r7)
+
+
 def test_hero_energy_ramp_is_monotone_in_lightness_and_range_adapts():
     lightness = [money._oklab(money.ramp_hex(i / 47))[0] for i in range(48)]
     assert all(a > b for a, b in zip(lightness, lightness[1:])), "lightness must fall with energy (grayscale and CVD safe)"

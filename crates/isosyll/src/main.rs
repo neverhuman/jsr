@@ -1,4 +1,4 @@
-//! `isosyll`: pure-Rust streaming speech recognition with the v4.1.0 release decoders.
+//! `isosyll`: pure-Rust streaming speech recognition with the v4.2.0 release decoders.
 
 mod args;
 mod decode;
@@ -103,11 +103,13 @@ fn read_pcm(path: &Path) -> Result<Vec<i16>, String> {
 
 fn transcribe(a: &TranscribeArgs) -> Result<(), Failure> {
     let dir = resolve_model(a.model.as_deref())?;
-    let lm = match a.mode {
-        Mode::Final => dir.final_lm(),
-        Mode::Live => dir.live_lm(),
+    let needed = match a.mode {
+        Mode::Final => dir.final_files(),
+        Mode::Live => vec![dir.live_lm()],
     };
-    model::require_file(&lm)?;
+    for p in &needed {
+        model::require_file(p)?;
+    }
     enum Dec {
         Final(Box<FinalDecoder>),
         Live(Box<LiveDecoder>),
