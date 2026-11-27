@@ -14,12 +14,12 @@
         "counts": {
           "ref_words": 54691,
           "hyp_words": 54674,
-          "matches": 53522,
-          "substitutions": 1043,
-          "deletions": 126,
-          "insertions": 109
+          "matches": 53520,
+          "substitutions": 1044,
+          "deletions": 127,
+          "insertions": 110
         },
-        "wer": 0.023367647327713882,
+        "wer": 0.023422500959938565,
         "utterances": 2703,
         "speakers": 40,
         "silence": {
@@ -34,13 +34,13 @@
       "dev-other": {
         "counts": {
           "ref_words": 51363,
-          "hyp_words": 51363,
-          "matches": 48419,
-          "substitutions": 2586,
-          "deletions": 358,
-          "insertions": 358
+          "hyp_words": 51369,
+          "matches": 48421,
+          "substitutions": 2591,
+          "deletions": 351,
+          "insertions": 357
         },
-        "wer": 0.06428752214629208,
+        "wer": 0.06422911434300956,
         "utterances": 2864,
         "speakers": 33,
         "silence": {
@@ -54,7 +54,7 @@
       }
     },
     "pooled_wer": 0.04318554698549795,
-    "macro_wer": 0.043827584737002975
+    "macro_wer": 0.043825807651474064
   },
   "system_b": null,
   "comparison": null

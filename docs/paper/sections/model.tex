@@ -28,7 +28,8 @@ commit decoder (\cref{fig:arch}) on the final artifact re-encodes the segment (u
 gate re-runs the beam search at width \FinGateWideBeam{} on the cached encoder output when the top two fused hypothesis
 scores differ by less than a margin fitted to route the \FinGateTrainPct\% least-confident training utterances. The
 final $n$-best list is then rescored by a small frozen left-to-right transformer LM (12\,MB) through a
-linear content-word reranker fitted on training lists (skipped when the top hypothesis leads by a fitted margin). In
+linear content-word reranker fitted on training lists (skipped when the top hypothesis leads by a fitted margin); its rotary-position tables are computed in double precision
+and rounded, so this float stage gives the same words on x86-64 Linux and macOS. In
 v4.2.0 this pass runs in \texttt{isosyll}'s final (file) mode; the stream mode keeps the v4.1.0 commit pass
 (640\,ms chunks, beam 16, live weights), which revises \RelCommitRevisedPct\% of panel utterances with a median
 final-text delay of \RelCommitDelayPfifty\,ms after the endpoint (95th percentile
