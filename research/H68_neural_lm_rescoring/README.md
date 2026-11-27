@@ -72,3 +72,26 @@ thresholds and weights by speaker 2-fold CV on S. Panel timing noise is about ±
 - Rejected cost levers: L2R top-8 candidate cut (trie already shares prefixes), act7 activations
   (−1 pp CPU), beam 32 (−0.047 pp, n.s., +62% beam CPU).
 - What it fixes: common/function words and insertions; nothing on unseen names (see H75).
+
+## Distillation and native-engine confirmation (2026-11-26, 13:00 MST – 2026-11-27, 02:00 MST)
+Offline replay (bf16 PyTorch features over the saved 16-best) overstated INT8 engine gains. From here on every
+row is the native `ultra-engine-commit` (9fdc75ff) on all 2,782 S utterances (`tools/engine_fullS.sh`,
+`tools/engine_grid.sh`), with the rescore weight w and M5-sub s picked by speaker 2-fold CV **over engine
+outputs** (`tools/engine_cv.py`), for the lock's own model too. Skip margin 2.762935630679131 throughout.
+
+| rescorer (11.7M L2R .utfr) | recipe | engine-CV S | vs engine lock [one-sided 95%] |
+|---|---|---:|---|
+| m12_l2r_32k (lock) | CE 32k | 4.86 (folds re-pick 0.6/0.6) | — |
+| KD24 (8db9f490…) | KD from 27.5M L2R, 24k | 4.83 at 0.6/0.6 | −0.026 [−0.082, +0.028] |
+| **kd12L_t2 (2bce52ea…)** | KD24 + 16k KD from continued teacher (valid 2.463), kd-w 0.7 | **4.79 (0.8/0.8 both folds)** | **−0.071 [−0.118, −0.024]** |
+| kd12L_t3 | t2 + 16k more | 4.84 (folds disagree) | −0.021 [−0.100, +0.063] |
+| kd12L_t3w9 | kd-w 0.9 chain | 4.84 (folds disagree) | −0.019 [−0.101, +0.071] |
+
+- The locked config's offline 4.84 is 4.86 in the engine (+0.017 [+0.001, +0.033]; 2,730/2,782 identical).
+- Quiet-core CPU (xbabe0 core 40, ABAB×6, load ≤0.54 at each start): lock +10.8% commit / +5.6% process;
+  kd12L_t2 @0.8/0.8 +11.1% / +6.1%.
+- Rejected: 5.2M R2L in the pair (no gain), train-960 transcript fine-tune (+0.024 vs KD24), longer KD
+  schedules for L2R alone (no engine gain), KD pairs inside +15% (4.83 at the +15% skip point; 4.74–4.76
+  needs about +28% commit).
+- Proposal (config only, needs Jepson's OK): `kd12L_t2_16k.utfr` + `--rescore-weight 0.8 --rescore-m5-sub 0.8`.
+  Codex's H244 stacked it on c32 lists (4.6287%).
