@@ -19,7 +19,7 @@ details are in the [release records](docs/ultra/releases/).
   2.22× Zipformer INT8's throughput at 57% of its energy (paired R8
   blocks; AMD Threadripper PRO 3995WX, idle-subtracted core
   registers). Final: 17.0× real time at 0.656 J per audio-second (113% of
-  Zipformer INT8's). Model archive sha256 `45b6d45f…`; all files in the signed
+  Zipformer INT8's). Model archive sha256 `c5181748…`; all files in the signed
   `SHA256SUMS`. [Release record](docs/ultra/releases/v4.1.0.md)
 
 ## v4.0.0 · 2026-11-26
