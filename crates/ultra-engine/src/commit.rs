@@ -2,6 +2,7 @@
 //! an endpoint commit re-decode (`c=16`, 640 ms), optional 320 ms tail pad, `Emitter` events,
 //! SentencePiece/model-head CTC, word-MBR, and opt-in INT8 Transformer N-best rescoring.
 
+mod content;
 pub(crate) mod ctc_head;
 mod live;
 mod lm;
@@ -14,6 +15,7 @@ mod spm_proto;
 mod tf;
 mod types;
 mod vocab;
+mod wide;
 
 use std::time::Instant;
 
@@ -21,6 +23,7 @@ use ultra_core::events::{Emitter, ProcessingEvidence, TranscriptEvent};
 
 use crate::{lm::TfWorkspace, DecodeProgress, Engine, EngineError, EngineStream, Workspace};
 
+pub use content::CommitContentReranker;
 pub use ctc_head::aggregate_duplicate_hyps;
 pub use live::{run_commit_pcm, run_commit_pcm_timed, CommitSnapshot, CommitTiming};
 pub use lm::{CommitLmConfig, CommitLmGateConfig};
@@ -37,6 +40,7 @@ pub use types::{
     DEFAULT_MAX_PCM_SAMPLES, DEFAULT_SAMPLE_RATE, DEFAULT_TAIL_PAD_SAMPLES,
 };
 pub use vocab::CtcVocab;
+pub use wide::CommitWideGate;
 
 pub(super) fn drain_stream(
     eng: &Engine,
@@ -78,6 +82,8 @@ pub struct CommitPassSession {
     pub(super) emitter: Emitter,
     committed_prefix: String,
     model_ctc_vocab: Option<CtcVocab>,
+    pub(crate) wide: Option<CommitWideGate>,
+    last_commit_width: usize,
 }
 
 impl CommitPassSession {
@@ -118,7 +124,20 @@ impl CommitPassSession {
             emitter: Emitter::new(stream_id, model_config_id),
             committed_prefix: String::new(),
             model_ctc_vocab,
+            wide: None,
+            last_commit_width: cfg.beam_size,
         })
+    }
+
+    /// Opt in to the confidence-gated wide commit search (`None` = off, the default).
+    pub fn with_wide_gate(mut self, gate: Option<CommitWideGate>) -> Self {
+        self.wide = gate;
+        self
+    }
+
+    /// Beam width that produced the most recent commit (the wide width when the gate routed).
+    pub fn last_commit_width(&self) -> usize {
+        self.last_commit_width
     }
 
     pub fn config(&self) -> CommitConfig {
@@ -245,8 +264,8 @@ impl CommitPassSession {
         drain_stream(&self.provisional_engine, &mut self.stream, &mut self.ws)?;
         let provisional = self.provisional_engine.text(&self.stream);
         let t0 = Instant::now();
-        let (raw_committed, selected_hyp) = if pcm_truncated {
-            (provisional.clone(), 0)
+        let (raw_committed, selected_hyp, width) = if pcm_truncated {
+            (provisional.clone(), 0, self.cfg.beam_size)
         } else {
             ctc_head::decode_commit_segment(
                 &self.commit_engine,
@@ -256,8 +275,10 @@ impl CommitPassSession {
                 ctc,
                 self.model_ctc_vocab.as_ref(),
                 self.tf.as_mut().map(|(c, w)| (&*c, w)),
+                self.wide,
             )?
         };
+        self.last_commit_width = width;
         let commit_wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
         let active_imm = self.active_immutable().to_owned();
         let suffix = reconcile_immutable_suffix(&active_imm, &raw_committed);

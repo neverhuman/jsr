@@ -12,6 +12,7 @@ use super::rescore::{logaddexp_f64, select_commit_hyp, CtcInput};
 use super::tf::CommitTfRescoreConfig;
 use super::types::CommitConfig;
 use super::vocab::CtcVocab;
+use super::wide::{beam_margin, wide_engine, CommitWideGate};
 
 /// Aggregate distinct BPE segmentations with identical whitespace-normalized text via `logaddexp`
 /// before selection or MBR. Returns `(words, best_raw_text, merged_logp, first_hyp_idx)`.
@@ -51,7 +52,9 @@ pub fn aggregate_duplicate_hyps(hyps: &[(String, f32)]) -> Vec<(Vec<String>, Str
 }
 
 /// Run the closed-segment commit decode on `eng` (using optional external or model-internal CTC
-/// scoring) and return `(committed_text, selected_hyp_index)`. Zero CTC overhead when unused.
+/// scoring) and return `(committed_text, selected_hyp_index, beam_width)`. Zero CTC overhead when
+/// unused. With `wide`, a low-margin first beam is searched again over the cached encoder
+/// projection at the gate's width (CTC paths never widen).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn decode_commit_segment(
     eng: &Engine,
@@ -61,7 +64,9 @@ pub(crate) fn decode_commit_segment(
     ext_ctc: Option<(&CtcVocab, &[f32], usize)>,
     model_ctc_vocab: Option<&CtcVocab>,
     tf: Option<(&CommitTfRescoreConfig, &mut TfWorkspace)>,
-) -> Result<(String, usize), EngineError> {
+    wide: Option<CommitWideGate>,
+) -> Result<(String, usize, usize), EngineError> {
+    let width = eng.beam;
     let pcm = super::types::commit_input_pcm(pcm, cfg.rms_norm);
     let mut cs = eng.create_stream();
     cs.accept_i16(&pcm)?;
@@ -71,18 +76,19 @@ pub(crate) fn decode_commit_segment(
     cs.input_finished();
     if let Some((vocab, lp, frames)) = ext_ctc {
         while eng.decode(&mut [&mut cs], ws)? > 0 {}
-        return select_commit_hyp(
+        let (text, idx) = select_commit_hyp(
             eng,
             &cs,
             cfg,
             Some(CtcInput::External(vocab, lp, frames)),
             tf,
-        );
+        )?;
+        return Ok((text, idx, width));
     }
     if cfg.ctc_weight > 0.0 && eng.model.ctc_head.is_some() {
         let (ctc_lp, ctc_frames) = drain_stream_with_ctc(eng, &mut cs, ws)?;
         let ctc_v = eng.model.ctc_head.as_ref().map_or(0, |h| h.n());
-        return select_commit_hyp(
+        let (text, idx) = select_commit_hyp(
             eng,
             &cs,
             cfg,
@@ -93,10 +99,26 @@ pub(crate) fn decode_commit_segment(
                 ctc_v,
             )),
             tf,
-        );
+        )?;
+        return Ok((text, idx, width));
     }
-    while eng.decode(&mut [&mut cs], ws)? > 0 {}
-    select_commit_hyp(eng, &cs, cfg, None, tf)
+    let Some(gate) = wide else {
+        while eng.decode(&mut [&mut cs], ws)? > 0 {}
+        let (text, idx) = select_commit_hyp(eng, &cs, cfg, None, tf)?;
+        return Ok((text, idx, width));
+    };
+    let mut projection = eng.commit_projection();
+    while eng.decode(&mut [&mut cs], ws)? > 0 {
+        eng.cache_commit_projection(ws, &mut projection);
+    }
+    if gate.routes(beam_margin(&cs)) {
+        let wider = wide_engine(eng, gate);
+        wider.replay_commit_projection(&mut cs, &projection, ws)?;
+        let (text, idx) = select_commit_hyp(&wider, &cs, cfg, None, tf)?;
+        return Ok((text, idx, gate.width));
+    }
+    let (text, idx) = select_commit_hyp(eng, &cs, cfg, None, tf)?;
+    Ok((text, idx, width))
 }
 
 /// Project `frames` encoder `final_norm` rows (`[frames][d]`) through `model.ctc_head` (fp32)

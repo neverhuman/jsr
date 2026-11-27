@@ -81,7 +81,7 @@ fn verify_detects_mismatch_and_version_line() {
     std::fs::write(root.join("MANIFEST"), format!("{good}  arch.json\n")).unwrap();
     let m = ModelDir { root: root.clone() };
     assert_eq!(verify(&m, |_, _| {}).unwrap(), (1, 0));
-    assert!(version_line(Some(&m)).starts_with("isosyll 4.1.0 ("));
+    assert!(version_line(Some(&m)).starts_with("isosyll 4.2.0 ("));
     assert!(version_line(Some(&m)).contains(
         &hex(&Sha256::digest(
             std::fs::read(root.join("MANIFEST")).unwrap()
@@ -90,4 +90,24 @@ fn verify_detects_mismatch_and_version_line() {
     std::fs::write(root.join("arch.json"), "tampered").unwrap();
     assert_eq!(verify(&m, |_, _| {}).unwrap(), (0, 1));
     assert!(version_line(None).ends_with("model not found"));
+}
+
+#[test]
+fn final_pass_files_live_beside_the_live_bundle() {
+    let m = ModelDir {
+        root: PathBuf::from("/m"),
+    };
+    assert_eq!(m.final_acoustic(), Path::new("/m/final"));
+    assert_eq!(
+        m.final_files(),
+        [
+            "/m/final/arch.json",
+            "/m/lm/final.ulm",
+            "/m/lm/t2.utfr",
+            "/m/final/content-fit.json",
+            "/m/final/content-lexicon.json",
+        ]
+        .map(PathBuf::from)
+    );
+    assert!(INSTALL_HINT.contains("final/arch.json") && INSTALL_HINT.contains("t2.utfr"));
 }

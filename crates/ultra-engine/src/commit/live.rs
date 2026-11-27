@@ -46,8 +46,8 @@ pub fn run_commit_pcm_timed(
 ) -> Result<(String, usize, CommitTiming), EngineError> {
     let cpu0 = crate::run_info::thread_cpu_s_or_zero();
     let t0 = Instant::now();
-    let (raw, idx) =
-        ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None, None)?;
+    let (raw, idx, _) =
+        ctc_head::decode_commit_segment(commit_engine, pcm, cfg, ws, None, None, None, None)?;
     let wall_s = t0.elapsed().as_secs_f64();
     let cpu1 = crate::run_info::thread_cpu_s_or_zero();
     let cpu_s = (cpu1 - cpu0).max(0.0);
