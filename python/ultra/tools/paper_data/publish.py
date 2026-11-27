@@ -105,7 +105,7 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
             f"(**{v('FinFullClean')}%** dev-clean) at **{fmt(fin['speed'], 1)}×** real time and **{fmt(fin['watts'], 3)} J/audio-s**. "
             f"On the unselected DEV C-half it is {_bounds(fin_c, True, True)} vs. Zipformer INT8 and {_bounds(fin_prev_c, True, True)} vs. "
             f"v4.1.0 final; it costs **{v('FinCostCpuPct')}%** CPU vs. v4.1.0 final (its beam-48 confidence gate "
-            f"**{v('FinGateCpuPct')}%**, over the {v('FinGateBudgetPct')}% budget by owner choice; paired R9 full-panel blocks)."
+            f"**{v('FinGateCpuPct')}%**, at its {v('FinGateBudgetPct')}% budget, locked by owner choice; paired R9 full-panel blocks)."
         ),
         (
             f"- **Fastest, with the lowest measured energy.** On one quiet Zen 2 core, **Isosyll live** (160 ms chunks, +LM) runs at "

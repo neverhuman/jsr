@@ -4,8 +4,10 @@ Inputs (all pinned in raw/MANIFEST.txt):
   raw/release_v42/timing_interleaved/block{1,2,3}/<arm>.json   one cold full-panel pass per block per arm, same quiet core
   raw/versus/v420/zip-vs-v42-final.panel730.score.json          DEV WER of the same 730-utterance panel (paired with Zipformer INT8)
 R9 repeats the R8 protocol on one pinned core of the quiet host: five arms on the full 730-utterance panel in three
-counterbalanced blocks (the published isosyll v4.1.0 and v4.2.0 release binaries in final mode, a v4.2.0 build with the
-confidence gate switched off, and the v3.1.0 live +LM and Zipformer INT8 anchors). Live mode is unchanged in v4.2.0 and
+counterbalanced blocks (the published isosyll v4.1.0 binary and a v4.2.0 release-candidate build, d0d03dc3, in final
+mode, the same build with the confidence gate switched off, and the R8 anchors, the v4.0.0 live +LM default and Zipformer INT8). The
+published v4.2.0 binary differs from the timed build only in how the reranker's rotary-position tables are computed at
+load (f64 rounded to f32 instead of f32), which changes words but not the decode's work. Live mode is unchanged in v4.2.0 and
 keeps its R8 row (v41_rows.py); the v4.1.0 final arm and the no-gate arm price the change and are reported as within-block
 ratios (`cost`), never as rows of their own. Every
 block-1 anchors must land within 5% of their R6 values or the campaign is void (the pre-registered rule, PREREG.md);
@@ -114,7 +116,7 @@ def rows(root: Path) -> list[dict]:
         stem = f"{variant}-zen2-t1"
         ssha = sha256_file(root / T / BLOCKS[0] / f"{arm}.json")
         out.append({
-            "id": stem, "variant": variant, "system": system, "runtime": "isosyll v4.2.0 release binary (x86_64 glibc)",
+            "id": stem, "variant": variant, "system": system, "runtime": "isosyll v4.2.0 release-candidate build d0d03dc3 (x86_64 glibc; the published binary differs only in RoPE table construction at load)",
             "role": "ours", "class": "streaming", "machine": "zen2", "host": "xbabe0", "hardware": HARDWARE, "threads": 1,
             "parallel": "intra_op", "configuration": config, "arm": arm,
             "workload": "DEV selection panel, 730 utt (400 dev-clean + 330 dev-other)", "workload_digest": DIGEST,

@@ -511,7 +511,7 @@ def test_v42_rows_reproduce_the_r9_receipts():
     assert committed == v42_rows.text(pd.REPO), "evidence/xbabe0-v42-release.jsonl is stale: python -m tools.paper_data.v42_rows"
     rows = {r["variant"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") is None}
     assert set(rows) == {"v42-final"}
-    assert rows["v42-final"]["wer_pct"] == 4.2705 and rows["v42-final"]["wer_clean_pct"] == 2.6579
+    assert rows["v42-final"]["wer_pct"] == 4.2428 and rows["v42-final"]["wer_clean_pct"] == 2.6344
     assert len(rows["v42-final"]["cpu_reps"]) == 3 and rows["v42-final"]["timing_panel"] == "full"
     assert set(rows["v42-final"]["cost"]) == {"vs_v41_final", "vs_nogate"}
     r7 = [r for r in map(json.loads, committed.splitlines()) if r.get("kind") == "r7_energy"]

@@ -1,9 +1,10 @@
 \section{Limitations}\label{sec:limitations}
 
 \para{Release gates and cost budget.} The v4.2.0 final pass meets its registered edit gates (panel \FinPanelEdits{} vs.\
-\CandGateFinalPanel, full DEV \FinFullEdits{} vs.\ \CandGateFinalFull). Live is unchanged from v4.1.0, which shipped by owner
-decision after missing its panel gate (\LookLivePanelEdits{} edits vs.\ \CandGateLivePanel). The final pass's confidence gate
-was locked by owner choice although it exceeds its +\FinGateBudgetPct\% CPU budget (\FinGateCpuPct\% in R9). Both passes were selected on
+\CandGateFinalPanel, full DEV \FinFullEdits{} vs.\ \CandGateFinalFull). Live is unchanged from v4.1.0, which shipped
+by owner decision after missing its panel gate (\LookLivePanelEdits{} edits vs.\ \CandGateLivePanel). The final pass's confidence gate
+was locked by owner choice when research timing put it just over its +\FinGateBudgetPct\% CPU budget; in R9 it sits at that
+budget (\FinGateCpuPct\%, median of within-block ratios), so on this host it neither clearly meets nor exceeds it. Both passes were selected on
 the DEV selection half and checked once on the unselected half; the gate margin and reranker were fitted on training audio.
 
 \para{Utterance-segmented final mode and memory.} \ultra{} live streams continuously without an endpoint

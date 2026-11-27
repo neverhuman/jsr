@@ -39,7 +39,8 @@ the unselected C half (bounds \FinCPrevLo{} to \FinCPrevHi; dev-clean \FinPrevCC
 re-search alone is \FinSBaseDelta\pp on the selection half against the same pass without it (bounds \FinSBaseLo{} to
 \FinSBaseHi). In the paired R9 blocks the whole pass changes CPU time per audio-second by \FinCostCpuPct\% and core
 energy by \FinCostEnergyPct\% against the released v4.1.0 final binary; the gate alone costs \FinGateCpuPct\% CPU and
-\FinGateEnergyPct\% energy against the same build with the gate off, above the +\FinGateBudgetPct\% budget set for it, by owner choice.
+\FinGateEnergyPct\% energy against the same build with the gate off, at the +\FinGateBudgetPct\% budget set for it (locked by owner choice when
+research timing put it just over).
 
 On full LibriSpeech DEV (\RelFullUtts{} utterances, which contains the selection half and is therefore
 descriptive), \ultra{} live reaches \LookLiveFullClean\% dev-clean, \LookLiveFullOther\% dev-other

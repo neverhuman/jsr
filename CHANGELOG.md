@@ -4,6 +4,23 @@ Workspace crates and published speech-recognition packages track their own
 versions. Model bundles carry content hashes. Qualification and signed asset
 details are in the [release records](docs/ultra/releases/).
 
+## v4.2.0 · 2026-11-27
+
+- New final pass (`isosyll transcribe`, the default final mode): its own 60 MB INT8 model (a weight average of three
+  research checkpoints), 1,280 ms re-encode, beam 16 with the M5 LM, a confidence gate that re-runs the 30% least
+  confident utterances (margin fitted on training audio) at beam 48, then a 12 MB transformer content-word
+  reranker. Live mode and `isosyll stream` are unchanged from v4.1.0.
+- DEV accuracy, final: 730-utterance panel 4.24% WER (2.63% dev-clean), down from 5.02%; full DEV 4.32% (2.34%
+  dev-clean), down from 5.09%. On the unselected DEV half, final is lower than v4.1.0 (−0.67 pp) and than Zipformer
+  INT8 (−0.93 pp). Both registered final edit gates pass (panel 613 ≤ 650, full DEV 4,580 ≤ 5,489).
+- Cost (paired R9 blocks, one quiet Zen 2 core): final runs at 14.8× real time and 0.721 J per audio-second
+  (v4.1.0 final: 16.3×, 0.662 J), +10.3% CPU and +9.0% core energy. The beam-48 gate alone costs +5.0% CPU, at the
+  +5% budget set for it. The owner locked it when research timing put it just over. R9 timed the release-candidate
+  build from before the precision fix below; the per-utterance work is the same.
+- The reranker's rotary-position tables are now computed in double precision, so final text is identical on Linux
+  and macOS; this moved the DEV selection-half figure from 4.4582% to 4.4390%. Model archive sha256 `168264f4…`; all
+  files in the signed `SHA256SUMS`. [Release record](docs/ultra/releases/v4.2.0.md)
+
 ## v4.1.0 · 2026-11-27
 
 - New model and live decoder settings, same 60 MB INT8 architecture and the

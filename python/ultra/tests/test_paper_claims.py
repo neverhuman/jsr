@@ -22,10 +22,11 @@ BANNED_LEGACY_RE = re.compile(
 
 
 # v4.2.0 headline values (R9 + raw/versus/v420); a change in the receipts must be read and re-worded, not absorbed.
-RANK42 = 5
-SPEEDX42 = "TBD"
-ENERGYPCT42 = "TBD"
-SUMMARY42 = "TBD"
+RANK42 = 7
+SPEEDX42 = "1.08"
+ENERGYPCT42 = "123"
+SUMMARY42 = ("**Isosyll v4.2.0 on one CPU core: final 4.24% panel WER · 2.34% full-DEV dev-clean · 14.8× real time · "
+             "live 31.5× real time at 0.331 J/audio-s**")
 
 
 def _records():
@@ -44,8 +45,8 @@ def test_claims_made_in_words_hold_in_the_measured_rows():
     assert rec["FinCZipHi"]["raw"] < 0.0, "final is no longer lower than Zipformer on C; reword"
     assert rec["FinCPrevHi"]["raw"] < 0.0 and rec["FinPanelPrevHi"]["raw"] < 0.0, "v4.2.0 final no longer beats v4.1.0 final; reword"
     assert rec["FinSBaseHi"]["raw"] < 0.0, "the gated beam-48 re-search no longer lowers S-half WER; reword"
-    # the gate is reported as over its +5% CPU budget (owner choice): the words must match R9
-    assert rec["FinGateCpuPct"]["raw"] > float(rec["FinGateBudgetPct"]["raw"]), "the gate is no longer over its CPU budget; reword"
+    # the gate is reported as at its +5% CPU budget (R9 +5.0%; owner-locked when research put it at +5.8%): words must match R9
+    assert abs(rec["FinGateCpuPct"]["raw"] - float(rec["FinGateBudgetPct"]["raw"])) < 0.5, "the gate is no longer at its CPU budget; reword"
     assert rec["ColdHeadWerGapBest"]["raw"] > 0.0, "Isosyll final no longer trails the lowest-WER comparator"
     # Live point claims checked whenever the standalone live cold row (14q) is admitted
     if "ColdLiveSpeed" in rec:
@@ -75,7 +76,7 @@ def test_front_page_pairs_each_modes_speed_and_accuracy():
     assert "active core energy per audio-second" in live_abs
     assert f"reference utterance boundaries, reaches {final_wer}\\% pooled WER at {final}$\\times$" in final_abs
     assert "57\\%" in rec["ColdAbstractZip"]["value"]
-    assert rec["ColdAbstractMoreAcc"]["value"] == "Seven of the 15 public recognisers we measured are more accurate than the final mode."
+    assert rec["ColdAbstractMoreAcc"]["value"] == "Six of the 15 public recognisers we measured are more accurate than the final mode."
 
 
 def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
@@ -153,11 +154,11 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     # Claims remain asserted in the paper sources and records
     sections = {p.name: p.read_text(encoding="utf-8") for p in (PAPER / "sections").glob("*.tex")}
     assert "Head-to-head with Zipformer INT8" in (DATA / "table_versus.tex").read_text()
-    assert rec["VsVerdictTwo"]["value"] == "not significantly different from" and "VsVerdictTwo" in sections["results.tex"]
+    assert rec["VsVerdictTwo"]["value"] == "lower than" and "VsVerdictTwo" in sections["results.tex"]
     assert rec["ColdComparatorCount"]["raw"] == 12 and "ColdComparatorCount" in sections["related.tex"]
     # Zero non-plotted legacy rows in cold_dev.csv
     all_csv = [ln.split(",")[1] for ln in (DATA / "cold_dev.csv").read_text().splitlines()[1:]]
-    v31_unplotted = {"rc2-live-lm", "rc2-final", "rc2-live-greedy", "rc2-live-lm320", "rc1-ema-live", "rc1-ema-final", "r0-int8"}  # earlier releases, unplotted
+    v31_unplotted = {"rc2-live-lm", "rc2-final", "rc2-live-greedy", "rc2-live-lm320", "rc1-ema-live", "rc1-ema-final", "r0-int8", "v41-final"}  # earlier releases, unplotted
     assert set(all_csv) == variants | v31_unplotted, f"cold_dev.csv holds unexpected rows: {set(all_csv) - variants - v31_unplotted}"
     # Release provenance must never borrow older checkpoint receipts
     rel_ev = (DATA / "evidence" / "xbabe0-v3-release.jsonl").read_text(encoding="utf-8")
@@ -229,7 +230,8 @@ def test_readme_shows_the_current_figure_block():
     assert len(table) == 1 + 2 + 12, "all-comparator table: header + Isosyll final and live + 12 timed public comparators"
     assert len(pairs) == 2
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
-    assert labels == ["Fastest, with the lowest measured energy", "One small artifact", "Bit-exact pure-Rust engine"]
+    assert labels == ["Lowest Isosyll WER yet (v4.2.0 final)", "Fastest, with the lowest measured energy", "Two small artifacts",
+                      "Bit-exact pure-Rust engine"]
     assert all(len(b.splitlines()) == 1 for b in re.findall(r"^- \*\*.*$", block, flags=re.M)), "one source line per bullet"
 
 
@@ -428,7 +430,7 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
 def test_headline_precision_gate_scope_and_install_sample_are_exact():
     readme = (pd.REPO / "README.md").read_text()
     block = (DATA / "money_readme.md").read_text()
-    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "4.27%", "4.32%", "2.34%", "paired R9 full-panel",
+    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "4.24%", "4.32%", "2.34%", "paired R9 full-panel",
                  "+0.09 [−0.12, +0.30] pp",
                  "| J/audio-s |", "idle-subtracted", "paired R8 full-panel", "160 ms chunks"):
         assert must in block, must
