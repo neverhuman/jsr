@@ -81,7 +81,7 @@ fn verify_detects_mismatch_and_version_line() {
     std::fs::write(root.join("MANIFEST"), format!("{good}  arch.json\n")).unwrap();
     let m = ModelDir { root: root.clone() };
     assert_eq!(verify(&m, |_, _| {}).unwrap(), (1, 0));
-    assert!(version_line(Some(&m)).starts_with("isosyll 4.0.0 ("));
+    assert!(version_line(Some(&m)).starts_with("isosyll 4.1.0 ("));
     assert!(version_line(Some(&m)).contains(
         &hex(&Sha256::digest(
             std::fs::read(root.join("MANIFEST")).unwrap()

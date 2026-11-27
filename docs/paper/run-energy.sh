@@ -18,6 +18,10 @@
 #   run-energy.sh r7-live-lm NAME SET            Isosyll live +LM, RC2 160 ms, LM c4 v2 (3bd85e9e binaries)
 #   run-energy.sh r7-final NAME SET              Isosyll final: commit pass, M5 LM, beam 16 (3bd85e9e)
 #   run-energy.sh r7-zipformer NAME SET          Zipformer INT8, sherpa streaming, through the 3bd85e9e cold binary
+#   R8 release campaign (v4.1.0): v4.1.0 live and final settings on the R7 binaries, with another INT8 model directory:
+#   run-energy.sh r8-live-lm NAME SET MODEL_DIR  Isosyll v4.1.0 live: 160 ms, beam 12, margin 4, blank penalty 0.24, compact M5 LM
+#                                                (lms-v41/M5.v2.ulm), MODEL_DIR weights (3bd85e9e ultra-cold-wav)
+#   run-energy.sh r8-final NAME SET MODEL_DIR    Isosyll final: commit pass, M5 LM, beam 16, MODEL_DIR weights (3bd85e9e)
 #   run-energy.sh vosk NAME SET small|large      Vosk 0.3.45, 20 ms packets
 #   run-energy.sh whispercpp NAME SET tiny|base  whisper.cpp 1.8.2 through pywhispercpp, 3 s chunks
 #   run-energy.sh onnxasr NAME SET               Parakeet TDT v3 INT8, onnx-asr, whole utterance
@@ -179,6 +183,34 @@ with open(out, "w") as w:
 PY
         measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$r6/model_rc2" --hash "$m5" \
             -- "$r6/bin/ultra-engine-commit" --model "$r6/model_rc2" --manifest "$root/$manifest" \
+            --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --commit-lm "$m5" --lm-scale 0.80 \
+            --lodr-scale 0.60 --token-bonus 0.0 --tail-pad-ms 320 --threads 1 \
+            --out "runs/out/$1/rep{rep}-w{worker}.commit.jsonl"
+        ;;
+    r8-live-lm)
+        # The v4.1.0 live defaults on the R7 binary: beam 12, margin 4, blank penalty 0.24, compact M5 LM.
+        mapfile -t set < <(audio "$2")
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$3" --hash "$root/lms-v41/M5.v2.ulm" \
+            -- "$r6/bin/ultra-cold-wav" --chunk 4 --beam 12 --beam-max-symbols 1 --beam-margin 4.0 \
+            --lm "$root/lms-v41/M5.v2.ulm" --lm-weight 0.70 --lodr-weight 0.50 --blank-penalty 0.24 \
+            r1-engine-int8 "$3" "audio/$2" "runs/out/$1/rep{rep}-w{worker}.jsonl"
+        ;;
+    r8-final)
+        # r7-final with the model directory as an argument; binary, LM and flags unchanged.
+        mapfile -t set < <(audio "$2")
+        m5=$opp/bench-open/assays/l4-kit/M5.ulm
+        manifest=runs/r8/manifest-$2.jsonl
+        mkdir -p runs/r8
+        python3 - "$root" "$2" "$manifest" <<'PY'
+import json, sys
+root, name, out = sys.argv[1:]
+rows = json.load(open(f"{root}/audio/{name}.audio.json"))
+with open(out, "w") as w:
+    for row in rows:
+        w.write(json.dumps({"uid": row["id"], "wav": f"{root}/audio/{name}/{row['id']}.wav"}) + "\n")
+PY
+        measure "$1" 1 1 "${threads[@]}" "${set[@]}" --hash "$3" --hash "$m5" \
+            -- "$r6/bin/ultra-engine-commit" --model "$3" --manifest "$root/$manifest" \
             --commit-chunk 16 --commit-beam 16 --max-sym-per-frame 1 --commit-lm "$m5" --lm-scale 0.80 \
             --lodr-scale 0.60 --token-bonus 0.0 --tail-pad-ms 320 --threads 1 \
             --out "runs/out/$1/rep{rep}-w{worker}.commit.jsonl"

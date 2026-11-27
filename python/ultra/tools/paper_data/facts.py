@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .cold import speed_text
-from .compare import FULL_DEV, _rel
+from .compare import CURRENT, FULL_DEV, _rel
 from .common import fmt
 from .evidence import HEADLINE, derived
 from .records import Records
@@ -72,13 +72,14 @@ def add_facts(root: Path, rows: list[dict], headline: dict, rec: Records, extras
         comparison = tuple(quiet_ours + top_quiet)
 
     # 1. Accuracy (panel 730 utt + full DEV 5,567 utt)
-    current = head["variant"].startswith("rc2")  # delay, package energy and the 16-stream capacity belong to the prior release
+    current = head["variant"].startswith(CURRENT)  # delay, package energy and the 16-stream capacity belong to the prior release
     def _rv(new: str, old: str) -> str | None:
         key = new if current else old
         return rec.rows[key]["value"] if key in rec.rows else None
-    full_final = _rv("CandFinalFullWer", "RelFullFinalPooled")
-    full_clean = _rv("CandFinalFullClean", "RelFullFinalClean")
-    full_other = _rv("CandFinalFullOther", "RelFullFinalOther")
+    v41 = head["variant"].startswith("v41")
+    full_final = _rv("LookFinalFullWer" if v41 else "CandFinalFullWer", "RelFullFinalPooled")
+    full_clean = _rv("LookFinalFullClean" if v41 else "CandFinalFullClean", "RelFullFinalClean")
+    full_other = _rv("LookFinalFullOther" if v41 else "CandFinalFullOther", "RelFullFinalOther")
     full_live = (rec.rows[FULL_DEV[live["variant"]]]["value"] if has_live and current and live["variant"] in FULL_DEV
                  else rec.rows["RelFullLivePooled"]["value"] if "RelFullLivePooled" in rec.rows else None)
     panel_live = (fmt(lv["wer"], 2) if has_live else

@@ -1,7 +1,8 @@
 \section{Model}\label{sec:model}
 
-\para{Artifact.} We evaluate the v4.0.0 release. One prepared INT8
-artifact serves two operating points, \emph{\ultra{} live} and \emph{\ultra{} final}.
+\para{Artifact.} We evaluate the v4.1.0 release. One prepared INT8
+artifact serves two operating points, \emph{\ultra{} live} and \emph{\ultra{} final}; its weights come from a
+short fine-tune (450 steps) with the architecture below unchanged.
 
 \para{Streaming Conformer transducer.} \ultra{} is a dense 16-block streaming
 Conformer~\cite{gulati2020conformer} RNN-T~\cite{graves2012rnnt} with a stateless
@@ -15,8 +16,8 @@ pre-norm residuals. The predictor embeds the last two non-blank tokens into a 32
 
 \para{\ultra{} live (160\,ms).} The encoder consumes 160\,ms chunks (four 25\,Hz frames) with a
 bounded left context of 128 frames (\LeftCtxSec\,s) and zero right context, so streaming inference
-matches training exactly. Words are emitted continuously, beam 4 with a compact live LM, without an
-endpoint detector.
+matches training exactly. Words are emitted continuously, without an endpoint detector, from a beam search of width 12 with a
+4-nat score margin, a blank penalty and a compact pruned 5-gram live LM (243\,MiB).
 
 \para{\ultra{} final (640\,ms + LM/LODR).} At each utterance endpoint, a second-pass commit decoder
 (\cref{fig:arch}) re-encodes the buffered segment (up to a 40\,s cap) with 640\,ms chunks (16 frames)

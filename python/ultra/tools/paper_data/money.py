@@ -137,10 +137,8 @@ def _note(rec: Records, rows: list[dict], pts: list[dict], axis: dict | None) ->
 
 HERO_VARIANTS = {
     # Our 4 operating points on one 60 MB INT8 artifact (quiet H1, same interleaved blocks)
-    "LiveLmWide": "rc2-live-lm320",
-    "LiveLm": "rc2-live-lm",
-    "LiveGreedy": "rc2-live-greedy",
-    "Final": "rc2-final",
+    "LiveLm": "v41-live-lm",
+    "Final": "v41-final",
     # All 12 timed Zen 2 public comparators (quiet H1 primary, plus 3 H0 interim rows)
     "Zip": "r0-int8-r6",
     "MoonTiny": "moonshine-tiny",
@@ -155,7 +153,7 @@ HERO_VARIANTS = {
     "WhisperTiny": "whispercpp-stream-tiny",
     "WhisperBase": "whispercpp-stream-base",
 }
-_HERO_QUIET_FULL = {"rc2-live-lm320", "rc2-live-lm", "rc2-live-greedy", "rc2-final", "r0-int8-r6", "parakeet-v3-onnxasr-int8"}
+_HERO_QUIET_FULL = {"v41-live-lm", "v41-final", "r0-int8-r6", "parakeet-v3-onnxasr-int8"}
 
 
 def hero_rows(rows: list[dict]) -> dict[str, dict]:
@@ -183,14 +181,15 @@ def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
     """Figure 1 headline and README summary. The figure draws live +LM at 160 ms and final only."""
     d = {label: derived(row) for label, row in hero.items()}
     live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
-    gap_c = rec.rows["CandLiveLmCDelta"]["value"].replace("$-$", "\u2212")
-    headline = (f"Isosyll vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
-                f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER at 160 ms; "
-                f"{gap_c} pp on unselected DEV) and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
+    gap_c = rec.rows["LookLiveCZipDelta"]["value"].replace("$-$", "\u2212")
+    headline = (f"Isosyll v4.1.0 vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
+                f"live +LM runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% WER, "
+                f"{fmt(live['wer_clean'], 2)}% dev-clean at 160 ms; {gap_c} pp vs. Zipformer on unselected DEV) "
+                f"and the utterance-end commit pass reaches {fmt(fin['wer'], 2)}% at {speed_text(fin['speed'])}\u00d7 "
                 f"vs. Zipformer INT8 at {speed_text(zip_['speed'])}\u00d7 ({fmt(zip_['watts'], 3)} J/audio-s, {fmt(zip_['wer'], 2)}%); "
-                f"J/audio-s from the paired R6 full-panel run.")
+                f"J/audio-s from the paired full-panel runs (R8 for v4.1.0, R6 for Zipformer).")
     subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, {fmt(live['wer'], 2)}% "
-                f"\u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
+                f"({fmt(live['wer_clean'], 2)}% clean) \u00b7 Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['wer'], 2)}%")
     return {"headline": headline, "subtitle": subtitle}
 
 
@@ -308,9 +307,10 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
                             + floor[-1] + " (floor included; not a paired ratio). ")
     macros["AnyNotMetered"] = int(len(energy) < len(HERO_PLOTTED))
     macros["AnyFaded"] = int(any(chosen[k]["faded"] for k in HERO_PLOTTED))
-    for key, tag, mode in (("Panel", "Panel", "LiveLm"), ("C", "C", "LiveLm"), ("CWide", "C", "LiveLmEight")):
-        macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"Cand{mode}{tag}{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
-    macros["GapCDelta"] = rec.rows["CandLiveLmCDelta"]["value"]
+    for key, tag in (("Panel", "Panel"), ("C", "C")):  # v4.1.0 live vs. Zipformer INT8, paired (look41.py)
+        macros["Gap" + key] = "%s [%s, %s]" % tuple(rec.rows[f"LookLive{tag}Zip{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
+    macros["GapCWide"] = "%s [%s, %s]" % tuple(rec.rows[f"CandLiveLmEightC{x}"]["value"] for x in ("Delta", "Lo", "Hi"))
+    macros["GapCDelta"] = rec.rows["LookLiveCZipDelta"]["value"]
     macros["GapCWideDelta"] = rec.rows["CandLiveLmEightCDelta"]["value"]
     return [f"\\def\\Hero{key}{{{value}}}%" for key, value in macros.items()]
 
@@ -366,7 +366,7 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
     spec = tuple((p["id"], p["plain"], p["role"] == "ours", *to_pt(p["speed"], p["wer"]), MARK_R[p["role"]]) for p in pts)
     quiet_full = {p["id"]: p for p in pts if p["frontier"] and p["row"]["timing_panel"] == "full"}
     zipformer = quiet_full.get("r0-int8-r6-zen2-t1")
-    live = quiet_full.get("rc2-live-lm-zen2-t1")
+    live = quiet_full.get("v41-live-lm-zen2-t1")
     speed_gap, reserved = "", ()
     if zipformer and live and live["speed"] > zipformer["speed"]:
         left = to_pt(zipformer["speed"], 0)[0]
@@ -419,12 +419,18 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         grey = f"; grey = not metered: {', '.join(unmetered)}" if unmetered else ""
         metered = hero_energy(hero)
         one_campaign = bool(metered) and all(hero[k].get("energy_idle_subtracted_n_clean") for k in metered)
-        if one_campaign:  # every colour is an R7 value: say where the energy comes from and how it relates to the R6 callout
+        r8 = [k for k in metered if hero[k].get("energy_protocol") == "R8"]
+        if one_campaign and not r8:  # every colour is an R7 value: say where the energy comes from and how it relates to the R6 callout
             pct = fmt(100.0 * metered["LiveLm"] / metered["Zip"], 0)
             energy = ("; energy is all from the R7 matched campaign on the \\RsevenClips-clip subset (AMD core-energy registers, "
                       f"{floor_txt}, median over \\RsevenCleanMin--\\RsevenCleanMax\\ clean counterbalanced blocks, "
                       f"not wall power{grey}; the \\VsEnergyPctOne\\% callout is the paired R6 full-panel run; "
                       f"the R7 colours give {pct}\\%)")
+        elif one_campaign:  # R8 rows (v4.1.0): same idle-subtracted protocol on the full panel, comparators from R7
+            names = " and ".join(_tex(hero[k]["short"]) for k in r8)
+            energy = (f" (AMD core-energy registers, {floor_txt}, median over core-clean counterbalanced blocks; {names} from the "
+                      "R8 full-panel blocks, others in separate sessions (the R7 matched campaign on the \\RsevenClips-clip subset); "
+                      f"the \\VsEnergyPctOne\\% callout is the paired R8 ratio to Zipformer INT8; not wall power{grey})")
         else:
             energy = (f" (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, "
                       f"others in separate sessions; not wall power{grey})")

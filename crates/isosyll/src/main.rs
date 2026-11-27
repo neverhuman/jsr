@@ -1,4 +1,4 @@
-//! `isosyll`: pure-Rust streaming speech recognition with the v4.0.0 release decoders.
+//! `isosyll`: pure-Rust streaming speech recognition with the v4.1.0 release decoders.
 
 mod args;
 mod decode;

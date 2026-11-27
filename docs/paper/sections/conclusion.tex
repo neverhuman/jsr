@@ -5,7 +5,7 @@ presented \ultra{}, a compact streaming Conformer transducer and pure-Rust integ
 evaluated directly against all \ColdComparatorCount{} timed public open-weights CPU
 comparators on the same 730-utterance LibriSpeech DEV panel. From one \ColdHeadModel\,MB INT8 artifact on
 one pinned quiet Zen~2 core, \ultra{} live streams at \ColdLiveSpeed$\times$ real time and
-\ColdLiveWatts\,J/audio-s (\ColdLiveWer\% panel / \CandLiveLmFullWer\% full DEV, \ColdLiveRss\,MB RAM); an
+\ColdLiveWatts\,J/audio-s (\ColdLiveWer\% panel / \LookLiveFullWer\% full DEV, \ColdLiveRss\,MB RAM); an
 utterance-end final pass on the same weights reaches \ColdHeadWer\% panel WER. Transcripts reproduce bit-identically across \CandIsaRuns{} x86 and ARM
-witness decodes. \ultra{} live trails Zipformer INT8 on unselected DEV (\CandLiveLmCDelta\pp). All
+witness decodes. On unselected DEV, \ultra{} live is not significantly different from Zipformer INT8 (\LookLiveCZipDelta\pp). All
 results are exploratory and use development data only.

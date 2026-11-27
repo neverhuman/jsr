@@ -1,5 +1,5 @@
 {
-  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Headline: Isosyll v3.1.0 (RC2 INT8, live +LM and utterance-segmented final) beside Zipformer INT8 timed in the same interleaved blocks and the other public CPU comparators on the same 730-utterance LibriSpeech DEV panel; v3.0.0 is the prior release (kept for history). The extra v3.1.0 modes appear in Fig. 1 only (plot false).",
+  "_comment": "Paper-side presentation of measured variants (docs/paper/data/README.md). Headline: Isosyll v4.1.0 (H247 INT8 weights; live +LM with the beam-12 compact-M5 decoder, and the utterance-segmented final) timed in the R8 paired blocks with Zipformer INT8 anchors, beside the other public CPU comparators on the same 730-utterance LibriSpeech DEV panel. v3.1.0 (RC2, also the v4.0.0 weights) is the previous release and v3.0.0 the one before it (kept for history; plot false).",
   "variants": {
     "rc1-ema-live": {
       "system": "ULTRA v3.0.0 (live)",
@@ -205,7 +205,7 @@
       "checkpoint": "v3.1.0 (live +LM)",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "rc2-live-lm320": {
       "system": "ULTRA v3.1.0 (live 320 ms)",
@@ -229,7 +229,7 @@
       "checkpoint": "v3.1.0 (final, seg.)",
       "runtime_short": "ours",
       "segmenter": "no",
-      "plot": true
+      "plot": false
     },
     "r0-int8-r6": {
       "system": "Zipformer INT8",
@@ -244,25 +244,49 @@
       ],
       "segmenter": "no",
       "plot": true
+    },
+    "v41-live-lm": {
+      "system": "ULTRA v4.1.0 (live +LM)",
+      "short": "ULTRA v4.1.0 live +LM",
+      "macro": "VFourLiveLm",
+      "order": 7,
+      "text": "\\ultra{} v4.1.0 (live +LM)",
+      "detail": "v4.1.0 INT8 (H247), 160 ms live stream, beam 12 with the 243 MiB compact M5 LM",
+      "checkpoint": "v4.1.0 (live +LM)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": true
+    },
+    "v41-final": {
+      "system": "ULTRA v4.1.0 (final, seg.)",
+      "short": "ULTRA v4.1.0 final seg.",
+      "macro": "VFourFinal",
+      "order": 8,
+      "text": "\\ultra{} v4.1.0 (final, seg.)",
+      "detail": "v4.1.0 INT8 (H247), commit pass at utterance ends (M5 LM, beam 16)",
+      "checkpoint": "v4.1.0 (final, seg.)",
+      "runtime_short": "ours",
+      "segmenter": "no",
+      "plot": true
     }
   },
   "headline": {
-    "ours": "rc2-final",
-    "ours_live": "rc2-live-lm"
+    "ours": "v41-final",
+    "ours_live": "v41-live-lm"
   },
-  "release": "v3.1.0",
+  "release": "v4.1.0",
   "versus": {
     "comparator": "r0-int8-r6",
     "pairs": [
       {
         "mode": "live",
-        "variant": "rc2-live-lm",
-        "paired": "raw/versus/v310/zip-vs-rc2-live_c4_lm.panel730.score.json"
+        "variant": "v41-live-lm",
+        "paired": "raw/versus/v410/zip-vs-v41-live.panel730.score.json"
       },
       {
         "mode": "final",
-        "variant": "rc2-final",
-        "paired": "raw/versus/v310/zip-vs-rc2-final_m5.panel730.score.json"
+        "variant": "v41-final",
+        "paired": "raw/versus/v410/zip-vs-v41-final.panel730.score.json"
       }
     ],
     "prior": [

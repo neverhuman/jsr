@@ -98,7 +98,8 @@ def _merge(rows: list[dict], sidecars: list[dict]) -> None:
                 raise PaperDataError(f"{s['_where']}: energy_method must be core_idle_subtracted")
             target["energy_idle_subtracted"] = float(s["energy_j_per_audio_s"])
             target["energy_idle_subtracted_n_clean"] = s.get("n_clean")
-            target["energy_r7_source"] = (f"docs/paper/data/evidence/{s['_where']} id={tid}; R7 receipt "
+            target["energy_protocol"] = s.get("protocol", "R7")  # R8: the v4.1.0 full-panel follow-up, same protocol
+            target["energy_r7_source"] = (f"docs/paper/data/evidence/{s['_where']} id={tid}; {s.get('protocol', 'R7')} receipt "
                                           f"{s.get('receipt')} sha256 {str(s.get('receipt_sha256'))[:12]}")
             continue
         target = by_id.get(s.get("row", s.get("id")))

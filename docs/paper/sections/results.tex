@@ -7,10 +7,10 @@ open-weights CPU comparator. \ColdHostSentence{} \ColdSubsetSentence{}
 
 \para{Speed and power.} On one quiet Zen~2 core, \ultra{} live decodes cold at \ColdLiveSpeed$\times$
 real time (\ColdLiveRss\,MB peak memory) at \ColdLiveWer\% pooled panel WER; \ultra{} final runs at
-\ColdHeadSpeed$\times$. \ColdMemorySentence{} In the paired R6 full-panel blocks, live is
-\ColdLiveWatts\,J per audio-second, \VsEnergyPctOne\% of Zipformer INT8 (\ColdZipRsixWatts\,J), and
-final is \ColdHeadWatts\,J. The R7 matched campaign, which idle-subtracts every plotted system,
-corroborates this: \RsevenLiveEnergy\,J vs.\ \RsevenZipEnergy\,J (\RsevenEnergyPct\%). At utterance
+\ColdHeadSpeed$\times$. \ColdMemorySentence{} In the paired R8 full-panel blocks, live is
+\ColdLiveWatts\,J per audio-second, \VsEnergyPctOne\% of the Zipformer INT8 anchor timed in the same blocks (R6 row:
+\ColdZipRsixWatts\,J), and final is \ColdHeadWatts\,J. The R7 matched campaign, which idle-subtracts every plotted comparator,
+puts Zipformer INT8 at \RsevenZipEnergy\,J on its \RsevenClips-clip subset. At utterance
 endpoints the commit pass runs at \ColdFinalCorePct\% of one core (\ColdFinalVsZipSpeed).
 
 \para{Accuracy.} The utterance-end \ultra{} final pass on the same weights reaches \ColdHeadWer\% pooled panel
@@ -22,19 +22,19 @@ achieve lower WER at much higher CPU cost and, where metered, higher energy.
 
 Zipformer INT8 is the strongest public streaming comparator near our cost point and the teacher of our
 pseudo-labels, so we compare against it directly on the same utterances and core (\cref{tab:versus}),
-timed in the same three interleaved blocks on quiet H1; speed, energy and memory ratios are medians of
+timed in the same three interleaved blocks on quiet H1 (R8); speed, energy and memory ratios are medians of
 within-block ratios, and WER differences are paired with speaker-cluster bootstrap. Because the
 730-utterance panel overlaps the selection half of DEV, we also report the unselected confirmation half
-(C, \CandCUtts{} utterances): there, \ultra{} live trails Zipformer by \CandLiveLmCDelta\pp (bounds
-\CandLiveLmCLo{} to \CandLiveLmCHi). \ultra{} live uses \VsCpuPctOne\% of Zipformer's CPU time
-(\VsSpeedXOne$\times$ throughput), \VsEnergyPctOne\% of its active core energy (paired R6 blocks), and \VsRssPctOne\% of its
+(C, \LookCUtts{} utterances), decoded once for the frozen release: there, \ultra{} live is \LookLiveCZipDelta\pp from
+Zipformer (bounds \LookLiveCZipLo{} to \LookLiveCZipHi), not a significant difference. \ultra{} live uses \VsCpuPctOne\% of Zipformer's CPU time
+(\VsSpeedXOne$\times$ throughput), \VsEnergyPctOne\% of its active core energy (paired R8 blocks), and \VsRssPctOne\% of its
 memory with half the chunk (\VsChunkOne\,ms vs.\ \VsZipChunk\,ms); its panel WER is \VsVerdictOne{}
 Zipformer's (\VsDeltaOne\pp, bounds \VsLoOne{} to \VsHiOne\pp). \ultra{} final is \VsVerdictTwo{}
-Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp; \CandFinalCDelta\pp on C) at
+Zipformer's (\VsDeltaTwo\pp, bounds \VsLoTwo{} to \VsHiTwo\pp; lower on C at \LookFinalCZipDelta\pp, bounds \LookFinalCZipLo{} to \LookFinalCZipHi) at
 \VsSpeedXTwo$\times$ its single-core speed and \VsEnergyPctTwo\% of its active core energy.
 
 On full LibriSpeech DEV (\RelFullUtts{} utterances, which contains the selection half and is therefore
-descriptive), \ultra{} live reaches \CandLiveLmFullClean\% dev-clean, \CandLiveLmFullOther\% dev-other
-and \CandLiveLmFullWer\% pooled WER; \ultra{} final reaches \CandFinalFullWer\% pooled.
+descriptive), \ultra{} live reaches \LookLiveFullClean\% dev-clean, \LookLiveFullOther\% dev-other
+and \LookLiveFullWer\% pooled WER; \ultra{} final reaches \LookFinalFullWer\% pooled.
 
 \input{data/table_versus.tex}
