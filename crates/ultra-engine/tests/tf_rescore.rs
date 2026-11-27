@@ -135,7 +135,7 @@ impl Fp32Tf {
             .flat_map(|&tok| self.emb[tok * d..(tok + 1) * d].iter().copied())
             .collect();
         let inv_f: Vec<f32> = (0..hd / 2)
-            .map(|j| 1.0 / c.rope_theta.powf((2 * j) as f32 / hd as f32))
+            .map(|j| (1.0 / f64::from(c.rope_theta).powf((2 * j) as f64 / hd as f64)) as f32)
             .collect();
         let sc = 1.0 / (hd as f32).sqrt();
         for l in 0..c.n_layers {
@@ -146,7 +146,8 @@ impl Fp32Tf {
                         let sl =
                             &mut qkv[t * 3 * d + off + hh * hd..t * 3 * d + off + (hh + 1) * hd];
                         for j in 0..hd / 2 {
-                            let (s, cs) = ((t as f32) * inv_f[j]).sin_cos();
+                            let (s, cs) = f64::from((t as f32) * inv_f[j]).sin_cos();
+                            let (s, cs) = (s as f32, cs as f32);
                             let (a, b) = (sl[2 * j], sl[2 * j + 1]);
                             (sl[2 * j], sl[2 * j + 1]) = (a * cs - b * s, a * s + b * cs);
                         }

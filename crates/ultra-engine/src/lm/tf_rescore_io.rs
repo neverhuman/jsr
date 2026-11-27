@@ -234,7 +234,9 @@ impl TfRescorer {
 fn build_rope(ctx: usize, hd: usize, theta: f32) -> (Vec<f32>, Vec<f32>) {
     let half = hd / 2;
     let inv: Vec<f32> = (0..half)
-        .map(|j| 1.0f32 / theta.powf((2 * j) as f32 / hd as f32))
+        // f64 then round: libm f32 powf/sin_cos differ between glibc and macOS,
+        // which flipped 3/730 panel words; f64-rounded tables are bit-identical.
+        .map(|j| (1.0 / f64::from(theta).powf((2 * j) as f64 / hd as f64)) as f32)
         .collect();
     let (mut cos, mut sin) = (
         Vec::with_capacity(ctx * half),
@@ -242,10 +244,33 @@ fn build_rope(ctx: usize, hd: usize, theta: f32) -> (Vec<f32>, Vec<f32>) {
     );
     for p in 0..ctx {
         for &f in &inv {
-            let (s, c) = ((p as f32) * f).sin_cos();
+            let (s, c) = f64::from((p as f32) * f).sin_cos();
+            let (s, c) = (s as f32, c as f32);
             cos.push(c);
             sin.push(s);
         }
     }
     (cos, sin)
+}
+
+#[cfg(test)]
+mod rope_tests {
+    use super::build_rope;
+
+    fn fnv(v: &[f32]) -> u64 {
+        v.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, x| {
+            (h ^ u64::from(x.to_bits())).wrapping_mul(0x0100_0000_01b3)
+        })
+    }
+
+    /// Golden hash shared by x86_64 glibc/musl, aarch64 linux and macOS:
+    /// the t2 reranker must give the same words on every release target.
+    #[test]
+    fn rope_tables_are_platform_identical() {
+        let (c, s) = build_rope(512, 64, 10_000.0);
+        assert_eq!((fnv(&c), fnv(&s)), (GOLD_COS, GOLD_SIN));
+    }
+
+    const GOLD_COS: u64 = 0xdbae_a756_5b6e_1d6c;
+    const GOLD_SIN: u64 = 0xb905_ab5c_0729_1438;
 }
