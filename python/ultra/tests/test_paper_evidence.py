@@ -331,11 +331,11 @@ def test_money_speed_comparison_uses_true_positions():
     layout = (DATA / "money_layout.tex").read_text()
     ticks = re.search(r"\\def\\MoneyXticks\{([\d,]+)\}", layout)
     assert ticks
-    assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 41, 5))
+    assert [int(tick) for tick in ticks[1].split(",")] == list(range(0, 36, 5))
     _, _, marks = _boxes()
-    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.3\$\\times\$ as fast as Zipformer INT8", layout)
+    arrow = re.search(r"\\def\\MoneySpeedGap\{.*?xshift=([\d.]+)pt.*?xshift=([\d.]+)pt.*?2\.2\$\\times\$ as fast as Zipformer INT8", layout)
     assert arrow
-    for x, row in zip(arrow.groups(), ("r0-int8-r6-zen2-t1", "rc2-live-lm-zen2-t1")):
+    for x, row in zip(arrow.groups(), ("r0-int8-r6-zen2-t1", "v41-live-lm-zen2-t1")):
         left, _, right, _ = marks[row]
         assert float(x) == pytest.approx((left + right) / 2, abs=0.01)
 
@@ -487,6 +487,20 @@ def test_v31_rows_reproduce_the_audited_r6_medians():
     # WER of the same 730-utterance panel, from the confirmatory look
     assert {a: rows[a]["wer_pct"] for a in rows} == {
         "live_c4_greedy": 6.2292, "live_c4_lm": 5.5371, "live_c8_lm": 5.4956, "final_m5": 4.9972, "zipformer_anchor": 5.2533}
+
+
+def test_v41_rows_reproduce_the_r8_receipts():
+    """The committed v4.1.0 evidence rows are exactly what the R8 receipts and the v4.1.0 panel scores give."""
+    from tools.paper_data import v41_rows
+
+    committed = (DATA / "evidence" / "xbabe0-v41-release.jsonl").read_text(encoding="utf-8")
+    assert committed == v41_rows.text(pd.REPO), "evidence/xbabe0-v41-release.jsonl is stale: python -m tools.paper_data.v41_rows"
+    rows = {r["variant"]: r for r in map(json.loads, committed.splitlines()) if r.get("kind") is None}
+    assert set(rows) == {"v41-live-lm", "v41-final"}
+    assert {v: rows[v]["wer_pct"] for v in rows} == {"v41-live-lm": 5.0803, "v41-final": 5.0249}
+    assert all(len(r["cpu_reps"]) == 3 and r["timing_panel"] == "full" for r in rows.values())
+    r7 = [r for r in map(json.loads, committed.splitlines()) if r.get("kind") == "r7_energy"]
+    assert {r["protocol"] for r in r7} == {"R8"} and all(r["anchor_check"] == "VALID" for r in r7)
 
 
 def test_hero_energy_ramp_is_monotone_in_lightness_and_range_adapts():

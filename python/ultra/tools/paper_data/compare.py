@@ -36,7 +36,9 @@ def _rel(h_speed: float, f_speed: float, name: str, ratio: float | None = None) 
 
 
 # Full-DEV pooled WER macros of the v3.1.0 rows (candidate.py), keyed by evidence variant.
-FULL_DEV = {"rc2-live-lm": "CandLiveLmFullWer", "rc2-live-greedy": "CandLiveGreedyFullWer", "rc2-final": "CandFinalFullWer"}
+FULL_DEV = {"rc2-live-lm": "CandLiveLmFullWer", "rc2-live-greedy": "CandLiveGreedyFullWer", "rc2-final": "CandFinalFullWer",
+            "v41-live-lm": "LookLiveFullWer", "v41-final": "LookFinalFullWer"}  # v4.1.0: look41.py
+CURRENT = ("rc2", "v41")  # releases whose commit delay and capacity were measured on an earlier release
 
 
 def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict | None = None) -> None:
@@ -199,11 +201,12 @@ def add_comparison(rows: list[dict], headline: dict, rec: Records, extras: dict 
     full_final = full(head["variant"], "RelFullFinalPooled", fmt(h["wer"], 2))
     panel_live = rec.rows["RelPanelLivePooled"]["value"] if "RelPanelLivePooled" in rec.rows else "--"
     full_live = full(live["variant"], "RelFullLivePooled", "--") if has_live else "--"
-    released_now = head["variant"].startswith("rc2")  # the commit delay and live capacity were measured on the prior release
+    released_now = head["variant"].startswith(CURRENT)  # the commit delay and live capacity were measured on the prior release
     delay = (f"a post-endpoint commit delay (median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms measured on the prior "
              "release, not re-measured)" if released_now else
              f"a median {rec.rows['RelCommitDelayPfifty']['value']}\\,ms post-endpoint commit delay")
     decode = ("chunked greedy decoding" if has_live and "greedy" in live["configuration"] else
+              "chunked beam-12 decoding with a 243\\,MiB compact live language model" if has_live and "beam 12" in live["configuration"] else
               "chunked decoding with a 34.5\\,MiB live language model")
     pair_x = (head.get("paired_vs_anchor") or {}).get("speed")
     speed_rel = _rel(h["speed"], fast["_d"]["speed"], _name(fast), pair_x) if fast else ""

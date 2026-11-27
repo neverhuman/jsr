@@ -13,7 +13,7 @@ from .heat import SHOW_FINAL, cell as heat_cell, scale
 from .macros import tex_escape
 
 COLUMNS = 9  # system, runtime, 1-core speed, clean/other/pooled WER, RSS, artifact, energy (R7 J/audio-s, one method)
-_OURS_NAME = {"rc2-live-lm": "Isosyll live (160\\,ms, +LM)", "rc2-final": "Isosyll final (commit pass)"}
+_OURS_NAME = {"v41-live-lm": "Isosyll live (160\\,ms, +LM)", "v41-final": "Isosyll final (commit pass)"}
 GROUPS = (
     ("Our method: Isosyll (single 60 MB INT8 artifact, sorted by 1-core speed)",
      lambda r: r["role"] == "ours"),
@@ -73,7 +73,7 @@ def measured_table(rows: list[dict], extras: dict | None = None) -> str:
            "% peak RSS (MB), artifact files (MB), R7 idle-subtracted core J per audio-second."]
     plain = [r for r in rows if not r.get("anchor") and r["plot"]]
     zen_one = [r for r in plain if r["machine"] == "zen2" and r["threads"] == 1]
-    shown = [r for r in plain if r["role"] != "ours" or r["variant"] in (("rc2-live-lm", "rc2-final") if SHOW_FINAL else ("rc2-live-lm",))]  # one Isosyll row: live
+    shown = [r for r in plain if r["role"] != "ours" or r["variant"] in (("v41-live-lm", "v41-final") if SHOW_FINAL else ("v41-live-lm",))]  # one Isosyll row: live
     heat = _heat_colours([r for r in shown if r["machine"] == "zen2" and r["threads"] == 1] or shown)
     for machine in MACHINES:
         one = [r for r in shown if r["machine"] == machine and r["threads"] == 1]

@@ -1,7 +1,9 @@
 \section{Limitations}\label{sec:limitations}
 
 \para{Release gate.} The \ultra{} release is shipped by owner decision after missing its registered
-full-DEV final edit gate (\CandFinalFullEdits{} edits vs.\ \CandGateFinalFull).
+panel edit gates (live \LookLivePanelEdits{} edits vs.\ \CandGateLivePanel, final \LookFinalPanelEdits{} vs.\ \CandGateFinalPanel);
+it passes the full-DEV final edit gate (\LookFinalFullEdits{} vs.\ \CandGateFinalFull). It was selected on the DEV
+selection half and checked once on the unselected half.
 
 \para{Utterance-segmented final mode and memory.} \ultra{} live streams continuously without an endpoint
 detector. \ultra{} final needs utterance endpoints (capped at 40\,s), adds a post-endpoint commit delay
@@ -10,8 +12,8 @@ detector. \ultra{} final needs utterance endpoints (capped at 40\,s), adds a pos
 accuracy remains future work.
 
 \para{Live accuracy and next lever.} The endpoint-free live stream trades accuracy for extreme speed and
-low power: its gap to Zipformer INT8 on the unselected DEV C half is \CandLiveLmCDelta\pp
-(\cref{sec:versus}). Most live repair positions (\VfDiagInteriorPct\%) are common interior words on hard
+low power: on the unselected DEV C half its WER is \LookLiveCZipDelta\pp from Zipformer INT8's, within the
+bootstrap bounds, and it is not more accurate on dev-other (\cref{sec:versus}); its compact live LM raises peak memory to \ColdLiveRss\,MB. Most live repair positions (\VfDiagInteriorPct\%) are common interior words on hard
 audio, and probes of reranking, regularisation, and relabelling existing audio did not move clean live
 WER; further gains at this compute budget will need fresh acoustic diversity and stronger
 non-Zipformer supervision.
@@ -25,7 +27,8 @@ unchanged.
 
 \para{Host coverage, energy scope, and DEV-only claims.} \ColdHostSentence{} \ColdSubsetSentence{}
 Energy is active core (CPU-domain) joules per audio-second from RAPL registers, never board or wall
-power, measured unpaced; every plotted system is idle-subtracted in the R7 campaign on a
-\RsevenClips-clip subset while CI jobs ran on other cores, and the paired ratio is from the R6 blocks. All accuracy numbers are LibriSpeech DEV only;
+power, measured unpaced; every plotted comparator is idle-subtracted in the R7 campaign on a
+\RsevenClips-clip subset while CI jobs ran on other cores, and \ultra{} in the R8 full-panel blocks under the same protocol,
+which also give the paired ratio. All accuracy numbers are LibriSpeech DEV only;
 as disclosed in \cref{sec:protocol}, test-clean and test-other were read several times before our
 benchmark freeze.

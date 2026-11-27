@@ -103,7 +103,7 @@
 % ------------------------------------------------------------------ title block
 \node[anchor=south west,inner sep=0pt] at ([xshift=-30pt,yshift=26pt]matchedplot.north west) {%
   \begin{minipage}{474pt}%
-  \herokicker{474pt}{accent}{LIVE}{Isosyll 160\,ms chunk\enspace\textperiodcentered\enspace\ColdHeadModel\,MB INT8\enspace\textperiodcentered\enspace streaming}\par
+  \herokicker{474pt}{accent}{LIVE}{Isosyll v4.1.0\enspace\textperiodcentered\enspace 160\,ms chunk\enspace\textperiodcentered\enspace\ColdHeadModel\,MB INT8\enspace\textperiodcentered\enspace streaming}\par
   \vspace{5pt}
   {\sffamily\bfseries\fontsize{12.5}{15}\selectfont\color{ink}Isosyll vs.\ all \ColdComparatorCount{} timed public CPU speech recognizers\par}
   \vspace{1pt}
@@ -142,7 +142,9 @@
 
 \node[anchor=north west,font=\sffamily\fontsize{6.7}{8.1}\selectfont,text=sub,inner sep=0pt,align=left,text width=474pt]
   at ([xshift=-30pt,yshift=-34pt]matchedplot.south west) {%
-  \HeroEnergyNote Unselected DEV C-half, live +LM vs.\ Zipformer INT8: \HeroGapCDelta\,pp WER (160\,ms chunk).};
+  \HeroEnergyNote Unselected DEV C-half, live +LM vs.\ Zipformer INT8: \HeroGapCDelta\,pp WER (160\,ms chunk).
+  Clean audio (dev-clean, full DEV, descriptive): Isosyll live \LookLiveFullClean\%, final \LookFinalFullClean\% WER.
+  Energy: Isosyll live from the R8 full-panel blocks, comparators from the R7 campaign (same protocol).};
 \pgfresetboundingbox
 \path[use as bounding box]
   ([xshift=-32pt,yshift=-50pt]matchedplot.south west)

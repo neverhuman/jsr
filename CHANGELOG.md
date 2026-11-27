@@ -4,6 +4,24 @@ Workspace crates and published speech-recognition packages track their own
 versions. Model bundles carry content hashes. Qualification and signed asset
 details are in the [release records](docs/ultra/releases/).
 
+## v4.1.0 · 2026-11-27
+
+- New model and live decoder settings, same 60 MB INT8 architecture and the
+  same `isosyll` commands. Live text: 160 ms chunks, beam 12 with a 4.0 score
+  margin, blank penalty 0.24 and a larger compact live LM (`M5.v2`, 243 MiB).
+  Final text keeps its settings (commit chunk 16, beam 16, M5 LM).
+- DEV accuracy (730-utterance panel): live 5.08% WER (3.08% dev-clean),
+  down from 5.54%; final 5.02%. Full DEV: live 5.32%, final 5.09%
+  (dev-clean: live 2.84%, final 2.73%).
+  On the unselected DEV half, live is not significantly different from
+  Zipformer INT8 (+0.09 [−0.12, +0.30] pp) and final is lower (−0.26 pp).
+- One quiet Zen 2 core: live 31.5× real time at 0.331 J per audio-second,
+  2.22× Zipformer INT8's throughput at 57% of its energy (paired R8
+  blocks; AMD Threadripper PRO 3995WX, idle-subtracted core
+  registers). Final: 17.0× real time at 0.656 J per audio-second (113% of
+  Zipformer INT8's). Model archive sha256 `c5181748…`; all files in the signed
+  `SHA256SUMS`. [Release record](docs/ultra/releases/v4.1.0.md)
+
 ## v4.0.0 · 2026-11-26
 
 - Signed `isosyll` CLI for Linux x86-64, Linux arm64, and Apple silicon macOS.

@@ -35,7 +35,11 @@ const LODR_SCALE: f32 = 0.60;
 const TOKEN_BONUS: f32 = 0.0;
 // Live release flags.
 const LIVE_CHUNK: usize = 4;
-const LIVE_BEAM: usize = 4;
+// v4.1.0: beam 12 with a 4.0 log-prob margin, blank penalty 0.24 and the compact M5 live LM
+// (research H252: H247 step 450, DEV S-half).
+const LIVE_BEAM: usize = 12;
+const LIVE_BEAM_MARGIN: f32 = 4.0;
+const LIVE_BLANK_PENALTY: f32 = 0.24;
 const LIVE_LM_WEIGHT: f32 = 0.70;
 const LIVE_LODR_WEIGHT: f32 = 0.50;
 
@@ -69,7 +73,7 @@ pub(crate) fn live_engine(
     let cfg = LmConfig {
         lm_weight: LIVE_LM_WEIGHT,
         lodr_weight: LIVE_LODR_WEIGHT,
-        blank_penalty: 0.0,
+        blank_penalty: LIVE_BLANK_PENALTY,
     };
     Engine::new(Arc::clone(model), Isa::detect(), Precision::Int8)
         .map_err(e2s)?
@@ -77,7 +81,7 @@ pub(crate) fn live_engine(
         .with_max_chunks(1)
         .with_beam(LIVE_BEAM)
         .with_beam_max_symbols(1)
-        .with_beam_margin(0.0)
+        .with_beam_margin(LIVE_BEAM_MARGIN)
         .with_kv_int8(false)
         .with_endpoint_reset(0, 0)
         .with_live_only(live_only)

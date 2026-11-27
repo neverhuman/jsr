@@ -55,6 +55,7 @@ from .tables import measured_table
 from .versus import _paired, add_versus
 from .training import add_training
 from .candidate import add_candidate
+from .look41 import add_look41
 
 
 def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
@@ -65,18 +66,19 @@ def build(root: Path = REPO) -> tuple[dict[str, str], list[str]]:
     add_curated(root, rec)
     extras = add_release(root, rec)
     add_candidate(root, rec, out)
+    add_look41(root, rec)
     rows = load_evidence(root, rec, out)
     headline = presentation(root).get("headline", {})
     add_comparison(rows, headline, rec, extras)
     facts = add_facts(root, rows, headline, rec, extras)
     hero = hero_rows(rows)
-    if hero:  # Figure 1 headlines the v3.1.0 operating points (identical weights in v3.2.0): its sentences replace the v3.0.0 ones
+    if hero:  # Figure 1 headlines the v4.1.0 operating points (v3.1.0 live drawn as the previous release)
         sentences = hero_sentences(hero, rec)
-        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v3.1.0 measurements, identical weights in v3.2.0)",
+        rec.rows["MoneyHeadline"].update(value=tex(sentences["headline"]), configuration="Figure 1: what to see (v4.1.0 measurements; v3.1.0 live as the previous release)",
                                          source="; ".join(f"docs/paper/data/evidence/{r['_where']} id={r['id']}" for r in hero.values()))
         facts["figure"] = md(sentences["headline"])
         rec.add("HeroSubtitle", tex(sentences["subtitle"]).replace("\u00b7", "$\\cdot$"), unit="sentence", label="exploratory",
-                configuration="README summary line of the v3.1.0 foreground (identical weights in v3.2.0)", workload=hero["Zip"]["workload"],
+                configuration="README summary line of the v4.1.0 foreground", workload=hero["Zip"]["workload"],
                 workload_digest=hero["Zip"]["workload_digest"], source=rec.rows["MoneyHeadline"]["source"])
     nemotron_note = nemotron_timing_note(rows)
     watts = add_money(rows, out, rec, facts["comparison"], hero, nemotron_note)

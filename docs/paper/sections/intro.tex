@@ -12,7 +12,7 @@ live transcripts match across the tested SIMD kernels and batch sizes. \ultra{} 
 streaming Conformer transducer and an integer-exact pure-Rust CPU engine around a single
 \ColdHeadModel\,MB prepared INT8 artifact. \ultra{} live (160\,ms chunks, compact live LM, no endpoint
 detector) reaches \ColdLiveSpeed$\times$ real time at \ColdLiveWatts\,J per audio-second and
-\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \CandLiveLmFullWer\% full DEV). The same weights
+\ColdLiveRss\,MB peak RAM (\ColdLiveWer\% panel WER, \ColdVFourLiveLmWerClean\% dev-clean, \LookLiveFullWer\% full DEV). The same weights
 also power \ultra{} final, an utterance-end second pass (\cref{sec:model}) at \ColdHeadWer\% panel WER and
 \ColdHeadSpeed$\times$ real time.
 Every quantised GEMM accumulates exactly in int32, every activation row is quantised from its own
@@ -26,8 +26,8 @@ comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \begin{enumerate}
 \item \textbf{Fastest always-on streaming, lowest measured core energy.} \ultra{} live delivers
   \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
-  core energy per audio second in the paired R6 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live gap to Zipformer on unselected DEV of
-  \CandLiveLmCDelta\pp.
+  core energy per audio second in the paired R8 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live WER difference to Zipformer on unselected DEV of
+  \LookLiveCZipDelta\pp, inside the bootstrap bounds.
 \item \textbf{Reproducible integer-exact CPU engine.} A pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp, with batch-invariant execution and
   identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).

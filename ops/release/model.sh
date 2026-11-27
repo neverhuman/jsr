@@ -3,13 +3,14 @@
 #
 #   ops/release/model.sh INT8_BUNDLE.tar LIVE.ulm FINAL.ulm
 #
-# INT8_BUNDLE.tar is the signed RC2 bundle (int8/arch.json, weights.int8.safetensors,
-# tokens.txt, mel_fbank.f32, bpe.model). LIVE.ulm is the 160 ms live LM
-# (c4_p0_0_10_40.v2) and FINAL.ulm the commit-pass LM (M5). Writes
+# INT8_BUNDLE.tar is the INT8 bundle (arch.json, weights.int8.safetensors, tokens.txt,
+# mel_fbank.f32, bpe.model; v4.1.0: H247 step 450, v4.0.0: the signed RC2 bundle).
+# LIVE.ulm is the 160 ms live LM (v4.1.0: compact M5.v2; v4.0.0: c4_p0_0_10_40.v2)
+# and FINAL.ulm the commit-pass LM (M5). Writes
 # dist/isosyll-v<version>-model.tar.gz holding isosyll-model/ with a MANIFEST of
 # sha256 sums that `isosyll model verify` checks.
 set -Eeuo pipefail
-[ $# -eq 3 ] || { sed -n '3,10p' "$0" >&2; exit 2; }
+[ $# -eq 3 ] || { sed -n '3,11p' "$0" >&2; exit 2; }
 root=$(cd "$(dirname "$0")/../.." && pwd)
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/crates/isosyll/Cargo.toml" | head -n 1)
 out=${DIST_DIR:-$root/dist}

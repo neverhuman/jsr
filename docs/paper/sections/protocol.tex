@@ -23,15 +23,17 @@ host timers and CI paused; CI stayed active during R7, below). Rows measured ear
 \para{Energy.} On H1, CPU energy is read from the service core's RAPL energy register during the
 run, the core idle floor is subtracted, and the result is divided by decoded audio seconds (core domain
 only, not wall power); peak RSS is that of the recogniser process tree ($10^6$ bytes). The paired
-\ultra{}/Zipformer INT8 ratio comes from the interleaved R6 full-panel blocks, which Table~\ref{tab:versus} also reports;
-Figure~1 and Table~\ref{tab:measured} come from R7.
+\ultra{}/Zipformer INT8 ratio comes from the interleaved R8 full-panel blocks, which Table~\ref{tab:versus} also reports;
+in Figure~1 and Table~\ref{tab:measured} the comparators come from R7 and \ultra{} from R8.
 
 \para{R7 matched energy campaign.} R7 measured all \RsevenArms{} systems on one pinned core on a
 \RsevenClips-clip subset of the panel, in \RsevenBlocks{} counterbalanced blocks; each value is the median
 of an arm's core-clean blocks (\RsevenCleanMin--\RsevenCleanMax{} per arm). Full-panel anchors of
 \ultra{} live and Zipformer INT8 reproduce R6 within \RsevenAnchorLivePct\% and \RsevenAnchorZipPct\%.
 CI virtual machines were active on the host throughout R7; core-only metering and the core-clean rule
-bound their effect.
+bound their effect. R8 repeats this protocol for \ultra{} live and final on the full panel: three counterbalanced
+blocks beside two anchors (the R6 \ultra{} live configuration and Zipformer INT8); the block-1 anchors must reproduce R6
+within the preregistered tolerance, or the campaign is void.
 
 \para{Test-set disclosure and INT8 gate.} All accuracy numbers are LibriSpeech DEV only. Following our
 benchmark freeze protocol, LibriSpeech test-clean and test-other were read several times before the
