@@ -245,6 +245,18 @@ fn format_roundtrip_tamper_fp32_parity_trie_batch_and_r2l() {
         let batch_d = m_l
             .score_batch(Isa::detect(), &seqs, &mut ws)
             .expect("detect");
+        let mut token_logp = Vec::new();
+        let with_tokens = m_l
+            .score_batch_with_token_logp(Isa::detect(), &seqs, &mut ws, &mut token_logp)
+            .expect("token scores");
+        assert_eq!(with_tokens, batch_d);
+        let mut remaining = token_logp.as_slice();
+        for score in with_tokens {
+            let (tokens, rest) = remaining.split_at(score.n_tok);
+            assert_eq!(tokens.iter().sum::<f32>(), score.tok_logp);
+            remaining = rest;
+        }
+        assert!(remaining.is_empty());
         for (i, s) in seqs.iter().enumerate() {
             let single = m_l.score_sequence(s, &mut ws).expect("single");
             assert!((batch_d[i].total_logp - single.total_logp).abs() < 1e-5);

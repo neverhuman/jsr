@@ -5,7 +5,7 @@
 use ultra_engine::commit::{run_commit_pcm, CommitConfig, CommitPassSession, DEFAULT_SAMPLE_RATE};
 use ultra_engine::Workspace;
 
-use crate::decode::{commit_config, commit_lm, e2s, live_engine, load_model};
+use crate::decode::{commit_lm, e2s, live_engine, load_model, stream_commit_config};
 use crate::model::ModelDir;
 
 /// Encoder frame hop (`ultra_stream::ort_r1::R1_SAMPLES_PER_ENC_FRAME`).
@@ -43,7 +43,7 @@ pub struct Segmenter {
 impl Segmenter {
     pub fn new(dir: &ModelDir, threads: usize, rms_norm: bool) -> Result<Self, String> {
         let model = load_model(dir, false)?;
-        let cfg = commit_config(rms_norm);
+        let cfg = stream_commit_config(rms_norm);
         let live = live_engine(&model, &dir.live_lm(), threads, false)?;
         let lm = commit_lm(&dir.final_lm())?;
         let sess = CommitPassSession::with_stream_id(live, cfg, "isosyll", "isosyll-v4")

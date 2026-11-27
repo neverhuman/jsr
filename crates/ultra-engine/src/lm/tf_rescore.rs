@@ -281,4 +281,27 @@ impl TfRescorer {
             })
             .collect())
     }
+
+    /// Score a batch and return the non-EOS token log-probabilities in scoring order.
+    /// `token_logp` is replaced with the flattened sequences; `TfScore::n_tok` gives each length.
+    pub fn score_batch_with_token_logp(
+        &self,
+        isa: Isa,
+        seqs: &[&[u32]],
+        ws: &mut TfWorkspace,
+        token_logp: &mut Vec<f32>,
+    ) -> Result<Vec<TfScore>, EngineError> {
+        token_logp.clear();
+        let scores = self.score_batch(isa, seqs, ws)?;
+        let vocab = self.cfg.vocab;
+        for (&(start, _), score) in ws.trie.ranges.iter().zip(&scores) {
+            token_logp.extend(ws.trie.steps[start..start + score.n_tok].iter().map(
+                |&(node, token)| {
+                    let node = node as usize;
+                    ws.logits[node * vocab + usize::from(token)] - ws.lse[node]
+                },
+            ));
+        }
+        Ok(scores)
+    }
 }
