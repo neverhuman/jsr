@@ -209,7 +209,7 @@ def plain(s: str, mac: dict[str, str]) -> str:
         if s2 == s:
             break
         s = s2
-    rep = [(r"\$\\times\$|\\x\b|\\times", "x"), (r"\\,|\;|\\ |~|\\xspace", " "), (r"\\%", "%"), (r"\\pp\b", " pp "),
+    rep = [(r"\$\\times\$|\\x\b|\\times", "x"), (r"\\geq|\\ge\b", ">="), (r"\\leq|\\le\b", "<="), (r"\\,|\;|\\ |~|\\xspace", " "), (r"\\%", "%"), (r"\\pp\b", " pp "),
            (r"\\textbf\{([^}]*)\}|\\emph\{([^}]*)\}|\\texttt\{([^}]*)\}", lambda m: next(g for g in m.groups() if g is not None)),
            (r"\$([^$]*)\$", r"\1"), (r"\\&", "&"), (r"\{\}", ""), (r"\\-", "")]
     for pat, r in rep:

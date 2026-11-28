@@ -2,6 +2,7 @@
 IfFileExists resolution, figure wrapping and the privacy scan. The docker verification is not run here."""
 
 import importlib.util
+import re
 import subprocess
 from pathlib import Path
 
@@ -58,3 +59,15 @@ def test_stage_only_builds_a_clean_tree():
     assert (src / "00README.json").is_file() and (src / "paper.bbl").is_file()
     assert (src / "paper.tex").read_text().startswith("\\pdfoutput=1\n")
     assert not list(src.rglob("*.bib"))
+
+def test_plain_expands_geq_times_without_leftover():
+    """arXiv upload abstract must not retain TeX for \\geq / \\times; leftover check stays strict."""
+    out = st.plain(r"lowest WER at $\geq 14\times$ and $\le 1$", {})
+    assert out == "lowest WER at >= 14x and <= 1"
+    assert not re.findall(r"[\\{}$]", out)
+
+
+def test_plain_leaves_unknown_command_as_leftover():
+    """The leftover-markup gate still fails on unexpanded TeX."""
+    out = st.plain(r"uses \unknowncmd here", {})
+    assert re.findall(r"[\\{}$]", out)
