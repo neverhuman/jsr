@@ -10,9 +10,9 @@ Isosyll: Always Listening, Barely Computing — Bit-Exact Streaming Speech Recog
 
 Jepson Taylor; Ricky Ray Butler; Jordan Morrow; Alton Alexander; Jordan Hildebrandt; Besterlyne Jirongo
 
-## Abstract (plain text, 768 of 1920 characters)
+## Abstract (plain text, 813 of 1920 characters)
 
-An always-on speech recogniser must keep its CPU cost low while audio arrives. Isosyll runs a pure-Rust streaming transducer with 60 MB INT8 artifacts for live and utterance-end final text. On one pinned quiet Zen 2 core, Isosyll live (160 ms, +LM) reaches 31.5x real time, 5.08% word error rate (WER), and 0.331 J per audio-second: 2.22x the throughput of Zipformer INT8 at 57% of its idle-subtracted core energy in paired full-panel blocks. Isosyll final reaches 4.24% WER (2.63% dev-clean) at 14.8x real time. On the unselected DEV half, final WER is -0.93 pp from Zipformer's (lower) and live WER is +0.09 pp (not significant). Final meets its registered edit gates live (734 vs. 722) shipped by owner decision. All results are exploratory and use LibriSpeech DEV.
+An always-on speech recogniser must keep its CPU cost low while audio arrives. Isosyll runs a pure-Rust streaming transducer with 60 MB INT8 artifacts for live and utterance-end final text. On one pinned quiet Zen 2 core, Isosyll live (160 ms, +LM) reaches 31.5x real time, 5.08% word error rate (WER), and 0.331 J per audio-second: 2.22x the throughput of Zipformer INT8 at 57% of its idle-subtracted core energy. Isosyll final reaches 4.24% WER (2.63% dev-clean) at 14.8x real time, the lowest measured dev-clean WER among timed CPU recognisers at >= 14x. On the unselected DEV half, final WER is -0.93 pp from Zipformer's (lower) and live WER is +0.09 pp (not significant). Final meets its registered edit gates live (734 vs. 722) shipped by owner decision. All results are exploratory and use LibriSpeech DEV.
 
 ## Comments
 
