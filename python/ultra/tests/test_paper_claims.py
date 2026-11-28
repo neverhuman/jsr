@@ -109,14 +109,14 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
     for banned in ("Isosyll live greedy", "Isosyll live +LM (320 ms)", "| **Isosyll final (commit)** |", "33.3×", "RC2", "v3.1.0", "v3.0.0"):
         assert banned not in readme_txt.split("<!-- install:start -->")[0], f"README hero shows a prior/variant mode: {banned!r}"
-    # Hero plot: two Isosyll marks (v4.2.0 final, live) vs all 12 timed comparators; y is dev-clean WER, x is energy, names colored by throughput.
+    # Hero plot: two Isosyll marks (v4.2.0 final, live) vs all 12 timed comparators; y is dev-clean WER, x is energy; only ours are diamonds.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
     layout = (DATA / "money_layout.tex").read_text(encoding="utf-8")
     for must_tex in ("Isosyll live", "Isosyll v4.2.0 final", r"\FinFullClean", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small",
                      "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
                      r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
-                     r"\HeroBarTitle", r"\HeroOffScale", r"\HeroRampHex", r"\HeroRampTicks",
-                     "Isosyll vs.\\ all", "names colored by throughput"):
+                     r"\HeroOffScale", r"\ourdiamond", "large diamonds: Isosyll only",
+                     "Isosyll vs.\\ all"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
     assert "Vosk Small" in layout and "Whisper" in layout, "off-scale systems must still appear in the generated OffScale note"
     for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",
@@ -124,6 +124,9 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
                    "HeroZipSpeed", "HeroZipWer", "HeroLiveLmSpeed", "HeroLiveLmWer", "HeroFinalSpeed", "HeroFinalWer",
                    "320", "v3.0.0", "HeroOldLive", "HeroOldFinal", "v3.2.0", "figblue!35,densely dashed"):
         assert banned not in hero_tex, banned
+    assert r"\ourdiamond{LiveLm}" in hero_tex and r"\ourdiamond{Final}" in hero_tex
+    assert r"begin{scope}[shift={(axis cs:" not in hero_tex
+    assert r"($(axis cs:" not in hero_tex
     caption = rec["MoneyMarksCaption"]["value"]
     # energy honesty: every floor-included system is named on the hero itself, in the caption, and the
     # colorbar only says "idle-subtracted" when no colored value includes the idle floor

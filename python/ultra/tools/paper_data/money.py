@@ -447,8 +447,8 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
             energy = (f" (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, "
                       f"others in separate sessions; not wall power{grey})")
         marks = ["Dev-clean WER against energy per audio-second (log $x$) on the 730-utterance DEV panel "
-                 "(400-utt clean split, $y$ zoomed to 8\\%); names and marker fills show single-core throughput "
-                 f"on a log scale, green fastest{energy}.",
+                 "(400-utt clean split, $y$ zoomed to 8\\%); large diamonds mark Isosyll only and comparators are small muted marks"
+                 f"{energy}.",
                  ("Isosyll final (utterance-end pass) and live (160\\,ms chunk) use one \\ColdHeadModel\\,MB INT8 artifact each, "
                   "timed with Zipformer INT8 in the same quiet blocks; " if HERO_SHOW_FINAL else
                   "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; ")

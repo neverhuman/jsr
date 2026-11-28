@@ -2,8 +2,10 @@
 % Two Isosyll marks (v4.2.0 final, live 160 ms) against all 12 timed public CPU comparators.
 % x = idle-subtracted core energy per audio-second (log); y = dev-clean WER on the 400-utt
 % clean split of the 730-utterance DEV panel (zoomed; systems above \HeroYmax are listed off-scale).
-% Names and marker fills are coloured by single-core throughput (log ramp, green fastest).
-% Every coordinate and colour comes from data/money_layout.tex.
+% Only Isosyll is drawn as a large diamond with a bold label; comparators are small muted marks.
+% Every coordinate comes from data/money_layout.tex.
+% Diamonds are nodes at axis coordinates. Do not add point offsets in axis space on this
+% log axis: pgfplots displaces those marks and they land on other systems.
 \def\herokicker#1#2#3#4{%
   \begin{minipage}[t]{#1}%
   \sffamily\fontsize{8}{9.6}\selectfont\strut\textcolor{#2}{\bfseries #3}%
@@ -11,31 +13,37 @@
   \vspace{1.6pt}{\color{#2}\hrule height 0.75pt}%
   \end{minipage}%
 }
-% \syscolor{Key} defines ecKey (the throughput colour) and ncKey (the name colour: ec darkened for text contrast).
+\definecolor{compfill}{HTML}{B8B8B4}
+\definecolor{compline}{HTML}{7A7A74}
+\definecolor{complabel}{HTML}{5C5C58}
+% \syscolor{Key} still defines the Isosyll throughput colours used on our two diamonds.
 \def\syscolor#1{%
   \definecolor{ec#1}{HTML}{\csname Hero#1Color\endcsname}%
   \ifnum\csname Hero#1Metered\endcsname>0\relax\colorlet{nc#1}{ec#1!70!black}\else\colorlet{nc#1}{sub}\fi}
-\def\sysmark#1#2#3{% key, shape (circle|square), outline colour
+% Comparators: small muted circle (streaming) or square (offline). Never a diamond.
+\def\sysmark#1#2#3{% key, shape (circle|square), unused
   \ifnum\csname Hero#1On\endcsname>0\relax
-  \syscolor{#1}%
-  \ifx#2c\node[circle,inner sep=0pt,minimum size=5.4pt,fill=ec#1,draw=ink!80,line width=.45pt]
+  \ifx#2c\node[circle,inner sep=0pt,minimum size=3.4pt,fill=compfill,draw=compline,line width=.35pt]
     at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};\else
-  \node[rectangle,inner sep=0pt,minimum size=5pt,fill=ec#1,draw=ink!80,line width=.45pt]
+  \node[rectangle,inner sep=0pt,minimum size=3.1pt,fill=compfill,draw=compline,line width=.35pt]
     at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};\fi
   \fi}
-% \syslabel{Key}{anchor}{x}{y}{text}: name beside its point (drawn only when the point is on-scale).
-\def\syslabel#1#2#3#4#5{\ifnum\csname Hero#1On\endcsname>0\relax\syscolor{#1}\node[comp,anchor=#2,text=nc#1] at (axis cs:#3,#4) {#5};\fi}
-% \sysleader{Key}{path}: a hairline from the point along a path given in axis coordinates.
+\def\syslabel#1#2#3#4#5{\ifnum\csname Hero#1On\endcsname>0\relax\node[comp,anchor=#2,text=complabel] at (axis cs:#3,#4) {#5};\fi}
 \def\sysleader#1#2{\ifnum\csname Hero#1On\endcsname>0\relax\draw[leader] (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) #2;\fi}
+% Diamond at a log-axis coordinate: a node at (axis cs:...), not a shifted scope.
+\def\ourdiamond#1{% key (Final or LiveLm)
+  \syscolor{#1}%
+  \node[diamond,aspect=1,inner sep=0pt,minimum size=13.6pt,fill=ec#1,draw=ink,line width=.8pt,line join=round]
+    at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};}
 \begin{tikzpicture}[
   every node/.style={font=\sffamily\footnotesize,text=ink},
   identity/.style={font=\sffamily\fontsize{9}{10.6}\selectfont\bfseries,inner sep=0pt},
-  comp/.style={font=\sffamily\fontsize{7.6}{8.8}\selectfont,inner sep=0pt},
-  leader/.style={draw=muted,line width=.4pt},
+  comp/.style={font=\sffamily\fontsize{6.8}{8}\selectfont,inner sep=0pt},
+  leader/.style={draw=compline,line width=.35pt},
 ]
 \begin{axis}[
   name=matchedplot,
-  width=372pt,height=196pt,scale only axis,clip=false,
+  width=388pt,height=196pt,scale only axis,clip=false,
   xmode=log,xmin=\HeroXmin,xmax=\HeroXmax,ymin=0,ymax=\HeroYmax,
   xtick/.expanded=\HeroXticks,ytick/.expanded=\HeroYticks,
   log ticks with fixed point,
@@ -51,14 +59,13 @@
 ]
 
 % Callout: live is 2.2x Zipformer INT8 throughput at 57% of its energy (paired R8).
-% Placed in the open upper band that the y-zoom leaves empty.
 \node[anchor=south,inner xsep=4pt,inner ysep=1.2pt,fill=white,align=center]
   at (axis cs:4.8,6.55) {%
   {\fontsize{26}{28}\selectfont\bfseries\color{accent}\HeroRatio$\times$}\\[-1pt]
   {\fontsize{8.2}{10}\selectfont\bfseries\color{ink}Zipformer INT8's throughput}\\[-1pt]
   {\fontsize{7.6}{9.2}\selectfont\color{sub}at \VsEnergyPctOne\% of its energy per audio-second}};
 
-% Comparators: filled circle = streaming, square = offline whole-clip.
+% Comparators first, so our diamonds paint on top.
 \sysmark{WhisperTiny}{c}{}\sysmark{WhisperBase}{c}{}\sysmark{VoskSmall}{c}{}\sysmark{VoskLarge}{c}{}
 \sysmark{MoonTiny}{c}{}\sysmark{MoonSmall}{c}{}\sysmark{NemoThreeFive}{c}{}\sysmark{NemoOneSixty}{c}{}
 \sysmark{NemoFiveSixty}{c}{}\sysmark{Zip}{c}{}
@@ -73,71 +80,59 @@
 \syslabel{NemoFiveSixty}{west}{4.55}{2.15}{Nemotron 560\,ms\,\S}
 \syslabel{ParakeetOnnx}{east}{1.48}{1.85}{Parakeet onnx-asr}
 \syslabel{ParakeetSherpa}{west}{1.95}{1.85}{Parakeet sherpa-onnx}
-\syslabel{Zip}{south}{0.72}{3.95}{Zipformer INT8 (\ColdZipRsixSpeed$\times$)}
 
-\ifnum\HeroShowFinal>0\relax% optional second mark of ours (HERO_SHOW_FINAL in money.py)
+% Zipformer sits between our two diamonds; label it above with a short leader so it cannot
+% be read as one of ours.
+\sysleader{Zip}{|- (axis cs:0.72,4.15)}
+\syslabel{Zip}{west}{0.75}{4.15}{Zipformer INT8 (\ColdZipRsixSpeed$\times$)}
+
+% Isosyll marks: large diamonds, nodes at the true (energy, clean-WER) coordinates.
+\ifnum\HeroShowFinal>0\relax
 \ifnum\HeroFinalOn>0\relax
-\syscolor{Final}
-\begin{scope}[shift={(axis cs:\HeroFinalX,\HeroFinalY)}]
-\path[fill=ecFinal,draw=ink,line width=.8pt,line join=round]
-  (0,7.2pt) -- (7.2pt,0) -- (0,-7.2pt) -- (-7.2pt,0) -- cycle;
-\end{scope}
-\node[identity,anchor=east,text=ncFinal,xshift=-10pt,yshift=-1pt] at (axis cs:\HeroFinalX,\HeroFinalY) {Isosyll v4.2.0 final};
+\ourdiamond{Final}
+\draw[leader] (axis cs:\HeroFinalX,\HeroFinalY) -- (axis cs:0.95,2.95);
+\node[identity,anchor=west,text=ncFinal] at (axis cs:0.98,3.08) {Isosyll v4.2.0 final};
+\node[comp,anchor=west,text=ncFinal] at (axis cs:0.98,2.72) {\ColdHeadSpeed$\times$\,·\,\ColdHeadWatts\,J};
 \fi
 \fi
-% Isosyll live: the always-on mark, a large diamond with a dark outline.
 \ifnum\HeroLiveLmOn>0\relax
-\syscolor{LiveLm}
-\begin{scope}[shift={(axis cs:\HeroLiveLmX,\HeroLiveLmY)}]
-\path[fill=ecLiveLm,draw=ink,line width=.8pt,line join=round]
-  (0,7.2pt) -- (7.2pt,0) -- (0,-7.2pt) -- (-7.2pt,0) -- cycle;
-\end{scope}
-\node[identity,anchor=west,text=ncLiveLm,xshift=10pt,yshift=11pt] at (axis cs:\HeroLiveLmX,\HeroLiveLmY) {Isosyll live};
-\node[comp,anchor=west,text=ncLiveLm,xshift=10pt,yshift=1pt] at (axis cs:\HeroLiveLmX,\HeroLiveLmY) {\ColdLiveSpeed$\times$\,·\,\ColdLiveWatts\,J\,·\,160\,ms};
+\ourdiamond{LiveLm}
+% Label above the live mark (near the left axis). A west-of-point label would collide with Zipformer's
+% actual coordinate at ~0.59 J, which is what made live look like Zipformer's point.
+\draw[leader] (axis cs:\HeroLiveLmX,\HeroLiveLmY) -- (axis cs:\HeroLiveLmX,4.85);
+\node[identity,anchor=south,text=ncLiveLm] at (axis cs:\HeroLiveLmX,4.92) {Isosyll live};
+\node[comp,anchor=south,text=ncLiveLm] at (axis cs:\HeroLiveLmX,4.52) {\ColdLiveSpeed$\times$\,·\,\ColdLiveWatts\,J\,·\,160\,ms};
 \fi
 \end{axis}
 
 % ------------------------------------------------------------------ title block
+
 \node[anchor=south west,inner sep=0pt] at ([xshift=-30pt,yshift=26pt]matchedplot.north west) {%
-  \begin{minipage}{474pt}%
-  \herokicker{474pt}{accent}{v4.2.0}{Always-on live transcription\enspace\textperiodcentered\enspace live \ColdLiveSpeed$\times$, \ColdLiveWatts\,J/audio-s, 160\,ms, \ColdHeadModel\,MB INT8\enspace\textperiodcentered\enspace final \FinFullClean\% full-DEV dev-clean}\par
+  \begin{minipage}{450pt}%
+  \herokicker{450pt}{accent}{v4.2.0}{Always-on live transcription\enspace\textperiodcentered\enspace live \ColdLiveSpeed$\times$, \ColdLiveWatts\,J/audio-s, 160\,ms, \ColdHeadModel\,MB INT8\enspace\textperiodcentered\enspace final \FinFullClean\% full-DEV dev-clean}\par
   \vspace{5pt}
   {\sffamily\bfseries\fontsize{12.5}{15}\selectfont\color{ink}Isosyll vs.\ all \ColdComparatorCount{} timed public CPU speech recognizers\par}
   \vspace{1pt}
   {\sffamily\fontsize{7.6}{9.2}\selectfont\color{sub}%
     One pinned Zen~2 core \enspace\textperiodcentered\enspace LibriSpeech DEV 730 utterances (y = 400-utt dev-clean split)
-    \enspace\textperiodcentered\enspace names colored by throughput\par}
+    \enspace\textperiodcentered\enspace large diamonds: Isosyll only\par}
   \vspace{2pt}
   {\sffamily\fontsize{7.2}{8.8}\selectfont\color{sub}%
     \tikz[baseline=-.35ex]\fill[ink] (0,3pt)--(3pt,0)--(0,-3pt)--(-3pt,0)--cycle;~Isosyll (ours)
     \enspace\textperiodcentered\enspace
-    \tikz[baseline=-.4ex]\draw[ink!80,fill=white,line width=.45pt] (0,0) circle (2.5pt);~streaming
+    \tikz[baseline=-.4ex]\draw[compline,fill=compfill,line width=.35pt] (0,0) circle (1.7pt);~streaming comparator
     \enspace\textperiodcentered\enspace
-    \tikz[baseline=-.45ex]\draw[ink!80,fill=white,line width=.45pt] (0,0) rectangle (4.6pt,4.6pt);~offline
+    \tikz[baseline=-.45ex]\draw[compline,fill=compfill,line width=.35pt] (0,0) rectangle (3.1pt,3.1pt);~offline comparator
     \enspace\textperiodcentered\enspace
     \S~timed on a 73-clip subset only%
     \ifnum\HeroAnyFaded>0\relax\enspace\textperiodcentered\enspace\ddag~shared-host interim timing\fi
     \ifnum\HeroAnyNotMetered>0\relax\enspace\textperiodcentered\enspace
-    \tikz[baseline=-.4ex]\draw[ink!80,fill=nmgrey,line width=.45pt] (0,0) circle (2.5pt);~not metered\fi}%
+    \tikz[baseline=-.4ex]\draw[compline,fill=nmgrey,line width=.35pt] (0,0) circle (1.7pt);~not metered\fi}%
   \end{minipage}};
 
-% ------------------------------------------------------------------ throughput colour bar (log scale, green = faster)
-\begin{scope}[shift={([xshift=22pt]matchedplot.south east)}]
-  \pgfmathsetmacro{\barh}{196}%
-  \foreach \hex [count=\i from 0] in \HeroRampHex {%
-    \definecolor{rampstep\i}{HTML}{\hex}%
-    \fill[rampstep\i] (0,{\i*\barh/48 pt}) rectangle (8pt,{(\i+1)*\barh/48 pt+.3pt});}
-  \draw[hair,line width=.4pt] (0,0) rectangle (8pt,\barh pt);
-  \foreach \frac/\lab in \HeroRampTicks {%
-    \draw[ink!70,line width=.4pt] (8pt,{\frac*\barh pt}) -- (10.5pt,{\frac*\barh pt});
-    \node[anchor=west,font=\sffamily\fontsize{7.2}{8.6}\selectfont,text=sub,inner sep=0pt] at (12pt,{\frac*\barh pt}) {\lab};}
-  \node[rotate=90,anchor=north,font=\sffamily\fontsize{7.2}{8.6}\selectfont,text=sub,inner sep=0pt]
-    at (29pt,{\barh/2 pt}) {\HeroBarTitle};
-  \node[anchor=south west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,{\barh pt+5pt}) {slower};
-  \node[anchor=north west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,-5pt) {faster};
-\end{scope}
+% Throughput ramp macros stay in money_layout.tex (generated) but this figure uses muted comparator marks.
 
-\node[anchor=north west,font=\sffamily\fontsize{6.7}{8.1}\selectfont,text=sub,inner sep=0pt,align=left,text width=474pt]
+\node[anchor=north west,font=\sffamily\fontsize{6.7}{8.1}\selectfont,text=sub,inner sep=0pt,align=left,text width=450pt]
   at ([xshift=-30pt,yshift=-34pt]matchedplot.south west) {%
   $y$: dev-clean WER on the 400-utt clean split of the 730-utt DEV panel (same split for every system).
   \ifnum\HeroAnyOffScale>0\relax Off this zoom: \HeroOffScale. \fi
@@ -147,5 +142,5 @@
 \pgfresetboundingbox
 \path[use as bounding box]
   ([xshift=-32pt,yshift=-50pt]matchedplot.south west)
-  rectangle ([xshift=74pt,yshift=90pt]matchedplot.north east);
+  rectangle ([xshift=24pt,yshift=90pt]matchedplot.north east);
 \end{tikzpicture}%
