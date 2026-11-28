@@ -115,8 +115,9 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     for must_tex in ("Isosyll live", "Isosyll v4.2.0 final", r"\FinFullClean", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small",
                      "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
                      r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
-                     r"\HeroOffScale", r"\ourdiamond", "large diamonds: Isosyll only",
-                     "Isosyll vs.\\ all"):
+                     r"\HeroBarTitle", r"\HeroOffScale", r"\HeroRampHex", r"\HeroRampTicks",
+                     r"\ourdiamond", "large diamonds: Isosyll only",
+                     "Isosyll vs.\\ all", "names colored by throughput"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
     assert "Vosk Small" in layout and "Whisper" in layout, "off-scale systems must still appear in the generated OffScale note"
     for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",
