@@ -74,6 +74,17 @@ def add_look42(root: Path, rec: Records) -> None:
             src, dig, "LibriSpeech DEV, 5,567 utt")
     put("FinFullEdits", thousands(str(f["edits"])), f["edits"], "edits", "v4.2.0 final, full DEV (S + C, descriptive): edits",
         src, dig, "LibriSpeech DEV, 5,567 utt")
+    zpath = RAW / "release_v31" / "zipformer_int8.fulldev.score.json"
+    zp = root / zpath
+    if not zp.is_file():
+        raise PaperDataError(f"look42: missing receipt {zpath}")
+    zd = json.loads(zp.read_text(encoding="utf-8"))
+    z = _wer(zd["system_a"])
+    if z["utts"] != 5567:
+        raise PaperDataError(f"look42: Zipformer full DEV receipt has {z['utts']} utterances")
+    put("FinFullZipClean", fmt(z["clean"], 2), z["clean"], "% WER",
+        "Zipformer INT8, full DEV (S + C, descriptive): pooled clean",
+        str(zpath), sha256_file(zp), "LibriSpeech DEV, 5,567 utt")
 
 
 def add_final_pass(root: Path, rec: Records) -> None:

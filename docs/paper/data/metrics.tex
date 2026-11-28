@@ -153,7 +153,6 @@
 \newcommand{\FinCPrevDelta}{$-$0.66}% [exploratory] pp WER
 \newcommand{\FinCPrevHi}{$-$0.55}% [exploratory] pp WER
 \newcommand{\FinCPrevLo}{$-$0.79}% [exploratory] pp WER
-\newcommand{\FinCZipClean}{2.94}% [exploratory] % WER
 \newcommand{\FinCZipDelta}{$-$0.93}% [exploratory] pp WER
 \newcommand{\FinCZipHi}{$-$0.66}% [exploratory] pp WER
 \newcommand{\FinCZipLo}{$-$1.23}% [exploratory] pp WER
@@ -163,6 +162,7 @@
 \newcommand{\FinFullEdits}{4580}% [exploratory] edits
 \newcommand{\FinFullOther}{6.42}% [exploratory] % WER
 \newcommand{\FinFullWer}{4.32}% [exploratory] % WER
+\newcommand{\FinFullZipClean}{2.82}% [exploratory] % WER
 \newcommand{\FinGateBudgetPct}{5}% [exploratory] % CPU
 \newcommand{\FinGateCpuPct}{+5.0}% [exploratory] %
 \newcommand{\FinGateEnergyPct}{+4.0}% [exploratory] %
@@ -174,6 +174,7 @@
 \newcommand{\FinPanelPrevDelta}{$-$0.78}% [exploratory] pp WER
 \newcommand{\FinPanelPrevHi}{$-$0.54}% [exploratory] pp WER
 \newcommand{\FinPanelPrevLo}{$-$1.03}% [exploratory] pp WER
+\newcommand{\FinPanelZipClean}{3.03}% [exploratory] % WER
 \newcommand{\FinPrevCClean}{2.80}% [exploratory] % WER
 \newcommand{\FinSBaseDelta}{$-$0.09}% [exploratory] pp WER
 \newcommand{\FinSBaseHi}{$-$0.04}% [exploratory] pp WER
@@ -226,4 +227,4 @@
 \newcommand{\VsVerdictTwo}{lower than}% [exploratory] text
 \newcommand{\VsZipChunk}{320}% [exploratory] ms
 
-\newcommand{\MoneyCaption}{Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy per audio-second on a log scale, green lowest (AMD core-energy registers, idle floor subtracted, median over core-clean counterbalanced blocks; Isosyll from the R8/R9 full-panel blocks, others in separate sessions (the R7 matched campaign on the \RsevenClips-clip subset); the \VsEnergyPctOne\% callout is the paired R8 ratio to Zipformer INT8; not wall power). Isosyll final (utterance-end pass) and live (160\,ms chunk) use one \ColdHeadModel\,MB INT8 artifact each, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}
+\newcommand{\MoneyCaption}{Dev-clean WER against energy per audio-second (log $x$) on the 730-utterance DEV panel (400-utt clean split, $y$ zoomed to 8\%); names and marker fills show single-core throughput on a log scale, green fastest (AMD core-energy registers, idle floor subtracted, median over core-clean counterbalanced blocks; Isosyll from the R8/R9 full-panel blocks, others in separate sessions (the R7 matched campaign on the \RsevenClips-clip subset); the \VsEnergyPctOne\% callout is the paired R8 ratio to Zipformer INT8; not wall power). Isosyll final (utterance-end pass) and live (160\,ms chunk) use one \ColdHeadModel\,MB INT8 artifact each, timed with Zipformer INT8 in the same quiet blocks; circles stream, squares are offline whole-clip, \S\ marks timing on a 73-clip subset only, and \ddag\ marks interim timing on a shared host.}

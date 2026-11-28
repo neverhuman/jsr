@@ -3,8 +3,9 @@ An always-on speech recogniser must keep its CPU cost low while audio arrives.
 final text. On one pinned quiet Zen~2 core, \ultra{} live (160\,ms, +LM) reaches
 \ColdLiveSpeed$\times$ real time, \ColdLiveWer\% word error rate (WER), and
 \ColdLiveWatts\,J per audio-second: \VsSpeedXOne$\times$ the throughput of Zipformer INT8 at \VsEnergyPctOne\% of
-its idle-subtracted core energy in paired full-panel blocks.
-\ultra{} final reaches \ColdHeadWer\% WER (\FinPanelClean\% dev-clean) at \ColdHeadSpeed$\times$ real time.
+its idle-subtracted core energy.
+\ultra{} final reaches \ColdHeadWer\% WER (\FinPanelClean\% dev-clean) at \ColdHeadSpeed$\times$ real time,
+the lowest measured dev-clean WER among timed CPU recognisers at $\geq 14\times$.
 On the unselected DEV half, final WER is \FinCZipDelta\pp from Zipformer's (lower) and live WER is
 \LookLiveCZipDelta\pp (not significant). Final meets its registered edit gates; live
 (\LookLivePanelEdits{} vs.\ \CandGateLivePanel) shipped by owner decision. All results are exploratory and use LibriSpeech DEV.
