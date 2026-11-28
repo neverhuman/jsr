@@ -95,7 +95,7 @@ def _hero_block(hero: dict, facts: dict, subtitle: str, prior: dict, rr: dict, e
         f"Final: lowest clean WER among timed CPU recognizers at ≥14× ({fmt(fin['wer_clean'], 2)}% vs. Zipformer INT8 {fmt(z['wer_clean'], 2)}% panel; {v('FinFullClean')}% vs. {v('FinFullZipClean')}% full DEV)**",
         "",
         f"![{PAPER_TITLE}. Dev-clean WER vs. energy per audio-second (log) for all 12 timed public CPU speech recognizers and Isosyll final and live on the "
-        "730-utterance LibriSpeech DEV panel (400-utt clean split); large diamonds mark Isosyll only, comparators are small muted marks](docs/paper/money.png)",
+        "730-utterance LibriSpeech DEV panel (400-utt clean split); large diamonds mark Isosyll only, names colored by single-core throughput](docs/paper/money.png)",
         "",
         f"**Figure 1.** {facts['figure']} [Paper](docs/paper/paper.pdf) · [Release record](docs/ultra/releases/v4.2.0.md).",
         "",
