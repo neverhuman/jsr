@@ -8,5 +8,9 @@ streams at \ColdLiveSpeed$\times$ real time and \ColdLiveWatts\,J/audio-s (\Cold
 \ColdLiveRss\,MB RAM); the v4.2.0 utterance-end final pass on a second \ColdHeadModel\,MB INT8 artifact reaches
 \ColdHeadWer\% panel WER (\FinFullClean\% dev-clean on full DEV) at \ColdHeadSpeed$\times$ real time and \ColdHeadWatts\,J/audio-s. Transcripts reproduce bit-identically across \CandIsaRuns{} x86 and ARM
 witness decodes. On unselected DEV, \ultra{} final is lower than Zipformer INT8 (\FinCZipDelta\pp) and live is not significantly
-different (\LookLiveCZipDelta\pp). All
-results are exploratory and use development data only.
+different (\LookLiveCZipDelta\pp). The final pass has the lowest measured dev-clean WER among timed CPU recognisers at $\geq 14\times$ real time.
+All results are exploratory and use development data only.
+
+\para{Toward a personal model.} A small, cheap-to-run always-on recogniser is the right base for later
+per-speaker adaptation, so a deployed model can be trained on one person's voice and language. We do
+not report personal-adaptation results here; that work is ahead of us.

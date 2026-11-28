@@ -1,7 +1,9 @@
 % Full-width hero (Figure 1, docs/paper/money.png, docs/paper/figures/hero.pdf).
 % Two Isosyll marks (v4.2.0 final, live 160 ms) against all 12 timed public CPU comparators.
-% Names and marker fills are coloured by core energy per audio-second (see \HeroEnergyNote for any floor-included values) (log ramp, green lowest);
-% a system with no energy value is grey. Every number comes from data/money_layout.tex.
+% x = idle-subtracted core energy per audio-second (log); y = dev-clean WER on the 400-utt
+% clean split of the 730-utterance DEV panel (zoomed; systems above \HeroYmax are listed off-scale).
+% Names and marker fills are coloured by single-core throughput (log ramp, green fastest).
+% Every coordinate and colour comes from data/money_layout.tex.
 \def\herokicker#1#2#3#4{%
   \begin{minipage}[t]{#1}%
   \sffamily\fontsize{8}{9.6}\selectfont\strut\textcolor{#2}{\bfseries #3}%
@@ -9,20 +11,22 @@
   \vspace{1.6pt}{\color{#2}\hrule height 0.75pt}%
   \end{minipage}%
 }
-% \syscolor{Key} defines ecKey (the energy colour) and ncKey (the name colour: ec darkened for text contrast).
+% \syscolor{Key} defines ecKey (the throughput colour) and ncKey (the name colour: ec darkened for text contrast).
 \def\syscolor#1{%
   \definecolor{ec#1}{HTML}{\csname Hero#1Color\endcsname}%
   \ifnum\csname Hero#1Metered\endcsname>0\relax\colorlet{nc#1}{ec#1!70!black}\else\colorlet{nc#1}{sub}\fi}
 \def\sysmark#1#2#3{% key, shape (circle|square), outline colour
+  \ifnum\csname Hero#1On\endcsname>0\relax
   \syscolor{#1}%
   \ifx#2c\node[circle,inner sep=0pt,minimum size=5.4pt,fill=ec#1,draw=ink!80,line width=.45pt]
     at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};\else
   \node[rectangle,inner sep=0pt,minimum size=5pt,fill=ec#1,draw=ink!80,line width=.45pt]
-    at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};\fi}
-% \syslabel{Key}{anchor}{x}{y}{text}: name beside its point.
-\def\syslabel#1#2#3#4#5{\syscolor{#1}\node[comp,anchor=#2,text=nc#1] at (axis cs:#3,#4) {#5};}
+    at (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) {};\fi
+  \fi}
+% \syslabel{Key}{anchor}{x}{y}{text}: name beside its point (drawn only when the point is on-scale).
+\def\syslabel#1#2#3#4#5{\ifnum\csname Hero#1On\endcsname>0\relax\syscolor{#1}\node[comp,anchor=#2,text=nc#1] at (axis cs:#3,#4) {#5};\fi}
 % \sysleader{Key}{path}: a hairline from the point along a path given in axis coordinates.
-\def\sysleader#1#2{\draw[leader] (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) #2;}
+\def\sysleader#1#2{\ifnum\csname Hero#1On\endcsname>0\relax\draw[leader] (axis cs:\csname Hero#1X\endcsname,\csname Hero#1Y\endcsname) #2;\fi}
 \begin{tikzpicture}[
   every node/.style={font=\sffamily\footnotesize,text=ink},
   identity/.style={font=\sffamily\fontsize{9}{10.6}\selectfont\bfseries,inner sep=0pt},
@@ -32,11 +36,11 @@
 \begin{axis}[
   name=matchedplot,
   width=372pt,height=196pt,scale only axis,clip=false,
-  xmode=linear,xmin=0,xmax=\HeroXmax,ymin=0,ymax=\HeroYmax,
-  xtick/.expanded=\HeroXticks,ytick={0,5,10,15,20},
-  xticklabel={\pgfmathprintnumber[fixed]{\tick}$\times$},
-  xlabel={Single-core throughput (\(\times\) real time, faster \(\rightarrow\))},
-  ylabel={Pooled WER (\%, lower \(\downarrow\))},
+  xmode=log,xmin=\HeroXmin,xmax=\HeroXmax,ymin=0,ymax=\HeroYmax,
+  xtick/.expanded=\HeroXticks,ytick/.expanded=\HeroYticks,
+  log ticks with fixed point,
+  xlabel={Energy per audio-second (J, idle-subtracted, lower \(\rightarrow\))},
+  ylabel={Dev-clean WER (\%, lower \(\downarrow\))},
   tick align=outside,tick pos=left,major tick length=2pt,
   axis line style={draw=hair,line width=.55pt},
   tick style={draw=hair},
@@ -45,21 +49,14 @@
   xlabel style={yshift=1pt},ylabel style={yshift=-1pt},
   grid=major,grid style={draw=gridline,line width=.4pt},
 ]
-\fill[surface] (axis cs:0,0) rectangle (axis cs:1,\HeroYmax);
-\draw[muted,densely dashed,line width=.4pt] (axis cs:1,0) -- (axis cs:1,\HeroYmax);
-\node[rotate=90,font=\sffamily\fontsize{6.6}{8}\selectfont,text=sub,inner sep=0pt] at (axis cs:.5,10.2) {slower than real time};
 
-% Paired live +LM advantage over Zipformer INT8.
-\draw[accent,line width=.9pt,{Stealth[length=4pt]}-{Stealth[length=4pt]}]
-  (axis cs:\HeroZipX,11.6) -- (axis cs:\HeroLiveLmX,11.6);
-\draw[accent!55,densely dotted,line width=.5pt] (axis cs:\HeroZipX,11.4) -- (axis cs:\HeroZipX,7.5);
-\draw[accent!55,densely dotted,line width=.5pt] (axis cs:\HeroLiveLmX,11.4) -- (axis cs:\HeroLiveLmX,8.4);
-\node[anchor=south,inner xsep=5pt,inner ysep=1.5pt,fill=white,align=center]
-  at (axis cs:23.4,12.0) {%
-  {\fontsize{28}{30}\selectfont\bfseries\color{accent}\HeroRatio$\times$}\\[-2pt]
-  {\fontsize{8.5}{10.2}\selectfont\bfseries\color{ink}Zipformer INT8's throughput}};
-\node[anchor=north,inner xsep=5pt,inner ysep=1.5pt,fill=white]
-  at (axis cs:23.4,11.2) {\fontsize{8}{9.6}\selectfont\color{sub}at \VsEnergyPctOne\% of its energy per audio-second};
+% Callout: live is 2.2x Zipformer INT8 throughput at 57% of its energy (paired R8).
+% Placed in the open upper band that the y-zoom leaves empty.
+\node[anchor=south,inner xsep=4pt,inner ysep=1.2pt,fill=white,align=center]
+  at (axis cs:4.8,6.55) {%
+  {\fontsize{26}{28}\selectfont\bfseries\color{accent}\HeroRatio$\times$}\\[-1pt]
+  {\fontsize{8.2}{10}\selectfont\bfseries\color{ink}Zipformer INT8's throughput}\\[-1pt]
+  {\fontsize{7.6}{9.2}\selectfont\color{sub}at \VsEnergyPctOne\% of its energy per audio-second}};
 
 % Comparators: filled circle = streaming, square = offline whole-clip.
 \sysmark{WhisperTiny}{c}{}\sysmark{WhisperBase}{c}{}\sysmark{VoskSmall}{c}{}\sysmark{VoskLarge}{c}{}
@@ -67,49 +64,49 @@
 \sysmark{NemoFiveSixty}{c}{}\sysmark{Zip}{c}{}
 \sysmark{ParakeetOnnx}{s}{}\sysmark{ParakeetSherpa}{s}{}
 
-\syslabel{WhisperTiny}{west}{1.6}{\HeroWhisperTinyY}{Whisper.cpp Tiny\,\S}
-\sysleader{WhisperBase}{-- (axis cs:1.35,13.7)}
-\syslabel{WhisperBase}{west}{1.5}{13.7}{Whisper.cpp Base\,\S}
-\syslabel{VoskSmall}{west}{7.6}{\HeroVoskSmallY}{Vosk Small}
-\syslabel{VoskLarge}{west}{4.85}{\HeroVoskLargeY}{Vosk Large\,\S}
-\syslabel{MoonTiny}{west}{8.9}{\HeroMoonTinyY}{Moonshine Tiny}
-\sysleader{NemoThreeFive}{-- (axis cs:1.3,7.5)}
-\syslabel{NemoThreeFive}{west}{1.4}{7.5}{Nemotron 3.5\HeroNemoThreeFiveMark}
-\syslabel{MoonSmall}{west}{2.7}{\HeroMoonSmallY}{Moonshine Small\HeroMoonSmallMark}
-\sysleader{NemoOneSixty}{-- (axis cs:\HeroNemoOneSixtyX,1.05)}
-\syslabel{NemoOneSixty}{west}{1.6}{1.05}{Nemotron 160\,ms\HeroNemoOneSixtyMark}
-\sysleader{NemoFiveSixty}{-- (axis cs:\HeroNemoFiveSixtyX,2.4)}
-\syslabel{NemoFiveSixty}{west}{2.7}{2.4}{Nemotron 560\,ms\,\S}
-\syslabel{ParakeetOnnx}{west}{7.4}{\HeroParakeetOnnxY}{Parakeet onnx-asr}
-\sysleader{ParakeetSherpa}{-- (axis cs:\HeroParakeetSherpaX,4.35)}
-\syslabel{ParakeetSherpa}{south}{\HeroParakeetSherpaX}{4.4}{Parakeet sherpa-onnx}
-\syslabel{Zip}{south east}{14.7}{6.15}{Zipformer INT8}
+\syslabel{MoonTiny}{west}{1.18}{\HeroMoonTinyY}{Moonshine Tiny}
+\syslabel{VoskLarge}{west}{2.35}{\HeroVoskLargeY}{Vosk Large\,\S}
+\syslabel{NemoThreeFive}{south}{\HeroNemoThreeFiveX}{4.55}{Nemotron 3.5\HeroNemoThreeFiveMark}
+\syslabel{MoonSmall}{west}{4.7}{\HeroMoonSmallY}{Moonshine Small\HeroMoonSmallMark}
+\sysleader{NemoOneSixty}{-- (axis cs:\HeroNemoOneSixtyX,3.45)}
+\syslabel{NemoOneSixty}{west}{5.5}{3.45}{Nemotron 160\,ms\HeroNemoOneSixtyMark}
+\syslabel{NemoFiveSixty}{west}{4.55}{2.15}{Nemotron 560\,ms\,\S}
+\syslabel{ParakeetOnnx}{east}{1.48}{1.85}{Parakeet onnx-asr}
+\syslabel{ParakeetSherpa}{west}{1.95}{1.85}{Parakeet sherpa-onnx}
+\syslabel{Zip}{south}{0.72}{3.95}{Zipformer INT8 (\ColdZipRsixSpeed$\times$)}
 
 \ifnum\HeroShowFinal>0\relax% optional second mark of ours (HERO_SHOW_FINAL in money.py)
+\ifnum\HeroFinalOn>0\relax
 \syscolor{Final}
+\begin{scope}[shift={(axis cs:\HeroFinalX,\HeroFinalY)}]
 \path[fill=ecFinal,draw=ink,line width=.8pt,line join=round]
-  ($(axis cs:\HeroFinalX,\HeroFinalY)+(0,7.2pt)$) -- ($(axis cs:\HeroFinalX,\HeroFinalY)+(7.2pt,0)$) --
-  ($(axis cs:\HeroFinalX,\HeroFinalY)+(0,-7.2pt)$) -- ($(axis cs:\HeroFinalX,\HeroFinalY)+(-7.2pt,0)$) -- cycle;
-\node[identity,anchor=west,text=ncFinal] at ($(axis cs:\HeroFinalX,\HeroFinalY)+(10pt,0)$) {Isosyll v4.2.0 final};
+  (0,7.2pt) -- (7.2pt,0) -- (0,-7.2pt) -- (-7.2pt,0) -- cycle;
+\end{scope}
+\node[identity,anchor=east,text=ncFinal,xshift=-10pt,yshift=-1pt] at (axis cs:\HeroFinalX,\HeroFinalY) {Isosyll v4.2.0 final};
 \fi
-% Isosyll live: the one mark of ours, a large diamond with a dark outline.
+\fi
+% Isosyll live: the always-on mark, a large diamond with a dark outline.
+\ifnum\HeroLiveLmOn>0\relax
 \syscolor{LiveLm}
+\begin{scope}[shift={(axis cs:\HeroLiveLmX,\HeroLiveLmY)}]
 \path[fill=ecLiveLm,draw=ink,line width=.8pt,line join=round]
-  ($(axis cs:\HeroLiveLmX,\HeroLiveLmY)+(0,7.2pt)$) -- ($(axis cs:\HeroLiveLmX,\HeroLiveLmY)+(7.2pt,0)$) --
-  ($(axis cs:\HeroLiveLmX,\HeroLiveLmY)+(0,-7.2pt)$) -- ($(axis cs:\HeroLiveLmX,\HeroLiveLmY)+(-7.2pt,0)$) -- cycle;
-\node[identity,anchor=south,text=ncLiveLm] at (axis cs:\HeroLiveLmX,6.55) {Isosyll live};
+  (0,7.2pt) -- (7.2pt,0) -- (0,-7.2pt) -- (-7.2pt,0) -- cycle;
+\end{scope}
+\node[identity,anchor=west,text=ncLiveLm,xshift=10pt,yshift=11pt] at (axis cs:\HeroLiveLmX,\HeroLiveLmY) {Isosyll live};
+\node[comp,anchor=west,text=ncLiveLm,xshift=10pt,yshift=1pt] at (axis cs:\HeroLiveLmX,\HeroLiveLmY) {\ColdLiveSpeed$\times$\,·\,\ColdLiveWatts\,J\,·\,160\,ms};
+\fi
 \end{axis}
 
 % ------------------------------------------------------------------ title block
 \node[anchor=south west,inner sep=0pt] at ([xshift=-30pt,yshift=26pt]matchedplot.north west) {%
   \begin{minipage}{474pt}%
-  \herokicker{474pt}{accent}{v4.2.0}{Isosyll final\enspace\textperiodcentered\enspace \FinFullClean\% dev-clean WER (full DEV)\enspace\textperiodcentered\enspace live 160\,ms streaming\enspace\textperiodcentered\enspace\ColdHeadModel\,MB INT8 per mode}\par
+  \herokicker{474pt}{accent}{v4.2.0}{Always-on live transcription\enspace\textperiodcentered\enspace live \ColdLiveSpeed$\times$, \ColdLiveWatts\,J/audio-s, 160\,ms, \ColdHeadModel\,MB INT8\enspace\textperiodcentered\enspace final \FinFullClean\% full-DEV dev-clean}\par
   \vspace{5pt}
   {\sffamily\bfseries\fontsize{12.5}{15}\selectfont\color{ink}Isosyll vs.\ all \ColdComparatorCount{} timed public CPU speech recognizers\par}
   \vspace{1pt}
   {\sffamily\fontsize{7.6}{9.2}\selectfont\color{sub}%
-    One pinned Zen~2 core \enspace\textperiodcentered\enspace LibriSpeech DEV 730 utterances
-    \enspace\textperiodcentered\enspace names colored by energy\par}
+    One pinned Zen~2 core \enspace\textperiodcentered\enspace LibriSpeech DEV 730 utterances (y = 400-utt dev-clean split)
+    \enspace\textperiodcentered\enspace names colored by throughput\par}
   \vspace{2pt}
   {\sffamily\fontsize{7.2}{8.8}\selectfont\color{sub}%
     \tikz[baseline=-.35ex]\fill[ink] (0,3pt)--(3pt,0)--(0,-3pt)--(-3pt,0)--cycle;~Isosyll (ours)
@@ -124,7 +121,7 @@
     \tikz[baseline=-.4ex]\draw[ink!80,fill=nmgrey,line width=.45pt] (0,0) circle (2.5pt);~not metered\fi}%
   \end{minipage}};
 
-% ------------------------------------------------------------------ energy colour bar (log scale)
+% ------------------------------------------------------------------ throughput colour bar (log scale, green = faster)
 \begin{scope}[shift={([xshift=22pt]matchedplot.south east)}]
   \pgfmathsetmacro{\barh}{196}%
   \foreach \hex [count=\i from 0] in \HeroRampHex {%
@@ -136,15 +133,17 @@
     \node[anchor=west,font=\sffamily\fontsize{7.2}{8.6}\selectfont,text=sub,inner sep=0pt] at (12pt,{\frac*\barh pt}) {\lab};}
   \node[rotate=90,anchor=north,font=\sffamily\fontsize{7.2}{8.6}\selectfont,text=sub,inner sep=0pt]
     at (29pt,{\barh/2 pt}) {\HeroBarTitle};
-  \node[anchor=south west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,{\barh pt+5pt}) {higher = worse};
-  \node[anchor=north west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,-5pt) {lower = better};
+  \node[anchor=south west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,{\barh pt+5pt}) {slower};
+  \node[anchor=north west,font=\sffamily\fontsize{6.8}{8}\selectfont,text=sub,inner sep=0pt] at (-2pt,-5pt) {faster};
 \end{scope}
 
 \node[anchor=north west,font=\sffamily\fontsize{6.7}{8.1}\selectfont,text=sub,inner sep=0pt,align=left,text width=474pt]
   at ([xshift=-30pt,yshift=-34pt]matchedplot.south west) {%
-  \HeroEnergyNote Unselected DEV C-half, live +LM vs.\ Zipformer INT8: \HeroGapCDelta\,pp WER (160\,ms chunk).
-  Final: \FinCZipDelta\,pp (dev-clean \FinCClean\% vs.\ \FinCZipClean\%).
-  Full-DEV dev-clean: final \FinFullClean\%, live \LookLiveFullClean\%.};
+  $y$: dev-clean WER on the 400-utt clean split of the 730-utt DEV panel (same split for every system).
+  \ifnum\HeroAnyOffScale>0\relax Off this zoom: \HeroOffScale. \fi
+  Full-DEV clean: final \FinFullClean\%, live \LookLiveFullClean\%, Zipformer INT8 \FinFullZipClean\%.
+  Panel clean: final \FinPanelClean\% vs.\ Zipformer \FinPanelZipClean\%.
+  \HeroEnergyNote};
 \pgfresetboundingbox
 \path[use as bounding box]
   ([xshift=-32pt,yshift=-50pt]matchedplot.south west)

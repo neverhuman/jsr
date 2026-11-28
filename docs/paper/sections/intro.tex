@@ -27,7 +27,9 @@ comparator at our cost point, Zipformer INT8 (\cref{tab:versus}):
 \item \textbf{Fastest always-on streaming, lowest measured core energy.} \ultra{} live delivers
   \VsSpeedXOne$\times$ the paired throughput of Zipformer INT8 at \VsEnergyPctOne\% of its active
   core energy per audio second in the paired R8 full-panel blocks and \VsRssPctOne\% of its memory (\cref{sec:versus}), with a live WER difference to Zipformer on unselected DEV of
-  \LookLiveCZipDelta\pp, inside the bootstrap bounds.
+  \LookLiveCZipDelta\pp, inside the bootstrap bounds. The utterance-end final pass has the lowest
+  measured dev-clean WER among timed CPU recognisers at $\geq 14\times$ real time
+  (\FinPanelClean\% vs.\ Zipformer INT8 \FinPanelZipClean\% on the panel; \FinFullClean\% vs.\ \FinFullZipClean\% on full DEV).
 \item \textbf{Reproducible integer-exact CPU engine.} A pure-Rust engine with no external runtime or
   BLAS, matching FP32 PyTorch within \RelIntEightDelta\pp, with batch-invariant execution and
   identical transcripts across x86 and ARM CPUs (\cref{sec:engine}).

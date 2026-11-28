@@ -25,8 +25,8 @@ BANNED_LEGACY_RE = re.compile(
 RANK42 = 7
 SPEEDX42 = "1.08"
 ENERGYPCT42 = "123"
-SUMMARY42 = ("**Isosyll v4.2.0 on one CPU core: final 4.24% panel WER · 2.34% full-DEV dev-clean · 14.8× real time · "
-             "live 31.5× real time at 0.331 J/audio-s**")
+SUMMARY42 = ("**Always-on live transcription on one CPU core: 31.5× real time · 0.331 J/audio-s · 160 ms · 60 MB INT8. "
+             "Final: lowest clean WER among timed CPU recognizers at ≥14× (2.63% vs. Zipformer INT8 3.03% panel; 2.34% vs. 2.82% full DEV)**")
 
 
 def _records():
@@ -36,10 +36,11 @@ def _records():
 def test_claims_made_in_words_hold_in_the_measured_rows():
     """Verify every headline claim in the prose and README holds quantitatively in the admitted rows."""
     rec = _records()
-    # Final point is not worse than Zipformer on pooled WER, beats it on dev-other, equals it on dev-clean (to the printed
-    # precision), and trails the best comparator
+    # Final beats Zipformer on pooled WER, dev-other, and dev-clean (panel and full DEV), and still trails the best comparator overall
     assert rec["ColdHeadWer"]["raw"] < rec["ColdZipWer"]["raw"], "Isosyll final no longer beats Zipformer on pooled WER"
     assert rec["ColdHeadWerOther"]["raw"] < rec["ColdZipWerOther"]["raw"], "Isosyll final no longer beats Zipformer on dev-other"
+    assert rec["FinPanelClean"]["raw"] < rec["FinPanelZipClean"]["raw"], "Isosyll final no longer beats Zipformer on panel dev-clean"
+    assert rec["FinFullClean"]["raw"] < rec["FinFullZipClean"]["raw"], "Isosyll final no longer beats Zipformer on full-DEV dev-clean"
     # unselected C half: v4.1.0 live is not significantly different from Zipformer, v4.2.0 final is lower (abstract, results)
     assert rec["LookLiveCZipLo"]["raw"] < 0.0 < rec["LookLiveCZipHi"]["raw"], "live vs Zipformer on C is no longer inconclusive; reword"
     assert rec["FinCZipHi"]["raw"] < 0.0, "final is no longer lower than Zipformer on C; reword"
@@ -108,14 +109,16 @@ def test_no_legacy_models_or_reports_in_hero_readme_or_paper():
     assert "−0.94 pp" not in readme_txt and "−3.36 pp" not in readme_txt
     for banned in ("Isosyll live greedy", "Isosyll live +LM (320 ms)", "| **Isosyll final (commit)** |", "33.3×", "RC2", "v3.1.0", "v3.0.0"):
         assert banned not in readme_txt.split("<!-- install:start -->")[0], f"README hero shows a prior/variant mode: {banned!r}"
-    # Hero plot: two Isosyll marks (v4.2.0 final, live) vs all 12 timed comparators, names only, colored by energy.
+    # Hero plot: two Isosyll marks (v4.2.0 final, live) vs all 12 timed comparators; y is dev-clean WER, x is energy, names colored by throughput.
     hero_tex = (PAPER / "figures" / "money_focused.tex").read_text(encoding="utf-8")
-    for must_tex in ("Isosyll live", "Isosyll v4.2.0 final", r"\FinFullClean", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small", "Vosk Small", "Whisper.cpp Tiny",
+    layout = (DATA / "money_layout.tex").read_text(encoding="utf-8")
+    for must_tex in ("Isosyll live", "Isosyll v4.2.0 final", r"\FinFullClean", "Zipformer INT8", "Moonshine Tiny", "Moonshine Small",
                      "Nemotron 560", "Nemotron 160", "Nemotron 3.5", "Parakeet onnx-asr", "Parakeet sherpa-onnx",
                      r"\HeroRatio$\times$", "Zipformer INT8's throughput", r"\VsEnergyPctOne", "of its energy per audio-second",
-                     r"\HeroBarTitle", "slower than real time", r"\HeroRampHex", r"\HeroRampTicks",
-                     "Isosyll vs.\\ all", "names colored by energy"):
+                     r"\HeroBarTitle", r"\HeroOffScale", r"\HeroRampHex", r"\HeroRampTicks",
+                     "Isosyll vs.\\ all", "names colored by throughput"):
         assert must_tex in hero_tex, f"money_focused.tex missing {must_tex!r}"
+    assert "Vosk Small" in layout and "Whisper" in layout, "off-scale systems must still appear in the generated OffScale note"
     for banned in ("Isosyll live greedy", "HeroLiveGreedy", "HeroLiveLmWide", "HeroRatioWide", "HeroRatioMoon",
                    "HeroEnergyRatioNemo", "BarPt", "HeroHaveEnergy", "Idle-subtracted core energy (J/audio-s", "H0 lighter",
                    "HeroZipSpeed", "HeroZipWer", "HeroLiveLmSpeed", "HeroLiveLmWer", "HeroFinalSpeed", "HeroFinalWer",
@@ -230,7 +233,8 @@ def test_readme_shows_the_current_figure_block():
     assert len(table) == 1 + 2 + 12, "all-comparator table: header + Isosyll final and live + 12 timed public comparators"
     assert len(pairs) == 2
     labels = [m.group(1) for m in re.finditer(r"^- \*\*(.+?)\.\*\*", block, flags=re.M)]
-    assert labels == ["Lowest Isosyll WER yet (v4.2.0 final)", "Fastest, with the lowest measured energy", "Two small artifacts",
+    assert labels == ["Built for always-on, on-device live transcription",
+                      "Lowest clean WER among timed CPU recognizers at ≥14× real time", "Two small artifacts",
                       "Bit-exact pure-Rust engine"]
     assert all(len(b.splitlines()) == 1 for b in re.findall(r"^- \*\*.*$", block, flags=re.M)), "one source line per bullet"
 
@@ -430,10 +434,13 @@ def test_four_backend_claim_is_scoped_to_main_not_the_release_binary():
 def test_headline_precision_gate_scope_and_install_sample_are_exact():
     readme = (pd.REPO / "README.md").read_text()
     block = (DATA / "money_readme.md").read_text()
-    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "4.24%", "4.32%", "2.34%", "paired R9 full-panel",
+    for must in ("31.5×", "0.331 J/audio-s", "5.32%", "4.24%", "4.32%", "2.34%", "2.63%", "3.03%", "2.82%",
+                 "≥14×", "paired R9 full-panel",
                  "+0.09 [−0.12, +0.30] pp",
-                 "| J/audio-s |", "idle-subtracted", "paired R8 full-panel", "160 ms chunks"):
+                 "| J/audio-s |", "Dev-clean WER", "idle-subtracted", "paired R8 full-panel", "160 ms chunks",
+                 "lowest clean WER among timed CPU recognizers at ≥14×"):
         assert must in block, must
+    assert "lowest clean WER of any timed CPU recognizer" not in block
     assert "0.003" not in block and "half latency" not in block
     # install block: one-line installer, signed manual path with the release key, and the run commands
     install = re.search(r"(?ms)^<!-- install:start -->\n## Install\n.*?^<!-- install:end -->", readme)
@@ -461,3 +468,15 @@ def test_headline_precision_gate_scope_and_install_sample_are_exact():
         text = rec[rid]["value"]
         assert "every comparator" not in text and not re.search(r"\d\\,W\b", text), rid
     assert "J per audio-second" in rec["ColdIntroLiveItem"]["value"] and "matched streaming" in rec["ColdIntroLiveItem"]["value"]
+
+
+def test_final_has_lowest_clean_wer_at_14x():
+    """The claim 'lowest clean WER among timed CPU recognizers at >=14x' holds on the plotted 400-utt clean split."""
+    import csv
+    with (DATA / "cold_dev.csv").open(encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if r["plot"] == "1"]
+    fast = [r for r in rows if float(r["speed"]) >= 14.0]
+    assert {r["variant"] for r in fast} == {"v42-final", "v41-live-lm", "r0-int8-r6"}
+    best = min(fast, key=lambda r: float(r["wer_clean"]))
+    assert best["variant"] == "v42-final"
+    assert all(r["variant"] == "v42-final" or float(r["wer_clean"]) > float(best["wer_clean"]) for r in fast)

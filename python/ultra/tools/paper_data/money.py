@@ -1,6 +1,6 @@
 """Figure 1 geometry: axis limits, the streaming frontier, labels, and the watts axis.
 
-x is the speed on one pinned core on a linear scale, y the pooled WER of the 730-utterance panel.
+The published hero (money_focused.tex) plots x = energy per audio-second on a log scale and y = dev-clean WER of the 400-utt clean split; colour is single-core throughput.
 
 The plot box is fixed in points (pgfplots `scale only axis`), so every marker and label box is known
 here. Labels are placed without collisions (labels.py); a label that cannot be placed becomes a number
@@ -182,15 +182,19 @@ def hero_sentences(hero: dict[str, dict], rec: Records) -> dict[str, str]:
     d = {label: derived(row) for label, row in hero.items()}
     live, fin, zip_ = d["LiveLm"], d["Final"], d["Zip"]
     gap_c = rec.rows["LookLiveCZipDelta"]["value"].replace("$-$", "\u2212")
+    full_fin = rec.rows["FinFullClean"]["value"]
+    full_zip = rec.rows["FinFullZipClean"]["value"]
     headline = (f"Isosyll v4.2.0 vs. all 12 timed public CPU speech recognizers on one pinned Zen 2 core: "
-                f"the utterance-end final pass reaches {fmt(fin['wer'], 2)}% WER ({fmt(fin['wer_clean'], 2)}% dev-clean) at "
-                f"{speed_text(fin['speed'])}\u00d7 and {fmt(fin['watts'], 3)} J/audio-s, vs. Zipformer INT8 at {fmt(zip_['wer'], 2)}% "
-                f"({fmt(zip_['wer_clean'], 2)}% dev-clean), {speed_text(zip_['speed'])}\u00d7 and {fmt(zip_['watts'], 3)} J/audio-s; "
-                f"live +LM (unchanged from v4.1.0) runs at {speed_text(live['speed'])}\u00d7 ({fmt(live['watts'], 3)} J/audio-s, "
-                f"{fmt(live['wer'], 2)}% WER at 160 ms; {gap_c} pp vs. Zipformer on unselected DEV); "
-                f"J/audio-s from the paired full-panel runs (R9 for v4.2.0 final, R8 for live, R6 for Zipformer).")
-    subtitle = (f"Final: {speed_text(fin['speed'])}\u00d7, {fmt(fin['watts'], 3)} J/audio-s, {fmt(fin['wer'], 2)}% "
-                f"({fmt(fin['wer_clean'], 2)}% clean) \u00b7 Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['wer'], 2)}%")
+                f"the always-on live stream (160 ms, 60 MB INT8) runs at {speed_text(live['speed'])}\u00d7 and "
+                f"{fmt(live['watts'], 3)} J/audio-s ({fmt(live['wer_clean'], 2)}% dev-clean, {fmt(live['wer'], 2)}% pooled panel; "
+                f"{gap_c} pp vs. Zipformer on unselected DEV); the utterance-end final pass has the lowest measured "
+                f"dev-clean WER among timed CPU recognizers at \u226514\u00d7 real time "
+                f"({fmt(fin['wer_clean'], 2)}% vs. Zipformer INT8 {fmt(zip_['wer_clean'], 2)}% on the 400-utt clean split of the "
+                f"730 panel; {full_fin}% vs. {full_zip}% on full DEV) at {speed_text(fin['speed'])}\u00d7 and "
+                f"{fmt(fin['watts'], 3)} J/audio-s; J/audio-s from the paired full-panel runs (R9 for v4.2.0 final, R8 for live, "
+                f"R6 for Zipformer).")
+    subtitle = (f"Live +LM: {speed_text(live['speed'])}\u00d7, {fmt(live['watts'], 3)} J/audio-s, 160 ms \u00b7 "
+                f"Final: {fmt(fin['wer_clean'], 2)}% / {full_fin}% dev-clean (panel / full DEV) at {speed_text(fin['speed'])}\u00d7")
     return {"headline": headline, "subtitle": subtitle}
 
 
@@ -281,27 +285,34 @@ def _hero_layout(chosen: dict[str, dict], rec: Records) -> list[str]:
     points = {label: derived(row) for label, row in chosen.items()}
     energy = hero_energy(chosen)
     live_ratio = chosen["LiveLm"]["paired_vs_anchor"]["speed"]
-    macros = {"Xmax": 35, "Xticks": "0,5,10,15,20,25,30,35", "Ymax": 20, "Ratio": fmt(live_ratio, 1)}
+    # log energy on x, zoomed dev-clean WER on y; colour is throughput (green = faster).
+    macros = {"Xmin": "0.25", "Xmax": "12", "Xticks": "0.3,0.5,1,2,3,5,10",
+              "Ymax": "8", "Yticks": "0,2,4,6,8", "Ratio": fmt(live_ratio, 1)}
+    ymax = 8.0
     for label in HERO_PLOTTED:
         point = points[label]
-        macros.update({label + "X": f"{point['speed']:.6f}", label + "Y": f"{point['wer']:.6f}"})
-    lo, hi = energy_range(list(energy.values())) if energy else (0.3, 10.0)
+        if label not in energy:
+            raise PaperDataError(f"hero: {label} has no measured energy; cannot place it on the energy axis")
+        macros.update({label + "X": f"{energy[label]:.6f}", label + "Y": f"{point['wer_clean']:.6f}",
+                       label + "On": int(point["wer_clean"] <= ymax)})
+    speeds = {label: points[label]["speed"] for label in HERO_PLOTTED}
+    lo, hi = energy_range(list(speeds.values())) if speeds else (0.3, 50.0)
     span = math.log(hi / lo)
-    pos = lambda v: math.log(v / lo) / span
+    pos = lambda v: math.log(hi / v) / span  # faster -> 0 -> green
     for label in HERO_PLOTTED:
-        macros[label + "Color"] = ramp_hex(pos(energy[label])) if label in energy else NOT_METERED_HEX
-        macros[label + "Metered"] = int(label in energy)
+        macros[label + "Color"] = ramp_hex(pos(speeds[label]))
+        macros[label + "Metered"] = 1  # colour is throughput; every plotted system is timed
         macros[label + "Mark"] = "\\,\\ddag" if chosen[label]["faded"] else ""  # shared-host interim timing
-        if label in energy:
-            macros[label + "Energy"] = fmt(energy[label], 3)
+        macros[label + "Energy"] = fmt(energy[label], 3)
     macros["RampHex"] = ",".join(ramp_hex(i / (RAMP_STEPS - 1)) for i in range(RAMP_STEPS))
     macros["RampTicks"] = ",".join(f"{pos(v):.5f}/{fmt(v, 0) if v >= 1 else fmt(v, 1)}" for v in sorted({round(v, 6) for v in (lo, hi, *_decade_ticks(lo, hi))}))
     macros["RampLo"], macros["RampHi"] = f"{lo:g}", f"{hi:g}"
-    macros["NotMetered"] = ", ".join(_tex(chosen[k]["short"]) for k in HERO_PLOTTED if k not in energy) or "none"
+    macros["NotMetered"] = "none"
     macros["ShowFinal"] = int(HERO_SHOW_FINAL)
-    # the colorbar may only say "idle-subtracted" when every colored value is idle-subtracted
-    macros["BarTitle"] = ("Energy per audio-second (J, idle-subtracted, log)" if not hero_floor_included(chosen)
-                          else "Energy per audio-second (J, log)")
+    macros["BarTitle"] = r"Single-core throughput ($\times$ real time, log)"
+    off = [k for k in HERO_PLOTTED if points[k]["wer_clean"] > ymax]
+    macros["OffScale"] = ", ".join(f"{_tex(chosen[k]['short'])} {fmt(points[k]['wer_clean'], 2)}\\%" for k in off)
+    macros["AnyOffScale"] = int(bool(off))
     floor = [_tex(chosen[k]["short"]) for k in hero_floor_included(chosen)]
     macros["EnergyNote"] = ("" if not floor else
                             "Energy: idle floor subtracted, except " + ", ".join(floor[:-1]) + (" and " if len(floor) > 1 else "")
@@ -435,8 +446,9 @@ def add_money(rows: list[dict], out: dict[str, str], rec: Records, comparison: t
         else:
             energy = (f" (AMD core-energy registers, {floor_txt}; Isosyll live and Zipformer INT8 in the same blocks, "
                       f"others in separate sessions; not wall power{grey})")
-        marks = ["Single-core throughput against pooled WER on the 730-utterance DEV panel; names and marker fills show core energy "
-                 f"per audio-second on a log scale, green lowest{energy}.",
+        marks = ["Dev-clean WER against energy per audio-second (log $x$) on the 730-utterance DEV panel "
+                 "(400-utt clean split, $y$ zoomed to 8\\%); names and marker fills show single-core throughput "
+                 f"on a log scale, green fastest{energy}.",
                  ("Isosyll final (utterance-end pass) and live (160\\,ms chunk) use one \\ColdHeadModel\\,MB INT8 artifact each, "
                   "timed with Zipformer INT8 in the same quiet blocks; " if HERO_SHOW_FINAL else
                   "Isosyll live is the 160\\,ms chunk of one \\ColdHeadModel\\,MB INT8 artifact, timed with Zipformer INT8 in the same quiet blocks; ")

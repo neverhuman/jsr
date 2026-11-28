@@ -14,9 +14,11 @@ puts Zipformer INT8 at \RsevenZipEnergy\,J on its \RsevenClips-clip subset. At u
 endpoints the commit pass runs at \ColdFinalCorePct\% of one core (\ColdFinalVsZipSpeed).
 
 \para{Accuracy.} The utterance-end \ultra{} final pass on its own weights reaches \ColdHeadWer\% pooled panel
-WER (\FinPanelClean\% dev-clean, \FinPanelOther\% dev-other), \VsVerdictTwo{} streaming Zipformer INT8's \ColdZipWer\% under the paired test below, although
+WER (\FinPanelClean\% dev-clean, \FinPanelOther\% dev-other), \VsVerdictTwo{} streaming Zipformer INT8's \ColdZipWer\%
+(\FinPanelZipClean\% dev-clean) under the paired test below, and is the lowest measured dev-clean WER among timed
+CPU recognisers at $\geq 14\times$ real time (full-DEV clean \FinFullClean\% vs.\ Zipformer \FinFullZipClean\%).
 \ultra{} is trained on Libri-Light pseudo-labels from that Zipformer (R0). Larger 600M-parameter models
-achieve lower WER at much higher CPU cost and, where metered, higher energy.
+achieve lower WER at much higher CPU cost and, where metered, higher energy; they are not in the $\geq 14\times$ group.
 
 \subsection{Head-to-Head with Zipformer INT8 and Full-DEV Accuracy}\label{sec:versus}
 
